@@ -73,7 +73,7 @@ enum HTML
                     return tag.string 
                 }
             }.joined()
-            return "<\(self.name) \(self.attributes.map{ "\($0.key)=\"\($0.value)\"" }.joined(separator: " "))>\(content)</\(self.name)>"
+            return "<\(([self.name] + self.attributes.map{ "\($0.key)=\"\($0.value)\"" }).joined(separator: " "))>\(content)</\(self.name)>"
         }
     }
 }

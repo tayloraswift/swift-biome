@@ -4,9 +4,10 @@ enum Options
     case urlprefix
     case urlsuffix 
     case github
+    case project
 }
 
-func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix:String), github:String)
+func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix:String), github:String, project:String)
 {
     var doccomments:[[Character]] = [] 
     for path:String in sources 
@@ -76,18 +77,53 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
     {
         let document:String = 
         """
+        <!DOCTYPE html>
+        <html>
         <head>
             <meta charset="UTF-8">
             <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Questrial&display=swap" rel="stylesheet"> 
             <link href="\(urlpattern.prefix)/style.css" rel="stylesheet"> 
+            <title>\(page.page.name) - \(project)</title>
         </head> 
         <body>
             \(page.page.html(github: github).string)
         </body>
+        </html>
         """
         File.pave([directory] + page.uniquePath)
         File.save(.init(document.utf8), path: "\(directory)/\(page.filepath)/index.html")
     }
+    
+    // create 404 page 
+    let notfound:String = 
+    """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Questrial&display=swap" rel="stylesheet"> 
+        <link href="\(urlpattern.prefix)/style.css" rel="stylesheet"> 
+        <title>Page not found - \(project)</title>
+    </head> 
+    <body>
+        <main>
+            <nav>
+                <div class="navigation-container">
+                    <ul><li class="github-icon-container"><a href="\(github)"><span class="github-icon" title="Github repository"></span></a></li></ul>
+                </div>
+            </nav>
+            <section class="introduction">
+                <div class="section-container error-404-message">
+                    <h1 class="topic-heading">query not recognized</h1>
+                    <p>What is your query?</p>
+                    <p><a href="\(urlpattern.prefix)/\(urlpattern.suffix)">Go to documentation root</a></p>
+                </div>
+            </section>
+        </main>
+    </body>
+    </html>
+    """
+    File.save(.init(notfound.utf8), path: "\(directory)/404.html")
     
     // copy big-sur.css 
     guard let stylesheet:String = File.source(path: "sources/big-sur.css") 
@@ -109,11 +145,12 @@ var sources:[String]                    = []
 var directory:String                    = "documentation"
 var url:(prefix:String, suffix:String)  = ("", "")
 var github:String                       = "https://github.com"
+var project:String?
 
 func help() 
 {
     print("""
-    usage: \(CommandLine.arguments[0]) sources... [-d/--directory directory] [-p/--url-prefix prefix] [-s/--url-suffix suffix] [-g/--github github]
+    usage: \(CommandLine.arguments[0]) sources... [-d/--directory directory] [-p/--url-prefix prefix] [-s/--url-suffix suffix] [-g/--github github] [--project project-name]
     """)
 }
 
@@ -165,6 +202,14 @@ func main()
                 return 
             }
             github = next 
+        case "--project":
+            guard let next:String = arguments.popLast() 
+            else 
+            {
+                help()
+                return 
+            }
+            project = next 
         case "-h", "--help":
             help()
             return 
@@ -173,7 +218,7 @@ func main()
         }
     }
 
-    pages(sources: sources, directory: directory, urlpattern: url, github: github)
+    pages(sources: sources, directory: directory, urlpattern: url, github: github, project: project ?? github)
 }
 
 main()
