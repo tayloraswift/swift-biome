@@ -50,28 +50,31 @@ class Page
                 (($0.1.0, $0.1.1), components.prefix($0.0 + 1).map(\.0))
             }
             
+            let link:[(component:(String, T), link:Link)] 
+            // apple links 
             if scan.first?.component.0 == "Swift" 
             {
-                return scan.dropFirst().map 
+                link = scan.dropFirst().map 
                 {
                     ($0.component, .appleify($0.accumulated))
                 }
             } 
-            else if let (last, _):((String, T), [String]) = scan.last, 
-                last.0 == "Type" 
-            {
-                return scan.dropLast().map 
-                {
-                    ($0.component, .unresolved(path: $0.accumulated))
-                } + 
-                [(last, Self.metatype)]
-            }
             else 
             {
-                return scan.map 
+                link = scan.map 
                 {
                     ($0.component, .unresolved(path: $0.accumulated))
                 }
+            }
+            // metatypes 
+            if let (last, _):((String, T), Link) = link.last, 
+                last.0 == "Type" 
+            {
+                return link.dropLast() + [(last, Self.metatype)]
+            }
+            else 
+            {
+                return link
             }
         }
     }
