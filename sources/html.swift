@@ -210,20 +210,20 @@ extension Page.Signature
                 switch tokens[i] 
                 {
                 case .text(let text):
+                    group.append(.init("span", ["class": "signature-text"], text))
+                case .punctuation(let text):
+                    group.append(.init("span", ["class": "signature-punctuation"], text))
+                case .highlight(let text):
                     // if any of the characters are operator characters, consider 
                     // the identifier to be an operator 
                     if text.unicodeScalars.allSatisfy(isIdentifierScalar(_:))
                     {
-                        group.append(.init("span", ["class": "signature-text"], text))
+                        group.append(.init("span", ["class": "signature-highlight"], text))
                     }
                     else 
                     {
-                        group.append(.init("span", ["class": "signature-text signature-operator"], text))
+                        group.append(.init("span", ["class": "signature-highlight signature-operator"], text))
                     }
-                case .punctuation(let text):
-                    group.append(.init("span", ["class": "signature-punctuation"], text))
-                case .highlight(let text):
-                    group.append(.init("span", ["class": "signature-highlight"], text))
                 case .whitespace:
                     break darkspace
                 }
