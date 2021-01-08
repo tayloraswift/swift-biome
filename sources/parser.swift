@@ -89,6 +89,117 @@ extension Parseable.Terminal
     }
 }
 
+func isIdentifierHead(_ scalar:Unicode.Scalar) -> Bool 
+{
+    switch scalar 
+    {
+    case    "a" ... "z", 
+            "A" ... "Z",
+            "_", 
+            
+            "\u{00A8}", "\u{00AA}", "\u{00AD}", "\u{00AF}", 
+            "\u{00B2}" ... "\u{00B5}", "\u{00B7}" ... "\u{00BA}",
+            
+            "\u{00BC}" ... "\u{00BE}", "\u{00C0}" ... "\u{00D6}", 
+            "\u{00D8}" ... "\u{00F6}", "\u{00F8}" ... "\u{00FF}",
+            
+            "\u{0100}" ... "\u{02FF}", "\u{0370}" ... "\u{167F}", "\u{1681}" ... "\u{180D}", "\u{180F}" ... "\u{1DBF}", 
+            
+            "\u{1E00}" ... "\u{1FFF}", 
+            
+            "\u{200B}" ... "\u{200D}", "\u{202A}" ... "\u{202E}", "\u{203F}" ... "\u{2040}", "\u{2054}", "\u{2060}" ... "\u{206F}",
+            
+            "\u{2070}" ... "\u{20CF}", "\u{2100}" ... "\u{218F}", "\u{2460}" ... "\u{24FF}", "\u{2776}" ... "\u{2793}",
+            
+            "\u{2C00}" ... "\u{2DFF}", "\u{2E80}" ... "\u{2FFF}",
+            
+            "\u{3004}" ... "\u{3007}", "\u{3021}" ... "\u{302F}", "\u{3031}" ... "\u{303F}", "\u{3040}" ... "\u{D7FF}",
+            
+            "\u{F900}" ... "\u{FD3D}", "\u{FD40}" ... "\u{FDCF}", "\u{FDF0}" ... "\u{FE1F}", "\u{FE30}" ... "\u{FE44}", 
+            
+            "\u{FE47}" ... "\u{FFFD}", 
+            
+            "\u{10000}" ... "\u{1FFFD}", "\u{20000}" ... "\u{2FFFD}", "\u{30000}" ... "\u{3FFFD}", "\u{40000}" ... "\u{4FFFD}", 
+            
+            "\u{50000}" ... "\u{5FFFD}", "\u{60000}" ... "\u{6FFFD}", "\u{70000}" ... "\u{7FFFD}", "\u{80000}" ... "\u{8FFFD}", 
+            
+            "\u{90000}" ... "\u{9FFFD}", "\u{A0000}" ... "\u{AFFFD}", "\u{B0000}" ... "\u{BFFFD}", "\u{C0000}" ... "\u{CFFFD}", 
+            
+            "\u{D0000}" ... "\u{DFFFD}", "\u{E0000}" ... "\u{EFFFD}"
+            :
+        return true 
+    default:
+        return false
+    }
+}
+func isIdentifierScalar(_ scalar:Unicode.Scalar) -> Bool 
+{
+    if isIdentifierHead(scalar) 
+    {
+        return true 
+    }
+    switch scalar 
+    {
+    case    "0" ... "9", 
+            "\u{0300}" ... "\u{036F}", 
+            "\u{1DC0}" ... "\u{1DFF}", 
+            "\u{20D0}" ... "\u{20FF}", 
+            "\u{FE20}" ... "\u{FE2F}"
+            :
+        return true 
+    default:
+        return false
+    }
+}
+func isOperatorHead(_ scalar:Unicode.Scalar) -> Bool 
+{
+    switch scalar 
+    {
+    case    "/", "=", "-", "+", "!", "*", "%", "<", ">", "&", "|", "^", "~", "?",
+            "\u{00A1}" ... "\u{00A7}",
+            "\u{00A9}", "\u{00AB}",
+            "\u{00AC}", "\u{00AE}",
+            "\u{00B0}" ... "\u{00B1}",
+            "\u{00B6}", "\u{00BB}", "\u{00BF}", "\u{00D7}", "\u{00F7}",
+            "\u{2016}" ... "\u{2017}",
+            "\u{2020}" ... "\u{2027}",
+            "\u{2030}" ... "\u{203E}",
+            "\u{2041}" ... "\u{2053}",
+            "\u{2055}" ... "\u{205E}",
+            "\u{2190}" ... "\u{23FF}",
+            "\u{2500}" ... "\u{2775}",
+            "\u{2794}" ... "\u{2BFF}",
+            "\u{2E00}" ... "\u{2E7F}",
+            "\u{3001}" ... "\u{3003}",
+            "\u{3008}" ... "\u{3020}",
+            "\u{3030}"
+            :
+        return true 
+    default:
+        return false
+    }
+}
+func isOperatorScalar(_ scalar:Unicode.Scalar) -> Bool 
+{
+    if isOperatorHead(scalar) 
+    {
+        return true 
+    }
+    switch scalar 
+    {
+    case    "\u{0300}" ... "\u{036F}",
+            "\u{1DC0}" ... "\u{1DFF}",
+            "\u{20D0}" ... "\u{20FF}",
+            "\u{FE00}" ... "\u{FE0F}",
+            "\u{FE20}" ... "\u{FE2F}",
+            "\u{E0100}" ... "\u{E01EF}"
+            :
+        return true 
+    default:
+        return false
+    }
+}
+
 enum Token 
 {
     struct Wildcard:Parseable.TerminalClass
@@ -301,71 +412,6 @@ enum Token
         let token:String = "override"
     }  */
     
-    static 
-    func isIdentifierHead(_ scalar:Unicode.Scalar) -> Bool 
-    {
-        switch scalar 
-        {
-        case    "a" ... "z", 
-                "A" ... "Z",
-                "_", 
-                
-                "\u{00A8}", "\u{00AA}", "\u{00AD}", "\u{00AF}", 
-                "\u{00B2}" ... "\u{00B5}", "\u{00B7}" ... "\u{00BA}",
-                
-                "\u{00BC}" ... "\u{00BE}", "\u{00C0}" ... "\u{00D6}", 
-                "\u{00D8}" ... "\u{00F6}", "\u{00F8}" ... "\u{00FF}",
-                
-                "\u{0100}" ... "\u{02FF}", "\u{0370}" ... "\u{167F}", "\u{1681}" ... "\u{180D}", "\u{180F}" ... "\u{1DBF}", 
-                
-                "\u{1E00}" ... "\u{1FFF}", 
-                
-                "\u{200B}" ... "\u{200D}", "\u{202A}" ... "\u{202E}", "\u{203F}" ... "\u{2040}", "\u{2054}", "\u{2060}" ... "\u{206F}",
-                
-                "\u{2070}" ... "\u{20CF}", "\u{2100}" ... "\u{218F}", "\u{2460}" ... "\u{24FF}", "\u{2776}" ... "\u{2793}",
-                
-                "\u{2C00}" ... "\u{2DFF}", "\u{2E80}" ... "\u{2FFF}",
-                
-                "\u{3004}" ... "\u{3007}", "\u{3021}" ... "\u{302F}", "\u{3031}" ... "\u{303F}", "\u{3040}" ... "\u{D7FF}",
-                
-                "\u{F900}" ... "\u{FD3D}", "\u{FD40}" ... "\u{FDCF}", "\u{FDF0}" ... "\u{FE1F}", "\u{FE30}" ... "\u{FE44}", 
-                
-                "\u{FE47}" ... "\u{FFFD}", 
-                
-                "\u{10000}" ... "\u{1FFFD}", "\u{20000}" ... "\u{2FFFD}", "\u{30000}" ... "\u{3FFFD}", "\u{40000}" ... "\u{4FFFD}", 
-                
-                "\u{50000}" ... "\u{5FFFD}", "\u{60000}" ... "\u{6FFFD}", "\u{70000}" ... "\u{7FFFD}", "\u{80000}" ... "\u{8FFFD}", 
-                
-                "\u{90000}" ... "\u{9FFFD}", "\u{A0000}" ... "\u{AFFFD}", "\u{B0000}" ... "\u{BFFFD}", "\u{C0000}" ... "\u{CFFFD}", 
-                
-                "\u{D0000}" ... "\u{DFFFD}", "\u{E0000}" ... "\u{EFFFD}"
-                :
-            return true 
-        default:
-            return false
-        }
-    }
-    static 
-    func isIdentifierScalar(_ scalar:Unicode.Scalar) -> Bool 
-    {
-        if Self.isIdentifierHead(scalar) 
-        {
-            return true 
-        }
-        switch scalar 
-        {
-        case    "0" ... "9", 
-                "\u{0300}" ... "\u{036F}", 
-                "\u{1DC0}" ... "\u{1DFF}", 
-                "\u{20D0}" ... "\u{20FF}", 
-                "\u{FE20}" ... "\u{FE2F}"
-                :
-            return true 
-        default:
-            return false
-        }
-    }
-    
     struct IdentifierHead:Parseable.TerminalClass
     {
         let character:Character 
@@ -374,13 +420,13 @@ enum Token
         func test(_ character:Character) -> Bool 
         {
             guard   let first:Unicode.Scalar = character.unicodeScalars.first, 
-                    Token.isIdentifierHead(first)
+                    isIdentifierHead(first)
             else 
             {
                 return false 
             }
             
-            return character.unicodeScalars.dropFirst().allSatisfy(Token.isIdentifierScalar(_:))
+            return character.unicodeScalars.dropFirst().allSatisfy(isIdentifierScalar(_:))
         }
     } 
     struct Identifier:Parseable.TerminalClass
@@ -390,7 +436,35 @@ enum Token
         static 
         func test(_ character:Character) -> Bool 
         {
-            return character.unicodeScalars.allSatisfy(Token.isIdentifierScalar(_:))
+            return character.unicodeScalars.allSatisfy(isIdentifierScalar(_:))
+        }
+    } 
+    
+    struct OperatorHead:Parseable.TerminalClass
+    {
+        let character:Character 
+        
+        static 
+        func test(_ character:Character) -> Bool 
+        {
+            guard   let first:Unicode.Scalar = character.unicodeScalars.first, 
+                    isOperatorHead(first)
+            else 
+            {
+                return false 
+            }
+            
+            return character.unicodeScalars.dropFirst().allSatisfy(isOperatorScalar(_:))
+        }
+    } 
+    struct Operator:Parseable.TerminalClass
+    {
+        let character:Character 
+        
+        static 
+        func test(_ character:Character) -> Bool 
+        {
+            return character.unicodeScalars.allSatisfy(isOperatorScalar(_:))
         }
     } 
 }
@@ -515,6 +589,26 @@ enum Symbol
             self.string
         }
     }
+    // EncapsulatedOperator ::= '(' <Swift Operator Head> <Swift Operator Character> * ')'
+    struct EncapsulatedOperator:Parseable, CustomStringConvertible
+    {
+        let string:String 
+        
+        static 
+        func parse(_ tokens:[Character], position:inout Int) throws -> Self
+        {
+            let _:Token.Parenthesis.Left    = try .parse(tokens, position: &position),
+                head:Token.OperatorHead     = try .parse(tokens, position: &position),
+                body:[Token.Operator]       =     .parse(tokens, position: &position), 
+                _:Token.Parenthesis.Right   = try .parse(tokens, position: &position)
+            return .init(string: "\(head.character)" + .init(body.map(\.character)))
+        }
+        
+        var description:String 
+        {
+            self.string
+        }
+    }
     
     //  ModuleField         ::= 'module' <Whitespace> <Identifier> <Endline>
     struct ModuleField:Parseable 
@@ -548,7 +642,7 @@ enum Symbol
     //                       | 'indirect' <Whitespace> 'case' 
     // FunctionLabel       ::= <Identifier> 
     //                       | <Identifier> ? '...'
-    // Identifiers         ::= <Identifier> ( '.' <Identifier> ) *
+    // Identifiers         ::= <Identifier> ( '.' <Identifier> ) * ( '.' <EncapsulatedOperator> ) ?
     // TypeParameters      ::= '<' <Whitespace> ? <Identifier> <Whitespace> ? ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * '>'
     struct FunctionField:Parseable, CustomStringConvertible
     {
@@ -742,8 +836,20 @@ enum Symbol
         func parse(_ tokens:[Character], position:inout Int) throws -> Self
         {
             let head:Symbol.Identifier = try .parse(tokens, position: &position)
-            let body:[List<Token.Period, Symbol.Identifier>] = .parse(tokens, position: &position)
-            return .init(identifiers: ([head] + body.map(\.body)).map(\.string))
+            let body:[List<Token.Period, Symbol.Identifier>] = 
+                .parse(tokens, position: &position)
+            let `operator`:List<Token.Period, Symbol.EncapsulatedOperator>? = 
+                .parse(tokens, position: &position)
+            let operators:[String] 
+            if let `operator`:String = `operator`.map(\.body)?.string 
+            {
+                operators = [`operator`]
+            }
+            else 
+            {
+                operators = []
+            }
+            return .init(identifiers: ([head] + body.map(\.body)).map(\.string) + operators)
         }
         
         var description:String 

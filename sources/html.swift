@@ -155,7 +155,16 @@ extension Page.Declaration
                 case .keyword(let text):
                     group.append(.init("span", ["class": "syntax-keyword"], text))
                 case .identifier(let text):
-                    group.append(.init("span", ["class": "syntax-identifier"], text))
+                    // if any of the characters are operator characters, consider 
+                    // the identifier to be an operator 
+                    if text.unicodeScalars.allSatisfy(isIdentifierScalar(_:))
+                    {
+                        group.append(.init("span", ["class": "syntax-identifier"], text))
+                    }
+                    else 
+                    {
+                        group.append(.init("span", ["class": "syntax-identifier syntax-operator"], text))
+                    }
                 case .type(_, .unresolved), .typePunctuation(_, .unresolved):
                     fatalError("attempted to render unresolved link")
                 case .type(let text, .resolved(url: let target)):
@@ -201,7 +210,16 @@ extension Page.Signature
                 switch tokens[i] 
                 {
                 case .text(let text):
-                    group.append(.init("span", ["class": "signature-text"], text))
+                    // if any of the characters are operator characters, consider 
+                    // the identifier to be an operator 
+                    if text.unicodeScalars.allSatisfy(isIdentifierScalar(_:))
+                    {
+                        group.append(.init("span", ["class": "signature-text"], text))
+                    }
+                    else 
+                    {
+                        group.append(.init("span", ["class": "signature-text signature-operator"], text))
+                    }
                 case .punctuation(let text):
                     group.append(.init("span", ["class": "signature-punctuation"], text))
                 case .highlight(let text):

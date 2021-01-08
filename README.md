@@ -45,6 +45,7 @@ The full syntax is this:
 Whitespace          ::= ' ' ' ' *
 Endline             ::= ' ' * '\n'
 Identifier          ::= <Swift Identifier Head> <Swift Identifier Character> *
+EncapsulatedOperator::= '(' <Swift Operator Head> <Swift Operator Character> * ')'
 
 ModuleField         ::= 'module' <Whitespace> <Identifier> <Endline>
 
@@ -59,7 +60,7 @@ FunctionKeyword     ::= 'init'
                       | 'indirect' <Whitespace> 'case' 
 FunctionLabel       ::= <Identifier> 
                       | <Identifier> ? '...'
-Identifiers         ::= <Identifier> ( '.' <Identifier> ) *
+Identifiers         ::= <Identifier> ( '.' <Identifier> ) * ( '.' <EncapsulatedOperator> ) ?
 TypeParameters      ::= '<' <Whitespace> ? <Identifier> <Whitespace> ? 
                         ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * '>'
 
