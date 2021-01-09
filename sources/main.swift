@@ -5,9 +5,10 @@ enum Options
     case urlsuffix 
     case github
     case project
+    case theme
 }
 
-func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix:String), github:String, project:String)
+func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix:String), github:String, project:String, theme:String)
 {
     var doccomments:[[Character]] = [] 
     for path:String in sources 
@@ -73,6 +74,13 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
     
     PageTree.assemble(pages)
     
+    guard   let fonts:String = File.source(path: "themes/\(theme)/fonts"),
+            let css:String   = File.source(path: "themes/\(theme)/style.css") 
+    else 
+    {
+        fatalError("failed to load theme '\(theme)'") 
+    }
+    
     for page:Page.Binding in pages
     {
         let document:String = 
@@ -81,7 +89,7 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
         <html>
         <head>
             <meta charset="UTF-8">
-            <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Questrial&display=swap" rel="stylesheet"> 
+        \(fonts)
             <link href="\(urlpattern.prefix)/style.css" rel="stylesheet"> 
             <title>\(page.page.name) - \(project)</title>
         </head> 
@@ -101,7 +109,7 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
     <html>
     <head>
         <meta charset="UTF-8">
-        <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400;1,600&family=Questrial&display=swap" rel="stylesheet"> 
+    \(fonts)
         <link href="\(urlpattern.prefix)/style.css" rel="stylesheet"> 
         <title>Page not found - \(project)</title>
     </head> 
@@ -125,13 +133,8 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
     """
     File.save(.init(notfound.utf8), path: "\(directory)/404.html")
     
-    // copy big-sur.css 
-    guard let stylesheet:String = File.source(path: "sources/big-sur.css") 
-    else 
-    {
-        fatalError("missing stylesheet") 
-    }
-    File.save(.init(stylesheet.utf8), path: "\(directory)/style.css")
+    // emit stylesheet 
+    File.save(.init(css.utf8), path: "\(directory)/style.css")
     // copy github-icon.svg 
     guard let icon:String = File.source(path: "sources/github-icon.svg") 
     else 
@@ -146,11 +149,12 @@ var directory:String                    = "documentation"
 var url:(prefix:String, suffix:String)  = ("", "")
 var github:String                       = "https://github.com"
 var project:String?
+var theme:String                        = "big-sur"
 
 func help() 
 {
     print("""
-    usage: \(CommandLine.arguments[0]) sources... [-d/--directory directory] [-p/--url-prefix prefix] [-s/--url-suffix suffix] [-g/--github github] [--project project-name]
+    usage: \(CommandLine.arguments[0]) sources... [-d/--directory directory] [-p/--url-prefix prefix] [-s/--url-suffix suffix] [-g/--github github] [--project project-name] [--theme theme]
     """)
 }
 
@@ -210,6 +214,14 @@ func main()
                 return 
             }
             project = next 
+        case "--theme":
+            guard let next:String = arguments.popLast() 
+            else 
+            {
+                help()
+                return 
+            }
+            theme = next 
         case "-h", "--help":
             help()
             return 
@@ -218,7 +230,7 @@ func main()
         }
     }
 
-    pages(sources: sources, directory: directory, urlpattern: url, github: github, project: project ?? github)
+    pages(sources: sources, directory: directory, urlpattern: url, github: github, project: project ?? github, theme: theme)
 }
 
 main()
