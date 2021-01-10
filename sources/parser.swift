@@ -1849,7 +1849,7 @@ enum Symbol
     }
     struct TopicElementField:Parseable
     {
-        let key:String
+        let key:String?
         let rank:Int
         
         static 
@@ -1865,7 +1865,7 @@ enum Symbol
                 _:Token.Parenthesis.Right   = try .parse(tokens, position: &position), 
                 _:Symbol.Endline            = try .parse(tokens, position: &position)
             let r:Int = Int.init(String.init(rank?.head.map(\.character) ?? [])) ?? Int.max
-            return .init(key: .init(key.map(\.character)), rank: r)
+            return .init(key: key.isEmpty ? nil : .init(key.map(\.character)), rank: r)
         }
     }
     

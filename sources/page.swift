@@ -302,10 +302,10 @@ class Page
             let rank:Int, 
                 order:Int 
             
-            init(_ field:Symbol.TopicElementField, order:Int) 
+            init(_ key:String, rank:Int, order:Int) 
             {
-                self.key   = field.key 
-                self.rank  = field.rank
+                self.key   = key 
+                self.rank  = rank
                 self.order = order
             }
         }
@@ -314,6 +314,9 @@ class Page
         let page:Page 
         let locals:Set<String>, 
             keys:Set<Key>
+        // default ordering 
+        let rank:Int, 
+            order:Int
         
         var path:[String] 
         {
@@ -342,12 +345,15 @@ class Page
             self.uniquePath.joined(separator: "/")
         }
         
-        init(_ page:Page, locals:Set<String>, keys:Set<Key>, urlpattern:(prefix:String, suffix:String)) 
+        init(_ page:Page, locals:Set<String>, keys:Set<Key>, rank:Int, order:Int, 
+            urlpattern:(prefix:String, suffix:String)) 
         {
             self.urlpattern = urlpattern
             self.page       = page 
             self.locals     = locals 
             self.keys       = keys 
+            self.rank       = rank 
+            self.order      = order
         }
         
         private static 
@@ -876,7 +882,9 @@ extension Page
             paragraphs:[Symbol.ParagraphField],
             `throws`:Symbol.ThrowsField?, 
             requirement:Symbol.RequirementField?
-        let keys:Set<Page.Binding.Key>,
+        let keys:Set<Page.Binding.Key>, 
+            rank:Int, 
+            order:Int, 
             topics:[Page.Topic]
         let parameters:[(name:String, type:Symbol.FunctionParameter, paragraphs:[Symbol.ParagraphField])], 
             `return`:(type:Symbol.SwiftType, paragraphs:[Symbol.ParagraphField])?
@@ -974,7 +982,27 @@ extension Page
             self.throws             = `throws`
             self.requirement        = requirement
             
-            self.keys               = .init(keys.map{ .init($0, order: order) })
+            self.keys               = .init(keys.compactMap
+            { 
+                (element:Symbol.TopicElementField) in 
+                element.key.map{ .init($0, rank: element.rank, order: order) } 
+            })
+            // collect anonymous topic element fields (of which there should be at most 1)
+            let ranks:[Int]         = keys.compactMap 
+            {
+                (element:Symbol.TopicElementField) in 
+                element.key == nil ? element.rank : nil 
+            }
+            guard ranks.count < 2 
+            else 
+            {
+                fatalError("only one anonymous topic element field allowed per symbol")
+            }
+            self.rank               = ranks.first ?? .max
+            // if there is no anonymous topic element field, we want to sort 
+            // the symbols alphabetically, so we set the order to .max
+            self.order              = ranks.isEmpty ? .max : order 
+            
             self.topics             = topics.map{ ($0.display, $0.key, []) }
             
             if  let (last, paragraphs):(Symbol.ParameterField, [Symbol.ParagraphField]) = 
@@ -1016,7 +1044,8 @@ extension Page.Binding
             fields:         fields, 
             path:           [], 
             overload:       nil)
-        return .init(page, locals: [], keys: fields.keys, urlpattern: urlpattern)
+        return .init(page, locals: [], keys: fields.keys, 
+            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
     
     static 
@@ -1065,7 +1094,8 @@ extension Page.Binding
             fields:         fields, 
             path:           header.identifiers + [name], 
             overload:       overload == 0 ? nil : overload)
-        return .init(page, locals: [], keys: fields.keys, urlpattern: urlpattern)
+        return .init(page, locals: [], keys: fields.keys, 
+            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
     static 
     func create(_ header:Symbol.FunctionField, fields:ArraySlice<Symbol.Field>, 
@@ -1175,7 +1205,8 @@ extension Page.Binding
             fields:         fields, 
             path:           header.identifiers.dropLast() + [name], 
             overload:       overload == 0 ? nil : overload)
-        return .init(page, locals: [], keys: fields.keys, urlpattern: urlpattern)
+        return .init(page, locals: [], keys: fields.keys, 
+            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
     
     static 
@@ -1285,7 +1316,8 @@ extension Page.Binding
             declaration:    declaration, 
             fields:         fields, 
             path:           header.identifiers)
-        return .init(page, locals: [], keys: fields.keys, urlpattern: urlpattern)
+        return .init(page, locals: [], keys: fields.keys, 
+            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
     
     static 
@@ -1383,7 +1415,8 @@ extension Page.Binding
             path:           header.identifiers, 
             inheritances:   inheritances)
         let locals:Set<String>      = .init(header.generics + ["Self"])
-        return .init(page, locals: locals, keys: fields.keys, urlpattern: urlpattern)
+        return .init(page, locals: locals, keys: fields.keys, 
+            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
     
     static 
@@ -1439,7 +1472,8 @@ extension Page.Binding
             fields:         fields, 
             path:           header.identifiers, 
             inheritances:   inheritances)
-        return .init(page, locals: [], keys: fields.keys, urlpattern: urlpattern)
+        return .init(page, locals: [], keys: fields.keys, 
+            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
     
     func attachTopics<C>(children:C, global:[String: [Page.TopicSymbol]]) 
@@ -1485,7 +1519,10 @@ extension Page.Binding
                         return nil 
                     }
                 } 
-            }.sorted{ $0.page.name < $1.page.name })
+            }.sorted
+            { 
+                ($0.rank, $0.order, $0.page.name) < ($1.rank, $1.order, $1.page.name) 
+            })
         {
             guard !seen.contains(binding.url)
             else 
