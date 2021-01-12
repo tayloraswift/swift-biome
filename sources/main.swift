@@ -6,9 +6,10 @@ enum Options
     case github
     case project
     case theme
+    case verbose
 }
 
-func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix:String), github:String, project:String, theme:String)
+func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix:String), github:String, project:String, theme:String, verbose:Bool)
 {
     var doccomments:[[Character]] = [] 
     for path:String in sources 
@@ -72,7 +73,13 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
         }
     }
     
-    PageTree.assemble(pages)
+    let root:PageTree.Node = PageTree.assemble(pages)
+    
+    // print out root 
+    if verbose 
+    {
+        print(root)
+    }
     
     guard   let fonts:String = File.source(path: "themes/\(theme)/fonts"),
             let css:String   = File.source(path: "themes/\(theme)/style.css") 
@@ -150,11 +157,12 @@ var url:(prefix:String, suffix:String)  = ("", "")
 var github:String                       = "https://github.com"
 var project:String?
 var theme:String                        = "big-sur"
+var verbose:Bool                        = false
 
 func help() 
 {
     print("""
-    usage: \(CommandLine.arguments[0]) sources... [-d/--directory directory] [-p/--url-prefix prefix] [-s/--url-suffix suffix] [-g/--github github] [--project project-name] [--theme theme]
+    usage: \(CommandLine.arguments[0]) sources... [-d/--directory directory] [-p/--url-prefix prefix] [-s/--url-suffix suffix] [-g/--github github] [--project project-name] [--theme theme] [-v/--verbose]
     """)
 }
 
@@ -222,6 +230,9 @@ func main()
                 return 
             }
             theme = next 
+        case "-v", "--verbose":
+            verbose = true 
+         
         case "-h", "--help":
             help()
             return 
@@ -230,7 +241,7 @@ func main()
         }
     }
 
-    pages(sources: sources, directory: directory, urlpattern: url, github: github, project: project ?? github, theme: theme)
+    pages(sources: sources, directory: directory, urlpattern: url, github: github, project: project ?? github, theme: theme, verbose: verbose)
 }
 
 main()

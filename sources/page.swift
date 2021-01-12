@@ -338,7 +338,7 @@ class Page
         // needed to uniquify overloaded symbols
         var uniquePath:[String] 
         {
-            if let overload:UInt32 = self.page.overload 
+            if let overload:Int = self.page.overload 
             {
                 return self.path.dropLast() + ["\(overload)-\(self.path[self.path.endIndex - 1])"]
             }
@@ -419,13 +419,15 @@ class Page
         breadcrumb:String 
     
     var inheritances:[[String]] 
-    let overload:UInt32?
+    var overload:Int?
     
     let path:[String]
     
     init(label:Label, name:String, signature:[Signature.Token], declaration:[Declaration.Token], 
-        fields:Fields, path:[String], inheritances:[[String]] = [], overload:UInt32? = nil)
+        fields:Fields, path:[String], inheritances:[[String]] = [])
     {
+        self.overload       = nil 
+        
         self.label          = label 
         self.name           = name 
         self.signature      = signature 
@@ -554,7 +556,6 @@ class Page
         
         self.breadcrumb     = breadcrumbs.removeLast().text 
         self.breadcrumbs    = breadcrumbs
-        self.overload       = overload 
         
         self.path           = path
     }
@@ -798,10 +799,7 @@ extension Page
         signature:inout [Signature.Token], 
         declaration:inout [Declaration.Token], 
         locals:Set<String> = []) 
-        -> UInt32 
     {
-        var overload:UInt32 = 0 
-        
         guard labels.count == fields.parameters.count 
         else 
         {
@@ -861,27 +859,6 @@ extension Page
                 declaration.append(contentsOf: repeatElement(.punctuation("."), count: 3))
             }
             
-            hash:
-            if  label == "as", 
-                case .named(let identifiers) = parameter.type, 
-                let last:Symbol.TypeIdentifier = identifiers.last, 
-                last.identifier == "Type",
-                last.generics.isEmpty
-            {
-                // exempt types which use an `as:` with a generic parameter 
-                if  identifiers.count == 2, 
-                    identifiers[0].generics.isEmpty, 
-                    locals.contains(identifiers[0].identifier)
-                {
-                    break hash 
-                }
-                
-                for u:Unicode.Scalar in identifiers.map(\.description).joined().unicodeScalars
-                {
-                    overload &+= u.value
-                }
-            }
-            
             interior.signature.append(signature)
             interior.declaration.append(declaration)
         }
@@ -915,8 +892,6 @@ extension Page
             signature.append(contentsOf: Page.Signature.convert(tokens))
             declaration.append(contentsOf: tokens)
         }
-        
-        return overload 
     }
 }
 extension Page 
@@ -1074,6 +1049,18 @@ extension Page
 }
 extension Page.Binding 
 {
+    // permutes the overload index 
+    func overload(_ overloads:Int) 
+    {
+        guard overloads > 0 
+        else 
+        {
+            return 
+        }
+        
+        print("note: overloaded symbol \(self.path.joined(separator: "."))")
+        self.page.overload = overloads 
+    }
     static 
     func create(_ header:Symbol.ModuleField, fields:ArraySlice<Symbol.Field>, 
         order:Int, urlpattern:(prefix:String, suffix:String)) 
@@ -1085,8 +1072,7 @@ extension Page.Binding
             signature:      [], 
             declaration:    [.keyword("import"), .whitespace, .identifier(header.identifier)], 
             fields:         fields, 
-            path:           [], 
-            overload:       nil)
+            path:           [])
         return .init(page, locals: [], keys: fields.keys, 
             rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
@@ -1108,7 +1094,7 @@ extension Page.Binding
             Page.Declaration.tokenize(fields.attributes) + [  .keyword("subscript")]
         var signature:[Page.Signature.Token]        =      [.highlight("subscript")]
         
-        let overload:UInt32 = Page.print(function: fields, 
+        Page.print(function: fields, 
             labels: header.labels.map{ ($0, false) }, scheme: .subscript, 
             signature: &signature, declaration: &declaration)
         
@@ -1135,8 +1121,7 @@ extension Page.Binding
             signature:      signature, 
             declaration:    declaration, 
             fields:         fields, 
-            path:           header.identifiers + [name], 
-            overload:       overload == 0 ? nil : overload)
+            path:           header.identifiers + [name])
         return .init(page, locals: [], keys: fields.keys, 
             rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
@@ -1221,23 +1206,16 @@ extension Page.Binding
         }
         
         let name:String 
-        var overload:UInt32?
         if case .enumerationCase = label, header.labels.isEmpty, fields.parameters.isEmpty 
         {
             name        = basename
         }
         else 
         {
-            overload = Page.print(function: fields, labels: header.labels, 
+            Page.print(function: fields, labels: header.labels, 
                 scheme: header.keyword == .case ? .associatedValues : .function, 
                 signature: &signature, declaration: &declaration, locals: .init(header.generics))
             name    = "\(basename)(\(header.labels.map{ "\($0.variadic && $0.name == "_" ? "" : $0.name)\($0.variadic ? "..." : ""):" }.joined()))" 
-        }
-        
-        // enum cases, even with associated values, do not need overload hashes 
-        if case .enumerationCase = label 
-        {
-            overload = nil 
         }
         
         Page.print(wheres: fields, declaration: &declaration) 
@@ -1246,8 +1224,7 @@ extension Page.Binding
             signature:      signature, 
             declaration:    declaration, 
             fields:         fields, 
-            path:           header.identifiers.dropLast() + [name], 
-            overload:       overload == 0 ? nil : overload)
+            path:           header.identifiers.dropLast() + [name])
         return .init(page, locals: [], keys: fields.keys, 
             rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
@@ -1646,9 +1623,9 @@ extension Page.Binding
 
 struct PageTree 
 {
-    struct Node 
+    struct Node:CustomStringConvertible 
     {
-        enum Payload 
+        enum Payload:CustomStringConvertible
         {
             case binding(Page.Binding)
             case redirect(url:String)
@@ -1661,6 +1638,17 @@ struct PageTree
                     return binding.url 
                 case .redirect(url: let url):
                     return url 
+                }
+            }
+            
+            var description:String 
+            {
+                switch self 
+                {
+                case .binding(let binding):
+                    return binding.path.joined(separator: ".") 
+                case .redirect(url: let url):
+                    return "<redirect: \(url)>"
                 }
             }
         }
@@ -1680,6 +1668,7 @@ extension PageTree.Node
         guard let key:String = path.first 
         else 
         {
+            binding.overload(self.payloads.count)
             self.payloads.append(.binding(binding))
             return 
         }
@@ -1827,22 +1816,30 @@ extension PageTree.Node
         }
     }
     
-    fileprivate 
+    private  
     func describe(indent:Int = 0) -> String 
     {
-        var description:String = 
-            "\(String.init(repeating: " ", count: indent * 4))\(self.payloads.map(\.url))\n"
-        for child:Self in self.children.values 
+        let strings:[String] = self.payloads.map 
         {
-            description += child.describe(indent: indent + 1)
+            "\(String.init(repeating: " ", count: indent * 4))\($0)\n"
+        } 
+        + 
+        self.children.values.map 
+        {
+            $0.describe(indent: indent + 1)
         }
-        return description
+        return strings.joined()
+    }
+    
+    var description:String 
+    {
+        self.describe()
     }
 }        
 extension PageTree 
 {
     static 
-    func assemble(_ pages:[Page.Binding]) 
+    func assemble(_ pages:[Page.Binding]) -> Node 
     {
         var root:Node = .empty
         for page:Page.Binding in pages
@@ -1899,7 +1896,7 @@ extension PageTree
                 }
             }
         }
-        // print out root 
-        print(root.describe())
+        
+        return root 
     }
 }
