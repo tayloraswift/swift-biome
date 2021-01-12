@@ -230,6 +230,18 @@ class Page
                 tokens.append(.whitespace)
                 tokens.append(contentsOf: Self.tokenize(type.return, locals: locals))
                 return tokens
+            
+            case .protocols(let protocols):
+                return .init(protocols.map 
+                {
+                    (identifiers:[String]) -> [Token] in 
+                    
+                    .init(Link.link(identifiers.map{ ($0, ()) }).map 
+                    {
+                        (element:(component:(identifier:String, _:Void), link:Link)) -> [Token] in 
+                        [.type(element.component.identifier, element.link)]
+                    }.joined(separator: [.punctuation(".")]))
+                }.joined(separator: [.whitespace, .punctuation("&"), .whitespace]))
             }
         } 
         
@@ -435,32 +447,65 @@ class Page
                 fatalError("member '\(name)' cannot have conformances")
             }
             
-            if let requirement:Symbol.RequirementField = fields.requirement 
+            guard !fields.requirements.isEmpty 
+            else 
             {
-                guard fields.implementation == nil 
+                fallthrough 
+            }
+            
+            guard fields.implementation == nil 
+            else 
+            {
+                fatalError("member '\(name)' cannot have both a requirement field and implementations fields.")
+            }
+            
+            if  case .required? = fields.requirements.first, 
+                fields.requirements.count == 1 
+            {
+                relationships = .parse("**Required.**") 
+                break 
+            }
+            if  case .defaulted(let conditions)? = fields.requirements.first, 
+                fields.requirements.count == 1, 
+                conditions.isEmpty 
+            {
+                relationships = .parse("**Required.** Default implementation provided.") 
+                break 
+            }
+            
+            let conditions:[[Symbol.WhereClause]] = fields.requirements.map 
+            {
+                guard case .defaulted(let conditions) = $0 
                 else 
                 {
-                    fatalError("member '\(name)' cannot have both a requirement field and implementations fields.")
+                    fatalError("'required' for member '\(name)' is redundant if 'defaulted' fields are present")
                 }
                 
-                switch requirement 
+                guard !conditions.isEmpty 
+                else 
                 {
-                case .required:
-                    relationships = .parse("**Required.**")
-                case .defaulted:
-                    relationships = .parse("**Required.** Default implementation provided.")
+                    fatalError("conditional 'defaulted' for member '\(name)' cannot appear alongside unconditional 'defaulted'")
                 }
+                
+                return conditions 
+            }
+            
+            if conditions.count == 1 
+            {
+                relationships = .parse("**Required.** Default implementation provided when \(Self.prose(conditions: conditions[0])).")
             }
             else 
             {
-                fallthrough
+                // render each condition on its own line 
+                relationships = .parse("**Required.** \(conditions.map{ "\\nDefault implementation provided when \(Self.prose(conditions: $0))." }.joined())")
             }
+
         
         // "Implements requirement in ... . Available when ... ."
         //  or 
         // "Conforms to ... when ... ."
         case .enumeration, .genericEnumeration, .structure, .genericStructure, .class, .genericClass: 
-            guard fields.requirement == nil 
+            guard fields.requirements.isEmpty
             else 
             {
                 fatalError("member '\(name)' cannot have a requirement field")
@@ -520,16 +565,14 @@ class Page
         return Self.prose(separator: ";", list: conditions.map 
         {
             (clause:Symbol.WhereClause) in 
-            let relation:String 
-            switch clause.relation 
+            switch clause.predicate
             {
-            case .equals:
-                relation = "is"
-            case .conforms:
-                relation = "conforms to"
+            case .equals(let type):
+                return "[`\(clause.subject.joined(separator: "."))`] is [[`\(type)`]]"
+            case .conforms(let protocols):
+                let constraints:[String] = protocols.map{ "[`\($0.joined(separator: "."))`]" }
+                return "[`\(clause.subject.joined(separator: "."))`] conforms to \(Self.prose(separator: ",", list: constraints))"
             }
-            let constraints:[String] = clause.object.map{ "[`\($0.joined(separator: "."))`]" }
-            return "`\(clause.subject.joined(separator: "."))` \(relation) \(Self.prose(separator: ",", list: constraints))"
         })
     }
     
@@ -559,61 +602,65 @@ extension Page
     private static 
     func crosslink(_ unlinked:[Markdown.Element], scopes:[PageTree.Node]) -> [Markdown.Element]
     {
-        var elements:[Markdown.Element] = []
-        for element:Markdown.Element in unlinked
+        return unlinked.map
         {
-            outer:
+            (element:Markdown.Element) in 
+            
             switch element 
             {
-            case .symbol(let link):
-                elements.append(.text(.backtick(count: 1)))
-                elements.append(contentsOf: link.paths.map 
+            case .type(let inline):
+                let tokens:[Declaration.Token] = Declaration.tokenize(inline.type).map 
                 {
-                    (sublink:Markdown.Element.SymbolLink.Path) in 
+                    switch $0 
+                    {
+                    case .type(let component, .unresolved(path: let path)):
+                        guard let url:String = PageTree.Node.resolve(path[...], in: scopes)
+                        else 
+                        {
+                            return .identifier(component)
+                        }
+                        return .type(component, .resolved(url: url))
+                    default:
+                        return $0
+                    }
+                }
+                return .code(tokens)
+                
+            case .symbol(let link):
+                let tokens:[Declaration.Token] = link.paths.flatMap 
+                {
+                    (sublink:Markdown.Element.SymbolLink.Path) -> [Declaration.Token] in 
                     Link.link(sublink.path.map{ ($0, ()) }).map 
                     {
-                        (element:(component:(String, Void), link:Link)) -> [Markdown.Element] in
-                        let target:String, 
-                            `class`:String
-                        switch element.link 
+                        (element:(component:(String, Void), link:Link)) -> Declaration.Token in
+                        
+                        if case .unresolved(path: let path) = element.link 
                         {
-                        case .apple(url: let url):
-                            target  = url 
-                            `class` = "syntax-swift-type"
-                        case .resolved(url: let url):
-                            target  = url 
-                            `class` = "syntax-type"
-                        case .unresolved(path: let path):
                             let full:[String] = sublink.prefix + path 
                             guard let url:String = PageTree.Node.resolve(full[...], in: scopes)
                             else 
                             {
-                                return element.component.0.map{ .text(.wildcard($0)) }
+                                return .identifier(element.component.0)
                             }
-                            target = url
-                            `class` = "syntax-type"
+                            
+                            return .type(element.component.0, .resolved(url: url))
+                        }
+                        else 
+                        {
+                            return .type(element.component.0, element.link)
                         }
                         
-                        return 
-                            [
-                            .link(.init(text: element.component.0.map(Markdown.Element.Text.wildcard(_:)), url: target, classes: [`class`])), 
-                            ]
-                    }.joined(separator: [.text(.wildcard("."))])
-                }.joined(separator: [.text(.wildcard("."))]))
-                for component:String in link.suffix 
-                {
-                    elements.append(.text(.wildcard(".")))
-                    elements.append(contentsOf: component.map{ .text(.wildcard($0)) })
-                }
-                elements.append(.text(.backtick(count: 1)))
+                    }
+                } 
+                +
+                link.suffix.map(Declaration.Token.identifier(_:))
                 
-                continue 
+                return .code(.init(tokens.map{ [$0] }.joined(separator: [.punctuation(".")])))
+             
             default:
-                break 
+                return element
             }
-            elements.append(element)
         }
-        return elements
     }
     
     func crosslink(scopes:[PageTree.Node]) 
@@ -730,17 +777,18 @@ extension Page
                     return $0
                 }
             })
-            switch clause.relation
+            switch clause.predicate 
             {
-            case .conforms:
+            case .conforms(let protocols):
                 tokens.append(.punctuation(":"))
-            case .equals:
+                tokens.append(contentsOf: Page.Declaration.tokenize(.protocols(protocols)))
+            case .equals(let type):
                 tokens.append(.whitespace)
                 tokens.append(.punctuation("=="))
                 tokens.append(.whitespace)
+                tokens.append(contentsOf: Page.Declaration.tokenize(type))
             }
-            tokens.append(contentsOf: clause.object.map(Page.Declaration.tokenize(_:))
-                .joined(separator: [.whitespace, .punctuation("&"), .whitespace]))
+            
             return tokens
         }.joined(separator: [.punctuation(","), .breakableWhitespace]))
     }
@@ -881,7 +929,7 @@ extension Page
             attributes:[Symbol.AttributeField], 
             paragraphs:[Symbol.ParagraphField],
             `throws`:Symbol.ThrowsField?, 
-            requirement:Symbol.RequirementField?
+            requirements:[Symbol.RequirementField]
         let keys:Set<Page.Binding.Key>, 
             rank:Int, 
             order:Int, 
@@ -901,12 +949,12 @@ extension Page
         init<S>(_ fields:S, order:Int) where S:Sequence, S.Element == Symbol.Field 
         {
             var conformances:[Symbol.ConformanceField]          = [], 
+                requirements:[Symbol.RequirementField]          = [], 
                 attributes:[Symbol.AttributeField]              = [], 
                 paragraphs:[Symbol.ParagraphField]              = [],
                 topics:[Symbol.TopicField]                      = [], 
                 keys:[Symbol.TopicElementField]                 = []
             var `throws`:Symbol.ThrowsField?, 
-                requirement:Symbol.RequirementField?, 
                 constraints:Symbol.ConstraintsField?,
                 implementation:Symbol.ImplementationField?
             var parameters:[(parameter:Symbol.ParameterField, paragraphs:[Symbol.ParagraphField])] = []
@@ -919,6 +967,9 @@ extension Page
                     attributes.append(field)
                 case .conformance   (let field):
                     conformances.append(field)
+                case .requirement   (let field):
+                    requirements.append(field)
+                
                 case .implementation(let field):
                     guard implementation == nil 
                     else 
@@ -957,14 +1008,6 @@ extension Page
                         fatalError("only one throws field per doccomnent allowed")
                     }
                     `throws` = field 
-                    
-                case .requirement   (let field):
-                    guard requirement == nil 
-                    else 
-                    {
-                        fatalError("only one requirement field per doccomnent allowed")
-                    }
-                    requirement = field 
                 
                 case .subscript, .function, .member, .type, .typealias, .module:
                     fatalError("only one header field per doccomnent allowed")
@@ -975,12 +1018,12 @@ extension Page
             }
             
             self.conformances       = conformances
+            self.requirements       = requirements
             self.implementation     = implementation
             self.constraints        = constraints
             self.attributes         = attributes
             self.paragraphs         = paragraphs
             self.throws             = `throws`
-            self.requirement        = requirement
             
             self.keys               = .init(keys.compactMap
             { 

@@ -82,6 +82,7 @@ UnwrappedType       ::= <NamedType>
                       | <CompoundType>
                       | <FunctionType>
                       | <CollectionType>
+                      | <ProtocolCompositionType>
 NamedType           ::= <TypeIdentifier> ( '.' <TypeIdentifier> ) *
 TypeIdentifier      ::= <Identifier> <TypeArguments> ?
 TypeArguments       ::= '<' <Whitespace> ? <Type> <Whitespace> ? ( ',' <Whitespace> ? <Type> <Whitespace> ? ) * '>'
@@ -95,6 +96,7 @@ FunctionParameters  ::= '(' <Whitespace> ? ( <FunctionParameter> <Whitespace> ?
 FunctionParameter   ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace> ) ? <Type>
 Attribute           ::= '@' <Identifier>
 CollectionType      ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']'
+ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
 
 TypeField           ::= <TypeKeyword> <Whitespace> <Identifiers> <TypeParameters> ? <Endline>
 TypeKeyword         ::= 'protocol'
@@ -105,17 +107,15 @@ TypeKeyword         ::= 'protocol'
 
 TypealiasField      ::= 'typealias' <Whitespace> <Identifiers> <Whitespace> ? '=' <Whitespace> ? <Type> <Endline>
 
-ConformanceField    ::= ':' <Whitespace> ? <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) * 
-                        ( <Whitespace> <WhereClauses> ) ? <Endline>
+ConformanceField    ::= ':' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
 
 ImplementationField ::= '?:' <Whitespace> ? <Identifiers> ( <Whitespace> <WhereClauses> ) ? <Endline>
 
 ConstraintsField    ::= <WhereClauses> <Endline>
 WhereClauses        ::= 'where' <Whitespace> <WhereClause> ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
-WhereClause         ::= <Identifiers> <Whitespace> ? <WhereRelation> <Whitespace> ? <Identifiers> 
-                        ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
-WhereRelation       ::= ':' 
-                      | '=='
+WhereClause         ::= <Identifiers> <Whitespace> ? <WherePredicate>
+WherePredicate      ::= ':' <Whitespace> ? <ProtocolCompositionType> 
+                      | '==' <Whitespace> ? <Type>
 
 AttributeField      ::= '@' <Whitespace> ? <DeclarationAttribute> <Endline>
 DeclarationAttribute::= 'frozen'
@@ -133,7 +133,7 @@ ThrowsField         ::= 'throws' <Endline>
                       | 'rethrows' <Endline>
                       
 RequirementField    ::= 'required' <Endline>
-                      | 'defaulted' <Endline>
+                      | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
 
 TopicField          ::= '#' <Whitespace>? '[' <BalancedContent> * ']' <Whitespace>? 
                         '(' <BalancedContent> * ')' <Endline>
@@ -175,6 +175,7 @@ ParagraphToken          ::= <ParagraphLink>
                           | .
 ParagraphSubscript      ::= '~' [^~] * '~'
 ParagraphSuperscript    ::= '^' [^\^] * '^'
+ParagraphInlineType     ::= '[[`' <Type> '`]]'
 ParagraphSymbolLink     ::= '[' <SymbolPath> <SymbolPath> * ( <Identifier> '`' ) * ']'
 SymbolPath              ::= '`' ( '(' <Identifiers> ').' ) ? <SymbolTail> '`'
 SymbolTail              ::= <Identifiers> ? '[' ( <FunctionLabel> ':' ) * ']'

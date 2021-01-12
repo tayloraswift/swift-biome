@@ -1072,6 +1072,7 @@ enum Symbol
     //                       | <CompoundType>
     //                       | <FunctionType>
     //                       | <CollectionType>
+    //                       | <ProtocolCompositionType>
     // NamedType           ::= <TypeIdentifier> ( '.' <TypeIdentifier> ) *
     // TypeIdentifier      ::= <Identifier> <TypeArguments> ?
     // TypeArguments       ::= '<' <Whitespace> ? <Type> <Whitespace> ? ( ',' <Whitespace> ? <Type> <Whitespace> ? ) * '>'
@@ -1081,7 +1082,9 @@ enum Symbol
     // FunctionParameters  ::= '(' <Whitespace> ? ( <FunctionParameter> <Whitespace> ? ( ',' <Whitespace> ? <FunctionParameter> <Whitespace> ? ) * ) ? ')'
     // FunctionParameter   ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace> ) ? <Type>
     // Attribute           ::= '@' <Identifier>
-    // CollectionType      ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']'
+    // CollectionType      ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']' 
+    
+    // ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
     enum SwiftType:Parseable, CustomStringConvertible
     {
         indirect
@@ -1089,7 +1092,9 @@ enum Symbol
         indirect 
         case compound([Symbol.LabeledType])
         indirect 
-        case function(Symbol.FunctionType)
+        case function(Symbol.FunctionType) 
+        
+        case protocols([[String]])
         
         static 
         func parse(_ tokens:[Character], position:inout Int) throws -> Self
@@ -1105,6 +1110,8 @@ enum Symbol
                 inner = .compound(type.elements)
             case .function(let type):
                 inner = .function(type)
+            case .protocols(let type):
+                inner = .protocols(type.protocols)
             case .collection(let type):
                 if let value:Self = type.value 
                 {
@@ -1145,6 +1152,8 @@ enum Symbol
                 return "(\(elements.map(String.init(describing:)).joined(separator: ", ")))"
             case .function(let type):
                 return "\(type.attributes.map{ "\($0) " }.joined())(\(type.parameters.map(String.init(describing:)).joined(separator: ", ")))\(type.throws ? " throws" : "") -> \(type.return)"
+            case .protocols(let protocols):
+                return protocols.map{ $0.joined(separator: ".") }.joined(separator: " & ")
             }
         }
     }
@@ -1154,6 +1163,7 @@ enum Symbol
         case compound(Symbol.CompoundType)
         case function(Symbol.FunctionType)
         case collection(Symbol.CollectionType)
+        case protocols(Symbol.ProtocolCompositionType)
         
         static 
         func parse(_ tokens:[Character], position:inout Int) throws -> Self
@@ -1176,11 +1186,29 @@ enum Symbol
             {
                 return .collection(type)
             }
+            else if let type:Symbol.ProtocolCompositionType = .parse(tokens, position: &position)
+            {
+                return .protocols(type)
+            }
             else 
             {
                 throw ParsingError.unexpected(tokens, position, expected: Self.self)
             }
         }
+    }
+    struct ProtocolCompositionType:Parseable
+    {
+        let protocols:[[String]]
+            
+        static 
+        func parse(_ tokens:[Character], position:inout Int) throws -> Self
+        {
+            let head:Symbol.Identifiers     = try .parse(tokens, position: &position), 
+                body:[List<Symbol.Whitespace?, List<Token.Ampersand, List<Symbol.Whitespace?, Symbol.Identifiers>>>] =
+                                                  .parse(tokens, position: &position)
+            return .init(protocols: [head.identifiers] + body.map(\.body.body.body.identifiers))
+        }
+        
     }
     struct NamedType:Parseable
     {
@@ -1489,7 +1517,7 @@ enum Symbol
         }
     }
     
-    // ConformanceField    ::= ':' <Whitespace> ? <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) * ( <Whitespace> <WhereClauses> ) ? <Endline>
+    // ConformanceField    ::= ':' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
     struct ConformanceField:Parseable, CustomStringConvertible
     {
         let conformances:[[String]]
@@ -1500,14 +1528,11 @@ enum Symbol
         {
             let _:Token.Colon               = try .parse(tokens, position: &position), 
                 _:Symbol.Whitespace?        =     .parse(tokens, position: &position), 
-                head:Symbol.Identifiers     = try .parse(tokens, position: &position), 
-                body:[List<Symbol.Whitespace?, List<Token.Ampersand, List<Symbol.Whitespace?, Symbol.Identifiers>>>] =
-                                                  .parse(tokens, position: &position),
+                conformances:Symbol.ProtocolCompositionType = try .parse(tokens, position: &position), 
                 conditions:List<Symbol.Whitespace, Symbol.WhereClauses>? = 
                                                   .parse(tokens, position: &position),
                 _:Symbol.Endline            = try .parse(tokens, position: &position)
-            return .init(conformances: ([head.identifiers] + body.map(\.body.body.body.identifiers)), 
-                conditions: conditions?.body.clauses ?? [])
+            return .init(conformances: conformances.protocols, conditions: conditions?.body.clauses ?? [])
         }
         
         var description:String 
@@ -1543,9 +1568,9 @@ enum Symbol
     
     //  ConstraintsField    ::= <WhereClauses> <Endline>
     //  WhereClauses        ::= 'where' <Whitespace> <WhereClause> ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
-    //  WhereClause         ::= <Identifiers> <Whitespace> ? <WhereRelation> <Whitespace> ? <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
-    //  WhereRelation       ::= ':' 
-    //                        | '=='
+    //  WhereClause         ::= <Identifiers> <Whitespace> ? <WherePredicate>
+    //  WherePredicate      ::= ':' <Whitespace> ? <ProtocolCompositionType> 
+    //                        | '==' <Whitespace> ? <Type>
     struct ConstraintsField:Parseable, CustomStringConvertible
     {
         let clauses:[WhereClause]
@@ -1592,43 +1617,49 @@ enum Symbol
     struct WhereClause:Parseable, CustomStringConvertible
     {
         let subject:[String], 
-            relation:WhereRelation, 
-            object:[[String]]
+            predicate:WherePredicate 
             
         static 
         func parse(_ tokens:[Character], position:inout Int) throws -> Self
         {
             let subject:Symbol.Identifiers      = try .parse(tokens, position: &position), 
                 _:Symbol.Whitespace?            =     .parse(tokens, position: &position), 
-                relation:Symbol.WhereRelation   = try .parse(tokens, position: &position), 
-                _:Symbol.Whitespace?            =     .parse(tokens, position: &position), 
-                head:Symbol.Identifiers         = try .parse(tokens, position: &position),
-                body:[List<Symbol.Whitespace?, List<Token.Ampersand, List<Symbol.Whitespace?, Symbol.Identifiers>>>] = 
-                                                      .parse(tokens, position: &position)
-            return .init(subject: subject.identifiers, relation: relation, 
-                object: [head.identifiers] + body.map(\.body.body.body.identifiers))
+                predicate:Symbol.WherePredicate = try .parse(tokens, position: &position)
+            return .init(subject: subject.identifiers, predicate: predicate)
         }
         
         var description:String 
         {
-            "\(self.subject.joined(separator: "."))\(self.relation == .equals ? " == " : ":")\(object.map{ $0.joined(separator: ".") }.joined(separator: " & "))"
+            switch self.predicate  
+            {
+            case .conforms(let protocols):
+                return "\(self.subject.joined(separator: ".")):\(protocols.map{ $0.joined(separator: ".") }.joined(separator: " & "))"
+            case .equals(let type):
+                return "\(self.subject.joined(separator: ".")) == \(type)"
+            }
         }
     }
-    enum WhereRelation:Parseable
+    enum WherePredicate:Parseable
     {
-        case conforms 
-        case equals 
+        case conforms([[String]]) 
+        case equals(Symbol.SwiftType) 
         
         static 
         func parse(_ tokens:[Character], position:inout Int) throws -> Self
         {
-            if      let _:Token.Colon = .parse(tokens, position: &position) 
+            if      let _:List<Token.Colon, Symbol.Whitespace?> = 
+                .parse(tokens, position: &position), 
+                    let protocols:Symbol.ProtocolCompositionType = 
+                .parse(tokens, position: &position)
             {
-                return .conforms 
+                return .conforms(protocols.protocols)
             }
-            else if let _:Token.EqualsEquals = .parse(tokens, position: &position) 
+            else if let _:List<Token.EqualsEquals, Symbol.Whitespace?> = 
+                .parse(tokens, position: &position), 
+                    let type:Symbol.SwiftType = 
+                .parse(tokens, position: &position)
             {
-                return .equals 
+                return .equals(type)
             }
             else 
             {
@@ -1790,7 +1821,7 @@ enum Symbol
     }
     
     // RequirementField    ::= 'required' <Endline>
-    //                       | 'defaulted' <Endline>
+    //                       | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
     enum RequirementField:Parseable 
     {
         struct Required:Parseable.Terminal 
@@ -1805,7 +1836,7 @@ enum Symbol
         }
         
         case required
-        case defaulted
+        case defaulted([WhereClause])
         
         static 
         func parse(_ tokens:[Character], position:inout Int) throws -> Self
@@ -1814,14 +1845,17 @@ enum Symbol
             {
                 return .required
             }
-            else if let _:List<Defaulted, Symbol.Endline> = .parse(tokens, position: &position)
+            else if let _:Defaulted = .parse(tokens, position: &position)
             {
-                return .defaulted
+                let conditions:List<Symbol.Whitespace, WhereClauses>? = 
+                    .parse(tokens, position: &position) 
+                if let _:Symbol.Endline = .parse(tokens, position: &position) 
+                {
+                    return .defaulted(conditions?.body.clauses ?? [])
+                }
             }
-            else 
-            {
-                throw ParsingError.unexpected(tokens, position, expected: Self.self)
-            }
+            
+            throw ParsingError.unexpected(tokens, position, expected: Self.self)
         }
     }
     

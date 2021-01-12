@@ -63,17 +63,25 @@ enum HTML
         
         var string:String 
         {
-            let content:String = self.content.map 
+            switch self.name 
             {
-                switch $0 
+            // emit self-closing tags ('br')
+            case "br":
+                return "<\(([self.name] + self.attributes.map{ "\($0.key)=\"\($0.value)\"" }).joined(separator: " "))/>"
+            // emit tags with content
+            default:
+                let content:String = self.content.map 
                 {
-                case .character(let c):
-                    return "\(c)"
-                case .child(let tag):
-                    return tag.string 
-                }
-            }.joined()
-            return "<\(([self.name] + self.attributes.map{ "\($0.key)=\"\($0.value)\"" }).joined(separator: " "))>\(content)</\(self.name)>"
+                    switch $0 
+                    {
+                    case .character(let c):
+                        return "\(c)"
+                    case .child(let tag):
+                        return tag.string 
+                    }
+                }.joined()
+                return "<\(([self.name] + self.attributes.map{ "\($0.key)=\"\($0.value)\"" }).joined(separator: " "))>\(content)</\(self.name)>"
+            }
         }
     }
 }
@@ -135,57 +143,59 @@ extension Page.Declaration
     func html(_ tokens:[Token]) -> [HTML.Tag] 
     {
         var i:Int = tokens.startIndex
-        var grouped:[HTML.Tag] = []
+        var grouped:[HTML.Tag]  = []
+        var group:[HTML.Tag]    = []
         while i < tokens.endIndex
         {
-            var group:[HTML.Tag] = []
-            darkspace:
-            while i < tokens.endIndex
+            switch tokens[i] 
             {
-                defer 
+            case .breakableWhitespace:
+                i += 1
+                while i < tokens.endIndex, case .breakableWhitespace = tokens[i]
                 {
                     i += 1
                 }
-                switch tokens[i] 
+                
+                grouped.append(.init("span", ["class": "syntax-group"], 
+                    content: group.map(HTML.Tag.Content.child(_:)) + [.character(" ")]))
+                group = []
+                continue
+            
+            case .whitespace:
+                group.append(.init("span", ["class": "syntax-whitespace"], escaped: "&nbsp;"))
+            case .keyword(let text):
+                group.append(.init("span", ["class": "syntax-keyword"], text))
+            case .identifier(let text):
+                // if any of the characters are operator characters, consider 
+                // the identifier to be an operator 
+                if text.unicodeScalars.allSatisfy(isIdentifierScalar(_:))
                 {
-                case .breakableWhitespace:
-                    break darkspace
-                case .whitespace:
-                    group.append(.init("span", ["class": "syntax-whitespace"], escaped: "&nbsp;"))
-                case .keyword(let text):
-                    group.append(.init("span", ["class": "syntax-keyword"], text))
-                case .identifier(let text):
-                    // if any of the characters are operator characters, consider 
-                    // the identifier to be an operator 
-                    if text.unicodeScalars.allSatisfy(isIdentifierScalar(_:))
-                    {
-                        group.append(.init("span", ["class": "syntax-identifier"], text))
-                    }
-                    else 
-                    {
-                        group.append(.init("span", ["class": "syntax-identifier syntax-operator"], text))
-                    }
-                case .type(_, .unresolved), .typePunctuation(_, .unresolved):
-                    fatalError("attempted to render unresolved link")
-                case .type(let text, .resolved(url: let target)):
-                    group.append(.init("a", ["class": "syntax-type", "href": target], text))
-                case .type(let text, .apple(url: let target)):
-                    group.append(.init("a", ["class": "syntax-type syntax-swift-type", "href": target], text))
-                case .typePunctuation(let text, .resolved(url: let target)):
-                    group.append(.init("a", ["class": "syntax-type syntax-punctuation", "href": target], text))
-                case .typePunctuation(let text, .apple(url: let target)):
-                    group.append(.init("a", ["class": "syntax-type syntax-swift-type syntax-punctuation", "href": target], text))
-                case .punctuation(let text):
-                    group.append(.init("span", ["class": "syntax-punctuation"], text))
+                    group.append(.init("span", ["class": "syntax-identifier"], text))
                 }
+                else 
+                {
+                    group.append(.init("span", ["class": "syntax-identifier syntax-operator"], text))
+                }
+            case .type(_, .unresolved), .typePunctuation(_, .unresolved):
+                fatalError("attempted to render unresolved link")
+            case .type(let text, .resolved(url: let target)):
+                group.append(.init("a", ["class": "syntax-type", "href": target], text))
+            case .type(let text, .apple(url: let target)):
+                group.append(.init("a", ["class": "syntax-type syntax-swift-type", "href": target], text))
+            case .typePunctuation(let text, .resolved(url: let target)):
+                group.append(.init("a", ["class": "syntax-type syntax-punctuation", "href": target], text))
+            case .typePunctuation(let text, .apple(url: let target)):
+                group.append(.init("a", ["class": "syntax-type syntax-swift-type syntax-punctuation", "href": target], text))
+            case .punctuation(let text):
+                group.append(.init("span", ["class": "syntax-punctuation"], text))
             }
-            
-            grouped.append(.init("span", ["class": "syntax-group"], content: group.map(HTML.Tag.Content.child(_:)) + [.character(" ")]))
-            
-            while i < tokens.endIndex, case .breakableWhitespace = tokens[i]
-            {
-                i += 1
-            }
+            i += 1
+        }
+        
+        if !group.isEmpty 
+        {
+            grouped.append(.init("span", ["class": "syntax-group"], 
+                content: group.map(HTML.Tag.Content.child(_:))))
         }
         return grouped 
     }

@@ -25,6 +25,11 @@ struct Markdown
         static 
         let token:String = "\\"
     } 
+    struct Newline:Parseable.Terminal
+    {
+        static 
+        let token:String = "\\n"
+    } 
     //  ParagraphToken          ::= <ParagraphLink> 
     //                            | <ParagraphSymbolLink>
     //                            | <ParagraphSubscript>
@@ -35,6 +40,7 @@ struct Markdown
     //                            | .
     //  ParagraphSubscript      ::= '~' [^~] * '~'
     //  ParagraphSuperscript    ::= '^' [^\^] * '^'
+    //  ParagraphInlineType     ::= '[[`' <Type> '`]]'
     //  ParagraphSymbolLink     ::= '[' <SymbolPath> <SymbolPath> * ( <Identifier> '`' ) * ']'
     //  SymbolPath              ::= '`' ( '(' <Identifiers> ').' ) ? <SymbolTail> '`'
     //  SymbolTail              ::= <Identifiers> ? '[' ( <FunctionLabel> ':' ) * ']'
@@ -90,6 +96,7 @@ struct Markdown
             case star1 
             case backtick(count:Int)
             case wildcard(Character)
+            case newline 
             
             static 
             func parse(_ tokens:[Character], position:inout Int) throws -> Self
@@ -108,6 +115,11 @@ struct Markdown
                     .parse(tokens, position: &position) 
                 {
                     return .star1
+                }
+                else if let _:Newline = 
+                    .parse(tokens, position: &position) 
+                {
+                    return .newline
                 }
                 else if let backticks:List<Backtick, [Backtick]> = 
                     .parse(tokens, position: &position) 
@@ -147,6 +159,34 @@ struct Markdown
                 {
                     throw ParsingError.unexpectedEOS(expected: Self.self)
                 }
+            }
+        }
+        
+        struct Link:Parseable
+        {
+            let text:[Text], 
+                url:String, 
+                classes:[String]
+            
+            init(text:[Text], url:String, classes:[String] = []) 
+            {
+                self.text       = text 
+                self.url        = url 
+                self.classes    = classes 
+            }
+                
+            static 
+            func parse(_ tokens:[Character], position:inout Int) throws -> Self
+            {
+                let _:Token.Bracket.Left            = try .parse(tokens, position: &position),
+                    text:[NotClosingBracket]        =     .parse(tokens, position: &position),
+                    _:Token.Bracket.Right           = try .parse(tokens, position: &position),
+                    _:Token.Parenthesis.Left        = try .parse(tokens, position: &position),
+                    url:[NotClosingParenthesis]     =     .parse(tokens, position: &position),
+                    _:Token.Parenthesis.Right       = try .parse(tokens, position: &position)
+                let characters:[Character] = text.map(\.character)
+                var c:Int = characters.startIndex
+                return .init(text: .parse(characters, position: &c), url: .init(url.map(\.character)))
             }
         }
         
@@ -210,50 +250,49 @@ struct Markdown
                 return .init(paths: [head] + body, suffix: suffix.map(\.head.string))
             }
         }
-        struct Link:Parseable
+        
+        struct InlineType:Parseable
         {
-            let text:[Text], 
-                url:String, 
-                classes:[String]
+            let type:Symbol.SwiftType 
             
-            init(text:[Text], url:String, classes:[String] = []) 
-            {
-                self.text       = text 
-                self.url        = url 
-                self.classes    = classes 
-            }
-                
             static 
             func parse(_ tokens:[Character], position:inout Int) throws -> Self
             {
                 let _:Token.Bracket.Left            = try .parse(tokens, position: &position),
-                    text:[NotClosingBracket]        =     .parse(tokens, position: &position),
+                    _:Token.Bracket.Left            = try .parse(tokens, position: &position),
+                    _:Backtick                      = try .parse(tokens, position: &position),
+                    type:Symbol.SwiftType           = try .parse(tokens, position: &position),
+                    _:Backtick                      = try .parse(tokens, position: &position),
                     _:Token.Bracket.Right           = try .parse(tokens, position: &position),
-                    _:Token.Parenthesis.Left        = try .parse(tokens, position: &position),
-                    url:[NotClosingParenthesis]     =     .parse(tokens, position: &position),
-                    _:Token.Parenthesis.Right       = try .parse(tokens, position: &position)
-                let characters:[Character] = text.map(\.character)
-                var c:Int = characters.startIndex
-                return .init(text: .parse(characters, position: &c), url: .init(url.map(\.character)))
+                    _:Token.Bracket.Right           = try .parse(tokens, position: &position) 
+                return .init(type: type)
             }
         }
         
         case symbol(SymbolLink)
+        case type(InlineType)
+        
         case link(Link)
         case sub([Text])
         case sup([Text])
         case text(Text)
         
+        case code([Page.Declaration.Token])
+        
         static 
         func parse(_ tokens:[Character], position:inout Int) throws -> Self
         {
-            if      let symbol:SymbolLink = .parse(tokens, position: &position) 
+            if      let link:Link           = .parse(tokens, position: &position) 
+            {
+                return .link(link)
+            }
+            else if let symbol:SymbolLink   = .parse(tokens, position: &position) 
             {
                 return .symbol(symbol)
             }
-            else if let link:Link = .parse(tokens, position: &position) 
+            else if let type:InlineType     = .parse(tokens, position: &position) 
             {
-                return .link(link)
+                return .type(type)
             }
             else if let sub:List<Tilde, List<[NotClosingTilde], Tilde>> = 
                 .parse(tokens, position: &position) 
@@ -297,9 +336,18 @@ struct Markdown
         {
             switch element 
             {
-            case .symbol(let link):
+            case .type: 
+                fatalError("unrendered markdown inline swift type")
+            case .symbol: 
+                fatalError("unrendered markdown symbol link")
+            
+            case .code(let tokens): 
                 stack[stack.endIndex - 1].content.append(.child(
-                    .init("code", [:], (link.paths.map(\.path).flatMap{ $0 } + link.suffix).joined(separator: "."))))
+                    .init("code", [:], Page.Declaration.html(tokens))))
+            
+            /* case .symbol(let link):
+                stack[stack.endIndex - 1].content.append(.child(
+                    .init("code", [:], (link.paths.map(\.path).flatMap{ $0 } + link.suffix).joined(separator: ".")))) */
             
             case .link(let link):
                 var attributes:[String: String] = ["href": link.url, "target": "_blank"]
@@ -317,6 +365,8 @@ struct Markdown
                 stack[stack.endIndex - 1].content.append(.child(
                     Self.html(tag: .sup, attributes: [:], elements: text.map(Element.text(_:)))))
             
+            case .text(.newline):
+                stack[stack.endIndex - 1].content.append(.child(.init("br", [:], content: [])))
             case .text(.wildcard(let c)):
                 stack[stack.endIndex - 1].content.append(.character(c))
             
