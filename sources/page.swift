@@ -411,7 +411,8 @@ class Page
         parameters:[(name:String, paragraphs:[[Markdown.Element]])], 
         return:[[Markdown.Element]],
         overview:[[Markdown.Element]], 
-        required:[Markdown.Element]
+        required:[Markdown.Element],
+        specializations:[Markdown.Element]
     )
     
     var topics:[Topic]
@@ -538,12 +539,24 @@ class Page
             relationships = [] 
         }
         
+        let specializations:[Markdown.Element] = .parse(fields.attributes.compactMap 
+        {
+            guard case .specialized(let conditions) = $0 
+            else 
+            {
+                return nil 
+            }
+            
+            return "Specialization available when \(Self.prose(conditions: conditions.clauses))."
+        }.joined(separator: "\\n"))
+        
         self.discussion     = 
         (
             fields.parameters.map{ ($0.name, $0.paragraphs.map(\.elements)) }, 
             fields.return?.paragraphs.map(\.elements) ?? [], 
             fields.discussion.map(\.elements), 
-            relationships
+            relationships,
+            specializations
         )
         self.topics         = fields.topics
         
@@ -689,7 +702,10 @@ extension Page
         }
         self.discussion.return      = self.discussion.return.map{   Self.crosslink($0, scopes: scopes) }
         self.discussion.overview    = self.discussion.overview.map{ Self.crosslink($0, scopes: scopes) }
-        self.discussion.required    = Self.crosslink(self.discussion.required, scopes: scopes) 
+        self.discussion.required        = 
+            Self.crosslink(self.discussion.required, scopes: scopes) 
+        self.discussion.specializations = 
+            Self.crosslink(self.discussion.specializations, scopes: scopes) 
         
         self.breadcrumbs = self.breadcrumbs.map 
         {

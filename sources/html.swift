@@ -300,7 +300,7 @@ extension Page
         ]
         if !self.discussion.required.isEmpty 
         {
-            introduction.append(Markdown.html(tag: .p, attributes: ["class": "topic-required"], elements: self.discussion.required))
+            introduction.append(Markdown.html(tag: .p, attributes: ["class": "topic-relationships"], elements: self.discussion.required))
         }
         create(class: "introduction", section: introduction)
         
@@ -311,6 +311,11 @@ extension Page
             .init("div", ["class": "declaration-container"], 
                 [.init("code", ["class": "declaration"], Page.Declaration.html(self.declaration))])
         ]
+        
+        if !self.discussion.specializations.isEmpty 
+        {
+            discussion.append(Markdown.html(tag: .p, attributes: ["class": "topic-relationships"], elements: self.discussion.specializations))
+        }
         
         if !self.discussion.parameters.isEmpty
         {
@@ -367,7 +372,7 @@ extension Page
                     if !required.isEmpty
                     {
                         container.append(
-                            Markdown.html(tag: .p, attributes: ["class": "topic-symbol-required"], elements: required))
+                            Markdown.html(tag: .p, attributes: ["class": "topic-symbol-relationships"], elements: required))
                     }
                     right.append(.init("div", ["class": "topic-container-symbol"], container))
                 }
