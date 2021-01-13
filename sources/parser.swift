@@ -212,6 +212,16 @@ enum Token
             return !character.isNewline
         }
     } 
+    struct Alphanumeric:Parseable.TerminalClass
+    {
+        let character:Character 
+        
+        static 
+        func test(_ character:Character) -> Bool 
+        {
+            return character.isLetter || character.isNumber || character == "-"
+        }
+    } 
     struct BalancedContent:Parseable.TerminalClass
     {
         let character:Character 
@@ -1859,12 +1869,13 @@ enum Symbol
         }
     }
     
-    // TopicField          ::= '#' <Whitespace>? '[' <BalancedContent> * ']' <Whitespace>? '(' <BalancedContent> * ')' <Endline>
-    // TopicElementField   ::= '##' <Whitespace>? '(' ( <ASCIIDigit> * <Whitespace> ? ':' <Whitespace> ? ) ? <BalancedContent> * ')' <Endline>
+    // TopicKey            ::= [a-zA-Z0-9\-] *
+    // TopicField          ::= '#' <Whitespace>? '[' <BalancedContent> * ']' <Whitespace>? '(' <Whitespace> ? <TopicKey> ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
+    // TopicElementField   ::= '##' <Whitespace>? '(' <Whitespace> ? ( <ASCIIDigit> * <Whitespace> ? ':' <Whitespace> ? ) ? <TopicKey> <Whitespace> ? ')' <Endline>
     struct TopicField:Parseable 
     {
         let display:String, 
-            key:String 
+            keys:[String] 
         
         static 
         func parse(_ tokens:[Character], position:inout Int) throws -> Self
@@ -1875,10 +1886,17 @@ enum Symbol
                 display:[Token.BalancedContent] = .parse(tokens, position: &position), 
                 _:Token.Bracket.Right       = try .parse(tokens, position: &position), 
                 _:Token.Parenthesis.Left    = try .parse(tokens, position: &position), 
-                key:[Token.BalancedContent] =     .parse(tokens, position: &position), 
+                _:Symbol.Whitespace?        =     .parse(tokens, position: &position), 
+                head:[Token.Alphanumeric]   =     .parse(tokens, position: &position), 
+                body:[List<Symbol.Whitespace?, List<Token.Comma, List<Symbol.Whitespace?, [Token.Alphanumeric]>>>] =     
+                                                  .parse(tokens, position: &position), 
+                _:Symbol.Whitespace?        =     .parse(tokens, position: &position), 
                 _:Token.Parenthesis.Right   = try .parse(tokens, position: &position), 
-                _:Symbol.Endline            = try .parse(tokens, position: &position)
-            return .init(display: .init(display.map(\.character)), key: .init(key.map(\.character)))
+                _:Symbol.Endline            = try .parse(tokens, position: &position) 
+            let keys:[String] = [.init(head.map(\.character))] 
+            + 
+            body.map(\.body.body.body).map{ .init($0.map(\.character)) }
+            return .init(display: .init(display.map(\.character)), keys: keys)
         }
     }
     struct TopicElementField:Parseable
@@ -1893,9 +1911,11 @@ enum Symbol
                 _:Token.Hashtag             = try .parse(tokens, position: &position), 
                 _:Symbol.Whitespace?        =     .parse(tokens, position: &position), 
                 _:Token.Parenthesis.Left    = try .parse(tokens, position: &position), 
+                _:Symbol.Whitespace?        =     .parse(tokens, position: &position), 
                 rank:List<[Token.ASCIIDigit], List<Symbol.Whitespace?, List<Token.Colon, Symbol.Whitespace?>>>? = 
                                                   .parse(tokens, position: &position),
-                key:[Token.BalancedContent] =     .parse(tokens, position: &position), 
+                key:[Token.Alphanumeric]    =     .parse(tokens, position: &position), 
+                _:Symbol.Whitespace?        =     .parse(tokens, position: &position), 
                 _:Token.Parenthesis.Right   = try .parse(tokens, position: &position), 
                 _:Symbol.Endline            = try .parse(tokens, position: &position)
             let r:Int = Int.init(String.init(rank?.head.map(\.character) ?? [])) ?? Int.max

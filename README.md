@@ -135,10 +135,12 @@ ThrowsField         ::= 'throws' <Endline>
 RequirementField    ::= 'required' <Endline>
                       | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
 
+TopicKey            ::= [a-zA-Z0-9\-] *
 TopicField          ::= '#' <Whitespace>? '[' <BalancedContent> * ']' <Whitespace>? 
-                        '(' <BalancedContent> * ')' <Endline>
-TopicElementField   ::= '##' <Whitespace>? '(' ( <ASCIIDigit> * <Whitespace> ? ':' <Whitespace> ? ) ? 
-                        <BalancedContent> * ')' <Endline>
+                        '(' <Whitespace> ? <TopicKey> 
+                        ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
+TopicElementField   ::= '##' <Whitespace>? '(' <Whitespace> ? 
+                        ( <ASCIIDigit> * <Whitespace> ? ':' <Whitespace> ? ) ? <TopicKey> <Whitespace> ? ')' <Endline>
 
 ParagraphField      ::= <ParagraphLine> <ParagraphLine> *
 ParagraphLine       ::= '    ' ' ' * [^\s] . * '\n'

@@ -399,7 +399,7 @@ class Page
     }
     
     typealias TopicSymbol   = (signature:[Signature.Token], url:String, blurb:[Markdown.Element], required:[Markdown.Element])
-    typealias Topic         = (topic:String, key:String, symbols:[TopicSymbol])
+    typealias Topic         = (topic:String, keys:[String], symbols:[TopicSymbol])
     
     let label:Label 
     let name:String //name is not always last component of path 
@@ -1037,7 +1037,7 @@ extension Page
             // the symbols alphabetically, so we set the order to .max
             self.order              = ranks.isEmpty ? .max : order 
             
-            self.topics             = topics.map{ ($0.display, $0.key, []) }
+            self.topics             = topics.map{ ($0.display, $0.keys, []) }
             
             if  let (last, paragraphs):(Symbol.ParameterField, [Symbol.ParagraphField]) = 
                 parameters.last, 
@@ -1518,9 +1518,12 @@ extension Page.Binding
         for i:Int in self.page.topics.indices 
         {
             self.page.topics[i].symbols.append(contentsOf: 
-            global[self.page.topics[i].key, default: []].filter 
+                self.page.topics[i].keys.flatMap
             {
-                $0.url != self.url
+                global[$0, default: []].filter 
+                {
+                    $0.url != self.url
+                }
             })
         }
         let seen:Set<String> = .init(self.page.topics.flatMap{ $0.symbols.map(\.url) })
@@ -1610,7 +1613,7 @@ extension Page.Binding
         for builtin:(topic:String, symbols:[Page.TopicSymbol]) in 
         [
             (topic: "Enumeration cases",    symbols: topics.cases), 
-            (topic: "Associatedtypes",      symbols: topics.associatedtypes), 
+            (topic: "Associated types",      symbols: topics.associatedtypes), 
             (topic: "Initializers",         symbols: topics.initializers), 
             (topic: "Subscripts",           symbols: topics.subscripts), 
             (topic: "Type properties",      symbols: topics.typeProperties), 
@@ -1625,7 +1628,7 @@ extension Page.Binding
         ]
             where !builtin.symbols.isEmpty
         {
-            self.page.topics.append((builtin.topic, "$builtin", builtin.symbols))
+            self.page.topics.append((builtin.topic, ["$builtin"], builtin.symbols))
         }
         
         // move 'see also' to the end 
