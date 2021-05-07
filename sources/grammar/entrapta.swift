@@ -435,11 +435,13 @@ extension Grammar
         }
     }
     
-    // TypeField           ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? <Endline>
-    // TypeField.Keyword   ::= 'protocol'
-    //                       | 'class'
-    //                       | 'struct'
-    //                       | 'enum'
+    //  TypeField               ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? 
+    //                              ( <Whitespace> ? '=' <Whitespace> ? <Type> ) ? <Endline>
+    //  TypeField.Keyword       ::= 'protocol'
+    //                            | 'class'
+    //                            | 'struct'
+    //                            | 'enum'
+    //                            | 'typealias'
     struct TypeField:Parseable, CustomStringConvertible
     {
         enum Keyword:Parseable 
@@ -448,6 +450,7 @@ extension Grammar
             case `class` 
             case `struct` 
             case `enum`
+            case `typealias`
             
             init(parsing input:inout Input) throws
             {
@@ -468,6 +471,10 @@ extension Grammar
                 {
                     self = .enum 
                 }
+                else if let _:Token.Typealias   = .init(parsing: &input)
+                {
+                    self = .typealias 
+                }
                 else 
                 {
                     throw input.expected(Self.self, from: start)
@@ -478,14 +485,26 @@ extension Grammar
         let keyword:Keyword 
         let identifiers:[String]
         let generics:[String]
+        let target:SwiftType?
         
         init(parsing input:inout Input) throws
         {
             self.keyword                    = try .init(parsing: &input) 
             let _:Whitespace                = try .init(parsing: &input), 
                 identifiers:Identifiers     = try .init(parsing: &input), 
-                generics:TypeParameters?    =     .init(parsing: &input), 
-                _:Endline                   = try .init(parsing: &input)
+                generics:TypeParameters?    =     .init(parsing: &input)
+            if  let _:Whitespace?           =     .init(parsing: &input), 
+                let _:Token.Equals          = try .init(parsing: &input), 
+                let _:Whitespace?           =     .init(parsing: &input), 
+                let target:SwiftType        = try .init(parsing: &input) 
+            {
+                self.target = target 
+            }
+            else 
+            {
+                self.target = nil 
+            }
+            let _:Endline                   = try .init(parsing: &input)
             self.identifiers    = identifiers.identifiers 
             self.generics       = generics?.identifiers ?? []
         }
@@ -498,38 +517,7 @@ extension Grammar
                 keyword     : \(self.keyword)
                 identifiers : \(self.identifiers)
                 generics    : \(self.generics)
-            }
-            """
-        }
-    }
-    
-    // TypealiasField      ::= 'typealias' <Whitespace> <Identifiers> <Whitespace> ? '=' <Whitespace> ? <Type> <Endline>
-    struct TypealiasField:Parseable, CustomStringConvertible
-    {
-        let identifiers:[String]
-        let target:SwiftType
-        
-        init(parsing input:inout Input) throws
-        {
-            let _:Token.Typealias       = try .init(parsing: &input), 
-                _:Whitespace            = try .init(parsing: &input), 
-                identifiers:Identifiers = try .init(parsing: &input), 
-                _:Whitespace?           =     .init(parsing: &input), 
-                _:Token.Equals          = try .init(parsing: &input), 
-                _:Whitespace?           =     .init(parsing: &input), 
-                target:SwiftType        = try .init(parsing: &input), 
-                _:Endline               = try .init(parsing: &input)
-            self.identifiers    = identifiers.identifiers 
-            self.target         = target
-        }
-        
-        var description:String 
-        {
-            """
-            TypealiasField 
-            {
-                identifiers : \(self.identifiers)
-                target      : \(self.target)
+                target      : \(self.target.map(String.init(describing:)) ?? "nil")
             }
             """
         }
@@ -999,7 +987,6 @@ extension Grammar
         case function(FunctionField) 
         case member(MemberField) 
         case type(TypeField) 
-        case `typealias`(TypealiasField) 
         
         case implementation(ImplementationField) 
         case conformance(ConformanceField) 
@@ -1037,10 +1024,6 @@ extension Grammar
             else if let field:TypeField = .init(parsing: &input)
             {
                 self = .type(field)
-            }
-            else if let field:TypealiasField = .init(parsing: &input)
-            {
-                self = .typealias(field)
             }
             else if let field:ImplementationField = .init(parsing: &input)
             {

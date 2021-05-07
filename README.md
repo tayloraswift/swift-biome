@@ -83,11 +83,13 @@ MemberMutability        ::= '{' <Whitespace> ? 'get'
                             ( ( <Whitespace> 'nonmutating' ) ? <Whitespace> 'set' ) ? <Whitespace> ? 
                             '}'
 
-TypeField               ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? <Endline>
+TypeField               ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? 
+                            ( <Whitespace> ? '=' <Whitespace> ? <Type> ) ? <Endline>
 TypeField.Keyword       ::= 'protocol'
                           | 'class'
                           | 'struct'
                           | 'enum'
+                          | 'typealias'
   
 Type                ::= <UnwrappedType> '?' *
 UnwrappedType       ::= <NamedType>
@@ -111,7 +113,7 @@ CollectionType      ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespa
 ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
 
 
-TypealiasField      ::= 'typealias' <Whitespace> <Identifiers> <Whitespace> ? '=' <Whitespace> ? <Type> <Endline>
+
 
 ConformanceField    ::= ':' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
 

@@ -13,6 +13,7 @@ class Page
         case genericClass 
         case `protocol`
         case `typealias`
+        case genericTypealias
         
         case enumerationCase
         case initializer
@@ -443,7 +444,7 @@ class Page
         // "Required ..."
         case .initializer, .genericInitializer, .staticMethod, .genericStaticMethod, 
             .instanceMethod, .genericInstanceMethod, .staticProperty, .instanceProperty, 
-            .subscript, .associatedtype, .typealias:
+            .subscript, .associatedtype, .typealias, .genericTypealias:
             guard fields.conformances.isEmpty 
             else 
             {
@@ -768,7 +769,7 @@ extension Page
         }
     }
     static 
-    func print(wheres fields:Fields, declaration:inout [Declaration.Token]) 
+    func print(wheres fields:Fields, declaration:inout [Declaration.Token], locals:Set<String>) 
     {
         guard let constraints:Grammar.ConstraintsField = fields.constraints 
         else 
@@ -782,7 +783,8 @@ extension Page
         {
             (clause:Grammar.WhereClause) -> [Page.Declaration.Token] in 
             var tokens:[Page.Declaration.Token] = []
-            // strip links from lhs
+            // strip links from lhs, as it’s too difficult to explore all the 
+            // possible scopes their conformances provide
             tokens.append(contentsOf: Page.Declaration.tokenize(clause.subject).map 
             {
                 if case .type(let string, _) = $0 
@@ -798,12 +800,13 @@ extension Page
             {
             case .conforms(let protocols):
                 tokens.append(.punctuation(":"))
+                // protocol types cannot possibly refer to local generics
                 tokens.append(contentsOf: Page.Declaration.tokenize(.protocols(protocols)))
             case .equals(let type):
                 tokens.append(.whitespace)
                 tokens.append(.punctuation("=="))
                 tokens.append(.whitespace)
-                tokens.append(contentsOf: Page.Declaration.tokenize(type))
+                tokens.append(contentsOf: Page.Declaration.tokenize(type, locals: locals))
             }
             
             return tokens
@@ -1000,7 +1003,7 @@ extension Page
                     }
                     `throws` = field 
                 
-                case .subscript, .function, .member, .type, .typealias, .module:
+                case .subscript, .function, .member, .type, .module:
                     fatalError("only one header field per doccomnent allowed")
                     
                 case .separator:
@@ -1101,7 +1104,7 @@ extension Page.Binding
         let fields:Page.Fields = .init(fields, order: order)
         if fields.constraints != nil 
         {
-            print("warning: where fields are ignored in a subscript doccoment")
+            print("warning: where fields are ignored in a subscript doccomment")
         }
         
         let name:String = "[\(header.labels.map{ "\($0):" }.joined())]" 
@@ -1221,6 +1224,9 @@ extension Page.Binding
             declaration.append(contentsOf: tokens)
         }
         
+        // does not include `Self`, since that refers to the parent node 
+        let locals:Set<String> = .init(header.generics)
+        
         let name:String 
         if case .enumerationCase = label, header.labels.isEmpty, fields.parameters.isEmpty 
         {
@@ -1230,17 +1236,18 @@ extension Page.Binding
         {
             Page.print(function: fields, labels: header.labels, 
                 scheme: header.keyword == .case ? .associatedValues : .function, 
-                signature: &signature, declaration: &declaration, locals: .init(header.generics))
+                signature: &signature, declaration: &declaration, locals: locals)
             name    = "\(basename)(\(header.labels.map{ "\($0.variadic && $0.name == "_" ? "" : $0.name)\($0.variadic ? "..." : ""):" }.joined()))" 
         }
         
-        Page.print(wheres: fields, declaration: &declaration) 
+        Page.print(wheres: fields, declaration: &declaration, locals: locals) 
         
         let page:Page = .init(label: label, name: name, 
             signature:      signature, 
             declaration:    declaration, 
             fields:         fields, 
             path:           header.identifiers.dropLast() + [name])
+        // do not export locals, because this is a leaf node
         return .init(page, locals: [], keys: fields.keys, 
             rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
@@ -1253,15 +1260,15 @@ extension Page.Binding
         let fields:Page.Fields = .init(fields, order: order)
         if fields.constraints != nil 
         {
-            print("warning: where fields are ignored in a member doccoment")
+            print("warning: where fields are ignored in a member doccomment")
         }
         if !fields.parameters.isEmpty || fields.return != nil
         {
-            print("warning: parameter/return fields are ignored in a member doccoment")
+            print("warning: parameter/return fields are ignored in a member doccomment")
         }
         if fields.throws != nil
         {
-            print("warning: throws fields are ignored in a member doccoment")
+            print("warning: throws fields are ignored in a member doccomment")
         }
         
         var declaration:[Page.Declaration.Token] = Page.Declaration.tokenize(fields.attributes)
@@ -1364,50 +1371,48 @@ extension Page.Binding
         let fields:Page.Fields = .init(fields, order: order)
         if !fields.parameters.isEmpty || fields.return != nil
         {
-            print("warning: parameter/return fields are ignored in a type doccoment")
+            print("warning: parameter/return fields are ignored in a type doccomment")
         }
         if fields.throws != nil
         {
-            print("warning: throws fields are ignored in a type doccoment")
+            print("warning: throws fields are ignored in a type doccomment")
         }
         
         var declaration:[Page.Declaration.Token] = Page.Declaration.tokenize(fields.attributes)
         
         let name:String = header.identifiers.joined(separator: ".")
-        let label:Page.Label, 
-            keyword:String 
+        let label:Page.Label
         switch (header.keyword, header.generics) 
         {
         case (.protocol, []):
             label   = .protocol 
-            keyword = "protocol"
         case (.protocol, _):
-            fatalError("protocol cannot have generic parameters")
+            fatalError("protocol \(header.identifiers) cannot have generic parameters")
         
         case (.class, []):
             label   = .class 
-            keyword = "class"
         case (.class, _):
             label   = .genericClass 
-            keyword = "class"
         
         case (.struct, []):
             label   = .structure 
-            keyword = "struct"
         case (.struct, _):
             label   = .genericStructure 
-            keyword = "struct"
+        
         case (.enum, []):
             label   = .enumeration
-            keyword = "enum"
         case (.enum, _):
             label   = .genericEnumeration
-            keyword = "enum"
+        
+        case (.typealias, []):
+            label   = .typealias
+        case (.typealias, _):
+            label   = .genericTypealias
         }
-        var signature:[Page.Signature.Token] = [.text(keyword), .whitespace] + 
+        var signature:[Page.Signature.Token] = [.text("\(header.keyword)"), .whitespace] + 
             header.identifiers.map{ [.highlight($0)] }.joined(separator: [.punctuation(".")])
         
-        declaration.append(.keyword(keyword))
+        declaration.append(.keyword("\(header.keyword)"))
         declaration.append(.breakableWhitespace)
         declaration.append(.identifier(header.identifiers[header.identifiers.endIndex - 1]))
         if !header.generics.isEmpty
@@ -1426,6 +1431,9 @@ extension Page.Binding
             declaration.append(.punctuation(">"))
         }
         
+        let generics:Set<String>      = .init(header.generics), 
+            locals:Set<String>        = generics.union(["Self"])
+        
         // only put universal conformances in the declaration 
         let conformances:[[[String]]] = fields.conformances.compactMap 
         {
@@ -1440,9 +1448,31 @@ extension Page.Binding
                 .joined(separator: [.punctuation("&")])
             }.joined(separator: [.punctuation(","), .breakableWhitespace]))
         }
-        let inheritances:[[String]] = conformances.flatMap{ $0 }
+        var inheritances:[[String]] = conformances.flatMap{ $0 }
         
-        Page.print(wheres: fields, declaration: &declaration) 
+        switch (header.keyword, header.target) 
+        {
+        case (.typealias, let target?):
+            declaration.append(.whitespace)
+            declaration.append(.punctuation("="))
+            declaration.append(.breakableWhitespace)
+            // do not include `Self` in locals
+            declaration.append(contentsOf: Page.Declaration.tokenize(target, locals: generics))
+            
+            if case .named(let identifiers) = target 
+            {
+                inheritances.append(identifiers.map(\.identifier))
+            }
+            
+        case (.typealias, nil):
+            fatalError("typealias \(header.identifiers) requires a type target")
+        case (_, _?):
+            fatalError("type field \(header.identifiers) cannot have a type target")
+        case (_, nil):
+            break 
+        }
+        
+        Page.print(wheres: fields, declaration: &declaration, locals: locals) 
         
         let page:Page = .init(label: label, name: name, 
             signature:      signature, 
@@ -1450,65 +1480,7 @@ extension Page.Binding
             fields:         fields, 
             path:           header.identifiers, 
             inheritances:   inheritances)
-        let locals:Set<String>      = .init(header.generics + ["Self"])
         return .init(page, locals: locals, keys: fields.keys, 
-            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
-    }
-    
-    static 
-    func create(_ header:Grammar.TypealiasField, fields:ArraySlice<Grammar.Field>, 
-        order:Int, urlpattern:(prefix:String, suffix:String)) 
-        -> Self
-    {
-        let fields:Page.Fields = .init(fields, order: order)
-        if !fields.attributes.isEmpty 
-        {
-            print("warning: attribute fields are ignored in an associatedtype doccoment")
-        }
-        if fields.constraints != nil 
-        {
-            print("warning: where fields are ignored in an associatedtype doccoment")
-        }
-        if !fields.parameters.isEmpty || fields.return != nil
-        {
-            print("warning: parameter/return fields are ignored in an associatedtype doccoment")
-        }
-        if fields.throws != nil
-        {
-            print("warning: throws fields are ignored in an associatedtype doccoment")
-        }
-        
-        let name:String = header.identifiers.joined(separator: ".")
-        let signature:[Page.Signature.Token]        = [.text("typealias"), .whitespace] + 
-            header.identifiers.map{ [.highlight($0)] }.joined(separator: [.punctuation(".")])
-        var declaration:[Page.Declaration.Token]    = 
-        [
-            .keyword("typealias"), 
-            .whitespace,
-            .identifier(header.identifiers[header.identifiers.endIndex - 1])
-        ]
-        
-        declaration.append(.whitespace)
-        declaration.append(.punctuation("="))
-        declaration.append(.breakableWhitespace)
-        declaration.append(contentsOf: Page.Declaration.tokenize(header.target))
-        
-        let inheritances:[[String]]
-        switch header.target 
-        {
-        case .named(let identifiers):
-            inheritances = [identifiers.map(\.identifier)]
-        default:
-            inheritances = []
-        }
-        
-        let page:Page = .init(label: .typealias, name: name, 
-            signature:      signature, 
-            declaration:    declaration, 
-            fields:         fields, 
-            path:           header.identifiers, 
-            inheritances:   inheritances)
-        return .init(page, locals: [], keys: fields.keys, 
             rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
     
@@ -1586,7 +1558,7 @@ extension Page.Binding
                 topics.classes.append(symbol)
             case .protocol:
                 topics.protocols.append(symbol)
-            case .typealias:
+            case .typealias, .genericTypealias:
                 topics.typealiases.append(symbol)
             
             case .enumerationCase:
@@ -1821,6 +1793,7 @@ extension PageTree.Node
         }
         
         print("(PageTree.resolve(_:in:)): failed to resolve '\(debugPath)'")
+        print("note: searched in scopes \(scopes.map(\.payloads))")
         return nil
     }
     

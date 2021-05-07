@@ -63,8 +63,6 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
             pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
         case .type(let header)?:
             pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
-        case .typealias(let header)?:
-            pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
         default:
             print("warning unparsed doccomment '\(doccomment)'") 
         }
