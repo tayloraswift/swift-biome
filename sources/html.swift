@@ -168,7 +168,7 @@ extension Page.Declaration
             case .identifier(let text):
                 // if any of the characters are operator characters, consider 
                 // the identifier to be an operator 
-                if text.unicodeScalars.allSatisfy(isIdentifierScalar(_:))
+                if text.unicodeScalars.allSatisfy(Grammar.isIdentifierScalar(_:))
                 {
                     group.append(.init("span", ["class": "syntax-identifier"], text))
                 }
@@ -226,7 +226,7 @@ extension Page.Signature
                 case .highlight(let text):
                     // if any of the characters are operator characters, consider 
                     // the identifier to be an operator 
-                    if text.unicodeScalars.allSatisfy(isIdentifierScalar(_:))
+                    if text.unicodeScalars.allSatisfy(Grammar.isIdentifierScalar(_:))
                     {
                         group.append(.init("span", ["class": "signature-highlight"], text))
                     }
@@ -388,5 +388,177 @@ extension Page
         }
         
         return .init("main", [:], sections)
+    }
+}
+
+extension Markdown 
+{
+    enum Tag 
+    {
+        case triple 
+        case strong 
+        case em 
+        case code(count:Int) 
+        
+        case a 
+        case p
+        case sub 
+        case sup 
+    }
+    static 
+    func html(tag:Tag, attributes:[String: String], elements:[Element]) -> HTML.Tag
+    {
+        var stack:[(tag:Tag, attributes:[String: String], content:[HTML.Tag.Content])] = 
+            [(tag, attributes, [])]
+        for element:Element in elements 
+        {
+            switch element 
+            {
+            case .type: 
+                fatalError("unrendered markdown inline swift type")
+            case .symbol: 
+                fatalError("unrendered markdown symbol link")
+            
+            case .code(let tokens): 
+                stack[stack.endIndex - 1].content.append(.child(
+                    .init("code", [:], Page.Declaration.html(tokens))))
+            
+            /* case .symbol(let link):
+                stack[stack.endIndex - 1].content.append(.child(
+                    .init("code", [:], (link.paths.map(\.path).flatMap{ $0 } + link.suffix).joined(separator: ".")))) */
+            
+            case .link(let link):
+                var attributes:[String: String] = ["href": link.url, "target": "_blank"]
+                if !link.classes.isEmpty 
+                {
+                    attributes["class"] = link.classes.joined(separator: " ")
+                }
+                stack[stack.endIndex - 1].content.append(.child(
+                    Self.html(tag: .a, attributes: attributes, elements: link.text.map(Element.text(_:)))))
+            
+            case .sub(let text):
+                stack[stack.endIndex - 1].content.append(.child(
+                    Self.html(tag: .sub, attributes: [:], elements: text.map(Element.text(_:)))))
+            case .sup(let text):
+                stack[stack.endIndex - 1].content.append(.child(
+                    Self.html(tag: .sup, attributes: [:], elements: text.map(Element.text(_:)))))
+            
+            case .text(.newline):
+                stack[stack.endIndex - 1].content.append(.child(.init("br", [:], content: [])))
+            case .text(.wildcard(let c)):
+                stack[stack.endIndex - 1].content.append(.character(c))
+            
+            case .text(.star3):
+                switch stack.last
+                {
+                case (.triple, let attributes, let content)?:
+                    stack.removeLast()
+                    stack[stack.endIndex - 1].content.append(.child(
+                        .init("em", [:], 
+                        [
+                            .init("strong", attributes, content: content)
+                        ])))
+                case (.strong, let attributes, let content)?: // treat as '**' '*'
+                    stack.removeLast()
+                    stack[stack.endIndex - 1].content.append(.child(
+                        .init("strong", attributes, content: content)))
+                    stack.append((.em, [:], []))
+                case (.em, let attributes, let content)?: // treat as '*' '**'
+                    stack.removeLast()
+                    stack[stack.endIndex - 1].content.append(.child(
+                        .init("em", attributes, content: content)))
+                    stack.append((.strong, [:], []))
+                case (.code, _, _)?: // treat as raw text
+                    stack[stack.endIndex - 1].content.append(contentsOf: "***".map(HTML.Tag.Content.character(_:)))
+                default:
+                    stack.append((.triple, [:], []))
+                }
+            
+            case .text(.star2):
+                switch stack.last
+                {
+                case (.triple, let attributes, let content)?:
+                    stack.removeLast()
+                    stack.append((.em, attributes, [.child(.init("strong", [:], content: content))]))
+                case (.strong, let attributes, let content)?: 
+                    stack.removeLast()
+                    stack[stack.endIndex - 1].content.append(.child(
+                        .init("strong", attributes, content: content)))
+                case (.em, let attributes, let content)?: // treat as '*' '*'
+                    stack.removeLast()
+                    stack[stack.endIndex - 1].content.append(.child(
+                        .init("em", attributes, content: content)))
+                    stack.append((.em, [:], []))
+                case (.code, _, _)?: // treat as raw text
+                    stack[stack.endIndex - 1].content.append(contentsOf: "**".map(HTML.Tag.Content.character(_:)))
+                default:
+                    stack.append((.strong, [:], []))
+                }
+            
+            case .text(.star1):
+                switch stack.last
+                {
+                case (.triple, let attributes, let content)?: // **|*  *
+                    stack.removeLast()
+                    stack.append((.strong, attributes, [.child(.init("em", [:], content: content))]))
+                
+                case (.em, let attributes, let content)?: 
+                    stack.removeLast()
+                    stack[stack.endIndex - 1].content.append(.child(
+                        .init("em", attributes, content: content)))
+                case (.code, _, _)?: // treat as raw text
+                    stack[stack.endIndex - 1].content.append(.character("*"))
+                default:
+                    stack.append((.em, [:], []))
+                }
+            
+            case .text(.backtick(count: let count)):
+                switch stack.last 
+                {
+                case (.code(count: count), let attributes, let content)?:
+                    stack.removeLast()
+                    stack[stack.endIndex - 1].content.append(.child(
+                        .init("code", attributes, content: content)))
+                case (.code(count: _), _, _)?:
+                    stack[stack.endIndex - 1].content.append(contentsOf: repeatElement(.character("`"), count: count))
+                default:
+                    stack.append((.code(count: count), [:], []))
+                }
+            }
+        }
+        
+        // flatten stack (happens when there are unclosed delimiters)
+        while stack.count > 1
+        {
+            let (tag, _, content):(Tag, [String: String], [HTML.Tag.Content]) = stack.removeLast()
+            let plain:[Character] 
+            switch tag 
+            {
+            case .triple:
+                plain = ["*", "*", "*"]
+            case .strong:
+                plain = ["*", "*"]
+            case .em:
+                plain = ["*"]
+            case .code(count: let count):
+                plain = .init(repeating: "`", count: count)
+            default:
+                plain = []
+            }
+            stack[stack.endIndex - 1].content.append(contentsOf: plain.map(HTML.Tag.Content.character(_:)) + content)
+        }
+        switch tag 
+        {
+        case .p:
+            return .init("p", attributes, content: stack[stack.endIndex - 1].content)
+        case .a:
+            return .init("a", attributes, content: stack[stack.endIndex - 1].content)
+        case .sub:
+            return .init("sub", attributes, content: stack[stack.endIndex - 1].content)
+        case .sup:
+            return .init("sup", attributes, content: stack[stack.endIndex - 1].content)
+        default:
+            fatalError("unreachable")
+        }
     }
 }

@@ -102,7 +102,7 @@ class Page
         }
         
         static 
-        func tokenize(_ type:Symbol.SwiftType, locals:Set<String> = []) -> [Token] 
+        func tokenize(_ type:Grammar.SwiftType, locals:Set<String> = []) -> [Token] 
         {
             switch type 
             {
@@ -114,7 +114,7 @@ class Page
                     if      identifiers[1].identifier       == "Optional", 
                             identifiers[1].generics.count   == 1
                     {
-                        let element:Symbol.SwiftType    = identifiers[1].generics[0]
+                        let element:Grammar.SwiftType   = identifiers[1].generics[0]
                         let link:Link                   = .appleify(["Swift", "Optional"])
                         var tokens:[Token] = []
                         tokens.append(contentsOf: Self.tokenize(element, locals: locals))
@@ -124,7 +124,7 @@ class Page
                     else if identifiers[1].identifier       == "Array", 
                             identifiers[1].generics.count   == 1
                     {
-                        let element:Symbol.SwiftType    = identifiers[1].generics[0]
+                        let element:Grammar.SwiftType   = identifiers[1].generics[0]
                         let link:Link                   = .appleify(["Swift", "Array"])
                         var tokens:[Token] = []
                         tokens.append(.typePunctuation("[", link))
@@ -135,8 +135,8 @@ class Page
                     else if identifiers[1].identifier       == "Dictionary", 
                             identifiers[1].generics.count   == 2
                     {
-                        let key:Symbol.SwiftType    = identifiers[1].generics[0],
-                            value:Symbol.SwiftType  = identifiers[1].generics[1]
+                        let key:Grammar.SwiftType   = identifiers[1].generics[0],
+                            value:Grammar.SwiftType = identifiers[1].generics[1]
                         let link:Link               = .appleify(["Swift", "Dictionary"])
                         var tokens:[Token] = []
                         tokens.append(.typePunctuation("[", link))
@@ -164,7 +164,7 @@ class Page
                 
                 return .init(Link.link(identifiers.map{ ($0.identifier, $0.generics) }).map 
                 {
-                    (element:(component:(identifier:String, generics:[Symbol.SwiftType]), link:Link)) -> [Token] in 
+                    (element:(component:(identifier:String, generics:[Grammar.SwiftType]), link:Link)) -> [Token] in 
                     var tokens:[Token] = [.type(element.component.identifier, element.link)]
                     if !element.component.generics.isEmpty
                     {
@@ -181,7 +181,7 @@ class Page
                 tokens.append(.punctuation("("))
                 tokens.append(contentsOf: elements.map 
                 {
-                    (element:Symbol.LabeledType) -> [Token] in
+                    (element:Grammar.LabeledType) -> [Token] in
                     var tokens:[Token]  = []
                     if let label:String = element.label
                     {
@@ -196,7 +196,7 @@ class Page
             
             case .function(let type):
                 var tokens:[Token] = []
-                for attribute:Symbol.Attribute in type.attributes
+                for attribute:Grammar.Attribute in type.attributes
                 {
                     tokens.append(.keyword("\(attribute)"))
                     tokens.append(.breakableWhitespace)
@@ -204,9 +204,9 @@ class Page
                 tokens.append(.punctuation("("))
                 tokens.append(contentsOf: type.parameters.map 
                 {
-                    (parameter:Symbol.FunctionParameter) -> [Token] in
+                    (parameter:Grammar.FunctionParameter) -> [Token] in
                     var tokens:[Token]  = []
-                    for attribute:Symbol.Attribute in parameter.attributes
+                    for attribute:Grammar.Attribute in parameter.attributes
                     {
                         tokens.append(.keyword("\(attribute)"))
                         tokens.append(.whitespace)
@@ -247,10 +247,10 @@ class Page
         
         // includes trailing whitespace 
         static 
-        func tokenize(_ attributes:[Symbol.AttributeField]) -> [Token] 
+        func tokenize(_ attributes:[Grammar.AttributeField]) -> [Token] 
         {
             var tokens:[Page.Declaration.Token] = []
-            for attribute:Symbol.AttributeField in attributes 
+            for attribute:Grammar.AttributeField in attributes 
             {
                 switch attribute
                 {
@@ -465,18 +465,18 @@ class Page
             if  case .required? = fields.requirements.first, 
                 fields.requirements.count == 1 
             {
-                relationships = .parse("**Required.**") 
+                relationships = .init(parsing: "**Required.**") 
                 break 
             }
             if  case .defaulted(let conditions)? = fields.requirements.first, 
                 fields.requirements.count == 1, 
                 conditions.isEmpty 
             {
-                relationships = .parse("**Required.** Default implementation provided.") 
+                relationships = .init(parsing: "**Required.** Default implementation provided.") 
                 break 
             }
             
-            let conditions:[[Symbol.WhereClause]] = fields.requirements.map 
+            let conditions:[[Grammar.WhereClause]] = fields.requirements.map 
             {
                 guard case .defaulted(let conditions) = $0 
                 else 
@@ -495,12 +495,12 @@ class Page
             
             if conditions.count == 1 
             {
-                relationships = .parse("**Required.** Default implementation provided when \(Self.prose(conditions: conditions[0])).")
+                relationships = .init(parsing: "**Required.** Default implementation provided when \(Self.prose(conditions: conditions[0])).")
             }
             else 
             {
                 // render each condition on its own line 
-                relationships = .parse("**Required.** \(conditions.map{ "\\nDefault implementation provided when \(Self.prose(conditions: $0))." }.joined())")
+                relationships = .init(parsing: "**Required.** \(conditions.map{ "\\nDefault implementation provided when \(Self.prose(conditions: $0))." }.joined())")
             }
 
         
@@ -515,7 +515,7 @@ class Page
             }
             
             var sentences:[String] = []
-            if let implementation:Symbol.ImplementationField = fields.implementation
+            if let implementation:Grammar.ImplementationField = fields.implementation
             {
                 sentences.append("Implements requirement in [`\(implementation.conformance.joined(separator: "."))`].")
                 if !implementation.conditions.isEmpty 
@@ -524,7 +524,7 @@ class Page
                 }
             }
             // non-conditional conformances go straight into the type declaration 
-            for conformance:Symbol.ConformanceField in fields.conformances where !conformance.conditions.isEmpty 
+            for conformance:Grammar.ConformanceField in fields.conformances where !conformance.conditions.isEmpty 
             {
                 let conformances:String = Self.prose(separator: ",", list: conformance.conformances.map 
                 {
@@ -533,13 +533,13 @@ class Page
                 sentences.append("Conforms to \(conformances) when \(Self.prose(conditions: conformance.conditions)).")
             }
             
-            relationships = .parse(sentences.joined(separator: " "))
+            relationships = .init(parsing: sentences.joined(separator: " "))
         
         case .protocol, .enumerationCase, .framework: 
             relationships = [] 
         }
         
-        let specializations:[Markdown.Element] = .parse(fields.attributes.compactMap 
+        let specializations:[Markdown.Element] = .init(parsing: fields.attributes.compactMap 
         {
             guard case .specialized(let conditions) = $0 
             else 
@@ -574,11 +574,11 @@ class Page
     }
     
     private static 
-    func prose(conditions:[Symbol.WhereClause]) -> String 
+    func prose(conditions:[Grammar.WhereClause]) -> String 
     {
         return Self.prose(separator: ";", list: conditions.map 
         {
-            (clause:Symbol.WhereClause) in 
+            (clause:Grammar.WhereClause) in 
             switch clause.predicate
             {
             case .equals(let type):
@@ -770,7 +770,7 @@ extension Page
     static 
     func print(wheres fields:Fields, declaration:inout [Declaration.Token]) 
     {
-        guard let constraints:Symbol.ConstraintsField = fields.constraints 
+        guard let constraints:Grammar.ConstraintsField = fields.constraints 
         else 
         {
             return 
@@ -780,7 +780,7 @@ extension Page
         declaration.append(.whitespace)
         declaration.append(contentsOf: constraints.clauses.map 
         {
-            (clause:Symbol.WhereClause) -> [Page.Declaration.Token] in 
+            (clause:Grammar.WhereClause) -> [Page.Declaration.Token] in 
             var tokens:[Page.Declaration.Token] = []
             // strip links from lhs
             tokens.append(contentsOf: Page.Declaration.tokenize(clause.subject).map 
@@ -830,7 +830,7 @@ extension Page
         for ((label, variadic), (name, parameter, _)):
         (
             (String, Bool), 
-            (String, Symbol.FunctionParameter, [Symbol.ParagraphField])
+            (String, Grammar.FunctionParameter, [Grammar.ParagraphField])
         ) in zip(labels, fields.parameters)
         {
             var signature:[Page.Signature.Token]        = []
@@ -851,7 +851,7 @@ extension Page
                 }.joined(separator: [.whitespace]))
                 declaration.append(.punctuation(":"))
             }
-            for attribute:Symbol.Attribute in parameter.attributes
+            for attribute:Grammar.Attribute in parameter.attributes
             {
                 declaration.append(.keyword("\(attribute)"))
                 declaration.append(.whitespace)
@@ -887,7 +887,7 @@ extension Page
         signature.append(.punctuation(scheme.delimiter.1))
         declaration.append(.punctuation(")"))
         
-        if let `throws`:Symbol.ThrowsField = fields.throws
+        if let `throws`:Grammar.ThrowsField = fields.throws
         {
             signature.append(.whitespace)
             signature.append(.text("\(`throws`)"))
@@ -895,7 +895,7 @@ extension Page
             declaration.append(.keyword("\(`throws`)"))
         }
         
-        if let type:Symbol.SwiftType = fields.return?.type 
+        if let type:Grammar.SwiftType = fields.return?.type 
         {
             signature.append(.whitespace)
             signature.append(.punctuation("->"))
@@ -914,43 +914,43 @@ extension Page
 {
     struct Fields
     {
-        let conformances:[Symbol.ConformanceField], 
-            implementation:Symbol.ImplementationField?, 
-            constraints:Symbol.ConstraintsField?, 
-            attributes:[Symbol.AttributeField], 
-            paragraphs:[Symbol.ParagraphField],
-            `throws`:Symbol.ThrowsField?, 
-            requirements:[Symbol.RequirementField]
+        let conformances:[Grammar.ConformanceField], 
+            implementation:Grammar.ImplementationField?, 
+            constraints:Grammar.ConstraintsField?, 
+            attributes:[Grammar.AttributeField], 
+            paragraphs:[Grammar.ParagraphField],
+            `throws`:Grammar.ThrowsField?, 
+            requirements:[Grammar.RequirementField]
         let keys:Set<Page.Binding.Key>, 
             rank:Int, 
             order:Int, 
             topics:[Page.Topic]
-        let parameters:[(name:String, type:Symbol.FunctionParameter, paragraphs:[Symbol.ParagraphField])], 
-            `return`:(type:Symbol.SwiftType, paragraphs:[Symbol.ParagraphField])?
+        let parameters:[(name:String, type:Grammar.FunctionParameter, paragraphs:[Grammar.ParagraphField])], 
+            `return`:(type:Grammar.SwiftType, paragraphs:[Grammar.ParagraphField])?
         
-        var blurb:Symbol.ParagraphField?
+        var blurb:Grammar.ParagraphField?
         {
             self.paragraphs.first
         }
-        var discussion:ArraySlice<Symbol.ParagraphField> 
+        var discussion:ArraySlice<Grammar.ParagraphField> 
         {
             self.paragraphs.dropFirst()
         }
         
-        init<S>(_ fields:S, order:Int) where S:Sequence, S.Element == Symbol.Field 
+        init<S>(_ fields:S, order:Int) where S:Sequence, S.Element == Grammar.Field 
         {
-            var conformances:[Symbol.ConformanceField]          = [], 
-                requirements:[Symbol.RequirementField]          = [], 
-                attributes:[Symbol.AttributeField]              = [], 
-                paragraphs:[Symbol.ParagraphField]              = [],
-                topics:[Symbol.TopicField]                      = [], 
-                keys:[Symbol.TopicElementField]                 = []
-            var `throws`:Symbol.ThrowsField?, 
-                constraints:Symbol.ConstraintsField?,
-                implementation:Symbol.ImplementationField?
-            var parameters:[(parameter:Symbol.ParameterField, paragraphs:[Symbol.ParagraphField])] = []
+            var conformances:[Grammar.ConformanceField]          = [], 
+                requirements:[Grammar.RequirementField]          = [], 
+                attributes:[Grammar.AttributeField]              = [], 
+                paragraphs:[Grammar.ParagraphField]              = [],
+                topics:[Grammar.TopicField]                      = [], 
+                keys:[Grammar.TopicElementField]                 = []
+            var `throws`:Grammar.ThrowsField?, 
+                constraints:Grammar.ConstraintsField?,
+                implementation:Grammar.ImplementationField?
+            var parameters:[(parameter:Grammar.ParameterField, paragraphs:[Grammar.ParagraphField])] = []
             
-            for field:Symbol.Field in fields
+            for field:Grammar.Field in fields
             {
                 switch field 
                 {
@@ -1018,13 +1018,13 @@ extension Page
             
             self.keys               = .init(keys.compactMap
             { 
-                (element:Symbol.TopicElementField) in 
+                (element:Grammar.TopicElementField) in 
                 element.key.map{ .init($0, rank: element.rank, order: order) } 
             })
             // collect anonymous topic element fields (of which there should be at most 1)
             let ranks:[Int]         = keys.compactMap 
             {
-                (element:Symbol.TopicElementField) in 
+                (element:Grammar.TopicElementField) in 
                 element.key == nil ? element.rank : nil 
             }
             guard ranks.count < 2 
@@ -1039,7 +1039,7 @@ extension Page
             
             self.topics             = topics.map{ ($0.display, $0.keys, []) }
             
-            if  let (last, paragraphs):(Symbol.ParameterField, [Symbol.ParagraphField]) = 
+            if  let (last, paragraphs):(Grammar.ParameterField, [Grammar.ParagraphField]) = 
                 parameters.last, 
                 case .return = last.name
             {
@@ -1078,7 +1078,7 @@ extension Page.Binding
         self.page.overload = overloads 
     }
     static 
-    func create(_ header:Symbol.ModuleField, fields:ArraySlice<Symbol.Field>, 
+    func create(_ header:Grammar.ModuleField, fields:ArraySlice<Grammar.Field>, 
         order:Int, urlpattern:(prefix:String, suffix:String)) 
         -> Self
     {
@@ -1094,7 +1094,7 @@ extension Page.Binding
     }
     
     static 
-    func create(_ header:Symbol.SubscriptField, fields:ArraySlice<Symbol.Field>, 
+    func create(_ header:Grammar.SubscriptField, fields:ArraySlice<Grammar.Field>, 
         order:Int, urlpattern:(prefix:String, suffix:String)) 
         -> Self
     {
@@ -1142,7 +1142,7 @@ extension Page.Binding
             rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
     static 
-    func create(_ header:Symbol.FunctionField, fields:ArraySlice<Symbol.Field>, 
+    func create(_ header:Grammar.FunctionField, fields:ArraySlice<Grammar.Field>, 
         order:Int, urlpattern:(prefix:String, suffix:String)) 
         -> Self 
     {
@@ -1246,7 +1246,7 @@ extension Page.Binding
     }
     
     static 
-    func create(_ header:Symbol.MemberField, fields:ArraySlice<Symbol.Field>, 
+    func create(_ header:Grammar.MemberField, fields:ArraySlice<Grammar.Field>, 
         order:Int, urlpattern:(prefix:String, suffix:String)) 
         -> Self
     {
@@ -1324,7 +1324,7 @@ extension Page.Binding
             declaration.append(.punctuation(":"))
             declaration.append(contentsOf: type)
             
-            if let mutability:Symbol.MemberMutability = header.mutability 
+            if let mutability:Grammar.MemberMutability = header.mutability 
             {
                 declaration.append(.breakableWhitespace)
                 declaration.append(.punctuation("{"))
@@ -1357,7 +1357,7 @@ extension Page.Binding
     }
     
     static 
-    func create(_ header:Symbol.TypeField, fields:ArraySlice<Symbol.Field>, 
+    func create(_ header:Grammar.TypeField, fields:ArraySlice<Grammar.Field>, 
         order:Int, urlpattern:(prefix:String, suffix:String)) 
         -> Self
     {
@@ -1384,10 +1384,10 @@ extension Page.Binding
         case (.protocol, _):
             fatalError("protocol cannot have generic parameters")
         
-        case (.class, []), (.finalClass, []):
+        case (.class, []):
             label   = .class 
             keyword = "class"
-        case (.class, _), (.finalClass, _):
+        case (.class, _):
             label   = .genericClass 
             keyword = "class"
         
@@ -1456,7 +1456,7 @@ extension Page.Binding
     }
     
     static 
-    func create(_ header:Symbol.TypealiasField, fields:ArraySlice<Symbol.Field>, 
+    func create(_ header:Grammar.TypealiasField, fields:ArraySlice<Grammar.Field>, 
         order:Int, urlpattern:(prefix:String, suffix:String)) 
         -> Self
     {

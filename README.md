@@ -42,41 +42,53 @@ entrapta sources/*.swift
 The full syntax is this:
 
 ```
-Whitespace          ::= ' ' ' ' *
-Endline             ::= ' ' * '\n'
-Identifier          ::= <Swift Identifier Head> <Swift Identifier Character> *
-EncapsulatedOperator::= '(' <Swift Operator Head> <Swift Operator Character> * ')'
+Whitespace              ::= ' ' ' ' *
+Endline                 ::= ' ' * '\n'
+Identifier              ::= <Swift Identifier Head> <Swift Identifier Character> *
+EncapsulatedOperator    ::= '(' <Swift Operator Head> <Swift Operator Character> * ')'
 
-ModuleField         ::= 'module' <Whitespace> <Identifier> <Endline>
+ModuleField             ::= <ModuleField.Keyword> <Whitespace> <Identifier> <Endline>
+ModuleField.Keyword     ::= 'module'
+                          | 'plugin'
 
-FunctionField       ::= <FunctionKeyword> <Whitespace> <Identifiers> <TypeParameters> ? '?' ? 
-                        '(' ( <FunctionLabel> ':' ) * ')' <Endline>
-                      | 'case' <Whitespace> <Identifiers> <Endline>
-FunctionKeyword     ::= 'init'
-                      | 'func'
-                      | 'mutating' <Whitespace> 'func'
-                      | 'static' <Whitespace> 'func'
-                      | 'case' 
-                      | 'indirect' <Whitespace> 'case' 
-FunctionLabel       ::= <Identifier> 
-                      | <Identifier> ? '...'
-Identifiers         ::= <Identifier> ( '.' <Identifier> ) * ( '.' <EncapsulatedOperator> ) ?
-TypeParameters      ::= '<' <Whitespace> ? <Identifier> <Whitespace> ? 
-                        ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * '>'
+FunctionField           ::= <FunctionField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? '?' ? 
+                            '(' ( <FunctionField.Label> ':' ) * ')' <Endline>
+                          | 'case' <Whitespace> <Identifiers> <Endline>
+FunctionField.Keyword   ::= 'init'
+                          | 'func'
+                          | 'mutating' <Whitespace> 'func'
+                          | 'static' <Whitespace> 'func'
+                          | 'case' 
+                          | 'indirect' <Whitespace> 'case' 
+FunctionField.Label     ::= <Identifier> 
+                          | <Identifier> ? '...'
+Identifiers             ::= <Identifier> ( '.' <Identifier> ) * ( '.' <EncapsulatedOperator> ) ?
 
-SubscriptField      ::= 'subscript' <Whitespace> <Identifiers> '[' ( <Identifier> ':' ) * ']' 
-                        <Whitespace> ? <MemberMutability> <Endline> 
+TypeParameters          ::= '<' <Whitespace> ? 
+                            <Identifier> <Whitespace> ? ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * 
+                            '>'
 
-MemberField         ::= <MemberKeyword> <Whitespace> <Identifiers> ( <Whitespace> ? ':' <Whitespace> ? <Type> ) ? 
-                        ( <Whitespace> ? <MemberMutability> ) ? <Endline> 
-MemberKeyword       ::= 'let'
-                      | 'var'
-                      | 'static' <Whitespace> 'let'
-                      | 'static' <Whitespace> 'var'
-                      | 'associatedtype'
-MemberMutability    ::= '{' <Whitespace> ? 'get' ( ( <Whitespace> 'nonmutating' ) ? <Whitespace> 'set' ) ? 
-                        <Whitespace> ? '}'
+SubscriptField          ::= 'subscript' <Whitespace> <Identifiers> '[' ( <Identifier> ':' ) * ']' 
+                            <Whitespace> ? <MemberMutability> <Endline> 
 
+MemberField             ::= <MemberField.Keyword> <Whitespace> <Identifiers> 
+                            ( <Whitespace> ? ':' <Whitespace> ? <Type> ) ? 
+                            ( <Whitespace> ? <MemberMutability> ) ? <Endline> 
+MemberField.Keyword     ::= 'let'
+                          | 'var'
+                          | 'static' <Whitespace> 'let'
+                          | 'static' <Whitespace> 'var'
+                          | 'associatedtype'
+MemberMutability        ::= '{' <Whitespace> ? 'get' 
+                            ( ( <Whitespace> 'nonmutating' ) ? <Whitespace> 'set' ) ? <Whitespace> ? 
+                            '}'
+
+TypeField               ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? <Endline>
+TypeField.Keyword       ::= 'protocol'
+                          | 'class'
+                          | 'struct'
+                          | 'enum'
+  
 Type                ::= <UnwrappedType> '?' *
 UnwrappedType       ::= <NamedType>
                       | <CompoundType>
@@ -98,12 +110,6 @@ Attribute           ::= '@' <Identifier>
 CollectionType      ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']'
 ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
 
-TypeField           ::= <TypeKeyword> <Whitespace> <Identifiers> <TypeParameters> ? <Endline>
-TypeKeyword         ::= 'protocol'
-                      | 'class'
-                      | 'final' <Whitespace> 'class'
-                      | 'struct'
-                      | 'enum'
 
 TypealiasField      ::= 'typealias' <Whitespace> <Identifiers> <Whitespace> ? '=' <Whitespace> ? <Type> <Endline>
 

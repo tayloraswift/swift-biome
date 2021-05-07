@@ -11,7 +11,7 @@ enum Options
 
 func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix:String), github:String, project:String, theme:String, verbose:Bool)
 {
-    var doccomments:[[Character]] = [] 
+    var doccomments:[String] = [] 
     for path:String in sources 
     {
         guard let contents:String = File.source(path: path) 
@@ -20,26 +20,23 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
             continue 
         }
         
-        var doccomment:[Character] = []
-        for line in contents.split(separator: "\n", omittingEmptySubsequences: false)
+        var doccomment:String = ""
+        for line:Substring in contents.split(separator: "\n", omittingEmptySubsequences: false)
         {
-            let line:[Character] = .init(line.drop{ $0.isWhitespace && !$0.isNewline })
-            if line.starts(with: ["/", "/", "/"]) 
+            let line:Substring = line.drop{ $0.isWhitespace && !$0.isNewline }
+            if line.starts(with: "/// ")
             {
-                if line.count > 3, line[3] == " " 
-                {
-                    doccomment.append(contentsOf: line.dropFirst(4))
-                }
-                else 
-                {
-                    doccomment.append(contentsOf: line.dropFirst(3))
-                }
-                doccomment.append("\n")
+                doccomment += "\(line.dropFirst(4))\n"
+            } 
+            else if line.starts(with: "///"), 
+                    line.dropFirst(3).allSatisfy(\.isWhitespace)
+            {
+                doccomment += "\n"
             }
             else if !doccomment.isEmpty
             {
                 doccomments.append(doccomment)
-                doccomment = []
+                doccomment = ""
             }
         }
         
@@ -50,10 +47,10 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
     }
     
     var pages:[Page.Binding] = []
-    for (i, doccomment):(Int, [Character]) in doccomments.enumerated()
+    for (i, doccomment):(Int, String) in doccomments.enumerated()
     {
-        let fields:[Symbol.Field]           = [Symbol.Field].parse(doccomment) 
-        let body:ArraySlice<Symbol.Field>   = fields.dropFirst()
+        let fields:[Grammar.Field]          = .init(parsing: doccomment) 
+        let body:ArraySlice<Grammar.Field>  = fields.dropFirst()
         switch fields.first 
         {
         case .module(let header)?:
@@ -69,7 +66,7 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
         case .typealias(let header)?:
             pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
         default:
-            print("warning unparsed doccoment '\(String.init(doccomment))'") 
+            print("warning unparsed doccomment '\(doccomment)'") 
         }
     }
     
