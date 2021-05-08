@@ -104,6 +104,7 @@ WherePredicate          ::= ':' <Whitespace> ? <ProtocolCompositionType>
 AttributeField          ::= '@' <Whitespace> ? <DeclarationAttribute> <Endline>
 DeclarationAttribute    ::= 'frozen'
                           | 'inlinable'
+                          | 'discardableResult'
                           | 'propertyWrapper'
                           | 'specialized' <Whitespace> <WhereClauses>
                           | ':'  <Whitespace> ? <Type>

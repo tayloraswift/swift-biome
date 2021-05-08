@@ -494,9 +494,9 @@ extension Grammar
                 identifiers:Identifiers     = try .init(parsing: &input), 
                 generics:TypeParameters?    =     .init(parsing: &input)
             if  let _:Whitespace?           =     .init(parsing: &input), 
-                let _:Token.Equals          = try .init(parsing: &input), 
+                let _:Token.Equals          =     .init(parsing: &input), 
                 let _:Whitespace?           =     .init(parsing: &input), 
-                let target:SwiftType        = try .init(parsing: &input) 
+                let target:SwiftType        =     .init(parsing: &input) 
             {
                 self.target = target 
             }
@@ -667,6 +667,7 @@ extension Grammar
     //  AttributeField      ::= '@' <Whitespace> ? <DeclarationAttribute> <Endline>
     //  DeclarationAttribute::= 'frozen'
     //                        | 'inlinable'
+    //                        | 'discardableResult'
     //                        | 'propertyWrapper'
     //                        | 'specialized' <Whitespace> <WhereClauses>
     //                        | ':'  <Whitespace> ? <Type>
@@ -685,6 +686,12 @@ extension Grammar
             let token:String = "inlinable"
         }
         private 
+        struct DiscardableResult:Parseable.Terminal 
+        {
+            static 
+            let token:String = "discardableResult"
+        }
+        private 
         struct PropertyWrapper:Parseable.Terminal 
         {
             static 
@@ -699,7 +706,8 @@ extension Grammar
         
         case frozen 
         case inlinable 
-        case wrapper
+        case discardableResult 
+        case propertyWrapper
         case specialized(WhereClauses)
         case wrapped(SwiftType)
         
@@ -717,10 +725,14 @@ extension Grammar
             {
                 self = .inlinable 
             }
+            else if let _:List<DiscardableResult, Endline> = .init(parsing: &input)
+            {
+                self = .discardableResult
+            }
             else if let _:List<PropertyWrapper, Endline> = 
                 .init(parsing: &input)
             {
-                self = .wrapper 
+                self = .propertyWrapper
             }
             else if let specialized:List<Specialized, List<Whitespace, List<WhereClauses, Endline>>> = 
                 .init(parsing: &input)

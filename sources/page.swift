@@ -255,14 +255,8 @@ class Page
             {
                 switch attribute
                 {
-                case .frozen:
-                    tokens.append(.keyword("@frozen"))
-                    tokens.append(.breakableWhitespace)
-                case .inlinable:
-                    tokens.append(.keyword("@inlinable"))
-                    tokens.append(.breakableWhitespace)
-                case .wrapper:
-                    tokens.append(.keyword("@propertyWrapper"))
+                case .frozen, .inlinable, .discardableResult, .propertyWrapper:
+                    tokens.append(.keyword("@\(attribute)"))
                     tokens.append(.breakableWhitespace)
                 case .wrapped(let wrapper):
                     tokens.append(.keyword("@"))
