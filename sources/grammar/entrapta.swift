@@ -910,6 +910,7 @@ extension Grammar
             if      let _:List<Required, Endline>   = .init(parsing: &input)
             {
                 self = .required
+                return 
             }
             else if let _:Defaulted = .init(parsing: &input)
             {
@@ -918,6 +919,7 @@ extension Grammar
                 if let _:Endline = .init(parsing: &input) 
                 {
                     self = .defaulted(conditions?.body.clauses ?? [])
+                    return
                 }
             }
             throw input.expected(Self.self, from: start)

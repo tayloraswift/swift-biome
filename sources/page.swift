@@ -787,13 +787,8 @@ extension Page
     }
     
     static 
-    func print(wheres fields:Fields, declaration:inout [Declaration.Token], locals:Set<String>) 
+    func print(constraints:Grammar.ConstraintsField, declaration:inout [Declaration.Token], locals:Set<String>) 
     {
-        guard let constraints:Grammar.ConstraintsField = fields.constraints 
-        else 
-        {
-            return 
-        }
         declaration.append(.breakableWhitespace)
         declaration.append(.keyword("where"))
         declaration.append(.whitespace)
@@ -1269,7 +1264,10 @@ extension Page.Binding
             name    = "\(basename)(\(header.labels.map{ "\($0.variadic && $0.name == "_" ? "" : $0.name)\($0.variadic ? "..." : ""):" }.joined()))" 
         }
         
-        Page.print(wheres: fields, declaration: &declaration, locals: locals) 
+        if let constraints:Grammar.ConstraintsField = fields.constraints 
+        {
+            Page.print(constraints: constraints, declaration: &declaration, locals: locals) 
+        }
         
         let page:Page = .init(label: label, name: name, 
             signature:      signature, 
@@ -1287,10 +1285,6 @@ extension Page.Binding
         -> Self
     {
         let fields:Page.Fields = .init(fields, order: order)
-        if fields.constraints != nil 
-        {
-            print("warning: where fields are ignored in a member doccomment")
-        }
         if !fields.parameters.isEmpty || fields.return != nil
         {
             print("warning: parameter/return fields are ignored in a member doccomment")
@@ -1391,6 +1385,18 @@ extension Page.Binding
                 }
                 declaration.append(.whitespace)
                 declaration.append(.punctuation("}"))
+            }
+        }
+        
+        if let constraints:Grammar.ConstraintsField = fields.constraints 
+        {
+            if case .associatedtype = header.keyword
+            {
+                Page.print(constraints: constraints, declaration: &declaration, locals: [name]) 
+            }
+            else 
+            {
+                print("warning: where fields are ignored in a non-`associatedtype` member doccomment")
             }
         }
         
@@ -1528,7 +1534,10 @@ extension Page.Binding
             break 
         }
         
-        Page.print(wheres: fields, declaration: &declaration, locals: locals) 
+        if let constraints:Grammar.ConstraintsField = fields.constraints
+        {
+            Page.print(constraints: constraints, declaration: &declaration, locals: locals) 
+        }
         
         let page:Page = .init(label: label, name: name, 
             signature:      signature, 
