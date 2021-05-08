@@ -451,10 +451,15 @@ class Page
                 fallthrough 
             }
             
-            guard fields.implementation == nil 
+            guard fields.implementations.isEmpty
             else 
             {
                 fatalError("member '\(name)' cannot have both a requirement field and implementations fields.")
+            }
+            guard fields.extensions.isEmpty
+            else 
+            {
+                fatalError("member '\(name)' cannot have both a requirement field and extension fields.")
             }
             
             if  case .required? = fields.requirements.first, 
@@ -510,7 +515,11 @@ class Page
             }
             
             var sentences:[String] = []
-            if let implementation:Grammar.ImplementationField = fields.implementation
+            for `extension`:Grammar.ExtensionField in fields.extensions
+            {
+                sentences.append("Available when \(Self.prose(conditions: `extension`.conditions)).")
+            }
+            for implementation:Grammar.ImplementationField in fields.implementations
             {
                 sentences.append("Implements requirement in [`\(implementation.conformance.joined(separator: "."))`].")
                 if !implementation.conditions.isEmpty 
@@ -927,7 +936,8 @@ extension Page
     struct Fields
     {
         let conformances:[Grammar.ConformanceField], 
-            implementation:Grammar.ImplementationField?, 
+            implementations:[Grammar.ImplementationField], 
+            extensions:[Grammar.ExtensionField], 
             constraints:Grammar.ConstraintsField?, 
             attributes:[Grammar.AttributeField], 
             paragraphs:[Grammar.ParagraphField],
@@ -952,16 +962,17 @@ extension Page
         
         init<S>(_ fields:S, order:Int) where S:Sequence, S.Element == Grammar.Field 
         {
-            var conformances:[Grammar.ConformanceField]          = [], 
-                requirements:[Grammar.RequirementField]          = [], 
-                attributes:[Grammar.AttributeField]              = [], 
-                paragraphs:[Grammar.ParagraphField]              = [],
-                topics:[Grammar.TopicField]                      = [], 
-                keys:[Grammar.TopicElementField]                 = []
+            var conformances:[Grammar.ConformanceField]         = [], 
+                implementations:[Grammar.ImplementationField]   = [],
+                extensions:[Grammar.ExtensionField]             = [], 
+                requirements:[Grammar.RequirementField]         = [], 
+                attributes:[Grammar.AttributeField]             = [], 
+                paragraphs:[Grammar.ParagraphField]             = [],
+                topics:[Grammar.TopicField]                     = [], 
+                keys:[Grammar.TopicElementField]                = []
             var `throws`:Grammar.ThrowsField?, 
                 dispatch:Grammar.DispatchField?,
-                constraints:Grammar.ConstraintsField?,
-                implementation:Grammar.ImplementationField?
+                constraints:Grammar.ConstraintsField?
             var parameters:[(parameter:Grammar.ParameterField, paragraphs:[Grammar.ParagraphField])] = []
             
             for field:Grammar.Field in fields
@@ -972,16 +983,13 @@ extension Page
                     attributes.append(field)
                 case .conformance   (let field):
                     conformances.append(field)
+                case .implementation(let field):
+                    implementations.append(field)
+                case .extension     (let field):
+                    extensions.append(field)
                 case .requirement   (let field):
                     requirements.append(field)
                 
-                case .implementation(let field):
-                    guard implementation == nil 
-                    else 
-                    {
-                        fatalError("only one implementation field per doccomnent allowed")
-                    }
-                    implementation = field
                 case .constraints   (let field):
                     guard constraints == nil 
                     else 
@@ -1030,8 +1038,9 @@ extension Page
             }
             
             self.conformances       = conformances
+            self.implementations    = implementations
+            self.extensions         = extensions
             self.requirements       = requirements
-            self.implementation     = implementation
             self.constraints        = constraints
             self.attributes         = attributes
             self.paragraphs         = paragraphs

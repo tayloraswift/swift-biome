@@ -571,6 +571,21 @@ extension Grammar
         }
     }
     
+    //  ExtensionField ::= '?' <Whitespace> ? <WhereClauses> <Endline>
+    struct ExtensionField:Parseable 
+    {
+        let conditions:[WhereClause]
+        
+        init(parsing input:inout Input) throws
+        {
+            let _:Token.Question        = try .init(parsing: &input),
+                _:Whitespace?           =     .init(parsing: &input), 
+                clauses:WhereClauses    = try .init(parsing: &input), 
+                _:Endline               = try .init(parsing: &input)
+            self.conditions = clauses.clauses
+        }
+    }
+    
     //  ConstraintsField    ::= <WhereClauses> <Endline>
     //  WhereClauses        ::= 'where' <Whitespace> <WhereClause> ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
     //  WhereClause         ::= <Identifiers> <Whitespace> ? <WherePredicate>
@@ -1039,6 +1054,7 @@ extension Grammar
         
         case implementation(ImplementationField) 
         case conformance(ConformanceField) 
+        case `extension`(ExtensionField) 
         case constraints(ConstraintsField) 
         case attribute(AttributeField) 
         case `throws`(ThrowsField) 
@@ -1082,6 +1098,10 @@ extension Grammar
             else if let field:ConformanceField = .init(parsing: &input)
             {
                 self = .conformance(field)
+            }
+            else if let field:ExtensionField = .init(parsing: &input)
+            {
+                self = .extension(field)
             }
             else if let field:ConstraintsField = .init(parsing: &input)
             {

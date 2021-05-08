@@ -91,11 +91,13 @@ TypeField.Keyword       ::= 'protocol'
                           | 'enum'
                           | 'typealias'
 
+
+ExtensionField          ::= '?' <Whitespace> ? <WhereClauses> <Endline>
+ImplementationField     ::= '?:' <Whitespace> ? <Identifiers> ( <Whitespace> <WhereClauses> ) ? <Endline>
 ConformanceField        ::= ':' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
 
-ImplementationField     ::= '?:' <Whitespace> ? <Identifiers> ( <Whitespace> <WhereClauses> ) ? <Endline>
-
 ConstraintsField        ::= <WhereClauses> <Endline>
+
 WhereClauses            ::= 'where' <Whitespace> <WhereClause> ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
 WhereClause             ::= <Identifiers> <Whitespace> ? <WherePredicate>
 WherePredicate          ::= ':' <Whitespace> ? <ProtocolCompositionType> 
