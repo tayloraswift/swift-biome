@@ -443,11 +443,11 @@ extension Grammar.Token
         static 
         let token:String = "where"
     }
-    /* struct Override:Grammar.Parseable.Terminal
+    struct Override:Grammar.Parseable.Terminal
     {
         static 
         let token:String = "override"
-    }  */
+    } 
     
     enum Identifier 
     {

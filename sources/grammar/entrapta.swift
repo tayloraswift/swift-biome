@@ -820,6 +820,43 @@ extension Grammar
         }
     }
     
+    // DispatchField       ::= <DispatchField.Keyword> ( <Whitespace> <DispatchField.Keyword> ) * <Endline>
+    struct DispatchField:Parseable 
+    {
+        enum Keyword:Parseable, Hashable, CaseIterable 
+        {
+            case `final`
+            case `override`
+            
+            init(parsing input:inout Input) throws
+            {
+                let start:String.Index          = input.index 
+                if      let _:Token.Final       = .init(parsing: &input)
+                {
+                    self = .final
+                }
+                else if let _:Token.Override    = .init(parsing: &input)
+                {
+                    self = .override 
+                }
+                else 
+                {
+                    throw input.expected(Self.self, from: start)
+                }
+            }
+        }
+        
+        let keywords:Set<Keyword>
+        
+        init(parsing input:inout Input) throws
+        {
+            let head:Keyword                        = try .init(parsing: &input), 
+                body:[List<Whitespace, Keyword>]    =     .init(parsing: &input), 
+                _:Endline                           = try .init(parsing: &input)
+            self.keywords = .init([head] + body.map(\.body))
+        }
+    }
+    
     // RequirementField    ::= 'required' <Endline>
     //                       | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
     enum RequirementField:Parseable 
@@ -993,6 +1030,7 @@ extension Grammar
         case constraints(ConstraintsField) 
         case attribute(AttributeField) 
         case `throws`(ThrowsField) 
+        case dispatch(DispatchField) 
         case requirement(RequirementField) 
         case parameter(ParameterField) 
         
@@ -1044,6 +1082,10 @@ extension Grammar
             else if let field:ThrowsField = .init(parsing: &input)
             {
                 self = .throws(field)
+            }
+            else if let field:DispatchField = .init(parsing: &input)
+            {
+                self = .dispatch(field)
             }
             else if let field:RequirementField = .init(parsing: &input)
             {

@@ -768,6 +768,21 @@ extension Page
             }
         }
     }
+    
+    static 
+    func print(modifiers dispatch:Grammar.DispatchField, declaration:inout [Declaration.Token])
+    {
+        // iterate this way to always print the keywords in the correct order 
+        for keyword:Grammar.DispatchField.Keyword in Grammar.DispatchField.Keyword.allCases 
+        {
+            if dispatch.keywords.contains(keyword)
+            {
+                declaration.append(.keyword("\(keyword)"))
+                declaration.append(.breakableWhitespace)
+            }
+        }
+    }
+    
     static 
     func print(wheres fields:Fields, declaration:inout [Declaration.Token], locals:Set<String>) 
     {
@@ -923,6 +938,7 @@ extension Page
             attributes:[Grammar.AttributeField], 
             paragraphs:[Grammar.ParagraphField],
             `throws`:Grammar.ThrowsField?, 
+            dispatch:Grammar.DispatchField?, 
             requirements:[Grammar.RequirementField]
         let keys:Set<Page.Binding.Key>, 
             rank:Int, 
@@ -949,6 +965,7 @@ extension Page
                 topics:[Grammar.TopicField]                      = [], 
                 keys:[Grammar.TopicElementField]                 = []
             var `throws`:Grammar.ThrowsField?, 
+                dispatch:Grammar.DispatchField?,
                 constraints:Grammar.ConstraintsField?,
                 implementation:Grammar.ImplementationField?
             var parameters:[(parameter:Grammar.ParameterField, paragraphs:[Grammar.ParagraphField])] = []
@@ -1002,6 +1019,13 @@ extension Page
                         fatalError("only one throws field per doccomnent allowed")
                     }
                     `throws` = field 
+                case .dispatch      (let field):
+                    guard dispatch == nil 
+                    else 
+                    {
+                        fatalError("only one dispatch field per doccomnent allowed")
+                    }
+                    dispatch = field 
                 
                 case .subscript, .function, .member, .type, .module:
                     fatalError("only one header field per doccomnent allowed")
@@ -1018,6 +1042,7 @@ extension Page
             self.attributes         = attributes
             self.paragraphs         = paragraphs
             self.throws             = `throws`
+            self.dispatch           = dispatch
             
             self.keys               = .init(keys.compactMap
             { 
@@ -1150,47 +1175,48 @@ extension Page.Binding
         -> Self 
     {
         let fields:Page.Fields = .init(fields, order: order)
+        
         var declaration:[Page.Declaration.Token] = Page.Declaration.tokenize(fields.attributes)
         
+        switch (header.keyword, fields.dispatch)
+        {
+        case (.case, _?), (.staticFunc, _?):
+            print("warning: dispatch field is ignored in a `case` or `static func` doccomment")
+        case (_, let dispatch?):
+            Page.print(modifiers: dispatch, declaration: &declaration)
+        default:
+            break 
+        }
+        
         let basename:String = header.identifiers[header.identifiers.endIndex - 1]
-        let label:Page.Label, 
-            keywords:[String] 
+
+        let keywords:[String]
+        switch header.keyword 
+        {
+        case .`init`:           keywords = []
+        case .func:             keywords = ["func"]
+        case .mutatingFunc:     keywords = ["mutating", "func"]
+        case .staticFunc:       keywords = ["static", "func"]
+        case .case:             keywords = ["case"]
+        case .indirectCase:     keywords = ["indirect", "case"]
+        }
+        let label:Page.Label 
         switch (header.keyword, header.generics)
         {
-        case (.`init`, []):
-            label    = .initializer 
-            keywords = []
-        case (.`init`, _):
-            label    = .genericInitializer 
-            keywords = []
+        case (.`init`,          []):    label = .initializer 
+        case (.`init`,          _ ):    label = .genericInitializer 
         
-        case (.func, []):
-            label    = .instanceMethod 
-            keywords = ["func"]
-        case (.func, _):
-            label    = .genericInstanceMethod 
-            keywords = ["func"]
+        case (.func,            []):    label = .instanceMethod 
+        case (.func,            _ ):    label = .genericInstanceMethod 
         
-        case (.mutatingFunc, []):
-            label    = .instanceMethod 
-            keywords = ["mutating", "func"]
-        case (.mutatingFunc, _):
-            label    = .genericInstanceMethod 
-            keywords = ["mutating", "func"]
+        case (.mutatingFunc,    []):    label = .instanceMethod 
+        case (.mutatingFunc,    _ ):    label = .genericInstanceMethod 
         
-        case (.staticFunc, []):
-            label    = .staticMethod 
-            keywords = ["static", "func"]
-        case (.staticFunc, _):
-            label    = .genericStaticMethod 
-            keywords = ["static", "func"]
+        case (.staticFunc,      []):    label = .staticMethod 
+        case (.staticFunc,      _ ):    label = .genericStaticMethod 
         
-        case (.case, _):
-            label    = .enumerationCase
-            keywords = ["case"]
-        case (.indirectCase, _):
-            label    = .enumerationCase
-            keywords = ["indirect", "case"]
+        case (.case,            _ ):    label = .enumerationCase
+        case (.indirectCase,    _ ):    label = .enumerationCase
         }
         
         var signature:[Page.Signature.Token] = keywords.flatMap 
@@ -1230,7 +1256,7 @@ extension Page.Binding
         let name:String 
         if case .enumerationCase = label, header.labels.isEmpty, fields.parameters.isEmpty 
         {
-            name        = basename
+            name    = basename
         }
         else 
         {
@@ -1273,26 +1299,37 @@ extension Page.Binding
         
         var declaration:[Page.Declaration.Token] = Page.Declaration.tokenize(fields.attributes)
         
+        switch (header.keyword, fields.dispatch)
+        {
+        case (.var, let dispatch?):
+            Page.print(modifiers: dispatch, declaration: &declaration)
+        case (_, _?):
+            print("warning: dispatch field is ignored in member doccomment if keyword is not `var`") 
+        default:
+            break 
+        }
+        
         let name:String = header.identifiers[header.identifiers.endIndex - 1] 
-        let label:Page.Label, 
-            keywords:[String] 
+        
+        let keywords:[String],
+            label:Page.Label 
         switch header.keyword
         {
         case .let:
-            label    = .instanceProperty 
-            keywords = ["let"]
+            label       = .instanceProperty 
+            keywords    = ["let"]
         case .var:
-            label    = .instanceProperty 
-            keywords = ["var"]
+            label       = .instanceProperty 
+            keywords    = ["var"]
         case .staticLet:
-            label    = .staticProperty 
-            keywords = ["static", "let"]
+            label       = .staticProperty 
+            keywords    = ["static", "let"]
         case .staticVar:
-            label    = .staticProperty 
-            keywords = ["static", "var"]
+            label       = .staticProperty 
+            keywords    = ["static", "var"]
         case .associatedtype:
-            label    = .associatedtype 
-            keywords = ["associatedtype"]
+            label       = .associatedtype 
+            keywords    = ["associatedtype"]
         }
         
         let signature:[Page.Signature.Token]
@@ -1380,7 +1417,23 @@ extension Page.Binding
         
         var declaration:[Page.Declaration.Token] = Page.Declaration.tokenize(fields.attributes)
         
+        switch (header.keyword, fields.dispatch)
+        {
+        case (.class, let dispatch?):
+            guard !dispatch.keywords.contains(.override)
+            else 
+            {
+                fatalError("class \(header.identifiers) cannot have `override` modifier")
+            }
+            Page.print(modifiers: dispatch, declaration: &declaration)
+        case (_, _?):
+            print("warning: dispatch field is ignored in type doccomment if keyword is not `class`") 
+        default:
+            break 
+        }
+        
         let name:String = header.identifiers.joined(separator: ".")
+        
         let label:Page.Label
         switch (header.keyword, header.generics) 
         {

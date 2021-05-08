@@ -90,86 +90,85 @@ TypeField.Keyword       ::= 'protocol'
                           | 'struct'
                           | 'enum'
                           | 'typealias'
-  
-Type                ::= <UnwrappedType> '?' *
-UnwrappedType       ::= <NamedType>
-                      | <CompoundType>
-                      | <FunctionType>
-                      | <CollectionType>
-                      | <ProtocolCompositionType>
-NamedType           ::= <TypeIdentifier> ( '.' <TypeIdentifier> ) *
-TypeIdentifier      ::= <Identifier> <TypeArguments> ?
-TypeArguments       ::= '<' <Whitespace> ? <Type> <Whitespace> ? ( ',' <Whitespace> ? <Type> <Whitespace> ? ) * '>'
-CompoundType        ::= '(' <Whitespace> ? ( <LabeledType> <Whitespace> ? 
-                        ( ',' <Whitespace> ? <LabeledType> <Whitespace> ? ) * ) ? ')'
-LabeledType         ::= ( <Identifier> <Whitespace> ? ':' <Whitespace> ? ) ? <Type> 
-FunctionType        ::= ( <Attribute> <Whitespace> ) * <FunctionParameters> <Whitespace> ? 
-                        ( 'throws' <Whitespace> ? ) ? '->' <Whitespace> ? <Type>
-FunctionParameters  ::= '(' <Whitespace> ? ( <FunctionParameter> <Whitespace> ? 
-                        ( ',' <Whitespace> ? <FunctionParameter> <Whitespace> ? ) * ) ? ')'
-FunctionParameter   ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace> ) ? <Type>
-Attribute           ::= '@' <Identifier>
-CollectionType      ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']'
+
+ConformanceField        ::= ':' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
+
+ImplementationField     ::= '?:' <Whitespace> ? <Identifiers> ( <Whitespace> <WhereClauses> ) ? <Endline>
+
+ConstraintsField        ::= <WhereClauses> <Endline>
+WhereClauses            ::= 'where' <Whitespace> <WhereClause> ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
+WhereClause             ::= <Identifiers> <Whitespace> ? <WherePredicate>
+WherePredicate          ::= ':' <Whitespace> ? <ProtocolCompositionType> 
+                          | '==' <Whitespace> ? <Type>
+
+AttributeField          ::= '@' <Whitespace> ? <DeclarationAttribute> <Endline>
+DeclarationAttribute    ::= 'frozen'
+                          | 'inlinable'
+                          | 'propertyWrapper'
+                          | 'specialized' <Whitespace> <WhereClauses>
+                          | ':'  <Whitespace> ? <Type>
+
+ParameterField          ::= '-' <Whitespace> ? <ParameterName> <Whitespace> ? ':' <Whitespace> ? 
+                            <FunctionParameter> <Endline>
+ParameterName           ::= <Identifier> 
+                          | '->'
+                    
+ThrowsField             ::= 'throws' <Endline>
+                          | 'rethrows' <Endline>
+DispatchField           ::= <DispatchField.Keyword> ( <Whitespace> <DispatchField.Keyword> ) * <Endline>
+RequirementField        ::= 'required' <Endline>
+                          | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
+
+
+Type                    ::= <UnwrappedType> '?' *
+UnwrappedType           ::= <NamedType>
+                          | <CompoundType>
+                          | <FunctionType>
+                          | <CollectionType>
+                          | <ProtocolCompositionType>
+NamedType               ::= <TypeIdentifier> ( '.' <TypeIdentifier> ) *
+TypeIdentifier          ::= <Identifier> <TypeArguments> ?
+TypeArguments           ::= '<' <Whitespace> ? <Type> <Whitespace> ? ( ',' <Whitespace> ? <Type> <Whitespace> ? ) * '>'
+CompoundType            ::= '(' <Whitespace> ? ( <LabeledType> <Whitespace> ? 
+                            ( ',' <Whitespace> ? <LabeledType> <Whitespace> ? ) * ) ? ')'
+LabeledType             ::= ( <Identifier> <Whitespace> ? ':' <Whitespace> ? ) ? <Type> 
+FunctionType            ::= ( <Attribute> <Whitespace> ) * <FunctionParameters> <Whitespace> ? 
+                            ( 'throws' <Whitespace> ? ) ? '->' <Whitespace> ? <Type>
+FunctionParameters      ::= '(' <Whitespace> ? ( <FunctionParameter> <Whitespace> ? 
+                            ( ',' <Whitespace> ? <FunctionParameter> <Whitespace> ? ) * ) ? ')'
+FunctionParameter       ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace> ) ? <Type>
+Attribute               ::= '@' <Identifier>
+CollectionType          ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']'
 ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
 
 
+TopicKey                ::= [a-zA-Z0-9\-] *
+TopicField              ::= '#' <Whitespace>? '[' <BalancedContent> * ']' <Whitespace>? 
+                            '(' <Whitespace> ? <TopicKey> 
+                            ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
+TopicElementField       ::= '##' <Whitespace>? '(' <Whitespace> ? 
+                            ( <ASCIIDigit> * <Whitespace> ? ':' <Whitespace> ? ) ? <TopicKey> <Whitespace> ? ')' <Endline>
 
+ParagraphField          ::= <ParagraphLine> <ParagraphLine> *
+ParagraphLine           ::= '    ' ' ' * [^\s] . * '\n'
 
-ConformanceField    ::= ':' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
-
-ImplementationField ::= '?:' <Whitespace> ? <Identifiers> ( <Whitespace> <WhereClauses> ) ? <Endline>
-
-ConstraintsField    ::= <WhereClauses> <Endline>
-WhereClauses        ::= 'where' <Whitespace> <WhereClause> ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
-WhereClause         ::= <Identifiers> <Whitespace> ? <WherePredicate>
-WherePredicate      ::= ':' <Whitespace> ? <ProtocolCompositionType> 
-                      | '==' <Whitespace> ? <Type>
-
-AttributeField      ::= '@' <Whitespace> ? <DeclarationAttribute> <Endline>
-DeclarationAttribute::= 'frozen'
-                      | 'inlinable'
-                      | 'propertyWrapper'
-                      | 'specialized' <Whitespace> <WhereClauses>
-                      | ':'  <Whitespace> ? <Type>
-
-ParameterField      ::= '-' <Whitespace> ? <ParameterName> <Whitespace> ? ':' <Whitespace> ? 
-                        <FunctionParameter> <Endline>
-ParameterName       ::= <Identifier> 
-                      | '->'
-                      
-ThrowsField         ::= 'throws' <Endline>
-                      | 'rethrows' <Endline>
-                      
-RequirementField    ::= 'required' <Endline>
-                      | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
-
-TopicKey            ::= [a-zA-Z0-9\-] *
-TopicField          ::= '#' <Whitespace>? '[' <BalancedContent> * ']' <Whitespace>? 
-                        '(' <Whitespace> ? <TopicKey> 
-                        ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
-TopicElementField   ::= '##' <Whitespace>? '(' <Whitespace> ? 
-                        ( <ASCIIDigit> * <Whitespace> ? ':' <Whitespace> ? ) ? <TopicKey> <Whitespace> ? ')' <Endline>
-
-ParagraphField      ::= <ParagraphLine> <ParagraphLine> *
-ParagraphLine       ::= '    ' ' ' * [^\s] . * '\n'
-
-Field               ::= <ModuleField>
-                      | <FunctionField>
-                      | <SubscriptField>
-                      | <MemberField>
-                      | <TypeField>
-                      | <TypealiasField>
-                      | <AnnotationField>
-                      | <AttributeField>
-                      | <ConstraintsField>
-                      | <ThrowsField>
-                      | <RequirementField>
-                      | <ParameterField>
-                      | <TopicField>
-                      | <TopicElementField>
-                      | <ParagraphField>
-                      | <Separator>
-Separator           ::= <Endline>
+Field                   ::= <ModuleField>
+                          | <FunctionField>
+                          | <SubscriptField>
+                          | <MemberField>
+                          | <TypeField>
+                          | <TypealiasField>
+                          | <AnnotationField>
+                          | <AttributeField>
+                          | <ConstraintsField>
+                          | <ThrowsField>
+                          | <RequirementField>
+                          | <ParameterField>
+                          | <TopicField>
+                          | <TopicElementField>
+                          | <ParagraphField>
+                          | <Separator>
+Separator               ::= <Endline>
 ```
 
 Paragraph fields have their own mini-markdown syntax and an abbreviated link syntax for local and standard-library symbols.
