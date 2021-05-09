@@ -330,16 +330,24 @@ class Page
             self.page.path 
         }
         
-        // needed to uniquify overloaded symbols
+        // needed to uniquify overloaded symbols, and escape dots ('.')
         var uniquePath:[String] 
         {
-            if let overload:Int = self.page.overload 
+            let escaped:[String] = self.path.map 
             {
-                return self.path.dropLast() + ["\(overload)-\(self.path[self.path.endIndex - 1])"]
+                $0.map 
+                {
+                    $0 == "." ? "dot-" : "\($0)"
+                }.joined()
+            }
+            if  let overload:Int = self.page.overload, 
+                let last:String  = escaped.last 
+            {
+                return escaped.dropLast() + ["\(overload)-\(last)"]
             }
             else 
             {
-                return self.path 
+                return escaped 
             }
         }
         
