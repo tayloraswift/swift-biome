@@ -45,7 +45,10 @@ The full syntax is this:
 Whitespace              ::= ' ' ' ' *
 Endline                 ::= ' ' * '\n'
 Identifier              ::= <Swift Identifier Head> <Swift Identifier Character> *
-EncapsulatedOperator    ::= '(' <Swift Operator Head> <Swift Operator Character> * ')'
+EncapsulatedOperator    ::= '(' <EncapsulatedOperator.Operator> ')'
+EncapsulatedOperator.Operator    
+                        ::= <Swift Operator Head> <Swift Operator Character> *
+                          | <Swift Dot Operator Head> <Swift Dot Operator Character> *
 
 ModuleField             ::= <ModuleField.Keyword> <Whitespace> <Identifier> <Endline>
 ModuleField.Keyword     ::= 'module'

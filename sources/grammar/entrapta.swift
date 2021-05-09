@@ -9,18 +9,59 @@ extension Grammar
                 _:Token.Newline = try .init(parsing: &input)
         }
     }
-    // EncapsulatedOperator ::= '(' <Swift Operator Head> <Swift Operator Character> * ')'
+    // EncapsulatedOperator             ::= '(' <EncapsulatedOperator.Operator> ')'
+    // EncapsulatedOperator.Operator    ::= <Swift Operator Head> <Swift Operator Character> *
+    //                                    | <Swift Dot Operator Head> <Swift Dot Operator Character> *
     struct EncapsulatedOperator:Parseable, CustomStringConvertible
     {
+        private 
+        struct Operator 
+        {
+            let string:String 
+            
+            init(parsing input:inout Input) throws 
+            {
+                let start:String.Index      = input.index 
+                if      let _:Token.Period  = .init(parsing: &input) 
+                {
+                    var string:String       = "."
+                    while true 
+                    {
+                        if let _:Token.Period = .init(parsing: &input) 
+                        {
+                            string.append(".")
+                        }
+                        else if let character:Token.Operator.Character = .init(parsing: &input)
+                        {
+                            string.append(character.character)
+                        }
+                        else 
+                        {
+                            break 
+                        }
+                    }
+                    self.string = string 
+                }
+                else if let head:Token.Operator.Head    = .init(parsing: &input)
+                {
+                    let body:[Token.Operator.Character] = .init(parsing: &input)
+                    self.string = "\(head.character)\(String.init(body.map(\.character)))"
+                }
+                else 
+                {
+                    throw input.expected(Self.self, from: start)
+                }
+            }
+        }
+        
         let string:String 
         
         init(parsing input:inout Input) throws 
         {
-            let _:Token.Parenthesis.Left        = try .init(parsing: &input),
-                head:Token.Operator.Head        = try .init(parsing: &input),
-                body:[Token.Operator.Character] =     .init(parsing: &input), 
-                _:Token.Parenthesis.Right       = try .init(parsing: &input)
-            self.string = "\(head.character)\(String.init(body.map(\.character)))"
+            let _:Token.Parenthesis.Left    = try .init(parsing: &input),
+                inner:Operator              = try .init(parsing: &input),
+                _:Token.Parenthesis.Right   = try .init(parsing: &input)
+            self.string = inner.string
         }
         
         var description:String 
@@ -87,6 +128,8 @@ extension Grammar
     //                            | 'func'
     //                            | 'mutating' <Whitespace> 'func'
     //                            | 'static' <Whitespace> 'func'
+    //                            | 'static' <Whitespace> 'prefix' <Whitespace> 'func'
+    //                            | 'static' <Whitespace> 'postfix' <Whitespace> 'func'
     //                            | 'case' 
     //                            | 'indirect' <Whitespace> 'case' 
     // FunctionField.Label      ::= <Identifier> 
@@ -101,6 +144,8 @@ extension Grammar
             case `func` 
             case mutatingFunc
             case staticFunc
+            case staticPrefixFunc
+            case staticPostfixFunc
             case `case`
             case indirectCase
             
@@ -124,6 +169,24 @@ extension Grammar
                     .init(parsing: &input)
                 {
                     self = .staticFunc
+                }
+                else if let _:
+                        List<Token.Static, 
+                        List<Whitespace, 
+                        List<Token.Prefix, 
+                        List<Whitespace, Token.Func>>>> = 
+                    .init(parsing: &input)
+                {
+                    self = .staticPrefixFunc
+                }
+                else if let _:
+                        List<Token.Static, 
+                        List<Whitespace, 
+                        List<Token.Postfix, 
+                        List<Whitespace, Token.Func>>>> = 
+                    .init(parsing: &input)
+                {
+                    self = .staticPostfixFunc
                 }
                 else if let _:Token.Case    = .init(parsing: &input)
                 {
@@ -683,6 +746,7 @@ extension Grammar
     //  DeclarationAttribute::= 'frozen'
     //                        | 'inlinable'
     //                        | 'discardableResult'
+    //                        | 'resultBuilder'
     //                        | 'propertyWrapper'
     //                        | 'specialized' <Whitespace> <WhereClauses>
     //                        | ':'  <Whitespace> ? <Type>
@@ -707,6 +771,12 @@ extension Grammar
             let token:String = "discardableResult"
         }
         private 
+        struct ResultBuilder:Parseable.Terminal 
+        {
+            static 
+            let token:String = "resultBuilder"
+        }
+        private 
         struct PropertyWrapper:Parseable.Terminal 
         {
             static 
@@ -722,6 +792,7 @@ extension Grammar
         case frozen 
         case inlinable 
         case discardableResult 
+        case resultBuilder
         case propertyWrapper
         case specialized(WhereClauses)
         case wrapped(SwiftType)
@@ -743,6 +814,10 @@ extension Grammar
             else if let _:List<DiscardableResult, Endline> = .init(parsing: &input)
             {
                 self = .discardableResult
+            }
+            else if let _:List<ResultBuilder, Endline> = .init(parsing: &input)
+            {
+                self = .resultBuilder
             }
             else if let _:List<PropertyWrapper, Endline> = 
                 .init(parsing: &input)

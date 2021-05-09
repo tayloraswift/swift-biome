@@ -448,6 +448,16 @@ extension Grammar.Token
         static 
         let token:String = "override"
     } 
+    struct Prefix:Grammar.Parseable.Terminal
+    {
+        static 
+        let token:String = "prefix"
+    } 
+    struct Postfix:Grammar.Parseable.Terminal
+    {
+        static 
+        let token:String = "postfix"
+    } 
     
     enum Identifier 
     {

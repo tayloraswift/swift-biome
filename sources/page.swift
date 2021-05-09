@@ -255,7 +255,7 @@ class Page
             {
                 switch attribute
                 {
-                case .frozen, .inlinable, .discardableResult, .propertyWrapper:
+                case .frozen, .inlinable, .discardableResult, .resultBuilder, .propertyWrapper:
                     tokens.append(.keyword("@\(attribute)"))
                     tokens.append(.breakableWhitespace)
                 case .wrapped(let wrapper):
@@ -681,7 +681,7 @@ extension Page
         }
     }
     
-    func crosslink(scopes:[PageTree.Node]) 
+    func crosslink(scopes:[PageTree.Node], node:PageTree.Node) 
     {
         self.declaration = self.declaration.map 
         {
@@ -699,24 +699,27 @@ extension Page
             }
         }
         
-        self.blurb                  = Self.crosslink(self.blurb, scopes: scopes)
+        // also search in the node’s own scope for the markdown links 
+        let inclusive:[PageTree.Node] = scopes + [node]
+        
+        self.blurb                  = Self.crosslink(self.blurb, scopes: inclusive)
         self.discussion.parameters  = self.discussion.parameters.map 
         {
-            ($0.name, $0.paragraphs.map{ Self.crosslink($0, scopes: scopes) })
+            ($0.name, $0.paragraphs.map{ Self.crosslink($0, scopes: inclusive) })
         }
-        self.discussion.return      = self.discussion.return.map{   Self.crosslink($0, scopes: scopes) }
-        self.discussion.overview    = self.discussion.overview.map{ Self.crosslink($0, scopes: scopes) }
+        self.discussion.return      = self.discussion.return.map{   Self.crosslink($0, scopes: inclusive) }
+        self.discussion.overview    = self.discussion.overview.map{ Self.crosslink($0, scopes: inclusive) }
         self.discussion.required        = 
-            Self.crosslink(self.discussion.required, scopes: scopes) 
+            Self.crosslink(self.discussion.required, scopes: inclusive) 
         self.discussion.specializations = 
-            Self.crosslink(self.discussion.specializations, scopes: scopes) 
+            Self.crosslink(self.discussion.specializations, scopes: inclusive) 
         
         self.breadcrumbs = self.breadcrumbs.map 
         {
             switch $0.link 
             {
             case .unresolved(path: let path):
-                guard let url:String = PageTree.Node.resolve(path[...], in: scopes)
+                guard let url:String = PageTree.Node.resolve(path[...], in: inclusive)
                 else 
                 {
                     break 
@@ -1195,6 +1198,8 @@ extension Page.Binding
         case .func:             keywords = ["func"]
         case .mutatingFunc:     keywords = ["mutating", "func"]
         case .staticFunc:       keywords = ["static", "func"]
+        case .staticPrefixFunc: keywords = ["static", "prefix", "func"]
+        case .staticPostfixFunc:keywords = ["static", "postfix", "func"]
         case .case:             keywords = ["case"]
         case .indirectCase:     keywords = ["indirect", "case"]
         }
@@ -1210,8 +1215,10 @@ extension Page.Binding
         case (.mutatingFunc,    []):    label = .instanceMethod 
         case (.mutatingFunc,    _ ):    label = .genericInstanceMethod 
         
-        case (.staticFunc,      []):    label = .staticMethod 
-        case (.staticFunc,      _ ):    label = .genericStaticMethod 
+        case (.staticFunc,      []), (.staticPrefixFunc, []), (.staticPostfixFunc, []):    
+                                        label = .staticMethod 
+        case (.staticFunc,      _ ), (.staticPrefixFunc, _ ), (.staticPostfixFunc, _ ):    
+                                        label = .genericStaticMethod 
         
         case (.case,            _ ):    label = .enumerationCase
         case (.indirectCase,    _ ):    label = .enumerationCase
@@ -1914,7 +1921,7 @@ extension PageTree
             {
                 if case .binding(let binding) = payload 
                 {
-                    binding.page.crosslink(scopes: scopes)
+                    binding.page.crosslink(scopes: scopes, node: node)
                 }
             }
         }
