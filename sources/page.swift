@@ -330,14 +330,19 @@ class Page
             self.page.path 
         }
         
-        // needed to uniquify overloaded symbols, and escape dots ('.')
+        // needed to uniquify overloaded symbols, and escape dots ('.') and slashes ('/')
         var uniquePath:[String] 
         {
             let escaped:[String] = self.path.map 
             {
                 $0.map 
                 {
-                    $0 == "." ? "dot-" : "\($0)"
+                    switch $0 
+                    {
+                    case ".":   return "dot-"
+                    case "/":   return "slash-"
+                    default :   return "\($0)"
+                    }
                 }.joined()
             }
             if  let overload:Int = self.page.overload, 
