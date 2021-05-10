@@ -469,6 +469,7 @@ extension Grammar
     //                            | 'struct'
     //                            | 'enum'
     //                            | 'typealias'
+    //                            | 'extension'
     struct TypeField:Parseable, CustomStringConvertible
     {
         enum Keyword:Parseable 
@@ -478,6 +479,7 @@ extension Grammar
             case `struct` 
             case `enum`
             case `typealias`
+            case `extension`
             
             init(parsing input:inout Input) throws
             {
@@ -501,6 +503,10 @@ extension Grammar
                 else if let _:Token.Typealias   = .init(parsing: &input)
                 {
                     self = .typealias 
+                }
+                else if let _:Token.Extension   = .init(parsing: &input)
+                {
+                    self = .extension 
                 }
                 else 
                 {
@@ -607,21 +613,6 @@ extension Grammar
             let _:Endline                                           = try .init(parsing: &input)
         }
     }
-    /* 
-    //  ExtensionField ::= '?' <Whitespace> ? <WhereClauses> <Endline>
-    struct ExtensionField:Parseable 
-    {
-        let conditions:[WhereClause]
-        
-        init(parsing input:inout Input) throws
-        {
-            let _:Token.Question        = try .init(parsing: &input),
-                _:Whitespace?           =     .init(parsing: &input), 
-                clauses:WhereClauses    = try .init(parsing: &input), 
-                _:Endline               = try .init(parsing: &input)
-            self.conditions = clauses.clauses
-        }
-    } */
     
     //  ConstraintsField    ::= <WhereClauses> <Endline>
     //  WhereClauses        ::= 'where' <Whitespace> <WhereClause> ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
@@ -1106,7 +1097,6 @@ extension Grammar
         
         case implementation(ImplementationField) 
         case conformance(ConformanceField) 
-        //case `extension`(ExtensionField) 
         case constraints(ConstraintsField) 
         case attribute(AttributeField) 
         case `throws`(ThrowsField) 
@@ -1155,10 +1145,6 @@ extension Grammar
             {
                 self = .conformance(field)
             }
-            /* else if let field:ExtensionField = .init(parsing: &input)
-            {
-                self = .extension(field)
-            } */
             else if let field:ConstraintsField = .init(parsing: &input)
             {
                 self = .constraints(field)

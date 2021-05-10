@@ -94,7 +94,7 @@ TypeField.Keyword       ::= 'protocol'
                           | 'struct'
                           | 'enum'
                           | 'typealias'
-
+                          | 'extension'
 
 ConformanceField        ::= ':' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
 ImplementationField     ::= '?:' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>

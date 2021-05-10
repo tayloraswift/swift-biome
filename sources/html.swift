@@ -127,6 +127,8 @@ extension Page.Label
             text = "Generic Typealias"
         case .importedTypealias:
             text = "Imported Typealias"
+        case .extension:
+            text = "Extension"
         case .enumerationCase:
             text = "Enumeration Case"
         case .initializer:

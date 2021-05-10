@@ -23,6 +23,8 @@ class Page
         case `typealias`
         case genericTypealias
         
+        case `extension`
+        
         case enumerationCase
         case initializer
         case genericInitializer
@@ -49,17 +51,18 @@ class Page
         case resolved(url:String, style:Style)
         
         static 
-        func appleify(_ path:[String]) -> Self 
+        let metatype:Self = .resolved(
+            url:   "https://docs.swift.org/swift-book/ReferenceManual/Types.html#ID455", 
+            style: .apple)
+        
+        static 
+        func appleify<C>(_ path:C) -> Self 
+            where C:Collection, C.Element == String
         {
             .resolved(url: 
                 "https://developer.apple.com/documentation/\(path.map{ $0.lowercased() }.joined(separator: "/"))", 
                 style: .apple)
-        }
-        
-        static 
-        let metatype:Self = .resolved(
-            url:   "https://docs.swift.org/swift-book/ReferenceManual/Types.html#ID455", 
-            style: .apple)
+        } 
         
         static 
         func link<T>(_ components:[(String, T)]) -> [(component:(String, T), link:Link)]
@@ -70,12 +73,12 @@ class Page
             }
             
             let link:[(component:(String, T), link:Link)] 
-            // apple links 
+            // strip `Swift` prefix 
             if scan.first?.component.0 == "Swift" 
             {
                 link = scan.dropFirst().map 
                 {
-                    ($0.component, .appleify($0.accumulated))
+                    ($0.component, .unresolved(path: $0.accumulated))
                 }
             } 
             else 
@@ -586,6 +589,17 @@ class Page
             
             relationships = .init(parsing: sentences.joined(separator: " "))
         
+        case    .extension:
+            // also show constraints as relationship annotations
+            if let conditions:[Grammar.WhereClause] = fields.constraints?.clauses
+            {
+                relationships = .init(parsing: "Available when \(Self.prose(conditions: conditions)).")
+            }
+            else 
+            {
+                relationships = []
+            }
+        
         case    .protocol, .enumerationCase, .module, .plugin, .dependency, 
                 .importedEnumeration, .importedStructure, .importedClass, 
                 .importedProtocol, .importedTypealias: 
@@ -768,7 +782,8 @@ extension Page
             switch $0.link 
             {
             case .unresolved(path: let path):
-                guard let resolved:Link = PageTree.Node.resolve(path[...], in: inclusive)
+                // do not appleify stdlib symbols
+                guard let resolved:Link = PageTree.Node.resolve(path[...], in: inclusive, builtin: nil)
                 else 
                 {
                     break 
@@ -1565,6 +1580,11 @@ extension Page.Binding
         let label:Page.Label
         switch (header.keyword, header.generics) 
         {
+        case (.extension, []):
+            label   = .extension 
+        case (.extension, _):
+            fatalError("extension \(header.identifiers) cannot have generic parameters")
+        
         case (.protocol, []):
             label   = .protocol 
         case (.protocol, _):
@@ -1595,7 +1615,17 @@ extension Page.Binding
         
         declaration.append(.keyword("\(header.keyword)"))
         declaration.append(.breakableWhitespace)
-        declaration.append(.identifier(header.identifiers[header.identifiers.endIndex - 1]))
+        if case .extension = header.keyword 
+        {
+            declaration.append(contentsOf: Page.Link.link(header.identifiers
+                .map{ ($0, ()) })
+                .map{ [.type($0.component.0, $0.link)] } 
+                .joined(separator: [.punctuation(".")]))
+        }
+        else 
+        {
+            declaration.append(.identifier(header.identifiers[header.identifiers.endIndex - 1]))
+        }
         if !header.generics.isEmpty
         {
             signature.append(.punctuation("<"))
@@ -1620,15 +1650,31 @@ extension Page.Binding
         {
             $0.conditions.isEmpty ? $0.conformances : nil 
         }
+        if  case .extension = header.keyword, 
+            conformances.count != fields.conformances.count
+        {
+            print("warning: extension \(header.identifiers) should not have conditional conformances; use a `where` field instead.")
+        }
         if !conformances.isEmpty 
         {
-            declaration.append(.punctuation(":"))
-            declaration.append(contentsOf: conformances.map 
+            let tokens:[Page.Declaration.Token] = 
+            [
+                .punctuation(":")
+            ]
+            +
+            conformances.map 
             {
-                $0.map(Page.Declaration.tokenize(_:))
-                .joined(separator: [.punctuation("&")])
-            }.joined(separator: [.punctuation(","), .breakableWhitespace]))
+                $0.map(Page.Declaration.tokenize(_:)).joined(separator: [.punctuation("&")])
+            }.joined(separator: [.punctuation(","), .breakableWhitespace])
+            
+            // include conformances in signature, if extension 
+            if case .extension = header.keyword 
+            {
+                signature.append(contentsOf: Page.Signature.convert(tokens))
+            }
+            declaration.append(contentsOf: tokens)
         }
+        
         var inheritances:[[String]] = conformances.flatMap{ $0 }
         
         switch (header.keyword, header.target) 
@@ -1691,6 +1737,7 @@ extension Page.Binding
             classes             :[Page.TopicSymbol],
             protocols           :[Page.TopicSymbol],
             typealiases         :[Page.TopicSymbol],
+            extensions          :[Page.TopicSymbol],
             cases               :[Page.TopicSymbol],
             initializers        :[Page.TopicSymbol],
             typeMethods         :[Page.TopicSymbol],
@@ -1700,7 +1747,7 @@ extension Page.Binding
             associatedtypes     :[Page.TopicSymbol],
             subscripts          :[Page.TopicSymbol]
         )
-        topics = ([], [], [], [], [], [], [], [], [], [], [], [], [], [])
+        topics = ([], [], [], [], [], [], [], [], [], [], [], [], [], [], [])
         for binding:Self in 
             (children.flatMap
             { 
@@ -1745,6 +1792,9 @@ extension Page.Binding
                 topics.protocols.append(symbol)
             case .typealias, .genericTypealias, .importedTypealias:
                 topics.typealiases.append(symbol)
+            case .extension:
+                // extensions go in root node 
+                break 
             
             case .enumerationCase:
                 topics.cases.append(symbol)
@@ -1770,6 +1820,48 @@ extension Page.Binding
             }
         }
         
+        // recursively gather extensions 
+        switch self.page.label
+        {
+        case .module, .plugin:
+            topics.extensions.append(contentsOf: children.flatMap 
+            {
+                $0.preorder.flatMap  
+                {
+                    (node:PageTree.Node) -> [Page.Binding] in 
+                    
+                    node.payloads.compactMap
+                    { 
+                        if  case .binding(let binding) = $0, 
+                            case .extension = binding.page.label, 
+                            !seen.contains(binding.url)
+                        {
+                            return binding 
+                        }
+                        else 
+                        {
+                            return nil 
+                        }
+                    } 
+                }
+            }
+            .sorted
+            { 
+                ($0.rank, $0.order, $0.page.name) < ($1.rank, $1.order, $1.page.name) 
+            }
+            .map 
+            {
+                (
+                    $0.page.signature, 
+                    $0.url, 
+                    $0.page.blurb, 
+                    $0.page.discussion.required
+                )
+            })
+        default:
+            break 
+        }
+        
         for builtin:(topic:String, symbols:[Page.TopicSymbol]) in 
         [
             (topic: "Dependencies",         symbols: topics.dependencies), 
@@ -1786,6 +1878,7 @@ extension Page.Binding
             (topic: "Classes",              symbols: topics.classes), 
             (topic: "Protocols",            symbols: topics.protocols), 
             (topic: "Typealiases",          symbols: topics.typealiases), 
+            (topic: "Extensions",           symbols: topics.extensions), 
         ]
             where !builtin.symbols.isEmpty
         {
@@ -1951,7 +2044,8 @@ extension PageTree.Node
         return ([:], [])
     }
     static 
-    func resolve(_ path:ArraySlice<String>, in scopes:[Self]) -> Page.Link?
+    func resolve(_ path:ArraySlice<String>, in scopes:[Self], builtin:String? = "Swift") 
+        -> Page.Link?
     {
         if  path.isEmpty, 
             let root:Self       = scopes.first, 
@@ -1985,12 +2079,26 @@ extension PageTree.Node
                 }
             }
             
-            guard let payload:Payload = scope.payloads.first
+            // ignore extension pages, if builtin (`Swift` namespace) enabled
+            let candidates:[Payload]    = scope.payloads.filter 
+            {
+                if  case .binding(let binding)  = $0, 
+                    case .extension             = binding.page.label, 
+                    let _:String                = builtin
+                {
+                    return false 
+                }
+                else 
+                {
+                    return true 
+                }
+            }
+            guard let payload:Payload = candidates.first
             else 
             {
                 break higher 
             }
-            if scope.payloads.count > 1 
+            if candidates.count > 1 
             {
                 print("warning: path '\(debugPath)' is ambiguous")
             }
@@ -1998,9 +2106,17 @@ extension PageTree.Node
             return payload.link
         }
         
-        print("(PageTree.resolve(_:in:)): failed to resolve '\(debugPath)'")
-        print("note: searched in scopes \(scopes.map(\.payloads))")
-        return nil
+        // otherwise, resolve a stdlib symbol 
+        guard   let builtin:String = builtin, 
+                    builtin == path.first
+        else 
+        {
+            print("(PageTree.resolve(_:in:)): failed to resolve '\(debugPath)'")
+            print("note: searched in scopes \(scopes.map(\.payloads))")
+            return nil
+        }
+        
+        return .appleify(path)
     }
     
     func traverse(scopes:[Self] = [], _ body:([Self], Self) throws -> ()) rethrows 
@@ -2012,6 +2128,11 @@ extension PageTree.Node
         {
             try child.traverse(scopes: scopes, body)
         }
+    }
+    
+    var preorder:[Self]
+    {
+        [self] + self.children.values.flatMap(\.preorder)
     }
     
     private  

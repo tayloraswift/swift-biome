@@ -372,6 +372,11 @@ extension Grammar.Token
         static 
         let token:String = "final"
     } 
+    struct Extension:Grammar.Parseable.Terminal
+    {
+        static 
+        let token:String = "extension"
+    }
     struct `Protocol`:Grammar.Parseable.Terminal
     {
         static 
