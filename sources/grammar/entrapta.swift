@@ -9,71 +9,11 @@ extension Grammar
                 _:Token.Newline = try .init(parsing: &input)
         }
     }
-    // EncapsulatedOperator             ::= '(' <EncapsulatedOperator.Operator> ')'
-    // EncapsulatedOperator.Operator    ::= <Swift Operator Head> <Swift Operator Character> *
-    //                                    | <Swift Dot Operator Head> <Swift Dot Operator Character> *
-    struct EncapsulatedOperator:Parseable, CustomStringConvertible
-    {
-        private 
-        struct Operator 
-        {
-            let string:String 
-            
-            init(parsing input:inout Input) throws 
-            {
-                let start:String.Index      = input.index 
-                if      let _:Token.Period  = .init(parsing: &input) 
-                {
-                    var string:String       = "."
-                    while true 
-                    {
-                        if let _:Token.Period = .init(parsing: &input) 
-                        {
-                            string.append(".")
-                        }
-                        else if let character:Token.Operator.Character = .init(parsing: &input)
-                        {
-                            string.append(character.character)
-                        }
-                        else 
-                        {
-                            break 
-                        }
-                    }
-                    self.string = string 
-                }
-                else if let head:Token.Operator.Head    = .init(parsing: &input)
-                {
-                    let body:[Token.Operator.Character] = .init(parsing: &input)
-                    self.string = "\(head.character)\(String.init(body.map(\.character)))"
-                }
-                else 
-                {
-                    throw input.expected(Self.self, from: start)
-                }
-            }
-        }
-        
-        let string:String 
-        
-        init(parsing input:inout Input) throws 
-        {
-            let _:Token.Parenthesis.Left    = try .init(parsing: &input),
-                inner:Operator              = try .init(parsing: &input),
-                _:Token.Parenthesis.Right   = try .init(parsing: &input)
-            self.string = inner.string
-        }
-        
-        var description:String 
-        {
-            self.string
-        }
-    }
     
-    //  ModuleField         ::= <ModuleField.Keyword> <Whitespace> <Identifier> <Endline>
-    //  ModuleField.Keyword ::= 'module'
-    //                        | 'plugin'
-    struct ModuleField:Parseable 
+    //  FrameworkField         ::= <FrameworkField.Keyword> <Whitespace> <Identifier> <Endline>
+    //  FrameworkField.Keyword ::= 'module'
+    //                           | 'plugin'
+    struct FrameworkField:Parseable 
     {
         enum Keyword 
         {
@@ -121,6 +61,31 @@ extension Grammar
             self.identifier = identifier.string
         }
     }
+    //  DependencyField ::= 'import' <Whitespace> <Identifier> <Endline>
+    //                    | 'import' <Whitespace> <TypeField.Keyword> <Whitespace> <Identifiers> <Endline>
+    enum DependencyField:Parseable 
+    {
+        case module(identifier:String)
+        case type(keyword:TypeField.Keyword, identifiers:[String])
+        
+        init(parsing input:inout Input) throws 
+        {
+            let _:Token.Import                  = try .init(parsing: &input),
+                _:Whitespace                    = try .init(parsing: &input)
+            if  let keyword:TypeField.Keyword   =     .init(parsing: &input),
+                let _:Whitespace                =     .init(parsing: &input)
+            {
+                let identifiers:Identifiers     = try .init(parsing: &input)
+                self = .type(keyword: keyword, identifiers: identifiers.identifiers)
+            }
+            else 
+            {
+                let identifier:Identifier       = try .init(parsing: &input)
+                self = .module(identifier: identifier.string)
+            }
+            let _:Endline               = try .init(parsing: &input)
+        }
+    }
     
     // FunctionField            ::= <FunctionField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? '?' ? '(' ( <FunctionField.Label> ':' ) * ')' <Endline>
     //                            | 'case' <Whitespace> <Identifiers> <Endline>
@@ -134,7 +99,6 @@ extension Grammar
     //                            | 'indirect' <Whitespace> 'case' 
     // FunctionField.Label      ::= <Identifier> 
     //                            | <Identifier> ? '...'
-    // Identifiers              ::= <Identifier> ( '.' <Identifier> ) * ( '.' <EncapsulatedOperator> ) ?
     // TypeParameters           ::= '<' <Whitespace> ? <Identifier> <Whitespace> ? ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * '>'
     struct FunctionField:Parseable, CustomStringConvertible
     {
@@ -615,25 +579,35 @@ extension Grammar
         }
     }
     
-    //  ImplementationField ::= '?:' <Whitespace> ? <Identifiers> ( <Whitespace> <WhereClauses> ) ? <Endline>
+    //  ImplementationField ::= '?:' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
+    //                        | '?' <Whitespace> ? <WhereClauses> <Endline>
     struct ImplementationField:Parseable 
     {
-        let conformance:[String]
+        let conformances:[[String]]
         let conditions:[WhereClause]
         
         init(parsing input:inout Input) throws
         {
-            let _:Token.Question                            = try .init(parsing: &input),
-                _:Token.Colon                               = try .init(parsing: &input), 
-                _:Whitespace?                               =     .init(parsing: &input), 
-                conformance:Identifiers                     = try .init(parsing: &input), 
-                conditions:List<Whitespace, WhereClauses>?  =     .init(parsing: &input), 
-                _:Endline                                   = try .init(parsing: &input)
-            self.conformance    = conformance.identifiers
-            self.conditions     = conditions?.body.clauses ?? []
+            let _:Token.Question                                = try .init(parsing: &input)
+            if  let _:Token.Colon                               =     .init(parsing: &input) 
+            {
+                let _:Whitespace?                               =     .init(parsing: &input), 
+                    conformances:ProtocolCompositionType        = try .init(parsing: &input), 
+                    conditions:List<Whitespace, WhereClauses>?  =     .init(parsing: &input)
+                self.conformances   = conformances.protocols
+                self.conditions     = conditions?.body.clauses ?? []
+            }
+            else 
+            {
+                let _:Whitespace?                               =     .init(parsing: &input), 
+                    conditions:WhereClauses                     = try .init(parsing: &input)
+                self.conformances   = [] 
+                self.conditions     = conditions.clauses 
+            }
+            let _:Endline                                           = try .init(parsing: &input)
         }
     }
-    
+    /* 
     //  ExtensionField ::= '?' <Whitespace> ? <WhereClauses> <Endline>
     struct ExtensionField:Parseable 
     {
@@ -647,7 +621,7 @@ extension Grammar
                 _:Endline               = try .init(parsing: &input)
             self.conditions = clauses.clauses
         }
-    }
+    } */
     
     //  ConstraintsField    ::= <WhereClauses> <Endline>
     //  WhereClauses        ::= 'where' <Whitespace> <WhereClause> ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
@@ -1103,7 +1077,7 @@ extension Grammar
         }
     }
     
-    // Field               ::= <ModuleField>
+    // Field               ::= <FrameworkField>
     //                       | <FunctionField>
     //                       | <SubscriptField>
     //                       | <MemberField>
@@ -1122,7 +1096,8 @@ extension Grammar
     // Separator           ::= <Endline>
     enum Field:Parseable 
     {
-        case module(ModuleField) 
+        case framework(FrameworkField) 
+        case dependency(DependencyField) 
         
         case `subscript`(SubscriptField) 
         case function(FunctionField) 
@@ -1131,7 +1106,7 @@ extension Grammar
         
         case implementation(ImplementationField) 
         case conformance(ConformanceField) 
-        case `extension`(ExtensionField) 
+        //case `extension`(ExtensionField) 
         case constraints(ConstraintsField) 
         case attribute(AttributeField) 
         case `throws`(ThrowsField) 
@@ -1148,9 +1123,13 @@ extension Grammar
         init(parsing input:inout Input) throws
         {
             let start:String.Index = input.index 
-            if      let field:ModuleField = .init(parsing: &input)
+            if      let field:FrameworkField = .init(parsing: &input)
             {
-                self = .module(field)
+                self = .framework(field)
+            }
+            else if let field:DependencyField = .init(parsing: &input)
+            {
+                self = .dependency(field)
             }
             else if let field:FunctionField = .init(parsing: &input)
             {
@@ -1176,10 +1155,10 @@ extension Grammar
             {
                 self = .conformance(field)
             }
-            else if let field:ExtensionField = .init(parsing: &input)
+            /* else if let field:ExtensionField = .init(parsing: &input)
             {
                 self = .extension(field)
-            }
+            } */
             else if let field:ConstraintsField = .init(parsing: &input)
             {
                 self = .constraints(field)

@@ -45,14 +45,15 @@ The full syntax is this:
 Whitespace              ::= ' ' ' ' *
 Endline                 ::= ' ' * '\n'
 Identifier              ::= <Swift Identifier Head> <Swift Identifier Character> *
-EncapsulatedOperator    ::= '(' <EncapsulatedOperator.Operator> ')'
-EncapsulatedOperator.Operator    
-                        ::= <Swift Operator Head> <Swift Operator Character> *
+                          | '(' <Operator> ')'
+Operator                ::= <Swift Operator Head> <Swift Operator Character> *
                           | <Swift Dot Operator Head> <Swift Dot Operator Character> *
 
-ModuleField             ::= <ModuleField.Keyword> <Whitespace> <Identifier> <Endline>
-ModuleField.Keyword     ::= 'module'
+FrameworkField          ::= <FrameworkField.Keyword> <Whitespace> <Identifier> <Endline>
+FrameworkField.Keyword  ::= 'module'
                           | 'plugin'
+DependencyField         ::= 'import' <Whitespace> <Identifier> <Endline>
+                          | 'import' <Whitespace> <TypeField.Keyword> <Whitespace> <Identifiers> <Endline>
 
 FunctionField           ::= <FunctionField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? '?' ? 
                             '(' ( <FunctionField.Label> ':' ) * ')' <Endline>
@@ -65,7 +66,7 @@ FunctionField.Keyword   ::= 'init'
                           | 'indirect' <Whitespace> 'case' 
 FunctionField.Label     ::= <Identifier> 
                           | <Identifier> ? '...'
-Identifiers             ::= <Identifier> ( '.' <Identifier> ) * ( '.' <EncapsulatedOperator> ) ?
+Identifiers             ::= <Identifier> ( '.' <Identifier> ) * 
 
 TypeParameters          ::= '<' <Whitespace> ? 
                             <Identifier> <Whitespace> ? ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * 
@@ -95,9 +96,9 @@ TypeField.Keyword       ::= 'protocol'
                           | 'typealias'
 
 
-ExtensionField          ::= '?' <Whitespace> ? <WhereClauses> <Endline>
-ImplementationField     ::= '?:' <Whitespace> ? <Identifiers> ( <Whitespace> <WhereClauses> ) ? <Endline>
 ConformanceField        ::= ':' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
+ImplementationField     ::= '?:' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
+                          | '?' <Whitespace> ? <WhereClauses> <Endline>
 
 ConstraintsField        ::= <WhereClauses> <Endline>
 
@@ -158,7 +159,7 @@ TopicElementField       ::= '##' <Whitespace>? '(' <Whitespace> ?
 ParagraphField          ::= <ParagraphLine> <ParagraphLine> *
 ParagraphLine           ::= '    ' ' ' * [^\s] . * '\n'
 
-Field                   ::= <ModuleField>
+Field                   ::= <FrameworkField>
                           | <FunctionField>
                           | <SubscriptField>
                           | <MemberField>

@@ -53,7 +53,9 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
         let body:ArraySlice<Grammar.Field>  = fields.dropFirst()
         switch fields.first 
         {
-        case .module(let header)?:
+        case .framework(let header)?:
+            pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
+        case .dependency(let header)?:
             pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
         case .subscript(let header)?:
             pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))

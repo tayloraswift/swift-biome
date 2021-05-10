@@ -93,26 +93,40 @@ extension Page.Label
         let text:String 
         switch self 
         {
-        case .framework:
-            text = "Framework"
+        case .module:
+            text = "Module"
+        case .plugin:
+            text = "Package Plugin"
+        case .dependency:
+            text = "Dependency"
         case .enumeration:
             text = "Enumeration"
         case .genericEnumeration:
             text = "Generic Enumeration"
+        case .importedEnumeration:
+            text = "Imported Enumeration"
         case .structure:
             text = "Structure"
         case .genericStructure:
             text = "Generic Structure"
+        case .importedStructure:
+            text = "Imported Structure"
         case .class:
             text = "Class"
         case .genericClass:
             text = "Generic Class"
+        case .importedClass:
+            text = "Imported Class"
         case .protocol:
             text = "Protocol"
+        case .importedProtocol:
+            text = "Imported Protocol"
         case .typealias:
             text = "Typealias"
         case .genericTypealias:
             text = "Generic Typealias"
+        case .importedTypealias:
+            text = "Imported Typealias"
         case .enumerationCase:
             text = "Enumeration Case"
         case .initializer:
@@ -180,13 +194,17 @@ extension Page.Declaration
                 }
             case .type(_, .unresolved), .typePunctuation(_, .unresolved):
                 fatalError("attempted to render unresolved link")
-            case .type(let text, .resolved(url: let target)):
+            case .type(let text, .resolved(url: let target, style: .local)):
                 group.append(.init("a", ["class": "syntax-type", "href": target], text))
-            case .type(let text, .apple(url: let target)):
+            case .type(let text, .resolved(url: let target, style: .imported)):
+                group.append(.init("a", ["class": "syntax-type syntax-imported-type", "href": target], text))
+            case .type(let text, .resolved(url: let target, style: .apple)):
                 group.append(.init("a", ["class": "syntax-type syntax-swift-type", "href": target], text))
-            case .typePunctuation(let text, .resolved(url: let target)):
+            case .typePunctuation(let text, .resolved(url: let target, style: .local)):
                 group.append(.init("a", ["class": "syntax-type syntax-punctuation", "href": target], text))
-            case .typePunctuation(let text, .apple(url: let target)):
+            case .typePunctuation(let text, .resolved(url: let target, style: .imported)):
+                group.append(.init("a", ["class": "syntax-type syntax-imported-type syntax-punctuation", "href": target], text))
+            case .typePunctuation(let text, .resolved(url: let target, style: .apple)):
                 group.append(.init("a", ["class": "syntax-type syntax-swift-type syntax-punctuation", "href": target], text))
             case .punctuation(let text):
                 group.append(.init("span", ["class": "syntax-punctuation"], text))
@@ -272,7 +290,7 @@ extension Page
         {
             switch $0.link 
             {
-            case .resolved(url: let target), .apple(url: let target):
+            case .resolved(url: let target, style: _):
                 return .init("li", [:], [.init("a", ["href": target], $0.text)])
             case .unresolved(let path):
                 fatalError("attempted to render unresolved link \(path)")
@@ -307,12 +325,20 @@ extension Page
         create(class: "introduction", section: introduction)
         
         // discussion 
-        var discussion:[HTML.Tag] = 
-        [
-            .init("h2", [:], "Declaration"),
-            .init("div", ["class": "declaration-container"], 
-                [.init("code", ["class": "declaration"], Page.Declaration.html(self.declaration))])
-        ]
+        var discussion:[HTML.Tag] 
+        if !self.declaration.isEmpty
+        {
+            discussion = 
+            [
+                .init("h2", [:], "Declaration"),
+                .init("div", ["class": "declaration-container"], 
+                    [.init("code", ["class": "declaration"], Page.Declaration.html(self.declaration))])
+            ]
+        }
+        else 
+        {
+            discussion = []
+        }
         
         if !self.discussion.specializations.isEmpty 
         {

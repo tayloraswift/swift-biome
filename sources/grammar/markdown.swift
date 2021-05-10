@@ -30,7 +30,7 @@ enum Markdown
         static 
         let token:String = "\\n"
     } 
-    //  ParagraphGrammar.Token          ::= <ParagraphLink> 
+    //  ParagraphGrammar.Token  ::= <ParagraphLink> 
     //                            | <ParagraphSymbolLink>
     //                            | <ParagraphSubscript>
     //                            | <ParagraphSuperscript>

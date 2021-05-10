@@ -3,7 +3,15 @@ class Page
 {
     enum Label 
     {
-        case framework 
+        case module 
+        case plugin 
+        
+        case dependency 
+        case importedEnumeration 
+        case importedStructure 
+        case importedClass 
+        case importedProtocol 
+        case importedTypealias
         
         case enumeration 
         case genericEnumeration 
@@ -30,18 +38,28 @@ class Page
     
     enum Link:Equatable
     {
+        enum Style
+        {
+            case local 
+            case imported 
+            case apple 
+        }
+        
         case unresolved(path:[String])
-        case resolved(url:String)
-        case apple(url:String)
+        case resolved(url:String, style:Style)
         
         static 
         func appleify(_ path:[String]) -> Self 
         {
-            .apple(url: "https://developer.apple.com/documentation/\(path.map{ $0.lowercased() }.joined(separator: "/"))")
+            .resolved(url: 
+                "https://developer.apple.com/documentation/\(path.map{ $0.lowercased() }.joined(separator: "/"))", 
+                style: .apple)
         }
         
         static 
-        let metatype:Self = .apple(url: "https://docs.swift.org/swift-book/ReferenceManual/Types.html#ID455")
+        let metatype:Self = .resolved(
+            url:   "https://docs.swift.org/swift-book/ReferenceManual/Types.html#ID455", 
+            style: .apple)
         
         static 
         func link<T>(_ components:[(String, T)]) -> [(component:(String, T), link:Link)]
@@ -469,11 +487,11 @@ class Page
             {
                 fatalError("member '\(name)' cannot have both a requirement field and implementations fields.")
             }
-            guard fields.extensions.isEmpty
+            /* guard fields.extensions.isEmpty
             else 
             {
                 fatalError("member '\(name)' cannot have both a requirement field and extension fields.")
-            }
+            } */
             
             if  case .required? = fields.requirements.first, 
                 fields.requirements.count == 1 
@@ -528,20 +546,36 @@ class Page
             }
             
             var sentences:[String] = []
-            for `extension`:Grammar.ExtensionField in fields.extensions
+            /* for `extension`:Grammar.ExtensionField in fields.extensions
             {
                 sentences.append("Available when \(Self.prose(conditions: `extension`.conditions)).")
-            }
+            } */
             for implementation:Grammar.ImplementationField in fields.implementations
+                where !implementation.conformances.isEmpty 
             {
-                sentences.append("Implements requirement in [`\(implementation.conformance.joined(separator: "."))`].")
-                if !implementation.conditions.isEmpty 
+                let conformances:String = Self.prose(separator: ",", list: implementation.conformances.map 
                 {
-                    sentences.append("Available when \(Self.prose(conditions: implementation.conditions)).")
+                    "[`\($0.joined(separator: "."))`]"
+                })
+                if implementation.conformances.count == 1 
+                {
+                    sentences.append("Implements requirement in \(conformances).")
                 }
+                else 
+                {
+                    sentences.append("Implements requirements in \(conformances).")
+                }
+                
             }
+            for implementation:Grammar.ImplementationField in fields.implementations 
+                where !implementation.conditions.isEmpty
+            {
+                sentences.append("Available when \(Self.prose(conditions: implementation.conditions)).")
+            }
+            
             // non-conditional conformances go straight into the type declaration 
-            for conformance:Grammar.ConformanceField in fields.conformances where !conformance.conditions.isEmpty 
+            for conformance:Grammar.ConformanceField in fields.conformances 
+                where !conformance.conditions.isEmpty 
             {
                 let conformances:String = Self.prose(separator: ",", list: conformance.conformances.map 
                 {
@@ -552,7 +586,9 @@ class Page
             
             relationships = .init(parsing: sentences.joined(separator: " "))
         
-        case .protocol, .enumerationCase, .framework: 
+        case    .protocol, .enumerationCase, .module, .plugin, .dependency, 
+                .importedEnumeration, .importedStructure, .importedClass, 
+                .importedProtocol, .importedTypealias: 
             relationships = [] 
         }
         
@@ -645,12 +681,12 @@ extension Page
                     switch $0 
                     {
                     case .type(let component, .unresolved(path: let path)):
-                        guard let url:String = PageTree.Node.resolve(path[...], in: scopes)
+                        guard let resolved:Link = PageTree.Node.resolve(path[...], in: scopes)
                         else 
                         {
                             return .identifier(component)
                         }
-                        return .type(component, .resolved(url: url))
+                        return .type(component, resolved)
                     default:
                         return $0
                     }
@@ -668,13 +704,13 @@ extension Page
                         if case .unresolved(path: let path) = element.link 
                         {
                             let full:[String] = sublink.prefix + path 
-                            guard let url:String = PageTree.Node.resolve(full[...], in: scopes)
+                            guard let resolved:Link = PageTree.Node.resolve(full[...], in: scopes)
                             else 
                             {
                                 return .identifier(element.component.0)
                             }
                             
-                            return .type(element.component.0, .resolved(url: url))
+                            return .type(element.component.0, resolved)
                         }
                         else 
                         {
@@ -701,12 +737,12 @@ extension Page
             switch $0 
             {
             case .type(let component, .unresolved(path: let path)):
-                guard let url:String = PageTree.Node.resolve(path[...], in: scopes)
+                guard let resolved:Link = PageTree.Node.resolve(path[...], in: scopes)
                 else 
                 {
                     return .identifier(component)
                 }
-                return .type(component, .resolved(url: url))
+                return .type(component, resolved)
             default:
                 return $0
             }
@@ -732,12 +768,12 @@ extension Page
             switch $0.link 
             {
             case .unresolved(path: let path):
-                guard let url:String = PageTree.Node.resolve(path[...], in: inclusive)
+                guard let resolved:Link = PageTree.Node.resolve(path[...], in: inclusive)
                 else 
                 {
                     break 
                 }
-                return ($0.text, .resolved(url: url))
+                return ($0.text, resolved)
             default:
                 break 
             }
@@ -948,7 +984,7 @@ extension Page
     {
         let conformances:[Grammar.ConformanceField], 
             implementations:[Grammar.ImplementationField], 
-            extensions:[Grammar.ExtensionField], 
+            //extensions:[Grammar.ExtensionField], 
             constraints:Grammar.ConstraintsField?, 
             attributes:[Grammar.AttributeField], 
             paragraphs:[Grammar.ParagraphField],
@@ -975,7 +1011,7 @@ extension Page
         {
             var conformances:[Grammar.ConformanceField]         = [], 
                 implementations:[Grammar.ImplementationField]   = [],
-                extensions:[Grammar.ExtensionField]             = [], 
+                //extensions:[Grammar.ExtensionField]             = [], 
                 requirements:[Grammar.RequirementField]         = [], 
                 attributes:[Grammar.AttributeField]             = [], 
                 paragraphs:[Grammar.ParagraphField]             = [],
@@ -996,8 +1032,8 @@ extension Page
                     conformances.append(field)
                 case .implementation(let field):
                     implementations.append(field)
-                case .extension     (let field):
-                    extensions.append(field)
+                //case .extension     (let field):
+                //    extensions.append(field)
                 case .requirement   (let field):
                     requirements.append(field)
                 
@@ -1040,7 +1076,7 @@ extension Page
                     }
                     dispatch = field 
                 
-                case .subscript, .function, .member, .type, .module:
+                case .subscript, .function, .member, .type, .framework, .dependency:
                     fatalError("only one header field per doccomnent allowed")
                     
                 case .separator:
@@ -1050,7 +1086,7 @@ extension Page
             
             self.conformances       = conformances
             self.implementations    = implementations
-            self.extensions         = extensions
+            //self.extensions         = extensions
             self.requirements       = requirements
             self.constraints        = constraints
             self.attributes         = attributes
@@ -1120,17 +1156,80 @@ extension Page.Binding
         self.page.overload = overloads 
     }
     static 
-    func create(_ header:Grammar.ModuleField, fields:ArraySlice<Grammar.Field>, 
+    func create(_ header:Grammar.FrameworkField, fields:ArraySlice<Grammar.Field>, 
         order:Int, urlpattern:(prefix:String, suffix:String)) 
         -> Self
     {
         let fields:Page.Fields = .init(fields, order: order)
-        
-        let page:Page = .init(label: .framework, name: header.identifier, 
+        let label:Page.Label 
+        switch header.keyword 
+        {
+        case .module:   label = .module 
+        case .plugin:   label = .plugin
+        }
+        let page:Page = .init(label: label, name: header.identifier, 
             signature:      [], 
-            declaration:    [.keyword("import"), .whitespace, .identifier(header.identifier)], 
+            declaration:    [], 
             fields:         fields, 
             path:           [])
+        return .init(page, locals: [], keys: fields.keys, 
+            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
+    }
+    
+    static 
+    func create(_ header:Grammar.DependencyField, fields:ArraySlice<Grammar.Field>, 
+        order:Int, urlpattern:(prefix:String, suffix:String)) 
+        -> Self
+    {
+        let fields:Page.Fields = .init(fields, order: order)
+        let name:String, 
+            signature:[Page.Signature.Token], 
+            declaration:[Page.Declaration.Token], 
+            path:[String]
+        switch header 
+        {
+        case .module(identifier: let identifier):
+            name        = identifier 
+            signature   = 
+            [
+                .text("import"), 
+                .whitespace, 
+                .highlight(identifier),
+            ]
+            declaration = 
+            [
+                .keyword("import"), 
+                .breakableWhitespace, 
+                .identifier(identifier),
+            ]
+            path = [identifier]
+        case .type(keyword: let keyword, identifiers: let identifiers):
+            name        = identifiers[identifiers.endIndex - 1]
+            signature   = [.text("\(keyword)"), .whitespace] + 
+                identifiers.map{ [.highlight($0)] }.joined(separator: [.punctuation(".")])
+            declaration = 
+            [
+                .keyword("import"), 
+                .breakableWhitespace, 
+                .keyword("\(keyword)"),
+                .breakableWhitespace, 
+            ]
+            +
+            Page.Link.link(identifiers.dropLast().map{ ($0, ()) }).flatMap 
+            {
+                [.type($0.component.0, $0.link), .punctuation(".")]
+            }
+            +
+            [
+                .identifier(name)
+            ]
+            path = identifiers 
+        }
+        let page:Page = .init(label: .dependency, name: name, 
+            signature:      signature, 
+            declaration:    declaration, 
+            fields:         fields, 
+            path:           path)
         return .init(page, locals: [], keys: fields.keys, 
             rank: fields.rank, order: fields.order, urlpattern: urlpattern)
     }
@@ -1586,6 +1685,7 @@ extension Page.Binding
         let seen:Set<String> = .init(self.page.topics.flatMap{ $0.symbols.map(\.url) })
         var topics: 
         (
+            dependencies        :[Page.TopicSymbol],
             enumerations        :[Page.TopicSymbol],
             structures          :[Page.TopicSymbol],
             classes             :[Page.TopicSymbol],
@@ -1600,7 +1700,7 @@ extension Page.Binding
             associatedtypes     :[Page.TopicSymbol],
             subscripts          :[Page.TopicSymbol]
         )
-        topics = ([], [], [], [], [], [], [], [], [], [], [], [], [])
+        topics = ([], [], [], [], [], [], [], [], [], [], [], [], [], [])
         for binding:Self in 
             (children.flatMap
             { 
@@ -1635,15 +1735,15 @@ extension Page.Binding
             )
             switch binding.page.label 
             {
-            case .enumeration, .genericEnumeration:
+            case .enumeration, .genericEnumeration, .importedEnumeration:
                 topics.enumerations.append(symbol)
-            case .structure, .genericStructure:
+            case .structure, .genericStructure, .importedStructure:
                 topics.structures.append(symbol)
-            case .class, .genericClass:
+            case .class, .genericClass, .importedClass:
                 topics.classes.append(symbol)
-            case .protocol:
+            case .protocol, .importedProtocol:
                 topics.protocols.append(symbol)
-            case .typealias, .genericTypealias:
+            case .typealias, .genericTypealias, .importedTypealias:
                 topics.typealiases.append(symbol)
             
             case .enumerationCase:
@@ -1662,15 +1762,19 @@ extension Page.Binding
                 topics.associatedtypes.append(symbol)
             case .subscript:
                 topics.subscripts.append(symbol)
-            case .framework:
+            case .module, .plugin:
                 break
+            
+            case .dependency:
+                topics.dependencies.append(symbol)
             }
         }
         
         for builtin:(topic:String, symbols:[Page.TopicSymbol]) in 
         [
+            (topic: "Dependencies",         symbols: topics.dependencies), 
             (topic: "Enumeration cases",    symbols: topics.cases), 
-            (topic: "Associated types",      symbols: topics.associatedtypes), 
+            (topic: "Associated types",     symbols: topics.associatedtypes), 
             (topic: "Initializers",         symbols: topics.initializers), 
             (topic: "Subscripts",           symbols: topics.subscripts), 
             (topic: "Type properties",      symbols: topics.typeProperties), 
@@ -1710,10 +1814,27 @@ struct PageTree
             {
                 switch self 
                 {
+                case .redirect(url: let url):   return url 
+                case .binding(let binding):     return binding.url
+                }
+            }
+            
+            var link:Page.Link 
+            {
+                switch self  
+                {
+                case .redirect(url: let url):   return .resolved(url: url, style: .local)
                 case .binding(let binding):
-                    return binding.url 
-                case .redirect(url: let url):
-                    return url 
+                    switch binding.page.label 
+                    {
+                    case    .dependency, 
+                            .importedEnumeration, 
+                            .importedStructure, 
+                            .importedClass, 
+                            .importedProtocol, 
+                            .importedTypealias: return .resolved(url: binding.url, style: .imported)
+                    default:                    return .resolved(url: binding.url, style: .local)
+                    }
                 }
             }
             
@@ -1830,13 +1951,13 @@ extension PageTree.Node
         return ([:], [])
     }
     static 
-    func resolve(_ path:ArraySlice<String>, in scopes:[Self]) -> String?
+    func resolve(_ path:ArraySlice<String>, in scopes:[Self]) -> Page.Link?
     {
         if  path.isEmpty, 
             let root:Self       = scopes.first, 
             let payload:Payload = root.payloads.first
         {
-            return payload.url 
+            return payload.link 
         }
         
         let debugPath:String = path.joined(separator: "/")
@@ -1874,7 +1995,7 @@ extension PageTree.Node
                 print("warning: path '\(debugPath)' is ambiguous")
             }
             
-            return payload.url
+            return payload.link
         }
         
         print("(PageTree.resolve(_:in:)): failed to resolve '\(debugPath)'")

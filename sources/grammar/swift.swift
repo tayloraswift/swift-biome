@@ -332,6 +332,11 @@ extension Grammar.Token
         let token:String = "..."
     } 
     
+    struct Import:Grammar.Parseable.Terminal
+    {
+        static 
+        let token:String = "import"
+    }
     struct Let:Grammar.Parseable.Terminal
     {
         static 
@@ -540,16 +545,70 @@ extension Grammar
         }
     }
     
-    // Identifier ::= <Swift Identifier Head> <Swift Identifier Character> *
+    // Identifier   ::= <Swift Identifier Head> <Swift Identifier Character> *
+    //                | '(' <Operator> ')'
+    // Operator     ::= <Swift Operator Head> <Swift Operator Character> *
+    //                | <Swift Dot Operator Head> <Swift Dot Operator Character> *
+    struct Operator:Parseable
+    {
+        let string:String 
+        
+        init(parsing input:inout Input) throws 
+        {
+            let start:String.Index      = input.index 
+            if      let _:Token.Period  = .init(parsing: &input) 
+            {
+                var string:String       = "."
+                while true 
+                {
+                    if let _:Token.Period = .init(parsing: &input) 
+                    {
+                        string.append(".")
+                    }
+                    else if let character:Token.Operator.Character = .init(parsing: &input)
+                    {
+                        string.append(character.character)
+                    }
+                    else 
+                    {
+                        break 
+                    }
+                }
+                self.string = string 
+            }
+            else if let head:Token.Operator.Head    = .init(parsing: &input)
+            {
+                let body:[Token.Operator.Character] = .init(parsing: &input)
+                self.string = "\(head.character)\(String.init(body.map(\.character)))"
+            }
+            else 
+            {
+                throw input.expected(Self.self, from: start)
+            }
+        }
+    }
     struct Identifier:Parseable, CustomStringConvertible
     {
         let string:String 
         
         init(parsing input:inout Input) throws
         {
-            let head:Token.Identifier.Head          = try .init(parsing: &input),
-                body:[Token.Identifier.Character]   =     .init(parsing: &input)
-            self.string = "\(head.character)\(String.init(body.map(\.character)))"
+            let start:String.Index = input.index 
+            if      let head:Token.Identifier.Head      = .init(parsing: &input)
+            {
+                let body:[Token.Identifier.Character]   = .init(parsing: &input)
+                self.string = "\(head.character)\(String.init(body.map(\.character)))"
+            }
+            else if let _:Token.Parenthesis.Left        = .init(parsing: &input),
+                    let inner:Operator                  = .init(parsing: &input),
+                    let _:Token.Parenthesis.Right       = .init(parsing: &input)
+            {
+                self.string = inner.string
+            }
+            else 
+            {
+                throw input.expected(Self.self, from: start)
+            }
         }
         
         var description:String 
@@ -558,29 +617,17 @@ extension Grammar
         }
     }
     
-    // Identifiers ::= <Identifier> ( '.' <Identifier> ) * ( '.' <EncapsulatedOperator> ) ?
+    // Identifiers ::= <Identifier> ( '.' <Identifier> ) * 
     struct Identifiers:Parseable, CustomStringConvertible
     {
         let identifiers:[String]
             
         init(parsing input:inout Input) throws
         {
-            let head:Identifier = try .init(parsing: &input)
-            let body:[List<Token.Period, Identifier>] = 
-                .init(parsing: &input)
-            let `operator`:List<Token.Period, EncapsulatedOperator>? = 
-                .init(parsing: &input)
-            let operators:[String] 
-            if let `operator`:String = `operator`.map(\.body)?.string 
-            {
-                operators = [`operator`]
-            }
-            else 
-            {
-                operators = []
-            }
+            let head:Identifier                         = try .init(parsing: &input)
+            let body:[List<Token.Period, Identifier>]   =     .init(parsing: &input)
             
-            self.identifiers = ([head] + body.map(\.body)).map(\.string) + operators
+            self.identifiers = ([head] + body.map(\.body)).map(\.string) 
         }
         
         var description:String 
