@@ -550,8 +550,6 @@ extension Grammar
         }
     }
     
-    // Identifier   ::= <Swift Identifier Head> <Swift Identifier Character> *
-    //                | '(' <Operator> ')'
     // Operator     ::= <Swift Operator Head> <Swift Operator Character> *
     //                | <Swift Dot Operator Head> <Swift Dot Operator Character> *
     struct Operator:Parseable
@@ -592,28 +590,16 @@ extension Grammar
             }
         }
     }
+    // Identifier   ::= <Swift Identifier Head> <Swift Identifier Character> *
     struct Identifier:Parseable, CustomStringConvertible
     {
         let string:String 
         
         init(parsing input:inout Input) throws
         {
-            let start:String.Index = input.index 
-            if      let head:Token.Identifier.Head      = .init(parsing: &input)
-            {
-                let body:[Token.Identifier.Character]   = .init(parsing: &input)
-                self.string = "\(head.character)\(String.init(body.map(\.character)))"
-            }
-            else if let _:Token.Parenthesis.Left        = .init(parsing: &input),
-                    let inner:Operator                  = .init(parsing: &input),
-                    let _:Token.Parenthesis.Right       = .init(parsing: &input)
-            {
-                self.string = inner.string
-            }
-            else 
-            {
-                throw input.expected(Self.self, from: start)
-            }
+            let head:Token.Identifier.Head          = try .init(parsing: &input), 
+                body:[Token.Identifier.Character]   =     .init(parsing: &input)
+            self.string = "\(head.character)\(String.init(body.map(\.character)))"
         }
         
         var description:String 

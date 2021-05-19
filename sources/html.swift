@@ -1,594 +1,815 @@
-enum HTML 
+@resultBuilder 
+struct HTML 
 {
-    struct Tag 
+    enum Element
     {
-        enum Content 
-        {
-            case character(Character)
-            case child(HTML.Tag)
-            
-            static 
-            func escape(_ content:[Self]) -> [Self] 
+        case text(String)
+        case leaf(String, attributes:[String: String]) 
+        case node(String, attributes:[String: String], content:HTML) 
+    }
+    
+    private
+    var elements:[Element]
+    
+    mutating 
+    func append(@HTML _ build:() -> Self)
+    {
+        self.elements.append(contentsOf: build().elements)
+    }
+    
+    static 
+    func buildExpression(_ unescaped:String) -> Self 
+    {
+        .init(elements: 
+        [
+            .text(unescaped.map 
             {
-                var escaped:[Self] = []
-                for content:Self in content 
+                switch $0 
                 {
-                    switch content 
-                    {
-                    case .character("<"):
-                        escaped.append(contentsOf: "&lt;".map(Content.character(_:)))
-                    case .character(">"):
-                        escaped.append(contentsOf: "&gt;".map(Content.character(_:)))
-                    case .character("&"):
-                        escaped.append(contentsOf: "&amp;".map(Content.character(_:)))
-                    case .character("\""):
-                        escaped.append(contentsOf: "&quot;".map(Content.character(_:)))
-                    default:
-                        escaped.append(content)
-                    }
+                case "<"            : return "&lt;"
+                case ">"            : return "&gt;"
+                case "&"            : return "&amp;"
+                case "'"            : return "&apos;"
+                case "\""           : return "&quot;"
+                case let character  : return "\(character)"
                 }
-                return escaped
-            }
-        }
-        
-        let name:String, 
-            attributes:[String: String]
-        var content:[Content] 
-        
-        init(_ name:String, _ attributes:[String: String], _ text:String) 
+            }.joined())
+        ])
+    }
+    static 
+    func buildExpression(_ html:Self) -> Self 
+    {
+        html
+    }
+    
+    static 
+    var empty:Self 
+    {
+        .init(elements: [])
+    }
+    static 
+    func buildOptional(_ element:Self?) -> Self 
+    {
+        element ?? .empty
+    }
+    static 
+    func buildEither(first element:Self) -> Self 
+    {
+        element 
+    }
+    static 
+    func buildEither(second element:Self) -> Self 
+    {
+        element 
+    }
+    static 
+    func buildArray(_ elements:[Self]) -> Self 
+    {
+        .init(elements: elements.flatMap(\.elements))
+    }
+    static 
+    func buildBlock(_ elements:Self...) -> Self 
+    {
+        .init(elements: elements.flatMap(\.elements))
+    }
+}
+extension HTML 
+{
+    static 
+    func element(_ name:String, _ attributes:[String: String] = [:], 
+        @HTML builder build:() -> Self = { .empty }) 
+        -> Self
+    {
+        .init(elements: 
+        [
+            .node(name, attributes: attributes, content: build())
+        ])
+    }
+    static 
+    func text(escaped:String) -> Self
+    {
+        .init(elements: [.text(escaped)])
+    }
+    static 
+    var linebreak:Self 
+    {
+        .init(elements: [.leaf("br", attributes: [:])])
+    }
+    
+    var rendered:String 
+    {
+        self.elements.map(\.rendered).joined()
+    }
+}
+extension HTML.Element 
+{
+    var rendered:String 
+    {
+        switch self 
         {
-            self.init(name, attributes, content: text.map(Content.character(_:)))
-        }
-        
-        init(_ name:String, _ attributes:[String: String], escaped:String) 
-        {
-            self.name       = name 
-            self.attributes = attributes 
-            self.content    = escaped.map(Content.character(_:))
-        }
-        
-        init(_ name:String, _ attributes:[String: String], content:[Content]) 
-        {
-            self.name       = name 
-            self.attributes = attributes 
-            self.content    = Content.escape(content)
-        }
-        
-        init(_ name:String, _ attributes:[String: String], _ children:[Self]) 
-        {
-            self.name       = name 
-            self.attributes = attributes 
-            self.content    = children.map(Content.child(_:))
-        }
-        
-        var string:String 
-        {
-            switch self.name 
-            {
-            // emit self-closing tags ('br')
-            case "br":
-                return "<\(([self.name] + self.attributes.map{ "\($0.key)=\"\($0.value)\"" }).joined(separator: " "))/>"
-            // emit tags with content
-            default:
-                let content:String = self.content.map 
-                {
-                    switch $0 
-                    {
-                    case .character(let c):
-                        return "\(c)"
-                    case .child(let tag):
-                        return tag.string 
-                    }
-                }.joined()
-                return "<\(([self.name] + self.attributes.map{ "\($0.key)=\"\($0.value)\"" }).joined(separator: " "))>\(content)</\(self.name)>"
-            }
+        case    .text(let string):
+            return string
+        case    .leaf(let name, let attributes):
+            return
+                """
+                <\(([name] + attributes.map
+                    { 
+                        "\($0.key)=\"\($0.value)\"" 
+                    }).joined(separator: " "))/>
+                """
+        case    .node(let name, let attributes, let content):
+            return 
+                """
+                <\(([name] + attributes.map
+                    { 
+                        "\($0.key)=\"\($0.value)\"" 
+                    }).joined(separator: " "))>\
+                \(content.rendered)\
+                </\(name)>
+                """
         }
     }
 }
 
-extension Page.Label 
+extension Declaration 
 {
-    var html:HTML.Tag
+    @HTML 
+    var html:HTML
     {
-        let text:String 
-        switch self 
+        let groups:[ArraySlice<Declaration.Token>] = 
+            self.tokens.split(separator: .whitespace(breakable: true), 
+                omittingEmptySubsequences: false)
+        for (index, group):(Int, ArraySlice<Declaration.Token>) in zip(groups.indices, groups)
         {
-        case .module:
-            text = "Module"
-        case .plugin:
-            text = "Package Plugin"
-        case .dependency:
-            text = "Dependency"
-        case .enumeration:
-            text = "Enumeration"
-        case .genericEnumeration:
-            text = "Generic Enumeration"
-        case .importedEnumeration:
-            text = "Imported Enumeration"
-        case .structure:
-            text = "Structure"
-        case .genericStructure:
-            text = "Generic Structure"
-        case .importedStructure:
-            text = "Imported Structure"
-        case .class:
-            text = "Class"
-        case .genericClass:
-            text = "Generic Class"
-        case .importedClass:
-            text = "Imported Class"
-        case .protocol:
-            text = "Protocol"
-        case .importedProtocol:
-            text = "Imported Protocol"
-        case .typealias:
-            text = "Typealias"
-        case .genericTypealias:
-            text = "Generic Typealias"
-        case .importedTypealias:
-            text = "Imported Typealias"
-        case .extension:
-            text = "Extension"
-        case .enumerationCase:
-            text = "Enumeration Case"
-        case .initializer:
-            text = "Initializer"
-        case .staticMethod:
-            text = "Static Method"
-        case .instanceMethod:
-            text = "Instance Method"
-        case .genericInitializer:
-            text = "Generic Initializer"
-        case .genericStaticMethod:
-            text = "Generic Static Method"
-        case .genericInstanceMethod:
-            text = "Generic Instance Method"
-        case .staticProperty:
-            text = "Static Property"
-        case .instanceProperty:
-            text = "Instance Property"
-        case .associatedtype:
-            text = "Associatedtype"
-        case .subscript:
-            text = "Subscript"
+            if group.isEmpty
+            {
+                let _ = fatalError("unreachable (multiple consecutive whitespace tokens)")
+            }
+            
+            HTML.element("span", ["class": "syntax-group"])
+            {
+                for token:Declaration.Token in group 
+                {
+                    switch token 
+                    {
+                    case .whitespace(breakable: true):  
+                        let _ = fatalError("unreachable")
+                    case .whitespace(breakable: false): 
+                        HTML.element("span", ["class": "syntax-whitespace"])
+                        { 
+                            HTML.text(escaped: "&nbsp;") 
+                        } 
+                    case .keyword(let string): 
+                        HTML.element("span", ["class": "syntax-keyword"])
+                        {
+                            string 
+                        }
+                    
+                    case .identifier(let string, .resolved(url: let url, style: .local)):
+                        HTML.element("a", ["href": url, "class": "syntax-type"])
+                        {
+                            string
+                        }
+                    case .identifier(let string, .resolved(url: let url, style: .imported)):
+                        HTML.element("a", ["href": url, "class": "syntax-type syntax-imported-type"])
+                        {
+                            string
+                        }
+                    case .identifier(let string, .resolved(url: let url, style: .builtin)):
+                        HTML.element("a", ["href": url, "class": "syntax-type syntax-swift-type"])
+                        {
+                            string
+                        }
+                    case .identifier(_, .unresolved(path: _)):
+                        let _ = fatalError("unreachable (attempted to render unresolved link)")
+                    case .identifier(let string, nil):
+                        HTML.element("span", ["class": "syntax-identifier"])
+                        {
+                            string 
+                        }
+    
+                    case .punctuation(let string, .resolved(url: let url, style: .local)):
+                        HTML.element("a", ["href": url, "class": "syntax-type syntax-punctuation"])
+                        {
+                            string
+                        }
+                    case .punctuation(let string, .resolved(url: let url, style: .imported)):
+                        HTML.element("a", ["href": url, "class": "syntax-type syntax-imported-type syntax-punctuation"])
+                        {
+                            string
+                        }
+                    case .punctuation(let string, .resolved(url: let url, style: .builtin)):
+                        HTML.element("a", ["href": url, "class": "syntax-type syntax-swift-type syntax-punctuation"])
+                        {
+                            string
+                        }
+                    case .punctuation(_, .unresolved(path: _)):
+                        let _ = fatalError("unreachable (attempted to render unresolved link)")
+                    case .punctuation(let string, nil):
+                        HTML.element("span", ["class": "syntax-punctuation"])
+                        {
+                            string 
+                        }
+                    }
+                }
+                // do not include space for the last group. we cannot use 
+                // a “join”, because we want the whitespace character to be 
+                // part of the group `span` element.
+                if groups.indices.dropLast() ~= index
+                {
+                    " "
+                }
+            }
         }
-        return .init("div", ["class": "eyebrow"], text)
     }
 }
-extension Page.Declaration 
+extension Signature 
 {
-    static 
-    func html(_ tokens:[Token]) -> [HTML.Tag] 
+    @HTML
+    var html:HTML
     {
-        var i:Int = tokens.startIndex
-        var grouped:[HTML.Tag]  = []
-        var group:[HTML.Tag]    = []
-        while i < tokens.endIndex
+        let groups:[ArraySlice<Signature.Token>] = 
+            self.tokens.split(separator: .whitespace, omittingEmptySubsequences: false)
+        for (index, group):(Int, ArraySlice<Signature.Token>) in zip(groups.indices, groups)
         {
-            switch tokens[i] 
+            if group.isEmpty
             {
-            case .breakableWhitespace:
-                i += 1
-                while i < tokens.endIndex, case .breakableWhitespace = tokens[i]
-                {
-                    i += 1
-                }
-                
-                grouped.append(.init("span", ["class": "syntax-group"], 
-                    content: group.map(HTML.Tag.Content.child(_:)) + [.character(" ")]))
-                group = []
-                continue
-            
-            case .whitespace:
-                group.append(.init("span", ["class": "syntax-whitespace"], escaped: "&nbsp;"))
-            case .keyword(let text):
-                group.append(.init("span", ["class": "syntax-keyword"], text))
-            case .identifier(let text):
-                // if any of the characters are operator characters, consider 
-                // the identifier to be an operator 
-                if text.unicodeScalars.allSatisfy(Grammar.isIdentifierScalar(_:))
-                {
-                    group.append(.init("span", ["class": "syntax-identifier"], text))
-                }
-                else 
-                {
-                    group.append(.init("span", ["class": "syntax-identifier syntax-operator"], text))
-                }
-            case .type(_, .unresolved), .typePunctuation(_, .unresolved):
-                fatalError("attempted to render unresolved link")
-            case .type(let text, .resolved(url: let target, style: .local)):
-                group.append(.init("a", ["class": "syntax-type", "href": target], text))
-            case .type(let text, .resolved(url: let target, style: .imported)):
-                group.append(.init("a", ["class": "syntax-type syntax-imported-type", "href": target], text))
-            case .type(let text, .resolved(url: let target, style: .apple)):
-                group.append(.init("a", ["class": "syntax-type syntax-swift-type", "href": target], text))
-            case .typePunctuation(let text, .resolved(url: let target, style: .local)):
-                group.append(.init("a", ["class": "syntax-type syntax-punctuation", "href": target], text))
-            case .typePunctuation(let text, .resolved(url: let target, style: .imported)):
-                group.append(.init("a", ["class": "syntax-type syntax-imported-type syntax-punctuation", "href": target], text))
-            case .typePunctuation(let text, .resolved(url: let target, style: .apple)):
-                group.append(.init("a", ["class": "syntax-type syntax-swift-type syntax-punctuation", "href": target], text))
-            case .punctuation(let text):
-                group.append(.init("span", ["class": "syntax-punctuation"], text))
+                let _ = fatalError("unreachable (multiple consecutive whitespace tokens)")
             }
-            i += 1
+            
+            HTML.element("span", ["class": "signature-group"])
+            {
+                // do not include space for the first group. we cannot use 
+                // a “join”, because we want the whitespace character to be 
+                // part of the group `span` element.
+                if groups.indices.dropFirst() ~= index
+                {
+                    " "
+                }
+                for token:Signature.Token in group 
+                {
+                    switch token 
+                    {
+                    case .whitespace:  
+                        let _ = fatalError("unreachable")
+                    case .text(let string): 
+                        HTML.element("span", ["class": "signature-text"])
+                        {
+                            string 
+                        }
+                    case .punctuation(let string):
+                        HTML.element("span", ["class": "signature-punctuation"])
+                        {
+                            string 
+                        }
+                    case .highlight(let string):
+                        HTML.element("span", ["class": "signature-highlight"])
+                        {
+                            string 
+                        }
+                    }
+                }
+            }
         }
-        
-        if !group.isEmpty 
-        {
-            grouped.append(.init("span", ["class": "syntax-group"], 
-                content: group.map(HTML.Tag.Content.child(_:))))
-        }
-        return grouped 
     }
 }
-extension Page.Signature 
+extension Node.Page 
 {
-    static 
-    func html(_ tokens:[Token]) -> [HTML.Tag] 
+    func html(github:String) -> HTML 
     {
-        var i:Int = tokens.startIndex
-        var grouped:[HTML.Tag] = []
-        while i < tokens.endIndex
+        HTML.element("main")
         {
-            var group:[HTML.Tag] = []
-            darkspace:
-            while i < tokens.endIndex
+            // breadcrumbs
+            HTML.element("nav")
             {
-                defer 
+                HTML.element("div", ["class": "navigation-container"])
                 {
-                    i += 1
+                    HTML.element("ul")
+                    {
+                        // github icon 
+                        HTML.element("li", ["class": "github-icon-container"])
+                        {
+                            HTML.element("a", ["href": github])
+                            {
+                                HTML.element("span", ["class": "github-icon", "title": "Github repository"])
+                            }
+                        }
+                        for (text, link):(String, Link) in self.breadcrumbs 
+                        {
+                            HTML.element("li")
+                            {
+                                switch link 
+                                {
+                                case .resolved(url: let target, style: _):
+                                    HTML.element("a", ["href": target])
+                                    {
+                                        text
+                                    }
+                                case .unresolved(let path):
+                                    let _ = print("warning: unresolved link \(path)")
+                                    text
+                                }
+                            }
+                        }
+                        HTML.element("li")
+                        {
+                            HTML.element("span")
+                            {
+                                self.breadcrumb
+                            }
+                        }
+                    }
                 }
-                switch tokens[i] 
+            }
+            // intro 
+            HTML.element("section", ["class": "introduction"])
+            {
+                HTML.element("div", ["class": "section-container"])
                 {
-                case .text(let text):
-                    group.append(.init("span", ["class": "signature-text"], text))
-                case .punctuation(let text):
-                    group.append(.init("span", ["class": "signature-punctuation"], text))
-                case .highlight(let text):
-                    // if any of the characters are operator characters, consider 
-                    // the identifier to be an operator 
-                    if text.unicodeScalars.allSatisfy(Grammar.isIdentifierScalar(_:))
+                    HTML.element("div", ["class": "eyebrow"])
                     {
-                        group.append(.init("span", ["class": "signature-highlight"], text))
+                        switch self.label 
+                        {
+                        case .associatedtype:           "Associatedtype"
+                        case .class:                    "Class"
+                        case .dependency:               "Dependency"
+                        case .enumeration:              "Enumeration"
+                        case .enumerationCase:          "Enumeration Case"
+                        case .extension:                "Extension"
+                        case .function:                 "Function"
+                        case .functor:                  "Functor"
+                        case .genericClass:             "Generic Class"
+                        case .genericEnumeration:       "Generic Enumeration"
+                        case .genericFunction:          "Generic Function"
+                        case .genericFunctor:           "Generic Functor"
+                        case .genericInitializer:       "Generic Initializer"
+                        case .genericInstanceMethod:    "Generic Instance Method"
+                        case .genericOperator:          "Generic Operator"
+                        case .genericStaticMethod:      "Generic Static Method"
+                        case .genericStructure:         "Generic Structure"
+                        case .genericSubscript:         "Generic Subscript"
+                        case .genericTypealias:         "Generic Typealias"
+                        case .importedClass:            "Imported Class"
+                        case .importedEnumeration:      "Imported Enumeration"
+                        case .importedProtocol:         "Imported Protocol"
+                        case .importedStructure:        "Imported Structure"
+                        case .importedTypealias:        "Imported Typealias"
+                        case .initializer:              "Initializer"
+                        case .instanceMethod:           "Instance Method"
+                        case .instanceProperty:         "Instance Property"
+                        case .module:                   "Module"
+                        case .operator:                 "Operator"
+                        case .plugin:                   "Package Plugin"
+                        case .protocol:                 "Protocol"
+                        case .staticMethod:             "Static Method"
+                        case .staticProperty:           "Static Property"
+                        case .structure:                "Structure"
+                        case .subscript:                "Subscript"
+                        case .typealias:                "Typealias"
+                        }
                     }
-                    else 
+                    HTML.element("h1", ["class": "topic-heading"])
                     {
-                        group.append(.init("span", ["class": "signature-highlight signature-operator"], text))
+                        self.name
                     }
-                case .whitespace:
-                    break darkspace
+                    HTML.element("p", ["class": "topic-blurb"])
+                    {
+                        if self.blurb.isEmpty 
+                        {
+                            "No overview available"
+                        }
+                        else 
+                        {
+                            Markdown.html(self.blurb)
+                        }
+                    }
+                    if !self.discussion.relationships.isEmpty
+                    {
+                        HTML.element("p", ["class": "topic-relationships"])
+                        {
+                            Markdown.html(self.discussion.relationships)
+                        }
+                    }
                 }
             }
-            
-            let content:[HTML.Tag.Content] 
-            if grouped.isEmpty 
+            // discussion 
+            HTML.element("section", ["class": "discussion"])
             {
-                content = group.map(HTML.Tag.Content.child(_:))
-            }
-            else 
-            {
-                content = [.character(" ")] + group.map(HTML.Tag.Content.child(_:))
-            }
-            grouped.append(.init("span", ["class": "signature-group"], content: content))
-            
-            while i < tokens.endIndex, case .whitespace = tokens[i]
-            {
-                i += 1
-            }
-        }
-        
-        return grouped 
-    }
-}
-extension Page 
-{
-    func breadcrumbs(github:String) -> HTML.Tag 
-    {
-        let icon:HTML.Tag = .init("li", ["class": "github-icon-container"], 
-            [.init("a", ["href": github], 
-                [.init("span", ["class": "github-icon", "title": "Github repository"], [])])])
-        var breadcrumbs:[HTML.Tag] = self.breadcrumbs.map 
-        {
-            switch $0.link 
-            {
-            case .resolved(url: let target, style: _):
-                return .init("li", [:], [.init("a", ["href": target], $0.text)])
-            case .unresolved(let path):
-                fatalError("attempted to render unresolved link \(path)")
-            }
-        }
-        breadcrumbs.append(.init("li", [:], [.init("span", [:], self.breadcrumb)]))
-        return .init("div", ["class": "navigation-container"], [.init("ul", [:], [icon] + breadcrumbs)])
-    }
-    func html(github:String) -> HTML.Tag
-    {
-        var sections:[HTML.Tag] = [.init("nav", [:], [self.breadcrumbs(github: github)])]
-        func create(class:String, section:[HTML.Tag]) 
-        {
-            sections.append(
-                .init("section", ["class": `class`], 
-                [.init("div", ["class": "section-container"], section)]))
-        }
-        
-        // intro 
-        var introduction:[HTML.Tag] = 
-        [
-            self.label.html, 
-            .init("h1", ["class": "topic-heading"], self.name), 
-            self.blurb.isEmpty ? 
-                .init("p", ["class": "topic-blurb"], "No overview available") :
-                Markdown.html(tag: .p, attributes: ["class": "topic-blurb"], elements: self.blurb),
-        ]
-        if !self.discussion.required.isEmpty 
-        {
-            introduction.append(Markdown.html(tag: .p, attributes: ["class": "topic-relationships"], elements: self.discussion.required))
-        }
-        create(class: "introduction", section: introduction)
-        
-        // discussion 
-        var discussion:[HTML.Tag] 
-        if !self.declaration.isEmpty
-        {
-            discussion = 
-            [
-                .init("h2", [:], "Declaration"),
-                .init("div", ["class": "declaration-container"], 
-                    [.init("code", ["class": "declaration"], Page.Declaration.html(self.declaration))])
-            ]
-        }
-        else 
-        {
-            discussion = []
-        }
-        
-        if !self.discussion.specializations.isEmpty 
-        {
-            discussion.append(Markdown.html(tag: .p, attributes: ["class": "topic-relationships"], elements: self.discussion.specializations))
-        }
-        
-        if !self.discussion.parameters.isEmpty
-        {
-            discussion.append(.init("h2", [:], self.label == .enumerationCase ? "Associated values" : "Parameters"))
-            var list:[HTML.Tag] = []
-            for (name, paragraphs):(String, [[Markdown.Element]]) in self.discussion.parameters 
-            {
-                list.append(.init("dt", [:], [.init("code", [:], name)]))
-                list.append(.init("dd", [:], paragraphs.map 
+                HTML.element("div", ["class": "section-container"])
                 {
-                    Markdown.html(tag: .p, attributes: [:], elements: $0)
-                }))
-            }
-            discussion.append(.init("dl", ["class": "parameter-list"], list))
-        }
-        if !self.discussion.return.isEmpty
-        {
-            discussion.append(.init("h2", [:], "Return value"))
-            discussion.append(contentsOf: self.discussion.return.map 
-            {
-                Markdown.html(tag: .p, attributes: [:], elements: $0)
-            })
-        }
-        if !self.discussion.overview.isEmpty
-        {
-            discussion.append(.init("h2", [:], "Overview"))
-            discussion.append(contentsOf: self.discussion.overview.map 
-            {
-                Markdown.html(tag: .p, attributes: [:], elements: $0)
-            })
-        }
-        create(class: "discussion", section: discussion)
-        // topics 
-        if !self.topics.isEmpty 
-        {
-            var topics:[HTML.Tag] = [.init("h2", [:], "Topics")]
-            for (topic, _, symbols):Page.Topic in self.topics 
-            {
-                let left:HTML.Tag    = .init("h3", [:], topic)
-                var right:[HTML.Tag] = []
-                
-                for (signature, url, blurb, required):Page.TopicSymbol in symbols 
-                {
-                    var container:[HTML.Tag] = 
-                    [
-                        .init("code", ["class": "signature"], 
-                            [.init("a", ["href": url], Page.Signature.html(signature))])
-                    ]
-                    if !blurb.isEmpty
+                    if !self.declaration.isEmpty 
                     {
-                        container.append(
-                            Markdown.html(tag: .p, attributes: ["class": "topic-symbol-blurb"], elements: blurb))
+                        HTML.element("h2")
+                        {
+                            "Declaration"
+                        }
+                        HTML.element("div", ["class": "declaration-container"])
+                        {
+                            HTML.element("code", ["class": "declaration"])
+                            {
+                                self.declaration.html
+                            }
+                        }
                     }
-                    if !required.isEmpty
+                    if !self.discussion.specializations.isEmpty 
                     {
-                        container.append(
-                            Markdown.html(tag: .p, attributes: ["class": "topic-symbol-relationships"], elements: required))
+                        HTML.element("p", ["class": "topic-relationships"])
+                        {
+                            Markdown.html(self.discussion.specializations)
+                        }
                     }
-                    right.append(.init("div", ["class": "topic-container-symbol"], container))
+                    if !self.discussion.parameters.isEmpty
+                    {
+                        HTML.element("h2")
+                        {
+                            self.label == .enumerationCase ? "Associated values" : "Parameters"
+                        }
+                        HTML.element("dl", ["class": "parameter-list"])
+                        {
+                            for (name, paragraphs):(String, [[Markdown.Element]]) in self.discussion.parameters 
+                            {
+                                HTML.element("dt")
+                                {
+                                    HTML.element("code")
+                                    {
+                                        name 
+                                    }
+                                }
+                                HTML.element("dd")
+                                {
+                                    for paragraph:[Markdown.Element] in paragraphs 
+                                    {
+                                        HTML.element("p")
+                                        {
+                                            Markdown.html(paragraph)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if !self.discussion.return.isEmpty
+                    {
+                        HTML.element("h2")
+                        {
+                            "Return value"
+                        }
+                        for paragraph:[Markdown.Element] in self.discussion.return 
+                        {
+                            HTML.element("p")
+                            {
+                                Markdown.html(paragraph)
+                            }
+                        }
+                    }
+                    if !self.discussion.overview.isEmpty
+                    {
+                        HTML.element("h2")
+                        {
+                            "Overview"
+                        }
+                        for paragraph:[Markdown.Element] in self.discussion.overview 
+                        {
+                            HTML.element("p")
+                            {
+                                Markdown.html(paragraph)
+                            }
+                        }
+                    }
                 }
-                
-                topics.append(.init("div", ["class": "topic"], 
-                [
-                    .init("div", ["class": "topic-container-right"], [left]),
-                    .init("div", ["class": "topic-container-left"], right),
-                ]))
             }
-            
-            create(class: "topics", section: topics)
+            // topics 
+            if !self.topics.isEmpty 
+            {
+                HTML.element("section", ["class": "topics"])
+                {
+                    HTML.element("div", ["class": "section-container"])
+                    {
+                        HTML.element("h2")
+                        {
+                            "Topics"
+                        }
+                        for topic:Node.Page.Topic in self.topics 
+                        {
+                            HTML.element("div", ["class": "topic"])
+                            {
+                                HTML.element("div", ["class": "topic-container-left"])
+                                {
+                                    HTML.element("h3")
+                                    {
+                                        topic.name
+                                    }
+                                }
+                                HTML.element("div", ["class": "topic-container-right"])
+                                {
+                                    for element:Node.Page in topic.elements.map(\.target)
+                                    {
+                                        HTML.element("div", ["class": "topic-container-symbol"])
+                                        {
+                                            HTML.element("code", ["class": "signature"])
+                                            {
+                                                if let url:String = element.anchor?.url 
+                                                {
+                                                    HTML.element("a", ["href": url])
+                                                    {
+                                                        element.signature.html
+                                                    }
+                                                }
+                                                else 
+                                                {
+                                                    let _ = fatalError("unreachable (missing page url)")
+                                                }
+                                            }
+                                            if !element.blurb.isEmpty 
+                                            {
+                                                HTML.element("p", ["class": "topic-symbol-blurb"])
+                                                {
+                                                    Markdown.html(element.blurb)
+                                                }
+                                            }
+                                            if !element.discussion.relationships.isEmpty 
+                                            {
+                                                HTML.element("p", ["class": "topic-symbol-relationships"])
+                                                {
+                                                    Markdown.html(element.discussion.relationships)
+                                                }
+                                            }
+                                        }
+                                    } 
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-        
-        return .init("main", [:], sections)
     }
 }
 
 extension Markdown 
 {
-    enum Tag 
-    {
-        case triple 
-        case strong 
-        case em 
-        case code(count:Int) 
-        
-        case a 
-        case p
-        case sub 
-        case sup 
-    }
     static 
-    func html(tag:Tag, attributes:[String: String], elements:[Element]) -> HTML.Tag
+    func html(_ elements:[Element]) -> HTML
     {
-        var stack:[(tag:Tag, attributes:[String: String], content:[HTML.Tag.Content])] = 
-            [(tag, attributes, [])]
+        enum Context 
+        {
+            case star3
+            case star2
+            case star1
+            case code(count:Int)
+        }
+        var stack:[(context:Context?, content:HTML)] = [(nil, .empty)]
+        
+        // helper functions 
+        var context:Context? 
+        {
+            stack[stack.endIndex - 1].context
+        }
+        func add(@HTML _ build:() -> HTML) 
+        {
+            stack[stack.endIndex - 1].content.append(build)
+        }
+        func push(_ context:Context) 
+        {
+            stack.append((context, .empty))
+        }
+        func pop() -> HTML 
+        {
+            stack.removeLast().content
+        }
+        
         for element:Element in elements 
         {
             switch element 
             {
             case .type: 
-                fatalError("unrendered markdown inline swift type")
-            case .symbol: 
-                fatalError("unrendered markdown symbol link")
-            
-            case .code(let tokens): 
-                stack[stack.endIndex - 1].content.append(.child(
-                    .init("code", [:], Page.Declaration.html(tokens))))
-            
-            /* case .symbol(let link):
-                stack[stack.endIndex - 1].content.append(.child(
-                    .init("code", [:], (link.paths.map(\.path).flatMap{ $0 } + link.suffix).joined(separator: ".")))) */
-            
-            case .link(let link):
-                var attributes:[String: String] = ["href": link.url, "target": "_blank"]
-                if !link.classes.isEmpty 
+                print("warning: unrendered markdown inline swift type")
+                add 
                 {
-                    attributes["class"] = link.classes.joined(separator: " ")
+                    "<unrendered>"
                 }
-                stack[stack.endIndex - 1].content.append(.child(
-                    Self.html(tag: .a, attributes: attributes, elements: link.text.map(Element.text(_:)))))
-            
-            case .sub(let text):
-                stack[stack.endIndex - 1].content.append(.child(
-                    Self.html(tag: .sub, attributes: [:], elements: text.map(Element.text(_:)))))
-            case .sup(let text):
-                stack[stack.endIndex - 1].content.append(.child(
-                    Self.html(tag: .sup, attributes: [:], elements: text.map(Element.text(_:)))))
-            
-            case .text(.newline):
-                stack[stack.endIndex - 1].content.append(.child(.init("br", [:], content: [])))
-            case .text(.wildcard(let c)):
-                stack[stack.endIndex - 1].content.append(.character(c))
-            
-            case .text(.star3):
-                switch stack.last
+            case .symbol: 
+                print("warning: unrendered markdown symbol link")
+                add 
                 {
-                case (.triple, let attributes, let content)?:
-                    stack.removeLast()
-                    stack[stack.endIndex - 1].content.append(.child(
-                        .init("em", [:], 
-                        [
-                            .init("strong", attributes, content: content)
-                        ])))
-                case (.strong, let attributes, let content)?: // treat as '**' '*'
-                    stack.removeLast()
-                    stack[stack.endIndex - 1].content.append(.child(
-                        .init("strong", attributes, content: content)))
-                    stack.append((.em, [:], []))
-                case (.em, let attributes, let content)?: // treat as '*' '**'
-                    stack.removeLast()
-                    stack[stack.endIndex - 1].content.append(.child(
-                        .init("em", attributes, content: content)))
-                    stack.append((.strong, [:], []))
-                case (.code, _, _)?: // treat as raw text
-                    stack[stack.endIndex - 1].content.append(contentsOf: "***".map(HTML.Tag.Content.character(_:)))
-                default:
-                    stack.append((.triple, [:], []))
+                    "<unrendered>"
+                }
+            
+            case .code(let code): 
+                add 
+                {
+                    HTML.element("code")
+                    {
+                        code.html
+                    }
+                }
+            case .link(let link):
+                add 
+                {
+                    HTML.element("a", 
+                    [
+                        "href":     link.url, 
+                        "target":   "_blank", 
+                        "class":    link.classes.joined(separator: " ")
+                    ])
+                    {
+                        Self.html(link.text.map(Element.text(_:)))
+                    }
+                }
+            case .sub(let text):
+                add 
+                {
+                    HTML.element("sub")
+                    {
+                        Self.html(text.map(Element.text(_:)))
+                    }
+                }
+            case .sup(let text):
+                add 
+                {
+                    HTML.element("sup")
+                    {
+                        Self.html(text.map(Element.text(_:)))
+                    }
+                }
+            case .text(.newline):
+                add 
+                {
+                    HTML.linebreak
+                }
+            case .text(.wildcard(let c)):
+                add 
+                {
+                    "\(c)"
+                }
+            case .text(.star3):
+                switch context
+                {
+                case .star3?: 
+                    // evaluation order is important 
+                    let content:HTML = pop()
+                    add
+                    {
+                        HTML.element("em") 
+                        {
+                            HTML.element("strong") 
+                            {
+                                content 
+                            }
+                        }
+                    }
+                case .star2?: // treat as '**' '*'
+                    let content:HTML = pop()
+                    add 
+                    {
+                        HTML.element("strong") 
+                        {
+                            content 
+                        }
+                    }
+                    push(.star1)
+                case .star1: // treat as '*' '**'
+                    let content:HTML = pop()
+                    add 
+                    {
+                        HTML.element("em") 
+                        {
+                            content 
+                        }
+                    }
+                    push(.star2)
+                case .code?: // treat as raw text
+                    add 
+                    {
+                        "***"
+                    }
+                case nil:
+                    push(.star3)
                 }
             
             case .text(.star2):
-                switch stack.last
+                switch context
                 {
-                case (.triple, let attributes, let content)?:
-                    stack.removeLast()
-                    stack.append((.em, attributes, [.child(.init("strong", [:], content: content))]))
-                case (.strong, let attributes, let content)?: 
-                    stack.removeLast()
-                    stack[stack.endIndex - 1].content.append(.child(
-                        .init("strong", attributes, content: content)))
-                case (.em, let attributes, let content)?: // treat as '*' '*'
-                    stack.removeLast()
-                    stack[stack.endIndex - 1].content.append(.child(
-                        .init("em", attributes, content: content)))
-                    stack.append((.em, [:], []))
-                case (.code, _, _)?: // treat as raw text
-                    stack[stack.endIndex - 1].content.append(contentsOf: "**".map(HTML.Tag.Content.character(_:)))
-                default:
-                    stack.append((.strong, [:], []))
+                case .star3?:
+                    let content:HTML = pop()
+                    push(.star1)
+                    add 
+                    {
+                        HTML.element("strong") 
+                        {
+                            content 
+                        }
+                    }
+                case .star2?: 
+                    let content:HTML = pop()
+                    add
+                    {
+                        HTML.element("strong") 
+                        {
+                            content 
+                        }
+                    }
+                case .star1?: // treat as '**'
+                    push(.star2)
+                case .code?: // treat as raw text
+                    add 
+                    {
+                        "**"
+                    }
+                case nil:
+                    push(.star2)
                 }
             
             case .text(.star1):
-                switch stack.last
+                switch context
                 {
-                case (.triple, let attributes, let content)?: // **|*  *
-                    stack.removeLast()
-                    stack.append((.strong, attributes, [.child(.init("em", [:], content: content))]))
-                
-                case (.em, let attributes, let content)?: 
-                    stack.removeLast()
-                    stack[stack.endIndex - 1].content.append(.child(
-                        .init("em", attributes, content: content)))
-                case (.code, _, _)?: // treat as raw text
-                    stack[stack.endIndex - 1].content.append(.character("*"))
-                default:
-                    stack.append((.em, [:], []))
+                case .star3?: // **|*  *
+                    let content:HTML = pop()
+                    push(.star2)
+                    add 
+                    {
+                        HTML.element("em") 
+                        {
+                            content 
+                        }
+                    }
+                case .star2?: 
+                    push(.star1)
+                case .star1?: 
+                    let content:HTML = pop()
+                    add
+                    {
+                        HTML.element("em") 
+                        {
+                            content 
+                        }
+                    }
+                case .code?: // treat as raw text
+                    add 
+                    {
+                        "*"
+                    }
+                case nil:
+                    push(.star1)
                 }
             
             case .text(.backtick(count: let count)):
-                switch stack.last 
+                switch context
                 {
-                case (.code(count: count), let attributes, let content)?:
-                    stack.removeLast()
-                    stack[stack.endIndex - 1].content.append(.child(
-                        .init("code", attributes, content: content)))
-                case (.code(count: _), _, _)?:
-                    stack[stack.endIndex - 1].content.append(contentsOf: repeatElement(.character("`"), count: count))
+                case .code(count: count)?:
+                    let content:HTML = pop()
+                    add
+                    {
+                        HTML.element("code") 
+                        {
+                            content 
+                        }
+                    }
+                case .code(count: _)?: // treat as raw text 
+                    add 
+                    {
+                        String.init(repeating: "`", count: count)
+                    }
                 default:
-                    stack.append((.code(count: count), [:], []))
+                    push(.code(count: count))
                 }
             }
         }
         
         // flatten stack (happens when there are unclosed delimiters)
-        while stack.count > 1
+        while true
         {
-            let (tag, _, content):(Tag, [String: String], [HTML.Tag.Content]) = stack.removeLast()
-            let plain:[Character] 
-            switch tag 
+            let (context, content):(Context?, HTML) = stack.removeLast()
+            
+            if stack.isEmpty 
             {
-            case .triple:
-                plain = ["*", "*", "*"]
-            case .strong:
-                plain = ["*", "*"]
-            case .em:
-                plain = ["*"]
-            case .code(count: let count):
-                plain = .init(repeating: "`", count: count)
-            default:
-                plain = []
+                guard context == nil 
+                else 
+                {
+                    fatalError("unreachable")
+                }
+                return content
             }
-            stack[stack.endIndex - 1].content.append(contentsOf: plain.map(HTML.Tag.Content.character(_:)) + content)
-        }
-        switch tag 
-        {
-        case .p:
-            return .init("p", attributes, content: stack[stack.endIndex - 1].content)
-        case .a:
-            return .init("a", attributes, content: stack[stack.endIndex - 1].content)
-        case .sub:
-            return .init("sub", attributes, content: stack[stack.endIndex - 1].content)
-        case .sup:
-            return .init("sup", attributes, content: stack[stack.endIndex - 1].content)
-        default:
-            fatalError("unreachable")
+            
+            let prefix:String 
+            switch context 
+            {
+            case .star3:                    prefix = "***"
+            case .star2:                    prefix = "**"
+            case .star1:                    prefix = "*"
+            case .code(count: let count):   prefix = .init(repeating: "`", count: count)
+            case nil:
+                add 
+                {
+                    content
+                }
+                continue 
+            }
+            add 
+            {
+                prefix 
+                content  
+            }
         }
     }
 }

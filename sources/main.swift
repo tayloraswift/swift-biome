@@ -46,48 +46,101 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
         }
     }
     
-    var pages:[Page.Binding] = []
-    for (i, doccomment):(Int, String) in doccomments.enumerated()
+    // tree building 
+    let root:Node = .init(parent: nil)
+    withExtendedLifetime(root)
     {
-        let fields:[Grammar.Field]          = .init(parsing: doccomment) 
-        let body:ArraySlice<Grammar.Field>  = fields.dropFirst()
-        switch fields.first 
+        for (i, doccomment):(Int, String) in doccomments.enumerated()
         {
-        case .framework(let header)?:
-            pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
-        case .dependency(let header)?:
-            pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
-        case .subscript(let header)?:
-            pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
-        case .function(let header)?:
-            pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
-        case .member(let header)?:
-            pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
-        case .type(let header)?:
-            pages.append(Page.Binding.create(header, fields: body, order: i, urlpattern: urlpattern))
-        default:
-            print("warning unparsed doccomment '\(doccomment)'") 
+            do 
+            {
+                let parsed:[Grammar.Field]  =     .init(parsing: doccomment), 
+                    fields:Node.Page.Fields = try .init(parsed.dropFirst())
+                
+                switch parsed.first 
+                {
+                case .framework (let header)?:
+                    root.insert(try .init(header, fields: fields, order: i))
+                case .dependency(let header)?:
+                    root.insert(try .init(header, fields: fields, order: i))
+                case .subscript (let header)?:
+                    root.insert(try .init(header, fields: fields, order: i))
+                case .function  (let header)?:
+                    root.insert(try .init(header, fields: fields, order: i))
+                case .property  (let header)?:
+                    root.insert(try .init(header, fields: fields, order: i))
+                case .typealias (let header)?:
+                    root.insert(try .init(header, fields: fields, order: i))
+                case .type      (let header)?:
+                    root.insert(try .init(header, fields: fields, order: i))
+                default:
+                    throw Entrapta.Error.init("could not parse doccomment")
+                }
+            }
+            catch let error as Entrapta.Error 
+            {
+                print("error: \(error.message)")
+                print(
+                    """
+                    note: while parsing doccomment 
+                    '''
+                    \(doccomment)
+                    '''
+                    """)
+                continue 
+            }
+            catch 
+            {
+                continue 
+            }
         }
-    }
-    
-    let root:PageTree.Node = PageTree.assemble(pages)
-    
-    // print out root 
-    if verbose 
-    {
-        print(root)
-    }
-    
-    guard   let fonts:String = File.source(path: "themes/\(theme)/fonts"),
-            let css:String   = File.source(path: "themes/\(theme)/style.css") 
-    else 
-    {
-        fatalError("failed to load theme '\(theme)'") 
-    }
-    
-    for page:Page.Binding in pages
-    {
-        let document:String = 
+        
+        // print out root 
+        if verbose 
+        {
+            print(root)
+        }
+        
+        root.assignAnchors(urlpattern: urlpattern)
+        root.attachTopics()
+        root.resolveLinks()
+        
+        guard   let fonts:String = File.source(path: "themes/\(theme)/fonts"),
+                let css:String   = File.source(path: "themes/\(theme)/style.css") 
+        else 
+        {
+            fatalError("failed to load theme '\(theme)'") 
+        }
+        
+        for page:Node.Page in root.preorder.flatMap(\.pages)
+        {
+            guard let anchor:(url:String, directory:[String]) = page.anchor 
+            else 
+            {
+                fatalError("unreachable")
+            }
+            
+            let document:String = 
+            """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+            \(fonts)
+                <link href="\(urlpattern.prefix)/style.css" rel="stylesheet"> 
+                <title>\(page.name) - \(project)</title>
+            </head> 
+            <body>
+                \(page.html(github: github).rendered)
+            </body>
+            </html>
+            """
+            File.pave([directory] + anchor.directory)
+            File.save(.init(document.utf8), path: "\(directory)/\(anchor.directory.joined(separator: "/"))/index.html")
+        }
+        
+        // create 404 page 
+        let notfound:String = 
         """
         <!DOCTYPE html>
         <html>
@@ -95,57 +148,38 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
             <meta charset="UTF-8">
         \(fonts)
             <link href="\(urlpattern.prefix)/style.css" rel="stylesheet"> 
-            <title>\(page.page.name) - \(project)</title>
+            <title>Page not found - \(project)</title>
         </head> 
         <body>
-            \(page.page.html(github: github).string)
+            <main>
+                <nav>
+                    <div class="navigation-container">
+                        <ul><li class="github-icon-container"><a href="\(github)"><span class="github-icon" title="Github repository"></span></a></li></ul>
+                    </div>
+                </nav>
+                <section class="introduction">
+                    <div class="section-container error-404-message">
+                        <h1 class="topic-heading">query not recognized</h1>
+                        <p>What is your query?</p>
+                        <p><a href="\(urlpattern.prefix)/\(urlpattern.suffix)">Go to documentation root</a></p>
+                    </div>
+                </section>
+            </main>
         </body>
         </html>
         """
-        File.pave([directory] + page.uniquePath)
-        File.save(.init(document.utf8), path: "\(directory)/\(page.filepath)/index.html")
+        File.save(.init(notfound.utf8), path: "\(directory)/404.html")
+        
+        // emit stylesheet 
+        File.save(.init(css.utf8), path: "\(directory)/style.css")
+        // copy github-icon.svg 
+        guard let icon:String = File.source(path: "sources/github-icon.svg") 
+        else 
+        {
+            fatalError("missing github icon") 
+        }
+        File.save(.init(icon.utf8), path: "\(directory)/github-icon.svg") 
     }
-    
-    // create 404 page 
-    let notfound:String = 
-    """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-    \(fonts)
-        <link href="\(urlpattern.prefix)/style.css" rel="stylesheet"> 
-        <title>Page not found - \(project)</title>
-    </head> 
-    <body>
-        <main>
-            <nav>
-                <div class="navigation-container">
-                    <ul><li class="github-icon-container"><a href="\(github)"><span class="github-icon" title="Github repository"></span></a></li></ul>
-                </div>
-            </nav>
-            <section class="introduction">
-                <div class="section-container error-404-message">
-                    <h1 class="topic-heading">query not recognized</h1>
-                    <p>What is your query?</p>
-                    <p><a href="\(urlpattern.prefix)/\(urlpattern.suffix)">Go to documentation root</a></p>
-                </div>
-            </section>
-        </main>
-    </body>
-    </html>
-    """
-    File.save(.init(notfound.utf8), path: "\(directory)/404.html")
-    
-    // emit stylesheet 
-    File.save(.init(css.utf8), path: "\(directory)/style.css")
-    // copy github-icon.svg 
-    guard let icon:String = File.source(path: "sources/github-icon.svg") 
-    else 
-    {
-        fatalError("missing github icon") 
-    }
-    File.save(.init(icon.utf8), path: "\(directory)/github-icon.svg")
 }
 
 var sources:[String]                    = []

@@ -1,6 +1,21 @@
+extension Int:Grammar.Parseable 
+{
+    init(parsing input:inout Grammar.Input) throws 
+    {
+        let start:String.Index                      = input.index 
+        let negative:Grammar.Token.Hyphen?          = .init(parsing: &input) 
+        let characters:[Grammar.Token.ASCIIDigit]   = .init(parsing: &input) 
+        guard let value:Int = Int.init(String.init(characters.map(\.character)))
+        else 
+        {
+            throw input.expected(Self.self, from: start)
+        }
+        self = negative == nil ? value : -value 
+    }
+}
 extension Grammar
 {
-    // Endline ::= ' ' * '\n'
+    //  Endline                 ::= ' ' * '\n'
     struct Endline:Parseable 
     {
         init(parsing input:inout Input) throws
@@ -10,9 +25,9 @@ extension Grammar
         }
     }
     
-    //  FrameworkField         ::= <FrameworkField.Keyword> <Whitespace> <Identifier> <Endline>
-    //  FrameworkField.Keyword ::= 'module'
-    //                           | 'plugin'
+    //  FrameworkField          ::= <FrameworkField.Keyword> <Whitespace> <Identifier> <Endline>
+    //  FrameworkField.Keyword  ::= 'module'
+    //                            | 'plugin'
     struct FrameworkField:Parseable 
     {
         enum Keyword 
@@ -61,45 +76,145 @@ extension Grammar
             self.identifier = identifier.string
         }
     }
-    //  DependencyField ::= 'import' <Whitespace> <Identifier> <Endline>
-    //                    | 'import' <Whitespace> <TypeField.Keyword> <Whitespace> <Identifiers> <Endline>
+    //  DependencyField         ::= 'import' <Whitespace> <Identifier> <Endline>
+    //                            | 'import' <Whitespace> <DependencyField.Keyword> <Whitespace> 
+    //                              <Identifier> '.' <Identifiers> <Endline>
+    //  DependencyField.Keyword ::= 'protocol'
+    //                            | 'class'
+    //                            | 'struct'
+    //                            | 'enum'
+    //                            | 'typealias'
     enum DependencyField:Parseable 
     {
+        // different from TypeField.Keyword
+        enum Keyword:Parseable 
+        {
+            case `protocol` 
+            case `class` 
+            case `struct` 
+            case `enum`
+            case `typealias`
+            
+            init(parsing input:inout Input) throws
+            {
+                let start:String.Index          = input.index
+                if      let _:Token.`Protocol`  = .init(parsing: &input)
+                {
+                    self = .protocol
+                }
+                else if let _:Token.Class       = .init(parsing: &input)
+                {
+                    self = .class 
+                }
+                else if let _:Token.Struct      = .init(parsing: &input)
+                {
+                    self = .struct
+                }
+                else if let _:Token.Enum        = .init(parsing: &input)
+                {
+                    self = .enum 
+                }
+                else if let _:Token.Typealias   = .init(parsing: &input)
+                {
+                    self = .typealias 
+                }
+                else 
+                {
+                    throw input.expected(Self.self, from: start)
+                }
+            }
+        }
+        
         case module(identifier:String)
-        case type(keyword:TypeField.Keyword, identifiers:[String])
+        case type(keyword:Keyword, identifiers:[String])
         
         init(parsing input:inout Input) throws 
         {
-            let _:Token.Import                  = try .init(parsing: &input),
-                _:Whitespace                    = try .init(parsing: &input)
-            if  let keyword:TypeField.Keyword   =     .init(parsing: &input),
-                let _:Whitespace                =     .init(parsing: &input)
+            let _:Token.Import              = try .init(parsing: &input),
+                _:Whitespace                = try .init(parsing: &input)
+            if  let keyword:Keyword         =     .init(parsing: &input),
+                let _:Whitespace            =     .init(parsing: &input)
             {
-                let identifiers:Identifiers     = try .init(parsing: &input)
-                self = .type(keyword: keyword, identifiers: identifiers.identifiers)
+                let head:Identifier         = try .init(parsing: &input),
+                    _:Token.Period          = try .init(parsing: &input),
+                    body:Identifiers        = try .init(parsing: &input)
+                self = .type(keyword: keyword, identifiers: [head.string] + body.identifiers)
             }
             else 
             {
-                let identifier:Identifier       = try .init(parsing: &input)
+                let identifier:Identifier   = try .init(parsing: &input)
                 self = .module(identifier: identifier.string)
             }
-            let _:Endline               = try .init(parsing: &input)
+            let _:Endline                   = try .init(parsing: &input)
         }
     }
     
-    // FunctionField            ::= <FunctionField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? '?' ? '(' ( <FunctionField.Label> ':' ) * ')' <Endline>
-    //                            | 'case' <Whitespace> <Identifiers> <Endline>
-    // FunctionField.Keyword    ::= 'init'
+    //  FunctionIdentifiers     ::= ( <Identifier> '.' ) * '(' <Operator> ')'
+    //                            | ( <Identifier> '.' ) * <Identifier>
+    struct FunctionIdentifiers:Parseable 
+    {
+        enum Tail 
+        {
+            case alphanumeric(String)
+            case `operator`(String)
+            
+            var string:String 
+            {
+                switch self 
+                {
+                case .alphanumeric(let string), .operator(let string):
+                    return string 
+                }
+            }
+        }
+        
+        let prefix:[String]
+        let tail:Tail 
+        
+        init(parsing input:inout Input) throws
+        {
+            let start:String.Index = input.index 
+            
+            let prefix:[List<Identifier, Token.Period>] = .init(parsing: &input)
+            self.prefix = prefix.map(\.head.string)
+            
+            if      let _:Token.Parenthesis.Left        = .init(parsing: &input), 
+                    let inner:Operator                  = .init(parsing: &input),
+                    let _:Token.Parenthesis.Right       = .init(parsing: &input) 
+            {
+                self.tail = .operator(inner.string)
+            }
+            else if let identifier:Identifier           = .init(parsing: &input)
+            {
+                self.tail = .alphanumeric(identifier.string)
+            }
+            else 
+            {
+                throw input.expected(Self.self, from: start)
+            }
+        }
+    }
+    
+    //  FunctionField           ::= <FunctionField.Keyword> <Whitespace> <FunctionIdentifiers> <TypeParameters> ? '?' ? 
+    //                              '(' ( <FunctionField.Label> ':' ) * ')' 
+    //                              ( <Whitespace> <FunctionField.Throws> ) ? <Endline>
+    //                            | 'case' <Whitespace> <FunctionIdentifiers> <Endline>
+    //  FunctionField.Keyword   ::= 'init'
     //                            | 'func'
     //                            | 'mutating' <Whitespace> 'func'
+    //                            | 'prefix' <Whitespace> 'func'
+    //                            | 'postfix' <Whitespace> 'func'
     //                            | 'static' <Whitespace> 'func'
     //                            | 'static' <Whitespace> 'prefix' <Whitespace> 'func'
     //                            | 'static' <Whitespace> 'postfix' <Whitespace> 'func'
     //                            | 'case' 
     //                            | 'indirect' <Whitespace> 'case' 
-    // FunctionField.Label      ::= <Identifier> 
+    //  FunctionField.Label     ::= <Identifier> 
     //                            | <Identifier> ? '...'
-    // TypeParameters           ::= '<' <Whitespace> ? <Identifier> <Whitespace> ? ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * '>'
+    //  FunctionField.Throws    ::= 'throws' 
+    //                            | 'rethrows'
+    //  TypeParameters          ::= '<' <Whitespace> ? <Identifier> <Whitespace> ? 
+    //                              ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * '>'
     struct FunctionField:Parseable, CustomStringConvertible
     {
         enum Keyword:Parseable 
@@ -107,6 +222,8 @@ extension Grammar
             case `init` 
             case `func` 
             case mutatingFunc
+            case prefixFunc 
+            case postfixFunc
             case staticFunc
             case staticPrefixFunc
             case staticPostfixFunc
@@ -128,6 +245,16 @@ extension Grammar
                     .init(parsing: &input)
                 {
                     self = .mutatingFunc
+                }
+                else if let _:List<Token.Prefix, List<Whitespace, Token.Func>> = 
+                    .init(parsing: &input)
+                {
+                    self = .prefixFunc
+                }
+                else if let _:List<Token.Postfix, List<Whitespace, Token.Func>> = 
+                    .init(parsing: &input)
+                {
+                    self = .postfixFunc
                 }
                 else if let _:List<Token.Static, List<Whitespace, Token.Func>> = 
                     .init(parsing: &input)
@@ -200,52 +327,77 @@ extension Grammar
             }
         }
         
+        enum Throws:Parseable 
+        {
+            case `throws` 
+            case `rethrows`
+            
+            init(parsing input:inout Input) throws
+            {
+                let start:String.Index          = input.index 
+                if      let _:Token.Throws      = .init(parsing: &input)
+                {
+                    self = .throws
+                }
+                else if let _:Token.Rethrows    = .init(parsing: &input)
+                {
+                    self = .rethrows
+                }
+                else 
+                {
+                    throw input.expected(Self.self, from: start)
+                }
+            }
+        }
+        
         private 
         struct Normal:Parseable
         {
             let keyword:Keyword
-            let identifiers:[String]
+            let identifiers:FunctionIdentifiers
             let generics:[String] 
             let failable:Bool
             let labels:[(name:String, variadic:Bool)]
+            let `throws`:Throws?
             
             init(parsing input:inout Input) throws
             {
                 self.keyword                            = try .init(parsing: &input) 
-                let _:Whitespace                        = try .init(parsing: &input),
-                    identifiers:Identifiers             = try .init(parsing: &input),
-                    generics:TypeParameters?            =     .init(parsing: &input),
+                let _:Whitespace                        = try .init(parsing: &input)
+                self.identifiers                        = try .init(parsing: &input)
+                let generics:TypeParameters?            =     .init(parsing: &input),
                     failable:Token.Question?            =     .init(parsing: &input),
                     _:Token.Parenthesis.Left            = try .init(parsing: &input),
-                    labels:[List<Label, Token.Colon>]   = .init(parsing: &input),
+                    labels:[List<Label, Token.Colon>]   =     .init(parsing: &input),
                     _:Token.Parenthesis.Right           = try .init(parsing: &input),
+                    `throws`:List<Whitespace, Throws>?  =     .init(parsing: &input),
                     _:Endline                           = try .init(parsing: &input)
-                self.identifiers    = identifiers.identifiers
                 self.generics       = generics?.identifiers ?? [] 
                 self.failable       = failable != nil 
                 self.labels         = labels.map{ ($0.head.string, $0.head.variadic) }
+                self.throws         = `throws`?.body
             }
         }
         private 
         struct UninhabitedCase:Parseable
         {
-            let identifiers:[String]
+            let identifiers:FunctionIdentifiers
             
             init(parsing input:inout Input) throws
             {
                 let _:Token.Case            = try .init(parsing: &input), 
-                    _:Whitespace            = try .init(parsing: &input),
-                    identifiers:Identifiers = try .init(parsing: &input),
-                    _:Endline               = try .init(parsing: &input)
-                self.identifiers = identifiers.identifiers
+                    _:Whitespace            = try .init(parsing: &input)
+                self.identifiers            = try .init(parsing: &input)
+                let _:Endline               = try .init(parsing: &input)
             }
         }
         
         let keyword:Keyword
-        let identifiers:[String]
+        let identifiers:FunctionIdentifiers
         let generics:[String] 
         let failable:Bool
-        let labels:[(name:String, variadic:Bool)]
+        let labels:[(name:String, variadic:Bool)]?
+        let `throws`:Throws?
             
         init(parsing input:inout Input) throws 
         {
@@ -257,6 +409,7 @@ extension Grammar
                 self.generics       = normal.generics
                 self.failable       = normal.failable 
                 self.labels         = normal.labels
+                self.throws         = normal.throws
             }
             else if let uninhabited:UninhabitedCase = .init(parsing: &input) 
             {
@@ -264,7 +417,8 @@ extension Grammar
                 self.identifiers    = uninhabited.identifiers 
                 self.generics       = [] 
                 self.failable       = false 
-                self.labels         = []
+                self.labels         = nil
+                self.throws         = nil
             }
             else 
             {
@@ -281,12 +435,53 @@ extension Grammar
                 identifiers : \(self.identifiers)
                 generics    : \(self.generics)
                 failable    : \(self.failable)
-                labels      : \(self.labels)
+                labels      : \(self.labels ?? [])
+                throws      : \(self.throws as Any)
             }
             """
         }
     }
-
+    
+    //  SubscriptField          ::= 'subscript' <Whitespace> <Identifiers> <TypeParameters> ? 
+    //                              '[' ( <Identifier> ':' ) * ']' <Whitespace> ? <Accessors> <Endline> 
+    struct SubscriptField:Parseable, CustomStringConvertible
+    {
+        let identifiers:[String],
+            generics:[String],
+            labels:[String], 
+            accessors:Accessors
+            
+        init(parsing input:inout Input) throws
+        {
+            let _:Token.Subscript                       = try .init(parsing: &input), 
+                _:Whitespace                            = try .init(parsing: &input),
+                identifiers:Identifiers                 = try .init(parsing: &input),
+                generics:TypeParameters?                =     .init(parsing: &input),
+                _:Token.Bracket.Left                    = try .init(parsing: &input),
+                labels:[List<Identifier, Token.Colon>]  =     .init(parsing: &input),
+                _:Token.Bracket.Right                   = try .init(parsing: &input),
+                _:Whitespace?                           =     .init(parsing: &input),
+                accessors:Accessors                     = try .init(parsing: &input),
+                _:Endline                               = try .init(parsing: &input)
+            self.identifiers    = identifiers.identifiers 
+            self.generics       = generics?.identifiers ?? [] 
+            self.labels         = labels.map(\.head.string) 
+            self.accessors      = accessors
+        }
+        
+        var description:String 
+        {
+            """
+            SubscriptField 
+            {
+                identifiers     : \(self.identifiers)
+                labels          : \(self.labels)
+                accessors       : \(self.accessors)
+            }
+            """
+        }
+    }
+    
     struct TypeParameters:Parseable, CustomStringConvertible
     {
         let identifiers:[String]
@@ -310,49 +505,16 @@ extension Grammar
         }
     }
     
-    // SubscriptField      ::= 'subscript' <Whitespace> <Identifiers> '[' ( <Identifier> ':' ) * ']' <Whitespace> ? <MemberMutability> <Endline> 
-    struct SubscriptField:Parseable, CustomStringConvertible
-    {
-        let identifiers:[String],
-            labels:[String], 
-            mutability:MemberMutability
-            
-        init(parsing input:inout Input) throws
-        {
-            let _:Token.Subscript                       = try .init(parsing: &input), 
-                _:Whitespace                            = try .init(parsing: &input),
-                identifiers:Identifiers                 = try .init(parsing: &input),
-                _:Token.Bracket.Left                    = try .init(parsing: &input),
-                labels:[List<Identifier, Token.Colon>]  =     .init(parsing: &input),
-                _:Token.Bracket.Right                   = try .init(parsing: &input),
-                _:Whitespace?                           =     .init(parsing: &input),
-                mutability:MemberMutability             = try .init(parsing: &input),
-                _:Endline                               = try .init(parsing: &input)
-            self.identifiers    = identifiers.identifiers 
-            self.labels         = labels.map(\.head.string) 
-            self.mutability     = mutability
-        }
-        
-        var description:String 
-        {
-            """
-            SubscriptField 
-            {
-                identifiers     : \(self.identifiers)
-                labels          : \(self.labels)
-            }
-            """
-        }
-    }
-    
-    // MemberField         ::= <MemberField.Keyword> <Whitespace> <Identifiers> ( <Whitespace> ? ':' <Whitespace> ? <Type> ) ? ( <Whitespace> ? <MemberMutability> ) ? <Endline> 
-    // MemberField.Keyword ::= 'let'
-    //                       | 'var'
-    //                       | 'static' <Whitespace> 'let'
-    //                       | 'static' <Whitespace> 'var'
-    //                       | 'associatedtype'
-    // MemberMutability    ::= '{' <Whitespace> ? 'get' ( ( <Whitespace> 'nonmutating' ) ? <Whitespace> 'set' ) ? <Whitespace> ? '}'
-    struct MemberField:Parseable, CustomStringConvertible
+    //  PropertyField           ::= <PropertyField.Keyword> <Whitespace> <Identifiers> 
+    //                              <Whitespace> ? ':' <Whitespace> ? <Type> 
+    //                              ( <Whitespace> ? <MemberMutability> ) ? <Endline> 
+    //  PropertyField.Keyword   ::= 'let'
+    //                            | 'var'
+    //                            | 'static' <Whitespace> 'let'
+    //                            | 'static' <Whitespace> 'var'
+    //  Accessors               ::= '{' <Whitespace> ? 'get' 
+    //                              ( ( <Whitespace> 'nonmutating' ) ? <Whitespace> 'set' ) ? <Whitespace> ? '}'
+    struct PropertyField:Parseable, CustomStringConvertible
     {
         enum Keyword:Parseable 
         {
@@ -360,7 +522,6 @@ extension Grammar
             case `var` 
             case staticLet 
             case staticVar
-            case `associatedtype`
             
             init(parsing input:inout Input) throws
             {
@@ -383,10 +544,6 @@ extension Grammar
                 {
                     self = .staticVar
                 }
-                else if let _:Token.Associatedtype = .init(parsing: &input)
-                {
-                    self = .associatedtype
-                }
                 else 
                 {
                     throw input.expected(Self.self, from: start)
@@ -396,115 +553,150 @@ extension Grammar
         
         let keyword:Keyword
         let identifiers:[String]
-        let type:SwiftType?
-        let mutability:MemberMutability?
+        let type:SwiftType
+        let accessors:Accessors?
             
         init(parsing input:inout Input) throws
         {
             self.keyword                = try .init(parsing: &input) 
             let _:Whitespace            = try .init(parsing: &input),
                 identifiers:Identifiers = try .init(parsing: &input),
-                type:List<Whitespace?, List<Token.Colon, List<Whitespace?, SwiftType>>>? = 
-                                              .init(parsing: &input),
-                mutability:List<Whitespace?, MemberMutability>? = 
+                _:Whitespace?           =     .init(parsing: &input),
+                _:Token.Colon           = try .init(parsing: &input),
+                _:Whitespace?           =     .init(parsing: &input)
+            self.type                   = try .init(parsing: &input)
+            let accessors:List<Whitespace?, Accessors>? = 
                                               .init(parsing: &input),
                 _:Grammar.Endline       = try .init(parsing: &input)
             self.identifiers    = identifiers.identifiers
-            self.type           = type?.body.body.body
-            self.mutability     = mutability?.body
+            self.accessors      = accessors?.body
         }
         
         var description:String 
         {
             """
-            MemberField 
+            PropertyField 
             {
                 keyword     : \(self.keyword)
                 identifiers : \(self.identifiers)
-                type        : \(self.type.map(String.init(describing:)) ?? "")
-                mutability  : \(self.mutability.map(String.init(describing:)) ?? "")
+                type        : \(self.type)
+                accessors   : \(self.accessors.map(String.init(describing:)) ?? "")
             }
             """
         }
     }
 
-    enum MemberMutability:Parseable 
+    enum Accessors:Parseable, CustomStringConvertible
     {
-        case get 
-        case getset
-        case nonmutatingset
+        case settable(nonmutating:Bool)
+        case nonsettable
             
         init(parsing input:inout Input) throws
         {
             let _:Token.Brace.Left  = try .init(parsing: &input), 
                 _:Whitespace?       =     .init(parsing: &input),
-                _:Token.Get         = try .init(parsing: &input),
-                mutability:List<List<Whitespace, Token.Nonmutating>?, List<Whitespace, Token.Set>>? =
-                                          .init(parsing: &input),
-                _:Whitespace?       =     .init(parsing: &input),
-                _:Token.Brace.Right = try .init(parsing: &input)
-            if let set:List<List<Whitespace, Token.Nonmutating>?, List<Whitespace, Token.Set>> = 
-                mutability 
+                _:Token.Get         = try .init(parsing: &input)
+            if let set:List<List<Whitespace, Token.Nonmutating>?, List<Whitespace, Token.Set>> =
+                                          .init(parsing: &input)
             {
-                if let _:List<Whitespace, Token.Nonmutating> = set.head 
-                {
-                    self = .nonmutatingset
-                }
-                else 
-                {
-                    self = .getset 
-                }
+                self = .settable(nonmutating: set.head != nil)
             }
             else 
             {
-                self = .get 
+                self = .nonsettable
+            }
+            let _:Whitespace?       =     .init(parsing: &input),
+                _:Token.Brace.Right = try .init(parsing: &input)
+        }
+        
+        var description:String 
+        {
+            switch self 
+            {
+            case .nonsettable:                  return "{ get }"
+            case .settable(nonmutating: true):  return "{ get nonmutating set }"
+            case .settable(nonmutating: false): return "{ get set }"
             }
         }
     }
     
-    //  TypeField               ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? 
-    //                              ( <Whitespace> ? '=' <Whitespace> ? <Type> ) ? <Endline>
-    //  TypeField.Keyword       ::= 'protocol'
+    //  TypealiasField          ::= 'typealias' <Whitespace> <Identifiers> <TypeParameters> ?
+    //                              <Whitespace> ? '=' <Whitespace> ? <Type> <Endline>
+    struct TypealiasField:Parseable, CustomStringConvertible 
+    {
+        let identifiers:[String]
+        let generics:[String]
+        let target:SwiftType
+        
+        init(parsing input:inout Input) throws
+        {
+            let _:Token.Typealias           = try .init(parsing: &input),
+                _:Whitespace                = try .init(parsing: &input), 
+                identifiers:Identifiers     = try .init(parsing: &input), 
+                generics:TypeParameters?    =     .init(parsing: &input),
+                _:Whitespace?               =     .init(parsing: &input), 
+                _:Token.Equals              = try .init(parsing: &input), 
+                _:Whitespace?               =     .init(parsing: &input)
+            self.target                     = try .init(parsing: &input) 
+            let _:Endline                   = try .init(parsing: &input)
+            self.identifiers    = identifiers.identifiers 
+            self.generics       = generics?.identifiers ?? []
+        }
+        
+        var description:String 
+        {
+            """
+            TypealiasField 
+            {
+                identifiers : \(self.identifiers)
+                generics    : \(self.generics)
+                target      : \(self.target)
+            }
+            """
+        }
+    }
+    //  TypeField               ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? <Endline>
+    //  TypeField.Keyword       ::= 'associatedtype'
+    //                            | 'protocol'
     //                            | 'class'
     //                            | 'struct'
     //                            | 'enum'
-    //                            | 'typealias'
     //                            | 'extension'
     struct TypeField:Parseable, CustomStringConvertible
     {
         enum Keyword:Parseable 
         {
+            case `associatedtype`
             case `protocol` 
             case `class` 
             case `struct` 
             case `enum`
-            case `typealias`
             case `extension`
             
             init(parsing input:inout Input) throws
             {
-                let start:String.Index          = input.index
-                if      let _:Token.`Protocol`  = .init(parsing: &input)
+                let start:String.Index              = input.index
+                if      let _:Token.Associatedtype  = .init(parsing: &input)
+                {
+                    self = .associatedtype
+                }
+                else if let _:Token.`Protocol`      = .init(parsing: &input)
                 {
                     self = .protocol
                 }
-                else if let _:Token.Class       = .init(parsing: &input)
+                else if let _:Token.Class           = .init(parsing: &input)
                 {
                     self = .class 
                 }
-                else if let _:Token.Struct      = .init(parsing: &input)
+                else if let _:Token.Struct          = .init(parsing: &input)
                 {
                     self = .struct
                 }
-                else if let _:Token.Enum        = .init(parsing: &input)
+                else if let _:Token.Enum            = .init(parsing: &input)
                 {
                     self = .enum 
                 }
-                else if let _:Token.Typealias   = .init(parsing: &input)
-                {
-                    self = .typealias 
-                }
-                else if let _:Token.Extension   = .init(parsing: &input)
+                else if let _:Token.Extension       = .init(parsing: &input)
                 {
                     self = .extension 
                 }
@@ -518,26 +710,14 @@ extension Grammar
         let keyword:Keyword 
         let identifiers:[String]
         let generics:[String]
-        let target:SwiftType?
         
         init(parsing input:inout Input) throws
         {
             self.keyword                    = try .init(parsing: &input) 
             let _:Whitespace                = try .init(parsing: &input), 
                 identifiers:Identifiers     = try .init(parsing: &input), 
-                generics:TypeParameters?    =     .init(parsing: &input)
-            if  let _:Whitespace?           =     .init(parsing: &input), 
-                let _:Token.Equals          =     .init(parsing: &input), 
-                let _:Whitespace?           =     .init(parsing: &input), 
-                let target:SwiftType        =     .init(parsing: &input) 
-            {
-                self.target = target 
-            }
-            else 
-            {
-                self.target = nil 
-            }
-            let _:Endline                   = try .init(parsing: &input)
+                generics:TypeParameters?    =     .init(parsing: &input),
+                _:Endline                   = try .init(parsing: &input)
             self.identifiers    = identifiers.identifiers 
             self.generics       = generics?.identifiers ?? []
         }
@@ -550,13 +730,13 @@ extension Grammar
                 keyword     : \(self.keyword)
                 identifiers : \(self.identifiers)
                 generics    : \(self.generics)
-                target      : \(self.target.map(String.init(describing:)) ?? "nil")
             }
             """
         }
     }
     
-    // ConformanceField    ::= ':' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
+    //  ConformanceField        ::= ':' <Whitespace> ? <ProtocolCompositionType> 
+    //                              ( <Whitespace> <WhereClauses> ) ? <Endline>
     struct ConformanceField:Parseable, CustomStringConvertible
     {
         let conformances:[[String]]
@@ -585,8 +765,9 @@ extension Grammar
         }
     }
     
-    //  ImplementationField ::= '?:' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
-    //                        | '?' <Whitespace> ? <WhereClauses> <Endline>
+    //  ImplementationField     ::= '?:' <Whitespace> ? <ProtocolCompositionType> 
+    //                              ( <Whitespace> <WhereClauses> ) ? <Endline>
+    //                            | '?' <Whitespace> ? <WhereClauses> <Endline>
     struct ImplementationField:Parseable 
     {
         let conformances:[[String]]
@@ -614,11 +795,12 @@ extension Grammar
         }
     }
     
-    //  ConstraintsField    ::= <WhereClauses> <Endline>
-    //  WhereClauses        ::= 'where' <Whitespace> <WhereClause> ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
-    //  WhereClause         ::= <Identifiers> <Whitespace> ? <WherePredicate>
-    //  WherePredicate      ::= ':' <Whitespace> ? <ProtocolCompositionType> 
-    //                        | '==' <Whitespace> ? <Type>
+    //  ConstraintsField        ::= <WhereClauses> <Endline>
+    //  WhereClauses            ::= 'where' <Whitespace> <WhereClause> 
+    //                              ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
+    //  WhereClause             ::= <Identifiers> <Whitespace> ? <WherePredicate>
+    //  WherePredicate          ::= ':' <Whitespace> ? <ProtocolCompositionType> 
+    //                            | '==' <Whitespace> ? <Type>
     struct ConstraintsField:Parseable, CustomStringConvertible
     {
         let clauses:[WhereClause]
@@ -707,14 +889,14 @@ extension Grammar
         }
     }
     
-    //  AttributeField      ::= '@' <Whitespace> ? <DeclarationAttribute> <Endline>
-    //  DeclarationAttribute::= 'frozen'
-    //                        | 'inlinable'
-    //                        | 'discardableResult'
-    //                        | 'resultBuilder'
-    //                        | 'propertyWrapper'
-    //                        | 'specialized' <Whitespace> <WhereClauses>
-    //                        | ':'  <Whitespace> ? <Type>
+    //  AttributeField          ::= '@' <Whitespace> ? <DeclarationAttribute> <Endline>
+    //  DeclarationAttribute    ::= 'frozen'
+    //                            | 'inlinable'
+    //                            | 'discardableResult'
+    //                            | 'resultBuilder'
+    //                            | 'propertyWrapper'
+    //                            | 'specialized' <Whitespace> <WhereClauses>
+    //                            | ':'  <Whitespace> ? <Type>
     enum AttributeField:Parseable
     {
         private 
@@ -759,8 +941,8 @@ extension Grammar
         case discardableResult 
         case resultBuilder
         case propertyWrapper
-        case specialized(WhereClauses)
-        case wrapped(SwiftType)
+        case specialized([WhereClause])
+        case custom(SwiftType)
         
         init(parsing input:inout Input) throws
         {
@@ -792,12 +974,12 @@ extension Grammar
             else if let specialized:List<Specialized, List<Whitespace, List<WhereClauses, Endline>>> = 
                 .init(parsing: &input)
             {
-                self = .specialized(specialized.body.body.head)
+                self = .specialized(specialized.body.body.head.clauses)
             }
-            else if let wrapped:List<Token.Colon, List<Whitespace?, List<SwiftType, Endline>>> = 
+            else if let custom:List<Token.Colon, List<Whitespace?, List<SwiftType, Endline>>> = 
                 .init(parsing: &input)
             {
-                self = .wrapped(wrapped.body.body.head) 
+                self = .custom(custom.body.body.head) 
             }
             else 
             {
@@ -806,9 +988,10 @@ extension Grammar
         }
     }
     
-    // ParameterField      ::= '-' <Whitespace> ? <ParameterName> <Whitespace> ? ':' <Whitespace> ? <FunctionParameter> <Endline>
-    // ParameterName       ::= <Identifier> 
-    //                       | '->'
+    //  ParameterField          ::= '-' <Whitespace> ? <ParameterName> <Whitespace> ? 
+    //                              ':' <Whitespace> ? <FunctionParameter> <Endline>
+    //  ParameterName           ::= <Identifier> 
+    //                            | '->'
     struct ParameterField:Parseable, CustomStringConvertible
     {
         let name:ParameterName 
@@ -862,32 +1045,7 @@ extension Grammar
         }
     }
     
-    // ThrowsField         ::= 'throws' <Endline>
-    //                       | 'rethrows' <Endline>
-    enum ThrowsField:Parseable 
-    {
-        case `throws` 
-        case `rethrows`
-        
-        init(parsing input:inout Input) throws
-        {
-            let start:String.Index                      = input.index 
-            if      let _:List<Token.Throws, Endline>   = .init(parsing: &input)
-            {
-                self = .throws
-            }
-            else if let _:List<Token.Rethrows, Endline> = .init(parsing: &input)
-            {
-                self = .rethrows
-            }
-            else 
-            {
-                throw input.expected(Self.self, from: start)
-            }
-        }
-    }
-    
-    // DispatchField       ::= <DispatchField.Keyword> ( <Whitespace> <DispatchField.Keyword> ) * <Endline>
+    //  DispatchField           ::= <DispatchField.Keyword> ( <Whitespace> <DispatchField.Keyword> ) * <Endline>
     struct DispatchField:Parseable 
     {
         enum Keyword:Parseable, Hashable, CaseIterable 
@@ -924,8 +1082,8 @@ extension Grammar
         }
     }
     
-    // RequirementField    ::= 'required' <Endline>
-    //                       | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
+    //  RequirementField        ::= 'required' <Endline>
+    //                            | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
     enum RequirementField:Parseable 
     {
         private 
@@ -966,9 +1124,13 @@ extension Grammar
         }
     }
     
-    // TopicKey            ::= [a-zA-Z0-9\-] *
-    // TopicField          ::= '#' <Whitespace>? '[' <BalancedContent> * ']' <Whitespace>? '(' <Whitespace> ? <TopicKey> ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
-    // TopicElementField   ::= '##' <Whitespace>? '(' <Whitespace> ? ( <ASCIIDigit> * <Whitespace> ? ':' <Whitespace> ? ) ? <TopicKey> <Whitespace> ? ')' <Endline>
+    //  TopicKey                ::= [a-zA-Z0-9\-] *
+    //  TopicField              ::= '#' <Whitespace> ? '[' <BalancedContent> * ']' <Whitespace> ? 
+    //                              '(' <Whitespace> ? <TopicKey> 
+    //                              ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
+    //  TopicMembershipField    ::= '#' <Whitespace> ? '(' <Whitespace> ? 
+    //                              ( <Integer Literal> <Whitespace> ? ':' <Whitespace> ? ) ? 
+    //                              <TopicKey> <Whitespace> ? ')' <Endline>
     struct TopicField:Parseable 
     {
         let display:String, 
@@ -996,10 +1158,10 @@ extension Grammar
             self.display = .init(display.map(\.character))
         }
     }
-    struct TopicElementField:Parseable
+    struct TopicMembershipField:Parseable
     {
         let key:String?
-        let rank:Int
+        let rank:Int?
         
         init(parsing input:inout Input) throws
         {
@@ -1007,20 +1169,27 @@ extension Grammar
                 _:Token.Hashtag             = try .init(parsing: &input), 
                 _:Whitespace?               =     .init(parsing: &input), 
                 _:Token.Parenthesis.Left    = try .init(parsing: &input), 
-                _:Whitespace?               =     .init(parsing: &input), 
-                rank:List<[Token.ASCIIDigit], List<Whitespace?, List<Token.Colon, Whitespace?>>>? = 
-                                                  .init(parsing: &input),
-                key:[Token.Alphanumeric]    =     .init(parsing: &input), 
+                _:Whitespace?               =     .init(parsing: &input) 
+            if let rank:List<Int, List<Whitespace?, List<Token.Colon, Whitespace?>>> = 
+                                                  .init(parsing: &input)
+            {
+                self.rank = rank.head
+            }
+            else 
+            {
+                self.rank = nil 
+            }
+            let key:[Token.Alphanumeric]    =     .init(parsing: &input), 
                 _:Whitespace?               =     .init(parsing: &input), 
                 _:Token.Parenthesis.Right   = try .init(parsing: &input), 
                 _:Endline                   = try .init(parsing: &input)
-            self.rank   = Int.init(String.init(rank?.head.map(\.character) ?? [])) ?? Int.max
-            self.key    = key.isEmpty ? nil : .init(key.map(\.character))
+            
+            self.key = key.isEmpty ? nil : String.init(key.map(\.character))
         }
     }
     
-    // ParagraphField      ::= <ParagraphLine> <ParagraphLine> *
-    // ParagraphLine       ::= '    ' ' ' * [^\s] . * '\n'
+    //  ParagraphField          ::= <ParagraphLine> <ParagraphLine> *
+    //  ParagraphLine           ::= '    ' ' ' * [^\s] . * '\n'
     struct ParagraphField:Parseable, CustomStringConvertible
     {
         let elements:[Markdown.Element]
@@ -1068,23 +1237,24 @@ extension Grammar
         }
     }
     
-    // Field               ::= <FrameworkField>
-    //                       | <FunctionField>
-    //                       | <SubscriptField>
-    //                       | <MemberField>
-    //                       | <TypeField>
-    //                       | <TypealiasField>
-    //                       | <AnnotationField>
-    //                       | <AttributeField>
-    //                       | <ConstraintsField>
-    //                       | <ThrowsField>
-    //                       | <RequirementField>
-    //                       | <ParameterField>
-    //                       | <TopicField>
-    //                       | <TopicElementField>
-    //                       | <ParagraphField>
-    //                       | <Separator>
-    // Separator           ::= <Endline>
+    //  Field                   ::= <FrameworkField>
+    //                            | <FunctionField>
+    //                            | <SubscriptField>
+    //                            | <PropertyField>
+    //                            | <TypeField>
+    //                            | <TypealiasField>
+    //                            | <ConformanceField>
+    //                            | <ImplementationField>
+    //                            | <ConstraintsField>
+    //                            | <AttributeField>
+    //                            | <DispatchField>
+    //                            | <RequirementField>
+    //                            | <ParameterField>
+    //                            | <TopicField>
+    //                            | <TopicMembershipField>
+    //                            | <ParagraphField>
+    //                            | <Separator>
+    // Separator                ::= <Endline>
     enum Field:Parseable 
     {
         case framework(FrameworkField) 
@@ -1092,20 +1262,20 @@ extension Grammar
         
         case `subscript`(SubscriptField) 
         case function(FunctionField) 
-        case member(MemberField) 
+        case property(PropertyField) 
+        case `typealias`(TypealiasField) 
         case type(TypeField) 
         
         case implementation(ImplementationField) 
         case conformance(ConformanceField) 
         case constraints(ConstraintsField) 
         case attribute(AttributeField) 
-        case `throws`(ThrowsField) 
         case dispatch(DispatchField) 
         case requirement(RequirementField) 
         case parameter(ParameterField) 
         
         case topic(TopicField)
-        case topicElement(TopicElementField)
+        case topicMembership(TopicMembershipField)
         
         case paragraph(ParagraphField) 
         case separator
@@ -1129,9 +1299,13 @@ extension Grammar
             {
                 self = .subscript(field)
             }
-            else if let field:MemberField = .init(parsing: &input)
+            else if let field:PropertyField = .init(parsing: &input)
             {
-                self = .member(field)
+                self = .property(field)
+            }
+            else if let field:TypealiasField = .init(parsing: &input)
+            {
+                self = .typealias(field)
             }
             else if let field:TypeField = .init(parsing: &input)
             {
@@ -1153,10 +1327,6 @@ extension Grammar
             {
                 self = .attribute(field)
             }
-            else if let field:ThrowsField = .init(parsing: &input)
-            {
-                self = .throws(field)
-            }
             else if let field:DispatchField = .init(parsing: &input)
             {
                 self = .dispatch(field)
@@ -1173,9 +1343,9 @@ extension Grammar
             {
                 self = .topic(field)
             }
-            else if let field:TopicElementField = .init(parsing: &input)
+            else if let field:TopicMembershipField = .init(parsing: &input)
             {
-                self = .topicElement(field)
+                self = .topicMembership(field)
             }
             else if let field:ParagraphField = .init(parsing: &input)
             {

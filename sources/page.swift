@@ -1,5 +1,442 @@
+enum Entrapta 
+{
+    struct Error:Swift.Error 
+    {
+        let message:String 
+        let help:String?
+        
+        init(_ message:String, help:String? = nil) 
+        {
+            self.message    = message 
+            self.help       = help
+        }
+    }
+}
+
+struct Unowned<Target> where Target:AnyObject
+{
+    unowned 
+    let target:Target 
+}
+
 final 
-class Page 
+class Node 
+{    
+    final 
+    class Page 
+    {
+        struct Inclusions 
+        {
+            private(set)
+            var aliases:[[String]],
+                inheritances:[[String]]
+            
+            init(aliases:[[String]], inheritances: [[String]])
+            {
+                self.aliases        = aliases 
+                self.inheritances   = inheritances
+            }
+            init<S>(filtering clauses:[Grammar.WhereClause], subject:S)
+                where S:Sequence, S.Element == String 
+            {
+                self.aliases        = []
+                self.inheritances   = []
+                self.append(filtering: clauses, subject: subject)
+            }
+            mutating 
+            func append<S>(filtering clauses:[Grammar.WhereClause], subject:S)
+                where S:Sequence, S.Element == String 
+            {
+                for clause:Grammar.WhereClause in clauses 
+                    where clause.subject.elementsEqual(subject)
+                {
+                    switch clause.predicate 
+                    {
+                    case .conforms(let conformances):
+                        self.inheritances.append(contentsOf: conformances)
+                    case .equals(.named(let identifiers)):
+                        // strip generic parameters from named type 
+                        self.aliases.append(identifiers.map(\.identifier))
+                    case .equals(_):
+                        // cannot use tuple, function, or protocol composition types
+                        break 
+                    }
+                }
+            }
+        }
+        
+        let path:[String] 
+        var anchor:(url:String, directory:[String])?
+        
+        let inclusions:Inclusions, 
+            generics:[String: Inclusions] 
+        
+        let label:Label 
+        let name:String // name is not always last component of path 
+        var signature:Signature
+        var declaration:Declaration
+        
+        var blurb:[Markdown.Element]
+        var discussion:
+        (
+            parameters:[(name:String, paragraphs:[[Markdown.Element]])], 
+            return:[[Markdown.Element]],
+            overview:[[Markdown.Element]], 
+            relationships:[Markdown.Element],
+            specializations:[Markdown.Element]
+        )
+        
+        var breadcrumbs:[(text:String, link:Link)], 
+            breadcrumb:String 
+        
+        var topics:[Topic]
+        let memberships:[(topic:String, rank:Int, order:Int)]
+        // default priority
+        let priority:(rank:Int, order:Int)
+        
+        init(path:[String], 
+            name:String, // not necessarily last `path` component
+            label:Label, 
+            signature:Signature, 
+            declaration:Declaration, 
+            generics:[String]  = [],
+            aliases:[[String]] = [],
+            fields:Fields, 
+            order:Int)
+            throws 
+        {
+            self.path   = path 
+            self.anchor = nil
+            
+            var inclusions:Inclusions               = .init(
+                aliases:        aliases, 
+                inheritances:   fields.conformances.flatMap 
+            {
+                $0.conditions.isEmpty ? $0.conformances : []
+            })
+            // add what we know about the typealias/associatedtype 
+            let constraints:[Grammar.WhereClause]   = fields.constraints?.clauses ?? []
+            switch label 
+            {
+            case    .associatedtype, .typealias:
+                inclusions.append(filtering: constraints, subject: path.suffix(1)) 
+            default: 
+                break 
+            }
+            
+            self.inclusions = inclusions 
+            self.generics   = .init(uniqueKeysWithValues: Set.init(generics).map 
+            {
+                ($0, .init(filtering: constraints, subject: [$0]))
+            })
+            
+            var priority:(rank:Int, order:Int)?                     = nil 
+            var memberships:[(topic:String, rank:Int, order:Int)]   = []
+            for field:Grammar.TopicMembershipField in fields.memberships 
+            {
+                // empty rank corresponds to zero. should sort in 
+                // (0:)
+                // (1:)
+                // (2:)
+                // (3:)
+                // ...
+                // (-2:)
+                // (-1:)
+                let rank:Int = field.rank.map{ ($0 < 0 ? .max : .min) + $0 } ?? 0
+                guard let topic:String = field.key 
+                else 
+                {
+                    guard priority == nil 
+                    else 
+                    {
+                        throw Entrapta.Error.init("only one anonymous topic element field allowed per symbol")
+                    }
+                    priority = (rank, order)
+                    continue 
+                }
+                
+                memberships.append((topic, rank, order))
+            }
+            self.memberships    = memberships
+            self.topics         = fields.topics.map(Topic.init(_:))
+            // if there is no anonymous topic element field, we want to sort 
+            // the symbols alphabetically, so we set the order to max. this will 
+            // put it after any topic elements with an empty membership field (`#()`), 
+            // which appear in declaration-order
+            self.priority       = priority ?? (0, .max)
+            
+            
+            self.label          = label
+            self.name           = name 
+            self.signature      = signature 
+            self.declaration    = declaration 
+            
+            self.blurb                  = fields.blurb ?? [] 
+            self.discussion.overview    = fields.discussion
+
+            self.discussion.return      = fields.callable.range?.paragraphs ?? []
+            self.discussion.parameters  = fields.callable.domain.map
+            {
+                ($0.name, $0.paragraphs)
+            }
+            
+            // include constraints in relationships for extension fields 
+            if case .extension = label 
+            {
+                self.discussion.relationships   = Self.prose(relationships:  fields.constraints)
+            }
+            else 
+            {
+                self.discussion.relationships   = Self.prose(relationships: (fields.relationships, fields.conformances))
+            }
+            
+            self.discussion.specializations     = Self.prose(specializations: fields.attributes)
+            
+            var breadcrumbs:[(String, Link)]    = [("Documentation", .unresolved(path: []))]
+            +
+            Link.scan(path)
+            
+            self.breadcrumb     = breadcrumbs.removeLast().0 
+            self.breadcrumbs    = breadcrumbs
+        }
+    }
+    
+    private(set) weak 
+    var parent:Node?
+    private(set)
+    var children:[String: Node]
+    
+    private(set)
+    var pages:[Page]
+    
+    init(parent:Node?) 
+    {
+        self.parent         = parent 
+        self.children       = [:]
+        self.pages          = [] 
+    }
+}
+extension Node 
+{
+    private 
+    func find(_ paths:[[String]]) -> [Node]
+    {
+        paths.compactMap 
+        {
+            var node:Node? = self 
+            higher:
+            while let start:Node = node 
+            {
+                defer 
+                {
+                    node = start.parent 
+                }
+                
+                var current:Node = start  
+                for component:String in $0 
+                {
+                    guard let child:Node = current.children[component]
+                    else 
+                    {
+                        continue higher 
+                    }
+                    current = child 
+                }
+                return current 
+            }
+            return nil
+        }
+    }
+    private 
+    func search(space inclusions:[Page.Inclusions]) -> [(nodes:[Node], pages:[Page])]
+    {
+        [
+            self.find(inclusions.flatMap(\.aliases)), 
+            self.find(inclusions.flatMap(\.inheritances))
+        ]
+        .map 
+        {
+            ($0, $0.flatMap(\.pages))
+        }
+    }
+    func search(space inclusions:Page.Inclusions) -> [(nodes:[Node], pages:[Page])]
+    {
+        self.search(space: [inclusions])
+    }
+    func search(space pages:[Page]) -> [(nodes:[Node], pages:[Page])]
+    {
+        [([self], pages)] + self.search(space: pages.map(\.inclusions))
+    }
+}
+extension Node.Page 
+{
+    func resolve(_ symbol:[String], in node:Node, 
+        builtin:String?                     = "Swift", 
+        allowingSelfReferencingLinks:Bool   = true) 
+        -> Link?
+    {
+        var warning:String 
+        {
+            """
+            warning: could not resolve symbol '\(symbol.joined(separator: "."))' \
+            (in page '\(self.path.joined(separator: "."))')
+            """
+        }
+        
+        let path:ArraySlice<String> 
+        var scope:[Node.Page]   = [self],
+            next:Node?          = node 
+        if symbol.first == "Self" 
+        {
+            while true  
+            {
+                scope = scope.filter 
+                {
+                    switch $0.label 
+                    {
+                    case    .importedEnumeration, .importedStructure, .importedClass, .importedProtocol,
+                            .enumeration, .genericEnumeration,
+                            .structure, .genericStructure,
+                            .class, .genericClass,
+                            .protocol:
+                        // `Self` refers to this page 
+                        return true 
+                    default: 
+                        // `Self` refers to an ancestor node 
+                        return false 
+                    }
+                }
+                
+                guard scope.isEmpty 
+                else 
+                {
+                    break 
+                }
+                
+                guard let parent:Node = next?.parent 
+                else 
+                {
+                    print(warning)
+                    return nil 
+                }
+                next    = parent 
+                scope   = parent.pages 
+            }
+            path    = symbol.dropFirst()
+        }
+        else 
+        {
+            next    = node 
+            scope   = [self]
+            path    = symbol[...]
+        }
+        
+        higher:
+        while let node:Node = next  
+        {
+            defer 
+            {
+                next    = node.parent 
+                scope   = node.pages 
+            }
+            
+            var path:ArraySlice<String>                     = path
+            var candidates:[Node.Page]                      = scope 
+            var search:[(nodes:[Node], pages:[Node.Page])]  = node.search(space: scope)
+            matching:
+            while let key:String = path.popFirst() 
+            {    
+                for (nodes, pages):([Node], [Node.Page]) in search
+                {
+                    for page:Node.Page in pages 
+                    {
+                        if let inclusions:Node.Page.Inclusions = page.generics[key]
+                        {
+                            candidates  = [page]
+                            search      = node.search(space: inclusions)
+                            continue matching
+                        }
+                    }
+                    for node:Node in nodes 
+                    {
+                        if let next:Node = node.children[key]
+                        {
+                            candidates  = next.pages 
+                            search      = next.search(space: next.pages)
+                            continue matching 
+                        }
+                    }
+                }
+                continue higher
+            }
+            
+            // if `builtin` is provided, and the candidate is an extension, ignore it 
+            if let _:String = builtin 
+            {
+                candidates.removeAll 
+                {
+                    if case .extension = $0.label 
+                    {
+                        return true 
+                    }
+                    else 
+                    {
+                        return false 
+                    }
+                }
+            }
+            
+            guard   let page:Node.Page  = candidates.first, 
+                    let url:String      = page.anchor?.url
+            else 
+            {
+                continue higher 
+            }
+            
+            if candidates.count > 1 
+            {
+                print(
+                    """
+                    warning: resolved link is ambigous, with \(candidates.count) candidates \
+                    \(candidates.map
+                    {
+                        $0.path.joined(separator: ".")
+                    })
+                    """)
+            }
+            
+            guard allowingSelfReferencingLinks || page !== self 
+            else 
+            {
+                return nil
+            }
+            
+            switch page.label 
+            {
+            case    .dependency, 
+                    .importedEnumeration, 
+                    .importedStructure, 
+                    .importedClass, 
+                    .importedProtocol, 
+                    .importedTypealias: return .resolved(url: url, style: .imported)
+            default:                    return .resolved(url: url, style: .local)
+            }
+        }
+        
+        // if `builtin` was provided, resolve a standard library symbol
+        if  let builtin:String = builtin, symbol.first == builtin
+        {
+            return .init(builtin: path)
+        }
+        else 
+        {
+            print(warning)
+            return nil 
+        }
+    }
+}
+
+extension Node.Page 
 {
     enum Label 
     {
@@ -26,587 +463,55 @@ class Page
         case `extension`
         
         case enumerationCase
+        case functor 
+        case function 
+        case `operator`
         case initializer
-        case genericInitializer
         case staticMethod 
-        case genericStaticMethod 
         case instanceMethod 
+        case genericFunctor
+        case genericFunction
+        case genericOperator
+        case genericInitializer
+        case genericStaticMethod 
         case genericInstanceMethod 
+        
         case staticProperty
         case instanceProperty
         case `associatedtype`
         case `subscript` 
+        case genericSubscript
     }
     
-    enum Link:Equatable
+    struct Topic 
     {
-        enum Style
+        let name:String, 
+            keys:[String]
+        var elements:[Unowned<Node.Page>]
+        
+        init(name:String, elements:[Unowned<Node.Page>])
         {
-            case local 
-            case imported 
-            case apple 
+            self.name       = name 
+            self.keys       = []
+            self.elements   = elements 
         }
         
-        case unresolved(path:[String])
-        case resolved(url:String, style:Style)
-        
-        static 
-        let metatype:Self = .resolved(
-            url:   "https://docs.swift.org/swift-book/ReferenceManual/Types.html#ID455", 
-            style: .apple)
-        
-        static 
-        func appleify<C>(_ path:C) -> Self 
-            where C:Collection, C.Element == String
+        init(_ field:Grammar.TopicField) 
         {
-            .resolved(url: 
-                "https://developer.apple.com/documentation/\(path.map{ $0.lowercased() }.joined(separator: "/"))", 
-                style: .apple)
-        } 
-        
-        static 
-        func link<T>(_ components:[(String, T)]) -> [(component:(String, T), link:Link)]
-        {
-            let scan:[(component:(String, T), accumulated:[String])] = components.enumerated().map 
-            {
-                (($0.1.0, $0.1.1), components.prefix($0.0 + 1).map(\.0))
-            }
-            
-            let link:[(component:(String, T), link:Link)] 
-            // strip `Swift` prefix 
-            if scan.first?.component.0 == "Swift" 
-            {
-                link = scan.dropFirst().map 
-                {
-                    ($0.component, .unresolved(path: $0.accumulated))
-                }
-            } 
-            else 
-            {
-                link = scan.map 
-                {
-                    ($0.component, .unresolved(path: $0.accumulated))
-                }
-            }
-            // metatypes 
-            if let (last, _):((String, T), Link) = link.last, 
-                last.0 == "Type" 
-            {
-                return link.dropLast() + [(last, Self.metatype)]
-            }
-            else 
-            {
-                return link
-            }
+            self.name       = field.display 
+            self.keys       = field.keys 
+            self.elements   = []
         }
     }
-    
-    enum Declaration 
-    {
-        enum Token:Equatable
-        {
-            case whitespace 
-            case breakableWhitespace
-            case keyword(String)
-            case identifier(String)
-            case type(String, Link)
-            case typePunctuation(String, Link)
-            case punctuation(String)
-        }
-        
-        static 
-        func tokenize(_ identifiers:[String]) -> [Token]
-        {
-            return .init(Link.link(identifiers.map{ ($0, ()) }).map 
-            {
-                [.type($0.component.0, $0.link)]
-            }.joined(separator: [.punctuation(".")]))
-        }
-        
-        static 
-        func tokenize(_ type:Grammar.SwiftType, locals:Set<String> = []) -> [Token] 
-        {
-            switch type 
-            {
-            case .named(let identifiers):
-                if      identifiers.count           == 2, 
-                        identifiers[0].identifier   == "Swift",
-                        identifiers[0].generics.isEmpty
-                {
-                    if      identifiers[1].identifier       == "Optional", 
-                            identifiers[1].generics.count   == 1
-                    {
-                        let element:Grammar.SwiftType   = identifiers[1].generics[0]
-                        let link:Link                   = .appleify(["Swift", "Optional"])
-                        var tokens:[Token] = []
-                        tokens.append(contentsOf: Self.tokenize(element, locals: locals))
-                        tokens.append(.typePunctuation("?", link))
-                        return tokens 
-                    }
-                    else if identifiers[1].identifier       == "Array", 
-                            identifiers[1].generics.count   == 1
-                    {
-                        let element:Grammar.SwiftType   = identifiers[1].generics[0]
-                        let link:Link                   = .appleify(["Swift", "Array"])
-                        var tokens:[Token] = []
-                        tokens.append(.typePunctuation("[", link))
-                        tokens.append(contentsOf: Self.tokenize(element, locals: locals))
-                        tokens.append(.typePunctuation("]", link))
-                        return tokens 
-                    }
-                    else if identifiers[1].identifier       == "Dictionary", 
-                            identifiers[1].generics.count   == 2
-                    {
-                        let key:Grammar.SwiftType   = identifiers[1].generics[0],
-                            value:Grammar.SwiftType = identifiers[1].generics[1]
-                        let link:Link               = .appleify(["Swift", "Dictionary"])
-                        var tokens:[Token] = []
-                        tokens.append(.typePunctuation("[", link))
-                        tokens.append(contentsOf: Self.tokenize(key, locals: locals))
-                        tokens.append(.typePunctuation(":", link))
-                        tokens.append(.whitespace)
-                        tokens.append(contentsOf: Self.tokenize(value, locals: locals))
-                        tokens.append(.typePunctuation("]", link))
-                        return tokens 
-                    }
-                }
-                else if let first:String = identifiers.first?.identifier, 
-                    locals.contains(first), 
-                    identifiers.allSatisfy(\.generics.isEmpty) 
-                {
-                    if identifiers.count == 2, identifiers[1].identifier == "Type"
-                    {
-                        return [.identifier(identifiers[0].identifier), .punctuation("."), .type("Type", Link.metatype)]
-                    }
-                    else 
-                    {
-                        return .init(identifiers.map{ [.identifier($0.identifier)] }.joined(separator: [.punctuation(".")]))
-                    }
-                }
-                
-                return .init(Link.link(identifiers.map{ ($0.identifier, $0.generics) }).map 
-                {
-                    (element:(component:(identifier:String, generics:[Grammar.SwiftType]), link:Link)) -> [Token] in 
-                    var tokens:[Token] = [.type(element.component.identifier, element.link)]
-                    if !element.component.generics.isEmpty
-                    {
-                        tokens.append(.punctuation("<"))
-                        tokens.append(contentsOf: element.component.generics.map{ Self.tokenize($0, locals: locals) }
-                            .joined(separator: [.punctuation(","), .breakableWhitespace]))
-                        tokens.append(.punctuation(">"))
-                    }
-                    return tokens
-                }.joined(separator: [.punctuation(".")]))
-            
-            case .compound(let elements):
-                var tokens:[Token] = []
-                tokens.append(.punctuation("("))
-                tokens.append(contentsOf: elements.map 
-                {
-                    (element:Grammar.LabeledType) -> [Token] in
-                    var tokens:[Token]  = []
-                    if let label:String = element.label
-                    {
-                        tokens.append(.identifier(label))
-                        tokens.append(.punctuation(":"))
-                    }
-                    tokens.append(contentsOf: Self.tokenize(element.type, locals: locals))
-                    return tokens 
-                }.joined(separator: [.punctuation(","), .breakableWhitespace]))
-                tokens.append(.punctuation(")"))
-                return tokens
-            
-            case .function(let type):
-                var tokens:[Token] = []
-                for attribute:Grammar.Attribute in type.attributes
-                {
-                    tokens.append(.keyword("\(attribute)"))
-                    tokens.append(.breakableWhitespace)
-                }
-                tokens.append(.punctuation("("))
-                tokens.append(contentsOf: type.parameters.map 
-                {
-                    (parameter:Grammar.FunctionParameter) -> [Token] in
-                    var tokens:[Token]  = []
-                    for attribute:Grammar.Attribute in parameter.attributes
-                    {
-                        tokens.append(.keyword("\(attribute)"))
-                        tokens.append(.whitespace)
-                    }
-                    if parameter.inout 
-                    {
-                        tokens.append(.keyword("inout"))
-                        tokens.append(.whitespace)
-                    }
-                    tokens.append(contentsOf: Self.tokenize(parameter.type, locals: locals))
-                    return tokens 
-                }.joined(separator: [.punctuation(","), .breakableWhitespace]))
-                tokens.append(.punctuation(")"))
-                tokens.append(.breakableWhitespace)
-                if type.throws
-                {
-                    tokens.append(.keyword("throws"))
-                    tokens.append(.breakableWhitespace)
-                }
-                tokens.append(.keyword("->"))
-                tokens.append(.whitespace)
-                tokens.append(contentsOf: Self.tokenize(type.return, locals: locals))
-                return tokens
-            
-            case .protocols(let protocols):
-                return .init(protocols.map 
-                {
-                    (identifiers:[String]) -> [Token] in 
-                    
-                    .init(Link.link(identifiers.map{ ($0, ()) }).map 
-                    {
-                        (element:(component:(identifier:String, _:Void), link:Link)) -> [Token] in 
-                        [.type(element.component.identifier, element.link)]
-                    }.joined(separator: [.punctuation(".")]))
-                }.joined(separator: [.whitespace, .punctuation("&"), .whitespace]))
-            }
-        } 
-        
-        // includes trailing whitespace 
-        static 
-        func tokenize(_ attributes:[Grammar.AttributeField]) -> [Token] 
-        {
-            var tokens:[Page.Declaration.Token] = []
-            for attribute:Grammar.AttributeField in attributes 
-            {
-                switch attribute
-                {
-                case .frozen, .inlinable, .discardableResult, .resultBuilder, .propertyWrapper:
-                    tokens.append(.keyword("@\(attribute)"))
-                    tokens.append(.breakableWhitespace)
-                case .wrapped(let wrapper):
-                    tokens.append(.keyword("@"))
-                    tokens.append(contentsOf: Self.tokenize(wrapper))
-                    tokens.append(.breakableWhitespace)
-                case .specialized:
-                    break // not implemented 
-                }
-            }
-            return tokens
-        }
-    }
-    
-    enum Signature
-    {
-        enum Token:Equatable
-        {
-            case whitespace 
-            case text(String)
-            case punctuation(String)
-            case highlight(String)
-        }
-        
-        static 
-        func convert(_ declaration:[Declaration.Token]) -> [Token] 
-        {
-            declaration.map 
-            {
-                switch $0 
-                {
-                case    .whitespace, .breakableWhitespace:
-                    return .whitespace
-                case    .keyword(let text), 
-                        .identifier(let text),
-                        .type(let text, _):
-                    return .text(text)
-                case    .typePunctuation(let text, _), 
-                        .punctuation(let text):
-                    return .punctuation(text)
-                }
-            }
-        }
-    }
-    
-    struct Binding 
-    {
-        struct Key:Hashable 
-        {
-            let key:String 
-            let rank:Int, 
-                order:Int 
-            
-            init(_ key:String, rank:Int, order:Int) 
-            {
-                self.key   = key 
-                self.rank  = rank
-                self.order = order
-            }
-        }
-        
-        let urlpattern:(prefix:String, suffix:String)
-        let page:Page 
-        let locals:Set<String>, 
-            keys:Set<Key>
-        // default ordering 
-        let rank:Int, 
-            order:Int
-        
-        var path:[String] 
-        {
-            self.page.path 
-        }
-        
-        // needed to uniquify overloaded symbols, and escape dots ('.') and slashes ('/')
-        var uniquePath:[String] 
-        {
-            let escaped:[String] = self.path.map 
-            {
-                $0.map 
-                {
-                    switch $0 
-                    {
-                    case ".":   return "dot-"
-                    case "/":   return "slash-"
-                    default :   return "\($0)"
-                    }
-                }.joined()
-            }
-            if  let overload:Int = self.page.overload, 
-                let last:String  = escaped.last 
-            {
-                return escaped.dropLast() + ["\(overload)-\(last)"]
-            }
-            else 
-            {
-                return escaped 
-            }
-        }
-        
-        var url:String 
-        {
-            "\(self.urlpattern.prefix)/\(self.uniquePath.map(Self.escape(url:)).joined(separator: "/"))\(self.urlpattern.suffix)"
-        }
-        var filepath:String 
-        {
-            self.uniquePath.joined(separator: "/")
-        }
-        
-        init(_ page:Page, locals:Set<String>, keys:Set<Key>, rank:Int, order:Int, 
-            urlpattern:(prefix:String, suffix:String)) 
-        {
-            self.urlpattern = urlpattern
-            self.page       = page 
-            self.locals     = locals 
-            self.keys       = keys 
-            self.rank       = rank 
-            self.order      = order
-        }
-        
-        private static 
-        func hex(_ value:UInt8) -> UInt8
-        {
-            if value < 10 
-            {
-                return 0x30 + value 
-            }
-            else 
-            {
-                return 0x37 + value 
-            }
-        }
-        private static 
-        func escape(url:String) -> String 
-        {
-            .init(decoding: url.utf8.flatMap 
-            {
-                (byte:UInt8) -> [UInt8] in 
-                switch byte 
-                {
-                ///  [0-9]          [A-Z]        [a-z]            '-'   '_'   '~'
-                case 0x30 ... 0x39, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x2d, 0x5f, 0x7e:
-                    return [byte] 
-                default:
-                    return [0x25, hex(byte >> 4), hex(byte & 0x0f)]
-                }
-            }, as: Unicode.ASCII.self)
-        }
-    }
-    
-    typealias TopicSymbol   = (signature:[Signature.Token], url:String, blurb:[Markdown.Element], required:[Markdown.Element])
-    typealias Topic         = (topic:String, keys:[String], symbols:[TopicSymbol])
-    
-    let label:Label 
-    let name:String //name is not always last component of path 
-    let signature:[Signature.Token]
-    var declaration:[Declaration.Token] 
-    var blurb:[Markdown.Element]
-    var discussion:
-    (
-        parameters:[(name:String, paragraphs:[[Markdown.Element]])], 
-        return:[[Markdown.Element]],
-        overview:[[Markdown.Element]], 
-        required:[Markdown.Element],
-        specializations:[Markdown.Element]
-    )
-    
-    var topics:[Topic]
-    var breadcrumbs:[(text:String, link:Link)], 
-        breadcrumb:String 
-    
-    var inheritances:[[String]] 
-    var overload:Int?
-    
-    let path:[String]
-    
-    init(label:Label, name:String, signature:[Signature.Token], declaration:[Declaration.Token], 
-        fields:Fields, path:[String], inheritances:[[String]] = [])
-    {
-        self.overload       = nil 
-        
-        self.label          = label 
-        self.name           = name 
-        self.signature      = signature 
-        self.declaration    = declaration 
-        self.inheritances   = inheritances.filter{ !($0.first == "Swift") }
-        
-        self.blurb          = fields.blurb?.elements ?? [] 
-        
-        let relationships:[Markdown.Element] 
-        switch label 
-        {
-        // "Required ..."
-        case .initializer, .genericInitializer, .staticMethod, .genericStaticMethod, 
-            .instanceMethod, .genericInstanceMethod, .staticProperty, .instanceProperty, 
-            .subscript, .associatedtype, .typealias, .genericTypealias:
-            guard fields.conformances.isEmpty 
-            else 
-            {
-                fatalError("member '\(name)' cannot have conformances")
-            }
-            
-            guard !fields.requirements.isEmpty 
-            else 
-            {
-                fallthrough 
-            }
-            
-            guard fields.implementations.isEmpty
-            else 
-            {
-                fatalError("member '\(name)' cannot have both a requirement field and implementations fields.")
-            }
-            /* guard fields.extensions.isEmpty
-            else 
-            {
-                fatalError("member '\(name)' cannot have both a requirement field and extension fields.")
-            } */
-            
-            if  case .required? = fields.requirements.first, 
-                fields.requirements.count == 1 
-            {
-                relationships = .init(parsing: "**Required.**") 
-                break 
-            }
-            if  case .defaulted(let conditions)? = fields.requirements.first, 
-                fields.requirements.count == 1, 
-                conditions.isEmpty 
-            {
-                relationships = .init(parsing: "**Required.** Default implementation provided.") 
-                break 
-            }
-            
-            let conditions:[[Grammar.WhereClause]] = fields.requirements.map 
-            {
-                guard case .defaulted(let conditions) = $0 
-                else 
-                {
-                    fatalError("'required' for member '\(name)' is redundant if 'defaulted' fields are present")
-                }
-                
-                guard !conditions.isEmpty 
-                else 
-                {
-                    fatalError("conditional 'defaulted' for member '\(name)' cannot appear alongside unconditional 'defaulted'")
-                }
-                
-                return conditions 
-            }
-            
-            if conditions.count == 1 
-            {
-                relationships = .init(parsing: "**Required.** Default implementation provided when \(Self.prose(conditions: conditions[0])).")
-            }
-            else 
-            {
-                // render each condition on its own line 
-                relationships = .init(parsing: "**Required.** \(conditions.map{ "\\nDefault implementation provided when \(Self.prose(conditions: $0))." }.joined())")
-            }
+}
 
-        
-        // "Implements requirement in ... . Available when ... ."
-        //  or 
-        // "Conforms to ... when ... ."
-        case .enumeration, .genericEnumeration, .structure, .genericStructure, .class, .genericClass: 
-            guard fields.requirements.isEmpty
-            else 
-            {
-                fatalError("member '\(name)' cannot have a requirement field")
-            }
-            
-            var sentences:[String] = []
-            /* for `extension`:Grammar.ExtensionField in fields.extensions
-            {
-                sentences.append("Available when \(Self.prose(conditions: `extension`.conditions)).")
-            } */
-            for implementation:Grammar.ImplementationField in fields.implementations
-                where !implementation.conformances.isEmpty 
-            {
-                let conformances:String = Self.prose(separator: ",", list: implementation.conformances.map 
-                {
-                    "[`\($0.joined(separator: "."))`]"
-                })
-                if implementation.conformances.count == 1 
-                {
-                    sentences.append("Implements requirement in \(conformances).")
-                }
-                else 
-                {
-                    sentences.append("Implements requirements in \(conformances).")
-                }
-                
-            }
-            for implementation:Grammar.ImplementationField in fields.implementations 
-                where !implementation.conditions.isEmpty
-            {
-                sentences.append("Available when \(Self.prose(conditions: implementation.conditions)).")
-            }
-            
-            // non-conditional conformances go straight into the type declaration 
-            for conformance:Grammar.ConformanceField in fields.conformances 
-                where !conformance.conditions.isEmpty 
-            {
-                let conformances:String = Self.prose(separator: ",", list: conformance.conformances.map 
-                {
-                    "[`\($0.joined(separator: "."))`]"
-                })
-                sentences.append("Conforms to \(conformances) when \(Self.prose(conditions: conformance.conditions)).")
-            }
-            
-            relationships = .init(parsing: sentences.joined(separator: " "))
-        
-        case    .extension:
-            // also show constraints as relationship annotations
-            if let conditions:[Grammar.WhereClause] = fields.constraints?.clauses
-            {
-                relationships = .init(parsing: "Available when \(Self.prose(conditions: conditions)).")
-            }
-            else 
-            {
-                relationships = []
-            }
-        
-        case    .protocol, .enumerationCase, .module, .plugin, .dependency, 
-                .importedEnumeration, .importedStructure, .importedClass, 
-                .importedProtocol, .importedTypealias: 
-            relationships = [] 
-        }
-        
-        let specializations:[Markdown.Element] = .init(parsing: fields.attributes.compactMap 
+extension Node.Page 
+{
+    private static 
+    func prose(specializations attributes:[Grammar.AttributeField]) 
+        -> [Markdown.Element] 
+    {
+        .init(parsing: attributes.compactMap 
         {
             guard case .specialized(let conditions) = $0 
             else 
@@ -614,36 +519,94 @@ class Page
                 return nil 
             }
             
-            return "Specialization available when \(Self.prose(conditions: conditions.clauses))."
+            return "Specialization available when \(Self.prose(conditions: conditions))."
         }.joined(separator: "\\n"))
-        
-        self.discussion     = 
-        (
-            fields.parameters.map{ ($0.name, $0.paragraphs.map(\.elements)) }, 
-            fields.return?.paragraphs.map(\.elements) ?? [], 
-            fields.discussion.map(\.elements), 
-            relationships,
-            specializations
-        )
-        self.topics         = fields.topics
-        
-        var breadcrumbs:[(text:String, link:Link)] = [("Documentation", .unresolved(path: []))]
-        +
-        Link.link(path.map{ ($0, ()) }).map 
+    }
+    private static 
+    func prose(relationships constraints:Grammar.ConstraintsField?) 
+        -> [Markdown.Element] 
+    {
+        guard let conditions:[Grammar.WhereClause] = constraints?.clauses
+        else 
         {
-            ($0.component.0, $0.link)
+            return []
         }
         
-        self.breadcrumb     = breadcrumbs.removeLast().text 
-        self.breadcrumbs    = breadcrumbs
+        return .init(parsing: "Available when \(Self.prose(conditions: conditions)).")
+    }
+    private static 
+    func prose(relationships fields:
+        (
+            relationships:Fields.Relationships?, 
+            conformances:[Grammar.ConformanceField]
+        )) 
+        -> [Markdown.Element] 
+    {
+        var sentences:[String]
+        switch fields.relationships 
+        {
+        case .required?:
+            sentences       = ["**Required.**"] 
+        case .defaulted?:
+            sentences       = ["**Required.**", "Default implementation provided."]
+        case .defaultedConditionally(let conditions)?:
+            sentences       = ["**Required.**"] + conditions.map 
+            {
+                "Default implementation provided when \(Self.prose(conditions: $0))."
+            }
+        case .implements(let implementations)?:
+            sentences       = []
+            for implementation:Grammar.ImplementationField in implementations
+            {
+                if !implementation.conformances.isEmpty  
+                {
+                    let prose:String = Self.prose(separator: ",", listing: implementation.conformances)
+                    {
+                        "[`\($0.joined(separator: "."))`]"
+                    }
+                    if implementation.conformances.count > 1 
+                    {
+                        sentences.append("Implements requirements in \(prose)")
+                    }
+                    else 
+                    {
+                        sentences.append("Implements requirement in \(prose)")
+                    }
+                }
+                if !implementation.conditions.isEmpty 
+                {
+                    sentences.append("Available when \(Self.prose(conditions: implementation.conditions)).")
+                }
+            }
+        case nil: 
+            sentences       = []
+        }
         
-        self.path           = path
+        for conformance:Grammar.ConformanceField in fields.conformances 
+            where !conformance.conditions.isEmpty 
+        {
+            let prose:String = Self.prose(separator: ",", listing: conformance.conformances)
+            {
+                "[`\($0.joined(separator: "."))`]"
+            }
+            sentences.append("Conforms to \(prose) when \(Self.prose(conditions: conformance.conditions)).")
+        }
+        
+        // if more than 2 sentences, print each on its own line 
+        if sentences.count > 2 
+        {
+            return .init(parsing: sentences.joined(separator: "\\n"))
+        }
+        else 
+        {
+            return .init(parsing: sentences.joined(separator: " "))
+        }
     }
     
     private static 
     func prose(conditions:[Grammar.WhereClause]) -> String 
     {
-        return Self.prose(separator: ";", list: conditions.map 
+        Self.prose(separator: ";", listing: conditions)
         {
             (clause:Grammar.WhereClause) in 
             switch clause.predicate
@@ -651,16 +614,21 @@ class Page
             case .equals(let type):
                 return "[`\(clause.subject.joined(separator: "."))`] is [[`\(type)`]]"
             case .conforms(let protocols):
-                let constraints:[String] = protocols.map{ "[`\($0.joined(separator: "."))`]" }
-                return "[`\(clause.subject.joined(separator: "."))`] conforms to \(Self.prose(separator: ",", list: constraints))"
+                let prose:String = Self.prose(separator: ",", listing: protocols)
+                {
+                    "[`\($0.joined(separator: "."))`]"
+                }
+                return "[`\(clause.subject.joined(separator: "."))`] conforms to \(prose)"
             }
-        })
+        }
     }
     
     private static 
-    func prose(separator:String, list:[String]) -> String 
+    func prose<T>(separator:String, listing elements:[T], _ renderer:(T) -> String) 
+        -> String 
     {
-        guard let first:String = list.first 
+        let list:[String]       = elements.map(renderer)
+        guard let first:String  = list.first 
         else 
         {
             fatalError("list must have at least one element")
@@ -670,7 +638,7 @@ class Page
         {
             return first 
         }
-        guard let last:String = list.dropFirst(2).last 
+        guard let last:String   = list.dropFirst(2).last 
         else 
         {
             return "\(first) and \(second)"
@@ -678,772 +646,853 @@ class Page
         return "\(list.dropLast().joined(separator: "\(separator) "))\(separator) and \(last)"
     }
 }
-extension Page 
+extension Node.Page 
 {
-    private static 
-    func crosslink(_ unlinked:[Markdown.Element], scopes:[PageTree.Node]) -> [Markdown.Element]
+    private 
+    func resolveLinks(in declaration:Declaration, at node:Node, 
+        allowingSelfReferencingLinks:Bool = true) 
+        -> Declaration
     {
-        return unlinked.map
-        {
-            (element:Markdown.Element) in 
-            
-            switch element 
-            {
-            case .type(let inline):
-                let tokens:[Declaration.Token] = Declaration.tokenize(inline.type).map 
-                {
-                    switch $0 
-                    {
-                    case .type(let component, .unresolved(path: let path)):
-                        guard let resolved:Link = PageTree.Node.resolve(path[...], in: scopes)
-                        else 
-                        {
-                            return .identifier(component)
-                        }
-                        return .type(component, resolved)
-                    default:
-                        return $0
-                    }
-                }
-                return .code(tokens)
-                
-            case .symbol(let link):
-                let tokens:[Declaration.Token] = link.paths.flatMap 
-                {
-                    (sublink:Markdown.Element.SymbolLink.Path) -> [Declaration.Token] in 
-                    Link.link(sublink.path.map{ ($0, ()) }).map 
-                    {
-                        (element:(component:(String, Void), link:Link)) -> Declaration.Token in
-                        
-                        if case .unresolved(path: let path) = element.link 
-                        {
-                            let full:[String] = sublink.prefix + path 
-                            guard let resolved:Link = PageTree.Node.resolve(full[...], in: scopes)
-                            else 
-                            {
-                                return .identifier(element.component.0)
-                            }
-                            
-                            return .type(element.component.0, resolved)
-                        }
-                        else 
-                        {
-                            return .type(element.component.0, element.link)
-                        }
-                        
-                    }
-                } 
-                +
-                link.suffix.map(Declaration.Token.identifier(_:))
-                
-                return .code(.init(tokens.map{ [$0] }.joined(separator: [.punctuation(".")])))
-             
-            default:
-                return element
-            }
-        }
-    }
-    
-    func crosslink(scopes:[PageTree.Node], node:PageTree.Node) 
-    {
-        self.declaration = self.declaration.map 
+        declaration.map
         {
             switch $0 
             {
-            case .type(let component, .unresolved(path: let path)):
-                guard let resolved:Link = PageTree.Node.resolve(path[...], in: scopes)
-                else 
-                {
-                    return .identifier(component)
-                }
-                return .type(component, resolved)
+            case .identifier(let string, .unresolved(path: let path)?):
+                return .identifier(string, self.resolve(path, in: node, 
+                    allowingSelfReferencingLinks: allowingSelfReferencingLinks))
+            case .punctuation(let string, .unresolved(path: let path)?):
+                return .punctuation(string, self.resolve(path, in: node, 
+                    allowingSelfReferencingLinks: allowingSelfReferencingLinks))
             default:
                 return $0
             }
         }
-        
-        // also search in the node’s own scope for the markdown links 
-        let inclusive:[PageTree.Node] = scopes + [node]
-        
-        self.blurb                  = Self.crosslink(self.blurb, scopes: inclusive)
+    }
+    private 
+    func resolveLinks(in unlinked:[Markdown.Element], at node:Node) -> [Markdown.Element]
+    {
+        unlinked.map 
+        {
+            switch $0 
+            {
+            case .type(let inline):
+                return .code(self.resolveLinks(in: .init(type: inline.type), at: node))
+            case .symbol(let link):
+                return .code(.init 
+                {
+                    Declaration.init(joining: link.paths)
+                    {
+                        (sublink:Markdown.Element.SymbolLink.Path) in 
+                        Declaration.init(joining: Link.scan(sublink.path)) 
+                        {
+                            switch $0.link 
+                            {
+                            case .unresolved(path: let path):
+                                if let link:Link = self.resolve(sublink.prefix + path, in: node)
+                                {
+                                    Declaration.identifier($0.element, link: link)
+                                }
+                                else 
+                                {
+                                    Declaration.identifier($0.element)
+                                }
+                            case let link:
+                                Declaration.identifier($0.element, link: link)
+                            }
+                        }
+                        separator: 
+                        {
+                            Declaration.punctuation(".")
+                        }
+                    }
+                    separator: 
+                    {
+                        Declaration.punctuation(".")
+                    }
+                    for component:String in link.suffix 
+                    {
+                        Declaration.punctuation(".")
+                        Declaration.identifier(component)
+                    }
+                })
+            case let element:
+                return element 
+            }
+        }
+    }
+    func resolveLinks(at node:Node) 
+    {
+        self.declaration            = self.resolveLinks(in: self.declaration, at: node, 
+            allowingSelfReferencingLinks: false)
+        self.blurb                  = self.resolveLinks(in: self.blurb, at: node)
         self.discussion.parameters  = self.discussion.parameters.map 
         {
-            ($0.name, $0.paragraphs.map{ Self.crosslink($0, scopes: inclusive) })
+            ($0.name, $0.paragraphs.map{ self.resolveLinks(in: $0, at: node) })
         }
-        self.discussion.return      = self.discussion.return.map{   Self.crosslink($0, scopes: inclusive) }
-        self.discussion.overview    = self.discussion.overview.map{ Self.crosslink($0, scopes: inclusive) }
-        self.discussion.required        = 
-            Self.crosslink(self.discussion.required, scopes: inclusive) 
-        self.discussion.specializations = 
-            Self.crosslink(self.discussion.specializations, scopes: inclusive) 
+        self.discussion.return          = self.discussion.return.map{   self.resolveLinks(in: $0, at: node) }
+        self.discussion.overview        = self.discussion.overview.map{ self.resolveLinks(in: $0, at: node) }
+        self.discussion.relationships   = self.resolveLinks(in: self.discussion.relationships, at: node) 
+        self.discussion.specializations = self.resolveLinks(in: self.discussion.specializations, at: node) 
         
         self.breadcrumbs = self.breadcrumbs.map 
         {
             switch $0.link 
             {
-            case .unresolved(path: let path):
-                // do not appleify stdlib symbols
-                guard let resolved:Link = PageTree.Node.resolve(path[...], in: inclusive, builtin: nil)
+            case .unresolved(path: []): 
+                // documentation root
+                var root:Node = node 
+                while let parent:Node = root.parent 
+                {
+                    root = parent 
+                }
+                guard   let page:Node.Page  = root.pages.first, 
+                        let url:String      = page.anchor?.url 
                 else 
                 {
-                    break 
+                    fatalError("could not find page for root breadcrumb")
+                }
+                return ($0.text, .resolved(url: url, style: .local))
+            case .unresolved(path: let path):
+                // do not appleify stdlib symbols
+                guard let resolved:Link = self.resolve(path, in: node, builtin: nil)
+                else 
+                {
+                    fatalError("could not find page for breadcrumb '\(path.joined(separator: "."))'") 
                 }
                 return ($0.text, resolved)
             default:
-                break 
+                return $0 
             }
-            return $0
-        }
-    }
-    
-    enum ParameterScheme 
-    {
-        case `subscript`
-        case function 
-        case associatedValues 
-        
-        var delimiter:(String, String) 
-        {
-            switch self 
-            {
-            case .subscript:
-                return ("[", "]")
-            case .function, .associatedValues:
-                return ("(", ")")
-            }
-        }
-        
-        func names(_ label:String, _ name:String) -> [String] 
-        {
-            switch self 
-            {
-            case .subscript:
-                switch (label, name) 
-                {
-                case ("_",             "_"):
-                    return ["_"]
-                case ("_",       let inner):
-                    return [inner]
-                case (let outer, let inner):
-                    return [outer, inner]
-                }
-            case .function:
-                return label == name ? [label] : [label, name] 
-            case .associatedValues:
-                if label != name 
-                {
-                    Swift.print("warning: enumeration case cannot have different labels '\(label)', '\(name)'")
-                }
-                return label == "_" ? [] : [label]
-            }
-        }
-    }
-    
-    static 
-    func print(modifiers dispatch:Grammar.DispatchField, declaration:inout [Declaration.Token])
-    {
-        // iterate this way to always print the keywords in the correct order 
-        for keyword:Grammar.DispatchField.Keyword in Grammar.DispatchField.Keyword.allCases 
-        {
-            if dispatch.keywords.contains(keyword)
-            {
-                declaration.append(.keyword("\(keyword)"))
-                declaration.append(.breakableWhitespace)
-            }
-        }
-    }
-    
-    static 
-    func print(constraints:Grammar.ConstraintsField, declaration:inout [Declaration.Token], locals:Set<String>) 
-    {
-        declaration.append(.breakableWhitespace)
-        declaration.append(.keyword("where"))
-        declaration.append(.whitespace)
-        declaration.append(contentsOf: constraints.clauses.map 
-        {
-            (clause:Grammar.WhereClause) -> [Page.Declaration.Token] in 
-            var tokens:[Page.Declaration.Token] = []
-            // strip links from lhs, as it’s too difficult to explore all the 
-            // possible scopes their conformances provide
-            tokens.append(contentsOf: Page.Declaration.tokenize(clause.subject).map 
-            {
-                if case .type(let string, _) = $0 
-                {
-                    return .identifier(string)
-                }
-                else 
-                {
-                    return $0
-                }
-            })
-            switch clause.predicate 
-            {
-            case .conforms(let protocols):
-                tokens.append(.punctuation(":"))
-                // protocol types cannot possibly refer to local generics
-                tokens.append(contentsOf: Page.Declaration.tokenize(.protocols(protocols)))
-            case .equals(let type):
-                tokens.append(.whitespace)
-                tokens.append(.punctuation("=="))
-                tokens.append(.whitespace)
-                tokens.append(contentsOf: Page.Declaration.tokenize(type, locals: locals))
-            }
-            
-            return tokens
-        }.joined(separator: [.punctuation(","), .breakableWhitespace]))
-    }
-    static 
-    func print(function fields:Fields, labels:[(name:String, variadic:Bool)], 
-        scheme:ParameterScheme,
-        signature:inout [Signature.Token], 
-        declaration:inout [Declaration.Token], 
-        locals:Set<String> = []) 
-    {
-        guard labels.count == fields.parameters.count 
-        else 
-        {
-            fatalError("warning: function/subscript '\(signature)' has \(labels.count) labels, but \(fields.parameters.count) parameters")
-        }
-        
-        signature.append(.punctuation(scheme.delimiter.0))
-        declaration.append(.punctuation("("))
-        
-        var interior:(signature:[[Page.Signature.Token]], declaration:[[Page.Declaration.Token]]) = 
-            ([], [])
-        for ((label, variadic), (name, parameter, _)):
-        (
-            (String, Bool), 
-            (String, Grammar.FunctionParameter, [Grammar.ParagraphField])
-        ) in zip(labels, fields.parameters)
-        {
-            var signature:[Page.Signature.Token]        = []
-            var declaration:[Page.Declaration.Token]    = []
-            
-            if label != "_" 
-            {
-                signature.append(.highlight(label))
-                signature.append(.punctuation(":"))
-            }
-            
-            let names:[String] = scheme.names(label, name)
-            if !names.isEmpty 
-            {
-                declaration.append(contentsOf: names.map 
-                {
-                    [$0 == "_" ? .keyword($0) : .identifier($0)]
-                }.joined(separator: [.whitespace]))
-                declaration.append(.punctuation(":"))
-            }
-            for attribute:Grammar.Attribute in parameter.attributes
-            {
-                declaration.append(.keyword("\(attribute)"))
-                declaration.append(.whitespace)
-            }
-            if parameter.inout 
-            {
-                signature.append(.text("inout"))
-                signature.append(.whitespace)
-                declaration.append(.keyword("inout"))
-                declaration.append(.whitespace)
-            }
-            let type:(declaration:[Page.Declaration.Token], signature:[Page.Signature.Token]) 
-            type.declaration = Page.Declaration.tokenize(parameter.type, locals: locals)
-            type.signature   = Page.Signature.convert(type.declaration)
-            signature.append(contentsOf: type.signature)
-            declaration.append(contentsOf: type.declaration)
-            
-            if variadic 
-            {
-                signature.append(contentsOf: repeatElement(.punctuation("."), count: 3))
-                declaration.append(contentsOf: repeatElement(.punctuation("."), count: 3))
-            }
-            
-            interior.signature.append(signature)
-            interior.declaration.append(declaration)
-        }
-        
-        signature.append(contentsOf: 
-            interior.signature.joined(separator: [.punctuation(","), .whitespace]))
-        declaration.append(contentsOf: 
-            interior.declaration.joined(separator: [.punctuation(","), .breakableWhitespace]))
-        
-        signature.append(.punctuation(scheme.delimiter.1))
-        declaration.append(.punctuation(")"))
-        
-        if let `throws`:Grammar.ThrowsField = fields.throws
-        {
-            signature.append(.whitespace)
-            signature.append(.text("\(`throws`)"))
-            declaration.append(.breakableWhitespace)
-            declaration.append(.keyword("\(`throws`)"))
-        }
-        
-        if let type:Grammar.SwiftType = fields.return?.type 
-        {
-            signature.append(.whitespace)
-            signature.append(.punctuation("->"))
-            signature.append(.whitespace)
-            declaration.append(.breakableWhitespace)
-            declaration.append(.punctuation("->"))
-            declaration.append(.whitespace)
-            
-            let tokens:[Page.Declaration.Token] = Page.Declaration.tokenize(type, locals: locals)
-            signature.append(contentsOf: Page.Signature.convert(tokens))
-            declaration.append(contentsOf: tokens)
         }
     }
 }
-extension Page 
+
+extension Node.Page 
 {
     struct Fields
     {
-        let conformances:[Grammar.ConformanceField], 
-            implementations:[Grammar.ImplementationField], 
-            //extensions:[Grammar.ExtensionField], 
+        struct Callable 
+        {
+            let domain:[(type:Grammar.FunctionParameter, paragraphs:[[Markdown.Element]], name:String)]
+            let range:(type:Grammar.SwiftType, paragraphs:[[Markdown.Element]])?
+            
+            var isEmpty:Bool 
+            {
+                self.domain.isEmpty && self.range == nil 
+            }
+        }
+        
+        enum Relationships 
+        {
+            case required
+            case defaulted 
+            case defaultedConditionally([[Grammar.WhereClause]]) 
+            case implements([Grammar.ImplementationField])
+        }
+        
+        let attributes:[Grammar.AttributeField], 
+            conformances:[Grammar.ConformanceField], 
             constraints:Grammar.ConstraintsField?, 
-            attributes:[Grammar.AttributeField], 
-            paragraphs:[Grammar.ParagraphField],
-            `throws`:Grammar.ThrowsField?, 
-            dispatch:Grammar.DispatchField?, 
-            requirements:[Grammar.RequirementField]
-        let keys:Set<Page.Binding.Key>, 
-            rank:Int, 
-            order:Int, 
-            topics:[Page.Topic]
-        let parameters:[(name:String, type:Grammar.FunctionParameter, paragraphs:[Grammar.ParagraphField])], 
-            `return`:(type:Grammar.SwiftType, paragraphs:[Grammar.ParagraphField])?
+            dispatch:Grammar.DispatchField? 
         
-        var blurb:Grammar.ParagraphField?
-        {
-            self.paragraphs.first
-        }
-        var discussion:ArraySlice<Grammar.ParagraphField> 
-        {
-            self.paragraphs.dropFirst()
-        }
+        let callable:Callable
+        let relationships:Relationships?
         
-        init<S>(_ fields:S, order:Int) where S:Sequence, S.Element == Grammar.Field 
+        let paragraphs:[Grammar.ParagraphField],
+            topics:[Grammar.TopicField], 
+            memberships:[Grammar.TopicMembershipField]
+            
+        var blurb:[Markdown.Element]?
         {
-            var conformances:[Grammar.ConformanceField]         = [], 
-                implementations:[Grammar.ImplementationField]   = [],
-                //extensions:[Grammar.ExtensionField]             = [], 
-                requirements:[Grammar.RequirementField]         = [], 
-                attributes:[Grammar.AttributeField]             = [], 
-                paragraphs:[Grammar.ParagraphField]             = [],
-                topics:[Grammar.TopicField]                     = [], 
-                keys:[Grammar.TopicElementField]                = []
-            var `throws`:Grammar.ThrowsField?, 
-                dispatch:Grammar.DispatchField?,
-                constraints:Grammar.ConstraintsField?
-            var parameters:[(parameter:Grammar.ParameterField, paragraphs:[Grammar.ParagraphField])] = []
-            
-            for field:Grammar.Field in fields
-            {
-                switch field 
-                {
-                case .attribute     (let field):
-                    attributes.append(field)
-                case .conformance   (let field):
-                    conformances.append(field)
-                case .implementation(let field):
-                    implementations.append(field)
-                //case .extension     (let field):
-                //    extensions.append(field)
-                case .requirement   (let field):
-                    requirements.append(field)
-                
-                case .constraints   (let field):
-                    guard constraints == nil 
-                    else 
-                    {
-                        fatalError("only one constraints field per doccomnent allowed")
-                    }
-                    constraints = field
-                case .paragraph     (let field):
-                    if parameters.isEmpty 
-                    {
-                        paragraphs.append(field)
-                    }
-                    else 
-                    {
-                        parameters[parameters.endIndex - 1].paragraphs.append(field)
-                    }
-                case .topic         (let field):
-                    topics.append(field)
-                case .topicElement  (let field):
-                    keys.append(field)
-                
-                case .parameter     (let field):
-                    parameters.append((field, []))
-                    
-                case .throws        (let field):
-                    guard `throws` == nil 
-                    else 
-                    {
-                        fatalError("only one throws field per doccomnent allowed")
-                    }
-                    `throws` = field 
-                case .dispatch      (let field):
-                    guard dispatch == nil 
-                    else 
-                    {
-                        fatalError("only one dispatch field per doccomnent allowed")
-                    }
-                    dispatch = field 
-                
-                case .subscript, .function, .member, .type, .framework, .dependency:
-                    fatalError("only one header field per doccomnent allowed")
-                    
-                case .separator:
-                    break
-                }
-            }
-            
-            self.conformances       = conformances
-            self.implementations    = implementations
-            //self.extensions         = extensions
-            self.requirements       = requirements
-            self.constraints        = constraints
-            self.attributes         = attributes
-            self.paragraphs         = paragraphs
-            self.throws             = `throws`
-            self.dispatch           = dispatch
-            
-            self.keys               = .init(keys.compactMap
-            { 
-                (element:Grammar.TopicElementField) in 
-                element.key.map{ .init($0, rank: element.rank, order: order) } 
-            })
-            // collect anonymous topic element fields (of which there should be at most 1)
-            let ranks:[Int]         = keys.compactMap 
-            {
-                (element:Grammar.TopicElementField) in 
-                element.key == nil ? element.rank : nil 
-            }
-            guard ranks.count < 2 
-            else 
-            {
-                fatalError("only one anonymous topic element field allowed per symbol")
-            }
-            self.rank               = ranks.first ?? .max
-            // if there is no anonymous topic element field, we want to sort 
-            // the symbols alphabetically, so we set the order to .max
-            self.order              = ranks.isEmpty ? .max : order 
-            
-            self.topics             = topics.map{ ($0.display, $0.keys, []) }
-            
-            if  let (last, paragraphs):(Grammar.ParameterField, [Grammar.ParagraphField]) = 
-                parameters.last, 
-                case .return = last.name
-            {
-                self.return = (last.parameter.type, paragraphs)
-                parameters.removeLast()
-            }
-            else 
-            {
-                self.return = nil
-            }
-            
-            self.parameters = parameters.map 
-            {
-                guard case .parameter(let name) = $0.parameter.name 
-                else 
-                {
-                    fatalError("return value must be the last parameter field")
-                }
-                return (name, $0.parameter.parameter, $0.paragraphs)
-            }
+            self.paragraphs.first?.elements
+        }
+        var discussion:[[Markdown.Element]]
+        {
+            self.paragraphs.dropFirst().map(\.elements)
         }
     }
 }
-extension Page.Binding 
+extension Node.Page.Fields 
 {
-    // permutes the overload index 
-    func overload(_ overloads:Int) 
+    init<S>(_ fields:S) throws where S:Sequence, S.Element == Grammar.Field 
     {
-        guard overloads > 0 
-        else 
+        typealias ParameterDescription = 
+        (
+            parameter:Grammar.ParameterField, 
+            paragraphs:[Grammar.ParagraphField]
+        )
+        
+        var attributes:[Grammar.AttributeField]             = [], 
+            conformances:[Grammar.ConformanceField]         = [], 
+            constraints:Grammar.ConstraintsField?           = nil, 
+            dispatch:Grammar.DispatchField?                 = nil
+         
+        var parameters:[ParameterDescription]               = [] 
+        
+        var implementations:[Grammar.ImplementationField]   = [],
+            requirements:[Grammar.RequirementField]         = [] 
+            
+        var paragraphs:[Grammar.ParagraphField]             = [],
+            topics:[Grammar.TopicField]                     = [], 
+            memberships:[Grammar.TopicMembershipField]      = []
+            
+        for field:Grammar.Field in fields
         {
-            return 
+            switch field 
+            {
+            case .attribute     (let field):
+                attributes.append(field)
+            case .conformance   (let field):
+                conformances.append(field)
+            case .implementation(let field):
+                implementations.append(field)
+            //case .extension     (let field):
+            //    extensions.append(field)
+            case .requirement   (let field):
+                requirements.append(field)
+            
+            case .constraints   (let field):
+                guard constraints == nil 
+                else 
+                {
+                    throw Entrapta.Error.init("only one constraints field per doccomnent allowed")
+                }
+                constraints = field
+            case .paragraph     (let field):
+                if parameters.isEmpty 
+                {
+                    paragraphs.append(field)
+                }
+                else 
+                {
+                    parameters[parameters.endIndex - 1].paragraphs.append(field)
+                }
+            case .topic             (let field):
+                topics.append(field)
+            case .topicMembership   (let field):
+                memberships.append(field)
+            
+            case .parameter     (let field):
+                parameters.append((field, []))
+            
+            case .dispatch      (let field):
+                guard dispatch == nil 
+                else 
+                {
+                    throw Entrapta.Error.init("only one dispatch field per doccomnent allowed")
+                }
+                dispatch = field 
+            
+            case .subscript, .function, .property, .typealias, .type, .framework, .dependency:
+                throw Entrapta.Error.init("only one header field per doccomnent allowed")
+                
+            case .separator:
+                break
+            }
         }
         
-        print("note: overloaded symbol \(self.path.joined(separator: "."))")
-        self.page.overload = overloads 
+        self.attributes         = attributes
+        self.conformances       = conformances
+        self.constraints        = constraints
+        self.dispatch           = dispatch
+        
+        // validate relationships 
+        switch (implementations.isEmpty, requirements.isEmpty) 
+        {
+        case (true, true):
+            self.relationships      = nil 
+        case (false, true):
+            self.relationships      = .implements(implementations)
+        case (true, false):
+            if      case .required?                     = requirements.first, 
+                    requirements.count == 1 
+            {
+                self.relationships  = .required 
+            }
+            else if case .defaulted(let conditions)?    = requirements.first, 
+                    requirements.count == 1, 
+                    conditions.isEmpty
+            {
+                self.relationships  = .defaulted
+            }
+            else 
+            {
+                let conditions:[[Grammar.WhereClause]] = requirements.compactMap 
+                {
+                    guard case .defaulted(let conditions) = $0, !conditions.isEmpty
+                    else 
+                    {
+                        return nil 
+                    }
+                    return conditions 
+                }
+                guard conditions.count == requirements.count 
+                else 
+                {
+                    throw Entrapta.Error.init("if conditional `defaulted` field is present, all requirements fields must be this type")
+                }
+                self.relationships  = .defaultedConditionally(conditions)
+            }
+        case (false, false):
+            throw Entrapta.Error.init("cannot have both implementations fields and requirements fields in the same doccomment")
+        }
+        
+        // validate function fields 
+        let range:(type:Grammar.SwiftType, paragraphs:[[Markdown.Element]])?
+        if  let last:ParameterDescription   = parameters.last, 
+            case .return                    = last.parameter.name
+        {
+            range = (last.parameter.parameter.type, last.paragraphs.map(\.elements))
+            parameters.removeLast()
+        }
+        else 
+        {
+            range = nil 
+        }
+        let domain:[(type:Grammar.FunctionParameter, paragraphs:[[Markdown.Element]], name:String)] = 
+            try parameters.map 
+        {
+            guard case .parameter(let name) = $0.parameter.name 
+            else 
+            {
+                throw Entrapta.Error.init("return value must be the last parameter field")
+            }
+            return ($0.parameter.parameter, $0.paragraphs.map(\.elements), name)
+        }
+        
+        self.callable = .init(domain: domain, range: range)
+        
+        self.paragraphs         = paragraphs
+        self.topics             = topics 
+        self.memberships        = memberships
     }
-    static 
-    func create(_ header:Grammar.FrameworkField, fields:ArraySlice<Grammar.Field>, 
-        order:Int, urlpattern:(prefix:String, suffix:String)) 
-        -> Self
+}
+extension Node.Page 
+{
+    convenience 
+    init(_ header:Grammar.FrameworkField, fields:Fields, order:Int) throws 
     {
-        let fields:Page.Fields = .init(fields, order: order)
-        let label:Page.Label 
+        guard fields.relationships == nil 
+        else 
+        {
+            throw Entrapta.Error.init("framework doccomment cannot have relationships fields")
+        }
+        guard fields.conformances.isEmpty 
+        else 
+        {
+            throw Entrapta.Error.init("framework doccomment cannot have conformance fields")
+        }
+        guard fields.constraints == nil 
+        else 
+        {
+            throw Entrapta.Error.init("framework doccomment cannot have a constraints field")
+        }
+        guard fields.dispatch == nil 
+        else 
+        {
+            throw Entrapta.Error.init("framework doccomment cannot have a dispatch field")
+        }
+        guard fields.callable.isEmpty
+        else 
+        {
+            throw Entrapta.Error.init("framework doccomment cannot have callable fields")
+        }
+        
+        let label:Label 
         switch header.keyword 
         {
         case .module:   label = .module 
         case .plugin:   label = .plugin
         }
-        let page:Page = .init(label: label, name: header.identifier, 
-            signature:      [], 
-            declaration:    [], 
+        try self.init(path: [], 
+            name:           header.identifier, 
+            label:          label, 
+            signature:      .empty, 
+            declaration:    .empty, 
             fields:         fields, 
-            path:           [])
-        return .init(page, locals: [], keys: fields.keys, 
-            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
+            order:          order)
     }
-    
-    static 
-    func create(_ header:Grammar.DependencyField, fields:ArraySlice<Grammar.Field>, 
-        order:Int, urlpattern:(prefix:String, suffix:String)) 
-        -> Self
+    convenience 
+    init(_ header:Grammar.DependencyField, fields:Fields, order:Int) throws
     {
-        let fields:Page.Fields = .init(fields, order: order)
+        guard fields.relationships == nil 
+        else 
+        {
+            throw Entrapta.Error.init("dependency doccomment cannot have relationships fields")
+        }
+        guard fields.attributes.isEmpty 
+        else 
+        {
+            throw Entrapta.Error.init("dependency doccomment cannot have attribute fields")
+        }
+        guard fields.conformances.isEmpty 
+        else 
+        {
+            throw Entrapta.Error.init("dependency doccomment cannot have conformance fields")
+        }
+        guard fields.constraints == nil 
+        else 
+        {
+            throw Entrapta.Error.init("dependency doccomment cannot have a constraints field")
+        }
+        guard fields.dispatch == nil 
+        else 
+        {
+            throw Entrapta.Error.init("dependency doccomment cannot have a dispatch field")
+        }
+        guard fields.callable.isEmpty
+        else 
+        {
+            throw Entrapta.Error.init("dependency doccomment cannot have callable fields")
+        }
+        
         let name:String, 
-            signature:[Page.Signature.Token], 
-            declaration:[Page.Declaration.Token], 
-            path:[String]
+            label:Label,
+            path:[String], 
+            signature:Signature, 
+            declaration:Declaration
         switch header 
         {
         case .module(identifier: let identifier):
             name        = identifier 
-            signature   = 
-            [
-                .text("import"), 
-                .whitespace, 
-                .highlight(identifier),
-            ]
-            declaration = 
-            [
-                .keyword("import"), 
-                .breakableWhitespace, 
-                .identifier(identifier),
-            ]
+            label       = .dependency 
+            signature   = .init 
+            {
+                Signature.text("import")
+                Signature.whitespace 
+                Signature.highlight(identifier)
+            }
+            declaration = .init 
+            {
+                Declaration.keyword("import")
+                Declaration.whitespace
+                Declaration.identifier(identifier)
+            }
+            
             path = [identifier]
         case .type(keyword: let keyword, identifiers: let identifiers):
             name        = identifiers[identifiers.endIndex - 1]
-            signature   = [.text("\(keyword)"), .whitespace] + 
-                identifiers.map{ [.highlight($0)] }.joined(separator: [.punctuation(".")])
-            declaration = 
-            [
-                .keyword("import"), 
-                .breakableWhitespace, 
-                .keyword("\(keyword)"),
-                .breakableWhitespace, 
-            ]
-            +
-            Page.Link.link(identifiers.dropLast().map{ ($0, ()) }).flatMap 
+            switch keyword 
             {
-                [.type($0.component.0, $0.link), .punctuation(".")]
+            case .protocol:     label = .importedProtocol
+            case .enum:         label = .importedEnumeration 
+            case .struct:       label = .importedStructure 
+            case .class:        label = .importedClass 
+            case .typealias:    label = .importedTypealias
             }
-            +
-            [
-                .identifier(name)
-            ]
+            signature   = .init 
+            {
+                Signature.text("\(keyword)")
+                Signature.whitespace 
+                Signature.init(joining: identifiers, Signature.highlight(_:))
+                {
+                    Signature.punctuation(".")
+                }
+            }
+            declaration = .init 
+            {
+                Declaration.keyword("import")
+                Declaration.whitespace
+                Declaration.keyword("\(keyword)")
+                Declaration.whitespace(breakable: false)
+                Declaration.init(typename: identifiers.dropLast())
+                Declaration.punctuation(".")
+                Declaration.identifier(name)
+            }
             path = identifiers 
         }
-        let page:Page = .init(label: .dependency, name: name, 
+        try self.init(path: path, 
+            name:           name, 
+            label:          label, 
             signature:      signature, 
             declaration:    declaration, 
             fields:         fields, 
-            path:           path)
-        return .init(page, locals: [], keys: fields.keys, 
-            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
+            order:          order)
     }
-    
-    static 
-    func create(_ header:Grammar.SubscriptField, fields:ArraySlice<Grammar.Field>, 
-        order:Int, urlpattern:(prefix:String, suffix:String)) 
-        -> Self
+    convenience 
+    init(_ header:Grammar.SubscriptField, fields:Fields, order:Int) throws 
     {
-        let fields:Page.Fields = .init(fields, order: order)
-        if fields.constraints != nil 
+        guard fields.conformances.isEmpty 
+        else 
         {
-            print("warning: where fields are ignored in a subscript doccomment")
+            throw Entrapta.Error.init("subscript doccomment cannot have conformance fields")
+        }
+        guard fields.constraints == nil 
+        else 
+        {
+            throw Entrapta.Error.init("constraints field in a subscript doccomment is not supported yet")
+        }
+        guard fields.callable.domain.count == header.labels.count
+        else 
+        {
+            throw Entrapta.Error.init(
+                "subscript has \(header.labels.count) labels, but \(fields.callable.domain.count) parameters")
+        }
+        guard fields.callable.range != nil
+        else 
+        {
+            throw Entrapta.Error.init("subscript doccomment must have a return value field")
         }
         
-        let name:String = "[\(header.labels.map{ "\($0):" }.joined())]" 
-        
-        var declaration:[Page.Declaration.Token]    = 
-            Page.Declaration.tokenize(fields.attributes) + [  .keyword("subscript")]
-        var signature:[Page.Signature.Token]        =      [.highlight("subscript")]
-        
-        Page.print(function: fields, 
-            labels: header.labels.map{ ($0, false) }, scheme: .subscript, 
-            signature: &signature, declaration: &declaration)
-        
-        declaration.append(.breakableWhitespace)
-        declaration.append(.punctuation("{"))
-        declaration.append(.whitespace)
-        declaration.append(.keyword("get"))
-        switch header.mutability 
+        let name:String                             = "[\(header.labels.map{ "\($0):" }.joined())]" 
+        let labels:[(name:String, variadic:Bool)]   = header.labels.map{ ($0, false) }
+        let signature:Signature     = .init 
         {
-        case .get:
-            break 
-        case .nonmutatingset:
-            declaration.append(.whitespace)
-            declaration.append(.keyword("nonmutating"))
-            fallthrough
-        case .getset:
-            declaration.append(.whitespace)
-            declaration.append(.keyword("set"))
+            Signature.highlight("subscript")
+            Signature.init(generics: header.generics)
+            Signature.init(callable: fields.callable, labels: labels, throws: nil, 
+                delimiters: ("[", "]"))
         }
-        declaration.append(.whitespace)
-        declaration.append(.punctuation("}"))
+        let declaration:Declaration = .init 
+        {
+            Declaration.init(attributes: fields.attributes)
+            if let dispatch:Grammar.DispatchField = fields.dispatch 
+            {
+                Declaration.init(modifiers: dispatch)
+                Declaration.whitespace 
+            }
+            Declaration.keyword("subscript")
+            Declaration.init(generics: header.generics)
+            Declaration.init(callable: fields.callable, labels: labels, throws: nil)
+            {
+                switch ($0, $1) 
+                {
+                case ("_",             "_"):    return [         "_"]
+                case ("_",       let inner):    return [       inner]
+                case (let outer, let inner):    return [outer, inner]
+                }
+            }
+            if let accessors:Grammar.Accessors = header.accessors 
+            {
+                Declaration.whitespace 
+                Declaration.init(accessors: accessors)
+            }
+        }
         
-        let page:Page = .init(label: .subscript, name: name, 
+        try self.init(path: header.identifiers + [name], 
+            name:           name, 
+            label:          header.generics.isEmpty ? .subscript : .genericSubscript, 
             signature:      signature, 
             declaration:    declaration, 
+            generics:       header.generics,
             fields:         fields, 
-            path:           header.identifiers + [name])
-        return .init(page, locals: [], keys: fields.keys, 
-            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
+            order:          order)
     }
-    static 
-    func create(_ header:Grammar.FunctionField, fields:ArraySlice<Grammar.Field>, 
-        order:Int, urlpattern:(prefix:String, suffix:String)) 
-        -> Self 
+    convenience 
+    init(_ header:Grammar.FunctionField, fields:Fields, order:Int) throws 
     {
-        let fields:Page.Fields = .init(fields, order: order)
-        
-        var declaration:[Page.Declaration.Token] = Page.Declaration.tokenize(fields.attributes)
-        
+        guard fields.conformances.isEmpty 
+        else 
+        {
+            throw Entrapta.Error.init("function/case doccomment cannot have conformance fields")
+        }
         switch (header.keyword, fields.dispatch)
         {
-        case (.case, _?), (.staticFunc, _?):
-            print("warning: dispatch field is ignored in a `case` or `static func` doccomment")
-        case (_, let dispatch?):
-            Page.print(modifiers: dispatch, declaration: &declaration)
+        case    (.case, _?), (.indirectCase, _?), 
+                (.prefixFunc, _?), (.postfixFunc, _?), 
+                (.staticFunc, _?), (.staticPrefixFunc, _?), (.staticPostfixFunc, _?):
+            throw Entrapta.Error.init(
+                """
+                function/case doccomment cannot have a dispatch field if its \
+                keyword is `case`, `indirect case`, `static func`, \
+                `prefix func`, `postfix func`, `static prefix func`, or `static postfix func`
+                """)
         default:
             break 
         }
         
-        let basename:String = header.identifiers[header.identifiers.endIndex - 1]
-
+        switch (header.keyword, header.identifiers.prefix)
+        {
+        case    (.func, []): // okay 
+            break 
+        case    (_,     []):
+            throw Entrapta.Error.init(
+                "function/case doccomment can only be declared at the toplevel if its keyword is 'func'")
+        default:
+            break 
+        }
+        switch (header.keyword, header.identifiers.tail)
+        {
+        case    (.`init`,               .alphanumeric("init")): // okay 
+            break
+        case    (.`init`,               _): 
+            throw Entrapta.Error.init("initializer must have basename 'init'")
+        case    (.func,                 .alphanumeric("callAsFunction")),
+                (.mutatingFunc,         .alphanumeric("callAsFunction")): // okay 
+            break
+        case    (_,                     .alphanumeric("callAsFunction")):
+            throw Entrapta.Error.init(
+                "function/case doccomment can only have basename 'callAsFunction' if its keyword is `func` or `mutating func`")
+        case    (.func,                 .operator(_)), 
+                (.staticFunc,           .operator(_)),
+                (.prefixFunc,           .operator(_)),
+                (.postfixFunc,          .operator(_)),
+                (.staticPrefixFunc,     .operator(_)),
+                (.staticPostfixFunc,    .operator(_)): // okay 
+            break 
+        case    (.prefixFunc,           .alphanumeric(_)),
+                (.postfixFunc,          .alphanumeric(_)),
+                (.staticPrefixFunc,     .alphanumeric(_)),
+                (.staticPostfixFunc,    .alphanumeric(_)): 
+            throw Entrapta.Error.init(
+                """
+                function/case doccomment must have an operator basename if its \
+                keyword is `prefix func`, `postfix func`, `static prefix func`, or `static postfix func`
+                """)  
+        case    (_,                     .operator(_)):
+            throw Entrapta.Error.init(
+                """
+                function/case doccomment can only have an operator basename if its \
+                keyword is `func`, `prefix func`, `postfix func`, \
+                `static func`, `static prefix func`, or `static postfix func`
+                """) 
+        case    (_,                     .alphanumeric(_)): // okay
+            break 
+        }
+        
+        switch (header.keyword, header.labels?.count, fields.callable.domain.count)
+        {
+        case (.case, nil, 0), (.indirectCase, nil, 0):  break // okay
+        case (.case,  _?, 0), (.indirectCase,  _?, 0): 
+            throw Entrapta.Error.init(
+                "uninhabited enumeration case must be written without parentheses")
+        case (_, fields.callable.domain.count?, _):     break // okay 
+        case (_, let labels?, let parameters):
+            throw Entrapta.Error.init(
+                "function/case has \(labels) labels, but \(parameters) parameters")
+        case (_, nil, _):
+            throw Entrapta.Error.init(
+                "function/case doccomment can only omit parentheses if its keyword is `case` or `indirect case`")
+        }
+        
+        switch 
+        (
+            header.keyword, 
+            fields.callable.range, 
+            header.throws, 
+            fields.callable.domain.map(\.name) == header.labels?.map(\.name) ?? [],
+            header.labels?.allSatisfy{ !$0.variadic } ?? true
+        )
+        {
+        case (.case, _?, _, _, _), (.indirectCase, _?, _, _, _):
+            throw Entrapta.Error.init(
+                "function/case doccomment cannot have a return value field if its keyword is `case` or `indirect case`")
+        case (.case, _, _?, _, _), (.indirectCase, _, _?, _, _):
+            throw Entrapta.Error.init(
+                "enumeration case cannot be marked `throws` or `rethrows`")
+        case (.case, _, _, false, _), (.indirectCase, _, _, false, _):
+            throw Entrapta.Error.init(
+                "enumeration case cannot have different argument labels and parameter names")
+        case (.case, _, _, _, false), (.indirectCase, _, _, _, false):
+            throw Entrapta.Error.init(
+                "enumeration case cannot have variadic arguments")
+        default: 
+            break // okay
+        }
+        
         let keywords:[String]
         switch header.keyword 
         {
         case .`init`:           keywords = []
         case .func:             keywords = ["func"]
         case .mutatingFunc:     keywords = ["mutating", "func"]
+        case .prefixFunc:       keywords = ["prefix", "func"]
+        case .postfixFunc:      keywords = ["postfix", "func"]
         case .staticFunc:       keywords = ["static", "func"]
         case .staticPrefixFunc: keywords = ["static", "prefix", "func"]
         case .staticPostfixFunc:keywords = ["static", "postfix", "func"]
         case .case:             keywords = ["case"]
         case .indirectCase:     keywords = ["indirect", "case"]
         }
-        let label:Page.Label 
-        switch (header.keyword, header.generics)
+        let label:Label 
+        switch (header.keyword, header.identifiers.prefix, header.identifiers.tail, header.generics)
         {
-        case (.`init`,          []):    label = .initializer 
-        case (.`init`,          _ ):    label = .genericInitializer 
+        case    (.`init`,               _,  _,           []):   label = .initializer 
+        case    (.`init`,               _,  _,           _ ):   label = .genericInitializer 
         
-        case (.func,            []):    label = .instanceMethod 
-        case (.func,            _ ):    label = .genericInstanceMethod 
+        case    (_,                     _, .operator(_), []), 
+                (.prefixFunc,           _,  _,           []),
+                (.postfixFunc,          _,  _,           []),
+                (.staticPrefixFunc,     _,  _,           []),
+                (.staticPostfixFunc,    _,  _,           []):   label = .operator 
+        case    (_,                     _, .operator(_), _ ), 
+                (.prefixFunc,           _,  _,           _ ),
+                (.postfixFunc,          _,  _,           _ ),
+                (.staticPrefixFunc,     _,  _,           _ ),
+                (.staticPostfixFunc,    _,  _,           _ ):   label = .genericOperator 
         
-        case (.mutatingFunc,    []):    label = .instanceMethod 
-        case (.mutatingFunc,    _ ):    label = .genericInstanceMethod 
+        case    (.func,                 [], _,           []):   label = .function
+        case    (.func,                 [], _,           _ ):   label = .genericFunction
         
-        case (.staticFunc,      []), (.staticPrefixFunc, []), (.staticPostfixFunc, []):    
-                                        label = .staticMethod 
-        case (.staticFunc,      _ ), (.staticPrefixFunc, _ ), (.staticPostfixFunc, _ ):    
-                                        label = .genericStaticMethod 
+        case    (_, _,  .alphanumeric("callAsFunction"), []):   label = .functor
+        case    (_, _,  .alphanumeric("callAsFunction"), _ ):   label = .genericFunctor
         
-        case (.case,            _ ):    label = .enumerationCase
-        case (.indirectCase,    _ ):    label = .enumerationCase
+        case    (.func,                 _,  _,           []):   label = .instanceMethod 
+        case    (.func,                 _,  _,           _ ):   label = .genericInstanceMethod 
+        
+        case    (.mutatingFunc,         _,  _,           []):   label = .instanceMethod 
+        case    (.mutatingFunc,         _,  _,           _ ):   label = .genericInstanceMethod 
+        
+        case    (.staticFunc,           _,  _,           []):   label = .staticMethod 
+        case    (.staticFunc,           _,  _,           _ ):   label = .genericStaticMethod 
+        
+        case    (.case,                 _,  _,           []):   label = .enumerationCase
+        case    (.indirectCase,         _,  _,           []):   label = .enumerationCase
+        case    (.case,                 _,  _,           _ ), (.indirectCase, _, _, _):
+            throw Entrapta.Error.init("enumeration case cannot have generic parameters")
         }
         
-        var signature:[Page.Signature.Token] = keywords.flatMap 
+        let signature:Signature     = .init 
         {
-            [.text($0), .whitespace]
+            Signature.init(joining: keywords)
+            {
+                if case .alphanumeric("callAsFunction") = header.identifiers.tail 
+                {
+                    Signature.highlight($0)
+                }
+                else 
+                {
+                    Signature.text($0)
+                }
+            }
+            separator: 
+            {
+                Signature.whitespace
+            }
+            switch (header.keyword, header.identifiers.tail)
+            {
+            case (.`init`, _):
+                Signature.highlight("init")
+            case (_, .alphanumeric("callAsFunction")):
+                let _:Void = ()
+            case (_, .alphanumeric(let basename)):
+                Signature.whitespace
+                Signature.highlight(basename)
+            case (_, .operator(let string)):
+                Signature.whitespace
+                Signature.highlight(string)
+                Signature.whitespace
+            }
+            if header.failable 
+            {
+                Signature.punctuation("?")
+            }
+            Signature.init(generics: header.generics)
+            // no parentheses if uninhabited enum case 
+            if let labels:[(name:String, variadic:Bool)] = header.labels
+            {
+                Signature.init(callable: fields.callable, labels: labels, 
+                    throws: header.throws, delimiters: ("(", ")"))
+            }
         }
-        declaration.append(contentsOf: keywords.flatMap 
+        let declaration:Declaration = .init 
         {
-            [.keyword($0), .breakableWhitespace]
-        })
-        
-        signature.append(.highlight(basename))
-        declaration.append(header.keyword == .`init` ? .keyword(basename) : .identifier(basename))
-        
-        if header.failable 
-        {
-            signature.append(.punctuation("?"))
-            declaration.append(.typePunctuation("?", .appleify(["Swift", "Optional"])))
+            Declaration.init(attributes: fields.attributes)
+            if let dispatch:Grammar.DispatchField = fields.dispatch 
+            {
+                Declaration.init(modifiers: dispatch)
+                Declaration.whitespace 
+            }
+            for keyword:String in keywords 
+            {
+                Declaration.keyword(keyword)
+                Declaration.whitespace
+            }
+            switch (header.keyword, header.identifiers.tail)
+            {
+            case (.`init`, _):
+                Declaration.keyword("init")
+            case (_, .alphanumeric("callAsFunction")):
+                Declaration.keyword("callAsFunction")
+            case (_, .alphanumeric(let basename)):
+                Declaration.identifier(basename)
+            case (_, .operator(let string)):
+                Declaration.identifier(string)
+                Declaration.whitespace(breakable: false)
+            }
+            if header.failable 
+            {
+                Declaration.punctuation("?", link: .optional)
+            }
+            Declaration.init(generics: header.generics)
+            // no parentheses if uninhabited enum case 
+            if let labels:[(name:String, variadic:Bool)] = header.labels
+            {
+                Declaration.init(callable: fields.callable, labels: labels, throws: header.throws)
+                {
+                    $0 == $1 ? [$0] : [$0, $1] 
+                }
+            }
+            if let clauses:[Grammar.WhereClause] = fields.constraints?.clauses 
+            {
+                Declaration.whitespace
+                Declaration.init(constraints: clauses) 
+            }
         }
-        if !header.generics.isEmpty
+        
+        let suffix:String? = header.labels.map 
         {
-            var tokens:[Page.Declaration.Token] = []
-            tokens.append(.punctuation("<"))
-            tokens.append(contentsOf: header.generics.map
+            $0.map
             { 
-                [.identifier($0)] 
-            }.joined(separator: [.punctuation(","), .breakableWhitespace]))
-            tokens.append(.punctuation(">"))
-            
-            signature.append(contentsOf: Page.Signature.convert(tokens))
-            declaration.append(contentsOf: tokens)
+                "\($0.variadic && $0.name == "_" ? "" : $0.name)\($0.variadic ? "..." : ""):" 
+            }.joined()
         }
-        
-        // does not include `Self`, since that refers to the parent node 
-        let locals:Set<String> = .init(header.generics)
-        
         let name:String 
-        if case .enumerationCase = label, header.labels.isEmpty, fields.parameters.isEmpty 
+        switch (header.identifiers.tail, suffix)
         {
-            name    = basename
-        }
-        else 
-        {
-            Page.print(function: fields, labels: header.labels, 
-                scheme: header.keyword == .case ? .associatedValues : .function, 
-                signature: &signature, declaration: &declaration, locals: locals)
-            name    = "\(basename)(\(header.labels.map{ "\($0.variadic && $0.name == "_" ? "" : $0.name)\($0.variadic ? "..." : ""):" }.joined()))" 
+        case (.alphanumeric("callAsFunction"), let suffix?):    name =                   "(\(suffix))"
+        case (let basename,                    let suffix?):    name = "\(basename.string)(\(suffix))"
+        case (let basename,                    nil        ):    name =    basename.string
         }
         
-        if let constraints:Grammar.ConstraintsField = fields.constraints 
-        {
-            Page.print(constraints: constraints, declaration: &declaration, locals: locals) 
-        }
-        
-        let page:Page = .init(label: label, name: name, 
+        try self.init(path: header.identifiers.prefix + [name],
+            name:           name, 
+            label:          label, 
             signature:      signature, 
             declaration:    declaration, 
+            generics:       header.generics, 
             fields:         fields, 
-            path:           header.identifiers.dropLast() + [name])
-        // do not export locals, because this is a leaf node
-        return .init(page, locals: [], keys: fields.keys, 
-            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
+            order:          order)
     }
-    
-    static 
-    func create(_ header:Grammar.MemberField, fields:ArraySlice<Grammar.Field>, 
-        order:Int, urlpattern:(prefix:String, suffix:String)) 
-        -> Self
+    convenience 
+    init(_ header:Grammar.PropertyField, fields:Fields, order:Int) throws 
     {
-        let fields:Page.Fields = .init(fields, order: order)
-        if !fields.parameters.isEmpty || fields.return != nil
+        guard fields.conformances.isEmpty 
+        else 
         {
-            print("warning: parameter/return fields are ignored in a member doccomment")
+            throw Entrapta.Error.init("property doccomment cannot have conformance fields", 
+                help: "write property type annotations on the same line as its name.")
         }
-        if fields.throws != nil
+        guard fields.constraints == nil
+        else 
         {
-            print("warning: throws fields are ignored in a member doccomment")
+            throw Entrapta.Error.init("property doccomment cannot have a constraints field", 
+                help: "use relationships fields to specify property availability.")
         }
-        
-        var declaration:[Page.Declaration.Token] = Page.Declaration.tokenize(fields.attributes)
-        
+        guard fields.callable.isEmpty
+        else 
+        {
+            throw Entrapta.Error.init("property doccomment cannot have callable fields")
+        }
         switch (header.keyword, fields.dispatch)
         {
-        case (.var, let dispatch?):
-            Page.print(modifiers: dispatch, declaration: &declaration)
+        case (.var, _), (_, nil):   break // okay 
         case (_, _?):
-            print("warning: dispatch field is ignored in member doccomment if keyword is not `var`") 
-        default:
-            break 
+            throw Entrapta.Error.init(
+                "property doccomment can only have a dispatch field if its keyword is `var`") 
+        }
+        switch (header.keyword, header.accessors)
+        {
+        case (.var, _), (.staticVar, _), (_, nil):   break // okay 
+        case (_, _?):
+            throw Entrapta.Error.init(
+                "property doccomment can only have accessors if keyword is `var` or `static var`") 
         }
         
         let name:String = header.identifiers[header.identifiers.endIndex - 1] 
         
         let keywords:[String],
-            label:Page.Label 
+            label:Label 
         switch header.keyword
         {
         case .let:
@@ -1458,137 +1507,169 @@ extension Page.Binding
         case .staticVar:
             label       = .staticProperty 
             keywords    = ["static", "var"]
-        case .associatedtype:
-            label       = .associatedtype 
-            keywords    = ["associatedtype"]
         }
         
-        let signature:[Page.Signature.Token]
-        switch (header.type, header.mutability) 
+        let signature:Signature     = .init 
         {
-        case (nil, _?):
-            fatalError("cannot have mutability annotation and no type annotation")
-        case (nil, nil):
-            guard label == .associatedtype 
-            else 
+            for keyword:String in keywords 
             {
-                fatalError("only associatedtype members can omit type annotation")
+                Signature.text(keyword)
+                Signature.whitespace
             }
-            
-            signature   = [.text("associatedtype"), .whitespace, .highlight(name)]
-            declaration.append(.keyword("associatedtype"))
-            declaration.append(.breakableWhitespace)
-            declaration.append(.identifier(name))
-        
-        case (let type?, _):
-            let type:[Page.Declaration.Token] = Page.Declaration.tokenize(type)
-            signature = keywords.flatMap 
-            {
-                [.text($0), .whitespace]
-            }
-            + 
-            [.highlight(name), .punctuation(":")]
-            + 
-            Page.Signature.convert(type)
-            
-            declaration.append(contentsOf: keywords.flatMap
-            {
-                [.keyword($0), .breakableWhitespace]
-            })
-            declaration.append(.identifier(name))
-            declaration.append(.punctuation(":"))
-            declaration.append(contentsOf: type)
-            
-            if let mutability:Grammar.MemberMutability = header.mutability 
-            {
-                declaration.append(.breakableWhitespace)
-                declaration.append(.punctuation("{"))
-                declaration.append(.whitespace)
-                declaration.append(.keyword("get"))
-                switch mutability 
-                {
-                case .get:
-                    break 
-                case .nonmutatingset:
-                    declaration.append(.whitespace)
-                    declaration.append(.keyword("nonmutating"))
-                    fallthrough
-                case .getset:
-                    declaration.append(.whitespace)
-                    declaration.append(.keyword("set"))
-                }
-                declaration.append(.whitespace)
-                declaration.append(.punctuation("}"))
-            }
+            Signature.highlight(name)
+            Signature.punctuation(":")
+            Signature.init(type: header.type)
         }
-        
-        if let constraints:Grammar.ConstraintsField = fields.constraints 
+        let declaration:Declaration = .init 
         {
-            if case .associatedtype = header.keyword
+            Declaration.init(attributes: fields.attributes)
+            if let dispatch:Grammar.DispatchField       = fields.dispatch 
             {
-                Page.print(constraints: constraints, declaration: &declaration, locals: [name]) 
+                Declaration.init(modifiers: dispatch)
+                Declaration.whitespace 
             }
-            else 
+            for keyword:String in keywords 
             {
-                print("warning: where fields are ignored in a non-`associatedtype` member doccomment")
+                Declaration.keyword(keyword)
+                Declaration.whitespace
+            }
+            Declaration.identifier(name)
+            Declaration.punctuation(":")
+            Declaration.init(type: header.type)
+            if let accessors:Grammar.Accessors  = header.accessors
+            {
+                Declaration.whitespace 
+                Declaration.init(accessors: accessors)
             }
         }
         
-        let page:Page       = .init(label: label, name: name, 
+        try self.init(path: header.identifiers, 
+            name:           name, 
+            label:          label, 
             signature:      signature, 
             declaration:    declaration, 
             fields:         fields, 
-            path:           header.identifiers)
-        return .init(page, locals: [], keys: fields.keys, 
-            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
+            order:          order)
     }
-    
-    static 
-    func create(_ header:Grammar.TypeField, fields:ArraySlice<Grammar.Field>, 
-        order:Int, urlpattern:(prefix:String, suffix:String)) 
-        -> Self
+    convenience 
+    init(_ header:Grammar.TypealiasField, fields:Fields, order:Int) throws 
     {
-        let fields:Page.Fields = .init(fields, order: order)
-        if !fields.parameters.isEmpty || fields.return != nil
+        guard fields.callable.isEmpty
+        else 
         {
-            print("warning: parameter/return fields are ignored in a type doccomment")
+            throw Entrapta.Error.init("typealias doccomment cannot have callable fields")
         }
-        if fields.throws != nil
+        guard fields.attributes.isEmpty 
+        else 
         {
-            print("warning: throws fields are ignored in a type doccomment")
+            throw Entrapta.Error.init("typealias doccomment cannot have attribute fields")
+        }
+        guard fields.conformances.isEmpty 
+        else 
+        {
+            throw Entrapta.Error.init("typealias doccomment cannot have conformance fields")
+        }
+        guard fields.dispatch == nil 
+        else 
+        {
+            throw Entrapta.Error.init("typealias doccomment cannot have a dispatch field")
         }
         
-        var declaration:[Page.Declaration.Token] = Page.Declaration.tokenize(fields.attributes)
-        
-        switch (header.keyword, fields.dispatch)
+        let name:String = header.identifiers.joined(separator: ".")
+        let signature:Signature     = .init 
         {
-        case (.class, let dispatch?):
-            guard !dispatch.keywords.contains(.override)
-            else 
+            Signature.text("typealias")
+            Signature.whitespace
+            Signature.init(joining: header.identifiers, Signature.highlight(_:))
             {
-                fatalError("class \(header.identifiers) cannot have `override` modifier")
+                Signature.punctuation(".")
             }
-            Page.print(modifiers: dispatch, declaration: &declaration)
-        case (_, _?):
-            print("warning: dispatch field is ignored in type doccomment if keyword is not `class`") 
-        default:
-            break 
+            Signature.init(generics: header.generics)
+        }
+        let declaration:Declaration = .init 
+        {
+            Declaration.keyword("typealias")
+            Declaration.whitespace
+            Declaration.identifier(header.identifiers[header.identifiers.endIndex - 1])
+            Declaration.init(generics: header.generics)
+            Declaration.whitespace(breakable: false)
+            Declaration.punctuation("=")
+            Declaration.whitespace
+            Declaration.init(type: header.target)
+            if let clauses:[Grammar.WhereClause]        = fields.constraints?.clauses 
+            {
+                Declaration.whitespace
+                Declaration.init(constraints: clauses) 
+            }
+        }
+        
+        let aliased:[[String]]
+        switch header.target 
+        {
+        case .named(let identifiers):
+            // strip generic parameters from named type 
+            aliased = [identifiers.map(\.identifier)]
+        default: 
+            aliased = []
+        }
+        
+        try self.init(path: header.identifiers, 
+            name:           name, 
+            label:          .typealias, 
+            signature:      signature, 
+            declaration:    declaration, 
+            generics:       header.generics,
+            aliases:        aliased,
+            fields:         fields, 
+            order:          order)
+    }
+    convenience 
+    init(_ header:Grammar.TypeField, fields:Fields, order:Int) throws 
+    {
+        guard fields.callable.isEmpty
+        else 
+        {
+            throw Entrapta.Error.init("type doccomment cannot have callable fields")
+        }
+        // this restriction really isn’t necessary, and should be removed eventually 
+        if case .associatedtype = header.keyword, !fields.conformances.isEmpty
+        {
+            throw Entrapta.Error.init("associatedtype cannot have conformance fields", 
+                help: "write associatedtype constraints in a constraints field.")
+        }
+        switch 
+        (
+            header.keyword, 
+            fields.dispatch, 
+            fields.dispatch?.keywords.contains(.override) ?? false
+        )
+        {
+        case (_,      nil,   _), (.class, _?, false): break // okay 
+        case (.class, _?, true):
+            throw Entrapta.Error.init("type doccomment cannot have a dispatch field with an `override` modifier")
+        case (_,      _?,    _):
+            throw Entrapta.Error.init("type doccomment can only have a dispatch field if its keyword is `class`")
         }
         
         let name:String = header.identifiers.joined(separator: ".")
         
-        let label:Page.Label
+        let label:Label
         switch (header.keyword, header.generics) 
         {
         case (.extension, []):
             label   = .extension 
         case (.extension, _):
-            fatalError("extension \(header.identifiers) cannot have generic parameters")
+            throw Entrapta.Error.init("extension cannot have generic parameters")
+        
+        case (.associatedtype, []):
+            label   = .associatedtype 
+        case (.associatedtype, _):
+            throw Entrapta.Error.init("associatedtype cannot have generic parameters")
         
         case (.protocol, []):
             label   = .protocol 
         case (.protocol, _):
-            fatalError("protocol \(header.identifiers) cannot have generic parameters")
+            throw Entrapta.Error.init("protocol cannot have generic parameters")
         
         case (.class, []):
             label   = .class 
@@ -1604,46 +1685,7 @@ extension Page.Binding
             label   = .enumeration
         case (.enum, _):
             label   = .genericEnumeration
-        
-        case (.typealias, []):
-            label   = .typealias
-        case (.typealias, _):
-            label   = .genericTypealias
         }
-        var signature:[Page.Signature.Token] = [.text("\(header.keyword)"), .whitespace] + 
-            header.identifiers.map{ [.highlight($0)] }.joined(separator: [.punctuation(".")])
-        
-        declaration.append(.keyword("\(header.keyword)"))
-        declaration.append(.breakableWhitespace)
-        if case .extension = header.keyword 
-        {
-            declaration.append(contentsOf: Page.Link.link(header.identifiers
-                .map{ ($0, ()) })
-                .map{ [.type($0.component.0, $0.link)] } 
-                .joined(separator: [.punctuation(".")]))
-        }
-        else 
-        {
-            declaration.append(.identifier(header.identifiers[header.identifiers.endIndex - 1]))
-        }
-        if !header.generics.isEmpty
-        {
-            signature.append(.punctuation("<"))
-            declaration.append(.punctuation("<"))
-            signature.append(contentsOf: header.generics.map
-            { 
-                [.text($0)] 
-            }.joined(separator: [.punctuation(","), .whitespace]))
-            declaration.append(contentsOf: header.generics.map
-            { 
-                [.identifier($0)] 
-            }.joined(separator: [.punctuation(","), .breakableWhitespace]))
-            signature.append(.punctuation(">"))
-            declaration.append(.punctuation(">"))
-        }
-        
-        let generics:Set<String>      = .init(header.generics), 
-            locals:Set<String>        = generics.union(["Self"])
         
         // only put universal conformances in the declaration 
         let conformances:[[[String]]] = fields.conformances.compactMap 
@@ -1653,569 +1695,459 @@ extension Page.Binding
         if  case .extension = header.keyword, 
             conformances.count != fields.conformances.count
         {
-            print("warning: extension \(header.identifiers) should not have conditional conformances; use a `where` field instead.")
+            throw Entrapta.Error.init("extension cannot have conditional conformances", 
+                help: 
+                """
+                write the conformances as unconditional conformances, and use a \
+                constraints field to specify their conditions.
+                """)
         }
-        if !conformances.isEmpty 
+        
+        let signature:Signature     = .init 
         {
-            let tokens:[Page.Declaration.Token] = 
-            [
-                .punctuation(":")
-            ]
-            +
-            conformances.map 
+            Signature.text("\(header.keyword)")
+            Signature.whitespace
+            Signature.init(joining: header.identifiers, Signature.highlight(_:))
             {
-                $0.map(Page.Declaration.tokenize(_:)).joined(separator: [.punctuation("&")])
-            }.joined(separator: [.punctuation(","), .breakableWhitespace])
-            
+                Signature.punctuation(".")
+            }
+            Signature.init(generics: header.generics)
             // include conformances in signature, if extension 
-            if case .extension = header.keyword 
+            if case .extension = header.keyword, !conformances.isEmpty
             {
-                signature.append(contentsOf: Page.Signature.convert(tokens))
+                Signature.punctuation(":") 
+                Signature.init(joining: conformances) 
+                {
+                    Signature.init(joining: $0)
+                    {
+                        Signature.init(joining: $0, Signature.text(_:))
+                        {
+                            Signature.punctuation(".") 
+                        }
+                    }
+                    separator:
+                    {
+                        Signature.whitespace
+                        Signature.punctuation("&") 
+                        Signature.whitespace
+                    }
+                }
+                separator:
+                {
+                    Signature.punctuation(",") 
+                    Signature.whitespace
+                }
             }
-            declaration.append(contentsOf: tokens)
         }
-        
-        var inheritances:[[String]] = conformances.flatMap{ $0 }
-        
-        switch (header.keyword, header.target) 
+        let declaration:Declaration = .init 
         {
-        case (.typealias, let target?):
-            declaration.append(.whitespace)
-            declaration.append(.punctuation("="))
-            declaration.append(.breakableWhitespace)
-            // do not include `Self` in locals
-            declaration.append(contentsOf: Page.Declaration.tokenize(target, locals: generics))
-            
-            if case .named(let identifiers) = target 
+            Declaration.init(attributes: fields.attributes)
+            if let dispatch:Grammar.DispatchField       = fields.dispatch 
             {
-                inheritances.append(identifiers.map(\.identifier))
+                Declaration.init(modifiers: dispatch)
+                Declaration.whitespace 
             }
-            
-        case (.typealias, nil):
-            fatalError("typealias \(header.identifiers) requires a type target")
-        case (_, _?):
-            fatalError("type field \(header.identifiers) cannot have a type target")
-        case (_, nil):
-            break 
+            Declaration.keyword("\(header.keyword)")
+            Declaration.whitespace
+            if      case .extension                     = header.keyword 
+            {
+                Declaration.init(typename: header.identifiers)
+            }
+            else if let last:String                     = header.identifiers.last  
+            {
+                Declaration.identifier(last)
+            }
+            Declaration.init(generics: header.generics)
+            if !conformances.isEmpty 
+            {
+                Declaration.punctuation(":") 
+                Declaration.init(joining: conformances) 
+                {
+                    Declaration.init(joining: $0, Declaration.init(typename:))
+                    {
+                        Declaration.whitespace(breakable: false)
+                        Declaration.punctuation("&") 
+                        Declaration.whitespace(breakable: false)
+                    }
+                }
+                separator:
+                {
+                    Declaration.punctuation(",") 
+                    Declaration.whitespace
+                }
+            }
+            if let clauses:[Grammar.WhereClause]        = fields.constraints?.clauses 
+            {
+                Declaration.whitespace
+                Declaration.init(constraints: clauses) 
+            }
         }
         
-        if let constraints:Grammar.ConstraintsField = fields.constraints
-        {
-            Page.print(constraints: constraints, declaration: &declaration, locals: locals) 
-        }
-        
-        let page:Page = .init(label: label, name: name, 
+        try self.init(path: header.identifiers, 
+            name:           name, 
+            label:          label, 
             signature:      signature, 
             declaration:    declaration, 
+            generics:       header.generics,
             fields:         fields, 
-            path:           header.identifiers, 
-            inheritances:   inheritances)
-        return .init(page, locals: locals, keys: fields.keys, 
-            rank: fields.rank, order: fields.order, urlpattern: urlpattern)
-    }
-    
-    func attachTopics<C>(children:C, global:[String: [Page.TopicSymbol]]) 
-        where C:Collection, C.Element == PageTree.Node 
-    {
-        for i:Int in self.page.topics.indices 
-        {
-            self.page.topics[i].symbols.append(contentsOf: 
-                self.page.topics[i].keys.flatMap
-            {
-                global[$0, default: []].filter 
-                {
-                    $0.url != self.url
-                }
-            })
-        }
-        let seen:Set<String> = .init(self.page.topics.flatMap{ $0.symbols.map(\.url) })
-        var topics: 
-        (
-            dependencies        :[Page.TopicSymbol],
-            enumerations        :[Page.TopicSymbol],
-            structures          :[Page.TopicSymbol],
-            classes             :[Page.TopicSymbol],
-            protocols           :[Page.TopicSymbol],
-            typealiases         :[Page.TopicSymbol],
-            extensions          :[Page.TopicSymbol],
-            cases               :[Page.TopicSymbol],
-            initializers        :[Page.TopicSymbol],
-            typeMethods         :[Page.TopicSymbol],
-            instanceMethods     :[Page.TopicSymbol],
-            typeProperties      :[Page.TopicSymbol],
-            instanceProperties  :[Page.TopicSymbol],
-            associatedtypes     :[Page.TopicSymbol],
-            subscripts          :[Page.TopicSymbol]
-        )
-        topics = ([], [], [], [], [], [], [], [], [], [], [], [], [], [], [])
-        for binding:Self in 
-            (children.flatMap
-            { 
-                $0.payloads.compactMap
-                { 
-                    if case .binding(let binding) = $0 
-                    {
-                        return binding 
-                    }
-                    else 
-                    {
-                        return nil 
-                    }
-                } 
-            }.sorted
-            { 
-                ($0.rank, $0.order, $0.page.name) < ($1.rank, $1.order, $1.page.name) 
-            })
-        {
-            guard !seen.contains(binding.url)
-            else 
-            {
-                continue 
-            }
-            
-            let symbol:Page.TopicSymbol = 
-            (
-                binding.page.signature, 
-                binding.url, 
-                binding.page.blurb, 
-                binding.page.discussion.required
-            )
-            switch binding.page.label 
-            {
-            case .enumeration, .genericEnumeration, .importedEnumeration:
-                topics.enumerations.append(symbol)
-            case .structure, .genericStructure, .importedStructure:
-                topics.structures.append(symbol)
-            case .class, .genericClass, .importedClass:
-                topics.classes.append(symbol)
-            case .protocol, .importedProtocol:
-                topics.protocols.append(symbol)
-            case .typealias, .genericTypealias, .importedTypealias:
-                topics.typealiases.append(symbol)
-            case .extension:
-                // extensions go in root node 
-                break 
-            
-            case .enumerationCase:
-                topics.cases.append(symbol)
-            case .initializer, .genericInitializer:
-                topics.initializers.append(symbol)
-            case .staticMethod, .genericStaticMethod:
-                topics.typeMethods.append(symbol)
-            case .instanceMethod, .genericInstanceMethod:
-                topics.instanceMethods.append(symbol)
-            case .staticProperty:
-                topics.typeProperties.append(symbol)
-            case .instanceProperty:
-                topics.instanceProperties.append(symbol)
-            case .associatedtype:
-                topics.associatedtypes.append(symbol)
-            case .subscript:
-                topics.subscripts.append(symbol)
-            case .module, .plugin:
-                break
-            
-            case .dependency:
-                topics.dependencies.append(symbol)
-            }
-        }
-        
-        // recursively gather extensions 
-        switch self.page.label
-        {
-        case .module, .plugin:
-            topics.extensions.append(contentsOf: children.flatMap 
-            {
-                $0.preorder.flatMap  
-                {
-                    (node:PageTree.Node) -> [Page.Binding] in 
-                    
-                    node.payloads.compactMap
-                    { 
-                        if  case .binding(let binding) = $0, 
-                            case .extension = binding.page.label, 
-                            !seen.contains(binding.url)
-                        {
-                            return binding 
-                        }
-                        else 
-                        {
-                            return nil 
-                        }
-                    } 
-                }
-            }
-            .sorted
-            { 
-                ($0.rank, $0.order, $0.page.name) < ($1.rank, $1.order, $1.page.name) 
-            }
-            .map 
-            {
-                (
-                    $0.page.signature, 
-                    $0.url, 
-                    $0.page.blurb, 
-                    $0.page.discussion.required
-                )
-            })
-        default:
-            break 
-        }
-        
-        for builtin:(topic:String, symbols:[Page.TopicSymbol]) in 
-        [
-            (topic: "Dependencies",         symbols: topics.dependencies), 
-            (topic: "Enumeration cases",    symbols: topics.cases), 
-            (topic: "Associated types",     symbols: topics.associatedtypes), 
-            (topic: "Initializers",         symbols: topics.initializers), 
-            (topic: "Subscripts",           symbols: topics.subscripts), 
-            (topic: "Type properties",      symbols: topics.typeProperties), 
-            (topic: "Instance properties",  symbols: topics.instanceProperties), 
-            (topic: "Type methods",         symbols: topics.typeMethods), 
-            (topic: "Instance methods",     symbols: topics.instanceMethods), 
-            (topic: "Enumerations",         symbols: topics.enumerations), 
-            (topic: "Structures",           symbols: topics.structures), 
-            (topic: "Classes",              symbols: topics.classes), 
-            (topic: "Protocols",            symbols: topics.protocols), 
-            (topic: "Typealiases",          symbols: topics.typealiases), 
-            (topic: "Extensions",           symbols: topics.extensions), 
-        ]
-            where !builtin.symbols.isEmpty
-        {
-            self.page.topics.append((builtin.topic, ["$builtin"], builtin.symbols))
-        }
-        
-        // move 'see also' to the end 
-        if let i:Int = (self.page.topics.firstIndex{ $0.topic.lowercased() == "see also" })
-        {
-            let seealso:Page.Topic = self.page.topics.remove(at: i)
-            self.page.topics.append(seealso)
-        }
+            order:          order)
     }
 }
 
-struct PageTree 
+extension Node 
 {
-    struct Node:CustomStringConvertible 
-    {
-        enum Payload:CustomStringConvertible
-        {
-            case binding(Page.Binding)
-            case redirect(url:String)
-            
-            var url:String 
-            {
-                switch self 
-                {
-                case .redirect(url: let url):   return url 
-                case .binding(let binding):     return binding.url
-                }
-            }
-            
-            var link:Page.Link 
-            {
-                switch self  
-                {
-                case .redirect(url: let url):   return .resolved(url: url, style: .local)
-                case .binding(let binding):
-                    switch binding.page.label 
-                    {
-                    case    .dependency, 
-                            .importedEnumeration, 
-                            .importedStructure, 
-                            .importedClass, 
-                            .importedProtocol, 
-                            .importedTypealias: return .resolved(url: binding.url, style: .imported)
-                    default:                    return .resolved(url: binding.url, style: .local)
-                    }
-                }
-            }
-            
-            var description:String 
-            {
-                switch self 
-                {
-                case .binding(let binding):
-                    return binding.path.joined(separator: ".") 
-                case .redirect(url: let url):
-                    return "<redirect: \(url)>"
-                }
-            }
-        }
-        
-        var payloads:[Payload]
-        var children:[String: Self]
-        
-        static 
-        let empty:Self = .init(payloads: [], children: [:])
-    }
-}
-extension PageTree.Node 
-{
-    mutating 
-    func insert(_ binding:Page.Binding, at path:ArraySlice<String>) 
-    {
-        guard let key:String = path.first 
-        else 
-        {
-            binding.overload(self.payloads.count)
-            self.payloads.append(.binding(binding))
-            return 
-        }
-        
-        self.children[key, default: .empty].insert(binding, at: path.dropFirst())
-    }
-    mutating 
-    func attachInheritedSymbols(scopes:[Self] = []) 
-    {
-        // go through the children first since we are writing to self.children later 
-        let next:[Self] = scopes + [self]
-        self.children = self.children.mapValues  
-        {
-            var child:Self = $0
-            child.attachInheritedSymbols(scopes: next)
-            return child
-        }
-        
-        if case .binding(let binding)? = self.payloads.first 
-        {
-            // we also have to bring in everything the inheritances themselves inherit
-            var inheritances:[[String]] = binding.page.inheritances
-            while let path:[String] = inheritances.popLast() 
-            {
-                let (clones, next):([String: Self], [[String]]) = 
-                    Self.clone(path[...], in: scopes)
-                self.children.merge(clones) 
-                { 
-                    (current, _) in current 
-                }
-                
-                inheritances.append(contentsOf: next)
-            }
-        }
-    }
-    
-    var cloned:Self 
-    {
-        .init(payloads: self.payloads.map{ .redirect(url: $0.url) }, 
-            children: self.children.mapValues(\.cloned))
-    }
-    static 
-    func clone(_ path:ArraySlice<String>, in scopes:[Self]) -> (cloned:[String: Self], next:[[String]])
-    {
-        let debugPath:String = path.joined(separator: "/")
-        higher:
-        for scope:Self in scopes.reversed() 
-        {
-            var path:ArraySlice<String> = path, 
-                scope:Self              = scope
-            while let root:String = path.first 
-            {
-                if let next:Self = scope.children[root] 
-                {
-                    path    = path.dropFirst()
-                    scope   = next 
-                }
-                else if case .binding(let binding)? = scope.payloads.first, 
-                    binding.locals.contains(root), 
-                    path.dropFirst().isEmpty
-                {
-                    break
-                }
-                else 
-                {
-                    continue higher 
-                }
-            }
-            
-            let inheritances:[[String]]
-            if case .binding(let binding)? = scope.payloads.first 
-            {
-                inheritances = binding.page.inheritances
-            }
-            else 
-            {
-                inheritances = []
-            }
-            return (scope.children.mapValues(\.cloned), inheritances)
-        }
-        
-        print("(PageTree.clone(_:in:)): failed to resolve '\(debugPath)'")
-        return ([:], [])
-    }
-    static 
-    func resolve(_ path:ArraySlice<String>, in scopes:[Self], builtin:String? = "Swift") 
-        -> Page.Link?
-    {
-        if  path.isEmpty, 
-            let root:Self       = scopes.first, 
-            let payload:Payload = root.payloads.first
-        {
-            return payload.link 
-        }
-        
-        let debugPath:String = path.joined(separator: "/")
-        higher:
-        for scope:Self in scopes.reversed() 
-        {
-            var path:ArraySlice<String> = path, 
-                scope:Self              = scope
-            while let root:String = path.first 
-            {
-                if      let next:Self = scope.children[root] 
-                {
-                    path    = path.dropFirst()
-                    scope   = next 
-                }
-                else if case .binding(let binding)? = scope.payloads.first, 
-                    binding.locals.contains(root), 
-                    path.dropFirst().isEmpty
-                {
-                    break
-                }
-                else 
-                {
-                    continue higher 
-                }
-            }
-            
-            // ignore extension pages, if builtin (`Swift` namespace) enabled
-            let candidates:[Payload]    = scope.payloads.filter 
-            {
-                if  case .binding(let binding)  = $0, 
-                    case .extension             = binding.page.label, 
-                    let _:String                = builtin
-                {
-                    return false 
-                }
-                else 
-                {
-                    return true 
-                }
-            }
-            guard let payload:Payload = candidates.first
-            else 
-            {
-                break higher 
-            }
-            if candidates.count > 1 
-            {
-                print("warning: path '\(debugPath)' is ambiguous")
-            }
-            
-            return payload.link
-        }
-        
-        // otherwise, resolve a stdlib symbol 
-        guard   let builtin:String = builtin, 
-                    builtin == path.first
-        else 
-        {
-            print("(PageTree.resolve(_:in:)): failed to resolve '\(debugPath)'")
-            print("note: searched in scopes \(scopes.map(\.payloads))")
-            return nil
-        }
-        
-        return .appleify(path)
-    }
-    
-    func traverse(scopes:[Self] = [], _ body:([Self], Self) throws -> ()) rethrows 
-    {
-        try body(scopes, self)
-        
-        let scopes:[Self] = scopes + [self]
-        for child:Self in self.children.values 
-        {
-            try child.traverse(scopes: scopes, body)
-        }
-    }
-    
-    var preorder:[Self]
+    var preorder:[Node] 
     {
         [self] + self.children.values.flatMap(\.preorder)
     }
     
-    private  
-    func describe(indent:Int = 0) -> String 
+    func assignAnchors(urlpattern:(prefix:String, suffix:String))
     {
-        let strings:[String] = self.payloads.map 
+        for (i, page):(Int, Page) in self.pages.enumerated()
         {
-            "\(String.init(repeating: " ", count: indent * 4))\($0)\n"
-        } 
-        + 
-        self.children.values.map 
-        {
-            $0.describe(indent: indent + 1)
+            let normalized:[String] = page.path.map 
+            {
+                $0.map 
+                {
+                    switch $0 
+                    {
+                    case ".":   return "dot-"
+                    case "/":   return "slash-"
+                    default :   return "\($0)"
+                    }
+                }.joined()
+            }
+            
+            let directory:[String]
+            if let last:String = normalized.last, self.pages.count > 1
+            {
+                // overloaded 
+                directory = normalized.dropLast() + ["\(i)-\(last)"]
+            }
+            else 
+            {
+                directory = normalized 
+            }
+            
+            func hex(_ value:UInt8) -> UInt8
+            {
+                if value < 10 
+                {
+                    return 0x30 + value 
+                }
+                else 
+                {
+                    return 0x37 + value 
+                }
+            }
+            
+            let url:String =
+            """
+            \(urlpattern.prefix)/\(directory.map
+            {
+                // escape url characters
+                String.init(decoding: $0.utf8.flatMap 
+                {
+                    (byte:UInt8) -> [UInt8] in 
+                    switch byte 
+                    {
+                    ///  [0-9]          [A-Z]        [a-z]            '-'   '_'   '~'
+                    case 0x30 ... 0x39, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x2d, 0x5f, 0x7e:
+                        return [byte] 
+                    default:
+                        return [0x25, hex(byte >> 4), hex(byte & 0x0f)]
+                    }
+                }, as: Unicode.ASCII.self)
+            }
+            .joined(separator: "/"))\(urlpattern.suffix)
+            """
+            
+            page.anchor = (url, directory)
         }
-        return strings.joined()
+        
+        for child:Node in self.children.values 
+        {
+            child.assignAnchors(urlpattern: urlpattern)
+        }
+    }
+    func resolveLinks() 
+    {
+        for page:Page in self.pages 
+        {
+            page.resolveLinks(at: self)
+        }
+        for child:Node in self.children.values 
+        {
+            child.resolveLinks()
+        }
+    }
+    func attachTopics() 
+    {
+        let nodes:[Node] = self.preorder 
+        let global:[String: [Page]] = 
+            [String: [(page:Page, membership:(topic:String, rank:Int, order:Int))]]
+            .init(grouping: nodes.flatMap 
+        {
+            $0.pages.flatMap 
+            {
+                (page:Page) in 
+                page.memberships.map 
+                {
+                    (page: page, membership: $0)
+                }
+            }
+        }, by: \.membership.topic)
+        .mapValues 
+        {
+            $0.sorted 
+            {
+                ($0.membership.rank, $0.membership.order, $0.page.name) 
+                <
+                ($1.membership.rank, $1.membership.order, $1.page.name) 
+            }
+            .map(\.page)
+        }
+        
+        for node:Node in nodes 
+        {
+            // builtin topics 
+            var topics: 
+            (
+                associatedtypes     :[Page],
+                cases               :[Page],
+                classes             :[Page],
+                dependencies        :[Page],
+                enumerations        :[Page],
+                functions           :[Page],
+                functors            :[Page],
+                initializers        :[Page],
+                instanceMethods     :[Page],
+                instanceProperties  :[Page],
+                operators           :[Page],
+                protocols           :[Page],
+                structures          :[Page],
+                subscripts          :[Page],
+                typealiases         :[Page],
+                typeMethods         :[Page],
+                typeProperties      :[Page]
+            )
+            topics = ([], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [])
+            
+            for child:Node in node.children.values 
+            {
+                for page:Page in child.pages
+                {
+                    switch page.label 
+                    {
+                    case .enumeration, .genericEnumeration, .importedEnumeration:
+                        topics.enumerations.append(page)
+                    case .structure, .genericStructure, .importedStructure:
+                        topics.structures.append(page)
+                    case .class, .genericClass, .importedClass:
+                        topics.classes.append(page)
+                    case .protocol, .importedProtocol:
+                        topics.protocols.append(page)
+                    case .typealias, .genericTypealias, .importedTypealias:
+                        topics.typealiases.append(page)
+                    case .extension:
+                        // extensions go in root node 
+                        break 
+                    
+                    case .enumerationCase:
+                        topics.cases.append(page)
+                    case .initializer, .genericInitializer:
+                        topics.initializers.append(page)
+                    case .staticMethod, .genericStaticMethod:
+                        topics.typeMethods.append(page)
+                    case .instanceMethod, .genericInstanceMethod:
+                        topics.instanceMethods.append(page)
+                    case .function, .genericFunction:
+                        topics.functions.append(page)
+                    case .functor, .genericFunctor:
+                        topics.functors.append(page)
+                    case .operator, .genericOperator:
+                        topics.operators.append(page)
+                    case .subscript, .genericSubscript:
+                        topics.subscripts.append(page)
+                    case .staticProperty:
+                        topics.typeProperties.append(page)
+                    case .instanceProperty:
+                        topics.instanceProperties.append(page)
+                    case .associatedtype:
+                        topics.associatedtypes.append(page)
+                    case .module, .plugin:
+                        break
+                    
+                    case .dependency:
+                        topics.dependencies.append(page)
+                    }
+                }
+            }
+            
+            for page:Page in node.pages
+            {
+                var seen:Set<ObjectIdentifier> = []
+                for i:Int in page.topics.indices 
+                {
+                    let elements:[Page] = page.topics[i].keys 
+                    .flatMap
+                    { 
+                        global[$0, default: []] 
+                    }
+                    
+                    for element:Page in elements 
+                    {
+                        page.topics[i].elements.append(.init(target: element))
+                        seen.insert(.init(element))
+                    }
+                }
+                // recursively gather extensions 
+                let extensions:[Page]
+                switch page.label 
+                {
+                case .module, .plugin: 
+                    extensions = nodes.flatMap 
+                    {
+                        $0.pages.compactMap 
+                        {
+                            guard case .extension = $0.label
+                            else 
+                            {
+                                return nil
+                            }
+                            return $0
+                        }
+                    }
+                default:
+                    extensions = []
+                }
+                
+                for (builtin, unsorted):(String, [Page]) in 
+                [
+                    ("Dependencies",        topics.dependencies), 
+                    ("Enumeration cases",   topics.cases), 
+                    ("Associated types",    topics.associatedtypes), 
+                    ("Initializers",        topics.initializers), 
+                    ("Functors",            topics.functors), 
+                    ("Subscripts",          topics.subscripts), 
+                    ("Type properties",     topics.typeProperties), 
+                    ("Instance properties", topics.instanceProperties), 
+                    ("Type methods",        topics.typeMethods), 
+                    ("Instance methods",    topics.instanceMethods), 
+                    ("Functions",           topics.functions), 
+                    ("Operators",           topics.operators), 
+                    ("Enumerations",        topics.enumerations), 
+                    ("Structures",          topics.structures), 
+                    ("Classes",             topics.classes), 
+                    ("Protocols",           topics.protocols), 
+                    ("Typealiases",         topics.typealiases), 
+                    ("Extensions",          extensions), 
+                ]
+                {
+                    let sorted:[Page] = unsorted
+                    .filter 
+                    {
+                        !seen.contains(.init($0))
+                    }
+                    .sorted
+                    {
+                        ($0.priority.rank, $0.priority.order, $0.name) 
+                        <
+                        ($1.priority.rank, $1.priority.order, $1.name) 
+                    }
+                    
+                    guard !sorted.isEmpty
+                    else 
+                    {
+                        continue 
+                    }
+                    
+                    page.topics.append(
+                        .init(name: builtin, elements: sorted.map(Unowned<Page>.init(target:))))
+                }
+                
+                // move 'see also' to the end 
+                if let i:Int = (page.topics.firstIndex{ $0.name.lowercased() == "see also" })
+                {
+                    let seealso:Page.Topic = page.topics.remove(at: i)
+                    page.topics.append(seealso)
+                }
+            }
+        }
+    }
+}
+
+extension Node 
+{
+    func insert(_ page:Page)
+    {
+        assert(self.parent == nil)
+        self.insert(page, level: 0)
+    }
+    private 
+    func insert(_ page:Page, level:Int) 
+    {
+        guard let key:String = page.path.dropFirst(level).first 
+        else 
+        {
+            self.pages.append(page)
+            return 
+        }
+        
+        // cannot use default dictionary subscript with Swift class 
+        let child:Node 
+        if let existing:Node = self.children[key]
+        {
+            child = existing 
+        }
+        else 
+        {
+            child = .init(parent: self)
+            self.children[key] = child
+        }
+        child.insert(page, level: level + 1) 
+    }
+}
+extension Node:CustomStringConvertible 
+{
+    private 
+    func description(indent:String) -> String 
+    {
+        """
+        \(self.pages.count) page(s)
+        \(indent){
+        \(self.pages.map
+        {
+            """
+                \(indent)\($0.path.joined(separator: "."))
+            """
+        }
+        .joined(separator: "\n"))
+        \(indent)}\
+        \(self.children.isEmpty ? "" :
+        """
+        
+        \(indent)children:
+        \(indent)[
+        \(self.children.sorted
+        {
+            $0.key < $1.key 
+        }
+        .map 
+        {
+            """
+                \(indent)['\($0.key)']: \($0.value.description(indent: indent + "    "))
+            """
+        }
+        .joined(separator: "\n"))
+        \(indent)]
+        """
+        )
+        """
     }
     
     var description:String 
     {
-        self.describe()
-    }
-}        
-extension PageTree 
-{
-    static 
-    func assemble(_ pages:[Page.Binding]) -> Node 
-    {
-        var root:Node = .empty
-        for page:Page.Binding in pages
-        {
-            root.insert(page, at: page.path[...])
-        }
-        
-        // attach inherited symbols 
-        root.attachInheritedSymbols()
-        // resolve type links 
-        root.traverse
-        {
-            (scopes:[Node], node:Node) in 
-            for payload:Node.Payload in node.payloads
-            {
-                if case .binding(let binding) = payload 
-                {
-                    binding.page.crosslink(scopes: scopes, node: node)
-                }
-            }
-        }
-        
-        // cannot collect anchors before resolving type links 
-        var anchors:[String: [(rank:(Int, Int), symbol:Page.TopicSymbol)]] = [:]
-        for (order, page):(Int, Page.Binding) in pages.enumerated()
-        {
-            let symbol:Page.TopicSymbol = 
-            (
-                page.page.signature, 
-                page.url, 
-                page.page.blurb,
-                page.page.discussion.required
-            )
-            for key:Page.Binding.Key in page.keys 
-            {
-                anchors[key.key, default: []].append(((key.rank, order), symbol))
-            }
-        }
-        // sort anchors 
-        let global:[String: [Page.TopicSymbol]] = anchors.mapValues 
-        {
-            $0.sorted{ $0.rank < $1.rank }.map(\.symbol)
-        }
-        
-        // attach topics 
-        root.traverse
-        {
-            (_:[Node], node:Node) in 
-            for payload:Node.Payload in node.payloads  
-            {
-                if case .binding(let binding) = payload 
-                {
-                    binding.attachTopics(children: node.children.values, global: global)
-                }
-            }
-        }
-        
-        return root 
+        self.description(indent: "")
     }
 }

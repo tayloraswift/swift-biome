@@ -44,65 +44,85 @@ The full syntax is this:
 ```
 Whitespace              ::= ' ' ' ' *
 Endline                 ::= ' ' * '\n'
+
+FunctionIdentifiers     ::= ( <Identifier> '.' ) * '(' <Operator> ')'
+                          | ( <Identifier> '.' ) * <Identifier>
+
+Identifiers             ::= <Identifier> ( '.' <Identifier> ) * 
 Identifier              ::= <Swift Identifier Head> <Swift Identifier Character> *
-                          | '(' <Operator> ')'
 Operator                ::= <Swift Operator Head> <Swift Operator Character> *
                           | <Swift Dot Operator Head> <Swift Dot Operator Character> *
 
 FrameworkField          ::= <FrameworkField.Keyword> <Whitespace> <Identifier> <Endline>
 FrameworkField.Keyword  ::= 'module'
                           | 'plugin'
+
 DependencyField         ::= 'import' <Whitespace> <Identifier> <Endline>
-                          | 'import' <Whitespace> <TypeField.Keyword> <Whitespace> <Identifiers> <Endline>
-
-FunctionField           ::= <FunctionField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? '?' ? 
-                            '(' ( <FunctionField.Label> ':' ) * ')' <Endline>
-                          | 'case' <Whitespace> <Identifiers> <Endline>
-FunctionField.Keyword   ::= 'init'
-                          | 'func'
-                          | 'mutating' <Whitespace> 'func'
-                          | 'static' <Whitespace> 'func'
-                          | 'case' 
-                          | 'indirect' <Whitespace> 'case' 
-FunctionField.Label     ::= <Identifier> 
-                          | <Identifier> ? '...'
-Identifiers             ::= <Identifier> ( '.' <Identifier> ) * 
-
-TypeParameters          ::= '<' <Whitespace> ? 
-                            <Identifier> <Whitespace> ? ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * 
-                            '>'
-
-SubscriptField          ::= 'subscript' <Whitespace> <Identifiers> '[' ( <Identifier> ':' ) * ']' 
-                            <Whitespace> ? <MemberMutability> <Endline> 
-
-MemberField             ::= <MemberField.Keyword> <Whitespace> <Identifiers> 
-                            ( <Whitespace> ? ':' <Whitespace> ? <Type> ) ? 
-                            ( <Whitespace> ? <MemberMutability> ) ? <Endline> 
-MemberField.Keyword     ::= 'let'
-                          | 'var'
-                          | 'static' <Whitespace> 'let'
-                          | 'static' <Whitespace> 'var'
-                          | 'associatedtype'
-MemberMutability        ::= '{' <Whitespace> ? 'get' 
-                            ( ( <Whitespace> 'nonmutating' ) ? <Whitespace> 'set' ) ? <Whitespace> ? 
-                            '}'
-
-TypeField               ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? 
-                            ( <Whitespace> ? '=' <Whitespace> ? <Type> ) ? <Endline>
-TypeField.Keyword       ::= 'protocol'
+                          | 'import' <Whitespace> <DependencyField.Keyword> <Whitespace> 
+                            <Identifier> '.' <Identifiers> <Endline>
+DependencyField.Keyword ::= 'protocol'
                           | 'class'
                           | 'struct'
                           | 'enum'
                           | 'typealias'
+
+FunctionField           ::= <FunctionField.Keyword> <Whitespace> <FunctionIdentifiers> <TypeParameters> ? '?' ? 
+                            '(' ( <FunctionField.Label> ':' ) * ')' 
+                            ( <Whitespace> <FunctionField.Throws> ) ? <Endline>
+                          | 'case' <Whitespace> <FunctionIdentifiers> <Endline>
+FunctionField.Keyword   ::= 'init'
+                          | 'func'
+                          | 'mutating' <Whitespace> 'func'
+                          | 'prefix' <Whitespace> 'func'
+                          | 'postfix' <Whitespace> 'func'
+                          | 'static' <Whitespace> 'func'
+                          | 'static' <Whitespace> 'prefix' <Whitespace> 'func'
+                          | 'static' <Whitespace> 'postfix' <Whitespace> 'func'
+                          | 'case' 
+                          | 'indirect' <Whitespace> 'case' 
+FunctionField.Label     ::= <Identifier> 
+                          | <Identifier> ? '...'
+FunctionField.Throws    ::= 'throws' 
+                          | 'rethrows'
+
+SubscriptField          ::= 'subscript' <Whitespace> <Identifiers> <TypeParameters> ? 
+                            '[' ( <Identifier> ':' ) * ']' <Whitespace> ? <Accessors> <Endline> 
+
+TypeParameters          ::= '<' <Whitespace> ? <Identifier> <Whitespace> ? 
+                            ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * '>'
+                                                        
+PropertyField           ::= <PropertyField.Keyword> <Whitespace> <Identifiers> 
+                            <Whitespace> ? ':' <Whitespace> ? <Type> 
+                            ( <Whitespace> ? <MemberMutability> ) ? <Endline> 
+PropertyField.Keyword   ::= 'let'
+                          | 'var'
+                          | 'static' <Whitespace> 'let'
+                          | 'static' <Whitespace> 'var'
+  
+Accessors               ::= '{' <Whitespace> ? 'get' 
+                            ( ( <Whitespace> 'nonmutating' ) ? <Whitespace> 'set' ) ? <Whitespace> ? '}'
+
+TypealiasField          ::= 'typealias' <Whitespace> <Identifiers> <TypeParameters> ?
+                            <Whitespace> ? '=' <Whitespace> ? <Type> <Endline>
+
+TypeField               ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? <Endline>
+TypeField.Keyword       ::= 'associatedtype'
+                          | 'protocol'
+                          | 'class'
+                          | 'struct'
+                          | 'enum'
                           | 'extension'
 
-ConformanceField        ::= ':' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
-ImplementationField     ::= '?:' <Whitespace> ? <ProtocolCompositionType> ( <Whitespace> <WhereClauses> ) ? <Endline>
+ConformanceField        ::= ':' <Whitespace> ? <ProtocolCompositionType> 
+                            ( <Whitespace> <WhereClauses> ) ? <Endline>
+
+ImplementationField     ::= '?:' <Whitespace> ? <ProtocolCompositionType> 
+                            ( <Whitespace> <WhereClauses> ) ? <Endline>
                           | '?' <Whitespace> ? <WhereClauses> <Endline>
 
 ConstraintsField        ::= <WhereClauses> <Endline>
-
-WhereClauses            ::= 'where' <Whitespace> <WhereClause> ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
+WhereClauses            ::= 'where' <Whitespace> <WhereClause> 
+                            ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
 WhereClause             ::= <Identifiers> <Whitespace> ? <WherePredicate>
 WherePredicate          ::= ':' <Whitespace> ? <ProtocolCompositionType> 
                           | '==' <Whitespace> ? <Type>
@@ -111,21 +131,51 @@ AttributeField          ::= '@' <Whitespace> ? <DeclarationAttribute> <Endline>
 DeclarationAttribute    ::= 'frozen'
                           | 'inlinable'
                           | 'discardableResult'
+                          | 'resultBuilder'
                           | 'propertyWrapper'
                           | 'specialized' <Whitespace> <WhereClauses>
                           | ':'  <Whitespace> ? <Type>
 
-ParameterField          ::= '-' <Whitespace> ? <ParameterName> <Whitespace> ? ':' <Whitespace> ? 
-                            <FunctionParameter> <Endline>
+ParameterField          ::= '-' <Whitespace> ? <ParameterName> <Whitespace> ? 
+                            ':' <Whitespace> ? <FunctionParameter> <Endline>
 ParameterName           ::= <Identifier> 
                           | '->'
-                    
-ThrowsField             ::= 'throws' <Endline>
-                          | 'rethrows' <Endline>
+
 DispatchField           ::= <DispatchField.Keyword> ( <Whitespace> <DispatchField.Keyword> ) * <Endline>
+
 RequirementField        ::= 'required' <Endline>
                           | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
 
+TopicKey                ::= [a-zA-Z0-9\-] *
+TopicField              ::= '#' <Whitespace> ? '[' <BalancedContent> * ']' <Whitespace> ? 
+                            '(' <Whitespace> ? <TopicKey> 
+                            ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
+
+TopicMembershipField    ::= '#' <Whitespace> ? '(' <Whitespace> ? 
+                            ( <Integer Literal> <Whitespace> ? ':' <Whitespace> ? ) ? 
+                            <TopicKey> <Whitespace> ? ')' <Endline>
+
+ParagraphField          ::= <ParagraphLine> <ParagraphLine> *
+ParagraphLine           ::= '    ' ' ' * [^\s] . * '\n'
+
+Field                   ::= <FrameworkField>
+                          | <FunctionField>
+                          | <SubscriptField>
+                          | <PropertyField>
+                          | <TypeField>
+                          | <TypealiasField>
+                          | <ConformanceField>
+                          | <ImplementationField>
+                          | <ConstraintsField>
+                          | <AttributeField>
+                          | <DispatchField>
+                          | <RequirementField>
+                          | <ParameterField>
+                          | <TopicField>
+                          | <TopicMembershipField>
+                          | <ParagraphField>
+                          | <Separator>
+Separator               ::= <Endline>
 
 Type                    ::= <UnwrappedType> '?' *
 UnwrappedType           ::= <NamedType>
@@ -147,41 +197,12 @@ FunctionParameter       ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace
 Attribute               ::= '@' <Identifier>
 CollectionType          ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']'
 ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
-
-
-TopicKey                ::= [a-zA-Z0-9\-] *
-TopicField              ::= '#' <Whitespace>? '[' <BalancedContent> * ']' <Whitespace>? 
-                            '(' <Whitespace> ? <TopicKey> 
-                            ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
-TopicElementField       ::= '##' <Whitespace>? '(' <Whitespace> ? 
-                            ( <ASCIIDigit> * <Whitespace> ? ':' <Whitespace> ? ) ? <TopicKey> <Whitespace> ? ')' <Endline>
-
-ParagraphField          ::= <ParagraphLine> <ParagraphLine> *
-ParagraphLine           ::= '    ' ' ' * [^\s] . * '\n'
-
-Field                   ::= <FrameworkField>
-                          | <FunctionField>
-                          | <SubscriptField>
-                          | <MemberField>
-                          | <TypeField>
-                          | <TypealiasField>
-                          | <AnnotationField>
-                          | <AttributeField>
-                          | <ConstraintsField>
-                          | <ThrowsField>
-                          | <RequirementField>
-                          | <ParameterField>
-                          | <TopicField>
-                          | <TopicElementField>
-                          | <ParagraphField>
-                          | <Separator>
-Separator               ::= <Endline>
 ```
 
 Paragraph fields have their own mini-markdown syntax and an abbreviated link syntax for local and standard-library symbols.
 
 ```
-ParagraphToken          ::= <ParagraphLink> 
+ParagraphGrammar.Token  ::= <ParagraphLink> 
                           | <ParagraphSymbolLink>
                           | <ParagraphSubscript>
                           | <ParagraphSuperscript>
@@ -194,8 +215,9 @@ ParagraphSuperscript    ::= '^' [^\^] * '^'
 ParagraphInlineType     ::= '[[`' <Type> '`]]'
 ParagraphSymbolLink     ::= '[' <SymbolPath> <SymbolPath> * ( <Identifier> '`' ) * ']'
 SymbolPath              ::= '`' ( '(' <Identifiers> ').' ) ? <SymbolTail> '`'
-SymbolTail              ::= <Identifiers> ? '[' ( <FunctionLabel> ':' ) * ']'
-                          | <Identifiers> ( '(' ( <FunctionLabel> ':' ) * ')' ) ?
+SymbolTail              ::= <FunctionIdentifiers> ? '(' ( <FunctionLabel> ':' ) * ')' 
+                          | <Identifiers>         ? '[' ( <FunctionLabel> ':' ) * ']'
+                          | <Identifiers>
 ParagraphLink           ::= '[' [^\]] * '](' [^\)] ')'
 ```
 
