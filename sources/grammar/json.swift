@@ -1,8 +1,8 @@
-enum JSON:Grammar.Parseable
+enum JSON:Grammar.Parsable
 {
     enum Whitespace
     {
-        struct Character:Grammar.Parseable.CharacterClass 
+        struct Character:Grammar.Parsable.CharacterClass 
         {
             init?(_ character:Swift.Character)
             {
@@ -17,7 +17,7 @@ enum JSON:Grammar.Parseable
         }
     }
     
-    enum Value:Grammar.Parseable
+    enum Value:Grammar.Parsable
     {
         case null 
         case bool(Bool)
@@ -27,17 +27,17 @@ enum JSON:Grammar.Parseable
         case array([Self])
         case object([Swift.String: Self])
         
-        struct Null:Grammar.Parseable.Terminal 
+        struct Null:Grammar.Parsable.Terminal 
         {
             static 
             let token:Swift.String = "null"
         }
-        struct True:Grammar.Parseable.Terminal 
+        struct True:Grammar.Parsable.Terminal 
         {
             static 
             let token:Swift.String = "true"
         }
-        struct False:Grammar.Parseable.Terminal 
+        struct False:Grammar.Parsable.Terminal 
         {
             static 
             let token:Swift.String = "false"
@@ -87,14 +87,14 @@ enum JSON:Grammar.Parseable
         }
     }
     
-    enum Number:Grammar.Parseable 
+    enum Number:Grammar.Parsable 
     {
-        struct Minus:Grammar.Parseable.Terminal 
+        struct Minus:Grammar.Parsable.Terminal 
         {
             static 
             let token:Swift.String = "-"
         }
-        struct PlusOrMinus:Grammar.Parseable.CharacterClass 
+        struct PlusOrMinus:Grammar.Parsable.CharacterClass 
         {
             let character:Character 
             init?(_ character:Character)
@@ -108,12 +108,12 @@ enum JSON:Grammar.Parseable
                 }
             }
         }
-        struct Point:Grammar.Parseable.Terminal 
+        struct Point:Grammar.Parsable.Terminal 
         {
             static 
             let token:Swift.String = "."
         }
-        struct E:Grammar.Parseable.CharacterClass 
+        struct E:Grammar.Parsable.CharacterClass 
         {
             init?(_ character:Character)
             {
@@ -126,7 +126,7 @@ enum JSON:Grammar.Parseable
                 }
             }
         }
-        struct DecimalDigit:Grammar.Parseable.CharacterClass 
+        struct DecimalDigit:Grammar.Parsable.CharacterClass 
         {
             let value:Int64 
             init?(_ character:Character)
@@ -147,7 +147,7 @@ enum JSON:Grammar.Parseable
                 }
             }
         }
-        struct DecimalDigits:Grammar.Parseable 
+        struct DecimalDigits:Grammar.Parsable 
         {
             let value:Int64 
             
@@ -203,53 +203,53 @@ enum JSON:Grammar.Parseable
             }
         }
     }
-    struct String:Grammar.Parseable 
+    struct String:Grammar.Parsable 
     {
-        struct Quote:Grammar.Parseable.Terminal 
+        struct Quote:Grammar.Parsable.Terminal 
         {
             static 
             let token:Swift.String = "\""
         }
-        struct Element:Grammar.Parseable 
+        struct Element:Grammar.Parsable 
         {
-            struct Escaped:Grammar.Parseable 
+            struct Escaped:Grammar.Parsable 
             {
-                struct Backslash:Grammar.Parseable.Terminal 
+                struct Backslash:Grammar.Parsable.Terminal 
                 {
                     static 
                     let token:Swift.String = "\\"
                 }
-                struct Slash:Grammar.Parseable.Terminal 
+                struct Slash:Grammar.Parsable.Terminal 
                 {
                     static 
                     let token:Swift.String = "/"
                 }
-                struct B:Grammar.Parseable.Terminal 
+                struct B:Grammar.Parsable.Terminal 
                 {
                     static 
                     let token:Swift.String = "b"
                 }
-                struct F:Grammar.Parseable.Terminal 
+                struct F:Grammar.Parsable.Terminal 
                 {
                     static 
                     let token:Swift.String = "f"
                 }
-                struct N:Grammar.Parseable.Terminal 
+                struct N:Grammar.Parsable.Terminal 
                 {
                     static 
                     let token:Swift.String = "n"
                 }
-                struct R:Grammar.Parseable.Terminal 
+                struct R:Grammar.Parsable.Terminal 
                 {
                     static 
                     let token:Swift.String = "r"
                 }
-                struct T:Grammar.Parseable.Terminal 
+                struct T:Grammar.Parsable.Terminal 
                 {
                     static 
                     let token:Swift.String = "t"
                 }
-                struct HexDigit:Grammar.Parseable.CharacterClass 
+                struct HexDigit:Grammar.Parsable.CharacterClass 
                 {
                     let value:Int
                     init?(_ character:Character)
@@ -323,7 +323,7 @@ enum JSON:Grammar.Parseable
                     }
                 }
             }
-            struct Unescaped:Grammar.Parseable.CharacterClass
+            struct Unescaped:Grammar.Parsable.CharacterClass
             {
                 let character:Swift.Character 
                 
@@ -371,7 +371,7 @@ enum JSON:Grammar.Parseable
     }
     enum Separator 
     {
-        struct Name:Grammar.Parseable 
+        struct Name:Grammar.Parsable 
         {
             init(parsing input:inout Grammar.Input) throws
             {
@@ -380,7 +380,7 @@ enum JSON:Grammar.Parseable
                     _:[Whitespace.Character]    =     .init(parsing: &input)
             }
         }
-        struct Value:Grammar.Parseable 
+        struct Value:Grammar.Parsable 
         {
             init(parsing input:inout Grammar.Input) throws
             {
@@ -390,9 +390,9 @@ enum JSON:Grammar.Parseable
             }
         }
     }
-    struct Array:Grammar.Parseable 
+    struct Array:Grammar.Parsable 
     {
-        struct Start:Grammar.Parseable 
+        struct Start:Grammar.Parsable 
         {
             init(parsing input:inout Grammar.Input) throws
             {
@@ -401,7 +401,7 @@ enum JSON:Grammar.Parseable
                     _:[Whitespace.Character]        =     .init(parsing: &input)
             }
         }
-        struct End:Grammar.Parseable 
+        struct End:Grammar.Parsable 
         {
             init(parsing input:inout Grammar.Input) throws
             {
@@ -428,9 +428,9 @@ enum JSON:Grammar.Parseable
             let _:End           = try .init(parsing: &input) 
         }
     }
-    struct Object:Grammar.Parseable 
+    struct Object:Grammar.Parsable 
     {
-        struct Start:Grammar.Parseable 
+        struct Start:Grammar.Parsable 
         {
             init(parsing input:inout Grammar.Input) throws
             {
@@ -439,7 +439,7 @@ enum JSON:Grammar.Parseable
                     _:[Whitespace.Character]    =     .init(parsing: &input)
             }
         }
-        struct End:Grammar.Parseable 
+        struct End:Grammar.Parsable 
         {
             init(parsing input:inout Grammar.Input) throws
             {
@@ -448,7 +448,7 @@ enum JSON:Grammar.Parseable
                     _:[Whitespace.Character]    =     .init(parsing: &input)
             }
         }
-        struct Item:Grammar.Parseable 
+        struct Item:Grammar.Parsable 
         {
             let key:Swift.String 
             let value:Value 

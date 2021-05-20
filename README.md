@@ -8,19 +8,18 @@
 # build a deployable website 
 entrapta sources/*.swift 
     --directory     "directory/to/build/website/in" 
-    # no trailing slash... the world has progressed past the need for trailing slashes
     --url-prefix    "https://adora.github.io/repository-name" 
     --github        "https://github.com/adora/repository-name"
-    --project       "HTML Title to Display"
+    --title         "HTML Title to Display"
 
 # build a local website 
 entrapta sources/*.swift 
     --directory     "directory/to/build/website/in" 
     # url-prefix must be an absolute path
     --url-prefix    "$PWD/directory/to/build/website/in"
-    --url-suffix    "/index.html" 
     --github        "https://github.com/adora/repository-name"
-    --project       "HTML Title to Display"
+    --title         "HTML Title to Display"
+    --local
 ```
 
 ## syntax 

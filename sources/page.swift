@@ -1,4 +1,4 @@
-enum Entrapta 
+extension Entrapta 
 {
     struct Error:Swift.Error 
     {
@@ -1850,7 +1850,7 @@ extension Node
         [self] + self.children.values.flatMap(\.preorder)
     }
     
-    func assignAnchors(urlpattern:(prefix:String, suffix:String))
+    func assignAnchors(_ url:([String]) -> String)
     {
         for (i, page):(Int, Page) in self.pages.enumerated() 
             where page.anchor == nil // do not overwrite pre-assigned anchors
@@ -1879,45 +1879,12 @@ extension Node
                 directory = normalized 
             }
             
-            func hex(_ value:UInt8) -> UInt8
-            {
-                if value < 10 
-                {
-                    return 0x30 + value 
-                }
-                else 
-                {
-                    return 0x37 + value 
-                }
-            }
-            
-            let url:String =
-            """
-            \(urlpattern.prefix)/\(directory.map
-            {
-                // escape url characters
-                String.init(decoding: $0.utf8.flatMap 
-                {
-                    (byte:UInt8) -> [UInt8] in 
-                    switch byte 
-                    {
-                    ///  [0-9]          [A-Z]        [a-z]            '-'   '_'   '~'
-                    case 0x30 ... 0x39, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x2d, 0x5f, 0x7e:
-                        return [byte] 
-                    default:
-                        return [0x25, hex(byte >> 4), hex(byte & 0x0f)]
-                    }
-                }, as: Unicode.ASCII.self)
-            }
-            .joined(separator: "/"))\(urlpattern.suffix)
-            """
-            
-            page.anchor = .local(url: url, directory: directory)
+            page.anchor = .local(url: url(directory), directory: directory)
         }
         
         for child:Node in self.children.values 
         {
-            child.assignAnchors(urlpattern: urlpattern)
+            child.assignAnchors(url)
         }
     }
     func resolveLinks() 

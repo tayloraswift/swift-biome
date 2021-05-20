@@ -1,4 +1,4 @@
-extension Int:Grammar.Parseable 
+extension Int:Grammar.Parsable 
 {
     init(parsing input:inout Grammar.Input) throws 
     {
@@ -16,7 +16,7 @@ extension Int:Grammar.Parseable
 extension Grammar
 {
     //  Endline                 ::= ' ' * '\n'
-    struct Endline:Parseable 
+    struct Endline:Parsable 
     {
         init(parsing input:inout Input) throws
         {
@@ -28,16 +28,16 @@ extension Grammar
     //  FrameworkField          ::= <FrameworkField.Keyword> <Whitespace> <Identifier> <Endline>
     //  FrameworkField.Keyword  ::= 'module'
     //                            | 'plugin'
-    struct FrameworkField:Parseable 
+    struct FrameworkField:Parsable 
     {
         enum Keyword 
         {
-            struct Module:Parseable.Terminal 
+            struct Module:Parsable.Terminal 
             {
                 static 
                 let token:String = "module"
             }
-            struct Plugin:Parseable.Terminal 
+            struct Plugin:Parsable.Terminal 
             {
                 static 
                 let token:String = "plugin"
@@ -84,10 +84,10 @@ extension Grammar
     //                            | 'struct'
     //                            | 'enum'
     //                            | 'typealias'
-    enum DependencyField:Parseable 
+    enum DependencyField:Parsable 
     {
         // different from TypeField.Keyword
-        enum Keyword:Parseable 
+        enum Keyword:Parsable 
         {
             case `protocol` 
             case `class` 
@@ -151,7 +151,7 @@ extension Grammar
     
     //  FunctionIdentifiers     ::= ( <Identifier> '.' ) * '(' <Operator> ')'
     //                            | ( <Identifier> '.' ) * <Identifier>
-    struct FunctionIdentifiers:Parseable 
+    struct FunctionIdentifiers:Parsable 
     {
         enum Tail 
         {
@@ -215,9 +215,9 @@ extension Grammar
     //                            | 'rethrows'
     //  TypeParameters          ::= '<' <Whitespace> ? <Identifier> <Whitespace> ? 
     //                              ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * '>'
-    struct FunctionField:Parseable, CustomStringConvertible
+    struct FunctionField:Parsable, CustomStringConvertible
     {
-        enum Keyword:Parseable 
+        enum Keyword:Parsable 
         {
             case `init` 
             case `func` 
@@ -295,7 +295,7 @@ extension Grammar
             }
         }
         
-        struct Label:Parseable, CustomStringConvertible
+        struct Label:Parsable, CustomStringConvertible
         {
             let string:String, 
                 variadic:Bool 
@@ -327,7 +327,7 @@ extension Grammar
             }
         }
         
-        enum Throws:Parseable 
+        enum Throws:Parsable 
         {
             case `throws` 
             case `rethrows`
@@ -351,7 +351,7 @@ extension Grammar
         }
         
         private 
-        struct Normal:Parseable
+        struct Normal:Parsable
         {
             let keyword:Keyword
             let identifiers:FunctionIdentifiers
@@ -379,7 +379,7 @@ extension Grammar
             }
         }
         private 
-        struct UninhabitedCase:Parseable
+        struct UninhabitedCase:Parsable
         {
             let identifiers:FunctionIdentifiers
             
@@ -444,7 +444,7 @@ extension Grammar
     
     //  SubscriptField          ::= 'subscript' <Whitespace> <Identifiers> <TypeParameters> ? 
     //                              '[' ( <Identifier> ':' ) * ']' <Whitespace> ? <Accessors> <Endline> 
-    struct SubscriptField:Parseable, CustomStringConvertible
+    struct SubscriptField:Parsable, CustomStringConvertible
     {
         let identifiers:[String],
             generics:[String],
@@ -482,7 +482,7 @@ extension Grammar
         }
     }
     
-    struct TypeParameters:Parseable, CustomStringConvertible
+    struct TypeParameters:Parsable, CustomStringConvertible
     {
         let identifiers:[String]
             
@@ -514,9 +514,9 @@ extension Grammar
     //                            | 'static' <Whitespace> 'var'
     //  Accessors               ::= '{' <Whitespace> ? 'get' 
     //                              ( ( <Whitespace> 'nonmutating' ) ? <Whitespace> 'set' ) ? <Whitespace> ? '}'
-    struct PropertyField:Parseable, CustomStringConvertible
+    struct PropertyField:Parsable, CustomStringConvertible
     {
-        enum Keyword:Parseable 
+        enum Keyword:Parsable 
         {
             case `let` 
             case `var` 
@@ -586,7 +586,7 @@ extension Grammar
         }
     }
 
-    enum Accessors:Parseable, CustomStringConvertible
+    enum Accessors:Parsable, CustomStringConvertible
     {
         case settable(nonmutating:Bool)
         case nonsettable
@@ -622,7 +622,7 @@ extension Grammar
     
     //  TypealiasField          ::= 'typealias' <Whitespace> <Identifiers> <TypeParameters> ?
     //                              <Whitespace> ? '=' <Whitespace> ? <Type> <Endline>
-    struct TypealiasField:Parseable, CustomStringConvertible 
+    struct TypealiasField:Parsable, CustomStringConvertible 
     {
         let identifiers:[String]
         let generics:[String]
@@ -662,9 +662,9 @@ extension Grammar
     //                            | 'struct'
     //                            | 'enum'
     //                            | 'extension'
-    struct TypeField:Parseable, CustomStringConvertible
+    struct TypeField:Parsable, CustomStringConvertible
     {
-        enum Keyword:Parseable 
+        enum Keyword:Parsable 
         {
             case `associatedtype`
             case `protocol` 
@@ -737,7 +737,7 @@ extension Grammar
     
     //  ConformanceField        ::= ':' <Whitespace> ? <ProtocolCompositionType> 
     //                              ( <Whitespace> <WhereClauses> ) ? <Endline>
-    struct ConformanceField:Parseable, CustomStringConvertible
+    struct ConformanceField:Parsable, CustomStringConvertible
     {
         let conformances:[[String]]
         let conditions:[WhereClause]
@@ -775,7 +775,7 @@ extension Grammar
     //  ImplementationField     ::= '?:' <Whitespace> ? <ProtocolCompositionType> 
     //                              ( <Whitespace> <WhereClauses> ) ? <Endline>
     //                            | '?' <Whitespace> ? <WhereClauses> <Endline>
-    struct ImplementationField:Parseable 
+    struct ImplementationField:Parsable 
     {
         let conformances:[[String]]
         let conditions:[WhereClause]
@@ -808,7 +808,7 @@ extension Grammar
     //  WhereClause             ::= <Identifiers> <Whitespace> ? <WherePredicate>
     //  WherePredicate          ::= ':' <Whitespace> ? <ProtocolCompositionType> 
     //                            | '==' <Whitespace> ? <Type>
-    struct ConstraintsField:Parseable, CustomStringConvertible
+    struct ConstraintsField:Parsable, CustomStringConvertible
     {
         let clauses:[WhereClause]
         
@@ -835,7 +835,7 @@ extension Grammar
             """
         }
     }
-    struct WhereClauses:Parseable 
+    struct WhereClauses:Parsable 
     {    
         let clauses:[WhereClause]
         
@@ -849,7 +849,7 @@ extension Grammar
             self.clauses = [head] + body.map(\.body.body.body)
         }
     }
-    struct WhereClause:Parseable, CustomStringConvertible
+    struct WhereClause:Parsable, CustomStringConvertible
     {
         let subject:[String], 
             predicate:WherePredicate 
@@ -873,7 +873,7 @@ extension Grammar
             }
         }
     }
-    enum WherePredicate:Parseable
+    enum WherePredicate:Parsable
     {
         case conforms([[String]]) 
         case equals(SwiftType) 
@@ -910,40 +910,40 @@ extension Grammar
     //                            | 'propertyWrapper'
     //                            | 'specialized' <Whitespace> <WhereClauses>
     //                            | ':'  <Whitespace> ? <Type>
-    enum AttributeField:Parseable
+    enum AttributeField:Parsable
     {
         private 
-        struct Frozen:Parseable.Terminal 
+        struct Frozen:Parsable.Terminal 
         {
             static 
             let token:String = "frozen"
         }
         private 
-        struct Inlinable:Parseable.Terminal 
+        struct Inlinable:Parsable.Terminal 
         {
             static 
             let token:String = "inlinable"
         }
         private 
-        struct DiscardableResult:Parseable.Terminal 
+        struct DiscardableResult:Parsable.Terminal 
         {
             static 
             let token:String = "discardableResult"
         }
         private 
-        struct ResultBuilder:Parseable.Terminal 
+        struct ResultBuilder:Parsable.Terminal 
         {
             static 
             let token:String = "resultBuilder"
         }
         private 
-        struct PropertyWrapper:Parseable.Terminal 
+        struct PropertyWrapper:Parsable.Terminal 
         {
             static 
             let token:String = "propertyWrapper"
         }
         private 
-        struct Specialized:Parseable.Terminal 
+        struct Specialized:Parsable.Terminal 
         {
             static 
             let token:String = "specialized"
@@ -1005,7 +1005,7 @@ extension Grammar
     //                              ':' <Whitespace> ? <FunctionParameter> <Endline>
     //  ParameterName           ::= <Identifier> 
     //                            | '->'
-    struct ParameterField:Parseable, CustomStringConvertible
+    struct ParameterField:Parsable, CustomStringConvertible
     {
         let name:ParameterName 
         let parameter:FunctionParameter 
@@ -1035,7 +1035,7 @@ extension Grammar
             """
         }
     }
-    enum ParameterName:Parseable
+    enum ParameterName:Parsable
     {
         case parameter(String) 
         case `return`
@@ -1059,9 +1059,9 @@ extension Grammar
     }
     
     //  DispatchField           ::= <DispatchField.Keyword> ( <Whitespace> <DispatchField.Keyword> ) * <Endline>
-    struct DispatchField:Parseable 
+    struct DispatchField:Parsable 
     {
-        enum Keyword:Parseable, Hashable, CaseIterable 
+        enum Keyword:Parsable, Hashable, CaseIterable 
         {
             case `final`
             case `override`
@@ -1097,16 +1097,16 @@ extension Grammar
     
     //  RequirementField        ::= 'required' <Endline>
     //                            | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
-    enum RequirementField:Parseable 
+    enum RequirementField:Parsable 
     {
         private 
-        struct Required:Parseable.Terminal 
+        struct Required:Parsable.Terminal 
         {
             static 
             let token:String = "required"
         }
         private 
-        struct Defaulted:Parseable.Terminal 
+        struct Defaulted:Parsable.Terminal 
         {
             static 
             let token:String = "defaulted"
@@ -1144,7 +1144,7 @@ extension Grammar
     //  TopicMembershipField    ::= '#' <Whitespace> ? '(' <Whitespace> ? 
     //                              ( <Integer Literal> <Whitespace> ? ':' <Whitespace> ? ) ? 
     //                              <TopicKey> <Whitespace> ? ')' <Endline>
-    struct TopicField:Parseable 
+    struct TopicField:Parsable 
     {
         let display:String, 
             keys:[String] 
@@ -1171,7 +1171,7 @@ extension Grammar
             self.display = .init(display.map(\.character))
         }
     }
-    struct TopicMembershipField:Parseable
+    struct TopicMembershipField:Parsable
     {
         let key:String?
         let rank:Int?
@@ -1203,7 +1203,7 @@ extension Grammar
     
     //  ParagraphField          ::= <ParagraphLine> <ParagraphLine> *
     //  ParagraphLine           ::= '    ' ' ' * [^\s] . * '\n'
-    struct ParagraphField:Parseable, CustomStringConvertible
+    struct ParagraphField:Parsable, CustomStringConvertible
     {
         let elements:[Markdown.Element]
         
@@ -1232,7 +1232,7 @@ extension Grammar
             "\(self.elements)"
         }
     }
-    struct ParagraphLine:Parseable 
+    struct ParagraphLine:Parsable 
     {
         let string:String
         
@@ -1268,7 +1268,7 @@ extension Grammar
     //                            | <ParagraphField>
     //                            | <Separator>
     // Separator                ::= <Endline>
-    enum Field:Parseable 
+    enum Field:Parsable 
     {
         case framework(FrameworkField) 
         case dependency(DependencyField) 

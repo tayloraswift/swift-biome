@@ -122,7 +122,7 @@ extension Grammar
 
 extension Grammar.Token 
 {
-    struct Wildcard:Grammar.Parseable.CharacterClass
+    struct Wildcard:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         
@@ -135,7 +135,7 @@ extension Grammar.Token
             self.character = character
         }
     } 
-    struct Alphanumeric:Grammar.Parseable.CharacterClass
+    struct Alphanumeric:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         
@@ -149,7 +149,7 @@ extension Grammar.Token
             self.character = character
         }
     } 
-    struct BalancedContent:Grammar.Parseable.CharacterClass
+    struct BalancedContent:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         
@@ -169,7 +169,7 @@ extension Grammar.Token
             self.character = character
         }
     } 
-    struct ASCIIDigit:Grammar.Parseable.CharacterClass
+    struct ASCIIDigit:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         
@@ -183,7 +183,7 @@ extension Grammar.Token
             self.character = character
         }
     } 
-    struct Darkspace:Grammar.Parseable.CharacterClass
+    struct Darkspace:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         
@@ -196,7 +196,7 @@ extension Grammar.Token
             self.character = character
         }
     } 
-    struct Newline:Grammar.Parseable.CharacterClass
+    struct Newline:Grammar.Parsable.CharacterClass
     {
         init?(_ character:Character)
         {
@@ -208,7 +208,7 @@ extension Grammar.Token
         }
     }
     // does not include newlines 
-    struct Space:Grammar.Parseable.CharacterClass
+    struct Space:Grammar.Parsable.CharacterClass
     {
         init?(_ character:Character)
         {
@@ -221,12 +221,12 @@ extension Grammar.Token
     }
     enum Parenthesis 
     {
-        struct Left:Grammar.Parseable.Terminal
+        struct Left:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "("
         }
-        struct Right:Grammar.Parseable.Terminal
+        struct Right:Grammar.Parsable.Terminal
         {
             static 
             let token:String = ")"
@@ -234,12 +234,12 @@ extension Grammar.Token
     }
     enum Bracket 
     {
-        struct Left:Grammar.Parseable.Terminal
+        struct Left:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "["
         }
-        struct Right:Grammar.Parseable.Terminal
+        struct Right:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "]"
@@ -247,12 +247,12 @@ extension Grammar.Token
     }
     enum Brace 
     {
-        struct Left:Grammar.Parseable.Terminal
+        struct Left:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "{"
         }
-        struct Right:Grammar.Parseable.Terminal
+        struct Right:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "}"
@@ -260,210 +260,210 @@ extension Grammar.Token
     }
     enum Angle 
     {
-        struct Left:Grammar.Parseable.Terminal
+        struct Left:Grammar.Parsable.Terminal
         {
             static 
             let token:String = "<"
         }
-        struct Right:Grammar.Parseable.Terminal
+        struct Right:Grammar.Parsable.Terminal
         {
             static 
             let token:String = ">"
         }
     }
-    struct Question:Grammar.Parseable.Terminal
+    struct Question:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "?"
     }
-    struct Comma:Grammar.Parseable.Terminal
+    struct Comma:Grammar.Parsable.Terminal
     {
         static 
         let token:String = ","
     }
-    struct Period:Grammar.Parseable.Terminal
+    struct Period:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "."
     }
-    struct Colon:Grammar.Parseable.Terminal
+    struct Colon:Grammar.Parsable.Terminal
     {
         static 
         let token:String = ":"
     } 
-    struct Equals:Grammar.Parseable.Terminal
+    struct Equals:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "="
     } 
-    struct At:Grammar.Parseable.Terminal
+    struct At:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "@"
     } 
-    struct Ampersand:Grammar.Parseable.Terminal
+    struct Ampersand:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "&"
     } 
-    struct Hyphen:Grammar.Parseable.Terminal
+    struct Hyphen:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "-"
     } 
-    struct Hashtag:Grammar.Parseable.Terminal
+    struct Hashtag:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "#"
     } 
-    struct EqualsEquals:Grammar.Parseable.Terminal
+    struct EqualsEquals:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "=="
     } 
-    struct Arrow:Grammar.Parseable.Terminal
+    struct Arrow:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "->"
     } 
-    struct Ellipsis:Grammar.Parseable.Terminal
+    struct Ellipsis:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "..."
     } 
     
-    struct Import:Grammar.Parseable.Terminal
+    struct Import:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "import"
     }
-    struct Let:Grammar.Parseable.Terminal
+    struct Let:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "let"
     }
-    struct Var:Grammar.Parseable.Terminal
+    struct Var:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "var"
     }
-    struct Associatedtype:Grammar.Parseable.Terminal
+    struct Associatedtype:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "associatedtype"
     }
-    struct Typealias:Grammar.Parseable.Terminal
+    struct Typealias:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "typealias"
     }
-    struct Throws:Grammar.Parseable.Terminal
+    struct Throws:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "throws"
     } 
-    struct Rethrows:Grammar.Parseable.Terminal
+    struct Rethrows:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "rethrows"
     } 
-    struct Final:Grammar.Parseable.Terminal
+    struct Final:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "final"
     } 
-    struct Extension:Grammar.Parseable.Terminal
+    struct Extension:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "extension"
     }
-    struct `Protocol`:Grammar.Parseable.Terminal
+    struct `Protocol`:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "protocol"
     }
-    struct Class:Grammar.Parseable.Terminal
+    struct Class:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "class"
     }
-    struct Struct:Grammar.Parseable.Terminal
+    struct Struct:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "struct"
     }
-    struct Enum:Grammar.Parseable.Terminal
+    struct Enum:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "enum"
     }
     
-    struct Static:Grammar.Parseable.Terminal 
+    struct Static:Grammar.Parsable.Terminal 
     {
         static 
         let token:String = "static"
     }
-    struct Init:Grammar.Parseable.Terminal
+    struct Init:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "init"
     }
-    struct Func:Grammar.Parseable.Terminal
+    struct Func:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "func"
     }
-    struct Subscript:Grammar.Parseable.Terminal
+    struct Subscript:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "subscript"
     }
-    struct Mutating:Grammar.Parseable.Terminal
+    struct Mutating:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "mutating"
     }
-    struct Case:Grammar.Parseable.Terminal
+    struct Case:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "case"
     }
-    struct Indirect:Grammar.Parseable.Terminal
+    struct Indirect:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "indirect"
     }
-    struct Get:Grammar.Parseable.Terminal
+    struct Get:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "get"
     }
-    struct Nonmutating:Grammar.Parseable.Terminal
+    struct Nonmutating:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "nonmutating"
     }
-    struct Set:Grammar.Parseable.Terminal
+    struct Set:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "set"
     }
-    struct Where:Grammar.Parseable.Terminal
+    struct Where:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "where"
     }
-    struct Override:Grammar.Parseable.Terminal
+    struct Override:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "override"
     } 
-    struct Prefix:Grammar.Parseable.Terminal
+    struct Prefix:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "prefix"
     } 
-    struct Postfix:Grammar.Parseable.Terminal
+    struct Postfix:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "postfix"
@@ -471,7 +471,7 @@ extension Grammar.Token
     
     enum Identifier 
     {
-        struct Head:Grammar.Parseable.CharacterClass
+        struct Head:Grammar.Parsable.CharacterClass
         {
             let character:Swift.Character 
             
@@ -487,7 +487,7 @@ extension Grammar.Token
                 self.character = character
             }
         } 
-        struct Character:Grammar.Parseable.CharacterClass
+        struct Character:Grammar.Parsable.CharacterClass
         {
             let character:Swift.Character 
             
@@ -505,7 +505,7 @@ extension Grammar.Token
     
     enum Operator 
     {
-        struct Head:Grammar.Parseable.CharacterClass
+        struct Head:Grammar.Parsable.CharacterClass
         {
             let character:Swift.Character 
             
@@ -521,7 +521,7 @@ extension Grammar.Token
                 self.character = character
             }
         } 
-        struct Character:Grammar.Parseable.CharacterClass
+        struct Character:Grammar.Parsable.CharacterClass
         {
             let character:Swift.Character 
             
@@ -541,7 +541,7 @@ extension Grammar.Token
 extension Grammar 
 {
     // Whitespace ::= ' ' ' ' *
-    struct Whitespace:Parseable 
+    struct Whitespace:Parsable 
     {
         init(parsing input:inout Input) throws
         {
@@ -552,7 +552,7 @@ extension Grammar
     
     // Operator     ::= <Swift Operator Head> <Swift Operator Character> *
     //                | <Swift Dot Operator Head> <Swift Dot Operator Character> *
-    struct Operator:Parseable
+    struct Operator:Parsable
     {
         let string:String 
         
@@ -591,7 +591,7 @@ extension Grammar
         }
     }
     // Identifier   ::= <Swift Identifier Head> <Swift Identifier Character> *
-    struct Identifier:Parseable, CustomStringConvertible
+    struct Identifier:Parsable, CustomStringConvertible
     {
         let string:String 
         
@@ -609,7 +609,7 @@ extension Grammar
     }
     
     // Identifiers ::= <Identifier> ( '.' <Identifier> ) * 
-    struct Identifiers:Parseable, CustomStringConvertible
+    struct Identifiers:Parsable, CustomStringConvertible
     {
         let identifiers:[String]
             
@@ -646,7 +646,7 @@ extension Grammar
     
     // ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
     
-    enum SwiftType:Parseable, CustomStringConvertible
+    enum SwiftType:Parsable, CustomStringConvertible
     {
         indirect
         case named([TypeIdentifier])
@@ -716,7 +716,7 @@ extension Grammar
             }
         }
     }
-    enum UnwrappedType:Parseable 
+    enum UnwrappedType:Parsable 
     {
         case named(NamedType)
         case compound(CompoundType)
@@ -755,7 +755,7 @@ extension Grammar
             }
         }
     }
-    struct ProtocolCompositionType:Parseable
+    struct ProtocolCompositionType:Parsable
     {
         let protocols:[[String]]
             
@@ -767,7 +767,7 @@ extension Grammar
             self.protocols = [head.identifiers] + body.map(\.body.body.body.identifiers)
         }
     }
-    struct NamedType:Parseable
+    struct NamedType:Parsable
     {
         let identifiers:[TypeIdentifier]
             
@@ -779,7 +779,7 @@ extension Grammar
         }
         
     }
-    struct TypeIdentifier:Parseable, CustomStringConvertible
+    struct TypeIdentifier:Parsable, CustomStringConvertible
     {
         let identifier:String
         let generics:[SwiftType]
@@ -802,7 +802,7 @@ extension Grammar
             "\(self.identifier)\(self.generics.isEmpty ? "" : "<\(self.generics.map(String.init(describing:)).joined(separator: ", "))>")"
         }
     }
-    struct TypeArguments:Parseable
+    struct TypeArguments:Parsable
     {
         let types:[SwiftType]
         
@@ -818,7 +818,7 @@ extension Grammar
             self.types = [head] + body.map(\.body.body.head)
         }
     }
-    struct CompoundType:Parseable
+    struct CompoundType:Parsable
     {
         let elements:[LabeledType]
         
@@ -832,7 +832,7 @@ extension Grammar
             self.elements = types.map{ [$0.head] + $0.body.body.map(\.body.body.head) } ?? []
         }
     }
-    struct LabeledType:Parseable, CustomStringConvertible
+    struct LabeledType:Parsable, CustomStringConvertible
     {
         let label:String?
         let type:SwiftType
@@ -851,7 +851,7 @@ extension Grammar
             "\(self.label.map{ "\($0):" } ?? "")\(self.type)"
         }
     }
-    struct FunctionType:Parseable
+    struct FunctionType:Parsable
     {
         let attributes:[Attribute]
         let parameters:[FunctionParameter]
@@ -879,9 +879,9 @@ extension Grammar
             self.return     = `return`
         }
     }
-    struct FunctionParameter:Parseable, CustomStringConvertible
+    struct FunctionParameter:Parsable, CustomStringConvertible
     {
-        struct Inout:Parseable.Terminal 
+        struct Inout:Parsable.Terminal 
         {
             static 
             let token:String = "inout"
@@ -910,7 +910,7 @@ extension Grammar
             "\(self.attributes.map{ "\($0) " }.joined())\(self.inout ? "inout " : "")\(self.type)\(self.variadic ? "..." : "")"
         }
     }
-    struct Attribute:Parseable, CustomStringConvertible
+    struct Attribute:Parsable, CustomStringConvertible
     {
         let identifier:String
         
@@ -926,7 +926,7 @@ extension Grammar
             "@\(self.identifier)"
         }
     }
-    struct CollectionType:Parseable 
+    struct CollectionType:Parsable 
     {
         let key:SwiftType, 
             value:SwiftType?

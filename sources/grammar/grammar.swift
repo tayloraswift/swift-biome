@@ -1,6 +1,6 @@
 enum Grammar 
 {
-    typealias Parseable = _GrammarParseable
+    typealias Parsable = _GrammarParsable
     
     struct ParsingError:Swift.Error, CustomStringConvertible 
     {
@@ -80,14 +80,14 @@ enum Grammar
     }
 }
 
-protocol _GrammarParseable 
+protocol _GrammarParsable 
 {
-    typealias Terminal          = _GrammarParseableTerminal
-    typealias CharacterClass    = _GrammarParseableCharacterClass
+    typealias Terminal          = _GrammarParsableTerminal
+    typealias CharacterClass    = _GrammarParsableCharacterClass
     
     init(parsing input:inout Grammar.Input) throws 
 }
-protocol _GrammarParseableTerminal:Grammar.Parseable
+protocol _GrammarParsableTerminal:Grammar.Parsable
 {
     static 
     var token:String 
@@ -97,12 +97,12 @@ protocol _GrammarParseableTerminal:Grammar.Parseable
     
     init()
 }
-protocol _GrammarParseableCharacterClass:Grammar.Parseable
+protocol _GrammarParsableCharacterClass:Grammar.Parsable
 {
     init?(_ character:Character)
 }
 
-extension Grammar.Parseable.CharacterClass 
+extension Grammar.Parsable.CharacterClass 
 {
     init(parsing input:inout Grammar.Input) throws 
     {
@@ -116,7 +116,7 @@ extension Grammar.Parseable.CharacterClass
     }
 }
 
-extension Grammar.Parseable.Terminal
+extension Grammar.Parsable.Terminal
 {
     init(parsing input:inout Grammar.Input) throws 
     {
@@ -134,7 +134,7 @@ extension Grammar.Parseable.Terminal
     }
 }
 
-extension Optional:Grammar.Parseable where Wrapped:Grammar.Parseable 
+extension Optional:Grammar.Parsable where Wrapped:Grammar.Parsable 
 {
     init(parsing input:inout Grammar.Input)  
     {
@@ -159,7 +159,7 @@ extension Optional:Grammar.Parseable where Wrapped:Grammar.Parseable
     }
 }
 
-extension Array:Grammar.Parseable where Element:Grammar.Parseable
+extension Array:Grammar.Parsable where Element:Grammar.Parsable
 {
     init(parsing input:inout Grammar.Input)
     {
@@ -181,7 +181,7 @@ extension Array:Grammar.Parseable where Element:Grammar.Parseable
     }
 }
 
-struct List<Head, Body>:Grammar.Parseable where Head:Grammar.Parseable, Body:Grammar.Parseable
+struct List<Head, Body>:Grammar.Parsable where Head:Grammar.Parsable, Body:Grammar.Parsable
 {
     let head:Head,
         body:Body

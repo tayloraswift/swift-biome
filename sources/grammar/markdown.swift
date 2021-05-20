@@ -1,31 +1,31 @@
 enum Markdown 
 {
-    struct Asterisk:Grammar.Parseable.Terminal
+    struct Asterisk:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "*"
     } 
-    struct Backtick:Grammar.Parseable.Terminal
+    struct Backtick:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "`"
     } 
-    struct Tilde:Grammar.Parseable.Terminal
+    struct Tilde:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "~"
     } 
-    struct Ditto:Grammar.Parseable.Terminal
+    struct Ditto:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "^"
     } 
-    struct Backslash:Grammar.Parseable.Terminal
+    struct Backslash:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "\\"
     } 
-    struct Newline:Grammar.Parseable.Terminal
+    struct Newline:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "\\n"
@@ -47,7 +47,7 @@ enum Markdown
     //                            | <Identifiers>         ? '[' ( <FunctionLabel> ':' ) * ']'
     //                            | <Identifiers>
     //  ParagraphLink           ::= '[' [^\]] * '](' [^\)] ')'
-    struct NotClosingBracket:Grammar.Parseable.CharacterClass
+    struct NotClosingBracket:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         init?(_ character:Character) 
@@ -60,7 +60,7 @@ enum Markdown
             self.character = character
         }
     } 
-    struct NotClosingParenthesis:Grammar.Parseable.CharacterClass
+    struct NotClosingParenthesis:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         init?(_ character:Character) 
@@ -73,7 +73,7 @@ enum Markdown
             self.character = character
         }
     } 
-    struct NotClosingTilde:Grammar.Parseable.CharacterClass
+    struct NotClosingTilde:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         init?(_ character:Character) 
@@ -86,7 +86,7 @@ enum Markdown
             self.character = character
         }
     } 
-    struct NotClosingDitto:Grammar.Parseable.CharacterClass
+    struct NotClosingDitto:Grammar.Parsable.CharacterClass
     {
         let character:Character 
         init?(_ character:Character) 
@@ -100,9 +100,9 @@ enum Markdown
         }
     } 
     
-    enum Element:Grammar.Parseable
+    enum Element:Grammar.Parsable
     {
-        enum Text:Grammar.Parseable
+        enum Text:Grammar.Parsable
         {
             case star3
             case star2 
@@ -171,7 +171,7 @@ enum Markdown
             }
         }
         
-        struct Link:Grammar.Parseable
+        struct Link:Grammar.Parsable
         {
             let text:[Text], 
                 url:String, 
@@ -198,9 +198,9 @@ enum Markdown
             }
         }
         
-        struct SymbolLink:Grammar.Parseable
+        struct SymbolLink:Grammar.Parsable
         {
-            struct Path:Grammar.Parseable
+            struct Path:Grammar.Parsable
             {
                 let prefix:[String], 
                     path:[String]
@@ -262,7 +262,7 @@ enum Markdown
             }
         }
         
-        struct InlineType:Grammar.Parseable
+        struct InlineType:Grammar.Parsable
         {
             let type:Grammar.SwiftType 
             
