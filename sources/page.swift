@@ -25,13 +25,19 @@ class Node
     final 
     class Page 
     {
+        enum Anchor 
+        {
+            case local(url:String, directory:[String])
+            case external(path:[String])
+        }
+        
         struct Inclusions 
         {
             private(set)
             var aliases:[[String]],
                 inheritances:[[String]]
             
-            init(aliases:[[String]], inheritances: [[String]])
+            init(aliases:[[String]], inheritances:[[String]])
             {
                 self.aliases        = aliases 
                 self.inheritances   = inheritances
@@ -66,7 +72,7 @@ class Node
         }
         
         let path:[String] 
-        var anchor:(url:String, directory:[String])?
+        var anchor:Anchor?
         
         let inclusions:Inclusions, 
             generics:[String: Inclusions] 
@@ -94,7 +100,7 @@ class Node
         // default priority
         let priority:(rank:Int, order:Int)
         
-        init(path:[String], 
+        init(anchor:Anchor? = nil, path:[String], 
             name:String, // not necessarily last `path` component
             label:Label, 
             signature:Signature, 
@@ -106,7 +112,7 @@ class Node
             throws 
         {
             self.path   = path 
-            self.anchor = nil
+            self.anchor = anchor
             
             var inclusions:Inclusions               = .init(
                 aliases:        aliases, 
@@ -223,26 +229,31 @@ extension Node
     {
         paths.compactMap 
         {
-            var node:Node? = self 
-            higher:
-            while let start:Node = node 
+            // if we can’t find anything on the first try, try again with the 
+            // "Swift" prefix, to resolve a standard library symbol 
+            for path:[String] in [$0, ["Swift"] + $0] 
             {
-                defer 
+                var node:Node? = self 
+                higher:
+                while let start:Node = node 
                 {
-                    node = start.parent 
-                }
-                
-                var current:Node = start  
-                for component:String in $0 
-                {
-                    guard let child:Node = current.children[component]
-                    else 
+                    defer 
                     {
-                        continue higher 
+                        node = start.parent 
                     }
-                    current = child 
+                    
+                    var current:Node = start  
+                    for component:String in path 
+                    {
+                        guard let child:Node = current.children[component]
+                        else 
+                        {
+                            continue higher 
+                        }
+                        current = child 
+                    }
+                    return current 
                 }
-                return current 
             }
             return nil
         }
@@ -250,13 +261,36 @@ extension Node
     private 
     func search(space inclusions:[Page.Inclusions]) -> [(nodes:[Node], pages:[Page])]
     {
+        let spaces:[(Page.Inclusions) -> [[String]]] = 
         [
-            self.find(inclusions.flatMap(\.aliases)), 
-            self.find(inclusions.flatMap(\.inheritances))
+            \.aliases, 
+            \.inheritances
         ]
-        .map 
+        return spaces.map 
         {
-            ($0, $0.flatMap(\.pages))
+            // recursively gather inclusions. `seen` set guards against graph cycles 
+            var seen:(nodes:Set<ObjectIdentifier>, pages:Set<ObjectIdentifier>) = ([], [])
+            var space:(nodes:[Node], pages:[Page])                              = ([], [])
+            
+            var frontier:[[String]] = inclusions.flatMap($0) 
+            while !frontier.isEmpty
+            {
+                let nodes:[Node]    = self.find(frontier)
+                frontier            = []
+                for node:Node in nodes 
+                    where seen.nodes.update(with: .init(node)) == nil
+                {
+                    space.nodes.append(node)
+                    for page:Page in node.pages 
+                        where seen.pages.update(with: .init(page)) == nil 
+                    {
+                        space.pages.append(page)
+                        frontier.append(contentsOf: $0(page.inclusions))
+                    }
+                }
+            }
+            
+            return space 
         }
     }
     func search(space inclusions:Page.Inclusions) -> [(nodes:[Node], pages:[Page])]
@@ -271,8 +305,19 @@ extension Node
 extension Node.Page 
 {
     func resolve(_ symbol:[String], in node:Node, 
-        builtin:String?                     = "Swift", 
-        allowingSelfReferencingLinks:Bool   = true) 
+        allowingSelfReferencingLinks allowSelf:Bool = true,
+        where predicate:(Node.Page) -> Bool         = 
+        {
+            // ignore extensions by default 
+            if case .extension = $0.label 
+            {
+                return false 
+            }
+            else 
+            {
+                return true 
+            }
+        }) 
         -> Link?
     {
         var warning:String 
@@ -370,24 +415,10 @@ extension Node.Page
                 continue higher
             }
             
-            // if `builtin` is provided, and the candidate is an extension, ignore it 
-            if let _:String = builtin 
-            {
-                candidates.removeAll 
-                {
-                    if case .extension = $0.label 
-                    {
-                        return true 
-                    }
-                    else 
-                    {
-                        return false 
-                    }
-                }
-            }
+            candidates.removeAll{ !predicate($0) }
             
             guard   let page:Node.Page  = candidates.first, 
-                    let url:String      = page.anchor?.url
+                    let anchor:Anchor   = page.anchor
             else 
             {
                 continue higher 
@@ -405,28 +436,36 @@ extension Node.Page
                     """)
             }
             
-            guard allowingSelfReferencingLinks || page !== self 
+            guard allowSelf || page !== self 
             else 
             {
                 return nil
             }
             
-            switch page.label 
+            switch anchor 
             {
-            case    .dependency, 
-                    .importedEnumeration, 
-                    .importedStructure, 
-                    .importedClass, 
-                    .importedProtocol, 
-                    .importedTypealias: return .resolved(url: url, style: .imported)
-            default:                    return .resolved(url: url, style: .local)
+            case .local(url: let url, directory: _):
+                switch page.label 
+                {
+                case    .dependency, 
+                        .importedEnumeration, 
+                        .importedStructure, 
+                        .importedClass, 
+                        .importedProtocol, 
+                        .importedTypealias: return .resolved(url: url, style: .imported)
+                default:                    return .resolved(url: url, style: .local)
+                }
+            case .external(path: let path):
+                return .init(builtin: path)
             }
         }
         
-        // if `builtin` was provided, resolve a standard library symbol
-        if  let builtin:String = builtin, symbol.first == builtin
+        // if the path does not start with the "Swift" prefix, try again with "Swift" 
+        // appended to the path 
+        if symbol.first != "Swift"
         {
-            return .init(builtin: path)
+            return self.resolve(["Swift"] + symbol, in: node, 
+                allowingSelfReferencingLinks: allowSelf, where: predicate)
         }
         else 
         {
@@ -440,6 +479,8 @@ extension Node.Page
 {
     enum Label 
     {
+        case swift 
+        
         case module 
         case plugin 
         
@@ -745,8 +786,8 @@ extension Node.Page
                 {
                     root = parent 
                 }
-                guard   let page:Node.Page  = root.pages.first, 
-                        let url:String      = page.anchor?.url 
+                guard   let page:Node.Page                      = root.pages.first, 
+                        case .local(url: let url, directory: _) = page.anchor 
                 else 
                 {
                     fatalError("could not find page for root breadcrumb")
@@ -754,7 +795,17 @@ extension Node.Page
                 return ($0.text, .resolved(url: url, style: .local))
             case .unresolved(path: let path):
                 // do not appleify stdlib symbols
-                guard let resolved:Link = self.resolve(path, in: node, builtin: nil)
+                guard let resolved:Link = (self.resolve(path, in: node)
+                {
+                    if case .swift = $0.label 
+                    {
+                        return false 
+                    }
+                    else 
+                    {
+                        return true
+                    }
+                })
                 else 
                 {
                     fatalError("could not find page for breadcrumb '\(path.joined(separator: "."))'") 
@@ -846,8 +897,6 @@ extension Node.Page.Fields
                 conformances.append(field)
             case .implementation(let field):
                 implementations.append(field)
-            //case .extension     (let field):
-            //    extensions.append(field)
             case .requirement   (let field):
                 requirements.append(field)
             
@@ -1803,7 +1852,8 @@ extension Node
     
     func assignAnchors(urlpattern:(prefix:String, suffix:String))
     {
-        for (i, page):(Int, Page) in self.pages.enumerated()
+        for (i, page):(Int, Page) in self.pages.enumerated() 
+            where page.anchor == nil // do not overwrite pre-assigned anchors
         {
             let normalized:[String] = page.path.map 
             {
@@ -1862,7 +1912,7 @@ extension Node
             .joined(separator: "/"))\(urlpattern.suffix)
             """
             
-            page.anchor = (url, directory)
+            page.anchor = .local(url: url, directory: directory)
         }
         
         for child:Node in self.children.values 
@@ -1874,6 +1924,11 @@ extension Node
     {
         for page:Page in self.pages 
         {
+            if case .swift = page.label 
+            {
+                continue 
+            }
+            
             page.resolveLinks(at: self)
         }
         for child:Node in self.children.values 
@@ -1975,7 +2030,7 @@ extension Node
                         topics.instanceProperties.append(page)
                     case .associatedtype:
                         topics.associatedtypes.append(page)
-                    case .module, .plugin:
+                    case .module, .plugin, .swift:
                         break
                     
                     case .dependency:
@@ -2108,6 +2163,23 @@ extension Node
         child.insert(page, level: level + 1) 
     }
 }
+extension Node.Page:CustomStringConvertible 
+{
+    func description(indent:String) -> String 
+    {
+        """
+        \(indent)\(self.path.joined(separator: "."))
+        \(indent){
+            \(indent)aliases        : \(self.inclusions.aliases)
+            \(indent)inheritances   : \(self.inclusions.inheritances)
+        \(indent)}
+        """
+    }
+    var description:String 
+    {
+        self.description(indent: "")
+    }
+}
 extension Node:CustomStringConvertible 
 {
     private 
@@ -2118,9 +2190,7 @@ extension Node:CustomStringConvertible
         \(indent){
         \(self.pages.map
         {
-            """
-                \(indent)\($0.path.joined(separator: "."))
-            """
+            $0.description(indent: indent + "    ")
         }
         .joined(separator: "\n"))
         \(indent)}\

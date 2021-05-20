@@ -742,6 +742,13 @@ extension Grammar
         let conformances:[[String]]
         let conditions:[WhereClause]
         
+        // used by standard library importer
+        init(conformances:[[String]], conditions:[WhereClause])
+        {
+            self.conformances   = conformances
+            self.conditions     = conditions
+        }
+        
         init(parsing input:inout Input) throws
         {
             let _:Token.Colon                               = try .init(parsing: &input), 
@@ -804,6 +811,12 @@ extension Grammar
     struct ConstraintsField:Parseable, CustomStringConvertible
     {
         let clauses:[WhereClause]
+        
+        // used by standard library importer
+        init(clauses:[WhereClause])
+        {
+            self.clauses = clauses
+        }
         
         init(parsing input:inout Input) throws
         {

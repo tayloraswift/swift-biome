@@ -365,6 +365,7 @@ extension Node.Page
                         case .staticProperty:           "Static Property"
                         case .structure:                "Structure"
                         case .subscript:                "Subscript"
+                        case .swift:                    let _ = fatalError("unreachable")
                         case .typealias:                "Typealias"
                         }
                     }
@@ -508,7 +509,7 @@ extension Node.Page
                                         {
                                             HTML.element("code", ["class": "signature"])
                                             {
-                                                if let url:String = element.anchor?.url 
+                                                if case .local(url: let url, directory: _) = element.anchor
                                                 {
                                                     HTML.element("a", ["href": url])
                                                     {

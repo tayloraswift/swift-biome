@@ -50,6 +50,9 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
     let root:Node = .init(parent: nil)
     withExtendedLifetime(root)
     {
+        // load standard library symbols 
+        root.loadStandardLibrarySymbols()
+        
         for (i, doccomment):(Int, String) in doccomments.enumerated()
         {
             do 
@@ -114,10 +117,10 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
         
         for page:Node.Page in root.preorder.flatMap(\.pages)
         {
-            guard let anchor:(url:String, directory:[String]) = page.anchor 
+            guard case .local(url: _, directory: let suffix) = page.anchor 
             else 
             {
-                fatalError("unreachable")
+                continue
             }
             
             let document:String = 
@@ -135,8 +138,8 @@ func pages(sources:[String], directory:String, urlpattern:(prefix:String, suffix
             </body>
             </html>
             """
-            File.pave([directory] + anchor.directory)
-            File.save(.init(document.utf8), path: "\(directory)/\(anchor.directory.joined(separator: "/"))/index.html")
+            File.pave([directory] + suffix)
+            File.save(.init(document.utf8), path: "\(directory)/\(suffix.joined(separator: "/"))/index.html")
         }
         
         // create 404 page 
