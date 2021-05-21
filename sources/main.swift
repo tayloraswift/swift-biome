@@ -124,6 +124,8 @@ struct Entrapta:ParsableCommand
                         root.insert(try .init(header, fields: fields, order: i))
                     case .dependency(let header)?:
                         root.insert(try .init(header, fields: fields, order: i))
+                    case .lexeme    (let header)?:
+                        root.insert(try .init(header, fields: fields, order: i))
                     case .subscript (let header)?:
                         root.insert(try .init(header, fields: fields, order: i))
                     case .function  (let header)?:

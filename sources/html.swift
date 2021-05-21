@@ -357,6 +357,7 @@ extension Node.Page
                         case .initializer:              "Initializer"
                         case .instanceMethod:           "Instance Method"
                         case .instanceProperty:         "Instance Property"
+                        case .lexeme:                   "Lexeme"
                         case .module:                   "Module"
                         case .operator:                 "Operator"
                         case .plugin:                   "Package Plugin"

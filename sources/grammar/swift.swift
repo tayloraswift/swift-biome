@@ -463,6 +463,11 @@ extension Grammar.Token
         static 
         let token:String = "prefix"
     } 
+    struct Infix:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "infix"
+    } 
     struct Postfix:Grammar.Parsable.Terminal
     {
         static 
@@ -503,8 +508,11 @@ extension Grammar.Token
         } 
     }
     
-    enum Operator 
+    struct Operator:Grammar.Parsable.Terminal
     {
+        static 
+        let token:String = "operator"
+        
         struct Head:Grammar.Parsable.CharacterClass
         {
             let character:Swift.Character 

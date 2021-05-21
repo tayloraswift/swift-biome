@@ -65,6 +65,11 @@ DependencyField.Keyword ::= 'protocol'
                           | 'enum'
                           | 'typealias'
 
+LexemeField             ::= ( <LexemeField.Keyword> <Whitespace> ) ? 
+                            'operator' <Whitespace> <Operator> 
+                            ( <Whitespace> ? ':' <Whitespace> ? <Identifier> ) ?
+                            <Endline>
+                          
 FunctionField           ::= <FunctionField.Keyword> <Whitespace> <FunctionIdentifiers> <TypeParameters> ? '?' ? 
                             '(' ( <FunctionField.Label> ':' ) * ')' 
                             ( <Whitespace> <FunctionField.Throws> ) ? <Endline>
@@ -158,20 +163,21 @@ ParagraphField          ::= <ParagraphLine> <ParagraphLine> *
 ParagraphLine           ::= '    ' ' ' * [^\s] . * '\n'
 
 Field                   ::= <FrameworkField>
-                          | <FunctionField>
-                          | <SubscriptField>
-                          | <PropertyField>
-                          | <TypeField>
-                          | <TypealiasField>
-                          | <ConformanceField>
-                          | <ImplementationField>
-                          | <ConstraintsField>
                           | <AttributeField>
+                          | <ConformanceField>
+                          | <ConstraintsField>
                           | <DispatchField>
-                          | <RequirementField>
+                          | <ImplementationField>
+                          | <FunctionField>
+                          | <LexemeField>
                           | <ParameterField>
+                          | <PropertyField>
+                          | <RequirementField>
+                          | <SubscriptField>
                           | <TopicField>
                           | <TopicMembershipField>
+                          | <TypealiasField>
+                          | <TypeField>
                           | <ParagraphField>
                           | <Separator>
 Separator               ::= <Endline>

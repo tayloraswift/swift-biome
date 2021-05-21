@@ -190,5 +190,52 @@ extension Node
             
             self.insert(page)
         }
+        
+        // emit builtin operator lexemes 
+        for (fix, lexemes):(String, [String]) in 
+        [
+            (
+                "prefix", 
+                ["!", "~", "+", "-", "..<", "..."]
+            ),
+            (
+                "infix", 
+                [
+                    "<<", ">>", "*", "/", "%", "&*", "&", "+", "-", "&+", "&-", 
+                    "|", "^", "..<", "...", "??", "<", "<=", ">", ">=", "==", "!=", 
+                    "===", "!==", "~=", ".==", ".!=", ".<", ".<=", ".>", ".>=", 
+                    "&&", "||", "=", "*=", "/=", "%=", "+=", "-=", "<<=", ">>=", "&=", "|=", "^=",
+                    // these don’t seem to be present in the apple docs, but they exist...
+                    "&>>", "&>>=", "&<<", "&<<=",
+                ]
+            ),
+            (
+                "postfix", 
+                ["..."]
+            ),
+        ]
+        {
+            for lexeme:String in lexemes 
+            {
+                guard   let fields:Node.Page.Fields = try? .init([]), 
+                        let page:Node.Page          = try? .init(
+                            anchor:         .external(
+                                path: ["Swift", "swift_standard_library", "operator_declarations"]),
+                            path:           ["\(fix) operator \(lexeme)"], 
+                            name:           "$builtin", 
+                            label:          .swift, 
+                            signature:      .empty, 
+                            declaration:    .empty, 
+                            generics:       [], 
+                            fields:         fields, 
+                            order:          0)
+                else 
+                {
+                    fatalError("unreachable")
+                }
+                
+                self.insert(page)
+            }
+        }
     }
 }

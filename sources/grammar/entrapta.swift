@@ -149,6 +149,61 @@ extension Grammar
         }
     }
     
+    //  LexemeField             ::= ( <LexemeField.Keyword> <Whitespace> ) ? 
+    //                              'operator' <Whitespace> <Operator> 
+    //                              ( <Whitespace> ? ':' <Whitespace> ? <Identifier> ) ?
+    //                              <Endline>
+    struct LexemeField:Parsable 
+    {
+        enum Keyword:Parsable
+        {
+            case prefix 
+            case infix 
+            case postfix
+            
+            init(parsing input:inout Input) throws 
+            {
+                let start:String.Index      = input.index 
+                if      let _:Token.Prefix  = .init(parsing: &input)
+                {
+                    self = .prefix
+                }
+                else if let _:Token.Infix   = .init(parsing: &input)
+                {
+                    self = .infix
+                }
+                else if let _:Token.Postfix = .init(parsing: &input)
+                {
+                    self = .postfix
+                }
+                else 
+                {
+                    throw input.expected(Self.self, from: start)
+                }
+            }
+        }
+        
+        let keyword:Keyword
+        let lexeme:String 
+        let precedence:String?
+        
+        init(parsing input:inout Input) throws
+        {
+            let keyword:List<Keyword, Whitespace>?  =     .init(parsing: &input), 
+                _:Token.Operator                    = try .init(parsing: &input), 
+                _:Whitespace                        = try .init(parsing: &input), 
+                lexeme:Operator                     = try .init(parsing: &input), 
+                precedence:
+                List<Whitespace?, 
+                List<Token.Colon, 
+                List<Whitespace?, Identifier>>>?    =     .init(parsing: &input), 
+                _:Endline                           = try .init(parsing: &input)
+            self.keyword    = keyword?.head ?? .infix
+            self.lexeme     = lexeme.string 
+            self.precedence = precedence?.body.body.body.string 
+        }
+    }
+    
     //  FunctionIdentifiers     ::= ( <Identifier> '.' ) * '(' <Operator> ')'
     //                            | ( <Identifier> '.' ) * <Identifier>
     struct FunctionIdentifiers:Parsable 
@@ -1251,27 +1306,29 @@ extension Grammar
     }
     
     //  Field                   ::= <FrameworkField>
-    //                            | <FunctionField>
-    //                            | <SubscriptField>
-    //                            | <PropertyField>
-    //                            | <TypeField>
-    //                            | <TypealiasField>
-    //                            | <ConformanceField>
-    //                            | <ImplementationField>
-    //                            | <ConstraintsField>
     //                            | <AttributeField>
+    //                            | <ConformanceField>
+    //                            | <ConstraintsField>
     //                            | <DispatchField>
-    //                            | <RequirementField>
+    //                            | <ImplementationField>
+    //                            | <FunctionField>
+    //                            | <LexemeField>
     //                            | <ParameterField>
+    //                            | <PropertyField>
+    //                            | <RequirementField>
+    //                            | <SubscriptField>
     //                            | <TopicField>
     //                            | <TopicMembershipField>
+    //                            | <TypealiasField>
+    //                            | <TypeField>
     //                            | <ParagraphField>
     //                            | <Separator>
-    // Separator                ::= <Endline>
+    //  Separator               ::= <Endline>
     enum Field:Parsable 
     {
         case framework(FrameworkField) 
         case dependency(DependencyField) 
+        case lexeme(LexemeField) 
         
         case `subscript`(SubscriptField) 
         case function(FunctionField) 
@@ -1279,13 +1336,13 @@ extension Grammar
         case `typealias`(TypealiasField) 
         case type(TypeField) 
         
-        case implementation(ImplementationField) 
+        case attribute(AttributeField) 
         case conformance(ConformanceField) 
         case constraints(ConstraintsField) 
-        case attribute(AttributeField) 
         case dispatch(DispatchField) 
-        case requirement(RequirementField) 
+        case implementation(ImplementationField) 
         case parameter(ParameterField) 
+        case requirement(RequirementField) 
         
         case topic(TopicField)
         case topicMembership(TopicMembershipField)
@@ -1303,6 +1360,10 @@ extension Grammar
             else if let field:DependencyField = .init(parsing: &input)
             {
                 self = .dependency(field)
+            }
+            else if let field:LexemeField = .init(parsing: &input)
+            {
+                self = .lexeme(field)
             }
             else if let field:FunctionField = .init(parsing: &input)
             {

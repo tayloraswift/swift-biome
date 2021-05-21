@@ -484,6 +484,8 @@ extension Node.Page
         case module 
         case plugin 
         
+        case lexeme
+        
         case dependency 
         case importedEnumeration 
         case importedStructure 
@@ -932,7 +934,7 @@ extension Node.Page.Fields
                 }
                 dispatch = field 
             
-            case .subscript, .function, .property, .typealias, .type, .framework, .dependency:
+            case .subscript, .function, .property, .typealias, .type, .framework, .dependency, .lexeme:
                 throw Entrapta.Error.init("only one header field per doccomnent allowed")
                 
             case .separator:
@@ -1153,6 +1155,103 @@ extension Node.Page
         try self.init(path: path, 
             name:           name, 
             label:          label, 
+            signature:      signature, 
+            declaration:    declaration, 
+            fields:         fields, 
+            order:          order)
+    }
+    convenience 
+    init(_ header:Grammar.LexemeField, fields:Fields, order:Int) throws
+    {
+        guard fields.relationships == nil 
+        else 
+        {
+            throw Entrapta.Error.init("lexeme doccomment cannot have relationships fields")
+        }
+        guard fields.attributes.isEmpty 
+        else 
+        {
+            throw Entrapta.Error.init("lexeme doccomment cannot have attribute fields")
+        }
+        guard fields.conformances.isEmpty 
+        else 
+        {
+            throw Entrapta.Error.init("lexeme doccomment cannot have conformance fields", 
+                help: "write the precedence annotaton on the same line as the lexeme declaration.")
+        }
+        guard fields.constraints == nil 
+        else 
+        {
+            throw Entrapta.Error.init("lexeme doccomment cannot have a constraints field")
+        }
+        guard fields.dispatch == nil 
+        else 
+        {
+            throw Entrapta.Error.init("lexeme doccomment cannot have a dispatch field")
+        }
+        guard fields.callable.isEmpty
+        else 
+        {
+            throw Entrapta.Error.init("lexeme doccomment cannot have callable fields")
+        }
+        
+        let precedence:String?
+        switch (header.keyword, header.precedence)
+        {
+        case    (.infix, "BitwiseShiftPrecedence"?),
+                (.infix, "MultiplicationPrecedence"?),
+                (.infix, "AdditionPrecedence"?),
+                (.infix, "RangeFormationPrecedence"?),
+                (.infix, "CastingPrecedence"?),
+                (.infix, "NilCoalescingPrecedence"?),
+                (.infix, "ComparisonPrecedence"?),
+                (.infix, "LogicalConjunctionPrecedence"?),
+                (.infix, "LogicalDisjunctionPrecedence"?),
+                (.infix, "DefaultPrecedence"?),
+                (.infix, "TernaryPrecedence"?),
+                (.infix, "AssignmentPrecedence"?):
+            // okay 
+            precedence = header.precedence
+        case    (.infix, nil):
+            precedence = "DefaultPrecedence"
+        case    (.infix, let precedence?):
+            throw Entrapta.Error.init("precedence '\(precedence)' is not a valid precedence group")
+        case    (.prefix, nil), (.postfix, nil):
+            // okay
+            precedence = nil
+        case    (.prefix, _?), (.postfix, _?):
+            throw Entrapta.Error.init(
+                "lexeme doccomment can only specify a precedence group if its keyword is `infix`")
+        }
+        
+        let signature:Signature, 
+            declaration:Declaration
+        signature   = .init 
+        {
+            Signature.text("\(header.keyword)")
+            Signature.whitespace 
+            Signature.text("operator")
+            Signature.whitespace 
+            Signature.highlight(header.lexeme)
+        }
+        declaration = .init 
+        {
+            Declaration.keyword("\(header.keyword)")
+            Declaration.whitespace
+            Declaration.keyword("operator")
+            Declaration.whitespace(breakable: false)
+            Declaration.identifier(header.lexeme)
+            if let precedence:String = precedence 
+            {
+                Declaration.whitespace
+                Declaration.punctuation(":")
+                Declaration.identifier(precedence, link: .init(builtin: 
+                    ["Swift", "swift_standard_library", "operator_declarations"]))
+            }
+        }
+        try self.init(path: ["\(header.keyword) operator \(header.lexeme)"], 
+            name:           header.lexeme, 
+            label:          .lexeme, 
             signature:      signature, 
             declaration:    declaration, 
             fields:         fields, 
@@ -1449,14 +1548,21 @@ extension Node.Page
             }
             switch (header.keyword, header.identifiers.tail)
             {
-            case (.`init`, _):
+            case    (.`init`, _):
                 Declaration.keyword("init")
-            case (_, .alphanumeric("callAsFunction")):
+            case    (_, .alphanumeric("callAsFunction")):
                 Declaration.keyword("callAsFunction")
-            case (_, .alphanumeric(let basename)):
+            case    (_, .alphanumeric(let basename)):
                 Declaration.identifier(basename)
-            case (_, .operator(let string)):
-                Declaration.identifier(string)
+            case    (.prefixFunc,           .operator(let string)), 
+                    (.staticPrefixFunc,     .operator(let string)):
+                Declaration.identifier(string, link: .unresolved(path: ["prefix operator \(string)"]))
+            case    (.postfixFunc,          .operator(let string)), 
+                    (.staticPostfixFunc,    .operator(let string)):
+                Declaration.identifier(string, link: .unresolved(path: ["postfix operator \(string)"]))
+                Declaration.whitespace(breakable: false)
+            case    (_,                     .operator(let string)):
+                Declaration.identifier(string, link: .unresolved(path: ["infix operator \(string)"]))
                 Declaration.whitespace(breakable: false)
             }
             if header.failable 
@@ -1756,9 +1862,18 @@ extension Node.Page
         {
             Signature.text("\(header.keyword)")
             Signature.whitespace
-            Signature.init(joining: header.identifiers, Signature.highlight(_:))
+            // do not print fully-qualified name for associatedtypes 
+            if  case .associatedtype    = header.keyword, 
+                let last:String         = header.identifiers.last
             {
-                Signature.punctuation(".")
+                Signature.highlight(last)
+            }
+            else 
+            {
+                Signature.init(joining: header.identifiers, Signature.highlight(_:))
+                {
+                    Signature.punctuation(".")
+                }
             }
             Signature.init(generics: header.generics)
             // include conformances in signature, if extension 
@@ -1945,6 +2060,7 @@ extension Node
                 initializers        :[Page],
                 instanceMethods     :[Page],
                 instanceProperties  :[Page],
+                lexemes             :[Page],
                 operators           :[Page],
                 protocols           :[Page],
                 structures          :[Page],
@@ -1953,7 +2069,7 @@ extension Node
                 typeMethods         :[Page],
                 typeProperties      :[Page]
             )
-            topics = ([], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [])
+            topics = ([], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [])
             
             for child:Node in node.children.values 
             {
@@ -1987,6 +2103,8 @@ extension Node
                         topics.functions.append(page)
                     case .functor, .genericFunctor:
                         topics.functors.append(page)
+                    case .lexeme:
+                        topics.lexemes.append(page)
                     case .operator, .genericOperator:
                         topics.operators.append(page)
                     case .subscript, .genericSubscript:
@@ -2064,6 +2182,7 @@ extension Node
                     ("Protocols",           topics.protocols), 
                     ("Typealiases",         topics.typealiases), 
                     ("Extensions",          extensions), 
+                    ("Lexemes",             topics.lexemes), 
                 ]
                 {
                     let sorted:[Page] = unsorted
