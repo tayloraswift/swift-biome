@@ -172,45 +172,11 @@ struct Entrapta:ParsableCommand
             
             func url(_ path:[String]) -> String 
             {
-                func hex(_ value:UInt8) -> UInt8
-                {
-                    if value < 10 
-                    {
-                        return 0x30 + value 
-                    }
-                    else 
-                    {
-                        return 0x37 + value 
-                    }
-                }
-                
-                var url:[String] = [normalized.prefix] + path.map
-                {
-                    // escape url characters
-                    String.init(decoding: $0.utf8.flatMap 
-                    {
-                        (byte:UInt8) -> [UInt8] in 
-                        switch byte 
-                        {
-                        ///  [0-9]          [A-Z]        [a-z]            '-'   '_'   '~'
-                        case 0x30 ... 0x39, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x2d, 0x5f, 0x7e:
-                            return [byte] 
-                        default:
-                            return [0x25, hex(byte >> 4), hex(byte & 0x0f)]
-                        }
-                    }, as: Unicode.ASCII.self)
-                }
-                
-                if self.local 
-                {
-                    url.append("index.html")
-                }
-                return url.joined(separator: "/")
+                ([normalized.prefix] + path + (self.local ? ["index.html"] : []))
+                .joined(separator: "/")
             }
             
-            root.assignAnchors(url)
-            root.attachTopics()
-            root.resolveLinks()
+            root.postprocess(urlGenerator: url)
             
             guard   let fonts:String = File.source(path: "themes/\(self.theme)/fonts"),
                     let css:String   = File.source(path: "themes/\(self.theme)/style.css") 
@@ -219,7 +185,7 @@ struct Entrapta:ParsableCommand
                 fatalError("failed to load theme '\(self.theme)'") 
             }
             
-            for page:Node.Page in root.preorder.flatMap(\.pages)
+            for page:Node.Page in root.allPages
             {
                 guard case .local(url: _, directory: let directory) = page.anchor 
                 else 

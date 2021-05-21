@@ -261,7 +261,7 @@ extension Node
         }
     }
     private 
-    func search(space inclusions:[Page.Inclusions]) -> [(nodes:[Node], pages:[Page])]
+    func search(space inclusions:[Page.Inclusions]) -> [[(node:Node, pages:[Page])]]
     {
         let spaces:[(Page.Inclusions) -> [[String]]] = 
         [
@@ -271,8 +271,8 @@ extension Node
         return spaces.map 
         {
             // recursively gather inclusions. `seen` set guards against graph cycles 
-            var seen:(nodes:Set<ObjectIdentifier>, pages:Set<ObjectIdentifier>) = ([], [])
-            var space:(nodes:[Node], pages:[Page])                              = ([], [])
+            var seen:Set<ObjectIdentifier>          = []
+            var space:[(node:Node, pages:[Page])]  = []
             
             var frontier:[[String]] = inclusions.flatMap($0) 
             while !frontier.isEmpty
@@ -280,28 +280,23 @@ extension Node
                 let nodes:[Node]    = self.find(frontier)
                 frontier            = []
                 for node:Node in nodes 
-                    where seen.nodes.update(with: .init(node)) == nil
+                    where seen.update(with: .init(node)) == nil
                 {
-                    space.nodes.append(node)
-                    for page:Page in node.pages 
-                        where seen.pages.update(with: .init(page)) == nil 
-                    {
-                        space.pages.append(page)
-                        frontier.append(contentsOf: $0(page.inclusions))
-                    }
+                    frontier.append(contentsOf: node.pages.map(\.inclusions).flatMap($0))
+                    space.append((node, node.pages))
                 }
             }
             
             return space 
         }
     }
-    func search(space inclusions:Page.Inclusions) -> [(nodes:[Node], pages:[Page])]
+    func search(space inclusions:Page.Inclusions) -> [[(node:Node, pages:[Page])]]
     {
         self.search(space: [inclusions])
     }
-    func search(space pages:[Page]) -> [(nodes:[Node], pages:[Page])]
+    func search(space pages:[Page]) -> [[(node:Node, pages:[Page])]]
     {
-        [([self], pages)] + self.search(space: pages.map(\.inclusions))
+        [[(self, pages)]] + self.search(space: pages.map(\.inclusions))
     }
 }
 extension Node.Page 
@@ -389,22 +384,34 @@ extension Node.Page
             
             var path:ArraySlice<String>                     = path
             var candidates:[Node.Page]                      = scope 
-            var search:[(nodes:[Node], pages:[Node.Page])]  = node.search(space: scope)
+            var search:[[(node:Node, pages:[Node.Page])]]   = node.search(space: scope)
             matching:
             while let key:String = path.popFirst() 
             {    
-                for (nodes, pages):([Node], [Node.Page]) in search
+                for phase:[(node:Node, pages:[Node.Page])] in search
                 {
-                    for page:Node.Page in pages 
+                    for (node, pages):(Node, [Node.Page]) in phase 
                     {
-                        if let inclusions:Node.Page.Inclusions = page.generics[key]
+                        // we need to search through all outer scopes for generic 
+                        // parameters, *before* looking through any inheritances
+                        var next:(node:Node, pages:[Node.Page])?       = (node, pages) 
+                        while let (node, pages):(Node, [Node.Page])    = next 
                         {
-                            candidates  = [page]
-                            search      = node.search(space: inclusions)
-                            continue matching
+                            for page:Node.Page in pages 
+                            {
+                                if let inclusions:Node.Page.Inclusions = page.generics[key]
+                                {
+                                    candidates  = [page]
+                                    search      = node.search(space: inclusions)
+                                    continue matching
+                                }
+                            }
+                            
+                            next = node.parent.map{ ($0, $0.pages) }
                         }
                     }
-                    for node:Node in nodes 
+                    
+                    for (node, _):(Node, [Node.Page]) in phase 
                     {
                         if let next:Node = node.children[key]
                         {
@@ -479,7 +486,7 @@ extension Node.Page
 
 extension Node.Page 
 {
-    enum Label 
+    enum Label:Hashable
     {
         case swift 
         
@@ -530,6 +537,29 @@ extension Node.Page
     
     struct Topic 
     {
+        enum Builtin:String, Hashable, CaseIterable 
+        {
+            case dependencies       = "Dependencies"
+            case cases              = "Enumeration cases"
+            case associatedtypes    = "Associated types"
+            case initializers       = "Initializers"
+            case functors           = "Functors"
+            case subscripts         = "Subscripts"
+            case typeProperties     = "Type properties"
+            case instanceProperties = "Instance properties"
+            case typeMethods        = "Type methods"
+            case instanceMethods    = "Instance methods"
+            case functions          = "Functions"
+            case operators          = "Operators"
+            case enumerations       = "Enumerations"
+            case structures         = "Structures"
+            case classes            = "Classes"
+            case protocols          = "Protocols"
+            case typealiases        = "Typealiases"
+            case extensions         = "Extensions"
+            case lexemes            = "Lexemes"
+        }
+        
         let name:String, 
             keys:[String]
         var elements:[Unowned<Node.Page>]
@@ -1960,175 +1990,184 @@ extension Node.Page
     }
 }
 
+extension Node.Page.Label 
+{
+    var topic:Node.Page.Topic.Builtin? 
+    {
+        switch self 
+        {
+        case .enumeration, .genericEnumeration, .importedEnumeration:   return .enumerations
+        case .structure, .genericStructure, .importedStructure:         return .structures 
+        case .class, .genericClass, .importedClass:                     return .classes 
+        case .protocol, .importedProtocol:                              return .protocols
+        case .typealias, .genericTypealias, .importedTypealias:         return .typealiases
+        case .extension:                                                return nil 
+        
+        case .enumerationCase:                                          return .cases 
+        case .initializer, .genericInitializer:                         return .initializers 
+        case .staticMethod, .genericStaticMethod:                       return .typeMethods 
+        case .instanceMethod, .genericInstanceMethod:                   return .instanceMethods 
+        case .function, .genericFunction:                               return .functions 
+        case .functor, .genericFunctor:                                 return .functors 
+        case .lexeme:                                                   return .lexemes 
+        case .operator, .genericOperator:                               return .operators 
+        case .subscript, .genericSubscript:                             return .subscripts 
+        case .staticProperty:                                           return .typeProperties
+        case .instanceProperty:                                         return .instanceProperties
+        case .associatedtype:                                           return .associatedtypes
+        case .module, .plugin, .swift:                                  return nil 
+        
+        case .dependency:                                               return .dependencies 
+        }
+    }
+}
+extension Node.Page 
+{
+    func markAsBuiltinScoped()
+    {
+        self.path = ["Swift"] + self.path
+    }
+}
 extension Node 
 {
-    var preorder:[Node] 
+    var allPages:[Page] 
     {
-        [self] + self.children.values.flatMap(\.preorder)
+        self.pages + self.children.values.flatMap(\.allPages)
     }
     
-    func assignAnchors(_ url:([String]) -> String)
+    func preorder(_ body:(Node) throws -> ()) rethrows 
     {
-        for (i, page):(Int, Page) in self.pages.enumerated() 
-            where page.anchor == nil // do not overwrite pre-assigned anchors
-        {
-            let normalized:[String] = page.path.map 
-            {
-                $0.map 
-                {
-                    switch $0 
-                    {
-                    case ".":   return "dot-"
-                    case "/":   return "slash-"
-                    case "~":   return "tilde-"
-                    default :   return "\($0)"
-                    }
-                }.joined()
-            }
-            
-            let directory:[String]
-            if let last:String = normalized.last, self.pages.count > 1
-            {
-                // overloaded 
-                directory = normalized.dropLast() + ["\(i)-\(last)"]
-            }
-            else 
-            {
-                directory = normalized 
-            }
-            
-            page.anchor = .local(url: url(directory), directory: directory)
-        }
+        try body(self)
         
         for child:Node in self.children.values 
         {
-            child.assignAnchors(url)
+            try child.preorder(body)
         }
     }
-    func resolveLinks() 
+    
+    func postprocess(urlGenerator url:([String]) -> String)
     {
-        for page:Page in self.pages 
+        guard self.parent == nil
+        else 
         {
-            if case .swift = page.label 
-            {
-                continue 
-            }
+            fatalError("can only call \(#function) on root node")
+        }
+        
+        self.preorder 
+        {
+            (node:Node) in 
             
-            page.resolveLinks(at: self)
-        }
-        for child:Node in self.children.values 
-        {
-            child.resolveLinks()
-        }
-    }
-    func attachTopics() 
-    {
-        let nodes:[Node] = self.preorder 
-        let global:[String: [Page]] = 
-            [String: [(page:Page, membership:(topic:String, rank:Int, order:Int))]]
-            .init(grouping: nodes.flatMap 
-        {
-            $0.pages.flatMap 
+            // assign anchors 
+            for (i, page):(Int, Page) in node.pages.enumerated() 
+                where page.anchor == nil // do not overwrite pre-assigned anchors
             {
-                (page:Page) in 
-                page.memberships.map 
+                let normalized:[String] = page.path.map 
+                {
+                    $0.map 
+                    {
+                        switch $0 
+                        {
+                        case ".":   return "dot-"
+                        case "/":   return "slash-"
+                        case "~":   return "tilde-"
+                        default:    return "\($0)"
+                        }
+                    }.joined()
+                }
+                
+                let directory:[String]
+                if let last:String = normalized.last, node.pages.count > 1
+                {
+                    // overloaded 
+                    directory = normalized.dropLast() + ["\(i)-\(last)"]
+                }
+                else 
+                {
+                    directory = normalized 
+                }
+                // percent-encoding
+                let escaped:[String] = directory.map 
+                {
+                    func hex(_ value:UInt8) -> UInt8
+                    {
+                        if value < 10 
+                        {
+                            return 0x30 + value 
+                        }
+                        else 
+                        {
+                            return 0x37 + value 
+                        }
+                    }
+                    let bytes:[UInt8] = $0.utf8.flatMap 
+                    {
+                        (byte:UInt8) -> [UInt8] in 
+                        switch byte 
+                        {
+                        ///  [0-9]          [A-Z]        [a-z]            '-'   '_'   '~'
+                        case 0x30 ... 0x39, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x2d, 0x5f, 0x7e:
+                            return [byte] 
+                        default: 
+                            return [0x25, hex(byte >> 4), hex(byte & 0x0f)]
+                        }
+                    }
+                    return .init(decoding: bytes, as: Unicode.ASCII.self)
+                }
+                
+                page.anchor = .local(url: url(escaped), directory: directory)
+            }
+        }
+        
+        // resolve links 
+        self.preorder 
+        {
+            (node:Node) in 
+            
+            for page:Page in node.pages 
+            {
+                if case .swift = page.label 
+                {
+                    continue 
+                }
+                
+                page.resolveLinks(at: node)
+            }
+        }
+        
+        // attach topics 
+        typealias Membership = (page:Page, membership:(topic:String, rank:Int, order:Int))
+        let global:[String: [Page]] = [String: [Membership]].init(grouping: 
+            self.allPages.flatMap 
+            {
+                (page:Page) -> [Membership] in 
+                var memberships:[Membership] = page.memberships.map 
                 {
                     (page: page, membership: $0)
                 }
-            }
-        }, by: \.membership.topic)
-        .mapValues 
-        {
-            $0.sorted 
-            {
-                ($0.membership.rank, $0.membership.order, $0.page.name) 
-                <
-                ($1.membership.rank, $1.membership.order, $1.page.name) 
-            }
-            .map(\.page)
-        }
-        
-        for node:Node in nodes 
-        {
-            // builtin topics 
-            var topics: 
-            (
-                associatedtypes     :[Page],
-                cases               :[Page],
-                classes             :[Page],
-                dependencies        :[Page],
-                enumerations        :[Page],
-                functions           :[Page],
-                functors            :[Page],
-                initializers        :[Page],
-                instanceMethods     :[Page],
-                instanceProperties  :[Page],
-                lexemes             :[Page],
-                operators           :[Page],
-                protocols           :[Page],
-                structures          :[Page],
-                subscripts          :[Page],
-                typealiases         :[Page],
-                typeMethods         :[Page],
-                typeProperties      :[Page]
-            )
-            topics = ([], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [])
-            
-            for child:Node in node.children.values 
-            {
-                for page:Page in child.pages
+                // extensions are always global, and only appear in the root page 
+                if case .extension = page.label 
                 {
-                    switch page.label 
-                    {
-                    case .enumeration, .genericEnumeration, .importedEnumeration:
-                        topics.enumerations.append(page)
-                    case .structure, .genericStructure, .importedStructure:
-                        topics.structures.append(page)
-                    case .class, .genericClass, .importedClass:
-                        topics.classes.append(page)
-                    case .protocol, .importedProtocol:
-                        topics.protocols.append(page)
-                    case .typealias, .genericTypealias, .importedTypealias:
-                        topics.typealiases.append(page)
-                    case .extension:
-                        // extensions go in root node 
-                        break 
-                    
-                    case .enumerationCase:
-                        topics.cases.append(page)
-                    case .initializer, .genericInitializer:
-                        topics.initializers.append(page)
-                    case .staticMethod, .genericStaticMethod:
-                        topics.typeMethods.append(page)
-                    case .instanceMethod, .genericInstanceMethod:
-                        topics.instanceMethods.append(page)
-                    case .function, .genericFunction:
-                        topics.functions.append(page)
-                    case .functor, .genericFunctor:
-                        topics.functors.append(page)
-                    case .lexeme:
-                        topics.lexemes.append(page)
-                    case .operator, .genericOperator:
-                        topics.operators.append(page)
-                    case .subscript, .genericSubscript:
-                        topics.subscripts.append(page)
-                    case .staticProperty:
-                        topics.typeProperties.append(page)
-                    case .instanceProperty:
-                        topics.instanceProperties.append(page)
-                    case .associatedtype:
-                        topics.associatedtypes.append(page)
-                    case .module, .plugin, .swift:
-                        break
-                    
-                    case .dependency:
-                        topics.dependencies.append(page)
-                    }
+                    memberships.append((page, ("$extensions", page.priority.rank, page.priority.order)))
                 }
-            }
-            
-            for page:Page in node.pages
+                return memberships
+            }, by: \.membership.topic)
+            .mapValues 
             {
+                $0.sorted 
+                {
+                    ($0.membership.rank, $0.membership.order, $0.page.name) 
+                    <
+                    ($1.membership.rank, $1.membership.order, $1.page.name) 
+                }
+                .map(\.page)
+            }
+        self.preorder 
+        {
+            (node:Node) in 
+            
+            for page:Page in node.pages 
+            {
+                // keyed topics 
                 var seen:Set<ObjectIdentifier> = []
                 for i:Int in page.topics.indices 
                 {
@@ -2144,56 +2183,30 @@ extension Node
                         seen.insert(.init(element))
                     }
                 }
-                // recursively gather extensions 
-                let extensions:[Page]
-                switch page.label 
+                // builtin topics 
+                var builtins:[Page.Topic.Builtin: [Page]] 
+                if node.parent == nil 
                 {
-                case .module, .plugin: 
-                    extensions = nodes.flatMap 
+                    builtins = [.extensions: global["$extensions", default: []]]
+                }
+                else 
+                {
+                    builtins = [:]
+                }
+                for page:Page in node.children.values.flatMap(\.pages)
+                    where !seen.contains(.init(page))
+                {
+                    guard let topic:Page.Topic.Builtin = page.label.topic 
+                    else 
                     {
-                        $0.pages.compactMap 
-                        {
-                            guard case .extension = $0.label
-                            else 
-                            {
-                                return nil
-                            }
-                            return $0
-                        }
+                        continue 
                     }
-                default:
-                    extensions = []
+                    builtins[topic, default: []].append(page)
                 }
                 
-                for (builtin, unsorted):(String, [Page]) in 
-                [
-                    ("Dependencies",        topics.dependencies), 
-                    ("Enumeration cases",   topics.cases), 
-                    ("Associated types",    topics.associatedtypes), 
-                    ("Initializers",        topics.initializers), 
-                    ("Functors",            topics.functors), 
-                    ("Subscripts",          topics.subscripts), 
-                    ("Type properties",     topics.typeProperties), 
-                    ("Instance properties", topics.instanceProperties), 
-                    ("Type methods",        topics.typeMethods), 
-                    ("Instance methods",    topics.instanceMethods), 
-                    ("Functions",           topics.functions), 
-                    ("Operators",           topics.operators), 
-                    ("Enumerations",        topics.enumerations), 
-                    ("Structures",          topics.structures), 
-                    ("Classes",             topics.classes), 
-                    ("Protocols",           topics.protocols), 
-                    ("Typealiases",         topics.typealiases), 
-                    ("Extensions",          extensions), 
-                    ("Lexemes",             topics.lexemes), 
-                ]
+                for topic:Page.Topic.Builtin in Page.Topic.Builtin.allCases 
                 {
-                    let sorted:[Page] = unsorted
-                    .filter 
-                    {
-                        !seen.contains(.init($0))
-                    }
-                    .sorted
+                    let sorted:[Page] = builtins[topic, default: []].sorted
                     {
                         ($0.priority.rank, $0.priority.order, $0.name) 
                         <
@@ -2206,8 +2219,8 @@ extension Node
                         continue 
                     }
                     
-                    page.topics.append(
-                        .init(name: builtin, elements: sorted.map(Unowned<Page>.init(target:))))
+                    page.topics.append(.init(name: topic.rawValue, 
+                        elements: sorted.map(Unowned<Page>.init(target:))))
                 }
                 
                 // move 'see also' to the end 
@@ -2221,13 +2234,6 @@ extension Node
     }
 }
 
-extension Node.Page 
-{
-    func markAsBuiltinScoped()
-    {
-        self.path = ["Swift"] + self.path
-    }
-}
 extension Node 
 {
     func insert(_ page:Page)
