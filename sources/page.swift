@@ -71,7 +71,9 @@ class Node
             }
         }
         
-        let path:[String] 
+        // needs to be settable, so implicit `Swift` prefixes can be added
+        private(set)
+        var path:[String] 
         var anchor:Anchor?
         
         let inclusions:Inclusions, 
@@ -2218,11 +2220,25 @@ extension Node
     }
 }
 
+extension Node.Page 
+{
+    func markAsBuiltinScoped()
+    {
+        self.path = ["Swift"] + self.path
+    }
+}
 extension Node 
 {
     func insert(_ page:Page)
     {
         assert(self.parent == nil)
+        // check if the first path component matches a standard library symbol, to avoid 
+        // generating extraneous nodes (which will mess up link resolution later)
+        if  let first:String = page.path.first, 
+                first != "Swift", !self.find([["Swift", first]]).isEmpty
+        {
+            page.markAsBuiltinScoped()
+        }
         self.insert(page, level: 0)
     }
     private 
