@@ -1980,6 +1980,7 @@ extension Node
                     {
                     case ".":   return "dot-"
                     case "/":   return "slash-"
+                    case "~":   return "tilde-"
                     default :   return "\($0)"
                     }
                 }.joined()
