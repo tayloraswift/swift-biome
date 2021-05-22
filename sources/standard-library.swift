@@ -171,13 +171,27 @@ extension Node
             default:
                 fatalError("unreachable")
             }
+            let label:Node.Page.Label
+            switch symbol.kind.identifier
+            {
+            case    "swift.enum",
+                    "swift.struct",
+                    "swift.class",
+                    "swift.protocol":
+                label = .swift(hasSelf: true)
+            case    "swift.typealias", 
+                    "swift.associatedtype":
+                label = .swift(hasSelf: false)
+            default:
+                fatalError("unreachable")
+            }
             
             guard   let fields:Node.Page.Fields = try? .init(fields), 
                     let page:Node.Page          = try? .init(
                         anchor:         .external(path: anchor),
                         path:           path, 
                         name:           "$builtin", 
-                        label:          .swift, 
+                        label:          label, 
                         signature:      .empty, 
                         declaration:    .empty, 
                         generics:       generics, 
@@ -223,7 +237,7 @@ extension Node
                                 path: ["Swift", "swift_standard_library", "operator_declarations"]),
                             path:           ["\(fix) operator \(lexeme)"], 
                             name:           "$builtin", 
-                            label:          .swift, 
+                            label:          .swift(hasSelf: false), 
                             signature:      .empty, 
                             declaration:    .empty, 
                             generics:       [], 
