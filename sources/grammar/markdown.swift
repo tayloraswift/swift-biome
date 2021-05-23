@@ -42,7 +42,10 @@ enum Markdown
     //  ParagraphSuperscript    ::= '^' [^\^] * '^'
     //  ParagraphInlineType     ::= '[[`' <Type> '`]]'
     //  ParagraphSymbolLink     ::= '[' <SymbolPath> <SymbolPath> * ( <Identifier> '`' ) * ']'
-    //  SymbolPath              ::= '`' ( '(' <Identifiers> ').' ) ? <SymbolTail> '`'
+    //  SymbolPath              ::= '`' ( '(' <Identifiers> ').' ) ? <SymbolTail> 
+    ///                             ( <Whitespace> ? '#' <Whitespace> ? 
+    ///                                 '(' <Whitespace> ? <TopicKey> <Whitespace> ? ')' ) ?
+    ///                             '`'
     //  SymbolTail              ::= <FunctionIdentifiers> ? '(' ( <FunctionLabel> ':' ) * ')' 
     //                            | <Identifiers>         ? '[' ( <FunctionLabel> ':' ) * ']'
     //                            | <Identifiers>
@@ -203,7 +206,8 @@ enum Markdown
             struct Path:Grammar.Parsable
             {
                 let prefix:[String], 
-                    path:[String]
+                    path:[String], 
+                    hint:String?
                     
                 init(parsing input:inout Grammar.Input) throws 
                 {
@@ -240,6 +244,24 @@ enum Markdown
                     else 
                     {
                         throw input.expected(Self.self, from: start)
+                    }
+                    
+                    // overload disambiguation 
+                    if  let hint:
+                            List<Grammar.Whitespace?, 
+                            List<Grammar.Token.Hashtag, 
+                            List<Grammar.Whitespace?, 
+                            List<Grammar.Token.Parenthesis.Left, 
+                            List<Grammar.Whitespace?, 
+                            List<[Grammar.Token.Alphanumeric], 
+                            List<Grammar.Whitespace?, 
+                                Grammar.Token.Parenthesis.Right>>>>>>> = .init(parsing: &input) 
+                    {
+                        self.hint = .init(hint.body.body.body.body.body.head.map(\.character))
+                    }
+                    else 
+                    {
+                        self.hint = nil
                     }
                     
                     let _:Backtick  = try .init(parsing: &input)

@@ -331,6 +331,11 @@ extension Grammar.Token
         static 
         let token:String = "..."
     } 
+    struct As:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "as"
+    } 
     
     struct Import:Grammar.Parsable.Terminal
     {

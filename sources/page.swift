@@ -75,7 +75,7 @@ class Node
         
         let inclusions:Inclusions, 
             generics:[String: Inclusions],
-            context:[[String]: Inclusions] // extra type constraints
+            context:[[String]: Inclusions] // extra type constraints 
         
         let label:Label 
         let name:String // name is not always last component of path 
@@ -105,8 +105,8 @@ class Node
             label:Label, 
             signature:Signature, 
             declaration:Declaration, 
-            generics:[String]  = [],
-            aliases:[[String]] = [],
+            generics:[String]   = [],
+            aliases:[[String]]  = [],
             fields:Fields, 
             order:Int)
             throws 
@@ -330,7 +330,7 @@ extension Node
 }
 extension Node.Page 
 {
-    func resolve(_ symbol:[String], in node:Node, 
+    func resolve(_ symbol:[String], in node:Node, hint:String? = nil, 
         allowingSelfReferencingLinks allowSelf:Bool = true,
         where predicate:(Node.Page) -> Bool         = 
         {
@@ -464,28 +464,85 @@ extension Node.Page
                 continue higher
             }
             
+            // only keep candidates that satisfy `predicate`
             candidates.removeAll{ !predicate($0) }
             
-            guard   let page:Node.Page  = candidates.first, 
-                    let anchor:Anchor   = page.anchor
+            let resolved:Node.Page 
+            if let candidate:Node.Page = candidates.first 
+            {
+                switch (candidates.count, hint) 
+                {
+                case (1,            nil): 
+                    // unambiguous 
+                    resolved = candidate 
+                case (1,            let hint?):
+                    // unambiguous, extraneous hint 
+                    resolved = candidate 
+                    print(
+                        """
+                        warning: resolved link for path '\(candidate.path.joined(separator: "."))' \
+                        is already unique, hint tag '#(\(hint))' is unnecessary.
+                        """)
+                case (let count,    let hint?): 
+                    // ambiguous, use the hint to disambiguate
+                    candidates.removeAll 
+                    {
+                        for (topic, _, _):(String, Int, Int) in $0.memberships 
+                            where topic == hint 
+                        {
+                            return false
+                        }
+                        return true 
+                    }
+                    if let candidate:Node.Page = candidates.first 
+                    {
+                        if candidates.count > 1 
+                        {
+                            // more than one of the hints matched 
+                            print(
+                                """
+                                warning: resolved link for path '\(candidate.path.joined(separator: "."))' \
+                                is ambigous, and \(candidates.count) of \(count) possible overloads \
+                                match the provided hint '#(\(hint))'.
+                                """)
+                        }
+                        resolved = candidate
+                    }
+                    else 
+                    {
+                        // none of the hints matched 
+                        print(
+                            """
+                            warning: resolved link for path '\(candidate.path.joined(separator: "."))' \
+                            is ambigous, but none of the \(count) candidates match the provided \
+                            hint '#(\(hint))'.
+                            """)
+                        resolved = candidate
+                    }
+                    
+                case (let count,    nil): 
+                    // ambiguous 
+                    resolved = candidate
+                    print(
+                        """
+                        warning: resolved link for path '\(candidate.path.joined(separator: "."))' \
+                        is ambigous, with \(count) possible overloads.
+                        note: use a '#(_:)' hint suffix to disambiguate using a topic membership key.
+                        """)
+                }
+            }
             else 
             {
                 continue higher 
             }
             
-            if candidates.count > 1 
+            guard let anchor:Anchor = resolved.anchor
+            else 
             {
-                print(
-                    """
-                    warning: resolved link is ambigous, with \(candidates.count) candidates \
-                    \(candidates.map
-                    {
-                        $0.path.joined(separator: ".")
-                    })
-                    """)
+                fatalError("page '\(resolved.path.joined(separator: "."))' has no anchor")
             }
             
-            guard allowSelf || page !== self 
+            guard allowSelf || resolved !== self 
             else 
             {
                 return nil
@@ -494,7 +551,7 @@ extension Node.Page
             switch anchor 
             {
             case .local(url: let url, directory: _):
-                switch page.label 
+                switch resolved.label 
                 {
                 case    .dependency, 
                         .importedEnumeration, 
@@ -513,7 +570,7 @@ extension Node.Page
         // appended to the path 
         if symbol.first != "Swift"
         {
-            return self.resolve(["Swift"] + symbol, in: node, 
+            return self.resolve(["Swift"] + symbol, in: node, hint: hint, 
                 allowingSelfReferencingLinks: allowSelf, where: predicate)
         }
         else 
@@ -790,21 +847,26 @@ extension Node.Page
                     Declaration.init(joining: link.paths)
                     {
                         (sublink:Markdown.Element.SymbolLink.Path) in 
-                        Declaration.init(joining: Link.scan(sublink.path)) 
+                        // only apply the tag hint to the last component of the sublink path
+                        let components:[(String?, String)] = .init(zip(
+                            repeatElement(nil, count: sublink.path.count - 1) + [sublink.hint],
+                            sublink.path))
+                        return Declaration.init(joining: Link.scan(\.1, in: components)) 
                         {
                             switch $0.link 
                             {
                             case .unresolved(path: let path):
-                                if let link:Link = self.resolve(sublink.prefix + path, in: node)
+                                if let link:Link = self.resolve(sublink.prefix + path, in: node, 
+                                    hint: $0.element.0)
                                 {
-                                    Declaration.identifier($0.element, link: link)
+                                    Declaration.identifier($0.element.1, link: link)
                                 }
                                 else 
                                 {
-                                    Declaration.identifier($0.element)
+                                    Declaration.identifier($0.element.1)
                                 }
                             case let link:
-                                Declaration.identifier($0.element, link: link)
+                                Declaration.identifier($0.element.1, link: link)
                             }
                         }
                         separator: 

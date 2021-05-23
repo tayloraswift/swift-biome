@@ -219,7 +219,10 @@ ParagraphSubscript      ::= '~' [^~] * '~'
 ParagraphSuperscript    ::= '^' [^\^] * '^'
 ParagraphInlineType     ::= '[[`' <Type> '`]]'
 ParagraphSymbolLink     ::= '[' <SymbolPath> <SymbolPath> * ( <Identifier> '`' ) * ']'
-SymbolPath              ::= '`' ( '(' <Identifiers> ').' ) ? <SymbolTail> '`'
+SymbolPath              ::= '`' ( '(' <Identifiers> ').' ) ? <SymbolTail> 
+                            ( <Whitespace> ? '#' <Whitespace> ? 
+                                '(' <Whitespace> ? <TopicKey> <Whitespace> ? ')' ) ?
+                            '`'
 SymbolTail              ::= <FunctionIdentifiers> ? '(' ( <FunctionLabel> ':' ) * ')' 
                           | <Identifiers>         ? '[' ( <FunctionLabel> ':' ) * ']'
                           | <Identifiers>

@@ -530,7 +530,7 @@ extension Node.Page
         
         switch (header.keyword, header.identifiers.prefix)
         {
-        case    (.func, []): // okay 
+        case    (.func, []), (.prefixFunc, []), (.postfixFunc, []): // okay 
             break 
         case    (_,     []):
             throw Entrapta.Error.init(
