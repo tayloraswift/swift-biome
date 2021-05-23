@@ -444,11 +444,6 @@ extension Node.Page
         {
             throw Entrapta.Error.init("subscript doccomment cannot have conformance fields")
         }
-        guard fields.constraints == nil 
-        else 
-        {
-            throw Entrapta.Error.init("constraints field in a subscript doccomment is not supported yet")
-        }
         guard fields.callable.domain.count == header.labels.count
         else 
         {
@@ -488,6 +483,11 @@ extension Node.Page
                 case ("_",       let inner):    return [       inner]
                 case (let outer, let inner):    return [outer, inner]
                 }
+            }
+            if let clauses:[Grammar.WhereClause] = fields.constraints?.clauses 
+            {
+                Declaration.whitespace
+                Declaration.init(constraints: clauses) 
             }
             if let accessors:Grammar.Accessors = header.accessors 
             {
