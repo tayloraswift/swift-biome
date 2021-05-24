@@ -738,11 +738,11 @@ extension Node.Page
                     }
                     if implementation.conformances.count > 1 
                     {
-                        sentences.append("Implements requirements in \(prose)")
+                        sentences.append("Implements requirements in \(prose).")
                     }
                     else 
                     {
-                        sentences.append("Implements requirement in \(prose)")
+                        sentences.append("Implements requirement in \(prose).")
                     }
                 }
                 if !implementation.conditions.isEmpty 
@@ -764,7 +764,7 @@ extension Node.Page
             sentences.append("Conforms to \(prose) when \(Self.prose(conditions: conformance.conditions)).")
         }
         
-        return .init(parsing: sentences.joined(separator: ".\\n"))
+        return .init(parsing: sentences.joined(separator: "\\n"))
     }
     
     private static 
