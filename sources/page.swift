@@ -1135,7 +1135,8 @@ extension Node
                         global[$0, default: []] 
                     }
                     
-                    for element:Page in elements 
+                    // do not include this page itself (useful for "see also" groups)
+                    for element:Page in elements where element !== page 
                     {
                         page.topics[i].elements.append(.init(target: element))
                         seen.insert(.init(element))
