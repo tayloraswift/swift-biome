@@ -1,14 +1,7 @@
 enum Link:Hashable
-{
-    enum Style
-    {
-        case local 
-        case imported 
-        case builtin 
-    }
-    
+{    
     case unresolved(path:[String])
-    case resolved(url:String, style:Style)
+    case resolved(url:String, module:Module)
     
     static 
     let optional:Self   = .init(builtin: ["Swift", "Optional"]),
@@ -18,14 +11,14 @@ enum Link:Hashable
     static 
     let metatype:Self   = .resolved(
         url:   "https://docs.swift.org/swift-book/ReferenceManual/Types.html#ID455", 
-        style: .builtin)
+        module: .swift)
     
     init<C>(builtin path:C) 
         where C:Collection, C.Element == String
     {
         self = .resolved(url: 
             "https://developer.apple.com/documentation/\(path.map{ $0.lowercased() }.joined(separator: "/"))", 
-            style: .builtin)
+            module: .swift)
     } 
     
     static 
@@ -68,17 +61,6 @@ enum Link:Hashable
             return .init(trimmed)
         }
     }
-    /* 
-    
-    static 
-    func appleify<C>(_ path:C) -> Self 
-        where C:Collection, C.Element == String
-    {
-        .resolved(url: 
-            "https://developer.apple.com/documentation/\(path.map{ $0.lowercased() }.joined(separator: "/"))", 
-            style: .apple)
-    } 
-    */
 }
 
 @resultBuilder

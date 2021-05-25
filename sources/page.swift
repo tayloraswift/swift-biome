@@ -13,6 +13,13 @@ extension Entrapta
     }
 }
 
+enum Module:Hashable
+{
+    case local 
+    case swift 
+    case imported
+}
+
 struct Unowned<Target> where Target:AnyObject
 {
     unowned 
@@ -82,7 +89,7 @@ class Node
         // will be filled in during postprocessing
         var downstream:[(page:Unowned<Page>, river:River, note:[Markdown.Element])] 
         
-        let label:Label 
+        let kind:Kind 
         let name:String // name is not always last component of path 
         var signature:Signature
         var declaration:Declaration
@@ -107,7 +114,7 @@ class Node
         
         init(anchor:Anchor? = nil, path:[String], 
             name:String, // not necessarily last `path` component
-            label:Label, 
+            kind:Kind, 
             signature:Signature, 
             declaration:Declaration, 
             generics:[String]   = [],
@@ -152,7 +159,7 @@ class Node
                 $0.conditions.isEmpty ? $0.conformances : []
             })
             // add what we know about the typealias/associatedtype 
-            switch (label, path.last) 
+            switch (kind, path.last) 
             {
             case (.associatedtype, let subject?), (.typealias, let subject?):
                 inclusions.append(predicates: constraints[[subject], default: []]) 
@@ -225,7 +232,7 @@ class Node
             self.priority       = priority ?? (0, .max)
             
             
-            self.label          = label
+            self.kind           = kind
             self.name           = name 
             self.signature      = signature 
             self.declaration    = declaration 
@@ -244,7 +251,7 @@ class Node
             self.breadcrumb         = path.last ?? "Documentation"
             
             // include constraints in relationships for extension fields
-            if case .extension  = label 
+            if case .extension  = kind 
             {
                 self.discussion.relationships   = 
                     Self.prose(relationships:  fields.constraints)
@@ -353,7 +360,7 @@ extension Node.Page
         where predicate:(Node.Page) -> Bool         = 
         {
             // ignore extensions by default 
-            if case .extension = $0.label 
+            if case .extension = $0.kind 
             {
                 return false 
             }
@@ -379,24 +386,7 @@ extension Node.Page
         {
             while true  
             {
-                scope = scope.filter 
-                {
-                    switch $0.label 
-                    {
-                    case    .importedEnumeration, .importedStructure, .importedClass, .importedProtocol,
-                            .enumeration, .genericEnumeration,
-                            .structure, .genericStructure,
-                            .class, .genericClass,
-                            .protocol, 
-                            .swift(hasSelf: true): 
-                        // `Self` refers to this page 
-                        return true 
-                    default: 
-                        // `Self` refers to an ancestor node 
-                        return false 
-                    }
-                }
-                
+                scope = scope.filter(\.kind.hasSelf)
                 guard scope.isEmpty 
                 else 
                 {
@@ -569,16 +559,7 @@ extension Node.Page
             switch anchor 
             {
             case .local(url: let url, directory: _):
-                switch resolved.label 
-                {
-                case    .dependency, 
-                        .importedEnumeration, 
-                        .importedStructure, 
-                        .importedClass, 
-                        .importedProtocol, 
-                        .importedTypealias: return .resolved(url: url, style: .imported)
-                default:                    return .resolved(url: url, style: .local)
-                }
+                return .resolved(url: url, module: resolved.kind.module)
             case .external(path: let path):
                 return .init(builtin: path)
             }
@@ -601,53 +582,119 @@ extension Node.Page
 
 extension Node.Page 
 {
-    enum Label:Hashable
-    {
-        case swift(hasSelf:Bool) 
-        
+    enum Kind:Hashable
+    {    
         case module 
         case plugin 
         
-        case lexeme
-        
         case dependency 
-        case importedEnumeration 
-        case importedStructure 
-        case importedClass 
-        case importedProtocol 
-        case importedTypealias
         
-        case enumeration 
-        case genericEnumeration 
-        case structure 
-        case genericStructure 
-        case `class`
-        case genericClass 
-        case `protocol`
-        case `typealias`
-        case genericTypealias
+        case lexeme             (module:Module)
         
+        case `enum`             (module:Module, generic:Bool)
+        case `struct`           (module:Module, generic:Bool)
+        case `class`            (module:Module, generic:Bool)
+        case `protocol`         (module:Module              )
+        case `typealias`        (module:Module, generic:Bool)
+        
+        case `associatedtype`   (module:Module)
         case `extension`
         
-        case enumerationCase
-        case functor 
-        case function 
-        case `operator`
-        case initializer
-        case staticMethod 
-        case instanceMethod 
-        case genericFunctor
-        case genericFunction
-        case genericOperator
-        case genericInitializer
-        case genericStaticMethod 
-        case genericInstanceMethod 
+        case `case`
+        case functor            (generic:Bool)
+        case function           (generic:Bool)
+        case `operator`         (generic:Bool)
+        case `subscript`        (generic:Bool) 
+        case initializer        (generic:Bool)
+        case instanceMethod     (generic:Bool)
+        case staticMethod       (generic:Bool)
         
         case staticProperty
         case instanceProperty
-        case `associatedtype`
-        case `subscript` 
-        case genericSubscript
+        
+        var module:Module 
+        {
+            switch self 
+            {
+            case    .lexeme             (module: let module            ),
+                    .enum               (module: let module, generic: _),
+                    .struct             (module: let module, generic: _),
+                    .class              (module: let module, generic: _),
+                    .protocol           (module: let module            ),
+                    .typealias          (module: let module, generic: _),
+                    .associatedtype     (module: let module            ):
+                return module 
+            case    .module, .plugin, .dependency,
+                    .extension, .case, .functor, .function, .operator, .subscript, 
+                    .initializer, .instanceMethod, .staticMethod, 
+                    .staticProperty, .instanceProperty:
+                return .local
+            }
+        }
+        var hasSelf:Bool 
+        {
+            switch self
+            {
+            // `Self` refers to this page 
+            case .enum, .struct, .class, .protocol: return true 
+            // `Self` refers to an ancestor node 
+            default:                                return false 
+            }
+        }
+        
+        var title:String 
+        {
+            switch self 
+            {
+            // should exist, but is currently unreachable
+            case .lexeme    (module: .imported):                    return "Imported Lexeme"
+            case .lexeme    (module: _        ):                    return "Lexeme"
+            
+            case .enum      (module: .imported, generic:     _):    return "Imported Enumeration"
+            case .struct    (module: .imported, generic:     _):    return "Imported Structure"
+            case .class     (module: .imported, generic:     _):    return "Imported Class"
+            case .protocol  (module: .imported                ):    return "Imported Protocol"
+            case .typealias (module: .imported, generic:     _):    return "Imported Typealias"
+            
+            case .enum      (module: _        , generic: false):    return "Enumeration"
+            case .struct    (module: _        , generic: false):    return "Structure"
+            case .class     (module: _        , generic: false):    return "Class"
+            case .protocol  (module: _                        ):    return "Protocol"
+            case .typealias (module: _        , generic: false):    return "Typealias"
+            
+            case .enum      (module: _        , generic: true ):    return "Generic Enumeration"
+            case .struct    (module: _        , generic: true ):    return "Generic Structure"
+            case .class     (module: _        , generic: true ):    return "Generic Class"
+            case .typealias (module: _        , generic: true ):    return "Generic Typealias"
+            
+            // no such thing as an imported associatedtype
+            case .associatedtype:                                   return "Associatedtype"
+            case .plugin:                                           return "Package Plugin"
+            case .case:                                             return "Enumeration Case"
+            case .instanceProperty:                                 return "Instance Property"
+            case .staticProperty:                                   return "Static Property"
+            
+            case .dependency:                                       return "Dependency"
+            case .extension:                                        return "Extension"
+            case .module:                                           return "Module"
+            
+            case .function                     (generic: false):    return "Function"
+            case .functor                      (generic: false):    return "Functor"
+            case .initializer                  (generic: false):    return "Initializer"
+            case .instanceMethod               (generic: false):    return "Instance Method"
+            case .operator                     (generic: false):    return "Operator"
+            case .staticMethod                 (generic: false):    return "Static Method"
+            case .subscript                    (generic: false):    return "Subscript"
+            
+            case .function                     (generic: true ):    return "Generic Function"
+            case .functor                      (generic: true ):    return "Generic Functor"
+            case .initializer                  (generic: true ):    return "Generic Initializer"
+            case .instanceMethod               (generic: true ):    return "Generic Instance Method"
+            case .operator                     (generic: true ):    return "Generic Operator"
+            case .staticMethod                 (generic: true ):    return "Generic Static Method"
+            case .subscript                    (generic: true ):    return "Generic Subscript"
+            }
+        }
     }
     
     enum River:String, CaseIterable
@@ -656,6 +703,7 @@ extension Node.Page
         case conformer      = "Conforming types"
         case subclass       = "Subclasses"
     }
+    
     struct Topic 
     {
         enum Builtin:String, Hashable, CaseIterable 
@@ -965,40 +1013,45 @@ extension Node.Page
                 {
                     fatalError("could not find page for root breadcrumb")
                 }
-                return ("Documentation", .resolved(url: url, style: .local))
+                return ("Documentation", .resolved(url: url, module: .local))
             }
         }
     }
 }
 
-extension Node.Page.Label 
+extension Node.Page.Kind 
 {
     var topic:Node.Page.Topic.Builtin? 
     {
+        if case .swift = self.module
+        {
+            return nil 
+        }
+        
         switch self 
         {
-        case .enumeration, .genericEnumeration, .importedEnumeration:   return .enumerations
-        case .structure, .genericStructure, .importedStructure:         return .structures 
-        case .class, .genericClass, .importedClass:                     return .classes 
-        case .protocol, .importedProtocol:                              return .protocols
-        case .typealias, .genericTypealias, .importedTypealias:         return .typealiases
-        case .extension:                                                return nil 
+        case .enum:             return .enumerations
+        case .struct:           return .structures 
+        case .class:            return .classes 
+        case .protocol:         return .protocols
+        case .typealias:        return .typealiases
+        case .extension:        return nil 
         
-        case .enumerationCase:                                          return .cases 
-        case .initializer, .genericInitializer:                         return .initializers 
-        case .staticMethod, .genericStaticMethod:                       return .typeMethods 
-        case .instanceMethod, .genericInstanceMethod:                   return .instanceMethods 
-        case .function, .genericFunction:                               return .functions 
-        case .functor, .genericFunctor:                                 return .functors 
-        case .lexeme:                                                   return .lexemes 
-        case .operator, .genericOperator:                               return .operators 
-        case .subscript, .genericSubscript:                             return .subscripts 
-        case .staticProperty:                                           return .typeProperties
-        case .instanceProperty:                                         return .instanceProperties
-        case .associatedtype:                                           return .associatedtypes
-        case .module, .plugin, .swift:                                  return nil 
+        case .case:             return .cases 
+        case .initializer:      return .initializers 
+        case .staticMethod:     return .typeMethods 
+        case .instanceMethod:   return .instanceMethods 
+        case .function:         return .functions 
+        case .functor:          return .functors 
+        case .lexeme:           return .lexemes 
+        case .operator:         return .operators 
+        case .subscript:        return .subscripts 
+        case .staticProperty:   return .typeProperties
+        case .instanceProperty: return .instanceProperties
+        case .associatedtype:   return .associatedtypes
+        case .module, .plugin:  return nil 
         
-        case .dependency:                                               return .dependencies 
+        case .dependency:       return .dependencies 
         }
     }
 }
@@ -1106,8 +1159,7 @@ extension Node
             
             for page:Page in node.pages 
             {
-                for (index, (path, conditions)):(Int, (path:[String], conditions:[Grammar.WhereClause])) in 
-                    zip(page.upstream.indices, page.upstream)
+                for (path, conditions):([String], [Grammar.WhereClause]) in page.upstream
                 {
                     var description:String 
                     {
@@ -1121,7 +1173,7 @@ extension Node
                         // because that method does too much)
                         let filtered:[Page] = node.pages.filter 
                         {
-                            if case .extension = $0.label 
+                            if case .extension = $0.kind 
                             {
                                 return false 
                             }
@@ -1148,37 +1200,31 @@ extension Node
                     {
                         fatalError("could not find upstream node for \(description)")
                     }
-
-                    // validate upstream target is a conformable type 
-                    let river:Page.River
-                    switch upstream.label
+                    
+                    // no point in registering conformances to builtin protocols/classes
+                    if case .swift = upstream.kind.module
                     {
-                    case .swift: 
-                        continue // no point in registering conformances to builtin protocols/classes
-                    case .class, .genericClass, .importedClass:
-                        // validate downstream target makes sense 
+                        continue 
+                    }
+                    // make sure the relationship makes sense 
+                    let river:Page.River
+                    switch (page.kind, upstream.kind)
+                    {
+                    case (.class, .class):
                         if !conditions.isEmpty 
                         {
                             print("warning: \(description) is a class, which should not have conditions")
                         }
-                        switch page.label 
-                        {
-                        case .protocol, .importedProtocol:
-                            print("warning: \(description) is a class, which should not be refined by a protocol")
-                        default:
-                            break 
-                        }
                         river = .subclass 
-                    case .protocol, .importedProtocol:
-                        switch page.label 
-                        {
-                        case .protocol, .importedProtocol:
-                            river = .refinement 
-                        default: 
-                            river = .conformer
-                        }
-                    default:
-                        print("warning: only protocols and classes can be conformed to")
+                    case (_     , .class):
+                        print("warning: \(description) is a class, which cannot be inherited by a \(page.kind)")
+                        continue 
+                    case (.protocol, .protocol):
+                        river = .refinement 
+                    case (.enum, .protocol), (.struct, .protocol), (.class, .protocol), (.extension, .protocol):
+                        river = .conformer
+                    case (let downstream, let upstream):
+                        print("warning: \(description) is a \(upstream), which cannot be inherited by a \(downstream)")
                         continue 
                     }
                     
@@ -1205,7 +1251,7 @@ extension Node
             
             for page:Page in node.pages 
             {
-                if case .swift = page.label 
+                if case .swift = page.kind.module 
                 {
                     continue 
                 }
@@ -1233,7 +1279,7 @@ extension Node
                     (page: page, membership: $0)
                 }
                 // extensions are always global, and only appear in the root page 
-                if case .extension = page.label 
+                if case .extension = page.kind 
                 {
                     memberships.append((page, ("$extensions", page.priority.rank, page.priority.order)))
                 }
@@ -1285,7 +1331,7 @@ extension Node
                 for page:Page in node.children.values.flatMap(\.pages)
                     where !seen.contains(.init(page))
                 {
-                    guard let topic:Page.Topic.Builtin = page.label.topic 
+                    guard let topic:Page.Topic.Builtin = page.kind.topic 
                     else 
                     {
                         continue 

@@ -156,32 +156,29 @@ extension Node
             .map(\.name)
             
             let path:[String] = ["Swift"] + symbol.path
-            let anchor:[String]
+            let anchor:[String], 
+                kind:Node.Page.Kind
             switch symbol.kind.identifier
             {
-            case    "swift.enum",
-                    "swift.struct",
-                    "swift.class",
-                    "swift.protocol",
-                    "swift.typealias":
+            case "swift.enum":
+                kind    = .enum             (module: .swift, generic: !generics.isEmpty)
+                anchor  = path
+            case "swift.struct":
+                kind    = .struct           (module: .swift, generic: !generics.isEmpty)
+                anchor  = path
+            case "swift.class":
+                kind    = .class            (module: .swift, generic: !generics.isEmpty)
+                anchor  = path
+            case "swift.protocol":
+                kind    = .protocol         (module: .swift)
+                anchor  = path
+            case "swift.typealias":
+                kind    = .typealias        (module: .swift, generic: !generics.isEmpty)
                 anchor = path
             case    "swift.associatedtype":
+                kind    = .associatedtype   (module: .swift)
                 // apple docs do not provide unique page for associatedtypes
                 anchor = .init(path.dropLast())
-            default:
-                fatalError("unreachable")
-            }
-            let label:Node.Page.Label
-            switch symbol.kind.identifier
-            {
-            case    "swift.enum",
-                    "swift.struct",
-                    "swift.class",
-                    "swift.protocol":
-                label = .swift(hasSelf: true)
-            case    "swift.typealias", 
-                    "swift.associatedtype":
-                label = .swift(hasSelf: false)
             default:
                 fatalError("unreachable")
             }
@@ -191,7 +188,7 @@ extension Node
                         anchor:         .external(path: anchor),
                         path:           path, 
                         name:           "$builtin", 
-                        label:          label, 
+                        kind:           kind, 
                         signature:      .empty, 
                         declaration:    .empty, 
                         generics:       generics, 
@@ -237,7 +234,7 @@ extension Node
                                 path: ["Swift", "swift_standard_library", "operator_declarations"]),
                             path:           ["\(fix) operator \(lexeme)"], 
                             name:           "$builtin", 
-                            label:          .swift(hasSelf: false), 
+                            kind:           .lexeme(module: .swift), 
                             signature:      .empty, 
                             declaration:    .empty, 
                             generics:       [], 

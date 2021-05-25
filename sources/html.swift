@@ -165,17 +165,17 @@ extension Declaration
                             string 
                         }
                     
-                    case .identifier(let string, .resolved(url: let url, style: .local)):
+                    case .identifier(let string, .resolved(url: let url, module: .local)):
                         HTML.element("a", ["href": url, "class": "syntax-type"])
                         {
                             string
                         }
-                    case .identifier(let string, .resolved(url: let url, style: .imported)):
+                    case .identifier(let string, .resolved(url: let url, module: .imported)):
                         HTML.element("a", ["href": url, "class": "syntax-type syntax-imported-type"])
                         {
                             string
                         }
-                    case .identifier(let string, .resolved(url: let url, style: .builtin)):
+                    case .identifier(let string, .resolved(url: let url, module: .swift)):
                         HTML.element("a", ["href": url, "class": "syntax-type syntax-swift-type"])
                         {
                             string
@@ -188,17 +188,17 @@ extension Declaration
                             string 
                         }
     
-                    case .punctuation(let string, .resolved(url: let url, style: .local)):
+                    case .punctuation(let string, .resolved(url: let url, module: .local)):
                         HTML.element("a", ["href": url, "class": "syntax-type syntax-punctuation"])
                         {
                             string
                         }
-                    case .punctuation(let string, .resolved(url: let url, style: .imported)):
+                    case .punctuation(let string, .resolved(url: let url, module: .imported)):
                         HTML.element("a", ["href": url, "class": "syntax-type syntax-imported-type syntax-punctuation"])
                         {
                             string
                         }
-                    case .punctuation(let string, .resolved(url: let url, style: .builtin)):
+                    case .punctuation(let string, .resolved(url: let url, module: .swift)):
                         HTML.element("a", ["href": url, "class": "syntax-type syntax-swift-type syntax-punctuation"])
                         {
                             string
@@ -300,7 +300,7 @@ extension Node.Page
                             {
                                 switch link 
                                 {
-                                case .resolved(url: let target, style: _):
+                                case .resolved(url: let target, module: _):
                                     HTML.element("a", ["href": target])
                                     {
                                         text
@@ -328,47 +328,7 @@ extension Node.Page
                 {
                     HTML.element("div", ["class": "eyebrow"])
                     {
-                        switch self.label 
-                        {
-                        case .associatedtype:           "Associatedtype"
-                        case .class:                    "Class"
-                        case .dependency:               "Dependency"
-                        case .enumeration:              "Enumeration"
-                        case .enumerationCase:          "Enumeration Case"
-                        case .extension:                "Extension"
-                        case .function:                 "Function"
-                        case .functor:                  "Functor"
-                        case .genericClass:             "Generic Class"
-                        case .genericEnumeration:       "Generic Enumeration"
-                        case .genericFunction:          "Generic Function"
-                        case .genericFunctor:           "Generic Functor"
-                        case .genericInitializer:       "Generic Initializer"
-                        case .genericInstanceMethod:    "Generic Instance Method"
-                        case .genericOperator:          "Generic Operator"
-                        case .genericStaticMethod:      "Generic Static Method"
-                        case .genericStructure:         "Generic Structure"
-                        case .genericSubscript:         "Generic Subscript"
-                        case .genericTypealias:         "Generic Typealias"
-                        case .importedClass:            "Imported Class"
-                        case .importedEnumeration:      "Imported Enumeration"
-                        case .importedProtocol:         "Imported Protocol"
-                        case .importedStructure:        "Imported Structure"
-                        case .importedTypealias:        "Imported Typealias"
-                        case .initializer:              "Initializer"
-                        case .instanceMethod:           "Instance Method"
-                        case .instanceProperty:         "Instance Property"
-                        case .lexeme:                   "Lexeme"
-                        case .module:                   "Module"
-                        case .operator:                 "Operator"
-                        case .plugin:                   "Package Plugin"
-                        case .protocol:                 "Protocol"
-                        case .staticMethod:             "Static Method"
-                        case .staticProperty:           "Static Property"
-                        case .structure:                "Structure"
-                        case .subscript:                "Subscript"
-                        case .swift:                    let _ = fatalError("unreachable")
-                        case .typealias:                "Typealias"
-                        }
+                        self.kind.title
                     }
                     HTML.element("h1", ["class": "topic-heading"])
                     {
@@ -424,7 +384,7 @@ extension Node.Page
                     {
                         HTML.element("h2")
                         {
-                            self.label == .enumerationCase ? "Associated values" : "Parameters"
+                            self.kind == .case ? "Associated values" : "Parameters"
                         }
                         HTML.element("dl", ["class": "parameter-list"])
                         {
@@ -483,7 +443,7 @@ extension Node.Page
             // conforming types 
             if !self.downstream.isEmpty 
             {
-                HTML.element("section", ["class": "topics"])
+                HTML.element("section", ["class": "rivers"])
                 {
                     HTML.element("div", ["class": "section-container"])
                     {
@@ -501,33 +461,36 @@ extension Node.Page
                             
                             if !elements.isEmpty 
                             {
-                                HTML.element("h2")
+                                HTML.element("div", ["class": "topic"])
                                 {
-                                    river.rawValue
-                                }
-                                for (page, note):(Node.Page, [Markdown.Element]) in elements 
-                                {
-                                    HTML.element("div", ["class": "topic-container-symbol"])
+                                    HTML.element("h2")
                                     {
-                                        HTML.element("code", ["class": "signature"])
+                                        river.rawValue
+                                    }
+                                    for (page, note):(Node.Page, [Markdown.Element]) in elements 
+                                    {
+                                        HTML.element("div", ["class": "topic-container-symbol"])
                                         {
-                                            if case .local(url: let url, directory: _) = page.anchor
+                                            HTML.element("code", ["class": "signature"])
                                             {
-                                                HTML.element("a", ["href": url])
+                                                if case .local(url: let url, directory: _) = page.anchor
                                                 {
-                                                    page.signature.html
+                                                    HTML.element("a", ["href": url])
+                                                    {
+                                                        page.signature.html
+                                                    }
+                                                }
+                                                else 
+                                                {
+                                                    let _ = fatalError("unreachable (missing page url)")
                                                 }
                                             }
-                                            else 
+                                            if !note.isEmpty 
                                             {
-                                                let _ = fatalError("unreachable (missing page url)")
-                                            }
-                                        }
-                                        if !note.isEmpty 
-                                        {
-                                            HTML.element("p", ["class": "topic-symbol-relationships"])
-                                            {
-                                                Markdown.html(note)
+                                                HTML.element("p", ["class": "topic-symbol-relationships"])
+                                                {
+                                                    Markdown.html(note)
+                                                }
                                             }
                                         }
                                     }

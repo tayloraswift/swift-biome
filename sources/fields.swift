@@ -228,15 +228,15 @@ extension Node.Page
             throw Entrapta.Error.init("framework doccomment cannot have callable fields")
         }
         
-        let label:Label 
+        let kind:Kind 
         switch header.keyword 
         {
-        case .module:   label = .module 
-        case .plugin:   label = .plugin
+        case .module:   kind = .module 
+        case .plugin:   kind = .plugin
         }
         try self.init(path: [], 
             name:           header.identifier, 
-            label:          label, 
+            kind:           kind, 
             signature:      .empty, 
             declaration:    .empty, 
             fields:         fields, 
@@ -277,7 +277,7 @@ extension Node.Page
         }
         
         let name:String, 
-            label:Label,
+            kind:Kind,
             path:[String], 
             signature:Signature, 
             declaration:Declaration
@@ -285,7 +285,7 @@ extension Node.Page
         {
         case .module(identifier: let identifier):
             name        = identifier 
-            label       = .dependency 
+            kind        = .dependency 
             signature   = .init 
             {
                 Signature.text("import")
@@ -304,11 +304,11 @@ extension Node.Page
             name        = identifiers[identifiers.endIndex - 1]
             switch keyword 
             {
-            case .protocol:     label = .importedProtocol
-            case .enum:         label = .importedEnumeration 
-            case .struct:       label = .importedStructure 
-            case .class:        label = .importedClass 
-            case .typealias:    label = .importedTypealias
+            case .protocol:     kind = .protocol    (module: .imported)
+            case .enum:         kind = .enum        (module: .imported, generic: false) 
+            case .struct:       kind = .struct      (module: .imported, generic: false) 
+            case .class:        kind = .class       (module: .imported, generic: false) 
+            case .typealias:    kind = .typealias   (module: .imported, generic: false)
             }
             signature   = .init 
             {
@@ -333,7 +333,7 @@ extension Node.Page
         }
         try self.init(path: path, 
             name:           name, 
-            label:          label, 
+            kind:           kind, 
             signature:      signature, 
             declaration:    declaration, 
             fields:         fields, 
@@ -430,7 +430,7 @@ extension Node.Page
         }
         try self.init(path: ["\(header.keyword) operator \(header.lexeme)"], 
             name:           header.lexeme, 
-            label:          .lexeme, 
+            kind:          .lexeme(module: .local), 
             signature:      signature, 
             declaration:    declaration, 
             fields:         fields, 
@@ -498,7 +498,7 @@ extension Node.Page
         
         try self.init(path: header.identifiers + [name], 
             name:           name, 
-            label:          header.generics.isEmpty ? .subscript : .genericSubscript, 
+            kind:          .subscript(generic: !header.generics.isEmpty), 
             signature:      signature, 
             declaration:    declaration, 
             generics:       header.generics,
@@ -631,42 +631,36 @@ extension Node.Page
         case .case:             keywords = ["case"]
         case .indirectCase:     keywords = ["indirect", "case"]
         }
-        let label:Label 
-        switch (header.keyword, header.identifiers.prefix, header.identifiers.tail, header.generics)
+        let kind:Kind 
+        switch (header.keyword, header.identifiers.prefix, header.identifiers.tail)
         {
-        case    (.`init`,               _,  _,           []):   label = .initializer 
-        case    (.`init`,               _,  _,           _ ):   label = .genericInitializer 
+        case    (.`init`,               _, _           ):   
+            kind = .initializer     (generic: !header.generics.isEmpty) 
+        case    (_,                     _, .operator(_)), 
+                (.prefixFunc,           _, _           ),
+                (.postfixFunc,          _, _           ),
+                (.staticPrefixFunc,     _, _           ),
+                (.staticPostfixFunc,    _, _           ): 
+            kind = .operator        (generic: !header.generics.isEmpty) 
+        case    (.func,                [], _           ):
+            kind = .function        (generic: !header.generics.isEmpty) 
+        case    (_, _,  .alphanumeric("callAsFunction")):
+            kind = .functor         (generic: !header.generics.isEmpty) 
+        case    (.func,                 _, _           ):
+            kind = .instanceMethod  (generic: !header.generics.isEmpty)
+        case    (.mutatingFunc,         _, _           ):
+            kind = .instanceMethod  (generic: !header.generics.isEmpty)
+        case    (.staticFunc,           _, _           ):
+            kind = .staticMethod    (generic: !header.generics.isEmpty)
         
-        case    (_,                     _, .operator(_), []), 
-                (.prefixFunc,           _,  _,           []),
-                (.postfixFunc,          _,  _,           []),
-                (.staticPrefixFunc,     _,  _,           []),
-                (.staticPostfixFunc,    _,  _,           []):   label = .operator 
-        case    (_,                     _, .operator(_), _ ), 
-                (.prefixFunc,           _,  _,           _ ),
-                (.postfixFunc,          _,  _,           _ ),
-                (.staticPrefixFunc,     _,  _,           _ ),
-                (.staticPostfixFunc,    _,  _,           _ ):   label = .genericOperator 
-        
-        case    (.func,                 [], _,           []):   label = .function
-        case    (.func,                 [], _,           _ ):   label = .genericFunction
-        
-        case    (_, _,  .alphanumeric("callAsFunction"), []):   label = .functor
-        case    (_, _,  .alphanumeric("callAsFunction"), _ ):   label = .genericFunctor
-        
-        case    (.func,                 _,  _,           []):   label = .instanceMethod 
-        case    (.func,                 _,  _,           _ ):   label = .genericInstanceMethod 
-        
-        case    (.mutatingFunc,         _,  _,           []):   label = .instanceMethod 
-        case    (.mutatingFunc,         _,  _,           _ ):   label = .genericInstanceMethod 
-        
-        case    (.staticFunc,           _,  _,           []):   label = .staticMethod 
-        case    (.staticFunc,           _,  _,           _ ):   label = .genericStaticMethod 
-        
-        case    (.case,                 _,  _,           []):   label = .enumerationCase
-        case    (.indirectCase,         _,  _,           []):   label = .enumerationCase
-        case    (.case,                 _,  _,           _ ), (.indirectCase, _, _, _):
-            throw Entrapta.Error.init("enumeration case cannot have generic parameters")
+        case    (.case,                 _, _           ),
+                (.indirectCase,         _, _           ):
+            guard header.generics.isEmpty 
+            else 
+            {
+                throw Entrapta.Error.init("enumeration case cannot have generic parameters")
+            }
+            kind = .case
         }
         
         let signature:Signature     = .init 
@@ -781,7 +775,7 @@ extension Node.Page
         
         try self.init(path: header.identifiers.prefix + [name],
             name:           name, 
-            label:          label, 
+            kind:           kind, 
             signature:      signature, 
             declaration:    declaration, 
             generics:       header.generics, 
@@ -825,21 +819,21 @@ extension Node.Page
         
         let name:String = header.identifiers[header.identifiers.endIndex - 1] 
         
-        let keywords:[String],
-            label:Label 
+        let kind:Kind, 
+            keywords:[String]
         switch header.keyword
         {
         case .let:
-            label       = .instanceProperty 
+            kind        = .instanceProperty 
             keywords    = ["let"]
         case .var:
-            label       = .instanceProperty 
+            kind        = .instanceProperty 
             keywords    = ["var"]
         case .staticLet:
-            label       = .staticProperty 
+            kind        = .staticProperty 
             keywords    = ["static", "let"]
         case .staticVar:
-            label       = .staticProperty 
+            kind        = .staticProperty 
             keywords    = ["static", "var"]
         }
         
@@ -879,7 +873,7 @@ extension Node.Page
         
         try self.init(path: header.identifiers, 
             name:           name, 
-            label:          label, 
+            kind:           kind, 
             signature:      signature, 
             declaration:    declaration, 
             fields:         fields, 
@@ -949,7 +943,7 @@ extension Node.Page
         
         try self.init(path: header.identifiers, 
             name:           name, 
-            label:          .typealias, 
+            kind:          .typealias(module: .local, generic: !header.generics.isEmpty), 
             signature:      signature, 
             declaration:    declaration, 
             generics:       header.generics,
@@ -986,39 +980,36 @@ extension Node.Page
         }
         
         let name:String = header.identifiers.joined(separator: ".")
-        
-        let label:Label
-        switch (header.keyword, header.generics) 
+        let kind:Kind
+        switch header.keyword
         {
-        case (.extension, []):
-            label   = .extension 
-        case (.extension, _):
-            throw Entrapta.Error.init("extension cannot have generic parameters")
-        
-        case (.associatedtype, []):
-            label   = .associatedtype 
-        case (.associatedtype, _):
-            throw Entrapta.Error.init("associatedtype cannot have generic parameters")
-        
-        case (.protocol, []):
-            label   = .protocol 
-        case (.protocol, _):
-            throw Entrapta.Error.init("protocol cannot have generic parameters")
-        
-        case (.class, []):
-            label   = .class 
-        case (.class, _):
-            label   = .genericClass 
-        
-        case (.struct, []):
-            label   = .structure 
-        case (.struct, _):
-            label   = .genericStructure 
-        
-        case (.enum, []):
-            label   = .enumeration
-        case (.enum, _):
-            label   = .genericEnumeration
+        case .extension:
+            guard header.generics.isEmpty 
+            else 
+            {
+                throw Entrapta.Error.init("extension cannot have generic parameters")
+            }
+            kind = .extension 
+        case .associatedtype:
+            guard header.generics.isEmpty 
+            else 
+            {
+                throw Entrapta.Error.init("associatedtype cannot have generic parameters")
+            }
+            kind = .associatedtype  (module: .local)
+        case .protocol:
+            guard header.generics.isEmpty 
+            else 
+            {
+                throw Entrapta.Error.init("protocol cannot have generic parameters")
+            }
+            kind = .protocol        (module: .local) 
+        case .class:
+            kind = .class           (module: .local, generic: !header.generics.isEmpty) 
+        case .struct:
+            kind = .struct          (module: .local, generic: !header.generics.isEmpty) 
+        case .enum:
+            kind = .enum            (module: .local, generic: !header.generics.isEmpty) 
         }
         
         // only put universal conformances in the declaration 
@@ -1128,7 +1119,7 @@ extension Node.Page
         
         try self.init(path: header.identifiers, 
             name:           name, 
-            label:          label, 
+            kind:           kind, 
             signature:      signature, 
             declaration:    declaration, 
             generics:       header.generics,
