@@ -77,6 +77,11 @@ class Node
             generics:[String: Inclusions],
             context:[[String]: Inclusions] // extra type constraints 
         
+        // rivers 
+        let upstream:[(path:[String], conditions:[Grammar.WhereClause])]
+        // will be filled in during postprocessing
+        var downstream:[(page:Unowned<Page>, river:River, note:[Markdown.Element])] 
+        
         let label:Label 
         let name:String // name is not always last component of path 
         var signature:Signature
@@ -157,6 +162,17 @@ class Node
             }
             
             self.inclusions = inclusions 
+            
+            // save the upstream conformances 
+            self.downstream = []
+            self.upstream   = fields.conformances.flatMap 
+            {
+                (field:Grammar.ConformanceField) in 
+                field.conformances.map 
+                {
+                    (path: $0, conditions: field.conditions)
+                }
+            }
             
             // collect what we know about all the other types mentioned 
             self.context = constraints.filter 
@@ -261,38 +277,40 @@ class Node
 extension Node 
 {
     private 
+    func find(_ path:[String]) -> Node?
+    {
+        // if we can’t find anything on the first try, try again with the 
+        // "Swift" prefix, to resolve a standard library symbol 
+        for path:[String] in [path, ["Swift"] + path] 
+        {
+            var node:Node? = self 
+            higher:
+            while let start:Node = node 
+            {
+                defer 
+                {
+                    node = start.parent 
+                }
+                
+                var current:Node = start  
+                for component:String in path 
+                {
+                    guard let child:Node = current.children[component]
+                    else 
+                    {
+                        continue higher 
+                    }
+                    current = child 
+                }
+                return current 
+            }
+        }
+        return nil
+    }
+    private 
     func find(_ paths:[[String]]) -> [Node]
     {
-        paths.compactMap 
-        {
-            // if we can’t find anything on the first try, try again with the 
-            // "Swift" prefix, to resolve a standard library symbol 
-            for path:[String] in [$0, ["Swift"] + $0] 
-            {
-                var node:Node? = self 
-                higher:
-                while let start:Node = node 
-                {
-                    defer 
-                    {
-                        node = start.parent 
-                    }
-                    
-                    var current:Node = start  
-                    for component:String in path 
-                    {
-                        guard let child:Node = current.children[component]
-                        else 
-                        {
-                            continue higher 
-                        }
-                        current = child 
-                    }
-                    return current 
-                }
-            }
-            return nil
-        }
+        paths.compactMap(self.find(_:))
     }
     func search(space inclusions:[Page.Inclusions]) -> [[(node:Node, pages:[Page])]]
     {
@@ -632,6 +650,12 @@ extension Node.Page
         case genericSubscript
     }
     
+    enum River:String, CaseIterable
+    {
+        case refinement     = "Refinements" 
+        case conformer      = "Conforming types"
+        case subclass       = "Subclasses"
+    }
     struct Topic 
     {
         enum Builtin:String, Hashable, CaseIterable 
@@ -679,7 +703,7 @@ extension Node.Page
 
 extension Node.Page 
 {
-    private static 
+    static 
     func prose(specializations attributes:[Grammar.AttributeField]) 
         -> [Markdown.Element] 
     {
@@ -694,7 +718,7 @@ extension Node.Page
             return "Specialization available when \(Self.prose(conditions: conditions))."
         }.joined(separator: "\\n"))
     }
-    private static 
+    static 
     func prose(relationships constraints:Grammar.ConstraintsField?) 
         -> [Markdown.Element] 
     {
@@ -706,7 +730,7 @@ extension Node.Page
         
         return .init(parsing: "Available when \(Self.prose(conditions: conditions)).")
     }
-    private static 
+    static 
     func prose(relationships fields:
         (
             relationships:Fields.Relationships?, 
@@ -767,7 +791,7 @@ extension Node.Page
         return .init(parsing: sentences.joined(separator: "\\n"))
     }
     
-    private static 
+    static 
     func prose(conditions:[Grammar.WhereClause]) -> String 
     {
         Self.prose(separator: ";", listing: conditions)
@@ -832,7 +856,6 @@ extension Node.Page
             }
         }
     }
-    private 
     func resolveLinks(in unlinked:[Markdown.Element], at node:Node) -> [Markdown.Element]
     {
         unlinked.map 
@@ -1011,11 +1034,11 @@ extension Node
             fatalError("can only call \(#function) on root node")
         }
         
+        // assign anchors 
         self.preorder 
         {
             (node:Node) in 
             
-            // assign anchors 
             for (i, page):(Int, Page) in node.pages.enumerated() 
                 where page.anchor == nil // do not overwrite pre-assigned anchors
             {
@@ -1076,7 +1099,106 @@ extension Node
             }
         }
         
-        // resolve links 
+        // connect rivers 
+        self.preorder 
+        {
+            (node:Node) in 
+            
+            for page:Page in node.pages 
+            {
+                for (index, (path, conditions)):(Int, (path:[String], conditions:[Grammar.WhereClause])) in 
+                    zip(page.upstream.indices, page.upstream)
+                {
+                    var description:String 
+                    {
+                        "conformance target '\(path.joined(separator: "."))'"
+                    }
+                    // find the upstream node and page 
+                    let upstream:Page
+                    if let node:Node = node.find(path)
+                    {
+                        // ignore extensions (we didn’t use node.resolve(_:in:...) 
+                        // because that method does too much)
+                        let filtered:[Page] = node.pages.filter 
+                        {
+                            if case .extension = $0.label 
+                            {
+                                return false 
+                            }
+                            else 
+                            {
+                                return true 
+                            }
+                        }
+                        if let page:Page = filtered.first 
+                        {
+                            upstream = page 
+                            
+                            if filtered.count > 1 
+                            {
+                                print("warning: upstream node for \(description) has \(filtered.count) candidate pages")
+                            }
+                        }
+                        else 
+                        {
+                            fatalError("upstream node for \(description) has no candidate pages")
+                        }
+                    }
+                    else 
+                    {
+                        fatalError("could not find upstream node for \(description)")
+                    }
+
+                    // validate upstream target is a conformable type 
+                    let river:Page.River
+                    switch upstream.label
+                    {
+                    case .swift: 
+                        continue // no point in registering conformances to builtin protocols/classes
+                    case .class, .genericClass, .importedClass:
+                        // validate downstream target makes sense 
+                        if !conditions.isEmpty 
+                        {
+                            print("warning: \(description) is a class, which should not have conditions")
+                        }
+                        switch page.label 
+                        {
+                        case .protocol, .importedProtocol:
+                            print("warning: \(description) is a class, which should not be refined by a protocol")
+                        default:
+                            break 
+                        }
+                        river = .subclass 
+                    case .protocol, .importedProtocol:
+                        switch page.label 
+                        {
+                        case .protocol, .importedProtocol:
+                            river = .refinement 
+                        default: 
+                            river = .conformer
+                        }
+                    default:
+                        print("warning: only protocols and classes can be conformed to")
+                        continue 
+                    }
+                    
+                    let note:[Markdown.Element]
+                    if conditions.isEmpty 
+                    {
+                        note = []
+                    }
+                    else 
+                    {
+                        note = .init(parsing: "When \(Page.prose(conditions: conditions)).")
+                    }
+                    // resolve links *now*, since the original scope is different 
+                    // from the page it will appear in 
+                    upstream.downstream.append((.init(target: page), river, page.resolveLinks(in: note, at: node)))
+                }
+            }
+        }
+        
+        // resolve remaining links 
         self.preorder 
         {
             (node:Node) in 
@@ -1089,6 +1211,14 @@ extension Node
                 }
                 
                 page.resolveLinks(at: node)
+                
+                // while we’re at it, sort the downstream conformances 
+                page.downstream.sort 
+                {
+                    ($0.page.target.priority.rank, $0.page.target.priority.order, $0.page.target.name) 
+                    <
+                    ($1.page.target.priority.rank, $1.page.target.priority.order, $1.page.target.name) 
+                }
             }
         }
         
@@ -1200,8 +1330,8 @@ extension Node
         assert(self.parent == nil)
         // check if the first path component matches a standard library symbol, to avoid 
         // generating extraneous nodes (which will mess up link resolution later)
-        if  let first:String = page.path.first, 
-                first != "Swift", !self.find([["Swift", first]]).isEmpty
+        if  let first:String    = page.path.first, first != "Swift", 
+            let _:Node          = self.find(["Swift", first])
         {
             page.markAsBuiltinScoped()
         }

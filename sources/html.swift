@@ -480,6 +480,63 @@ extension Node.Page
                     }
                 }
             }
+            // conforming types 
+            if !self.downstream.isEmpty 
+            {
+                HTML.element("section", ["class": "topics"])
+                {
+                    HTML.element("div", ["class": "section-container"])
+                    {
+                        for river:River in River.allCases 
+                        {
+                            let elements:[(page:Node.Page, note:[Markdown.Element])] = self.downstream
+                            .filter 
+                            {
+                                $0.river == river
+                            }
+                            .map 
+                            {
+                                ($0.page.target, $0.note)
+                            }
+                            
+                            if !elements.isEmpty 
+                            {
+                                HTML.element("h2")
+                                {
+                                    river.rawValue
+                                }
+                                for (page, note):(Node.Page, [Markdown.Element]) in elements 
+                                {
+                                    HTML.element("div", ["class": "topic-container-symbol"])
+                                    {
+                                        HTML.element("code", ["class": "signature"])
+                                        {
+                                            if case .local(url: let url, directory: _) = page.anchor
+                                            {
+                                                HTML.element("a", ["href": url])
+                                                {
+                                                    page.signature.html
+                                                }
+                                            }
+                                            else 
+                                            {
+                                                let _ = fatalError("unreachable (missing page url)")
+                                            }
+                                        }
+                                        if !note.isEmpty 
+                                        {
+                                            HTML.element("p", ["class": "topic-symbol-relationships"])
+                                            {
+                                                Markdown.html(note)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             // topics 
             if !self.topics.isEmpty 
             {
