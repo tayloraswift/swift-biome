@@ -151,7 +151,7 @@ RequirementField        ::= 'required' <Endline>
                           | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
 
 TopicKey                ::= [a-zA-Z0-9\-] *
-TopicField              ::= '#' <Whitespace> ? '[' <BalancedContent> * ']' <Whitespace> ? 
+TopicField              ::= '#' <Whitespace> ? '[' <BalancedToken> * ']' <Whitespace> ? 
                             '(' <Whitespace> ? <TopicKey> 
                             ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
 
@@ -202,6 +202,11 @@ FunctionParameter       ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace
 Attribute               ::= '@' <Identifier>
 CollectionType          ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']'
 ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
+
+BalancedToken           ::= [^\[\]\(\)\{\}]
+                          | '(' <BalancedToken> * ')'
+                          | '[' <BalancedToken> * ']'
+                          | '{' <BalancedToken> * '}'
 ```
 
 Paragraph fields have their own mini-markdown syntax and an abbreviated link syntax for local and standard-library symbols.

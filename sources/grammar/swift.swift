@@ -149,26 +149,6 @@ extension Grammar.Token
             self.character = character
         }
     } 
-    struct BalancedContent:Grammar.Parsable.CharacterClass
-    {
-        let character:Character 
-        
-        init?(_ character:Character)
-        {
-            guard  !character.isNewline,
-                    character != "(", 
-                    character != ")",
-                    character != "[",
-                    character != "]",
-                    character != "{",
-                    character != "}"
-            else 
-            {
-                return nil 
-            }
-            self.character = character
-        }
-    } 
     struct ASCIIDigit:Grammar.Parsable.CharacterClass
     {
         let character:Character 
@@ -271,213 +251,217 @@ extension Grammar.Token
             let token:String = ">"
         }
     }
-    struct Question:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "?"
-    }
-    struct Comma:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = ","
-    }
-    struct Period:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "."
-    }
-    struct Colon:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = ":"
-    } 
-    struct Equals:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "="
-    } 
-    struct At:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "@"
-    } 
     struct Ampersand:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "&"
-    } 
-    struct Hyphen:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "-"
-    } 
-    struct Hashtag:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "#"
-    } 
-    struct EqualsEquals:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "=="
     } 
     struct Arrow:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "->"
     } 
+    struct At:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "@"
+    } 
+    struct Backslash:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "\\"
+    } 
+    struct Colon:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = ":"
+    } 
+    struct Comma:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = ","
+    }
     struct Ellipsis:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "..."
     } 
+    struct Equals:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "="
+    } 
+    struct EqualsEquals:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "=="
+    } 
+    struct Hashtag:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "#"
+    } 
+    struct Hyphen:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "-"
+    } 
+    struct Period:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "."
+    }
+    struct Question:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "?"
+    }
+    
     struct As:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "as"
     } 
-    
-    struct Import:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "import"
-    }
-    struct Let:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "let"
-    }
-    struct Var:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "var"
-    }
     struct Associatedtype:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "associatedtype"
-    }
-    struct Typealias:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "typealias"
-    }
-    struct Throws:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "throws"
-    } 
-    struct Rethrows:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "rethrows"
-    } 
-    struct Final:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "final"
-    } 
-    struct Extension:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "extension"
-    }
-    struct `Protocol`:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "protocol"
-    }
-    struct Class:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "class"
-    }
-    struct Struct:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "struct"
-    }
-    struct Enum:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "enum"
-    }
-    
-    struct Static:Grammar.Parsable.Terminal 
-    {
-        static 
-        let token:String = "static"
-    }
-    struct Init:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "init"
-    }
-    struct Func:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "func"
-    }
-    struct Subscript:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "subscript"
-    }
-    struct Mutating:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "mutating"
     }
     struct Case:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "case"
     }
-    struct Indirect:Grammar.Parsable.Terminal
+    struct Class:Grammar.Parsable.Terminal
     {
         static 
-        let token:String = "indirect"
+        let token:String = "class"
+    }
+    struct Enum:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "enum"
+    }
+    struct Extension:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "extension"
+    }
+    struct Final:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "final"
+    } 
+    struct Func:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "func"
     }
     struct Get:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "get"
     }
+    struct Import:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "import"
+    }
+    struct Indirect:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "indirect"
+    }
+    struct Infix:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "infix"
+    } 
+    struct Init:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "init"
+    }
+    struct Rethrows:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "rethrows"
+    } 
+    struct Let:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "let"
+    }
+    struct Mutating:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "mutating"
+    }
     struct Nonmutating:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "nonmutating"
-    }
-    struct Set:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "set"
-    }
-    struct Where:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "where"
     }
     struct Override:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "override"
     } 
-    struct Prefix:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "prefix"
-    } 
-    struct Infix:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "infix"
-    } 
     struct Postfix:Grammar.Parsable.Terminal
     {
         static 
         let token:String = "postfix"
     } 
+    struct Prefix:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "prefix"
+    } 
+    struct `Protocol`:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "protocol"
+    }
+    struct Set:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "set"
+    }
+    struct Static:Grammar.Parsable.Terminal 
+    {
+        static 
+        let token:String = "static"
+    }
+    struct Struct:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "struct"
+    }
+    struct Subscript:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "subscript"
+    }
+    struct Throws:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "throws"
+    } 
+    struct Typealias:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "typealias"
+    }
+    struct Var:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "var"
+    }
+    struct Where:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "where"
+    }
     
     enum Identifier 
     {
@@ -563,8 +547,73 @@ extension Grammar
         }
     }
     
-    // Operator     ::= <Swift Operator Head> <Swift Operator Character> *
-    //                | <Swift Dot Operator Head> <Swift Dot Operator Character> *
+    //  BalancedToken   ::= [^\[\]\(\)\{\}]
+    //                    | '(' <BalancedToken> * ')'
+    //                    | '[' <BalancedToken> * ']'
+    //                    | '{' <BalancedToken> * '}'
+    struct BalancedToken:Parsable 
+    {
+        private 
+        struct Unencapsulated:Grammar.Parsable.CharacterClass
+        {
+            let character:Character 
+            
+            init?(_ character:Character)
+            {
+                guard  !character.isNewline,
+                        character != "(", 
+                        character != ")",
+                        character != "[",
+                        character != "]",
+                        character != "{",
+                        character != "}"
+                else 
+                {
+                    return nil 
+                }
+                self.character = character
+            }
+        } 
+        
+        let string:String 
+        
+        init(parsing input:inout Input) throws 
+        {
+            let start:String.Index                      = input.index
+            if      let unencapsulated:Unencapsulated   = .init(parsing: &input)
+            {
+                self.string = "\(unencapsulated.character)"
+            }
+            else if let encapsulated:
+                List<   Token.Parenthesis.Left, 
+                List<   [Self], 
+                        Token.Parenthesis.Right>>       = .init(parsing: &input)
+            {
+                self.string = "(\(encapsulated.body.head.map(\.string).joined()))"
+            }
+            else if let encapsulated:
+                List<   Token.Bracket.Left, 
+                List<   [Self], 
+                        Token.Bracket.Right>>           = .init(parsing: &input)
+            {
+                self.string = "[\(encapsulated.body.head.map(\.string).joined())]"
+            }
+            else if let encapsulated:
+                List<   Token.Brace.Left, 
+                List<   [Self], 
+                        Token.Brace.Right>>             = .init(parsing: &input)
+            {
+                self.string = "{\(encapsulated.body.head.map(\.string).joined())}"
+            }
+            else 
+            {
+                throw input.expected(Self.self, from: start)
+            }
+        }
+    }
+    
+    //  Operator                    ::= <Swift Operator Head> <Swift Operator Character> *
+    //                                | <Swift Dot Operator Head> <Swift Dot Operator Character> *
     struct Operator:Parsable
     {
         let string:String 

@@ -20,11 +20,6 @@ enum Markdown
         static 
         let token:String = "^"
     } 
-    struct Backslash:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "\\"
-    } 
     struct Newline:Grammar.Parsable.Terminal
     {
         static 
@@ -143,22 +138,22 @@ enum Markdown
                     self = .backtick(count: 1 + backticks.body.count)
                 }
                 // escape sequences 
-                else if let _:List<Backslash, Asterisk> = 
+                else if let _:List<Grammar.Token.Backslash, Asterisk> = 
                     .init(parsing: &input) 
                 {
                     self = .wildcard("*")
                 }
-                else if let _:List<Backslash, Backtick> = 
+                else if let _:List<Grammar.Token.Backslash, Backtick> = 
                     .init(parsing: &input) 
                 {
                     self = .wildcard("`")
                 }
-                else if let _:List<Backslash, Backslash> = 
+                else if let _:List<Grammar.Token.Backslash, Grammar.Token.Backslash> = 
                     .init(parsing: &input) 
                 {
                     self = .wildcard("\\")
                 }
-                else if let _:List<Backslash, Grammar.Token.Space> = 
+                else if let _:List<Grammar.Token.Backslash, Grammar.Token.Space> = 
                     .init(parsing: &input) 
                 {
                     self = .wildcard("\u{A0}")

@@ -1193,7 +1193,7 @@ extension Grammar
     }
     
     //  TopicKey                ::= [a-zA-Z0-9\-] *
-    //  TopicField              ::= '#' <Whitespace> ? '[' <BalancedContent> * ']' <Whitespace> ? 
+    //  TopicField              ::= '#' <Whitespace> ? '[' <BalancedToken> * ']' <Whitespace> ? 
     //                              '(' <Whitespace> ? <TopicKey> 
     //                              ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
     //  TopicMembershipField    ::= '#' <Whitespace> ? '(' <Whitespace> ? 
@@ -1209,7 +1209,7 @@ extension Grammar
             let _:Token.Hashtag                 = try .init(parsing: &input), 
                 _:Whitespace?                   =     .init(parsing: &input), 
                 _:Token.Bracket.Left            = try .init(parsing: &input), 
-                display:[Token.BalancedContent] = .init(parsing: &input), 
+                display:[BalancedToken]         =     .init(parsing: &input), 
                 _:Token.Bracket.Right           = try .init(parsing: &input), 
                 _:Token.Parenthesis.Left        = try .init(parsing: &input), 
                 _:Whitespace?                   =     .init(parsing: &input), 
@@ -1223,7 +1223,7 @@ extension Grammar
                 [.init(head.map(\.character))] 
                 + 
                 body.map(\.body.body.body).map{ .init($0.map(\.character)) }
-            self.display = .init(display.map(\.character))
+            self.display = display.map(\.string).joined()
         }
     }
     struct TopicMembershipField:Parsable
