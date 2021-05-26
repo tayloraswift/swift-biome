@@ -422,7 +422,7 @@ extension Declaration
         }
     }
     
-    init(callable:Node.Page.Fields.Callable, labels:[(name:String, variadic:Bool)], 
+    init(callable:Page.Fields.Callable, labels:[(name:String, variadic:Bool)], 
         throws:Grammar.FunctionField.Throws?, 
         unifier:(String, String) -> [String])
     {

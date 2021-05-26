@@ -3,9 +3,8 @@ struct Signature:CodeBuilder
 {
     enum Token:Equatable
     {
-        case text(String)
-        case highlight(String)
-        case punctuation(String)
+        case text       (String, highlight:Bool)
+        case punctuation(String, highlight:Bool)
         case whitespace 
     }
     
@@ -15,15 +14,6 @@ struct Signature:CodeBuilder
     {
         self.tokens = tokens 
     }
-    
-    /* static 
-    func convert(_ declaration:[Declaration.Token]) -> [Token] 
-    {
-        declaration.map 
-        {
-
-        }
-    } */
 }
 extension Signature 
 {
@@ -35,17 +25,17 @@ extension Signature
     static 
     func text(_ string:String) -> Self 
     {
-        .init(tokens: [.text(string)])
+        .init(tokens: [.text(string, highlight: false)])
     }
     static 
-    func highlight(_ string:String) -> Self 
+    func text(highlighting string:String) -> Self 
     {
-        .init(tokens: [.highlight(string)])
+        .init(tokens: [.text(string, highlight: true)])
     }
     static 
     func punctuation(_ string:String) -> Self 
     {
-        .init(tokens: [.punctuation(string)])
+        .init(tokens: [.punctuation(string, highlight: false)])
     }
     
     init(@Signature _ build:() -> Self) 
@@ -88,9 +78,14 @@ extension Signature
             {
                 switch token  
                 {
-                case .keyword(let text), .identifier(let text, _):  Self.text(text)
-                case                    .punctuation(let text, _):  Self.punctuation(text)
-                case .whitespace(breakable: _):                     Self.whitespace
+                case .keyword(let text): 
+                    Self.text(text)
+                case .identifier(let text, _):  
+                    Self.text(text)
+                case .punctuation(let text, _):  
+                    Self.punctuation(text)
+                case .whitespace(breakable: _):
+                    Self.whitespace
                 }
             }
         }
@@ -123,7 +118,7 @@ extension Signature
         }
     }
     
-    init(callable:Node.Page.Fields.Callable, labels:[(name:String, variadic:Bool)], 
+    init(callable:Page.Fields.Callable, labels:[(name:String, variadic:Bool)], 
         throws:Grammar.FunctionField.Throws?, 
         delimiters:(String, String))
     {
@@ -143,7 +138,7 @@ extension Signature
                 
                 if label != "_" 
                 {
-                    Self.highlight(label)
+                    Self.text(highlighting: label)
                     Self.punctuation(":")
                 }
                 if parameter.inout 

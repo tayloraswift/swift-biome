@@ -104,59 +104,57 @@ struct Entrapta:ParsableCommand
             }
         }
         
-        // tree building 
-        let root:Node = .init(parent: nil)
-        withExtendedLifetime(root)
+        let pages:[Page] = doccomments.enumerated().compactMap
         {
-            // load standard library symbols 
-            root.loadStandardLibrarySymbols()
-            
-            for (i, doccomment):(Int, String) in doccomments.enumerated()
+            let (i, doccomment):(Int, String) = $0
+            do 
             {
-                do 
+                let parsed:[Grammar.Field]  =     .init(parsing: doccomment), 
+                    fields:Page.Fields      = try .init(parsed.dropFirst())
+                
+                switch parsed.first 
                 {
-                    let parsed:[Grammar.Field]  =     .init(parsing: doccomment), 
-                        fields:Node.Page.Fields = try .init(parsed.dropFirst())
-                    
-                    switch parsed.first 
-                    {
-                    case .framework (let header)?:
-                        root.insert(try .init(header, fields: fields, order: i))
-                    case .dependency(let header)?:
-                        root.insert(try .init(header, fields: fields, order: i))
-                    case .lexeme    (let header)?:
-                        root.insert(try .init(header, fields: fields, order: i))
-                    case .subscript (let header)?:
-                        root.insert(try .init(header, fields: fields, order: i))
-                    case .function  (let header)?:
-                        root.insert(try .init(header, fields: fields, order: i))
-                    case .property  (let header)?:
-                        root.insert(try .init(header, fields: fields, order: i))
-                    case .typealias (let header)?:
-                        root.insert(try .init(header, fields: fields, order: i))
-                    case .type      (let header)?:
-                        root.insert(try .init(header, fields: fields, order: i))
-                    default:
-                        throw Entrapta.Error.init("could not parse doccomment")
-                    }
-                }
-                catch let error as Entrapta.Error 
-                {
-                    print("error: \(error.message)")
-                    print(
-                        """
-                        note: while parsing doccomment 
-                        '''
-                        \(doccomment)
-                        '''
-                        """)
-                    continue 
-                }
-                catch 
-                {
-                    continue 
+                case .framework (let header)?:
+                    return try .init(header, fields: fields, order: i)
+                case .dependency(let header)?:
+                    return try .init(header, fields: fields, order: i)
+                case .lexeme    (let header)?:
+                    return try .init(header, fields: fields, order: i)
+                case .subscript (let header)?:
+                    return try .init(header, fields: fields, order: i)
+                case .function  (let header)?:
+                    return try .init(header, fields: fields, order: i)
+                case .property  (let header)?:
+                    return try .init(header, fields: fields, order: i)
+                case .typealias (let header)?:
+                    return try .init(header, fields: fields, order: i)
+                case .type      (let header)?:
+                    return try .init(header, fields: fields, order: i)
+                default:
+                    throw Entrapta.Error.init("could not parse doccomment")
                 }
             }
+            catch let error as Entrapta.Error 
+            {
+                print("\(error)")
+                print(
+                    """
+                    note: while parsing doccomment 
+                    '''
+                    \(doccomment)
+                    '''
+                    """)
+                return nil 
+            }
+            catch 
+            {
+                return nil 
+            }
+        }
+        
+        InternalNode.tree(pages)
+        {
+            (root:InternalNode) in 
             
             // print out root 
             if self.verbose 
@@ -185,7 +183,7 @@ struct Entrapta:ParsableCommand
                 fatalError("failed to load theme '\(self.theme)'") 
             }
             
-            for page:Node.Page in root.allPages
+            for page:Page in root.allPages
             {
                 guard case .local(url: _, directory: let directory) = page.anchor 
                 else 

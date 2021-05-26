@@ -1,4 +1,4 @@
-extension Node.Page 
+extension Page 
 {
     struct Fields
     {
@@ -43,8 +43,21 @@ extension Node.Page
         }
     }
 }
-extension Node.Page.Fields 
+extension Page.Fields 
 {
+    init() 
+    {
+        self.attributes     = []
+        self.conformances   = []
+        self.constraints    = nil 
+        self.dispatch       = nil 
+        self.callable       = .init(domain: [], range: nil)
+        self.relationships  = nil 
+        self.paragraphs     = []
+        self.topics         = []
+        self.memberships    = []
+    }
+    
     init<S>(_ fields:S) throws where S:Sequence, S.Element == Grammar.Field 
     {
         typealias ParameterDescription = 
@@ -197,7 +210,7 @@ extension Node.Page.Fields
     }
 }
 
-extension Node.Page 
+extension Page 
 {
     convenience 
     init(_ header:Grammar.FrameworkField, fields:Fields, order:Int) throws 
@@ -231,7 +244,7 @@ extension Node.Page
         let kind:Kind 
         switch header.keyword 
         {
-        case .module:   kind = .module 
+        case .module:   kind = .module(.local) 
         case .plugin:   kind = .plugin
         }
         try self.init(path: [], 
@@ -285,12 +298,12 @@ extension Node.Page
         {
         case .module(identifier: let identifier):
             name        = identifier 
-            kind        = .dependency 
+            kind        = .module(.imported) 
             signature   = .init 
             {
                 Signature.text("import")
                 Signature.whitespace 
-                Signature.highlight(identifier)
+                Signature.text(highlighting: identifier)
             }
             declaration = .init 
             {
@@ -314,7 +327,7 @@ extension Node.Page
             {
                 Signature.text("\(keyword)")
                 Signature.whitespace 
-                Signature.init(joining: identifiers, Signature.highlight(_:))
+                Signature.init(joining: identifiers, Signature.text(highlighting:))
                 {
                     Signature.punctuation(".")
                 }
@@ -411,7 +424,7 @@ extension Node.Page
             Signature.whitespace 
             Signature.text("operator")
             Signature.whitespace 
-            Signature.highlight(header.lexeme)
+            Signature.text(highlighting: header.lexeme)
         }
         declaration = .init 
         {
@@ -460,7 +473,7 @@ extension Node.Page
         let labels:[(name:String, variadic:Bool)]   = header.labels.map{ ($0, false) }
         let signature:Signature     = .init 
         {
-            Signature.highlight("subscript")
+            Signature.text(highlighting: "subscript")
             Signature.init(generics: header.generics)
             Signature.init(callable: fields.callable, labels: labels, throws: nil, 
                 delimiters: ("[", "]"))
@@ -669,7 +682,7 @@ extension Node.Page
             {
                 if case .alphanumeric("callAsFunction") = header.identifiers.tail 
                 {
-                    Signature.highlight($0)
+                    Signature.text(highlighting: $0)
                 }
                 else 
                 {
@@ -683,15 +696,15 @@ extension Node.Page
             switch (header.keyword, header.identifiers.tail)
             {
             case (.`init`, _):
-                Signature.highlight("init")
+                Signature.text(highlighting: "init")
             case (_, .alphanumeric("callAsFunction")):
                 let _:Void = ()
             case (_, .alphanumeric(let basename)):
                 Signature.whitespace
-                Signature.highlight(basename)
+                Signature.text(highlighting: basename)
             case (_, .operator(let string)):
                 Signature.whitespace
-                Signature.highlight(string)
+                Signature.text(highlighting: string)
                 Signature.whitespace
             }
             if header.failable 
@@ -844,7 +857,7 @@ extension Node.Page
                 Signature.text(keyword)
                 Signature.whitespace
             }
-            Signature.highlight(name)
+            Signature.text(highlighting: name)
             Signature.punctuation(":")
             Signature.init(type: header.type)
         }
@@ -908,7 +921,7 @@ extension Node.Page
         {
             Signature.text("typealias")
             Signature.whitespace
-            Signature.init(joining: header.identifiers, Signature.highlight(_:))
+            Signature.init(joining: header.identifiers, Signature.text(highlighting:))
             {
                 Signature.punctuation(".")
             }
@@ -1036,11 +1049,11 @@ extension Node.Page
             if  case .associatedtype    = header.keyword, 
                 let last:String         = header.identifiers.last
             {
-                Signature.highlight(last)
+                Signature.text(highlighting: last)
             }
             else 
             {
-                Signature.init(joining: header.identifiers, Signature.highlight(_:))
+                Signature.init(joining: header.identifiers, Signature.text(highlighting:))
                 {
                     Signature.punctuation(".")
                 }

@@ -51,11 +51,9 @@ struct StandardLibrary:Codable
     
     let symbols:[Symbol]
     let relationships:[Relationship]
-}
-
-extension Node 
-{
-    func loadStandardLibrarySymbols() 
+    
+    static 
+    var pages:[Page] 
     {
         guard let json:JSON = File.source(path: "standard-library-symbols/5.5-dev.json")
                 .map(JSON?.init(parsing:)) ?? nil
@@ -146,6 +144,22 @@ extension Node
             symbols.values[source].fields.append(.conformance(field))
         }
         
+        guard let root:Page = try? .init(
+            anchor:         .external(path: ["Swift"]),
+            path:           ["Swift"], 
+            name:           "$builtin", 
+            kind:           .module(.swift), 
+            signature:      .empty, 
+            declaration:    .empty, 
+            generics:       [], 
+            fields:         .init(), 
+            order:          0) 
+        else 
+        {
+            fatalError("unreachable")
+        }
+        var pages:[Page] = [root]
+        
         for (symbol, fields):(StandardLibrary.Symbol, [Grammar.Field]) in symbols.values 
         {
             let generics:[String] = (symbol.typeinfo?.parameters ?? [])
@@ -157,7 +171,7 @@ extension Node
             
             let path:[String] = ["Swift"] + symbol.path
             let anchor:[String], 
-                kind:Node.Page.Kind
+                kind:Page.Kind
             switch symbol.kind.identifier
             {
             case "swift.enum":
@@ -183,8 +197,8 @@ extension Node
                 fatalError("unreachable")
             }
             
-            guard   let fields:Node.Page.Fields = try? .init(fields), 
-                    let page:Node.Page          = try? .init(
+            guard   let fields:Page.Fields  = try? .init(fields), 
+                    let page:Page           = try? .init(
                         anchor:         .external(path: anchor),
                         path:           path, 
                         name:           "$builtin", 
@@ -199,7 +213,7 @@ extension Node
                 fatalError("unreachable")
             }
             
-            self.insert(page)
+            pages.append(page)
         }
         
         // emit builtin operator lexemes 
@@ -228,8 +242,8 @@ extension Node
         {
             for lexeme:String in lexemes 
             {
-                guard   let fields:Node.Page.Fields = try? .init([]), 
-                        let page:Node.Page          = try? .init(
+                guard   let fields:Page.Fields  = try? .init([]), 
+                        let page:Page           = try? .init(
                             anchor:         .external(
                                 path: ["Swift", "swift_standard_library", "operator_declarations"]),
                             path:           ["\(fix) operator \(lexeme)"], 
@@ -245,8 +259,10 @@ extension Node
                     fatalError("unreachable")
                 }
                 
-                self.insert(page)
+                pages.append(page)
             }
         }
+        
+        return pages
     }
 }

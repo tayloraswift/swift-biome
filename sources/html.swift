@@ -252,18 +252,23 @@ extension Signature
                     {
                     case .whitespace:  
                         let _ = fatalError("unreachable")
-                    case .text(let string): 
+                    case .text(let string, highlight: false): 
                         HTML.element("span", ["class": "signature-text"])
                         {
                             string 
                         }
-                    case .punctuation(let string):
+                    case .text(let string, highlight: true):
+                        HTML.element("span", ["class": "signature-highlight"])
+                        {
+                            string 
+                        }
+                    case .punctuation(let string, highlight: false):
                         HTML.element("span", ["class": "signature-punctuation"])
                         {
                             string 
                         }
-                    case .highlight(let string):
-                        HTML.element("span", ["class": "signature-highlight"])
+                    case .punctuation(let string, highlight: true):
+                        HTML.element("span", ["class": "signature-punctuation signature-highlight"])
                         {
                             string 
                         }
@@ -273,7 +278,7 @@ extension Signature
         }
     }
 }
-extension Node.Page 
+extension Page 
 {
     func html(github:String) -> HTML 
     {
@@ -449,14 +454,15 @@ extension Node.Page
                     {
                         for river:River in River.allCases 
                         {
-                            let elements:[(page:Node.Page, note:[Markdown.Element])] = self.downstream
+                            let elements:[(page:Page, display:Signature, note:[Markdown.Element])] = 
+                                self.downstream
                             .filter 
                             {
                                 $0.river == river
                             }
                             .map 
                             {
-                                ($0.page.target, $0.note)
+                                ($0.page.target, $0.display, $0.note)
                             }
                             
                             if !elements.isEmpty 
@@ -467,7 +473,7 @@ extension Node.Page
                                     {
                                         river.rawValue
                                     }
-                                    for (page, note):(Node.Page, [Markdown.Element]) in elements 
+                                    for (page, signature, note):(Page, Signature, [Markdown.Element]) in elements 
                                     {
                                         HTML.element("div", ["class": "topic-container-symbol"])
                                         {
@@ -477,7 +483,7 @@ extension Node.Page
                                                 {
                                                     HTML.element("a", ["href": url])
                                                     {
-                                                        page.signature.html
+                                                        signature.html
                                                     }
                                                 }
                                                 else 
@@ -511,7 +517,7 @@ extension Node.Page
                         {
                             "Topics"
                         }
-                        for topic:Node.Page.Topic in self.topics 
+                        for topic:Page.Topic in self.topics 
                         {
                             HTML.element("div", ["class": "topic"])
                             {
@@ -524,7 +530,7 @@ extension Node.Page
                                 }
                                 HTML.element("div", ["class": "topic-container-right"])
                                 {
-                                    for element:Node.Page in topic.elements.map(\.target)
+                                    for element:Page in topic.elements.map(\.target)
                                     {
                                         HTML.element("div", ["class": "topic-container-symbol"])
                                         {
