@@ -5,11 +5,6 @@ enum Markdown
         static 
         let token:String = "*"
     } 
-    struct Backtick:Grammar.Parsable.Terminal
-    {
-        static 
-        let token:String = "`"
-    } 
     struct Tilde:Grammar.Parsable.Terminal
     {
         static 
@@ -132,7 +127,7 @@ enum Markdown
                 {
                     self = .newline
                 }
-                else if let backticks:List<Backtick, [Backtick]> = 
+                else if let backticks:List<Grammar.Token.Backtick, [Grammar.Token.Backtick]> = 
                     .init(parsing: &input) 
                 {
                     self = .backtick(count: 1 + backticks.body.count)
@@ -143,7 +138,7 @@ enum Markdown
                 {
                     self = .wildcard("*")
                 }
-                else if let _:List<Grammar.Token.Backslash, Backtick> = 
+                else if let _:List<Grammar.Token.Backslash, Grammar.Token.Backtick> = 
                     .init(parsing: &input) 
                 {
                     self = .wildcard("`")
@@ -207,7 +202,7 @@ enum Markdown
                 init(parsing input:inout Grammar.Input) throws 
                 {
                     let start:String.Index              = input.index
-                    let _:Backtick                      = try .init(parsing: &input), 
+                    let _:Grammar.Token.Backtick        = try .init(parsing: &input), 
                         prefix:
                         List<Grammar.Token.Parenthesis.Left, 
                         List<Grammar.Identifiers, 
@@ -259,8 +254,8 @@ enum Markdown
                         self.hint = nil
                     }
                     
-                    let _:Backtick  = try .init(parsing: &input)
-                    self.prefix     = prefix?.body.head.identifiers ?? []
+                    let _:Grammar.Token.Backtick    = try .init(parsing: &input)
+                    self.prefix                     = prefix?.body.head.identifiers ?? []
                 }
             }
             
@@ -272,7 +267,10 @@ enum Markdown
                 let _:Grammar.Token.Bracket.Left                = try .init(parsing: &input),
                     head:Path                                   = try .init(parsing: &input), 
                     body:[Path]                                 =     .init(parsing: &input),
-                    suffix:[List<Grammar.Identifier, Backtick>] = .init(parsing: &input), 
+                    suffix:
+                    [
+                        List<Grammar.Identifier, Grammar.Token.Backtick>
+                    ]                                           = .init(parsing: &input), 
                     _:Grammar.Token.Bracket.Right               = try .init(parsing: &input) 
                 self.paths  = [head] + body
                 self.suffix = suffix.map(\.head.string)
@@ -287,9 +285,9 @@ enum Markdown
             {
                 let _:Grammar.Token.Bracket.Left    = try .init(parsing: &input),
                     _:Grammar.Token.Bracket.Left    = try .init(parsing: &input),
-                    _:Backtick                      = try .init(parsing: &input)
+                    _:Grammar.Token.Backtick        = try .init(parsing: &input)
                 self.type                           = try .init(parsing: &input)
-                let _:Backtick                      = try .init(parsing: &input),
+                let _:Grammar.Token.Backtick        = try .init(parsing: &input),
                     _:Grammar.Token.Bracket.Right   = try .init(parsing: &input),
                     _:Grammar.Token.Bracket.Right   = try .init(parsing: &input) 
             }

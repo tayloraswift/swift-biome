@@ -271,6 +271,11 @@ extension Grammar.Token
         static 
         let token:String = "\\"
     } 
+    struct Backtick:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "`"
+    } 
     struct Colon:Grammar.Parsable.Terminal
     {
         static 
@@ -554,7 +559,7 @@ extension Grammar
     struct BalancedToken:Parsable 
     {
         private 
-        struct Unencapsulated:Grammar.Parsable.CharacterClass
+        struct Unencapsulated:Parsable.CharacterClass
         {
             let character:Character 
             
@@ -652,16 +657,39 @@ extension Grammar
             }
         }
     }
-    // Identifier   ::= <Swift Identifier Head> <Swift Identifier Character> *
+    //  Identifier              ::= <Identifier.Unescaped> 
+    //                            | '`' <Identifier.Unescaped> '`'
+    //  Identifier.Unescaped    ::= <Swift Identifier Head> <Swift Identifier Character> *
     struct Identifier:Parsable, CustomStringConvertible
     {
+        private 
+        struct Unescaped:Parsable
+        {
+            let string:String 
+            
+            init(parsing input:inout Input) throws
+            {
+                let head:Token.Identifier.Head          = try .init(parsing: &input), 
+                    body:[Token.Identifier.Character]   =     .init(parsing: &input)
+                self.string = "\(head.character)\(String.init(body.map(\.character)))"
+            }
+        }
+        
         let string:String 
         
         init(parsing input:inout Input) throws
         {
-            let head:Token.Identifier.Head          = try .init(parsing: &input), 
-                body:[Token.Identifier.Character]   =     .init(parsing: &input)
-            self.string = "\(head.character)\(String.init(body.map(\.character)))"
+            let unescaped:Unescaped
+            if  let _:Token.Backtick = .init(parsing: &input)
+            {
+                unescaped               = try .init(parsing: &input)
+                let _:Token.Backtick    = try .init(parsing: &input)
+            }
+            else 
+            {
+                unescaped               = try .init(parsing: &input)
+            }
+            self.string = unescaped.string 
         }
         
         var description:String 

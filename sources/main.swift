@@ -75,6 +75,7 @@ struct Entrapta:ParsableCommand
             guard let contents:String = File.source(path: source) 
             else 
             {
+                print("error: could not open source file '\(source)'") 
                 continue 
             }
             
