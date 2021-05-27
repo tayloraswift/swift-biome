@@ -992,7 +992,16 @@ extension Page
             throw Entrapta.Error.init("type doccomment can only have a dispatch field if its keyword is `class`")
         }
         
-        let name:String = header.identifiers.joined(separator: ".")
+        // do not print fully-qualified name for associatedtypes 
+        let name:String
+        if case .associatedtype = header.keyword 
+        {
+            name = header.identifiers[header.identifiers.endIndex - 1]
+        }
+        else 
+        {
+            name = header.identifiers.joined(separator: ".")
+        }
         let kind:Kind
         switch header.keyword
         {

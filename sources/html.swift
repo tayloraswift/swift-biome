@@ -352,9 +352,12 @@ extension Page
                     }
                     if !self.discussion.relationships.isEmpty
                     {
-                        HTML.element("p", ["class": "topic-relationships"])
+                        for relationship:[Markdown.Element] in self.discussion.relationships
                         {
-                            Markdown.html(self.discussion.relationships)
+                            HTML.element("p", ["class": "topic-relationships"])
+                            {
+                                Markdown.html(relationship)
+                            }
                         }
                     }
                 }
@@ -557,9 +560,12 @@ extension Page
                                             }
                                             if !element.discussion.relationships.isEmpty 
                                             {
-                                                HTML.element("p", ["class": "topic-symbol-relationships"])
+                                                for relationship:[Markdown.Element] in element.discussion.relationships
                                                 {
-                                                    Markdown.html(element.discussion.relationships)
+                                                    HTML.element("p", ["class": "topic-symbol-relationships"])
+                                                    {
+                                                        Markdown.html(relationship)
+                                                    }
                                                 }
                                             }
                                         }

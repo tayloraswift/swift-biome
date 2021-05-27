@@ -85,7 +85,7 @@ class Page
         parameters:[(name:String, paragraphs:[[Markdown.Element]])], 
         return:[[Markdown.Element]],
         overview:[[Markdown.Element]], 
-        relationships:[Markdown.Element],
+        relationships:[[Markdown.Element]],
         specializations:[Markdown.Element]
     )
     
@@ -675,7 +675,7 @@ extension Page
     }
     static 
     func prose(relationships constraints:Grammar.ConstraintsField?) 
-        -> [Markdown.Element] 
+        -> [[Markdown.Element]] 
     {
         guard let conditions:[Grammar.WhereClause] = constraints?.clauses
         else 
@@ -683,7 +683,7 @@ extension Page
             return []
         }
         
-        return .init(parsing: "Available when \(Self.prose(conditions: conditions)).")
+        return [.init(parsing: "Available when \(Self.prose(conditions: conditions)).")]
     }
     static 
     func prose(relationships fields:
@@ -691,7 +691,7 @@ extension Page
             relationships:Fields.Relationships?, 
             conformances:[Grammar.ConformanceField]
         )) 
-        -> [Markdown.Element] 
+        -> [[Markdown.Element]] 
     {
         var sentences:[String]
         switch fields.relationships 
@@ -699,7 +699,7 @@ extension Page
         case .required?:
             sentences       = ["**Required.**"] 
         case .defaulted?:
-            sentences       = ["**Required.**", "Default implementation provided."]
+            sentences       = ["**Required.** Default implementation provided."]
         case .defaultedConditionally(let conditions)?:
             sentences       = ["**Required.**"] + conditions.map 
             {
@@ -743,7 +743,7 @@ extension Page
             sentences.append("Conforms to \(prose) when \(Self.prose(conditions: conformance.conditions)).")
         }
         
-        return .init(parsing: sentences.joined(separator: "\\n"))
+        return sentences.map([Markdown.Element].init(parsing:))
     }
     
     static 
@@ -878,7 +878,10 @@ extension Page
         }
         self.discussion.return          = self.discussion.return.map{   self.resolveLinks(in: $0, at: node) }
         self.discussion.overview        = self.discussion.overview.map{ self.resolveLinks(in: $0, at: node) }
-        self.discussion.relationships   = self.resolveLinks(in: self.discussion.relationships, at: node) 
+        self.discussion.relationships   = self.discussion.relationships.map 
+        {
+            self.resolveLinks(in: $0, at: node) 
+        }
         self.discussion.specializations = self.resolveLinks(in: self.discussion.specializations, at: node) 
         
         // find the documentation root node
