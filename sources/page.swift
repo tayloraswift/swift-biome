@@ -57,6 +57,23 @@ class Page
         }
     }
     
+    struct Conformer 
+    {
+        enum Kind 
+        {
+            case subclass 
+            case refinement 
+            
+            case conformer(where:[Grammar.WhereClause]) 
+            // actual conformance path (may be different due to inherited conformances)
+            case inheritedConformer(actualConformance:[String])
+        }
+        
+        let kind:Kind
+        let node:Unowned<InternalNode>
+        let page:Unowned<Page> 
+    }
+    
     // needs to be settable, so implicit `Swift` prefixes can be added
     private(set)
     var path:[String] 
@@ -69,7 +86,14 @@ class Page
     // rivers 
     let upstream:[(path:[String], conditions:[Grammar.WhereClause])]
     // will be filled in during postprocessing
-    var downstream:[(page:Unowned<Page>, river:River, display:Signature, note:[Markdown.Element])] 
+    var downstream:[Conformer] 
+    var rivers:
+    [(
+        page    :Unowned<Page>, 
+        river   :River, 
+        display :Signature, 
+        note    :[Markdown.Element]
+    )]
     
     let kind:Kind 
     let name:String // name is not always last component of path 
@@ -156,6 +180,7 @@ class Page
         self.inclusions = inclusions 
         
         // save the upstream conformances 
+        self.rivers     = []
         self.downstream = []
         self.upstream   = fields.conformances.flatMap 
         {
@@ -288,34 +313,41 @@ extension Page
         }
         
         let path:ArraySlice<String> 
-        var scope:[Page]    = [self],
-            next:Node?      = node 
+        var scope:[Page],
+            next:Node?
         if symbol.first == "Self" 
         {
-            while true  
+            switch self.kind 
             {
-                scope = scope.filter(\.kind.hasSelf)
-                guard scope.isEmpty 
-                else 
-                {
-                    break 
-                }
-                
-                guard let parent:Node = next?.parent 
+            case .enum, .struct, .class, .protocol, .extension: 
+                // `Self` refers to this page, and all its extensions 
+                scope   = node.pages 
+                next    = node 
+            default:
+                // `Self` refers to the parent node, and all its extensions 
+                guard let parent:InternalNode = node.parent 
                 else 
                 {
                     print(warning)
                     return nil 
                 }
-                next    = parent 
                 scope   = parent.pages 
+                next    = parent 
             }
             path    = symbol.dropFirst()
         }
         else 
         {
-            next    = node 
-            scope   = [self]
+            if let node:InternalNode = node as? InternalNode 
+            {
+                // include extensions 
+                scope = node.pages 
+            }
+            else 
+            {
+                scope = [self]
+            }
+            next    = node
             path    = symbol[...]
         }
         
@@ -328,12 +360,12 @@ extension Page
                 scope   = node.pages 
             }
             
-            var path:ArraySlice<String>                 = path
+            var keys:ArraySlice<String>                 = path
             var candidates:[Page]                       = scope 
             var search:[[(node:Node, pages:[Page])]]    = node.search(space: scope)
             var matched:[String]                        = []
             matching:
-            while let key:String = path.popFirst() 
+            while let key:String = keys.popFirst() 
             {
                 matched.append(key)
                 for phase:[(node:Node, pages:[Page])] in search
@@ -377,7 +409,15 @@ extension Page
                         }
                     }
                 }
-                continue higher
+                if path.count < symbol.count 
+                {
+                    // path was relative, do not escalate 
+                    break higher 
+                }
+                else 
+                {
+                    continue higher
+                }
             }
             
             // only keep candidates that satisfy `predicate`
@@ -446,6 +486,11 @@ extension Page
                         note: use a '#(_:)' hint suffix to disambiguate using a topic membership key.
                         """)
                 }
+            }
+            else if path.count < symbol.count 
+            {
+                // path was relative, do not escalate 
+                break higher 
             }
             else 
             {
@@ -536,16 +581,6 @@ extension Page
                     .initializer, .instanceMethod, .staticMethod, 
                     .staticProperty, .instanceProperty:
                 return .local
-            }
-        }
-        var hasSelf:Bool 
-        {
-            switch self
-            {
-            // `Self` refers to this page 
-            case .enum, .struct, .class, .protocol: return true 
-            // `Self` refers to an ancestor node 
-            default:                                return false 
             }
         }
         
@@ -766,7 +801,7 @@ extension Page
         }
     }
     
-    private static 
+    static 
     func prose<T>(separator:String, listing elements:[T], _ renderer:(T) -> String) 
         -> String 
     {

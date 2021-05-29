@@ -27,7 +27,8 @@ extension Page
             dispatch:Grammar.DispatchField? 
         
         let callable:Callable
-        let relationships:Relationships?
+        private(set)
+        var relationships:Relationships?
         
         let paragraphs:[Grammar.ParagraphField],
             topics:[Grammar.TopicField], 
@@ -125,7 +126,7 @@ extension Page.Fields
                 }
                 dispatch = field 
             
-            case .subscript, .function, .property, .typealias, .type, .framework, .dependency, .lexeme:
+            case .subscript, .function, .property, .associatedtype, .typealias, .type, .framework, .dependency, .lexeme:
                 throw Entrapta.Error.init("only one header field per doccomnent allowed")
                 
             case .separator:
@@ -207,6 +208,13 @@ extension Page.Fields
         self.paragraphs         = paragraphs
         self.topics             = topics 
         self.memberships        = memberships
+    }
+    
+    // used for associated types, which infer their relationships automatically 
+    mutating 
+    func update(relationships:Relationships)
+    {
+        self.relationships = relationships
     }
 }
 
@@ -965,18 +973,143 @@ extension Page
             order:          order)
     }
     convenience 
+    init(_ header:Grammar.AssociatedtypeField, fields:Fields, order:Int) throws 
+    {
+        // we can infer values for some of the fields 
+        var fields:Fields = fields 
+        
+        guard fields.callable.isEmpty
+        else 
+        {
+            throw Entrapta.Error.init("associatedtype doccomment cannot have callable fields")
+        }
+        guard fields.attributes.isEmpty 
+        else 
+        {
+            throw Entrapta.Error.init("associatedtype doccomment cannot have attribute fields")
+        }
+        // this restriction really isn’t necessary, and should be removed eventually 
+        guard fields.conformances.isEmpty
+        else 
+        {
+            throw Entrapta.Error.init("associatedtype cannot have conformance fields", 
+                help: "write associatedtype constraints in a constraints field.")
+        }
+        guard fields.dispatch == nil 
+        else 
+        {
+            throw Entrapta.Error.init("associatedtype doccomment cannot have a dispatch field")
+        }
+        switch (fields.relationships, header.target)
+        {
+        case (.required?, nil):
+            print("warning: relationships field with keyword `required` is redundant for associatedtype '\(header.identifiers.joined(separator: "."))'")
+        case (.required?, _?): 
+            print("warning: associatedtype '\(header.identifiers.joined(separator: "."))' was marked `required`, but it has a default type")
+        case (.defaulted?, nil): 
+            print("warning: associatedtype '\(header.identifiers.joined(separator: "."))' was marked `defaulted`, but it has no default type")
+        case (.defaulted?, _?): 
+            print("warning: relationships field with keyword `defaulted` is redundant for associatedtype '\(header.identifiers.joined(separator: "."))'")
+        case (.defaultedConditionally?, _):
+            print("warning: associatedtype '\(header.identifiers.joined(separator: "."))' was marked as conditionally `defaulted`, which does not make sense")
+        case (.implements?, _):
+            print("warning: associatedtype '\(header.identifiers.joined(separator: "."))' was marked as implementing a protocol requirement, which does not make sense")
+        case (nil, nil):
+            // infer `required`
+            fields.update(relationships: .required)
+        case (nil, _?):
+            // infer `defaulted`
+            fields.update(relationships: .defaulted)
+        }
+        
+        // do not print fully-qualified name for associatedtypes 
+        let name:String = header.identifiers[header.identifiers.endIndex - 1]
+        // if any of the constraints refer to the associatedtype itself, print 
+        // them as conformances. 
+        // do not use Array.partition(by:), as that sort is non-stable 
+        let conformances:[[[String]]] = fields.constraints?.clauses
+        .compactMap
+        {
+            if case ([name], .conforms(let identifiers)) = ($0.subject, $0.predicate)
+            {
+                return identifiers 
+            }
+            else 
+            {
+                return nil 
+            }
+        } ?? []
+        let constraints:[Grammar.WhereClause] = fields.constraints?.clauses 
+        .filter 
+        {
+            if case ([name], .conforms(_)) = ($0.subject, $0.predicate)
+            {
+                return false  
+            }
+            else 
+            {
+                return true 
+            }
+        } ?? []
+        
+        let signature:Signature     = .init 
+        {
+            Signature.text("associatedtype")
+            Signature.whitespace
+            Signature.text(highlighting: name)
+        }
+        let declaration:Declaration = .init 
+        {
+            Declaration.keyword("associatedtype")
+            Declaration.whitespace
+            Declaration.identifier(name)
+            if !conformances.isEmpty 
+            {
+                Declaration.punctuation(":") 
+                Declaration.init(joining: conformances) 
+                {
+                    Declaration.init(joining: $0, Declaration.init(typename:))
+                    {
+                        Declaration.whitespace(breakable: false)
+                        Declaration.punctuation("&") 
+                        Declaration.whitespace(breakable: false)
+                    }
+                }
+                separator:
+                {
+                    Declaration.punctuation(",") 
+                    Declaration.whitespace
+                }
+            }
+            if let target:Grammar.SwiftType = header.target 
+            {
+                Declaration.whitespace(breakable: false)
+                Declaration.punctuation("=")
+                Declaration.whitespace
+                Declaration.init(type: target)
+            }
+            if !constraints.isEmpty 
+            {
+                Declaration.whitespace
+                Declaration.init(constraints: constraints) 
+            }
+        }
+        
+        try self.init(path: header.identifiers, 
+            name:           name, 
+            kind:          .associatedtype(module: .local), 
+            signature:      signature, 
+            declaration:    declaration, 
+            fields:         fields, 
+            order:          order)
+    }
+    convenience 
     init(_ header:Grammar.TypeField, fields:Fields, order:Int) throws 
     {
         guard fields.callable.isEmpty
         else 
         {
             throw Entrapta.Error.init("type doccomment cannot have callable fields")
-        }
-        // this restriction really isn’t necessary, and should be removed eventually 
-        if case .associatedtype = header.keyword, !fields.conformances.isEmpty
-        {
-            throw Entrapta.Error.init("associatedtype cannot have conformance fields", 
-                help: "write associatedtype constraints in a constraints field.")
         }
         switch 
         (
@@ -992,16 +1125,6 @@ extension Page
             throw Entrapta.Error.init("type doccomment can only have a dispatch field if its keyword is `class`")
         }
         
-        // do not print fully-qualified name for associatedtypes 
-        let name:String
-        if case .associatedtype = header.keyword 
-        {
-            name = header.identifiers[header.identifiers.endIndex - 1]
-        }
-        else 
-        {
-            name = header.identifiers.joined(separator: ".")
-        }
         let kind:Kind
         switch header.keyword
         {
@@ -1012,13 +1135,6 @@ extension Page
                 throw Entrapta.Error.init("extension cannot have generic parameters")
             }
             kind = .extension 
-        case .associatedtype:
-            guard header.generics.isEmpty 
-            else 
-            {
-                throw Entrapta.Error.init("associatedtype cannot have generic parameters")
-            }
-            kind = .associatedtype  (module: .local)
         case .protocol:
             guard header.generics.isEmpty 
             else 
@@ -1054,18 +1170,9 @@ extension Page
         {
             Signature.text("\(header.keyword)")
             Signature.whitespace
-            // do not print fully-qualified name for associatedtypes 
-            if  case .associatedtype    = header.keyword, 
-                let last:String         = header.identifiers.last
+            Signature.init(joining: header.identifiers, Signature.text(highlighting:))
             {
-                Signature.text(highlighting: last)
-            }
-            else 
-            {
-                Signature.init(joining: header.identifiers, Signature.text(highlighting:))
-                {
-                    Signature.punctuation(".")
-                }
+                Signature.punctuation(".")
             }
             Signature.init(generics: header.generics)
             // include conformances in signature, if extension 
@@ -1140,7 +1247,7 @@ extension Page
         }
         
         try self.init(path: header.identifiers, 
-            name:           name, 
+            name:           header.identifiers.joined(separator: "."), 
             kind:           kind, 
             signature:      signature, 
             declaration:    declaration, 

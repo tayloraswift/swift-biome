@@ -106,12 +106,14 @@ PropertyField.Keyword   ::= 'let'
 Accessors               ::= '{' <Whitespace> ? 'get' 
                             ( ( <Whitespace> 'nonmutating' ) ? <Whitespace> 'set' ) ? <Whitespace> ? '}'
 
+AssociatedtypeField     ::= 'associatedtype' <Whitespace> <Identifiers> 
+                            ( <Whitespace> ? '=' <Whitespace> ? <Type> ) ? <Endline>
+                            
 TypealiasField          ::= 'typealias' <Whitespace> <Identifiers> <TypeParameters> ?
                             <Whitespace> ? '=' <Whitespace> ? <Type> <Endline>
 
 TypeField               ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? <Endline>
-TypeField.Keyword       ::= 'associatedtype'
-                          | 'protocol'
+TypeField.Keyword       ::= 'protocol'
                           | 'class'
                           | 'struct'
                           | 'enum'
@@ -163,6 +165,7 @@ ParagraphField          ::= <ParagraphLine> <ParagraphLine> *
 ParagraphLine           ::= '    ' ' ' * [^\s] . * '\n'
 
 Field                   ::= <FrameworkField>
+                          | <AssociatedtypeField>
                           | <AttributeField>
                           | <ConformanceField>
                           | <ConstraintsField>
@@ -180,6 +183,7 @@ Field                   ::= <FrameworkField>
                           | <TypeField>
                           | <ParagraphField>
                           | <Separator>
+Separator               ::= <Endline>
 Separator               ::= <Endline>
 
 Type                    ::= <UnwrappedType> '?' *

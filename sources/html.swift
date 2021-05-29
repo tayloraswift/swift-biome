@@ -449,7 +449,7 @@ extension Page
                 }
             }
             // conforming types 
-            if !self.downstream.isEmpty 
+            if !self.rivers.isEmpty 
             {
                 HTML.element("section", ["class": "rivers"])
                 {
@@ -458,7 +458,7 @@ extension Page
                         for river:River in River.allCases 
                         {
                             let elements:[(page:Page, display:Signature, note:[Markdown.Element])] = 
-                                self.downstream
+                                self.rivers
                             .filter 
                             {
                                 $0.river == river

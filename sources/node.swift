@@ -324,6 +324,48 @@ extension Node
     {
         paths.compactMap(self.find(_:))
     }
+    func find(conformable path:[String]) -> InternalNode? 
+    {
+        guard let node:Node = self.find(path) 
+        else 
+        {
+            print("warning: could not find upstream node for conformance target '\(path.joined(separator: "."))'")
+            return nil 
+        }
+        guard let target:InternalNode = node as? InternalNode
+        else 
+        {
+            print("warning: could not find upstream node for conformance target '\(path.joined(separator: "."))'")
+            print("note: candidates are \(node.pages.map(\.kind)), expected a class or protocol")
+            return nil 
+        }
+        switch target.page.kind 
+        {
+        case .class, .protocol:
+            return target 
+        case let kind:
+            print("warning: could not find upstream node for conformance target '\(path.joined(separator: "."))'") 
+            print("note: candidate is a \(kind), expected a class or protocol")
+            return nil
+        }
+    }
+    func find(protocol path:[String]) -> InternalNode? 
+    {
+        guard let node:InternalNode = self.find(conformable: path) 
+        else 
+        {
+            // warning was already printed 
+            return nil 
+        }
+        guard case .protocol = node.page.kind
+        else 
+        {
+            print("warning: could not find upstream node for conformance target '\(path.joined(separator: "."))'") 
+            print("note: candidate is a \(node.page.kind), expected a protocol")
+            return nil 
+        }
+        return node
+    }
     func search(space inclusions:[Page.Inclusions]) -> [[(node:Node, pages:[Page])]]
     {
         let spaces:[(Page.Inclusions) -> [[String]]] = 
@@ -359,6 +401,52 @@ extension Node
     }
 }
 
+extension InternalNode 
+{
+    func append(downstream page:Page, in node:InternalNode, as kind:Page.Conformer.Kind) 
+    {        
+        self.page.downstream.append(.init(kind: kind,
+            node:   .init(target: node),
+            page:   .init(target: page)))
+        
+        guard case .conformer(where: let conditions) = kind, conditions.isEmpty
+        else 
+        {
+            return 
+        }
+        
+        // if there were no conditions, we should recurse upstream, 
+        // so this page appears as conforming to unconditionally-inherited 
+        // protocols as well 
+        var frontier:[InternalNode]         = [      self ]
+        var seen:Set<ObjectIdentifier>      = [.init(self)]
+        while let inheriting:InternalNode   = frontier.popLast()
+        {
+            for inherited:[String] in inheriting.page.upstream.map(\.path)
+            {
+                guard let inherited:InternalNode = inheriting.find(protocol: inherited)
+                else 
+                {
+                    // warning was already printed
+                    continue 
+                }
+                // no point in registering conformances to builtin protocols/classes
+                if case .swift              = inherited.page.kind.module 
+                {
+                    continue 
+                }
+                if let _:ObjectIdentifier   = seen.update(with: .init(inherited))
+                {
+                    continue 
+                }
+                
+                inherited.append(downstream: page, in: node, 
+                    as: .inheritedConformer(actualConformance: self.page.path))                
+                frontier.append(inherited)
+            }
+        }
+    }
+}
 extension Node 
 {
     func postprocess(urlGenerator url:([String]) -> String)
@@ -438,6 +526,13 @@ extension Node
         self.preorder 
         {
             (node:Node) in 
+            // only internal nodes can appear in rivers 
+            guard let node:InternalNode = node as? InternalNode 
+            else 
+            {
+                return 
+            }
+            
             // *all* pages, including extensions 
             for page:Page in node.pages 
             {
@@ -447,87 +542,41 @@ extension Node
                     {
                         "conformance target '\(path.joined(separator: "."))'"
                     }
+                    
                     // find the upstream node and page 
-                    guard   let found:Node    = node.find(path),
-                            let upstream:Page = (found as? InternalNode)?.page
+                    guard let upstream:InternalNode = node.find(conformable: path) 
                     else 
                     {
-                        fatalError("could not find upstream node for \(description)")
+                        // warning was already printed
+                        continue 
                     }
-                    
                     // no point in registering conformances to builtin protocols/classes
-                    if case .swift = upstream.kind.module
+                    if case .swift = upstream.page.kind.module
                     {
                         continue 
                     }
                     // make sure the relationship makes sense 
-                    let river:Page.River
-                    switch (page.kind, upstream.kind)
+                    switch (page.kind, upstream.page.kind)
                     {
                     case (.class, .class):
-                        if !conditions.isEmpty 
+                        guard conditions.isEmpty 
+                        else 
                         {
-                            print("warning: \(description) is a class, which should not have conditions")
+                            print("warning: \(description) is a class, which cannot be conditionally conformed-to")
+                            continue 
                         }
-                        river = .subclass 
+                        upstream.append(downstream: page, in: node, as: .subclass)
                     case (_     , .class):
                         print("warning: \(description) is a class, which cannot be inherited by a \(page.kind)")
                         continue 
                     case (.protocol, .protocol):
-                        river = .refinement 
+                        upstream.append(downstream: page, in: node, as: .refinement)
                     case (.enum, .protocol), (.struct, .protocol), (.class, .protocol), (.extension, .protocol):
-                        river = .conformer
+                        upstream.append(downstream: page, in: node, as: .conformer(where: conditions))
                     case (let downstream, let upstream):
                         print("warning: \(description) is a \(upstream), which cannot be inherited by a \(downstream)")
                         continue 
                     }
-                    
-                    let note:[Markdown.Element]
-                    if conditions.isEmpty 
-                    {
-                        note = []
-                    }
-                    else 
-                    {
-                        note = .init(parsing: "When \(Page.prose(conditions: conditions)).")
-                    }
-                    
-                    upstream.downstream.append(
-                    (
-                        .init(target: page), 
-                        river, 
-                        // print the “short” signature, which includes deep generics, 
-                        // and is different from the normal signature. 
-                        .init 
-                        {
-                            for (identifier, ancestor):(String, InternalNode) in 
-                                // omit `Swift` prefix
-                                zip(page.path, node.ancestors.dropFirst()).drop(while: 
-                                { 
-                                    if case .module(.swift) = $0.1.page.kind
-                                    {
-                                        return true 
-                                    }
-                                    else 
-                                    {
-                                        return false 
-                                    }
-                                })
-                            {
-                                Signature.text(highlighting: identifier)
-                                Signature.init(generics: ancestor.page.parameters)
-                                Signature.punctuation(".")
-                            }
-                            if let identifier:String = page.path.last 
-                            {
-                                Signature.text(highlighting: identifier)
-                                Signature.init(generics: page.parameters)
-                            }
-                        },
-                        // resolve links *now*, since the original scope is different 
-                        // from the page it will appear in 
-                        page.resolveLinks(in: note, at: node)
-                    ))
                 }
             }
         }
@@ -546,9 +595,117 @@ extension Node
                 
                 page.resolveLinks(at: node)
                 
-                // while we’re at it, sort the downstream conformances 
-                page.downstream.sort 
+                // consolidate duplicated conformers 
+                // (happens if a protocol has more than one refinement, and a 
+                // type unconditionally conforms to multiple refinements)
+                page.rivers = [ObjectIdentifier: [Page.Conformer]]
+                .init(grouping: page.downstream) 
                 {
+                    .init($0.page.target)
+                }
+                .values.compactMap 
+                {
+                    (conformers:[Page.Conformer]) -> 
+                    (
+                        page    :Unowned<Page>, 
+                        river   :Page.River, 
+                        display :Signature, 
+                        note    :[Markdown.Element]
+                    )? in 
+                    
+                    guard let conformer:Page.Conformer = conformers.first
+                    else 
+                    {
+                        fatalError("unreachable")
+                    }
+                    
+                    let node:Node = conformer.node.target, 
+                        page:Page = conformer.page.target 
+                    
+                    @Signature 
+                    var signature:Signature 
+                    {
+                        // print the “short” signature, which includes deep generics, 
+                        // and is different from the normal signature. 
+                        for (identifier, ancestor):(String, InternalNode) in 
+                            // omit `Swift` prefix
+                            zip(page.path, node.ancestors.dropFirst()).drop(while: 
+                            { 
+                                if case .module(.swift) = $0.1.page.kind
+                                {
+                                    return true 
+                                }
+                                else 
+                                {
+                                    return false 
+                                }
+                            })
+                        {
+                            Signature.text(highlighting: identifier)
+                            Signature.init(generics: ancestor.page.parameters)
+                            Signature.punctuation(".")
+                        }
+                        if let identifier:String = page.path.last 
+                        {
+                            Signature.text(highlighting: identifier)
+                            Signature.init(generics: page.parameters)
+                        }
+                    }
+                     
+                    switch (conformer.kind, conformers.count)
+                    {
+                    case (.subclass,                         1):
+                        return (conformer.page, .subclass,   signature, [])
+                    case (.refinement,                       1): 
+                        return (conformer.page, .refinement, signature, [])
+                    case (.conformer(where: let conditions), 1):
+                        if conditions.isEmpty 
+                        {
+                            return (conformer.page, .conformer, signature, [])
+                        }
+                        // resolve links *now*, since the original scope is different 
+                        // from the page it will appear in 
+                        let note:[Markdown.Element] = page.resolveLinks(
+                            in: .init(parsing: "When \(Page.prose(conditions: conditions))."), 
+                            at: node)
+                        return (conformer.page, .conformer,  signature, note)
+                    case (.inheritedConformer,   _):
+                        // all conformers should be of this kind
+                        let actualConformances:[[String]] = conformers.compactMap 
+                        {
+                            if case .inheritedConformer(actualConformance: let actual) = $0.kind
+                            {
+                                return actual 
+                            }
+                            else 
+                            {
+                                return nil 
+                            }
+                        }
+                        guard actualConformances.count == conformers.count 
+                        else 
+                        {
+                            fallthrough
+                        }
+                        let note:[Markdown.Element] = page.resolveLinks(
+                            in: .init(parsing: 
+                                """
+                                Because it conforms to \(Page.prose(separator: ",", listing: actualConformances)
+                                {
+                                    "[`\($0.joined(separator: "."))`]"
+                                }).
+                                """), 
+                            at: node)
+                        return (conformer.page, .conformer, signature, note)
+                    
+                    default: 
+                        print("error: conflicting downstream conformers (\(conformers.map(\.kind)))")
+                        return nil 
+                    }
+                }
+                .sorted 
+                {
+                    // sort the downstream conformances 
                     ($0.page.target.priority.rank, $0.page.target.priority.order, $0.page.target.name) 
                     <
                     ($1.page.target.priority.rank, $1.page.target.priority.order, $1.page.target.name) 

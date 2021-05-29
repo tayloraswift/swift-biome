@@ -710,9 +710,40 @@ extension Grammar
             """
         }
     }
+    //  AssociatedtypeField     ::= 'associatedtype' <Whitespace> <Identifiers> 
+    //                              ( <Whitespace> ? '=' <Whitespace> ? <Type> ) ? <Endline>
+    struct AssociatedtypeField:Parsable, CustomStringConvertible
+    {
+        let identifiers:[String]
+        let target:SwiftType?
+        
+        init(parsing input:inout Input) throws
+        {
+            let _:Token.Associatedtype          = try .init(parsing: &input),
+                _:Whitespace                    = try .init(parsing: &input), 
+                identifiers:Identifiers         = try .init(parsing: &input), 
+                target:
+                List<Whitespace?, 
+                List<Token.Equals, 
+                List<Whitespace?, SwiftType>>>? =     .init(parsing: &input),
+                _:Endline                       = try .init(parsing: &input)
+            self.identifiers    = identifiers.identifiers 
+            self.target         = target?.body.body.body
+        }
+        
+        var description:String 
+        {
+            """
+            AssociatedtypeField 
+            {
+                identifiers : \(self.identifiers)
+                target      : \(self.target as Any)
+            }
+            """
+        }
+    }
     //  TypeField               ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? <Endline>
-    //  TypeField.Keyword       ::= 'associatedtype'
-    //                            | 'protocol'
+    //  TypeField.Keyword       ::= 'protocol'
     //                            | 'class'
     //                            | 'struct'
     //                            | 'enum'
@@ -721,7 +752,6 @@ extension Grammar
     {
         enum Keyword:Parsable 
         {
-            case `associatedtype`
             case `protocol` 
             case `class` 
             case `struct` 
@@ -731,11 +761,7 @@ extension Grammar
             init(parsing input:inout Input) throws
             {
                 let start:String.Index              = input.index
-                if      let _:Token.Associatedtype  = .init(parsing: &input)
-                {
-                    self = .associatedtype
-                }
-                else if let _:Token.`Protocol`      = .init(parsing: &input)
+                if      let _:Token.`Protocol`      = .init(parsing: &input)
                 {
                     self = .protocol
                 }
@@ -1305,6 +1331,7 @@ extension Grammar
     }
     
     //  Field                   ::= <FrameworkField>
+    //                            | <AssociatedtypeField>
     //                            | <AttributeField>
     //                            | <ConformanceField>
     //                            | <ConstraintsField>
@@ -1332,6 +1359,7 @@ extension Grammar
         case `subscript`(SubscriptField) 
         case function(FunctionField) 
         case property(PropertyField) 
+        case `associatedtype`(AssociatedtypeField) 
         case `typealias`(TypealiasField) 
         case type(TypeField) 
         
@@ -1375,6 +1403,10 @@ extension Grammar
             else if let field:PropertyField = .init(parsing: &input)
             {
                 self = .property(field)
+            }
+            else if let field:AssociatedtypeField = .init(parsing: &input)
+            {
+                self = .associatedtype(field)
             }
             else if let field:TypealiasField = .init(parsing: &input)
             {

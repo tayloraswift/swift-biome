@@ -115,21 +115,23 @@ struct Entrapta:ParsableCommand
                 
                 switch parsed.first 
                 {
-                case .framework (let header)?:
+                case .framework     (let header)?:
                     return try .init(header, fields: fields, order: i)
-                case .dependency(let header)?:
+                case .dependency    (let header)?:
                     return try .init(header, fields: fields, order: i)
-                case .lexeme    (let header)?:
+                case .lexeme        (let header)?:
                     return try .init(header, fields: fields, order: i)
-                case .subscript (let header)?:
+                case .subscript     (let header)?:
                     return try .init(header, fields: fields, order: i)
-                case .function  (let header)?:
+                case .function      (let header)?:
                     return try .init(header, fields: fields, order: i)
-                case .property  (let header)?:
+                case .property      (let header)?:
                     return try .init(header, fields: fields, order: i)
-                case .typealias (let header)?:
+                case .associatedtype(let header)?:
                     return try .init(header, fields: fields, order: i)
-                case .type      (let header)?:
+                case .typealias     (let header)?:
+                    return try .init(header, fields: fields, order: i)
+                case .type          (let header)?:
                     return try .init(header, fields: fields, order: i)
                 default:
                     throw Entrapta.Error.init("could not parse doccomment")
