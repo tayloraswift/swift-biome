@@ -255,6 +255,8 @@ extension Grammar
     //                              ( <Whitespace> <FunctionField.Throws> ) ? <Endline>
     //                            | 'case' <Whitespace> <FunctionIdentifiers> <Endline>
     //  FunctionField.Keyword   ::= 'init'
+    //                            | 'required' <Whitespace> 'init'
+    //                            | 'convenience' <Whitespace> 'init'
     //                            | 'func'
     //                            | 'mutating' <Whitespace> 'func'
     //                            | 'prefix' <Whitespace> 'func'
@@ -275,6 +277,8 @@ extension Grammar
         enum Keyword:Parsable 
         {
             case `init` 
+            case requiredInit
+            case convenienceInit
             case `func` 
             case mutatingFunc
             case prefixFunc 
@@ -291,6 +295,16 @@ extension Grammar
                 if      let _:Token.Init    = .init(parsing: &input)
                 {
                     self = .`init`
+                }
+                else if let _:List<Token.Required, List<Whitespace, Token.Init>> = 
+                    .init(parsing: &input)
+                {
+                    self = .requiredInit
+                }
+                else if let _:List<Token.Convenience, List<Whitespace, Token.Init>> = 
+                    .init(parsing: &input)
+                {
+                    self = .convenienceInit
                 }
                 else if let _:Token.Func    = .init(parsing: &input)
                 {
@@ -565,6 +579,7 @@ extension Grammar
     //                              ( <Whitespace> ? <MemberMutability> ) ? <Endline> 
     //  PropertyField.Keyword   ::= 'let'
     //                            | 'var'
+    //                            | 'class' <Whitespace> 'var'
     //                            | 'static' <Whitespace> 'let'
     //                            | 'static' <Whitespace> 'var'
     //  Accessors               ::= '{' <Whitespace> ? 'get' 
@@ -575,6 +590,7 @@ extension Grammar
         {
             case `let` 
             case `var` 
+            case classVar
             case staticLet 
             case staticVar
             
@@ -588,6 +604,11 @@ extension Grammar
                 else if let _:Token.Var = .init(parsing: &input)
                 {
                     self = .var 
+                }
+                else if let _:List<Token.Class, List<Whitespace, Token.Var>> = 
+                    .init(parsing: &input)
+                {
+                    self = .classVar
                 }
                 else if let _:List<Token.Static, List<Whitespace, Token.Let>> = 
                     .init(parsing: &input)

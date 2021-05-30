@@ -223,7 +223,7 @@ extension InternalNode
                 }
                 
             case    .case, .functor, .function, .operator, .subscript, .initializer, 
-                    .staticMethod, .instanceMethod, .staticProperty, .instanceProperty:
+                    .staticMethod, .instanceMethod, .staticProperty, .classProperty, .instanceProperty:
                 // can be overloaded, cannot have children 
                 switch self.children[key] 
                 {

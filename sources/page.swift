@@ -561,6 +561,7 @@ extension Page
         case staticMethod       (generic:Bool)
         
         case staticProperty
+        case classProperty
         case instanceProperty
         
         var module:Module 
@@ -579,7 +580,7 @@ extension Page
             case    .plugin,
                     .extension, .case, .functor, .function, .operator, .subscript, 
                     .initializer, .instanceMethod, .staticMethod, 
-                    .staticProperty, .instanceProperty:
+                    .staticProperty, .classProperty, .instanceProperty:
                 return .local
             }
         }
@@ -614,6 +615,7 @@ extension Page
             case .plugin:                                           return "Package Plugin"
             case .case:                                             return "Enumeration Case"
             case .instanceProperty:                                 return "Instance Property"
+            case .classProperty:                                    return "Class Property"
             case .staticProperty:                                   return "Static Property"
             
             case .extension:                                        return "Extension"
@@ -978,6 +980,7 @@ extension Page.Kind
         case .operator:             return .operators 
         case .subscript:            return .subscripts 
         case .staticProperty:       return .typeProperties
+        case .classProperty:        return .typeProperties 
         case .instanceProperty:     return .instanceProperties
         case .associatedtype:       return .associatedtypes
         case .module(.imported):    return .dependencies 

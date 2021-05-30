@@ -561,9 +561,13 @@ extension Page
         }
         switch (header.keyword, header.identifiers.tail)
         {
-        case    (.`init`,               .alphanumeric("init")): // okay 
+        case    (.`init`,               .alphanumeric("init")), 
+                (.requiredInit,         .alphanumeric("init")), 
+                (.convenienceInit,      .alphanumeric("init")): // okay 
             break
-        case    (.`init`,               _): 
+        case    (.`init`,               _), 
+                (.requiredInit,         _), 
+                (.convenienceInit,      _): 
             throw Entrapta.Error.init("initializer must have basename 'init'")
         case    (.func,                 .alphanumeric("callAsFunction")),
                 (.mutatingFunc,         .alphanumeric("callAsFunction")): // okay 
@@ -642,6 +646,8 @@ extension Page
         switch header.keyword 
         {
         case .`init`:           keywords = []
+        case .requiredInit:     keywords = []
+        case .convenienceInit:  keywords = []
         case .func:             keywords = ["func"]
         case .mutatingFunc:     keywords = ["mutating", "func"]
         case .prefixFunc:       keywords = ["prefix", "func"]
@@ -655,7 +661,9 @@ extension Page
         let kind:Kind 
         switch (header.keyword, header.identifiers.prefix, header.identifiers.tail)
         {
-        case    (.`init`,               _, _           ):   
+        case    (.`init`,               _, _           ), 
+                (.requiredInit,         _, _           ), 
+                (.convenienceInit,      _, _           ):   
             kind = .initializer     (generic: !header.generics.isEmpty) 
         case    (_,                     _, .operator(_)), 
                 (.prefixFunc,           _, _           ),
@@ -703,7 +711,7 @@ extension Page
             }
             switch (header.keyword, header.identifiers.tail)
             {
-            case (.`init`, _):
+            case (.`init`, _), (.requiredInit, _), (.convenienceInit, _):
                 Signature.text(highlighting: "init")
             case (_, .alphanumeric("callAsFunction")):
                 let _:Void = ()
@@ -743,6 +751,14 @@ extension Page
             switch (header.keyword, header.identifiers.tail)
             {
             case    (.`init`, _):
+                Declaration.keyword("init")
+            case    (.requiredInit, _):
+                Declaration.keyword("required")
+                Declaration.whitespace
+                Declaration.keyword("init")
+            case    (.convenienceInit, _):
+                Declaration.keyword("convenience")
+                Declaration.whitespace
                 Declaration.keyword("init")
             case    (_, .alphanumeric("callAsFunction")):
                 Declaration.keyword("callAsFunction")
@@ -825,17 +841,17 @@ extension Page
         }
         switch (header.keyword, fields.dispatch)
         {
-        case (.var, _), (_, nil):   break // okay 
+        case (.var, _), (.classVar, _), (.let, _), (_, nil):   break // okay 
         case (_, _?):
             throw Entrapta.Error.init(
-                "property doccomment can only have a dispatch field if its keyword is `var`") 
+                "property doccomment can only have a dispatch field if its keyword is `let`, `var`, or `class var`") 
         }
         switch (header.keyword, header.accessors)
         {
-        case (.var, _), (.staticVar, _), (_, nil):   break // okay 
+        case (.var, _), (.classVar, _), (.staticVar, _), (_, nil):   break // okay 
         case (_, _?):
             throw Entrapta.Error.init(
-                "property doccomment can only have accessors if keyword is `var` or `static var`") 
+                "property doccomment can only have accessors if keyword is `var`, `class var`, or `static var`") 
         }
         
         let name:String = header.identifiers[header.identifiers.endIndex - 1] 
@@ -850,6 +866,9 @@ extension Page
         case .var:
             kind        = .instanceProperty 
             keywords    = ["var"]
+        case .classVar:
+            kind        = .classProperty 
+            keywords    = ["class", "var"]
         case .staticLet:
             kind        = .staticProperty 
             keywords    = ["static", "let"]

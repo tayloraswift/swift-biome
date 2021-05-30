@@ -75,6 +75,8 @@ FunctionField           ::= <FunctionField.Keyword> <Whitespace> <FunctionIdenti
                             ( <Whitespace> <FunctionField.Throws> ) ? <Endline>
                           | 'case' <Whitespace> <FunctionIdentifiers> <Endline>
 FunctionField.Keyword   ::= 'init'
+                          | 'required' <Whitespace> 'init'
+                          | 'convenience' <Whitespace> 'init'
                           | 'func'
                           | 'mutating' <Whitespace> 'func'
                           | 'prefix' <Whitespace> 'func'
@@ -100,6 +102,7 @@ PropertyField           ::= <PropertyField.Keyword> <Whitespace> <Identifiers>
                             ( <Whitespace> ? <MemberMutability> ) ? <Endline> 
 PropertyField.Keyword   ::= 'let'
                           | 'var'
+                          | 'class' <Whitespace> 'var'
                           | 'static' <Whitespace> 'let'
                           | 'static' <Whitespace> 'var'
   

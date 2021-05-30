@@ -342,6 +342,11 @@ extension Grammar.Token
         static 
         let token:String = "class"
     }
+    struct Convenience:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "convenience"
+    }
     struct Enum:Grammar.Parsable.Terminal
     {
         static 
@@ -387,6 +392,11 @@ extension Grammar.Token
         static 
         let token:String = "init"
     }
+    struct Required:Grammar.Parsable.Terminal
+    {
+        static 
+        let token:String = "required"
+    } 
     struct Rethrows:Grammar.Parsable.Terminal
     {
         static 
