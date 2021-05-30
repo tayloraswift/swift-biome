@@ -69,7 +69,7 @@ struct Entrapta:ParsableCommand
     
     func run() 
     {
-        var doccomments:[String] = [] 
+        var doccomments:[(file:String, line:Int, content:String)] = [] 
         for source:String in self.sources 
         {
             guard let contents:String = File.source(path: source) 
@@ -79,8 +79,11 @@ struct Entrapta:ParsableCommand
                 continue 
             }
             
-            var doccomment:String = ""
-            for line:Substring in contents.split(separator: "\n", omittingEmptySubsequences: false)
+            var directive:Int       = 0
+            var doccomment:String   = ""
+            for (i, line):(Int, Substring) in contents
+                .split(separator: "\n", omittingEmptySubsequences: false)
+                .enumerated()
             {
                 let line:Substring = line.drop{ $0.isWhitespace && !$0.isNewline }
                 if line.starts(with: "/// ")
@@ -94,23 +97,24 @@ struct Entrapta:ParsableCommand
                 }
                 else if !doccomment.isEmpty
                 {
-                    doccomments.append(doccomment)
-                    doccomment = ""
+                    doccomments.append((source, directive, doccomment))
+                    doccomment  = ""
+                    directive   = i
                 }
             }
             
             if !doccomment.isEmpty
             {
-                doccomments.append(doccomment)
+                doccomments.append((source, directive, doccomment))
             }
         }
         
         let pages:[Page] = doccomments.enumerated().compactMap
         {
-            let (i, doccomment):(Int, String) = $0
+            let (i, doccomment):(Int, (file:String, line:Int, content:String)) = $0
             do 
             {
-                let parsed:[Grammar.Field]  =     .init(parsing: doccomment), 
+                let parsed:[Grammar.Field]  =     .init(parsing: doccomment.content), 
                     fields:Page.Fields      = try .init(parsed.dropFirst())
                 
                 switch parsed.first 
@@ -142,9 +146,9 @@ struct Entrapta:ParsableCommand
                 print("\(error)")
                 print(
                     """
-                    note: while parsing doccomment 
+                    note: while parsing doccomment at \(doccomment.file):\(doccomment.line):
                     '''
-                    \(doccomment)
+                    \(doccomment.content)
                     '''
                     """)
                 return nil 
