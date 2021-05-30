@@ -71,7 +71,7 @@ LexemeField             ::= ( <LexemeField.Keyword> <Whitespace> ) ?
                             <Endline>
                           
 FunctionField           ::= <FunctionField.Keyword> <Whitespace> <FunctionIdentifiers> <TypeParameters> ? '?' ? 
-                            '(' ( <FunctionField.Label> ':' ) * ')' 
+                            '(' ( <Identifier> ':' ) * ')' 
                             ( <Whitespace> <FunctionField.Throws> ) ? <Endline>
                           | 'case' <Whitespace> <FunctionIdentifiers> <Endline>
 FunctionField.Keyword   ::= 'init'
@@ -86,8 +86,6 @@ FunctionField.Keyword   ::= 'init'
                           | 'static' <Whitespace> 'postfix' <Whitespace> 'func'
                           | 'case' 
                           | 'indirect' <Whitespace> 'case' 
-FunctionField.Label     ::= <Identifier> 
-                          | <Identifier> ? '...'
 FunctionField.Throws    ::= 'throws' 
                           | 'rethrows'
 
@@ -205,7 +203,8 @@ FunctionType            ::= ( <Attribute> <Whitespace> ) * <FunctionParameters> 
                             ( 'throws' <Whitespace> ? ) ? '->' <Whitespace> ? <Type>
 FunctionParameters      ::= '(' <Whitespace> ? ( <FunctionParameter> <Whitespace> ? 
                             ( ',' <Whitespace> ? <FunctionParameter> <Whitespace> ? ) * ) ? ')'
-FunctionParameter       ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace> ) ? <Type>
+FunctionParameter       ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace> ) ? 
+                            <Type> ( <Whitespace> ? '...' ) ?
 Attribute               ::= '@' <Identifier>
 CollectionType          ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']'
 ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
@@ -235,9 +234,10 @@ SymbolPath              ::= '`' ( '(' <Identifiers> ').' ) ? <SymbolTail>
                             ( <Whitespace> ? '#' <Whitespace> ? 
                                 '(' <Whitespace> ? <TopicKey> <Whitespace> ? ')' ) ?
                             '`'
-SymbolTail              ::= <FunctionIdentifiers> ? '(' ( <FunctionLabel> ':' ) * ')' 
-                          | <Identifiers>         ? '[' ( <FunctionLabel> ':' ) * ']'
+SymbolTail              ::= <FunctionIdentifiers> ? '(' <SymbolLabel> * ')' 
+                          | <Identifiers>         ? '[' <SymbolLabel> * ']'
                           | <Identifiers>
+SymbolLabel             ::= <Identifier> '...' ? ':'
 ParagraphLink           ::= '[' [^\]] * '](' [^\)] ')'
 ```
 

@@ -277,6 +277,13 @@ extension Declaration
                         Self.whitespace(breakable: false)
                     }
                     Self.init(type: $0.type)
+                    if $0.variadic 
+                    {
+                        for _:Int in 0 ..< 3 
+                        {
+                            Self.punctuation(".")
+                        }
+                    }
                 }
                 separator: 
                 {
@@ -422,7 +429,7 @@ extension Declaration
         }
     }
     
-    init(callable:Page.Fields.Callable, labels:[(name:String, variadic:Bool)], 
+    init(callable:Page.Fields.Callable, labels:[String], 
         throws:Grammar.FunctionField.Throws?, 
         unifier:(String, String) -> [String])
     {
@@ -432,8 +439,7 @@ extension Declaration
             Self.punctuation("(")
             Self.init(joining: zip(labels, callable.domain.map{ ($0.name, $0.type) }))
             {
-                let (label, variadic):(String, Bool)                        = $0.0
-                let (name, parameter):(String, Grammar.FunctionParameter)   = $0.1
+                let (label, (name, parameter)):(String, (String, Grammar.FunctionParameter)) = $0
                 
                 let unified:[String] = unifier(label, name)
                 if !unified.isEmpty 
@@ -459,7 +465,7 @@ extension Declaration
                     Self.whitespace(breakable: false)
                 }
                 Self.init(type: parameter.type)
-                if variadic 
+                if parameter.variadic 
                 {
                     for _:Int in 0 ..< 3 
                     {

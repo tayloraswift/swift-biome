@@ -118,7 +118,7 @@ extension Signature
         }
     }
     
-    init(callable:Page.Fields.Callable, labels:[(name:String, variadic:Bool)], 
+    init(callable:Page.Fields.Callable, labels:[String], 
         throws:Grammar.FunctionField.Throws?, 
         delimiters:(String, String))
     {
@@ -133,8 +133,7 @@ extension Signature
             Self.punctuation(delimiters.0)
             Self.init(joining: zip(labels, callable.domain.map(\.type)))
             {
-                let (label, variadic):(String, Bool)    = $0.0
-                let parameter:Grammar.FunctionParameter = $0.1
+                let (label, parameter):(String, Grammar.FunctionParameter) = $0
                 
                 if label != "_" 
                 {
@@ -147,7 +146,7 @@ extension Signature
                     Self.whitespace
                 }
                 Self.init(type: parameter.type)
-                if variadic 
+                if parameter.variadic 
                 {
                     for _:Int in 0 ..< 3 
                     {

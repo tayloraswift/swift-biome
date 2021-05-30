@@ -11,6 +11,19 @@ extension Page
             {
                 self.domain.isEmpty && self.range == nil 
             }
+            
+            func print(labels:[String]) -> String 
+            {
+                zip(self.domain, labels).map
+                { 
+                    switch ($0.0.type.variadic, $0.1)
+                    {
+                    case (true, "_"):           return "...:"
+                    case (true,  let label):    return "\(label)...:"
+                    case (false, let label):    return "\(label):"
+                    }
+                }.joined()
+            }
         }
         
         enum Relationships 
@@ -477,13 +490,12 @@ extension Page
             throw Entrapta.Error.init("subscript doccomment must have a return value field")
         }
         
-        let name:String                             = "[\(header.labels.map{ "\($0):" }.joined())]" 
-        let labels:[(name:String, variadic:Bool)]   = header.labels.map{ ($0, false) }
+        let name:String                             = "[\(fields.callable.print(labels: header.labels))]" 
         let signature:Signature     = .init 
         {
             Signature.text(highlighting: "subscript")
             Signature.init(generics: header.generics)
-            Signature.init(callable: fields.callable, labels: labels, throws: nil, 
+            Signature.init(callable: fields.callable, labels: header.labels, throws: nil, 
                 delimiters: ("[", "]"))
         }
         let declaration:Declaration = .init 
@@ -496,7 +508,7 @@ extension Page
             }
             Declaration.keyword("subscript")
             Declaration.init(generics: header.generics)
-            Declaration.init(callable: fields.callable, labels: labels, throws: nil)
+            Declaration.init(callable: fields.callable, labels: header.labels, throws: nil)
             {
                 switch ($0, $1) 
                 {
@@ -622,8 +634,8 @@ extension Page
             header.keyword, 
             fields.callable.range, 
             header.throws, 
-            fields.callable.domain.map(\.name) == header.labels?.map(\.name) ?? [],
-            header.labels?.allSatisfy{ !$0.variadic } ?? true
+            fields.callable.domain.map(\.name) == header.labels ?? [],
+            fields.callable.domain.allSatisfy{ !$0.type.variadic } 
         )
         {
         case (.case, _?, _, _, _), (.indirectCase, _?, _, _, _):
@@ -729,7 +741,7 @@ extension Page
             }
             Signature.init(generics: header.generics)
             // no parentheses if uninhabited enum case 
-            if let labels:[(name:String, variadic:Bool)] = header.labels
+            if let labels:[String] = header.labels
             {
                 Signature.init(callable: fields.callable, labels: labels, 
                     throws: header.throws, delimiters: ("(", ")"))
@@ -781,7 +793,7 @@ extension Page
             }
             Declaration.init(generics: header.generics)
             // no parentheses if uninhabited enum case 
-            if let labels:[(name:String, variadic:Bool)] = header.labels
+            if let labels:[String] = header.labels
             {
                 Declaration.init(callable: fields.callable, labels: labels, throws: header.throws)
                 {
@@ -795,13 +807,7 @@ extension Page
             }
         }
         
-        let suffix:String? = header.labels.map 
-        {
-            $0.map
-            { 
-                "\($0.variadic && $0.name == "_" ? "" : $0.name)\($0.variadic ? "..." : ""):" 
-            }.joined()
-        }
+        let suffix:String? = header.labels.map(fields.callable.print(labels:))
         let name:String 
         switch (header.identifiers.tail, suffix)
         {

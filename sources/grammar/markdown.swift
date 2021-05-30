@@ -36,9 +36,10 @@ enum Markdown
     ///                             ( <Whitespace> ? '#' <Whitespace> ? 
     ///                                 '(' <Whitespace> ? <TopicKey> <Whitespace> ? ')' ) ?
     ///                             '`'
-    //  SymbolTail              ::= <FunctionIdentifiers> ? '(' ( <FunctionLabel> ':' ) * ')' 
-    //                            | <Identifiers>         ? '[' ( <FunctionLabel> ':' ) * ']'
+    //  SymbolTail              ::= <FunctionIdentifiers> ? '(' <SymbolLabel> * ')' 
+    //                            | <Identifiers>         ? '[' <SymbolLabel> * ']'
     //                            | <Identifiers>
+    //  SymbolLabel             ::= <Identifier> '...' ? ':'
     //  ParagraphLink           ::= '[' [^\]] * '](' [^\)] ')'
     struct NotClosingBracket:Grammar.Parsable.CharacterClass
     {
@@ -195,6 +196,19 @@ enum Markdown
         {
             struct Path:Grammar.Parsable
             {
+                struct Label:Grammar.Parsable
+                {
+                    let string:String
+                    
+                    init(parsing input:inout Grammar.Input) throws
+                    {
+                        let identifier:Grammar.Identifier       = try .init(parsing: &input), 
+                            variadic:Grammar.Token.Ellipsis?    =     .init(parsing: &input), 
+                            _:Grammar.Token.Colon               = try .init(parsing: &input)
+                        self.string     = "\(identifier.string)\(variadic == nil ? "" : "..."):"
+                    }
+                }
+                
                 let prefix:[String], 
                     path:[String], 
                     hint:String?
@@ -212,20 +226,18 @@ enum Markdown
                     if      let tail:List<Grammar.FunctionIdentifiers?, Grammar.Token.Parenthesis.Left> = 
                                                                       .init(parsing: &input) 
                     {
-                        let labels:[List<Grammar.FunctionField.Label, Grammar.Token.Colon>] = 
-                                                                      .init(parsing: &input) 
+                        let labels:[Label]                      =     .init(parsing: &input) 
                         let _:Grammar.Token.Parenthesis.Right   = try .init(parsing: &input)
                         self.path = (tail.head?.prefix ?? []) + 
-                            ["\(tail.head?.tail.string ?? "")(\(labels.map(\.head.description).joined()))"]
+                            ["\(tail.head?.tail.string ?? "")(\(labels.map(\.string).joined()))"]
                     }
                     else if let tail:List<Grammar.Identifiers?, Grammar.Token.Bracket.Left> = 
                                                                       .init(parsing: &input) 
                     {
-                        let labels:[List<Grammar.FunctionField.Label, Grammar.Token.Colon>] = 
-                                                                      .init(parsing: &input) 
+                        let labels:[Label]                      =     .init(parsing: &input) 
                         let _:Grammar.Token.Bracket.Right       = try .init(parsing: &input)
                         self.path = (tail.head?.identifiers ?? []) + 
-                            ["[\(labels.map(\.head.description).joined())]"]
+                            ["[\(labels.map(\.string).joined())]"]
                     }
                     else if let tail:Grammar.Identifiers        =     .init(parsing: &input)
                     {

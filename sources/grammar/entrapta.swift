@@ -251,7 +251,7 @@ extension Grammar
     }
     
     //  FunctionField           ::= <FunctionField.Keyword> <Whitespace> <FunctionIdentifiers> <TypeParameters> ? '?' ? 
-    //                              '(' ( <FunctionField.Label> ':' ) * ')' 
+    //                              '(' ( <Identifier> ':' ) * ')' 
     //                              ( <Whitespace> <FunctionField.Throws> ) ? <Endline>
     //                            | 'case' <Whitespace> <FunctionIdentifiers> <Endline>
     //  FunctionField.Keyword   ::= 'init'
@@ -266,8 +266,6 @@ extension Grammar
     //                            | 'static' <Whitespace> 'postfix' <Whitespace> 'func'
     //                            | 'case' 
     //                            | 'indirect' <Whitespace> 'case' 
-    //  FunctionField.Label     ::= <Identifier> 
-    //                            | <Identifier> ? '...'
     //  FunctionField.Throws    ::= 'throws' 
     //                            | 'rethrows'
     //  TypeParameters          ::= '<' <Whitespace> ? <Identifier> <Whitespace> ? 
@@ -364,38 +362,6 @@ extension Grammar
             }
         }
         
-        struct Label:Parsable, CustomStringConvertible
-        {
-            let string:String, 
-                variadic:Bool 
-            
-            init(parsing input:inout Input) throws
-            {
-                let start:String.Index      = input.index 
-                if      let variadic:List<Identifier?, Token.Ellipsis> = 
-                    .init(parsing: &input)
-                {
-                    self.string     = variadic.head?.string ?? "_" 
-                    self.variadic   = true
-                }
-                else if let singular:Identifier = 
-                    .init(parsing: &input)
-                {
-                    self.string     = singular.string 
-                    self.variadic   = false
-                }
-                else 
-                {
-                    throw input.expected(Self.self, from: start)
-                }
-            }
-            
-            var description:String 
-            {
-                "\(self.variadic && self.string == "_" ? "" : self.string)\(self.variadic ? "..." : ""):"
-            }
-        }
-        
         enum Throws:Parsable 
         {
             case `throws` 
@@ -426,7 +392,7 @@ extension Grammar
             let identifiers:FunctionIdentifiers
             let generics:[String] 
             let failable:Bool
-            let labels:[(name:String, variadic:Bool)]
+            let labels:[String]
             let `throws`:Throws?
             
             init(parsing input:inout Input) throws
@@ -437,13 +403,16 @@ extension Grammar
                 let generics:TypeParameters?            =     .init(parsing: &input),
                     failable:Token.Question?            =     .init(parsing: &input),
                     _:Token.Parenthesis.Left            = try .init(parsing: &input),
-                    labels:[List<Label, Token.Colon>]   =     .init(parsing: &input),
+                    labels:
+                    [
+                        List<Identifier, Token.Colon>
+                    ]                                   =     .init(parsing: &input),
                     _:Token.Parenthesis.Right           = try .init(parsing: &input),
                     `throws`:List<Whitespace, Throws>?  =     .init(parsing: &input),
                     _:Endline                           = try .init(parsing: &input)
                 self.generics       = generics?.identifiers ?? [] 
                 self.failable       = failable != nil 
-                self.labels         = labels.map{ ($0.head.string, $0.head.variadic) }
+                self.labels         = labels.map(\.head.string)
                 self.throws         = `throws`?.body
             }
         }
@@ -465,7 +434,7 @@ extension Grammar
         let identifiers:FunctionIdentifiers
         let generics:[String] 
         let failable:Bool
-        let labels:[(name:String, variadic:Bool)]?
+        let labels:[String]?
         let `throws`:Throws?
             
         init(parsing input:inout Input) throws 
