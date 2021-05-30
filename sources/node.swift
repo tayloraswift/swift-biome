@@ -793,12 +793,6 @@ extension Node
                         ($1.priority.rank, $1.priority.order, $1.name) 
                     }
                     
-                    guard !sorted.isEmpty
-                    else 
-                    {
-                        continue 
-                    }
-                    
                     page.topics.append(.init(name: topic.rawValue, 
                         elements: sorted.map(Unowned<Page>.init(target:))))
                 }
@@ -809,6 +803,8 @@ extension Node
                     let seealso:Page.Topic = page.topics.remove(at: i)
                     page.topics.append(seealso)
                 }
+                // remove empty topics 
+                page.topics.removeAll(where: \.elements.isEmpty)
             }
         }
     }
