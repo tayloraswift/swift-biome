@@ -112,31 +112,6 @@ code.signature, code.declaration
     margin-left: -2em;
 }
 
-/* raspberry pink */
-code .syntax-keyword, code .signature-highlight, p a
-{
-    color: #ff4086;
-}
-code.signature a
-{
-    outline-color: #ff4086;
-}
-/* dark gray */
-code .syntax-identifier
-{
-    color: #333333;
-}
-/* medium gray */
-code .signature-text, code .signature-punctuation
-{
-    color: #666666;
-}
-/* light gray */
-code .syntax-punctuation
-{
-    color: #888888;
-}
-
 
 code span.syntax-group:after
 {
@@ -173,18 +148,6 @@ a:focus
 {
     outline-style: dashed;
     outline-width: 1px;
-}
-code a.syntax-type
-{
-    color: #ffa010;
-}
-code a.syntax-imported-type
-{
-    color: #ff8135;
-}
-code a.syntax-swift-type
-{
-    color: #ff5840;
 }
 
 
@@ -274,6 +237,7 @@ nav li.github-icon-container .github-icon
 .discussion p, .introduction p
 {
     padding-right: 5em;
+    line-height: 135%; 
 }
 
 .topic 
@@ -363,6 +327,85 @@ p code
 p strong 
 {
     font-weight: 600;
+}
+
+/* syntax colors */
+/* raspberry pink */
+code .syntax-keyword, code .signature-highlight, p a
+{
+    color: #ff4086;
+}
+code.signature a
+{
+    outline-color: #ff4086;
+}
+/* dark gray */
+code .syntax-identifier
+{
+    color: #333333;
+}
+/* medium gray */
+code .signature-text, code .signature-punctuation
+{
+    color: #666666;
+}
+/* light gray */
+code .syntax-punctuation
+{
+    color: #888888;
+}
+/* lavender */
+code .syntax-literal
+{
+    color: #8060ff;
+}
+/* medium gray */
+code .syntax-operator
+{
+    color: #555555;
+}
+code a.syntax-type
+{
+    color: #ffa010;
+}
+code a.syntax-imported-type
+{
+    color: #ff8135;
+}
+code a.syntax-swift-type, pre code .syntax-type-identifier
+{
+    color: #ff5840;
+}
+/* inline code */
+pre code 
+{
+    font-family: 'Source Code Pro', monospace;
+    font-weight: 500;
+    line-height: 135%;
+}
+/* disable punctuation kerning */
+pre code * 
+{
+    margin: 0 !important;
+}
+/* code blocks */
+pre 
+{
+    background-color: rgb(242, 242, 242);
+    padding: 1em 1em;
+}
+pre code 
+{
+    font-size: 1em;
+    
+}
+pre code span 
+{
+    margin: 0;
+}
+pre code syntax-type 
+{
+    
 }
 
 /* underlining */

@@ -1,4 +1,4 @@
-enum Markdown 
+enum Paragraph:Grammar.Parsable
 {
     struct Asterisk:Grammar.Parsable.Terminal
     {
@@ -27,15 +27,16 @@ enum Markdown
     //                            | '***'
     //                            | '**'
     //                            | '*'
+    //                            | <ParagraphCodeBlock>
     //                            | .
     //  ParagraphSubscript      ::= '~' [^~] * '~'
     //  ParagraphSuperscript    ::= '^' [^\^] * '^'
     //  ParagraphInlineType     ::= '[[`' <Type> '`]]'
     //  ParagraphSymbolLink     ::= '[' <SymbolPath> <SymbolPath> * ( <Identifier> '`' ) * ']'
     //  SymbolPath              ::= '`' ( '(' <Identifiers> ').' ) ? <SymbolTail> 
-    ///                             ( <Whitespace> ? '#' <Whitespace> ? 
-    ///                                 '(' <Whitespace> ? <TopicKey> <Whitespace> ? ')' ) ?
-    ///                             '`'
+    //                              ( <Whitespace> ? '#' <Whitespace> ? 
+    //                                  '(' <Whitespace> ? <TopicKey> <Whitespace> ? ')' ) ?
+    //                              '`'
     //  SymbolTail              ::= <FunctionIdentifiers> ? '(' <SymbolLabel> * ')' 
     //                            | <Identifiers>         ? '[' <SymbolLabel> * ']'
     //                            | <Identifiers>
@@ -317,7 +318,7 @@ enum Markdown
         
         init(parsing input:inout Grammar.Input) throws 
         {
-            let start:String.Index          = input.index
+            let start:String.Index          = input.index 
             if      let link:Link           = .init(parsing: &input) 
             {
                 self = .link(link)
@@ -349,5 +350,138 @@ enum Markdown
                 throw input.expected(Self.self, from: start)
             }
         }
+    }
+    
+    struct CodeBlock:Grammar.Parsable
+    {
+        // syntax highlighting 
+        enum TokenInfo 
+        {
+            case attribute
+            case literal 
+            case interpolation
+            case punctuation
+            case `operator`
+            case keyword
+            case pseudo
+            case variable
+            case symbol(Link)
+            case comment
+            case whitespace
+        }
+        
+        enum Language:Grammar.Parsable
+        {
+            private 
+            struct Swift:Grammar.Parsable.Terminal
+            {
+                static 
+                let token:String = "swift"
+            }
+            case swift 
+            case text 
+            
+            init(parsing input:inout Grammar.Input) throws 
+            {
+                let start:String.Index          = input.index 
+                if      let _:Swift = .init(parsing: &input)
+                {
+                    self = .swift 
+                }
+                else 
+                {
+                    throw input.expected(Self.self, from: start)
+                }
+            }
+        }
+        
+        let language:Language 
+        let content:[(text:String, info:TokenInfo)] 
+        
+        init(language:Language, content:[(text:String, info:TokenInfo)])
+        {
+            self.language   = language 
+            self.content    = content 
+        }
+        
+        init(parsing input:inout Grammar.Input) throws 
+        {
+            let _:Grammar.Indent            = try .init(parsing: &input), 
+                _:Grammar.Token.Backtick    = try .init(parsing: &input), 
+                _:Grammar.Token.Backtick    = try .init(parsing: &input),
+                _:Grammar.Token.Backtick    = try .init(parsing: &input),
+                language:Language?          =     .init(parsing: &input),
+                _:Grammar.Endline           = try .init(parsing: &input)
+            
+            var content:String = ""
+            while true 
+            {
+                if  let _:
+                        List<Grammar.Endline, 
+                        List<Grammar.Indent, 
+                        List<Grammar.Token.Backtick, 
+                        List<Grammar.Token.Backtick, 
+                        List<Grammar.Token.Backtick, Grammar.Endline>>>>> = 
+                    .init(parsing: &input) 
+                {
+                    break 
+                }
+                else if let character:Character = input.next()
+                {
+                    content.append(character)
+                }
+                else 
+                {
+                    throw input.expected(Grammar.Endline.self)
+                }
+            }
+            self.language   = language ?? .text 
+            // remove 4 spaces of indentation
+            self.content    = SwiftCode.highlight(code: content
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map 
+            {
+                "\($0.prefix(4).drop(while: \.isWhitespace))\($0.dropFirst(4))"
+            }
+            .joined(separator: "\n"))
+        }
+        
+        var isEmpty:Bool 
+        {
+            self.content.isEmpty
+        }
+    }
+    
+    case paragraph([Element])
+    case code(block:CodeBlock)
+    
+    init(parsing string:String) 
+    {
+        var input:Grammar.Input = .init(string)
+        self.init(parsing: &input)
+        if input.index != input.string.endIndex 
+        {
+            print("warning: unparsed trailing characters '\(input.string[input.index...])'") 
+        }
+    }
+    
+    init(parsing input:inout Grammar.Input) 
+    {
+        self = .paragraph(.init(parsing: &input))
+    }
+    
+    var isEmpty:Bool 
+    {
+        switch self 
+        {
+        case .paragraph(let elements):  return elements.isEmpty 
+        case .code(block: let block):   return block.isEmpty
+        }
+    }
+    
+    static 
+    var empty:Self 
+    {
+        .paragraph([])
     }
 }

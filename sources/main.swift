@@ -79,27 +79,120 @@ struct Entrapta:ParsableCommand
                 continue 
             }
             
-            var directive:Int       = 0
-            var doccomment:String   = ""
-            for (i, line):(Int, Substring) in contents
-                .split(separator: "\n", omittingEmptySubsequences: false)
-                .enumerated()
+            guard let tokens:[SwiftCode.Token] = try? SwiftCode.tokenize(code: contents)
+            else 
             {
-                let line:Substring = line.drop{ $0.isWhitespace && !$0.isNewline }
-                if line.starts(with: "/// ")
+                print("error: could not tokenize source file '\(source)'")
+                continue 
+            }
+            // strip whitespace tokens, and expand newlines into individual tokens
+            let flattened:[SwiftCode.Token] = tokens.flatMap 
+            {
+                (token:SwiftCode.Token) -> [SwiftCode.Token] in 
+                switch token.kind 
                 {
-                    doccomment += "\(line.dropFirst(4))\n"
-                } 
-                else if line.starts(with: "///"), 
-                        line.dropFirst(3).allSatisfy(\.isWhitespace)
-                {
-                    doccomment += "\n"
+                case .whitespace(newlines: nil):
+                    return []
+                case .whitespace(newlines: let count?):
+                    return .init(
+                        repeating: .init(text: "\n", kind: .whitespace(newlines: 1), 
+                            location: token.location), 
+                        count: count)
+                default: 
+                    return [token]
                 }
-                else if !doccomment.isEmpty
+            }
+            
+            var doccomment:String   = ""
+            var directive:Int       = 0
+            for line:ArraySlice<SwiftCode.Token> in 
+            (flattened.split(omittingEmptySubsequences: false)
+            {
+                if case .whitespace = $0.kind
+                {
+                    return true 
+                }
+                else 
+                {
+                    return false
+                }
+            })
+            {
+                if  let token:SwiftCode.Token = line.first, 
+                        line.count == 1 
+                {
+                    directive           = token.location.line ?? directive
+                    switch token.kind 
+                    {
+                    case .doccommentLine:
+                        if      token.text.hasPrefix("/// ")
+                        {
+                            doccomment += "\(token.text.dropFirst(4))\n"
+                            continue 
+                        } 
+                        else if token.text.hasPrefix("///"), 
+                                token.text.dropFirst(3).allSatisfy(\.isWhitespace)
+                        {
+                            doccomment += "\n"
+                            continue 
+                        }
+                        else 
+                        {
+                            print("(\(source):\(directive)): doccomment must have leading space ('/// ')")
+                            break 
+                        }
+                    case .doccommentBlock:
+                        guard token.text.hasPrefix("/**"), token.text.hasSuffix("**/")
+                        else 
+                        {
+                            print("(\(source):\(directive)): multiline doccomment can only be transformed into a paragraph if it starts with '/**' and ends with '**/'")
+                            break 
+                        }
+                        let lines:[Substring] = token.text
+                            .dropFirst(3)
+                            .dropLast(3)
+                            .split(separator: "\n", omittingEmptySubsequences: false)
+                        // match indentation of least-indented line 
+                        let indent:Int = lines.compactMap 
+                        {
+                            if $0.allSatisfy(\.isWhitespace)
+                            {
+                                return nil 
+                            }
+                            else 
+                            {
+                                return $0.prefix(while: \.isWhitespace).count
+                            }
+                        }
+                        .min() ?? 0
+                        
+                        doccomment += lines.map 
+                        {
+                            // keep 4 spaces of indentation 
+                            $0.dropFirst(max(0, indent - 4))
+                        }
+                        .joined(separator: "\n")
+                        continue 
+                    default: 
+                        break 
+                    }
+                }
+                else if !(line.allSatisfy
+                {
+                    switch $0.kind 
+                    {
+                    case .doccommentLine, .doccommentBlock: return false 
+                    default:                                return true
+                    }
+                })
+                {
+                    print("(\(source):\(directive)): doccomment must be written on its own line")
+                }
+                
+                if !doccomment.isEmpty
                 {
                     doccomments.append((source, directive, doccomment))
                     doccomment  = ""
-                    directive   = i
                 }
             }
             

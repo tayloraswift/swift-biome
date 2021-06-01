@@ -92,7 +92,7 @@ class Page
         page    :Unowned<Page>, 
         river   :River, 
         display :Signature, 
-        note    :[Markdown.Element]
+        note    :Paragraph
     )]
     
     let kind:Kind 
@@ -103,14 +103,14 @@ class Page
     // preserves ordering of generic parameters
     let parameters:[String]
     
-    var blurb:[Markdown.Element]
+    var blurb:Paragraph
     var discussion:
     (
-        parameters:[(name:String, paragraphs:[[Markdown.Element]])], 
-        return:[[Markdown.Element]],
-        overview:[[Markdown.Element]], 
-        relationships:[[Markdown.Element]],
-        specializations:[Markdown.Element]
+        parameters:[(name:String, paragraphs:[Paragraph])], 
+        return:[Paragraph],
+        overview:[Paragraph], 
+        relationships:[Paragraph],
+        specializations:Paragraph
     )
     
     var breadcrumbs:[(text:String, link:Link)], 
@@ -257,7 +257,7 @@ class Page
         
         self.parameters     = generics 
         
-        self.blurb                  = fields.blurb ?? [] 
+        self.blurb                  = fields.blurb ?? .empty
         self.discussion.overview    = fields.discussion
 
         self.discussion.return      = fields.callable.range?.paragraphs ?? []
@@ -697,7 +697,7 @@ extension Page
 {
     static 
     func prose(specializations attributes:[Grammar.AttributeField]) 
-        -> [Markdown.Element] 
+        -> Paragraph 
     {
         .init(parsing: attributes.compactMap 
         {
@@ -712,7 +712,7 @@ extension Page
     }
     static 
     func prose(relationships constraints:Grammar.ConstraintsField?) 
-        -> [[Markdown.Element]] 
+        -> [Paragraph] 
     {
         guard let conditions:[Grammar.WhereClause] = constraints?.clauses
         else 
@@ -728,7 +728,7 @@ extension Page
             relationships:Fields.Relationships?, 
             conformances:[Grammar.ConformanceField]
         )) 
-        -> [[Markdown.Element]] 
+        -> [Paragraph] 
     {
         var sentences:[String]
         switch fields.relationships 
@@ -780,7 +780,7 @@ extension Page
             sentences.append("Conforms to \(prose) when \(Self.prose(conditions: conformance.conditions)).")
         }
         
-        return sentences.map([Markdown.Element].init(parsing:))
+        return sentences.map(Paragraph.init(parsing:))
     }
     
     static 
@@ -848,60 +848,76 @@ extension Page
             }
         }
     }
-    func resolveLinks(in unlinked:[Markdown.Element], at node:Node) -> [Markdown.Element]
+    func resolveLinks(in unlinked:Paragraph, at node:Node) -> Paragraph
     {
-        unlinked.map 
+        switch unlinked 
         {
-            switch $0 
+        case .code(block: let unlinked):
+            return .code(block: .init(language: unlinked.language, content: 
+                unlinked.content.map 
             {
-            case .type(let inline):
-                return .code(self.resolveLinks(in: .init(type: inline.type), at: node))
-            case .symbol(let link):
-                return .code(.init 
+                guard   case .symbol(.unresolved(path: let path))   = $0.info, 
+                        let link:Link = self.resolve(path, in: node)
+                else 
                 {
-                    Declaration.init(joining: link.paths)
+                    return $0
+                }
+                return ($0.text, .symbol(link))
+            }))
+        case .paragraph(let unlinked):
+            return .paragraph(unlinked.map 
+            {
+                switch $0 
+                {
+                case .type(let inline):
+                    return .code(self.resolveLinks(in: .init(type: inline.type), at: node))
+                case .symbol(let link):
+                    return .code(.init 
                     {
-                        (sublink:Markdown.Element.SymbolLink.Path) in 
-                        // only apply the tag hint to the last component of the sublink path
-                        let components:[(String?, String)] = .init(zip(
-                            repeatElement(nil, count: sublink.path.count - 1) + [sublink.hint],
-                            sublink.path))
-                        return Declaration.init(joining: Link.scan(\.1, in: components)) 
+                        Declaration.init(joining: link.paths)
                         {
-                            switch $0.link 
+                            (sublink:Paragraph.Element.SymbolLink.Path) in 
+                            // only apply the tag hint to the last component of the sublink path
+                            let components:[(String?, String)] = .init(zip(
+                                repeatElement(nil, count: sublink.path.count - 1) + [sublink.hint],
+                                sublink.path))
+                            return Declaration.init(joining: Link.scan(\.1, in: components)) 
                             {
-                            case .unresolved(path: let path):
-                                if let link:Link = self.resolve(sublink.prefix + path, in: node, 
-                                    hint: $0.element.0)
+                                switch $0.link 
                                 {
+                                case .unresolved(path: let path):
+                                    if let link:Link = self.resolve(sublink.prefix + path, in: node, 
+                                        hint: $0.element.0)
+                                    {
+                                        Declaration.identifier($0.element.1, link: link)
+                                    }
+                                    else 
+                                    {
+                                        Declaration.identifier($0.element.1)
+                                    }
+                                case let link:
                                     Declaration.identifier($0.element.1, link: link)
                                 }
-                                else 
-                                {
-                                    Declaration.identifier($0.element.1)
-                                }
-                            case let link:
-                                Declaration.identifier($0.element.1, link: link)
+                            }
+                            separator: 
+                            {
+                                Declaration.punctuation(".")
                             }
                         }
                         separator: 
                         {
                             Declaration.punctuation(".")
                         }
-                    }
-                    separator: 
-                    {
-                        Declaration.punctuation(".")
-                    }
-                    for component:String in link.suffix 
-                    {
-                        Declaration.punctuation(".")
-                        Declaration.identifier(component)
-                    }
-                })
-            case let element:
-                return element 
-            }
+                        for component:String in link.suffix 
+                        {
+                            Declaration.punctuation(".")
+                            Declaration.identifier(component)
+                        }
+                    })
+                case let element:
+                    return element 
+                }
+            })
         }
     }
     func resolveLinks(at node:Node) 

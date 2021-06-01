@@ -156,6 +156,10 @@ extension Optional:Grammar.Parsable where Wrapped:Grammar.Parsable
     {
         var input:Grammar.Input = .init(string)
         self = Self.init(parsing: &input)
+        if input.index != input.string.endIndex 
+        {
+            print("warning: unparsed trailing characters '\(input.string[input.index...])'") 
+        }
     }
 }
 

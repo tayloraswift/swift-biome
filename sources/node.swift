@@ -610,7 +610,7 @@ extension Node
                         page    :Unowned<Page>, 
                         river   :Page.River, 
                         display :Signature, 
-                        note    :[Markdown.Element]
+                        note    :Paragraph
                     )? in 
                     
                     guard let conformer:Page.Conformer = conformers.first
@@ -655,17 +655,17 @@ extension Node
                     switch (conformer.kind, conformers.count)
                     {
                     case (.subclass,                         1):
-                        return (conformer.page, .subclass,   signature, [])
+                        return (conformer.page, .subclass,   signature, .empty)
                     case (.refinement,                       1): 
-                        return (conformer.page, .refinement, signature, [])
+                        return (conformer.page, .refinement, signature, .empty)
                     case (.conformer(where: let conditions), 1):
                         if conditions.isEmpty 
                         {
-                            return (conformer.page, .conformer, signature, [])
+                            return (conformer.page, .conformer, signature, .empty)
                         }
                         // resolve links *now*, since the original scope is different 
                         // from the page it will appear in 
-                        let note:[Markdown.Element] = page.resolveLinks(
+                        let note:Paragraph = page.resolveLinks(
                             in: .init(parsing: "When \(Page.prose(conditions: conditions))."), 
                             at: node)
                         return (conformer.page, .conformer,  signature, note)
@@ -687,7 +687,7 @@ extension Node
                         {
                             fallthrough
                         }
-                        let note:[Markdown.Element] = page.resolveLinks(
+                        let note:Paragraph = page.resolveLinks(
                             in: .init(parsing: 
                                 """
                                 Because it conforms to \(Page.prose(separator: ",", listing: actualConformances)

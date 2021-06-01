@@ -339,25 +339,22 @@ extension Page
                     {
                         self.name
                     }
-                    HTML.element("p", ["class": "topic-blurb"])
+                    if self.blurb.isEmpty 
                     {
-                        if self.blurb.isEmpty 
+                        HTML.element("p", ["class": "topic-blurb"])
                         {
                             "No overview available"
                         }
-                        else 
-                        {
-                            Markdown.html(self.blurb)
-                        }
+                    }
+                    else 
+                    {
+                        self.blurb.html(["class": "topic-blurb"])
                     }
                     if !self.discussion.relationships.isEmpty
                     {
-                        for relationship:[Markdown.Element] in self.discussion.relationships
+                        for relationship:Paragraph in self.discussion.relationships
                         {
-                            HTML.element("p", ["class": "topic-relationships"])
-                            {
-                                Markdown.html(relationship)
-                            }
+                            relationship.html(["class": "topic-relationships"])
                         }
                     }
                 }
@@ -383,10 +380,7 @@ extension Page
                     }
                     if !self.discussion.specializations.isEmpty 
                     {
-                        HTML.element("p", ["class": "topic-relationships"])
-                        {
-                            Markdown.html(self.discussion.specializations)
-                        }
+                        self.discussion.specializations.html(["class": "topic-relationships"])
                     }
                     if !self.discussion.parameters.isEmpty
                     {
@@ -396,7 +390,7 @@ extension Page
                         }
                         HTML.element("dl", ["class": "parameter-list"])
                         {
-                            for (name, paragraphs):(String, [[Markdown.Element]]) in self.discussion.parameters 
+                            for (name, paragraphs):(String, [Paragraph]) in self.discussion.parameters 
                             {
                                 HTML.element("dt")
                                 {
@@ -407,12 +401,9 @@ extension Page
                                 }
                                 HTML.element("dd")
                                 {
-                                    for paragraph:[Markdown.Element] in paragraphs 
+                                    for paragraph:Paragraph in paragraphs 
                                     {
-                                        HTML.element("p")
-                                        {
-                                            Markdown.html(paragraph)
-                                        }
+                                        paragraph.html([:])
                                     }
                                 }
                             }
@@ -424,12 +415,9 @@ extension Page
                         {
                             "Return value"
                         }
-                        for paragraph:[Markdown.Element] in self.discussion.return 
+                        for paragraph:Paragraph in self.discussion.return 
                         {
-                            HTML.element("p")
-                            {
-                                Markdown.html(paragraph)
-                            }
+                            paragraph.html([:])
                         }
                     }
                     if !self.discussion.overview.isEmpty
@@ -438,12 +426,9 @@ extension Page
                         {
                             "Overview"
                         }
-                        for paragraph:[Markdown.Element] in self.discussion.overview 
+                        for paragraph:Paragraph in self.discussion.overview 
                         {
-                            HTML.element("p")
-                            {
-                                Markdown.html(paragraph)
-                            }
+                            paragraph.html([:])
                         }
                     }
                 }
@@ -457,7 +442,7 @@ extension Page
                     {
                         for river:River in River.allCases 
                         {
-                            let elements:[(page:Page, display:Signature, note:[Markdown.Element])] = 
+                            let elements:[(page:Page, display:Signature, note:Paragraph)] = 
                                 self.rivers
                             .filter 
                             {
@@ -476,7 +461,7 @@ extension Page
                                     {
                                         river.rawValue
                                     }
-                                    for (page, signature, note):(Page, Signature, [Markdown.Element]) in elements 
+                                    for (page, signature, note):(Page, Signature, Paragraph) in elements 
                                     {
                                         HTML.element("div", ["class": "topic-container-symbol"])
                                         {
@@ -496,10 +481,7 @@ extension Page
                                             }
                                             if !note.isEmpty 
                                             {
-                                                HTML.element("p", ["class": "topic-symbol-relationships"])
-                                                {
-                                                    Markdown.html(note)
-                                                }
+                                                note.html(["class": "topic-symbol-relationships"])
                                             }
                                         }
                                     }
@@ -553,19 +535,13 @@ extension Page
                                             }
                                             if !element.blurb.isEmpty 
                                             {
-                                                HTML.element("p", ["class": "topic-symbol-blurb"])
-                                                {
-                                                    Markdown.html(element.blurb)
-                                                }
+                                                element.blurb.html(["class": "topic-symbol-blurb"])
                                             }
                                             if !element.discussion.relationships.isEmpty 
                                             {
-                                                for relationship:[Markdown.Element] in element.discussion.relationships
+                                                for relationship:Paragraph in element.discussion.relationships
                                                 {
-                                                    HTML.element("p", ["class": "topic-symbol-relationships"])
-                                                    {
-                                                        Markdown.html(relationship)
-                                                    }
+                                                    relationship.html(["class": "topic-symbol-relationships"])
                                                 }
                                             }
                                         }
@@ -580,9 +556,110 @@ extension Page
     }
 }
 
-extension Markdown 
+extension Paragraph.CodeBlock 
 {
-    static 
+    @HTML
+    var html:HTML 
+    {
+        for (text, info):(String, TokenInfo) in self.content 
+        {
+            switch info
+            {
+            case .attribute:
+                HTML.element("span", ["class": "syntax-keyword"])
+                {
+                    text 
+                }
+            case .literal:
+                HTML.element("span", ["class": "syntax-literal"])
+                {
+                    text 
+                }
+            case .interpolation:
+                HTML.element("span", ["class": "syntax-interpolation"])
+                {
+                    text 
+                }
+            case .punctuation:
+                HTML.element("span", ["class": "syntax-punctuation"])
+                {
+                    text 
+                }
+            case .operator:
+                HTML.element("span", ["class": "syntax-operator"])
+                {
+                    text 
+                }
+            case .keyword:
+                HTML.element("span", ["class": "syntax-keyword"])
+                {
+                    text 
+                }
+            case .symbol(.resolved(url: let url, module: .local)):
+                HTML.element("a", ["href": url, "class": "syntax-type"])
+                {
+                    text
+                }
+            case .symbol(.resolved(url: let url, module: .imported)):
+                HTML.element("a", ["href": url, "class": "syntax-type syntax-imported-type"])
+                {
+                    text
+                }
+            case .symbol(.resolved(url: let url, module: .swift)):
+                HTML.element("a", ["href": url, "class": "syntax-type syntax-swift-type"])
+                {
+                    text
+                }
+            case .symbol(.unresolved(path: let path)):
+                let _ = print("warning: unresolved symbol '\(path.joined(separator: "."))' in code block")
+                HTML.element("span", ["class": "syntax-type-imported-type"])
+                {
+                    text 
+                }
+            case .pseudo:
+                HTML.element("span", ["class": "syntax-pseudo-identifier"])
+                {
+                    text 
+                }
+            case .variable:
+                HTML.element("span", ["class": "syntax-identifier"])
+                {
+                    text 
+                }
+            case .comment:
+                HTML.element("span", ["class": "syntax-comment"])
+                {
+                    text 
+                }
+            case .whitespace:
+                text 
+            }
+        }
+    }
+}
+extension Paragraph 
+{
+    func html(_ attributes:[String: String]) -> HTML 
+    {
+        switch self 
+        {
+        case .paragraph(let elements):
+            return HTML.element("p", attributes)
+            {
+                Self.html(elements)
+            }
+        case .code(block: let block):
+            return HTML.element("pre", attributes)
+            {
+                HTML.element("code")
+                {
+                    block.html
+                }
+            }
+        }
+    }
+    
+    private static 
     func html(_ elements:[Element]) -> HTML
     {
         enum Context 

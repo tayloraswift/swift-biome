@@ -10,6 +10,7 @@ let package = Package(
     dependencies: 
     [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "0.4.0"),
+        .package(url: "https://github.com/apple/swift-syntax.git", .revision("swift-DEVELOPMENT-SNAPSHOT-2021-05-18-a")),
     ],
     targets: 
     [
@@ -17,6 +18,7 @@ let package = Package(
             dependencies: 
             [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "SwiftSyntax",    package: "swift-syntax"),
             ], 
             path: "sources/"),
     ], 

@@ -4,8 +4,8 @@ extension Page
     {
         struct Callable 
         {
-            let domain:[(type:Grammar.FunctionParameter, paragraphs:[[Markdown.Element]], name:String)]
-            let range:(type:Grammar.SwiftType, paragraphs:[[Markdown.Element]])?
+            let domain:[(type:Grammar.FunctionParameter, paragraphs:[Paragraph], name:String)]
+            let range:(type:Grammar.SwiftType, paragraphs:[Paragraph])?
             
             var isEmpty:Bool 
             {
@@ -43,17 +43,17 @@ extension Page
         private(set)
         var relationships:Relationships?
         
-        let paragraphs:[Grammar.ParagraphField],
+        let paragraphs:[Paragraph],
             topics:[Grammar.TopicField], 
             memberships:[Grammar.TopicMembershipField]
             
-        var blurb:[Markdown.Element]?
+        var blurb:Paragraph?
         {
-            self.paragraphs.first?.elements
+            self.paragraphs.first
         }
-        var discussion:[[Markdown.Element]]
+        var discussion:[Paragraph]
         {
-            self.paragraphs.dropFirst().map(\.elements)
+            .init(self.paragraphs.dropFirst())
         }
     }
 }
@@ -77,7 +77,7 @@ extension Page.Fields
         typealias ParameterDescription = 
         (
             parameter:Grammar.ParameterField, 
-            paragraphs:[Grammar.ParagraphField]
+            paragraphs:[Paragraph]
         )
         
         var attributes:[Grammar.AttributeField]             = [], 
@@ -90,7 +90,7 @@ extension Page.Fields
         var implementations:[Grammar.ImplementationField]   = [],
             requirements:[Grammar.RequirementField]         = [] 
             
-        var paragraphs:[Grammar.ParagraphField]             = [],
+        var paragraphs:[Paragraph]                          = [],
             topics:[Grammar.TopicField]                     = [], 
             memberships:[Grammar.TopicMembershipField]      = []
             
@@ -117,11 +117,11 @@ extension Page.Fields
             case .paragraph     (let field):
                 if parameters.isEmpty 
                 {
-                    paragraphs.append(field)
+                    paragraphs.append(contentsOf: field.paragraphs)
                 }
                 else 
                 {
-                    parameters[parameters.endIndex - 1].paragraphs.append(field)
+                    parameters[parameters.endIndex - 1].paragraphs.append(contentsOf: field.paragraphs)
                 }
             case .topic             (let field):
                 topics.append(field)
@@ -194,18 +194,18 @@ extension Page.Fields
         }
         
         // validate function fields 
-        let range:(type:Grammar.SwiftType, paragraphs:[[Markdown.Element]])?
+        let range:(type:Grammar.SwiftType, paragraphs:[Paragraph])?
         if  let last:ParameterDescription   = parameters.last, 
             case .return                    = last.parameter.name
         {
-            range = (last.parameter.parameter.type, last.paragraphs.map(\.elements))
+            range = (last.parameter.parameter.type, last.paragraphs)
             parameters.removeLast()
         }
         else 
         {
             range = nil 
         }
-        let domain:[(type:Grammar.FunctionParameter, paragraphs:[[Markdown.Element]], name:String)] = 
+        let domain:[(type:Grammar.FunctionParameter, paragraphs:[Paragraph], name:String)] = 
             try parameters.map 
         {
             guard case .parameter(let name) = $0.parameter.name 
@@ -213,7 +213,7 @@ extension Page.Fields
             {
                 throw Entrapta.Error.init("return value must be the last parameter field")
             }
-            return ($0.parameter.parameter, $0.paragraphs.map(\.elements), name)
+            return ($0.parameter.parameter, $0.paragraphs, name)
         }
         
         self.callable = .init(domain: domain, range: range)
