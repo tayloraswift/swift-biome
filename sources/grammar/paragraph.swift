@@ -1,4 +1,4 @@
-enum Paragraph:Grammar.Parsable
+enum Paragraph //:Grammar.Parsable
 {
     struct Asterisk:Grammar.Parsable.Terminal
     {
@@ -352,6 +352,48 @@ enum Paragraph:Grammar.Parsable
         }
     }
     
+    enum Notice:Grammar.Parsable 
+    {
+        private 
+        struct Note:Grammar.Parsable.Terminal 
+        {
+            static 
+            var token:String = "note"
+        }
+        private 
+        struct Warning:Grammar.Parsable.Terminal 
+        {
+            static 
+            var token:String = "warning"
+        }
+        
+        case note 
+        case warning 
+        
+        init(parsing input:inout Grammar.Input) throws 
+        {
+            let start:String.Index          = input.index 
+            let _:Grammar.Indent            = try .init(parsing: &input), 
+                _:Grammar.Token.Angle.Right = try .init(parsing: &input), 
+                _:Grammar.Whitespace?       =     .init(parsing: &input)
+            if      let _:Warning           =     .init(parsing: &input) 
+            {
+                self = .warning 
+            }
+            else if let _:Note              =     .init(parsing: &input) 
+            {
+                self = .note 
+            }
+            else 
+            {
+                throw input.expected(Self.self, from: start)
+            }
+            let _:Grammar.Whitespace?       =     .init(parsing: &input), 
+                _:Grammar.Token.Colon       = try .init(parsing: &input),
+                _:Grammar.Endline           = try .init(parsing: &input)
+        }
+    }
+    
     struct CodeBlock:Grammar.Parsable
     {
         // syntax highlighting 
@@ -452,36 +494,41 @@ enum Paragraph:Grammar.Parsable
         }
     }
     
-    case paragraph([Element])
+    
+    case paragraph([Element], notice:Notice?)
     case code(block:CodeBlock)
     
     init(parsing string:String) 
     {
+        self.init(parsing: string, notice: nil)
+    }
+    init(parsing string:String, notice:Notice?) 
+    {
         var input:Grammar.Input = .init(string)
-        self.init(parsing: &input)
+        self = .paragraph(.init(parsing: &input), notice: notice)
         if input.index != input.string.endIndex 
         {
             print("warning: unparsed trailing characters '\(input.string[input.index...])'") 
         }
     }
     
-    init(parsing input:inout Grammar.Input) 
+    /* init(parsing input:inout Grammar.Input) 
     {
-        self = .paragraph(.init(parsing: &input))
-    }
+        self = .paragraph(.init(parsing: &input), notice: nil)
+    } */
     
     var isEmpty:Bool 
     {
         switch self 
         {
-        case .paragraph(let elements):  return elements.isEmpty 
-        case .code(block: let block):   return block.isEmpty
+        case .paragraph(let elements, notice: _):   return elements.isEmpty 
+        case .code(block: let block):               return block.isEmpty
         }
     }
     
     static 
     var empty:Self 
     {
-        .paragraph([])
+        .paragraph([], notice: nil)
     }
 }

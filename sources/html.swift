@@ -643,7 +643,31 @@ extension Paragraph
     {
         switch self 
         {
-        case .paragraph(let elements):
+        case .paragraph(let elements, notice: .note?):
+            return HTML.element("aside", ["class": "notice-note", "aria-label": "note"])
+            {
+                HTML.element("p", ["class": "notice-label"])
+                {
+                    "Note"
+                }
+                HTML.element("p", attributes)
+                {
+                    Self.html(elements)
+                }
+            }
+        case .paragraph(let elements, notice: .warning?):
+            return HTML.element("aside", ["class": "notice-warning", "aria-label": "warning"])
+            {
+                HTML.element("p", ["class": "notice-label"])
+                {
+                    "Warning"
+                }
+                HTML.element("p", attributes)
+                {
+                    Self.html(elements)
+                }
+            }
+        case .paragraph(let elements, notice: nil):
             return HTML.element("p", attributes)
             {
                 Self.html(elements)

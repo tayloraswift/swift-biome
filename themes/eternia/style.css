@@ -236,9 +236,47 @@ nav li.github-icon-container .github-icon
 }
 .discussion p, .introduction p
 {
-    padding-right: 5em;
+    margin-right: 5em;
     line-height: 135%; 
 }
+
+.discussion aside 
+{
+    margin-right: 5em;
+    padding: 0.6em 1.25em;
+    border-left-width: 0.4em;
+    border-left-style: solid;
+    border-radius: 0.3em;
+    color: #555555;
+    background-color: #f4f4f4;
+}
+.discussion aside.notice-note 
+{
+    border-color: #cccccc;
+}
+.discussion aside.notice-warning 
+{
+    border-color: #ffa070;
+    /*border-color: #ff8070;*/
+}
+.discussion aside p.notice-label 
+{
+    margin-top: 0.3em;
+    margin-bottom: 0.3em;
+    font-weight: 600;
+}
+.discussion aside.notice-warning p.notice-label 
+{
+    /*color: #ff6050;*/
+    /*color: #ff9060;*/
+}
+.discussion aside p
+{
+    margin-top: 0em;
+    margin-bottom: 0.5em;
+    margin-right: 0.5em;
+}
+
 
 .topic 
 {
@@ -392,7 +430,9 @@ pre code *
 pre 
 {
     background-color: rgb(242, 242, 242);
-    padding: 1em 1em;
+    padding: 1em 1em; 
+    border-radius: 0.3em;
+    margin: 2em 0em;
 }
 pre code 
 {

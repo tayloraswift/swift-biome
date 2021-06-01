@@ -1275,6 +1275,7 @@ extension Grammar
     //                              ( <ParagraphField.Element> <EmptyLines> ? ) * 
     //  EmptyLines              ::= <Endline> <Endline> *
     //  ParagraphField.Element  ::= <CodeBlock>
+    //                            | <Notice>
     //                            | <NonEmptyLine>
     //
     //  Indent                  ::= '    ' 
@@ -1282,6 +1283,10 @@ extension Grammar
     //                              <Indent> '```' <Endline>
     //  Language                ::= 'swift'
     //  NonEmptyLine            ::= <Indent> <Whitespace> ? [^\s] . * '\n'
+    //  Notice                  ::= <Indent> '>' <Whitespace> ? <Notice.Keyword> <Whitespace> ? 
+    //                              ':' <Endline>
+    //  Notice.Keyword          ::= 'note'
+    //                            | 'warning'
     struct Indent:Parsable.Terminal
     {
         static 
@@ -1322,20 +1327,25 @@ extension Grammar
         private 
         enum Element:Parsable
         {
-            case code(block:Paragraph.CodeBlock)
-            case text(line:String)
+            case code(Paragraph.CodeBlock)
+            case notice(Paragraph.Notice)
+            case line(String)
             
             init(parsing input:inout Input) throws
             {
-                // parse code block first, else it’s ambiguous 
+                // parse code block first, then notice, then line else it’s ambiguous 
                 let start:String.Index                  = input.index 
                 if      let block:Paragraph.CodeBlock   = .init(parsing: &input)
                 {
-                    self = .code(block: block)
+                    self = .code(block)
+                }
+                else if let notice:Paragraph.Notice     = .init(parsing: &input) 
+                {
+                    self = .notice(notice)
                 }
                 else if let line:NonEmptyLine           = .init(parsing: &input) 
                 {
-                    self = .text(line: line.string)
+                    self = .line(line.string)
                 }
                 else 
                 {
@@ -1365,110 +1375,46 @@ extension Grammar
                 }
             }
             
-            var paragraphs:[Paragraph]  = []
-            var lines:[String]          = []
+            var notice:Paragraph.Notice?    = nil 
+            var lines:[String]              = []
+            var paragraphs:[Paragraph]      = []
             for element:Element? in elements 
             {
-                let paragraph:Paragraph?
-                switch element 
+                guard case .line(let line)? = element 
+                else 
                 {
-                case .text(line: let line)?:
-                    lines.append(line)
+                    if !lines.isEmpty
+                    {
+                        paragraphs.append(.init(parsing: lines.joined(separator: " "), 
+                            notice: notice))
+                        notice  = nil 
+                        lines   = []
+                    }
+                    switch element 
+                    {
+                    case .notice(let next):
+                        notice = next 
+                    case .code(let block):
+                        paragraphs.append(.code(block: block))
+                    case .line:
+                        fatalError("unreachable")
+                    case nil:
+                        break 
+                    }
                     continue 
-                case .code(block: let block)?:
-                    paragraph = .code(block: block)
-                case nil:
-                    paragraph = nil 
                 }
                 
-                if !lines.isEmpty
-                {
-                    paragraphs.append(.init(parsing: lines.joined(separator: " ")))
-                    lines = []
-                }
-                if let paragraph:Paragraph = paragraph 
-                {
-                    paragraphs.append(paragraph)
-                }
+                lines.append(line)
             }
             if !lines.isEmpty
             {
-                paragraphs.append(.init(parsing: lines.joined(separator: " ")))
-                lines = []
+                paragraphs.append(.init(parsing: lines.joined(separator: " "), 
+                    notice: notice))
             }
             
             self.paragraphs = paragraphs
-            
-            /* let head:ParagraphLine          = try .init(parsing: &input), 
-                body:[ParagraphLine]        =     .init(parsing: &input)
-            
-            // create a version of the paragraph content preserving newlines 
-            // and spaces, to see if we can parse a code block 
-            let preformatted:String         = ([head] + body).map{ "\($0.string)\n" }.joined()
-            if let block:Paragraph.CodeBlock = .init(parsing: preformatted)
-            {
-                self.paragraph = .code(block: block)
-                return 
-            }
-            
-            var leadingSpaces:Int?  = nil
-            var trimmed:[Substring] = []
-            for (i, line):(Int, ParagraphLine) in ([head] + body).enumerated()
-            {
-                if line.string.first == " "
-                {
-                    leadingSpaces = leadingSpaces ?? i
-                }
-                
-                var substring:Substring = line.string[...] 
-                while substring.last?.isWhitespace == true 
-                {
-                    substring.removeLast()
-                }
-                trimmed.append(substring)
-            }
-            let content:String  = trimmed.joined(separator: " ")
-            self.paragraph      = .init(parsing: content)
-            
-            // warn leading spaces if not a code block 
-            // should not be possible to parse a code block with no newlines 
-            // anyway...
-            if case .paragraph  = self.paragraph, 
-                let i:Int       = leadingSpaces
-            {
-                print("warning: extraneous leading spaces in line \(i) of doccomment paragraph")
-                print(
-                    """
-                    note: in paragraph 
-                    ''' 
-                    \(preformatted)
-                    '''
-                    """)
-            } */
         }
     }
-    /* struct ParagraphLine:Parsable 
-    {
-        let string:String
-        
-        init(parsing input:inout Input) throws
-        {
-            if  let _:Endline = .init(parsing: &input) 
-            {
-                self.string = ""
-            }
-            else 
-            {
-                let _:Token.Space               = try .init(parsing: &input), 
-                    _:Token.Space               = try .init(parsing: &input), 
-                    _:Token.Space               = try .init(parsing: &input), 
-                    _:Token.Space               = try .init(parsing: &input), 
-                    content:[Token.Wildcard]    =     .init(parsing: &input), 
-                    _:Token.Newline             = try .init(parsing: &input)
-                self.string = .init(content.map(\.character))
-            }
-        }
-    } */
     
     //  Field                   ::= <FrameworkField>
     //                            | <AssociatedtypeField>

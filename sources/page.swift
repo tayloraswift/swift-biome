@@ -864,7 +864,7 @@ extension Page
                 }
                 return ($0.text, .symbol(link))
             }))
-        case .paragraph(let unlinked):
+        case .paragraph(let unlinked, notice: let notice):
             return .paragraph(unlinked.map 
             {
                 switch $0 
@@ -917,7 +917,8 @@ extension Page
                 case let element:
                     return element 
                 }
-            })
+            }, 
+            notice: notice)
         }
     }
     func resolveLinks(at node:Node) 
