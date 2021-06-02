@@ -167,19 +167,41 @@ extension SwiftCode.Token
             case .typeIdentifier:
                 // get the fully qualified name 
                 var components:[String]     = [token.text]
-                var previous:TokenSyntax?   = token.previousToken
+                var previous:TokenSyntax?   = token.previousToken 
+                scan:
                 while   let current:TokenSyntax = previous, 
                         case .period            = current.tokenKind
                 {
-                    guard let prefix:TokenSyntax    = current.previousToken, 
-                        case .identifier            = prefix.tokenKind, 
-                        case .typeIdentifier        = prefix.tokenClassification.kind 
-                    else 
+                    previous = current.previousToken
+                    // skip generic parameters 
+                    var depth:Int = 0 
+                    while let current:TokenSyntax = previous 
                     {
-                        break 
+                        previous = current.previousToken 
+                        if      case .rightAngle = current.tokenKind  
+                        {
+                            depth   += 1 
+                            continue 
+                        }
+                        else if depth == 0 
+                        {
+                            guard   case .identifier        = current.tokenKind, 
+                                    case .typeIdentifier    = current.tokenClassification.kind 
+                            else 
+                            {
+                                break scan 
+                            }
+                            components.append(current.text)
+                            continue scan 
+                        }
+                        else if case .leftAngle = current.tokenKind 
+                        {
+                            depth   -= 1
+                            continue 
+                        }
                     }
-                    components.append(prefix.text)
-                    previous = prefix.previousToken
+                    
+                    break scan 
                 }
                 components.reverse()
                 self.kind = .type(qualified: components)
