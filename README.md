@@ -120,10 +120,11 @@ TypeField.Keyword       ::= 'protocol'
                           | 'enum'
                           | 'extension'
 
-ConformanceField        ::= ':' <Whitespace> ? <ProtocolCompositionType> 
+Protocols               ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
+ConformanceField        ::= ':' <Whitespace> ? <Protocols> 
                             ( <Whitespace> <WhereClauses> ) ? <Endline>
 
-ImplementationField     ::= '?:' <Whitespace> ? <ProtocolCompositionType> 
+ImplementationField     ::= '?:' <Whitespace> ? <Protocols> 
                             ( <Whitespace> <WhereClauses> ) ? <Endline>
                           | '?' <Whitespace> ? <WhereClauses> <Endline>
 
@@ -131,7 +132,7 @@ ConstraintsField        ::= <WhereClauses> <Endline>
 WhereClauses            ::= 'where' <Whitespace> <WhereClause> 
                             ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
 WhereClause             ::= <Identifiers> <Whitespace> ? <WherePredicate>
-WherePredicate          ::= ':' <Whitespace> ? <ProtocolCompositionType> 
+WherePredicate          ::= ':' <Whitespace> ? <Protocols> 
                           | '==' <Whitespace> ? <Type>
 
 AttributeField          ::= '@' <Whitespace> ? <DeclarationAttribute> <Endline>
@@ -207,7 +208,8 @@ FunctionParameter       ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace
                             <Type> ( <Whitespace> ? '...' ) ?
 Attribute               ::= '@' <Identifier>
 CollectionType          ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']'
-ProtocolCompositionType ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
+ProtocolCompositionType ::= <Identifiers> <Whitespace> ? '&' <Whitespace> ? <Identifiers>
+                            ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
 
 BalancedToken           ::= [^\[\]\(\)\{\}]
                           | '(' <BalancedToken> * ')'

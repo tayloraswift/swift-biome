@@ -806,7 +806,22 @@ extension Grammar
         }
     }
     
-    //  ConformanceField        ::= ':' <Whitespace> ? <ProtocolCompositionType> 
+    // different from ProtocolCompositionType because it can accept a single 
+    // protocol by itself
+    struct Protocols:Parsable
+    {
+        let protocols:[[String]]
+            
+        init(parsing input:inout Input) throws
+        {
+            let head:Identifiers     = try .init(parsing: &input), 
+                body:[List<Whitespace?, List<Token.Ampersand, List<Whitespace?, Identifiers>>>] =
+                                                  .init(parsing: &input)
+            self.protocols = [head.identifiers] + body.map(\.body.body.body.identifiers)
+        }
+    }
+    
+    //  ConformanceField        ::= ':' <Whitespace> ? <Protocols> 
     //                              ( <Whitespace> <WhereClauses> ) ? <Endline>
     struct ConformanceField:Parsable, CustomStringConvertible
     {
@@ -824,7 +839,7 @@ extension Grammar
         {
             let _:Token.Colon                               = try .init(parsing: &input), 
                 _:Whitespace?                               =     .init(parsing: &input), 
-                conformances:ProtocolCompositionType        = try .init(parsing: &input), 
+                conformances:Protocols                      = try .init(parsing: &input), 
                 conditions:List<Whitespace, WhereClauses>?  =     .init(parsing: &input),
                 _:Endline                                   = try .init(parsing: &input)
             self.conformances   = conformances.protocols
@@ -843,7 +858,7 @@ extension Grammar
         }
     }
     
-    //  ImplementationField     ::= '?:' <Whitespace> ? <ProtocolCompositionType> 
+    //  ImplementationField     ::= '?:' <Whitespace> ? <Protocols> 
     //                              ( <Whitespace> <WhereClauses> ) ? <Endline>
     //                            | '?' <Whitespace> ? <WhereClauses> <Endline>
     struct ImplementationField:Parsable 
@@ -857,7 +872,7 @@ extension Grammar
             if  let _:Token.Colon                               =     .init(parsing: &input) 
             {
                 let _:Whitespace?                               =     .init(parsing: &input), 
-                    conformances:ProtocolCompositionType        = try .init(parsing: &input), 
+                    conformances:Protocols                      = try .init(parsing: &input), 
                     conditions:List<Whitespace, WhereClauses>?  =     .init(parsing: &input)
                 self.conformances   = conformances.protocols
                 self.conditions     = conditions?.body.clauses ?? []
@@ -877,7 +892,7 @@ extension Grammar
     //  WhereClauses            ::= 'where' <Whitespace> <WhereClause> 
     //                              ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
     //  WhereClause             ::= <Identifiers> <Whitespace> ? <WherePredicate>
-    //  WherePredicate          ::= ':' <Whitespace> ? <ProtocolCompositionType> 
+    //  WherePredicate          ::= ':' <Whitespace> ? <Protocols> 
     //                            | '==' <Whitespace> ? <Type>
     struct ConstraintsField:Parsable, CustomStringConvertible
     {
@@ -954,7 +969,7 @@ extension Grammar
             let start:String.Index = input.index 
             if      let _:List<Token.Colon, Whitespace?> = 
                 .init(parsing: &input), 
-                    let protocols:ProtocolCompositionType = 
+                    let protocols:Protocols = 
                 .init(parsing: &input)
             {
                 self = .conforms(protocols.protocols)
