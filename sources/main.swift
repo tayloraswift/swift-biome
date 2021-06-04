@@ -202,7 +202,32 @@ struct Entrapta:ParsableCommand
             }
         }
         
-        let pages:[Page] = doccomments.enumerated().compactMap
+        var symbols:[Symbol] = []
+        for (file, line, content):(String, Int, String) in doccomments 
+        {
+            for comment:Grammar.DocumentationComment in 
+                [Grammar.DocumentationComment].init(parsing: content)
+            {
+                do 
+                {
+                    symbols.append(try .init(comment, order: symbols.count))
+                }
+                catch let error 
+                {
+                    print("\(error)")
+                    print(
+                        """
+                        note: while parsing doccomment(s) at \(file):\(line):
+                        '''
+                        \(content)
+                        '''
+                        """)
+                    continue
+                }
+            }
+        }
+        
+        /* let pages:[Page] = doccomments.enumerated().compactMap
         {
             let (i, doccomment):(Int, (file:String, line:Int, content:String)) = $0
             do 
@@ -250,9 +275,9 @@ struct Entrapta:ParsableCommand
             {
                 return nil 
             }
-        }
+        } */
         
-        InternalNode.tree(pages)
+        InternalNode.tree(symbols)
         {
             (root:InternalNode) in 
             

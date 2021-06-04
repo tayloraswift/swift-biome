@@ -121,18 +121,16 @@ class Page
     // default priority
     let priority:(rank:Int, order:Int)
     
-    init(anchor:Anchor? = nil, path:[String], 
-        name:String, // not necessarily last `path` component
+    init(anchor:Anchor? = nil, 
         kind:Kind, 
-        signature:Signature, 
-        declaration:Declaration, 
         generics:[String]   = [],
         aliases:[[String]]  = [],
         fields:Fields, 
-        order:Int)
-        throws 
+        name:String, // not necessarily last `path` component
+        signature:Signature, 
+        declaration:Declaration)
     {
-        self.path   = path 
+        self.path   = fields.path 
         self.anchor = anchor
         
         let clauses:[Grammar.WhereClause]   
@@ -168,7 +166,7 @@ class Page
             $0.conditions.isEmpty ? $0.conformances : []
         })
         // add what we know about the typealias/associatedtype 
-        switch (kind, path.last) 
+        switch (kind, self.path.last) 
         {
         case (.associatedtype, let subject?), (.typealias, let subject?):
             inclusions.append(predicates: constraints[[subject], default: []]) 
@@ -214,41 +212,12 @@ class Page
         }
         .mapValues(Inclusions.init(predicates:))
         
-        var priority:(rank:Int, order:Int)?                     = nil 
-        var memberships:[(topic:String, rank:Int, order:Int)]   = []
-        for field:Grammar.TopicMembershipField in fields.memberships 
+        self.memberships    = fields.memberships
+        self.priority       = fields.priority
+        self.topics         = fields.topics.map
         {
-            // empty rank corresponds to zero. should sort in 
-            // (0:)
-            // (1:)
-            // (2:)
-            // (3:)
-            // ...
-            // (-2:)
-            // (-1:)
-            let rank:Int = field.rank.map{ ($0 < 0 ? .max : .min) + $0 } ?? 0
-            guard let topic:String = field.key 
-            else 
-            {
-                guard priority == nil 
-                else 
-                {
-                    throw Entrapta.Error.init("only one anonymous topic element field allowed per symbol")
-                }
-                priority = (rank, order)
-                continue 
-            }
-            
-            memberships.append((topic, rank, order))
-        }
-        self.memberships    = memberships
-        self.topics         = fields.topics.map(Topic.init(_:))
-        // if there is no anonymous topic element field, we want to sort 
-        // the symbols alphabetically, so we set the order to max. this will 
-        // put it after any topic elements with an empty membership field (`#()`), 
-        // which appear in declaration-order
-        self.priority       = priority ?? (0, .max)
-        
+            .init(name: $0.name, keys: $0.keys)
+        }        
         
         self.kind           = kind
         self.name           = name 
@@ -268,7 +237,7 @@ class Page
         
         // breakcrumbs filled in during link resolution stage 
         self.breadcrumbs        = []
-        self.breadcrumb         = path.last ?? "Documentation"
+        self.breadcrumb         = self.path.last ?? "Documentation"
         
         // include constraints in relationships for extension fields
         if case .extension  = kind 
@@ -684,10 +653,10 @@ extension Page
             self.elements   = elements 
         }
         
-        init(_ field:Grammar.TopicField) 
+        init(name:String, keys:[String]) 
         {
-            self.name       = field.display 
-            self.keys       = field.keys 
+            self.name       = name 
+            self.keys       = keys
             self.elements   = []
         }
     }
@@ -1004,13 +973,6 @@ extension Page.Kind
         case .module(_), .plugin:   return nil 
         
         }
-    }
-}
-extension Page 
-{
-    func markAsBuiltinScoped()
-    {
-        self.path = ["Swift"] + self.path
     }
 }
 

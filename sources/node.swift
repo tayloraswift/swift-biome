@@ -114,80 +114,162 @@ class InternalNode:Node
 
 extension InternalNode 
 {
-    static 
-    func tree<T>(_ pages:[Page], _ body:(InternalNode) throws -> T) rethrows -> T 
+    private 
+    enum InsertionRule:Hashable, Comparable  
     {
-        var levels:[Int: [Page]] = .init(grouping: pages, by: \.path.count)
+        case leaf  
+        case `internal`  
+        case `extension`
+    }
+    
+    static 
+    func tree<T>(_ symbols:[Symbol], _ body:(InternalNode) throws -> T) rethrows -> T 
+    {
+        var levels:[Int: [Symbol]] = .init(grouping: symbols, by: \.fields.path.count)
         
-        guard   let toplevel:[Page] = levels.removeValue(forKey: 0),
-                let framework:Page  = toplevel.first 
-        else 
+        // find root symbol and create root node 
+        let root:InternalNode
+        if  let toplevel:[Symbol]  = levels.removeValue(forKey: 0),
+            let symbol:Symbol      = toplevel.first 
         {
-            fatalError("missing framework root page")
-        }
-        for ignored:Page in toplevel.dropFirst() 
-        {
-            print(Entrapta.Error.ignored(ignored, because: 
-                "there is already a root node (\(framework.name))"))
-        }
-        if toplevel.count > 1 
-        {
-            print("warning: detected more than one toplevel page (have \(toplevel.map(\.name)))")
-            print("warning: all toplevel pages and their descendants besides '\(framework.name)' will be ignored")
-        }
-        
-        // reorder all extensions to the end
-        for index:Dictionary<Int, [Page]>.Index in levels.indices 
-        {
-            let _:Int = levels.values[index].partition 
+            // sanity check 
+            guard case .framework(let header) = symbol.header
+            else 
             {
-                if case .extension = $0.kind 
-                {
-                    return true 
-                }
+                // framework fields are the only headers that can generate an empty path
+                fatalError("unreachable")
+            }
+            
+            for ignored:Symbol in toplevel.dropFirst() 
+            {
+                guard case .framework(let ignored) = ignored.header
                 else 
                 {
-                    return false 
+                    fatalError("unreachable")
                 }
+                
+                print("warning: ignored framework doccomment '\(ignored.identifier)' because there is already a root node (\(header.identifier))")
             }
+            do 
+            {
+                root = .init(page: try .init(header, fields: symbol.fields), parent: nil)
+            }
+            catch let error 
+            {
+                fatalError("\(error)")
+            }
+        }
+        else 
+        {
+            fatalError("missing framework root symbol")
         }
         
         // tree building 
-        let root:InternalNode = .init(page: framework, parent: nil)
         return try withExtendedLifetime(root)
         {
             // load standard library symbols 
-            let swift:[Int: [Page]] =
-                .init(grouping: StandardLibrary.pages, by: \.path.count)
-            for page:Page in (swift.sorted{ $0.key < $1.key }.flatMap(\.value))
+            let swift:[Int: [Symbol.Pseudo]] =
+                .init(grouping: StandardLibrary.symbols, by: \.fields.path.count)
+            for symbol:Symbol.Pseudo in (swift.sorted{ $0.key < $1.key }.flatMap(\.value))
             {
                 do 
                 {
-                    try root.insert(page, level: 0)
+                    try root.insert(.internal, at: symbol.fields.path[...])
+                    {
+                        (_:InternalNode) in 
+                        
+                        .init(anchor:   symbol.anchor, 
+                            kind:       symbol.kind,
+                            generics:   symbol.generics,
+                            fields:     symbol.fields, 
+                            name:       "$builtin", 
+                            signature:      .empty, 
+                            declaration:    .empty)
+                    }
                 }
                 catch let error 
                 {
-                    print("\(error)")
+                    print("ignored symbol '\(symbol.fields.path.joined(separator: "."))' because \(error)")
+                    continue 
                 }
             }
             
-            for page:Page in (levels.sorted{ $0.key < $1.key }.flatMap(\.value))
+            for level:[Symbol] in (levels.sorted{ $0.key < $1.key }.map(\.value))
             {
-                // check if the first path component matches a standard library symbol, to avoid 
-                // generating extraneous nodes (which will mess up link resolution later)
-                if  let first:String    = page.path.first, first != "Swift", 
-                    let _:Node          = root.find(["Swift", first])
+                // need to insert extensions *last*, but we cannot use `Array.partition`
+                // because that sort is non-stable 
+                let partitioned:[InsertionRule: [Symbol]] = .init(grouping: level)
                 {
-                    page.markAsBuiltinScoped()
+                    switch $0.header 
+                    {
+                    case    .framework:
+                        fatalError("unreachable")
+                    case    .dependency, .lexeme,
+                            .associatedtype, .typealias:
+                        return .internal 
+                    case    .type(let header):
+                        if case .extension = header.keyword 
+                        {
+                            return .extension 
+                        }
+                        else 
+                        {
+                            return .internal 
+                        }
+                    case    .subscript, .function, .property:
+                        return .leaf 
+                    }
                 }
                 
-                do 
+                for (rule, symbols):(InsertionRule, [Symbol]) in 
+                    (partitioned.sorted{ $0.key < $1.key })
                 {
-                    try root.insert(page, level: 0)
-                }
-                catch let error 
-                {
-                    print("\(error)")
+                    for symbol:Symbol in symbols 
+                    {
+                        // check if the first path component matches a standard 
+                        // library symbol, to avoid generating extraneous nodes 
+                        // (which will mess up link resolution later)
+                        var fields:Page.Fields  = symbol.fields 
+                        if  let first:String    = fields.path.first, first != "Swift", 
+                            let _:Node          = root.find(["Swift", first])
+                        {
+                            fields.path = ["Swift"] + fields.path 
+                        }
+                        
+                        do 
+                        {
+                            try root.insert(rule, at: fields.path[...])
+                            {
+                                (_:InternalNode) in 
+                                switch symbol.header 
+                                {
+                                case .framework: 
+                                    fatalError("unreachable")
+                                case .dependency    (let header): 
+                                    return try .init(header, fields: fields)
+                                case .lexeme        (let header): 
+                                    return try .init(header, fields: fields)
+                                case .associatedtype(let header): 
+                                    return try .init(header, fields: fields)
+                                case .typealias     (let header): 
+                                    return try .init(header, fields: fields)
+                                case .type          (let header): 
+                                    return try .init(header, fields: fields)
+                                case .subscript     (let header): 
+                                    return try .init(header, fields: fields)
+                                case .function      (let header): 
+                                    return try .init(header, fields: fields)
+                                case .property      (let header): 
+                                    return try .init(header, fields: fields)
+                                }
+                            }
+                        }
+                        catch let error 
+                        {
+                            print("ignored symbol '\(fields.path.joined(separator: "."))' because \(error)")
+                            continue 
+                        }
+                    }
                 }
             }
             
@@ -196,34 +278,36 @@ extension InternalNode
     }
     
     private 
-    func insert(_ page:Page, level:Int) throws 
+    func insert(_ rule:InsertionRule, at path:ArraySlice<String>, page:(InternalNode) throws -> Page) 
+        throws 
     {
-        guard let key:String = page.path.dropFirst(level).first 
+        guard let key:String = path.first 
         else 
         {
             fatalError("unreachable")
         }
         
-        if page.path.dropFirst(level + 1).isEmpty 
+        let path:ArraySlice<String> = path.dropFirst()
+        if  path.isEmpty 
         {
-            switch page.kind 
+            let page:Page = try page(self)
+            switch rule 
             {
-            case    .extension: 
+            case .extension: 
                 // node must already exist, and must be an internal node  
                 switch self.children[key] 
                 {
                 case .none:
-                    throw Entrapta.Error.ignored(page, because: "its extension target does not exist")
-                case .some(_        as LeafNode):
-                    throw Entrapta.Error.ignored(page, because: "its extension target is not a type")
+                    throw Entrapta.Error.extensionTargetDoesNotExist
+                case .some(let node as LeafNode):
+                    throw Entrapta.Error.extensionTargetIsLeafNode(node)
                 case .some(let node as InternalNode):
                     node.extensions.append(page)
                 default: 
                     fatalError("unreachable")
                 }
                 
-            case    .case, .functor, .function, .operator, .subscript, .initializer, 
-                    .staticMethod, .instanceMethod, .staticProperty, .classProperty, .instanceProperty:
+            case .leaf:
                 // can be overloaded, cannot have children 
                 switch self.children[key] 
                 {
@@ -232,18 +316,22 @@ extension InternalNode
                 case .some(let node as LeafNode):
                     node.append(page)
                 case .some(let node as InternalNode): 
-                    throw Entrapta.Error.ignored(page, because: "a \(node.page.kind) cannot be overloaded")
+                    throw Entrapta.Error.cannotOverloadInternalNode(node)
                 default: 
                     fatalError("unreachable")
                 }
-            default:
+            case .internal:
                 // cannot be overloaded (except by extensions), can have children 
                 switch self.children[key] 
                 {
-                case nil:
+                case .none:
                     self.children[key] = InternalNode.init(page: page, parent: self)
-                case _?:
-                    throw Entrapta.Error.ignored(page, because: "a \(page.kind) cannot be overloaded")
+                case .some(let node as LeafNode):
+                    throw Entrapta.Error.cannotOverloadLeafNode(node)
+                case .some(let node as InternalNode):
+                    throw Entrapta.Error.cannotOverloadInternalNode(node)
+                default: 
+                    fatalError("unreachable")
                 }
             }
         }
@@ -252,13 +340,11 @@ extension InternalNode
             switch self.children[key] 
             {
             case .none: 
-                throw Entrapta.Error.ignored(page, because: 
-                    "its ancestor (\(page.path.prefix(level + 1).joined(separator: "."))) does not exist")
-            case .some(_        as LeafNode):
-                throw Entrapta.Error.ignored(page, because: 
-                    "its ancestor (\(page.path.prefix(level + 1).joined(separator: "."))) cannot have children")
+                throw Entrapta.Error.ancestorNodeDoesNotExist
+            case .some(let node as LeafNode):
+                throw Entrapta.Error.ancestorNodeIsLeafNode(node)
             case .some(let node as InternalNode):
-                try node.insert(page, level: level + 1)
+                try node.insert(rule, at: path, page: page)
             default: 
                 fatalError("unreachable")
             }

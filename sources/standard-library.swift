@@ -1,6 +1,6 @@
 struct StandardLibrary:Codable 
 {
-    struct Symbol:Codable 
+    struct SymbolDescription:Codable 
     {
         struct Kind:Codable 
         {
@@ -49,11 +49,17 @@ struct StandardLibrary:Codable
         let target:String 
     }
     
-    let symbols:[Symbol]
+    let descriptions:[SymbolDescription]
     let relationships:[Relationship]
     
+    enum CodingKeys:String, CodingKey 
+    {
+        case descriptions   = "symbols"
+        case relationships  = "relationships"
+    }
+    
     static 
-    var pages:[Page] 
+    var symbols:[Symbol.Pseudo]
     {
         guard let json:JSON = File.source(path: "standard-library-symbols/5.5-dev.json")
                 .map(JSON?.init(parsing:)) ?? nil
@@ -61,16 +67,21 @@ struct StandardLibrary:Codable
         {
             fatalError("could not open or parse standard library json description")
         }
-        guard let swift:StandardLibrary = try? .init(from: JSON.Decoder.init(json: json))
+        guard let swift:Self = try? .init(from: JSON.Decoder.init(json: json))
         else 
         {
             fatalError("could not decode standard library json description")
         }
         
-        // [precise identifier: (symbol, fields)]
-        typealias Descriptor = (symbol:StandardLibrary.Symbol, fields:[Grammar.Field])
+        // [precise identifier: (description, constraints, conformances)]
+        typealias Descriptor = 
+        (
+            description:SymbolDescription, 
+            constraints:Grammar.ConstraintsField?, 
+            conformances:[Grammar.ConformanceField]
+        )
         
-        var symbols:[String: Descriptor] = .init(uniqueKeysWithValues: swift.symbols
+        var descriptors:[String: Descriptor] = .init(uniqueKeysWithValues: swift.descriptions
             .filter 
             {
                 switch $0.kind.identifier
@@ -106,21 +117,16 @@ struct StandardLibrary:Codable
                     }
                     return clause
                 } ?? []
-                
-                let fields:[Grammar.Field]
-                if clauses.isEmpty 
-                {
-                    fields = []
-                }
-                else 
-                {
-                    fields = [.constraints(.init(clauses: clauses))]
-                }
-                
-                return ($0.identifier.precise, ($0, fields))
+                let descriptor:Descriptor = 
+                (
+                    $0,
+                    clauses.isEmpty ? nil : .init(clauses: clauses), 
+                    []
+                )
+                return ($0.identifier.precise, descriptor)
             })
         
-        for relationship:StandardLibrary.Relationship in swift.relationships 
+        for relationship:Relationship in swift.relationships 
         {
             switch relationship.kind 
             {
@@ -129,50 +135,42 @@ struct StandardLibrary:Codable
             }
             
             guard   let source:Dictionary<String, Descriptor>.Index = 
-                    symbols.index(forKey: relationship.source), 
+                    descriptors.index(forKey: relationship.source), 
                     let target:Dictionary<String, Descriptor>.Index = 
-                    symbols.index(forKey: relationship.target)
+                    descriptors.index(forKey: relationship.target)
             else 
             {
                 print("warning: could not lookup relationship pair '\(relationship.source)', '\(relationship.target)'")
                 continue
             } 
             
-            let field:Grammar.ConformanceField = .init(
-                conformances:   [symbols.values[target].symbol.path], 
+            let conformance:Grammar.ConformanceField = .init(
+                conformances:   [descriptors.values[target].description.path], 
                 conditions:     [])
-            symbols.values[source].fields.append(.conformance(field))
+            descriptors.values[source].conformances.append(conformance)
         }
         
-        guard let root:Page = try? .init(
-            anchor:         .external(path: ["Swift"]),
-            path:           ["Swift"], 
-            name:           "$builtin", 
-            kind:           .module(.swift), 
-            signature:      .empty, 
-            declaration:    .empty, 
-            generics:       [], 
-            fields:         .init(), 
-            order:          0) 
-        else 
+        let root:Symbol.Pseudo      = .init(kind: .module(.swift), anchor: ["Swift"], 
+            fields: .init(path: ["Swift"]))
+        var symbols:[Symbol.Pseudo] = [root]
+        for (description, constraints, conformances):
+        (
+            SymbolDescription, 
+            Grammar.ConstraintsField?, 
+            [Grammar.ConformanceField]
+        ) in descriptors.values 
         {
-            fatalError("unreachable")
-        }
-        var pages:[Page] = [root]
-        
-        for (symbol, fields):(StandardLibrary.Symbol, [Grammar.Field]) in symbols.values 
-        {
-            let generics:[String] = (symbol.typeinfo?.parameters ?? [])
+            let generics:[String] = (description.typeinfo?.parameters ?? [])
             .filter 
             {
-                $0.depth == symbol.path.count - 1
+                $0.depth == description.path.count - 1
             }
             .map(\.name)
             
-            let path:[String] = ["Swift"] + symbol.path
+            let path:[String] = ["Swift"] + description.path
             let anchor:[String], 
                 kind:Page.Kind
-            switch symbol.kind.identifier
+            switch description.kind.identifier
             {
             case "swift.enum":
                 kind    = .enum             (module: .swift, generic: !generics.isEmpty)
@@ -197,23 +195,10 @@ struct StandardLibrary:Codable
                 fatalError("unreachable")
             }
             
-            guard   let fields:Page.Fields  = try? .init(fields), 
-                    let page:Page           = try? .init(
-                        anchor:         .external(path: anchor),
-                        path:           path, 
-                        name:           "$builtin", 
-                        kind:           kind, 
-                        signature:      .empty, 
-                        declaration:    .empty, 
-                        generics:       generics, 
-                        fields:         fields, 
-                        order:          0)
-            else 
-            {
-                fatalError("unreachable")
-            }
-            
-            pages.append(page)
+            symbols.append(.init(kind: kind, anchor: anchor, generics: generics, 
+                fields:    .init(path: path, 
+                    constraints:    constraints, 
+                    conformances:   conformances)))
         }
         
         // emit builtin operator lexemes 
@@ -242,27 +227,12 @@ struct StandardLibrary:Codable
         {
             for lexeme:String in lexemes 
             {
-                guard   let fields:Page.Fields  = try? .init([]), 
-                        let page:Page           = try? .init(
-                            anchor:         .external(
-                                path: ["Swift", "swift_standard_library", "operator_declarations"]),
-                            path:           ["\(fix) operator \(lexeme)"], 
-                            name:           "$builtin", 
-                            kind:           .lexeme(module: .swift), 
-                            signature:      .empty, 
-                            declaration:    .empty, 
-                            generics:       [], 
-                            fields:         fields, 
-                            order:          0)
-                else 
-                {
-                    fatalError("unreachable")
-                }
-                
-                pages.append(page)
+                symbols.append(.init(kind: .lexeme(module: .swift), 
+                    anchor:  ["Swift", "swift_standard_library", "operator_declarations"], 
+                    fields: .init(path: ["\(fix) operator \(lexeme)"])))
             }
         }
         
-        return pages
+        return symbols
     }
 }

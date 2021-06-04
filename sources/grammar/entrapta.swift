@@ -1451,7 +1451,7 @@ extension Grammar
     //                            | <ParagraphField>
     //                            | <Separator>
     //  Separator               ::= <Endline>
-    enum Field:Parsable 
+    enum HeaderField:Parsable 
     {
         case framework(FrameworkField) 
         case dependency(DependencyField) 
@@ -1463,20 +1463,6 @@ extension Grammar
         case `associatedtype`(AssociatedtypeField) 
         case `typealias`(TypealiasField) 
         case type(TypeField) 
-        
-        case attribute(AttributeField) 
-        case conformance(ConformanceField) 
-        case constraints(ConstraintsField) 
-        case dispatch(DispatchField) 
-        case implementation(ImplementationField) 
-        case parameter(ParameterField) 
-        case requirement(RequirementField) 
-        
-        case topic(TopicField)
-        case topicMembership(TopicMembershipField)
-        
-        case paragraph(ParagraphField) 
-        case separator
         
         init(parsing input:inout Input) throws
         {
@@ -1517,7 +1503,32 @@ extension Grammar
             {
                 self = .type(field)
             }
-            else if let field:ImplementationField = .init(parsing: &input)
+            else 
+            {
+                throw input.expected(Self.self, from: start)
+            }
+        }
+    }
+    enum AuxillaryField:Parsable 
+    {
+        case attribute(AttributeField) 
+        case conformance(ConformanceField) 
+        case constraints(ConstraintsField) 
+        case dispatch(DispatchField) 
+        case implementation(ImplementationField) 
+        case parameter(ParameterField) 
+        case requirement(RequirementField) 
+        
+        case topic(TopicField)
+        case topicMembership(TopicMembershipField)
+        
+        case paragraph(ParagraphField) 
+        case separator
+        
+        init(parsing input:inout Input) throws
+        {
+            let start:String.Index = input.index 
+            if      let field:ImplementationField = .init(parsing: &input)
             {
                 self = .implementation(field)
             }
@@ -1565,6 +1576,16 @@ extension Grammar
             {
                 throw input.expected(Self.self, from: start)
             }
+        }
+    }
+    struct DocumentationComment:Parsable 
+    {
+        let header:HeaderField 
+        let fields:[AuxillaryField]
+        init(parsing input:inout Input) throws 
+        {
+            self.header = try .init(parsing: &input)
+            self.fields =     .init(parsing: &input)
         }
     }
 }

@@ -1,3 +1,32 @@
+struct Symbol 
+{
+    struct Pseudo 
+    {
+        let kind:Page.Kind 
+        let anchor:Page.Anchor 
+        let generics:[String] 
+        
+        let fields:Page.Fields 
+        
+        init(kind:Page.Kind, anchor:[String], generics:[String] = [], fields:Page.Fields)
+        {
+            self.kind       = kind 
+            self.anchor     = .external(path: anchor)
+            self.generics   = generics 
+            self.fields     = fields
+        }
+    }
+    
+    let header:Grammar.HeaderField 
+    let fields:Page.Fields 
+    
+    init(_ comment:Grammar.DocumentationComment, order:Int) throws 
+    {
+        self.header = comment.header 
+        self.fields = try .init(comment, order: order)
+    }
+}
+
 extension Page 
 {
     struct Fields
@@ -34,6 +63,8 @@ extension Page
             case implements([Grammar.ImplementationField])
         }
         
+        var path:[String]
+        
         let attributes:[Grammar.AttributeField], 
             conformances:[Grammar.ConformanceField], 
             constraints:Grammar.ConstraintsField?, 
@@ -43,9 +74,11 @@ extension Page
         private(set)
         var relationships:Relationships?
         
-        let paragraphs:[Paragraph],
-            topics:[Grammar.TopicField], 
-            memberships:[Grammar.TopicMembershipField]
+        let paragraphs:[Paragraph]
+        
+        let priority:(rank:Int, order:Int), 
+            topics:[(name:String, keys:[String])], 
+            memberships:[(topic:String, rank:Int, order:Int)]
             
         var blurb:Paragraph?
         {
@@ -59,20 +92,26 @@ extension Page
 }
 extension Page.Fields 
 {
-    init() 
+    // used for standard library symbols 
+    init(path:[String], 
+        constraints:Grammar.ConstraintsField?   = nil, 
+        conformances:[Grammar.ConformanceField] = []) 
     {
+        self.path           = path 
+        
         self.attributes     = []
-        self.conformances   = []
-        self.constraints    = nil 
+        self.constraints    = constraints 
+        self.conformances   = conformances
         self.dispatch       = nil 
         self.callable       = .init(domain: [], range: nil)
         self.relationships  = nil 
         self.paragraphs     = []
+        self.priority       = (0, .max)
         self.topics         = []
         self.memberships    = []
     }
     
-    init<S>(_ fields:S) throws where S:Sequence, S.Element == Grammar.Field 
+    init(_ comment:Grammar.DocumentationComment, order:Int) throws 
     {
         typealias ParameterDescription = 
         (
@@ -90,11 +129,13 @@ extension Page.Fields
         var implementations:[Grammar.ImplementationField]   = [],
             requirements:[Grammar.RequirementField]         = [] 
             
-        var paragraphs:[Paragraph]                          = [],
-            topics:[Grammar.TopicField]                     = [], 
-            memberships:[Grammar.TopicMembershipField]      = []
-            
-        for field:Grammar.Field in fields
+        var paragraphs:[Paragraph]                          = []
+        
+        // compute priorities, topics, and topic memberships, and gather other fields
+        var priority:(rank:Int, order:Int)?                     = nil 
+        var topics:[(name:String, keys:[String])]               = [], 
+            memberships:[(topic:String, rank:Int, order:Int)]   = []
+        for field:Grammar.AuxillaryField in comment.fields
         {
             switch field 
             {
@@ -123,10 +164,31 @@ extension Page.Fields
                 {
                     parameters[parameters.endIndex - 1].paragraphs.append(contentsOf: field.paragraphs)
                 }
+            
             case .topic             (let field):
-                topics.append(field)
+                topics.append((field.display, field.keys))
             case .topicMembership   (let field):
-                memberships.append(field)
+                // empty rank corresponds to zero. should sort in 
+                // (0:)
+                // (1:)
+                // (2:)
+                // (3:)
+                // ...
+                // (-2:)
+                // (-1:)
+                let rank:Int = field.rank.map{ ($0 < 0 ? .max : .min) + $0 } ?? 0
+                if let topic:String = field.key 
+                {
+                    memberships.append((topic, rank, order))
+                }
+                else if let _:(rank:Int, order:Int) = priority 
+                {
+                    throw Entrapta.Error.init("only one anonymous topic element field allowed per symbol")
+                }
+                else 
+                {
+                    priority = (rank, order)
+                }
             
             case .parameter     (let field):
                 parameters.append((field, []))
@@ -139,13 +201,17 @@ extension Page.Fields
                 }
                 dispatch = field 
             
-            case .subscript, .function, .property, .associatedtype, .typealias, .type, .framework, .dependency, .lexeme:
-                throw Entrapta.Error.init("only one header field per doccomnent allowed")
-                
             case .separator:
                 break
             }
         }
+        // if there is no anonymous topic element field, we want to sort 
+        // the symbols alphabetically, so we set the order to max. this will 
+        // put it after any topic elements with an empty membership field (`#()`), 
+        // which appear in declaration-order
+        self.priority       = priority ?? (0, .max)
+        self.memberships    = memberships
+        self.topics         = topics
         
         self.attributes         = attributes
         self.conformances       = conformances
@@ -219,8 +285,41 @@ extension Page.Fields
         self.callable = .init(domain: domain, range: range)
         
         self.paragraphs         = paragraphs
-        self.topics             = topics 
-        self.memberships        = memberships
+        
+        // compute the path 
+        switch comment.header 
+        {
+        case .framework:
+            self.path = []
+        case .dependency    (.module(            identifier:  let identifier)):
+            self.path = [identifier]
+        case .dependency    (.type  (keyword: _, identifiers: let identifiers)):
+            self.path = identifiers
+        case .lexeme        (let header):
+            self.path = ["\(header.keyword) operator \(header.lexeme)"] 
+        
+        case .function      (let header):
+            let suffix:String? = header.labels.map(self.callable.print(labels:))
+            let name:String 
+            switch (header.identifiers.tail, suffix)
+            {
+            case (.alphanumeric("callAsFunction"), let suffix?):    name =                   "(\(suffix))"
+            case (let basename,                    let suffix?):    name = "\(basename.string)(\(suffix))"
+            case (let basename,                    nil        ):    name =    basename.string
+            }
+            self.path = header.identifiers.prefix + [name]
+        case .subscript     (let header):
+            let name:String = "[\(self.callable.print(labels: header.labels))]"
+            self.path = header.identifiers        + [name]
+        case .property      (let header):
+            self.path = header.identifiers
+        case .associatedtype(let header):
+            self.path = header.identifiers
+        case .typealias     (let header):
+            self.path = header.identifiers
+        case .type          (let header):
+            self.path = header.identifiers
+        }
     }
     
     // used for associated types, which infer their relationships automatically 
@@ -233,8 +332,9 @@ extension Page.Fields
 
 extension Page 
 {
+
     convenience 
-    init(_ header:Grammar.FrameworkField, fields:Fields, order:Int) throws 
+    init(_ header:Grammar.FrameworkField, fields:Fields) throws 
     {
         guard fields.relationships == nil 
         else 
@@ -268,16 +368,13 @@ extension Page
         case .module:   kind = .module(.local) 
         case .plugin:   kind = .plugin
         }
-        try self.init(path: [], 
+        self.init(kind: kind, fields: fields,
             name:           header.identifier, 
-            kind:           kind, 
             signature:      .empty, 
-            declaration:    .empty, 
-            fields:         fields, 
-            order:          order)
+            declaration:    .empty)
     }
     convenience 
-    init(_ header:Grammar.DependencyField, fields:Fields, order:Int) throws
+    init(_ header:Grammar.DependencyField, fields:Fields) throws
     {
         guard fields.relationships == nil 
         else 
@@ -312,7 +409,6 @@ extension Page
         
         let name:String, 
             kind:Kind,
-            path:[String], 
             signature:Signature, 
             declaration:Declaration
         switch header 
@@ -332,8 +428,6 @@ extension Page
                 Declaration.whitespace
                 Declaration.identifier(identifier)
             }
-            
-            path = [identifier]
         case .type(keyword: let keyword, identifiers: let identifiers):
             name        = identifiers[identifiers.endIndex - 1]
             switch keyword 
@@ -363,18 +457,14 @@ extension Page
                 Declaration.punctuation(".")
                 Declaration.identifier(name)
             }
-            path = identifiers 
         }
-        try self.init(path: path, 
+        self.init(kind: kind, fields: fields,
             name:           name, 
-            kind:           kind, 
             signature:      signature, 
-            declaration:    declaration, 
-            fields:         fields, 
-            order:          order)
+            declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.LexemeField, fields:Fields, order:Int) throws
+    init(_ header:Grammar.LexemeField, fields:Fields) throws
     {
         guard fields.relationships == nil 
         else 
@@ -462,16 +552,13 @@ extension Page
                     ["Swift", "swift_standard_library", "operator_declarations"]))
             }
         }
-        try self.init(path: ["\(header.keyword) operator \(header.lexeme)"], 
+        self.init(kind: .lexeme(module: .local), fields: fields, 
             name:           header.lexeme, 
-            kind:          .lexeme(module: .local), 
             signature:      signature, 
-            declaration:    declaration, 
-            fields:         fields, 
-            order:          order)
+            declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.SubscriptField, fields:Fields, order:Int) throws 
+    init(_ header:Grammar.SubscriptField, fields:Fields) throws 
     {
         guard fields.conformances.isEmpty 
         else 
@@ -490,7 +577,6 @@ extension Page
             throw Entrapta.Error.init("subscript doccomment must have a return value field")
         }
         
-        let name:String                             = "[\(fields.callable.print(labels: header.labels))]" 
         let signature:Signature     = .init 
         {
             Signature.text(highlighting: "subscript")
@@ -529,17 +615,15 @@ extension Page
             }
         }
         
-        try self.init(path: header.identifiers + [name], 
-            name:           name, 
-            kind:          .subscript(generic: !header.generics.isEmpty), 
-            signature:      signature, 
-            declaration:    declaration, 
+        self.init(kind: .subscript(generic: !header.generics.isEmpty), 
             generics:       header.generics,
-            fields:         fields, 
-            order:          order)
+            fields:         fields,
+            name:           fields.path[fields.path.endIndex - 1], 
+            signature:      signature, 
+            declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.FunctionField, fields:Fields, order:Int) throws 
+    init(_ header:Grammar.FunctionField, fields:Fields) throws 
     {
         guard fields.conformances.isEmpty 
         else 
@@ -807,26 +891,15 @@ extension Page
             }
         }
         
-        let suffix:String? = header.labels.map(fields.callable.print(labels:))
-        let name:String 
-        switch (header.identifiers.tail, suffix)
-        {
-        case (.alphanumeric("callAsFunction"), let suffix?):    name =                   "(\(suffix))"
-        case (let basename,                    let suffix?):    name = "\(basename.string)(\(suffix))"
-        case (let basename,                    nil        ):    name =    basename.string
-        }
-        
-        try self.init(path: header.identifiers.prefix + [name],
-            name:           name, 
-            kind:           kind, 
-            signature:      signature, 
-            declaration:    declaration, 
+        self.init(kind:     kind, 
             generics:       header.generics, 
             fields:         fields, 
-            order:          order)
+            name:           fields.path[fields.path.endIndex - 1], 
+            signature:      signature, 
+            declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.PropertyField, fields:Fields, order:Int) throws 
+    init(_ header:Grammar.PropertyField, fields:Fields) throws 
     {
         guard fields.conformances.isEmpty 
         else 
@@ -860,7 +933,7 @@ extension Page
                 "property doccomment can only have accessors if keyword is `var`, `class var`, or `static var`") 
         }
         
-        let name:String = header.identifiers[header.identifiers.endIndex - 1] 
+        let name:String = fields.path[fields.path.endIndex - 1] 
         
         let kind:Kind, 
             keywords:[String]
@@ -917,16 +990,14 @@ extension Page
             }
         }
         
-        try self.init(path: header.identifiers, 
+        self.init(kind:     kind, 
+            fields:         fields,
             name:           name, 
-            kind:           kind, 
             signature:      signature, 
-            declaration:    declaration, 
-            fields:         fields, 
-            order:          order)
+            declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.TypealiasField, fields:Fields, order:Int) throws 
+    init(_ header:Grammar.TypealiasField, fields:Fields) throws 
     {
         guard fields.callable.isEmpty
         else 
@@ -949,6 +1020,7 @@ extension Page
             throw Entrapta.Error.init("typealias doccomment cannot have a dispatch field")
         }
         
+        // use this because it does not necessarily contain `Swift` prefix
         let name:String = header.identifiers.joined(separator: ".")
         let signature:Signature     = .init 
         {
@@ -987,18 +1059,16 @@ extension Page
             aliased = []
         }
         
-        try self.init(path: header.identifiers, 
-            name:           name, 
-            kind:          .typealias(module: .local, generic: !header.generics.isEmpty), 
-            signature:      signature, 
-            declaration:    declaration, 
+        self.init(kind: .typealias(module: .local, generic: !header.generics.isEmpty), 
             generics:       header.generics,
             aliases:        aliased,
-            fields:         fields, 
-            order:          order)
+            fields:         fields,
+            name:           name, 
+            signature:      signature, 
+            declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.AssociatedtypeField, fields:Fields, order:Int) throws 
+    init(_ header:Grammar.AssociatedtypeField, fields:Fields) throws 
     {
         // we can infer values for some of the fields 
         var fields:Fields = fields 
@@ -1048,7 +1118,7 @@ extension Page
         }
         
         // do not print fully-qualified name for associatedtypes 
-        let name:String = header.identifiers[header.identifiers.endIndex - 1]
+        let name:String = fields.path[fields.path.endIndex - 1] 
         // if any of the constraints refer to the associatedtype itself, print 
         // them as conformances. 
         // do not use Array.partition(by:), as that sort is non-stable 
@@ -1120,16 +1190,14 @@ extension Page
             }
         }
         
-        try self.init(path: header.identifiers, 
+        self.init(kind: .associatedtype(module: .local), 
+            fields:         fields,
             name:           name, 
-            kind:          .associatedtype(module: .local), 
             signature:      signature, 
-            declaration:    declaration, 
-            fields:         fields, 
-            order:          order)
+            declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.TypeField, fields:Fields, order:Int) throws 
+    init(_ header:Grammar.TypeField, fields:Fields) throws 
     {
         guard fields.callable.isEmpty
         else 
@@ -1271,13 +1339,12 @@ extension Page
             }
         }
         
-        try self.init(path: header.identifiers, 
-            name:           header.identifiers.joined(separator: "."), 
-            kind:           kind, 
-            signature:      signature, 
-            declaration:    declaration, 
+        self.init(kind:     kind, 
             generics:       header.generics,
             fields:         fields, 
-            order:          order)
+            // use this to omit `Swift` prefix if not written explicitly 
+            name:           header.identifiers.joined(separator: "."), 
+            signature:      signature, 
+            declaration:    declaration)
     }
 }
