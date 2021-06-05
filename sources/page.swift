@@ -338,39 +338,43 @@ extension Page
                 matched.append(key)
                 for phase:[(node:Node, pages:[Page])] in search
                 {
-                    for (node, pages):(Node, [Page]) in phase 
+                    // HACK: only look for generics if nothing has been matched yet
+                    if matched.count == 1 
                     {
-                        // we need to search through all outer scopes for generic 
-                        // parameters, *before* looking through any inheritances. 
-                        // we do not flatten deep generics, since we want the 
-                        // resolved page to be the one that originally declared the 
-                        // generic 
-                        var next:(node:Node, pages:[Page])?     = (node, pages) 
-                        while let (node, pages):(Node, [Page])  = next 
+                        for (node, pages):(Node, [Page]) in phase 
                         {
-                            for page:Page in pages 
+                            // we need to search through all outer scopes for generic 
+                            // parameters, *before* looking through any inheritances. 
+                            // we do not flatten deep generics, since we want the 
+                            // resolved page to be the one that originally declared the 
+                            // generic 
+                            var next:(node:Node, pages:[Page])?     = (node, pages) 
+                            while let (node, pages):(Node, [Page])  = next 
                             {
-                                if page.generics.contains(key) 
+                                for page:Page in pages 
                                 {
-                                    candidates  = [page]
-                                    // find out what we know about this generic 
-                                    if let inclusions:Page.Inclusions = self.context[matched]
+                                    if page.generics.contains(key) 
                                     {
-                                        // HACK :(
-                                        // how do we know `node` is the right 
-                                        // place to search inclusions from?
-                                        search  = node.search(space: [inclusions])
+                                        candidates  = [page]
+                                        // find out what we know about this generic 
+                                        if let inclusions:Page.Inclusions = self.context[matched]
+                                        {
+                                            // HACK :(
+                                            // how do we know `node` is the right 
+                                            // place to search inclusions from?
+                                            search  = node.search(space: [inclusions])
+                                        }
+                                        else 
+                                        {
+                                            search  = []
+                                        }
+                                        continue matching
                                     }
-                                    else 
-                                    {
-                                        search  = []
-                                    }
-                                    continue matching
                                 }
-                            }
-                            
-                            next = node.parent.map{ ($0, $0.pages) }
-                        } 
+                                
+                                next = node.parent.map{ ($0, $0.pages) }
+                            } 
+                        }
                     }
                     
                     for (node, _):(Node, [Page]) in phase 
@@ -385,7 +389,12 @@ extension Page
                 }
                 if path.count < symbol.count 
                 {
-                    // path was relative, do not escalate 
+                    // HACK: path was relative, do not escalate 
+                    break higher 
+                }
+                if matched.count > 1 
+                {
+                    // HACK: remaining path is relative, do not escalate 
                     break higher 
                 }
                 else 
