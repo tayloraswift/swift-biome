@@ -332,7 +332,6 @@ extension Page.Fields
 
 extension Page 
 {
-
     convenience 
     init(_ header:Grammar.FrameworkField, fields:Fields) throws 
     {
@@ -368,13 +367,13 @@ extension Page
         case .module:   kind = .module(.local) 
         case .plugin:   kind = .plugin
         }
-        self.init(kind: kind, fields: fields,
+        self.init(parent: nil, kind: kind, fields: fields,
             name:           header.identifier, 
             signature:      .empty, 
             declaration:    .empty)
     }
     convenience 
-    init(_ header:Grammar.DependencyField, fields:Fields) throws
+    init(_ header:Grammar.DependencyField, fields:Fields, parent:InternalNode) throws
     {
         guard fields.relationships == nil 
         else 
@@ -458,13 +457,13 @@ extension Page
                 Declaration.identifier(name)
             }
         }
-        self.init(kind: kind, fields: fields,
+        self.init(parent: parent, kind: kind, fields: fields,
             name:           name, 
             signature:      signature, 
             declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.LexemeField, fields:Fields) throws
+    init(_ header:Grammar.LexemeField, fields:Fields, parent:InternalNode) throws
     {
         guard fields.relationships == nil 
         else 
@@ -552,13 +551,13 @@ extension Page
                     ["Swift", "swift_standard_library", "operator_declarations"]))
             }
         }
-        self.init(kind: .lexeme(module: .local), fields: fields, 
+        self.init(parent: parent, kind: .lexeme(module: .local), fields: fields, 
             name:           header.lexeme, 
             signature:      signature, 
             declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.SubscriptField, fields:Fields) throws 
+    init(_ header:Grammar.SubscriptField, fields:Fields, parent:InternalNode) throws 
     {
         guard fields.conformances.isEmpty 
         else 
@@ -615,7 +614,7 @@ extension Page
             }
         }
         
-        self.init(kind: .subscript(generic: !header.generics.isEmpty), 
+        self.init(parent: parent, kind: .subscript(generic: !header.generics.isEmpty), 
             generics:       header.generics,
             fields:         fields,
             name:           fields.path[fields.path.endIndex - 1], 
@@ -623,7 +622,7 @@ extension Page
             declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.FunctionField, fields:Fields) throws 
+    init(_ header:Grammar.FunctionField, fields:Fields, parent:InternalNode) throws 
     {
         guard fields.conformances.isEmpty 
         else 
@@ -891,7 +890,7 @@ extension Page
             }
         }
         
-        self.init(kind:     kind, 
+        self.init(parent:   parent, kind: kind, 
             generics:       header.generics, 
             fields:         fields, 
             name:           fields.path[fields.path.endIndex - 1], 
@@ -899,7 +898,7 @@ extension Page
             declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.PropertyField, fields:Fields) throws 
+    init(_ header:Grammar.PropertyField, fields:Fields, parent:InternalNode) throws 
     {
         guard fields.conformances.isEmpty 
         else 
@@ -990,14 +989,14 @@ extension Page
             }
         }
         
-        self.init(kind:     kind, 
+        self.init(parent:   parent, kind: kind, 
             fields:         fields,
             name:           name, 
             signature:      signature, 
             declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.TypealiasField, fields:Fields) throws 
+    init(_ header:Grammar.TypealiasField, fields:Fields, parent:InternalNode) throws 
     {
         guard fields.callable.isEmpty
         else 
@@ -1059,7 +1058,8 @@ extension Page
             aliased = []
         }
         
-        self.init(kind: .typealias(module: .local, generic: !header.generics.isEmpty), 
+        self.init(parent:   parent, 
+            kind:          .typealias(module: .local, generic: !header.generics.isEmpty), 
             generics:       header.generics,
             aliases:        aliased,
             fields:         fields,
@@ -1068,7 +1068,7 @@ extension Page
             declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.AssociatedtypeField, fields:Fields) throws 
+    init(_ header:Grammar.AssociatedtypeField, fields:Fields, parent:InternalNode) throws 
     {
         // we can infer values for some of the fields 
         var fields:Fields = fields 
@@ -1190,14 +1190,14 @@ extension Page
             }
         }
         
-        self.init(kind: .associatedtype(module: .local), 
+        self.init(parent:   parent, kind: .associatedtype(module: .local), 
             fields:         fields,
             name:           name, 
             signature:      signature, 
             declaration:    declaration)
     }
     convenience 
-    init(_ header:Grammar.TypeField, fields:Fields) throws 
+    init(_ header:Grammar.TypeField, fields:Fields, parent:InternalNode) throws 
     {
         guard fields.callable.isEmpty
         else 
@@ -1339,7 +1339,7 @@ extension Page
             }
         }
         
-        self.init(kind:     kind, 
+        self.init(parent:   parent, kind: kind, 
             generics:       header.generics,
             fields:         fields, 
             // use this to omit `Swift` prefix if not written explicitly 

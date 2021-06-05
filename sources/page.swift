@@ -35,11 +35,6 @@ class Page
         {
             self.aliases        = []
             self.inheritances   = []
-            self.append(predicates: predicates)
-        }
-        mutating 
-        func append(predicates:[Grammar.WherePredicate])
-        {
             for predicate:Grammar.WherePredicate in predicates 
             {
                 switch predicate 
@@ -54,6 +49,12 @@ class Page
                     break 
                 }
             }
+        }
+        mutating 
+        func merge(_ other:Self)
+        {
+            self.aliases.append(contentsOf: other.aliases)
+            self.inheritances.append(contentsOf: other.inheritances)
         }
     }
     
@@ -74,13 +75,11 @@ class Page
         let page:Unowned<Page> 
     }
     
-    // needs to be settable, so implicit `Swift` prefixes can be added
-    private(set)
-    var path:[String] 
+    let path:[String] 
     var anchor:Anchor?
     
     let inclusions:Inclusions, 
-        generics:[String: Inclusions],
+        generics:Set<String>,
         context:[[String]: Inclusions] // extra type constraints 
     
     // rivers 
@@ -121,7 +120,8 @@ class Page
     // default priority
     let priority:(rank:Int, order:Int)
     
-    init(anchor:Anchor? = nil, 
+    init(parent:InternalNode?, 
+        anchor:Anchor?      = nil, 
         kind:Kind, 
         generics:[String]   = [],
         aliases:[[String]]  = [],
@@ -132,6 +132,9 @@ class Page
     {
         self.path   = fields.path 
         self.anchor = anchor
+        
+        
+        self.parameters = generics 
         
         let clauses:[Grammar.WhereClause]   
         if case .implements(let implementations)? = fields.relationships
@@ -144,19 +147,12 @@ class Page
             clauses =  fields.constraints?.clauses ?? []
         }
         // collect everything we know about the types mentioned in the `where` clauses
-        let constraints:[[String]: [Grammar.WherePredicate]] = [[String]: [Grammar.WhereClause]]
+        var constraints:[[String]: Inclusions] = [[String]: [Grammar.WhereClause]]
             .init(grouping: clauses, by: \.subject)
             .mapValues
             {
-                $0.map(\.predicate)
+                .init(predicates: $0.map(\.predicate))
             }
-        
-        // collect what we know about the generic parameters 
-        var locals:Set<String>      = .init(generics)
-        self.generics               = .init(uniqueKeysWithValues: locals.map 
-        {
-            ($0, .init(predicates: constraints[[$0], default: []]))
-        })
         
         // collect what we know about `Self`
         var inclusions:Inclusions   = .init(
@@ -169,13 +165,33 @@ class Page
         switch (kind, self.path.last) 
         {
         case (.associatedtype, let subject?), (.typealias, let subject?):
-            inclusions.append(predicates: constraints[[subject], default: []]) 
-            locals.insert(subject)
+            if let extra:Inclusions = constraints.removeValue(forKey: [subject])
+            {
+                inclusions.merge(extra) 
+            }
         default: 
             break 
         }
         
         self.inclusions = inclusions 
+        
+        // collect what we know about all the other types mentioned.
+        self.generics = .init(generics)
+        if let outer:Page = parent?.page 
+        {
+            // bring in constraints from outer scope, as long as they are not 
+            // shadowed by a generic in this symbol 
+            for (subject, inclusions):([String], Inclusions) in outer.context 
+            {
+                if let first:String = subject.first, self.generics.contains(first)
+                {
+                    continue 
+                }
+                
+                constraints[subject, default: .init()].merge(inclusions)
+            }
+        }
+        self.context = constraints
         
         // save the upstream conformances 
         self.rivers     = []
@@ -197,21 +213,6 @@ class Page
             }
         }
         
-        // collect what we know about all the other types mentioned 
-        self.context = constraints.filter 
-        {
-            if  let first:String = $0.key.first, $0.key.count == 1, 
-                    locals.contains(first)
-            {
-                return false 
-            }
-            else 
-            {
-                return true 
-            }
-        }
-        .mapValues(Inclusions.init(predicates:))
-        
         self.memberships    = fields.memberships
         self.priority       = fields.priority
         self.topics         = fields.topics.map
@@ -223,8 +224,6 @@ class Page
         self.name           = name 
         self.signature      = signature 
         self.declaration    = declaration 
-        
-        self.parameters     = generics 
         
         self.blurb                  = fields.blurb ?? .empty
         self.discussion.overview    = fields.discussion
@@ -342,30 +341,36 @@ extension Page
                     for (node, pages):(Node, [Page]) in phase 
                     {
                         // we need to search through all outer scopes for generic 
-                        // parameters, *before* looking through any inheritances
+                        // parameters, *before* looking through any inheritances. 
+                        // we do not flatten deep generics, since we want the 
+                        // resolved page to be the one that originally declared the 
+                        // generic 
                         var next:(node:Node, pages:[Page])?     = (node, pages) 
                         while let (node, pages):(Node, [Page])  = next 
                         {
                             for page:Page in pages 
                             {
-                                if let inclusions:Page.Inclusions   = page.generics[key]
+                                if page.generics.contains(key) 
                                 {
                                     candidates  = [page]
-                                    // find out what else we know about this generic 
-                                    if let context:Page.Inclusions  = self.context[matched]
+                                    // find out what we know about this generic 
+                                    if let inclusions:Page.Inclusions = self.context[matched]
                                     {
-                                        search  = node.search(space: [inclusions, context])
+                                        // HACK :(
+                                        // how do we know `node` is the right 
+                                        // place to search inclusions from?
+                                        search  = node.search(space: [inclusions])
                                     }
                                     else 
                                     {
-                                        search  = node.search(space: [inclusions])
+                                        search  = []
                                     }
                                     continue matching
                                 }
                             }
                             
                             next = node.parent.map{ ($0, $0.pages) }
-                        }
+                        } 
                     }
                     
                     for (node, _):(Node, [Page]) in phase 

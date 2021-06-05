@@ -176,9 +176,10 @@ extension InternalNode
                 {
                     try root.insert(.internal, at: symbol.fields.path[...])
                     {
-                        (_:InternalNode) in 
+                        (parent:InternalNode) in 
                         
-                        .init(anchor:   symbol.anchor, 
+                        .init(parent:   parent, 
+                            anchor:     symbol.anchor, 
                             kind:       symbol.kind,
                             generics:   symbol.generics,
                             fields:     symbol.fields, 
@@ -240,27 +241,28 @@ extension InternalNode
                         {
                             try root.insert(rule, at: fields.path[...])
                             {
-                                (_:InternalNode) in 
+                                (parent:InternalNode) in 
+                                
                                 switch symbol.header 
                                 {
                                 case .framework: 
                                     fatalError("unreachable")
                                 case .dependency    (let header): 
-                                    return try .init(header, fields: fields)
+                                    return try .init(header, fields: fields, parent: parent)
                                 case .lexeme        (let header): 
-                                    return try .init(header, fields: fields)
+                                    return try .init(header, fields: fields, parent: parent)
                                 case .associatedtype(let header): 
-                                    return try .init(header, fields: fields)
+                                    return try .init(header, fields: fields, parent: parent)
                                 case .typealias     (let header): 
-                                    return try .init(header, fields: fields)
+                                    return try .init(header, fields: fields, parent: parent)
                                 case .type          (let header): 
-                                    return try .init(header, fields: fields)
+                                    return try .init(header, fields: fields, parent: parent)
                                 case .subscript     (let header): 
-                                    return try .init(header, fields: fields)
+                                    return try .init(header, fields: fields, parent: parent)
                                 case .function      (let header): 
-                                    return try .init(header, fields: fields)
+                                    return try .init(header, fields: fields, parent: parent)
                                 case .property      (let header): 
-                                    return try .init(header, fields: fields)
+                                    return try .init(header, fields: fields, parent: parent)
                                 }
                             }
                         }
