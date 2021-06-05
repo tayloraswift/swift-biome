@@ -1259,15 +1259,25 @@ extension Page
                 """)
         }
         
+        // get “deep” generics 
+        let deep:[[String]] = (parent.ancestors.dropFirst() + [parent])
+            .map(\.page.parameters)
+            + 
+            [header.generics]
+        
         let signature:Signature     = .init 
         {
             Signature.text("\(header.keyword)")
             Signature.whitespace
-            Signature.init(joining: header.identifiers, Signature.text(highlighting:))
+            Signature.init(joining: zip(header.identifiers, deep))
+            {
+                Signature.text(highlighting: $0.0)
+                Signature.init(generics:     $0.1)
+            } 
+            separator:
             {
                 Signature.punctuation(".")
             }
-            Signature.init(generics: header.generics)
             // include conformances in signature, if extension 
             if case .extension = header.keyword, !conformances.isEmpty
             {

@@ -370,7 +370,7 @@ extension Node
     {
         var ancestors:[InternalNode]    = []
         var current:Node                = self
-        while let next:InternalNode  = current.parent
+        while let next:InternalNode     = current.parent
         {
             ancestors.append(next)
             current = next 
