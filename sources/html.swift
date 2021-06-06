@@ -352,7 +352,8 @@ extension Page
                     }
                     if !self.discussion.relationships.isEmpty
                     {
-                        for relationship:Paragraph in self.discussion.relationships
+                        for (relationship, _):(Paragraph, Context) in 
+                            self.discussion.relationships
                         {
                             relationship.html(["class": "topic-relationships"])
                         }
@@ -378,10 +379,10 @@ extension Page
                             }
                         }
                     }
-                    if !self.discussion.specializations.isEmpty 
+                    /* if !self.discussion.specializations.isEmpty 
                     {
                         self.discussion.specializations.html(["class": "topic-relationships"])
-                    }
+                    } */
                     if !self.discussion.parameters.isEmpty
                     {
                         HTML.element("h2")
@@ -502,7 +503,7 @@ extension Page
                         {
                             "Topics"
                         }
-                        for topic:Page.Topic in self.topics 
+                        for topic:Topic in self.topics 
                         {
                             HTML.element("div", ["class": "topic"])
                             {
@@ -539,7 +540,8 @@ extension Page
                                             }
                                             if !element.discussion.relationships.isEmpty 
                                             {
-                                                for relationship:Paragraph in element.discussion.relationships
+                                                for (relationship, _):(Paragraph, Context) in 
+                                                    element.discussion.relationships
                                                 {
                                                     relationship.html(["class": "topic-symbol-relationships"])
                                                 }

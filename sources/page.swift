@@ -20,41 +20,94 @@ class Page
         case external(path:[String])
     }
     
-    struct Inclusions 
+    struct Context 
     {
-        private(set)
-        var aliases:[[String]],
-            inheritances:[[String]]
-        
-        init(aliases:[[String]] = [], inheritances:[[String]] = [])
+        enum Predicate 
         {
-            self.aliases        = aliases 
-            self.inheritances   = inheritances
-        }
-        init(predicates:[Grammar.WherePredicate])
-        {
-            self.aliases        = []
-            self.inheritances   = []
-            for predicate:Grammar.WherePredicate in predicates 
+            case alias([String])
+            case inheritance([String])
+            
+            var alias:[String]? 
             {
-                switch predicate 
+                if case .alias(let alias) = self 
                 {
-                case .conforms(let conformances):
-                    self.inheritances.append(contentsOf: conformances)
-                case .equals(.named(let identifiers)):
-                    // strip generic parameters from named type 
-                    self.aliases.append(identifiers.map(\.identifier))
-                case .equals(_):
-                    // cannot use tuple, function, or protocol composition types
-                    break 
+                    return alias 
+                }
+                else 
+                {
+                    return nil
+                }
+            }
+            var inheritance:[String]? 
+            {
+                if case .inheritance(let inheritance) = self 
+                {
+                    return inheritance 
+                }
+                else 
+                {
+                    return nil
                 }
             }
         }
-        mutating 
-        func merge(_ other:Self)
+        
+        private 
+        var constraints:[[String]: [Predicate]]
+        
+        init() 
         {
-            self.aliases.append(contentsOf: other.aliases)
-            self.inheritances.append(contentsOf: other.inheritances)
+            self.constraints = [:]
+        }
+        
+        init(clauses:[Grammar.WhereClause])
+        {
+            self.constraints = [[String]: [Grammar.WhereClause]]
+            .init(grouping: clauses, by: \.subject)
+            .mapValues
+            {
+                $0.flatMap 
+                {
+                    (clause:Grammar.WhereClause) -> [Predicate] in 
+                    switch clause.predicate 
+                    {
+                    case .conforms(let conformances):
+                        return conformances.map(Predicate.inheritance(_:))
+                    case .equals(.named(let identifiers)):
+                        // strip generic parameters from named type 
+                        return [Predicate.alias(identifiers.map(\.identifier))]
+                    case .equals(_):
+                        // cannot use tuple, function, or protocol composition types
+                        return []
+                    }
+                }
+            }
+        }
+        
+        mutating 
+        func merge(_ other:Self, where filter:([String]) -> Bool = { _ in true }) 
+        {
+            for (subject, predicate):([String], [Predicate]) in other.constraints
+                where filter(subject)
+            {
+                self.constraints[subject, default: []].append(contentsOf: predicate)
+            }
+        }
+        func merged(with other:Self) -> Self
+        {
+            var merged:Self = self 
+            merged.merge(other)
+            return merged
+        }
+        
+        mutating 
+        func pop(subject:[String]) -> [Predicate]
+        {
+            self.constraints.removeValue(forKey: subject) ?? []
+        }
+        
+        subscript(subject:[String]) -> [Predicate]
+        {
+            self.constraints[subject, default: []]
         }
     }
     
@@ -78,9 +131,9 @@ class Page
     let path:[String] 
     var anchor:Anchor?
     
-    let inclusions:Inclusions, 
+    let inclusions:[Context.Predicate], 
         generics:Set<String>,
-        context:[[String]: Inclusions] // extra type constraints 
+        context:Context // type constraints 
     
     // rivers 
     let upstream:[(path:[String], conditions:[Grammar.WhereClause])]
@@ -108,8 +161,8 @@ class Page
         parameters:[(name:String, paragraphs:[Paragraph])], 
         return:[Paragraph],
         overview:[Paragraph], 
-        relationships:[Paragraph],
-        specializations:Paragraph
+        relationships:[(paragraph:Paragraph, context:Context)],
+        specializations:[(paragraph:Paragraph, context:Context)]
     )
     
     var breadcrumbs:[(text:String, link:Link)], 
@@ -136,39 +189,33 @@ class Page
         
         self.parameters = generics 
         
-        let clauses:[Grammar.WhereClause]   
+        // collect everything we know about the types mentioned in the `where` clauses
+        var context:Context 
         if case .implements(let implementations)? = fields.relationships
         {
-            clauses = (fields.constraints?.clauses ?? []) + 
-                implementations.flatMap(\.conditions)
+            context = .init(clauses: (fields.constraints?.clauses ?? []) + 
+                implementations.flatMap(\.conditions))
         }
         else 
         {
-            clauses =  fields.constraints?.clauses ?? []
+            context = .init(clauses: fields.constraints?.clauses ?? [])
         }
-        // collect everything we know about the types mentioned in the `where` clauses
-        var constraints:[[String]: Inclusions] = [[String]: [Grammar.WhereClause]]
-            .init(grouping: clauses, by: \.subject)
-            .mapValues
-            {
-                .init(predicates: $0.map(\.predicate))
-            }
         
         // collect what we know about `Self`
-        var inclusions:Inclusions   = .init(
-            aliases:        aliases, 
-            inheritances:   fields.conformances.flatMap 
-        {
-            $0.conditions.isEmpty ? $0.conformances : []
-        })
+        var inclusions:[Context.Predicate] = 
+            aliases
+            .map(Context.Predicate.alias(_:))
+            + 
+            fields.conformances.flatMap 
+            {
+                $0.conditions.isEmpty ? $0.conformances : []
+            }
+            .map(Context.Predicate.inheritance(_:))
         // add what we know about the typealias/associatedtype 
         switch (kind, self.path.last) 
         {
         case (.associatedtype, let subject?), (.typealias, let subject?):
-            if let extra:Inclusions = constraints.removeValue(forKey: [subject])
-            {
-                inclusions.merge(extra) 
-            }
+            inclusions.append(contentsOf: context.pop(subject: [subject]))
         default: 
             break 
         }
@@ -176,22 +223,25 @@ class Page
         self.inclusions = inclusions 
         
         // collect what we know about all the other types mentioned.
-        self.generics = .init(generics)
+        let generics:Set<String> = .init(generics)
         if let outer:Page = parent?.page 
         {
             // bring in constraints from outer scope, as long as they are not 
             // shadowed by a generic in this symbol 
-            for (subject, inclusions):([String], Inclusions) in outer.context 
+            context.merge(outer.context) 
             {
-                if let first:String = subject.first, self.generics.contains(first)
+                if let first:String = $0.first 
                 {
-                    continue 
+                    return !generics.contains(first)
                 }
-                
-                constraints[subject, default: .init()].merge(inclusions)
+                else 
+                {
+                    return false 
+                }
             }
         }
-        self.context = constraints
+        self.context    = context 
+        self.generics   = generics 
         
         // save the upstream conformances 
         self.rivers     = []
@@ -250,13 +300,15 @@ class Page
                 Self.prose(relationships: (fields.relationships, fields.conformances))
         }
         
-        self.discussion.specializations     = Self.prose(specializations: fields.attributes)
+        self.discussion.specializations     = 
+                Self.prose(specializations: fields.attributes)
     }
 }
 
 extension Page 
 {
-    func resolve(_ symbol:[String], in node:Node, hint:String? = nil, 
+    func resolve(_ symbol:[String], in node:Node, context:Context, 
+        hint:String?                                = nil, 
         allowingSelfReferencingLinks allowSelf:Bool = true,
         where predicate:(Page) -> Bool              = 
         {
@@ -280,8 +332,10 @@ extension Page
             """
         }
         
+        let context:Context = self.context.merged(with: context)
+        
         let path:ArraySlice<String> 
-        var scope:[Page],
+        var search:[[(node:Node, pages:[Page])]],
             next:Node?
         if symbol.first == "Self" 
         {
@@ -289,18 +343,24 @@ extension Page
             {
             case .enum, .struct, .class, .protocol, .extension: 
                 // `Self` refers to this page, and all its extensions 
-                scope   = node.pages 
                 next    = node 
+                search  = [[(node, node.pages)]] + node.search(space: 
+                    node.pages.flatMap(\.inclusions)
+                    + 
+                    context[["Self"]])
             default:
                 // `Self` refers to the parent node, and all its extensions 
-                guard let parent:InternalNode = node.parent 
+                guard let node:InternalNode = node.parent 
                 else 
                 {
                     print(warning)
                     return nil 
                 }
-                scope   = parent.pages 
-                next    = parent 
+                next    = node 
+                search  = [[(node, node.pages)]] + node.search(space: 
+                    node.pages.flatMap(\.inclusions)
+                    + 
+                    context[["Self"]])
             }
             path    = symbol.dropFirst()
         }
@@ -309,11 +369,12 @@ extension Page
             if let node:InternalNode = node as? InternalNode 
             {
                 // include extensions 
-                scope = node.pages 
+                search  = [[(node, node.pages)]] + node.search(space: 
+                    node.pages.flatMap(\.inclusions))
             }
             else 
             {
-                scope = [self]
+                search  = [[(node, [self])]]
             }
             next    = node
             path    = symbol[...]
@@ -324,14 +385,22 @@ extension Page
         {
             defer 
             {
-                next    = node.parent 
-                scope   = node.pages 
+                if let node:InternalNode = node.parent 
+                {
+                    next    = node 
+                    search  = [[(node, node.pages)]] + node.search(space: 
+                        node.pages.flatMap(\.inclusions))
+                }
+                else 
+                {
+                    next    = nil 
+                    search  = []
+                }
             }
             
-            var keys:ArraySlice<String>                 = path
-            var candidates:[Page]                       = scope 
-            var search:[[(node:Node, pages:[Page])]]    = node.search(space: scope)
-            var matched:[String]                        = []
+            var keys:ArraySlice<String> = path
+            var candidates:[Page]       = search.first?.flatMap(\.pages) ?? []
+            var matched:[String]        = []
             matching:
             while let key:String = keys.popFirst() 
             {
@@ -357,17 +426,10 @@ extension Page
                                     {
                                         candidates  = [page]
                                         // find out what we know about this generic 
-                                        if let inclusions:Page.Inclusions = self.context[matched]
-                                        {
-                                            // HACK :(
-                                            // how do we know `node` is the right 
-                                            // place to search inclusions from?
-                                            search  = node.search(space: [inclusions])
-                                        }
-                                        else 
-                                        {
-                                            search  = []
-                                        }
+                                        // HACK :(
+                                        // how do we know `node` is the right 
+                                        // place to search inclusions from?
+                                        search  = node.search(space: context[matched])
                                         continue matching
                                     }
                                 }
@@ -382,7 +444,10 @@ extension Page
                         if let next:Node = node.children[key]
                         {
                             candidates  = next.pages 
-                            search      = next.search(space: next.pages)
+                            search      = 
+                                [[(next, next.pages)]] 
+                                + 
+                                next.search(space: next.pages.flatMap(\.inclusions))
                             continue matching 
                         }
                     }
@@ -505,7 +570,7 @@ extension Page
         // appended to the path 
         if symbol.first != "Swift"
         {
-            return self.resolve(["Swift"] + symbol, in: node, hint: hint, 
+            return self.resolve(["Swift"] + symbol, in: node, context: context, hint: hint, 
                 allowingSelfReferencingLinks: allowSelf, where: predicate)
         }
         else 
@@ -680,9 +745,9 @@ extension Page
 {
     static 
     func prose(specializations attributes:[Grammar.AttributeField]) 
-        -> Paragraph 
+        -> [(paragraph:Paragraph, context:Context)] 
     {
-        .init(parsing: attributes.compactMap 
+        attributes.compactMap 
         {
             guard case .specialized(let conditions) = $0 
             else 
@@ -690,12 +755,16 @@ extension Page
                 return nil 
             }
             
-            return "Specialization available when \(Self.prose(conditions: conditions))."
-        }.joined(separator: "\\n"))
+            return 
+                (
+                    .init(parsing: "Specialization available when \(Self.prose(conditions: conditions))."), 
+                    .init(clauses: conditions)
+                )
+        }
     }
     static 
     func prose(relationships constraints:Grammar.ConstraintsField?) 
-        -> [Paragraph] 
+        -> [(paragraph:Paragraph, context:Context)] 
     {
         guard let conditions:[Grammar.WhereClause] = constraints?.clauses
         else 
@@ -703,7 +772,7 @@ extension Page
             return []
         }
         
-        return [.init(parsing: "Available when \(Self.prose(conditions: conditions)).")]
+        return [(.init(parsing: "Available when \(Self.prose(conditions: conditions))."), .init())]
     }
     static 
     func prose(relationships fields:
@@ -711,46 +780,51 @@ extension Page
             relationships:Fields.Relationships?, 
             conformances:[Grammar.ConformanceField]
         )) 
-        -> [Paragraph] 
+        -> [(paragraph:Paragraph, context:Context)]
     {
-        var sentences:[String]
+        var paragraphs:[(paragraph:Paragraph, context:Context)] = []
         switch fields.relationships 
         {
         case .required?:
-            sentences       = ["**Required.**"] 
+            paragraphs  = [(.init(parsing: "**Required.**"), .init())] 
         case .defaulted?:
-            sentences       = ["**Required.** Default implementation provided."]
+            paragraphs  = [(.init(parsing: "**Required.** Default implementation provided."), .init())]
         case .defaultedConditionally(let conditions)?:
-            sentences       = ["**Required.**"] + conditions.map 
+            paragraphs  = [(.init(parsing: "**Required.**"), .init())] + conditions.map 
             {
-                "Default implementation provided when \(Self.prose(conditions: $0))."
+                (
+                    .init(parsing: "Default implementation provided when \(Self.prose(conditions: $0))."), 
+                    .init(clauses: $0)
+                )
             }
         case .implements(let implementations)?:
-            sentences       = []
+            paragraphs  = []
             for implementation:Grammar.ImplementationField in implementations
             {
                 if !implementation.conformances.isEmpty  
                 {
-                    let prose:String = Self.prose(separator: ",", listing: implementation.conformances)
+                    let plural:String   = implementation.conformances.count > 1 ? "requirements" : "requirement"
+                    let prose:String    = Self.prose(separator: ",", listing: implementation.conformances)
                     {
                         "[`\($0.joined(separator: "."))`]"
                     }
-                    if implementation.conformances.count > 1 
-                    {
-                        sentences.append("Implements requirements in \(prose).")
-                    }
-                    else 
-                    {
-                        sentences.append("Implements requirement in \(prose).")
-                    }
+                    paragraphs.append(
+                    (
+                        .init(parsing: "Implements \(plural) in \(prose)."), 
+                        .init()
+                    ))
                 }
                 if !implementation.conditions.isEmpty 
                 {
-                    sentences.append("Available when \(Self.prose(conditions: implementation.conditions)).")
+                    paragraphs.append(
+                    (
+                        .init(parsing: "Available when \(Self.prose(conditions: implementation.conditions))."), 
+                        .init()
+                    ))
                 }
             }
         case nil: 
-            sentences       = []
+            paragraphs  = []
         }
         
         for conformance:Grammar.ConformanceField in fields.conformances 
@@ -760,10 +834,13 @@ extension Page
             {
                 "[`\($0.joined(separator: "."))`]"
             }
-            sentences.append("Conforms to \(prose) when \(Self.prose(conditions: conformance.conditions)).")
+            paragraphs.append(
+            (
+                .init(parsing: "Conforms to \(prose) when \(Self.prose(conditions: conformance.conditions))."), 
+                .init()
+            ))
         }
-        
-        return sentences.map(Paragraph.init(parsing:))
+        return paragraphs
     }
     
     static 
@@ -812,48 +889,49 @@ extension Page
 extension Page 
 {
     private 
-    func resolveLinks(in declaration:Declaration, at node:Node, 
+    func resolveLinks(in unlinked:(declaration:Declaration, context:Context), at node:Node, 
         allowingSelfReferencingLinks:Bool = true) 
         -> Declaration
     {
-        declaration.map
+        unlinked.declaration.map
         {
             switch $0 
             {
             case .identifier(let string, .unresolved(path: let path)?):
-                return .identifier(string, self.resolve(path, in: node, 
+                return .identifier(string, self.resolve(path, in: node, context: unlinked.context,
                     allowingSelfReferencingLinks: allowingSelfReferencingLinks))
             case .punctuation(let string, .unresolved(path: let path)?):
-                return .punctuation(string, self.resolve(path, in: node, 
+                return .punctuation(string, self.resolve(path, in: node, context: unlinked.context,
                     allowingSelfReferencingLinks: allowingSelfReferencingLinks))
             default:
                 return $0
             }
         }
     }
-    func resolveLinks(in unlinked:Paragraph, at node:Node) -> Paragraph
+    func resolveLinks(in unlinked:(paragraph:Paragraph, context:Context), at node:Node) 
+        -> Paragraph
     {
-        switch unlinked 
+        switch unlinked.paragraph 
         {
-        case .code(block: let unlinked):
-            return .code(block: .init(language: unlinked.language, content: 
-                unlinked.content.map 
+        case .code(block: let block):
+            return .code(block: .init(language: block.language, content: 
+                block.content.map 
             {
                 guard   case .symbol(.unresolved(path: let path))   = $0.info, 
-                        let link:Link = self.resolve(path, in: node)
+                        let link:Link = self.resolve(path, in: node, context: unlinked.context)
                 else 
                 {
                     return $0
                 }
                 return ($0.text, .symbol(link))
             }))
-        case .paragraph(let unlinked, notice: let notice):
-            return .paragraph(unlinked.map 
+        case .paragraph(let paragraph, notice: let notice):
+            return .paragraph(paragraph.map 
             {
                 switch $0 
                 {
                 case .type(let inline):
-                    return .code(self.resolveLinks(in: .init(type: inline.type), at: node))
+                    return .code(self.resolveLinks(in: (.init(type: inline.type), unlinked.context), at: node))
                 case .symbol(let link):
                     return .code(.init 
                     {
@@ -870,7 +948,8 @@ extension Page
                                 {
                                 case .unresolved(path: let path):
                                     if let link:Link = self.resolve(sublink.prefix + path, in: node, 
-                                        hint: $0.element.0)
+                                        context: unlinked.context, 
+                                        hint:   $0.element.0)
                                     {
                                         Declaration.identifier($0.element.1, link: link)
                                     }
@@ -906,20 +985,35 @@ extension Page
     }
     func resolveLinks(at node:Node) 
     {
-        self.declaration            = self.resolveLinks(in: self.declaration, at: node, 
+        self.declaration            = self.resolveLinks(in: (self.declaration, .init()), at: node, 
             allowingSelfReferencingLinks: false)
-        self.blurb                  = self.resolveLinks(in: self.blurb, at: node)
+        self.blurb                  = self.resolveLinks(in: (self.blurb, .init()),       at: node)
         self.discussion.parameters  = self.discussion.parameters.map 
         {
-            ($0.name, $0.paragraphs.map{ self.resolveLinks(in: $0, at: node) })
+            (
+                $0.name, 
+                $0.paragraphs.map
+                { 
+                    self.resolveLinks(in: ($0, .init()), at: node) 
+                }
+            )
         }
-        self.discussion.return          = self.discussion.return.map{   self.resolveLinks(in: $0, at: node) }
-        self.discussion.overview        = self.discussion.overview.map{ self.resolveLinks(in: $0, at: node) }
+        self.discussion.return          = self.discussion.return.map
+        {
+            self.resolveLinks(in: ($0, .init()), at: node) 
+        }
+        self.discussion.overview        = self.discussion.overview.map
+        { 
+            self.resolveLinks(in: ($0, .init()), at: node) 
+        }
         self.discussion.relationships   = self.discussion.relationships.map 
         {
-            self.resolveLinks(in: $0, at: node) 
+            (self.resolveLinks(in: $0, at: node), $0.context)
         }
-        self.discussion.specializations = self.resolveLinks(in: self.discussion.specializations, at: node) 
+        self.discussion.specializations = self.discussion.specializations.map 
+        {
+            (self.resolveLinks(in: $0, at: node), $0.context)
+        }
         
         // find the documentation root node
         var root:Node           = node 
@@ -997,8 +1091,7 @@ extension Page:CustomStringConvertible
         """
         \(indent)\(self.path.joined(separator: "."))
         \(indent){
-            \(indent)aliases        : \(self.inclusions.aliases)
-            \(indent)inheritances   : \(self.inclusions.inheritances)
+            \(indent)inclusions : \(self.inclusions)
         \(indent)}
         """
     }

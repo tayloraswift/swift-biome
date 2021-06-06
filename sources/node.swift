@@ -454,12 +454,13 @@ extension Node
         }
         return node
     }
-    func search(space inclusions:[Page.Inclusions]) -> [[(node:Node, pages:[Page])]]
+    func search(space inclusions:[Page.Context.Predicate]) 
+        -> [[(node:Node, pages:[Page])]]
     {
-        let spaces:[(Page.Inclusions) -> [[String]]] = 
+        let spaces:[(Page.Context.Predicate) -> [String]?] = 
         [
-            \.aliases, 
-            \.inheritances
+            \.alias, 
+            \.inheritance
         ]
         return spaces.map 
         {
@@ -467,7 +468,7 @@ extension Node
             var seen:Set<ObjectIdentifier>          = []
             var space:[(node:Node, pages:[Page])]  = []
             
-            var frontier:[[String]] = inclusions.flatMap($0) 
+            var frontier:[[String]] = inclusions.compactMap($0) 
             while !frontier.isEmpty
             {
                 let nodes:[Node]    = self.find(frontier)
@@ -475,17 +476,13 @@ extension Node
                 for node:Node in nodes 
                     where seen.update(with: .init(node)) == nil
                 {
-                    frontier.append(contentsOf: node.pages.map(\.inclusions).flatMap($0))
+                    frontier.append(contentsOf: node.pages.flatMap(\.inclusions).compactMap($0))
                     space.append((node, node.pages))
                 }
             }
             
             return space 
         }
-    }
-    func search(space pages:[Page]) -> [[(node:Node, pages:[Page])]]
-    {
-        [[(self, pages)]] + self.search(space: pages.map(\.inclusions))
     }
 }
 
@@ -754,7 +751,11 @@ extension Node
                         // resolve links *now*, since the original scope is different 
                         // from the page it will appear in 
                         let note:Paragraph = page.resolveLinks(
-                            in: .init(parsing: "When \(Page.prose(conditions: conditions))."), 
+                            in: 
+                            (
+                                .init(parsing: "When \(Page.prose(conditions: conditions))."), 
+                                .init()
+                            ),
                             at: node)
                         return (conformer.page, .conformer,  signature, note)
                     case (.inheritedConformer,   _):
@@ -776,13 +777,16 @@ extension Node
                             fallthrough
                         }
                         let note:Paragraph = page.resolveLinks(
-                            in: .init(parsing: 
+                            in: 
+                            (   .init(parsing: 
                                 """
                                 Because it conforms to \(Page.prose(separator: ",", listing: actualConformances)
                                 {
                                     "[`\($0.joined(separator: "."))`]"
                                 }).
                                 """), 
+                                .init()
+                            ),
                             at: node)
                         return (conformer.page, .conformer, signature, note)
                     
