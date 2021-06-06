@@ -1224,6 +1224,7 @@ extension Grammar
     }
     
     //  TopicKey                ::= [a-zA-Z0-9\-] *
+    //                            | '$infrequently-used'
     //  TopicField              ::= '#' <Whitespace> ? '[' <BalancedToken> * ']' <Whitespace> ? 
     //                              '(' <Whitespace> ? <TopicKey> 
     //                              ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
@@ -1259,15 +1260,21 @@ extension Grammar
     }
     struct TopicMembershipField:Parsable
     {
+        private 
+        struct InfrequentlyUsed:Parsable.Terminal 
+        {
+            static 
+            var token:String = "$infrequently-used"
+        }
         let key:String?
         let rank:Int?
         
         init(parsing input:inout Input) throws
         {
-            let _:Token.Hashtag             = try .init(parsing: &input), 
-                _:Whitespace?               =     .init(parsing: &input), 
-                _:Token.Parenthesis.Left    = try .init(parsing: &input), 
-                _:Whitespace?               =     .init(parsing: &input) 
+            let _:Token.Hashtag                 = try .init(parsing: &input), 
+                _:Whitespace?                   =     .init(parsing: &input), 
+                _:Token.Parenthesis.Left        = try .init(parsing: &input), 
+                _:Whitespace?                   =     .init(parsing: &input) 
             if let rank:List<Int, List<Whitespace?, List<Token.Colon, Whitespace?>>> = 
                                                   .init(parsing: &input)
             {
@@ -1277,12 +1284,19 @@ extension Grammar
             {
                 self.rank = nil 
             }
-            let key:[Token.Alphanumeric]    =     .init(parsing: &input), 
-                _:Whitespace?               =     .init(parsing: &input), 
-                _:Token.Parenthesis.Right   = try .init(parsing: &input), 
-                _:Endline                   = try .init(parsing: &input)
+            if let _:InfrequentlyUsed           =     .init(parsing: &input)
+            {
+                self.key = InfrequentlyUsed.token 
+            }
+            else 
+            {
+                let key:[Token.Alphanumeric]    =     .init(parsing: &input)
+                self.key = key.isEmpty ? nil : String.init(key.map(\.character))
+            }
             
-            self.key = key.isEmpty ? nil : String.init(key.map(\.character))
+            let _:Whitespace?                   =     .init(parsing: &input), 
+                _:Token.Parenthesis.Right       = try .init(parsing: &input), 
+                _:Endline                       = try .init(parsing: &input)
         }
     }
     

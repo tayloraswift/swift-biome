@@ -861,7 +861,18 @@ extension Node
                 {
                     builtins = [:]
                 }
-                for page:Page in node.children.values.flatMap(\.pages)
+                
+                let children:[Page]                 = node.children.values.flatMap(\.pages)
+                let filter:Set<ObjectIdentifier>    = .init(children.map(ObjectIdentifier.init(_:)))
+                
+                let infrequent:[Page]               = global["$infrequently-used", default: []]
+                .compactMap
+                {
+                    filter.contains(.init($0)) ? $0 : nil
+                }
+                seen.formUnion(infrequent.map(ObjectIdentifier.init(_:)))
+                
+                for page:Page in children
                     where !seen.contains(.init(page))
                 {
                     guard let topic:Page.Topic.Builtin = page.kind.topic 
@@ -884,12 +895,19 @@ extension Node
                     page.topics.append(.init(name: topic.rawValue, 
                         elements: sorted.map(Unowned<Page>.init(target:))))
                 }
+                // infrequently-used builtin. do not sort, because `globals` was 
+                // already sorted, by explicit page rank
+                page.topics.append(.init(name: "Infrequently-used functionality", 
+                    elements: infrequent.map(Unowned<Page>.init(target:))))
                 
                 // move 'see also' to the end 
-                if let i:Int = (page.topics.firstIndex{ $0.name.lowercased() == "see also" })
+                if let i:Int = (page.topics.firstIndex
+                { 
+                    $0.name.lowercased() == "see also" 
+                })
                 {
-                    let seealso:Page.Topic = page.topics.remove(at: i)
-                    page.topics.append(seealso)
+                    let moved:Page.Topic = page.topics.remove(at: i)
+                    page.topics.append(moved)
                 }
                 // remove empty topics 
                 page.topics.removeAll(where: \.elements.isEmpty)
