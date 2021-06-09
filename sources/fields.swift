@@ -33,8 +33,20 @@ extension Page
     {
         struct Callable 
         {
-            let domain:[(type:Grammar.FunctionParameter, paragraphs:[Paragraph], name:String)]
-            let range:(type:Grammar.SwiftType, paragraphs:[Paragraph])?
+            let domain:
+            [
+                (
+                    type:Grammar.FunctionParameter, 
+                    builder:Grammar.SwiftType?, 
+                    paragraphs:[Paragraph], 
+                    name:String
+                )
+            ]
+            let range:
+            (
+                type:Grammar.SwiftType, 
+                paragraphs:[Paragraph]
+            )?
             
             var isEmpty:Bool 
             {
@@ -264,6 +276,11 @@ extension Page.Fields
         if  let last:ParameterDescription   = parameters.last, 
             case .return                    = last.parameter.name
         {
+            guard last.parameter.builder == nil 
+            else 
+            {
+                throw Entrapta.Error.init("return value cannot have a result builder")
+            }
             range = (last.parameter.parameter.type, last.paragraphs)
             parameters.removeLast()
         }
@@ -271,15 +288,25 @@ extension Page.Fields
         {
             range = nil 
         }
-        let domain:[(type:Grammar.FunctionParameter, paragraphs:[Paragraph], name:String)] = 
-            try parameters.map 
+        
+        let domain:
+        [
+            (
+                type:Grammar.FunctionParameter, 
+                builder:Grammar.SwiftType?, 
+                paragraphs:[Paragraph], 
+                name:String
+            )
+        ] 
+        = 
+        try parameters.map 
         {
             guard case .parameter(let name) = $0.parameter.name 
             else 
             {
                 throw Entrapta.Error.init("return value must be the last parameter field")
             }
-            return ($0.parameter.parameter, $0.paragraphs, name)
+            return ($0.parameter.parameter, $0.parameter.builder, $0.paragraphs, name)
         }
         
         self.callable = .init(domain: domain, range: range)

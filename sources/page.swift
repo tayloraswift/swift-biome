@@ -405,10 +405,11 @@ extension Page
             while let key:String = keys.popFirst() 
             {
                 matched.append(key)
-                for phase:[(node:Node, pages:[Page])] in search
+                
+                // HACK: only look for generics if nothing has been matched yet
+                if matched.count == 1 
                 {
-                    // HACK: only look for generics if nothing has been matched yet
-                    if matched.count == 1 
+                    for phase:[(node:Node, pages:[Page])] in search
                     {
                         for (node, pages):(Node, [Page]) in phase 
                         {
@@ -438,7 +439,10 @@ extension Page
                             } 
                         }
                     }
-                    
+                }
+                
+                for phase:[(node:Node, pages:[Page])] in search
+                {
                     for (node, _):(Node, [Page]) in phase 
                     {
                         if let next:Node = node.children[key]
@@ -452,6 +456,7 @@ extension Page
                         }
                     }
                 }
+                
                 if path.count < symbol.count 
                 {
                     // HACK: path was relative, do not escalate 

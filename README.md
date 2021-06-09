@@ -144,7 +144,8 @@ DeclarationAttribute    ::= 'frozen'
                           | 'specialized' <Whitespace> <WhereClauses>
                           | ':'  <Whitespace> ? <Type>
 
-ParameterField          ::= '-' <Whitespace> ? <ParameterName> <Whitespace> ? 
+ParameterField          ::= '-' <Whitespace> ? ('@' <Type> <Whitespace>) ?
+                            <ParameterName> <Whitespace> ? 
                             ':' <Whitespace> ? <FunctionParameter> <Endline>
 ParameterName           ::= <Identifier> 
                           | '->'

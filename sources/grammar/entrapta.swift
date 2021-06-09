@@ -1087,12 +1087,14 @@ extension Grammar
         }
     }
     
-    //  ParameterField          ::= '-' <Whitespace> ? <ParameterName> <Whitespace> ? 
+    //  ParameterField          ::= '-' <Whitespace> ? ('@' <Type> <Whitespace>) ?
+    //                              <ParameterName> <Whitespace> ? 
     //                              ':' <Whitespace> ? <FunctionParameter> <Endline>
     //  ParameterName           ::= <Identifier> 
     //                            | '->'
     struct ParameterField:Parsable, CustomStringConvertible
     {
+        let builder:SwiftType?
         let name:ParameterName 
         let parameter:FunctionParameter 
         
@@ -1100,12 +1102,17 @@ extension Grammar
         {
             let _:Token.Hyphen              = try .init(parsing: &input), 
                 _:Whitespace?               =     .init(parsing: &input), 
+                builder:
+                List<Token.At, 
+                List<SwiftType, 
+                Whitespace>>?               =     .init(parsing: &input), 
                 name:ParameterName          = try .init(parsing: &input), 
                 _:Whitespace?               =     .init(parsing: &input), 
                 _:Token.Colon               = try .init(parsing: &input),
                 _:Whitespace?               =     .init(parsing: &input), 
                 parameter:FunctionParameter = try .init(parsing: &input), 
                 _:Endline                   = try .init(parsing: &input)
+            self.builder    = builder?.body.head 
             self.name       = name
             self.parameter  = parameter
         }
@@ -1225,6 +1232,7 @@ extension Grammar
     
     //  TopicKey                ::= [a-zA-Z0-9\-] *
     //                            | '$infrequently-used'
+    //                            | '$result-builder'
     //  TopicField              ::= '#' <Whitespace> ? '[' <BalancedToken> * ']' <Whitespace> ? 
     //                              '(' <Whitespace> ? <TopicKey> 
     //                              ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
@@ -1266,6 +1274,13 @@ extension Grammar
             static 
             var token:String = "$infrequently-used"
         }
+        private 
+        struct ResultBuilder:Parsable.Terminal 
+        {
+            static 
+            var token:String = "$result-builder"
+        }
+        
         let key:String?
         let rank:Int?
         
@@ -1284,9 +1299,13 @@ extension Grammar
             {
                 self.rank = nil 
             }
-            if let _:InfrequentlyUsed           =     .init(parsing: &input)
+            if      let _:InfrequentlyUsed      =     .init(parsing: &input)
             {
                 self.key = InfrequentlyUsed.token 
+            }
+            else if let _:ResultBuilder         =     .init(parsing: &input)
+            {
+                self.key = ResultBuilder.token 
             }
             else 
             {

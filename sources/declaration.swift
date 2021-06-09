@@ -437,9 +437,24 @@ extension Declaration
         self.init 
         {
             Self.punctuation("(")
-            Self.init(joining: zip(labels, callable.domain.map{ ($0.name, $0.type) }))
+            Self.init(joining: zip(labels, callable.domain.map{ ($0.builder, $0.name, $0.type) }))
             {
-                let (label, (name, parameter)):(String, (String, Grammar.FunctionParameter)) = $0
+                let (label, (builder, name, parameter)):
+                (
+                    String, 
+                    (
+                        Grammar.SwiftType?,
+                        String, 
+                        Grammar.FunctionParameter
+                    )
+                ) = $0
+                
+                if let builder:Grammar.SwiftType = builder 
+                {
+                    Self.punctuation("@")
+                    Self.init(type: builder)
+                    Self.whitespace
+                }
                 
                 let unified:[String] = unifier(label, name)
                 if !unified.isEmpty 

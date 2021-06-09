@@ -869,6 +869,13 @@ extension Node
                 let children:[Page]                 = node.children.values.flatMap(\.pages)
                 let filter:Set<ObjectIdentifier>    = .init(children.map(ObjectIdentifier.init(_:)))
                 
+                let builders:[Page]                 = global["$result-builder", default: []]
+                .compactMap
+                {
+                    filter.contains(.init($0)) ? $0 : nil
+                }
+                seen.formUnion(builders.map(ObjectIdentifier.init(_:)))
+                
                 let infrequent:[Page]               = global["$infrequently-used", default: []]
                 .compactMap
                 {
@@ -899,6 +906,10 @@ extension Node
                     page.topics.append(.init(name: topic.rawValue, 
                         elements: sorted.map(Unowned<Page>.init(target:))))
                 }
+                // result builders builtin. do not sort, because `globals` was 
+                // already sorted, by explicit page rank
+                page.topics.append(.init(name: "Result building methods", 
+                    elements: builders.map(Unowned<Page>.init(target:))))
                 // infrequently-used builtin. do not sort, because `globals` was 
                 // already sorted, by explicit page rank
                 page.topics.append(.init(name: "Infrequently-used functionality", 
