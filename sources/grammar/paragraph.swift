@@ -366,9 +366,16 @@ enum Paragraph //:Grammar.Parsable
             static 
             var token:String = "warning"
         }
+        private 
+        struct Important:Grammar.Parsable.Terminal 
+        {
+            static 
+            var token:String = "important"
+        }
         
         case note 
         case warning 
+        case important 
         
         init(parsing input:inout Grammar.Input) throws 
         {
@@ -376,7 +383,11 @@ enum Paragraph //:Grammar.Parsable
             let _:Grammar.Indent            = try .init(parsing: &input), 
                 _:Grammar.Token.Angle.Right = try .init(parsing: &input), 
                 _:Grammar.Whitespace?       =     .init(parsing: &input)
-            if      let _:Warning           =     .init(parsing: &input) 
+            if      let _:Important         =     .init(parsing: &input) 
+            {
+                self = .important
+            }
+            else if let _:Warning           =     .init(parsing: &input) 
             {
                 self = .warning 
             }

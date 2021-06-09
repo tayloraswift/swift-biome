@@ -669,6 +669,18 @@ extension Paragraph
                     Self.html(elements)
                 }
             }
+        case .paragraph(let elements, notice: .important?):
+            return HTML.element("aside", ["class": "notice-warning", "aria-label": "important"])
+            {
+                HTML.element("p", ["class": "notice-label"])
+                {
+                    "Important"
+                }
+                HTML.element("p", attributes)
+                {
+                    Self.html(elements)
+                }
+            }
         case .paragraph(let elements, notice: nil):
             return HTML.element("p", attributes)
             {

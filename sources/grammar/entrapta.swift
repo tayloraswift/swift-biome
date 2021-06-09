@@ -1335,6 +1335,7 @@ extension Grammar
     //                              ':' <Endline>
     //  Notice.Keyword          ::= 'note'
     //                            | 'warning'
+    //                            | 'important'
     struct Indent:Parsable.Terminal
     {
         static 
