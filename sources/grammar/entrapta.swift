@@ -1189,6 +1189,7 @@ extension Grammar
     }
     
     //  RequirementField        ::= 'required' <Endline>
+    //                            | 'synthesized' <Endline>
     //                            | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
     enum RequirementField:Parsable 
     {
@@ -1199,6 +1200,12 @@ extension Grammar
             let token:String = "required"
         }
         private 
+        struct Synthesized:Parsable.Terminal 
+        {
+            static 
+            let token:String = "synthesized"
+        }
+        private 
         struct Defaulted:Parsable.Terminal 
         {
             static 
@@ -1206,6 +1213,7 @@ extension Grammar
         }
         
         case required
+        case synthesized 
         case defaulted([WhereClause])
         
         init(parsing input:inout Input) throws
@@ -1214,6 +1222,11 @@ extension Grammar
             if      let _:List<Required, Endline>   = .init(parsing: &input)
             {
                 self = .required
+                return 
+            }
+            else if let _:List<Synthesized, Endline> = .init(parsing: &input)
+            {
+                self = .synthesized
                 return 
             }
             else if let _:Defaulted = .init(parsing: &input)

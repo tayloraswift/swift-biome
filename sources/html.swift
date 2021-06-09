@@ -518,7 +518,10 @@ extension Page
                                 {
                                     for element:Page in topic.elements.map(\.target)
                                     {
-                                        HTML.element("div", ["class": "topic-container-symbol"])
+                                        let classes:String = element.synthesized ? 
+                                            "topic-container-symbol synthesized" :
+                                            "topic-container-symbol"
+                                        HTML.element("div", ["class": classes])
                                         {
                                             HTML.element("code", ["class": "signature"])
                                             {

@@ -151,6 +151,7 @@ class Page
     let name:String // name is not always last component of path 
     var signature:Signature
     var declaration:Declaration
+    var synthesized:Bool 
     
     // preserves ordering of generic parameters
     let parameters:[String]
@@ -275,6 +276,15 @@ class Page
         self.signature      = signature 
         self.declaration    = declaration 
         
+        if case .required(synthesized: true)? = fields.relationships
+        {
+            self.synthesized = true 
+        }
+        else 
+        {
+            self.synthesized = false 
+        }
+        
         self.blurb                  = fields.blurb ?? .empty
         self.discussion.overview    = fields.discussion
 
@@ -284,7 +294,7 @@ class Page
             ($0.name, $0.paragraphs)
         }
         
-        // breakcrumbs filled in during link resolution stage 
+        // breadcrumbs filled in during link resolution stage 
         self.breadcrumbs        = []
         self.breadcrumb         = self.path.last ?? "Documentation"
         
@@ -790,8 +800,10 @@ extension Page
         var paragraphs:[(paragraph:Paragraph, context:Context)] = []
         switch fields.relationships 
         {
-        case .required?:
+        case .required(synthesized: false)?:
             paragraphs  = [(.init(parsing: "**Required.**"), .init())] 
+        case .required(synthesized: true)?:
+            paragraphs  = [(.init(parsing: "**Required.** Synthesized."), .init())] 
         case .defaulted?:
             paragraphs  = [(.init(parsing: "**Required.** Default implementation provided."), .init())]
         case .defaultedConditionally(let conditions)?:

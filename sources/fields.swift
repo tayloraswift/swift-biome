@@ -69,7 +69,7 @@ extension Page
         
         enum Relationships 
         {
-            case required
+            case required(synthesized:Bool)
             case defaulted 
             case defaultedConditionally([[Grammar.WhereClause]]) 
             case implements([Grammar.ImplementationField])
@@ -241,7 +241,12 @@ extension Page.Fields
             if      case .required?                     = requirements.first, 
                     requirements.count == 1 
             {
-                self.relationships  = .required 
+                self.relationships  = .required(synthesized: false)
+            }
+            else if case .synthesized?                  = requirements.first, 
+                    requirements.count == 1 
+            {
+                self.relationships  = .required(synthesized: true) 
             }
             else if case .defaulted(let conditions)?    = requirements.first, 
                     requirements.count == 1, 
@@ -1138,7 +1143,7 @@ extension Page
             print("warning: associatedtype '\(header.identifiers.joined(separator: "."))' was marked as implementing a protocol requirement, which does not make sense")
         case (nil, nil):
             // infer `required`
-            fields.update(relationships: .required)
+            fields.update(relationships: .required(synthesized: false))
         case (nil, _?):
             // infer `defaulted`
             fields.update(relationships: .defaulted)

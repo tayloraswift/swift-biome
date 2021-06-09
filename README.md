@@ -153,6 +153,7 @@ ParameterName           ::= <Identifier>
 DispatchField           ::= <DispatchField.Keyword> ( <Whitespace> <DispatchField.Keyword> ) * <Endline>
 
 RequirementField        ::= 'required' <Endline>
+                          | 'synthesized' <Endline>
                           | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
 
 TopicKey                ::= [a-zA-Z0-9\-] *
