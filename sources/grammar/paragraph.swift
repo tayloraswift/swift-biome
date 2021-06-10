@@ -431,6 +431,12 @@ enum Paragraph //:Grammar.Parsable
                 static 
                 let token:String = "swift"
             }
+            private 
+            struct Text:Grammar.Parsable.Terminal
+            {
+                static 
+                let token:String = "text"
+            }
             case swift 
             case text 
             
@@ -440,6 +446,10 @@ enum Paragraph //:Grammar.Parsable
                 if      let _:Swift = .init(parsing: &input)
                 {
                     self = .swift 
+                }
+                else if let _:Text  = .init(parsing: &input)
+                {
+                    self = .text  
                 }
                 else 
                 {
@@ -465,8 +475,10 @@ enum Paragraph //:Grammar.Parsable
                 _:Grammar.Token.Backtick    = try .init(parsing: &input),
                 language:Language?          =     .init(parsing: &input),
                 _:Grammar.Endline           = try .init(parsing: &input)
+                
+            self.language       = language ?? .text 
             
-            var content:String = ""
+            var content:String  = ""
             while true 
             {
                 if  let _:
@@ -488,15 +500,22 @@ enum Paragraph //:Grammar.Parsable
                     throw input.expected(Grammar.Endline.self)
                 }
             }
-            self.language   = language ?? .text 
             // remove 4 spaces of indentation
-            self.content    = SwiftCode.highlight(code: content
+            content = content
             .split(separator: "\n", omittingEmptySubsequences: false)
             .map 
             {
                 "\($0.prefix(4).drop(while: \.isWhitespace))\($0.dropFirst(4))"
             }
-            .joined(separator: "\n"))
+            .joined(separator: "\n")
+            
+            switch self.language 
+            {
+            case .text:
+                self.content    = [(content, .whitespace)]
+            case .swift:
+                self.content    = SwiftCode.highlight(code: content)
+            }
         }
         
         var isEmpty:Bool 
