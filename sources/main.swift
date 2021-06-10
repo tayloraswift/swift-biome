@@ -79,12 +79,18 @@ struct Entrapta:ParsableCommand
                 continue 
             }
             
-            guard let tokens:[SwiftCode.Token] = try? SwiftCode.tokenize(code: contents)
-            else 
+            let tokens:[SwiftCode.Token]
+            do 
+            {
+                tokens = try SwiftCode.tokenize(code: contents)
+            }
+            catch let error 
             {
                 print("error: could not tokenize source file '\(source)'")
+                print(error)
                 continue 
             }
+            
             // strip whitespace tokens, and expand newlines into individual tokens
             let flattened:[SwiftCode.Token] = tokens.flatMap 
             {
