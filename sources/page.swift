@@ -716,6 +716,7 @@ extension Page
         enum Builtin:String, Hashable, CaseIterable 
         {
             case dependencies       = "Dependencies"
+            case lexemes            = "Lexemes"
             case cases              = "Enumeration cases"
             case associatedtypes    = "Associated types"
             case initializers       = "Initializers"
@@ -733,7 +734,6 @@ extension Page
             case protocols          = "Protocols"
             case typealiases        = "Typealiases"
             case extensions         = "Extensions"
-            case lexemes            = "Lexemes"
         }
         
         let name:String, 
