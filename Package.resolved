@@ -1,25 +1,32 @@
 {
-  "object": {
-    "pins": [
-      {
-        "package": "swift-argument-parser",
-        "repositoryURL": "https://github.com/apple/swift-argument-parser",
-        "state": {
-          "branch": null,
-          "revision": "986d191f94cec88f6350056da59c2e59e83d1229",
-          "version": "0.4.3"
-        }
-      },
-      {
-        "package": "swift-syntax",
-        "repositoryURL": "https://github.com/apple/swift-syntax.git",
-        "state": {
-          "branch": "swift-DEVELOPMENT-SNAPSHOT-2021-05-18-a",
-          "revision": "08ef05bbf624b50371697f3270e48b7c2acc7913",
-          "version": null
-        }
+  "pins" : [
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser",
+      "state" : {
+        "revision" : "e394bf350e38cb100b6bc4172834770ede1b7232",
+        "version" : "1.0.3"
       }
-    ]
-  },
-  "version": 1
+    },
+    {
+      "identity" : "swift-json",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kelvin13/swift-json",
+      "state" : {
+        "branch" : "master",
+        "revision" : "d6157fd36990121ac200bd1364240b368f6cf164"
+      }
+    },
+    {
+      "identity" : "swift-syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-syntax.git",
+      "state" : {
+        "branch" : "swift-5.6-DEVELOPMENT-SNAPSHOT-2022-01-09-a",
+        "revision" : "7117363d54ed5dfdbcb5eaa4c81697923c9768db"
+      }
+    }
+  ],
+  "version" : 2
 }

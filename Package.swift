@@ -1,26 +1,28 @@
-// swift-tools-version:5.5
+// swift-tools-version:5.6
 import PackageDescription
 
 let package = Package(
-    name: "Entrapta",
+    name: "entrapta",
     products: 
     [
         .executable(name: "entrapta", targets: ["Entrapta"]),
     ],
     dependencies: 
     [
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "0.4.0"),
-        .package(url: "https://github.com/apple/swift-syntax.git", .revision("swift-DEVELOPMENT-SNAPSHOT-2021-05-30-a")),
+        .package(url: "https://github.com/kelvin13/swift-json",         branch: "master"),
+        
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.0.2"),
+        .package(url: "https://github.com/apple/swift-syntax.git",      revision: "swift-5.6-DEVELOPMENT-SNAPSHOT-2022-01-09-a"),
     ],
     targets: 
     [
         .executableTarget(name: "Entrapta", 
             dependencies: 
             [
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                .product(name: "SwiftSyntax",    package: "swift-syntax"),
+                .product(name: "JSON",              package: "swift-json"),
+                .product(name: "ArgumentParser",    package: "swift-argument-parser"),
+                .product(name: "SwiftSyntax",       package: "swift-syntax"),
             ], 
-            path: "sources/"),
-    ], 
-    swiftLanguageVersions: [.v4_2, .v5]
+            path: "sources/entrapta"),
+    ]
 )
