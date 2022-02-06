@@ -3,55 +3,60 @@ import HTML
 
 extension Entrapta 
 {
-    struct Documentation 
+    public 
+    typealias Frontend = Document.Element<Document.HTML, Anchor>
+    
+    public 
+    enum Anchor:DocumentID 
     {
-        typealias Frontend = Document.Element<Document.HTML, Anchor>
-        enum Anchor:DocumentID 
+        public 
+        var documentId:String 
         {
-            var documentId:String 
-            {
-                fatalError("unreachable")
-            }
+            fatalError("unreachable")
         }
-        
-        var pages:[Symbol.ID: Frontend]
     }
-}
-extension Entrapta.Documentation 
-{
+    public 
     struct Symbol 
     {
+        public 
         struct ID:Hashable
         {
             let mangled:String 
         }
         
-        let path:[String]
-        let content:Frontend
+        public 
+        let path:[String], 
+            content:Frontend
         
         var shortcut:String 
         {
             self.path.map { "/\($0)" }.joined()
         }
     }
-    
-    init(graph:Graph)
+    public 
+    struct Documentation 
     {
-        self.pages = [:]
-        for descriptor:Graph.Symbol in graph.symbols 
+        public 
+        var pages:[Symbol.ID: Frontend]
+        
+        init(graph:Graph)
         {
-            // compute URI 
-            let path:[String]       = descriptor.path
-            let title:String        = descriptor.display.title 
-            let id:Symbol.ID        = .init(mangled: descriptor.id)
-            let content:Frontend    = Frontend[.article]
+            self.pages = [:]
+            for descriptor:Graph.Symbol in graph.symbols 
             {
-                Frontend[.h1] 
+                // compute URI 
+                let path:[String]       = descriptor.path
+                let title:String        = descriptor.display.title 
+                let id:Symbol.ID        = .init(mangled: descriptor.id)
+                let content:Frontend    = Frontend[.article]
                 {
-                    title 
+                    Frontend[.h1] 
+                    {
+                        title 
+                    }
                 }
+                self.pages[id] = content 
             }
-            self.pages[id] = content 
         }
     }
 }

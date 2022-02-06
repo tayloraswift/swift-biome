@@ -5,10 +5,8 @@ struct Graph
     var symbols:[Symbol]
     var edges:[Edge]
     
-    init(file:String) throws 
+    init(from json:JSON) throws 
     {
-        let utf8:[UInt8]    = try File.read([UInt8].self, from: file)
-        let json:JSON       = try Grammar.parse(utf8, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
         guard   case .object(let graph)     = json, 
                 case .object(let module)?   = graph["module"],
                 case .array(let symbols)?   = graph["symbols"],
@@ -17,21 +15,9 @@ struct Graph
         {
             throw Graph.DecodingError.init()
         }
-        
-        print(module)
-        
-        /* for symbol in symbols 
-        {
-            guard case .object(let items) = symbol 
-            else 
-            {
-                continue 
-            }
-            print(items.keys)
-        } */
-        
+        // print(module)
         self.symbols    = try symbols.map(Graph.Symbol.init(from:))
-        self.edges      = try edges.map(Graph.Edge.init(from:))
+        self.edges      = try   edges.map(Graph.Edge.init(from:))
     }
 }
 extension Graph
