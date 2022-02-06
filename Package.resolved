@@ -19,6 +19,14 @@
       }
     },
     {
+      "identity" : "swift-structured-document",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kelvin13/swift-structured-document",
+      "state" : {
+        "revision" : "99ccc36647d11a2654d758df1208e74b6340438c"
+      }
+    },
+    {
       "identity" : "swift-syntax",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-syntax.git",
