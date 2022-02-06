@@ -20,6 +20,7 @@ struct Graph
         self.edges      = try   edges.map(Graph.Edge.init(from:))
     }
 }
+
 extension Graph
 {
     struct DecodingError:Error 
@@ -73,34 +74,6 @@ extension Graph
     }
     struct Symbol:Decodable, Identifiable
     {
-        struct Lexeme:Codable 
-        {
-            enum Kind:String, Codable 
-            {
-                // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/DeclarationFragmentPrinter.cpp
-                case keyword    = "keyword"
-                case attribute  = "attribute"
-                case number     = "number"
-                case string     = "string"
-                case identifier = "identifier"
-                case type       = "typeIdentifier"
-                case generic    = "genericParameter"
-                case parameter  = "internalParam"
-                case label      = "externalParam"
-                case text       = "text"
-            }
-            
-            let text:String 
-            let kind:Kind
-            let id:String?
-            
-            enum CodingKeys:String, CodingKey 
-            {
-                case text   = "spelling"
-                case kind   = "kind"
-                case id     = "preciseIdentifier"
-            }
-        }
         enum Access:String, Codable  
         {
             case `private` 
@@ -109,31 +82,11 @@ extension Graph
             case `public`
             case `open`
         }
-        enum Kind:String, Codable 
-        {
-            case enumeration        = "swift.enum"
-            case enumerationCase    = "swift.enum.case"
-            case structure          = "swift.struct"
-            case `class`            = "swift.class"
-            case `protocol`         = "swift.protocol"
-            case initializer        = "swift.init"
-            case deinitializer      = "swift.deinit"
-            case `operator`         = "swift.func.op"
-            case function           = "swift.func"
-            case global             = "swift.var"
-            case typeMethod         = "swift.type.method"
-            case typeProperty       = "swift.type.property"
-            case typeSubscript      = "swift.type.subscript"
-            case instanceMethod     = "swift.method"
-            case instanceProperty   = "swift.property"
-            case instanceSubscript  = "swift.subscript"
-            case `typealias`        = "swift.typealias"
-            case `associatedtype`   = "swift.associatedtype"
-        }
+
         struct Display:Codable  
         {            
             var title:String
-            var subtitle:[Lexeme]
+            var subtitle:[SwiftLanguage.Lexeme]
             
             enum CodingKeys:String, CodingKey 
             {
@@ -174,7 +127,7 @@ extension Graph
             {
                 var label:String 
                 var name:String?
-                var lexemes:[Lexeme]
+                var lexemes:[SwiftLanguage.Lexeme]
                 
                 enum CodingKeys:String, CodingKey 
                 {
@@ -184,7 +137,7 @@ extension Graph
                 }
             }
             var parameters:[Parameter]?
-            var returns:[Lexeme]
+            var returns:[SwiftLanguage.Lexeme]
             
             enum Position:String, CodingKey 
             {
@@ -271,12 +224,12 @@ extension Graph
         
         let id:String
         var access:Access
-        var kind:Kind 
+        var kind:Entrapta.Symbol.Kind 
         var display:Display
         var location:Location? // some symbols are synthetic
         var path:[String]
         var signature:Signature?
-        var declaration:[Lexeme]
+        var declaration:[SwiftLanguage.Lexeme]
         var `extension`:Extension?
         var generics:Generics?
         var comment:[String]
@@ -314,7 +267,7 @@ extension Graph
             self.path           = try decoder.decode([String].self, forKey: .path)
             self.access         = try decoder.decode(Access.self, forKey: .access)
             self.display        = try decoder.decode(Display.self, forKey: .display)
-            self.declaration    = try decoder.decode([Lexeme].self, forKey: .declaration)
+            self.declaration    = try decoder.decode([SwiftLanguage.Lexeme].self, forKey: .declaration)
             
             self.location       = try decoder.decodeIfPresent(Location.self, forKey: .location)
             self.signature      = try decoder.decodeIfPresent(Signature.self, forKey: .signature)
@@ -331,7 +284,7 @@ extension Graph
             }
             
             self.kind           = try decoder.nestedContainer(keyedBy: CodingKeys.Kind.self, forKey: .kind)
-                .decode(Kind.self, forKey: .identifier)
+                .decode(Entrapta.Symbol.Kind.self, forKey: .identifier)
             self.id             = try decoder.nestedContainer(keyedBy: CodingKeys.Identifier.self, forKey: .identifier)
                 .decode(String.self, forKey: .mangled)
         }

@@ -1,5 +1,6 @@
 import StructuredDocument 
 import HTML 
+import JSON
 
 extension Entrapta 
 {
@@ -15,62 +16,145 @@ extension Entrapta
             fatalError("unreachable")
         }
     }
-    public final
-    class Symbol 
+    
+    static 
+    func render(code:[SwiftLanguage.Lexeme]) -> Frontend 
     {
-        public 
-        struct ID:Hashable, Sendable
+        Frontend[.code] 
         {
-            let mangled:String 
-        }
-        
-        public 
-        let path:[String], 
-            content:Frontend
-        
-        var shortcut:String 
-        {
-            self.path.map { "/\($0)" }.joined()
-        }
-        
-        init() 
-        {
-            fatalError("unreachable")
+            code.map 
+            {
+                let classes:[String]
+                switch $0.kind 
+                {
+                case .text: 
+                    return Frontend.text(escaped: $0.text)
+                case .type, .generic:
+                    classes = ["syntax-type"] 
+                case .attribute, .keyword:
+                    classes = ["syntax-keyword"]
+                case .number, .string: 
+                    classes = ["syntax-literal"]
+                case .identifier, .label, .parameter: 
+                    classes = ["syntax-identifier"]
+                }
+                return Frontend.span($0.text)
+                {
+                    classes
+                }
+            }
         }
     }
+    static 
+    func render(_ symbol:Symbol) -> Frontend
+    {
+        Frontend[.article]
+        {
+            Frontend[.section]
+            {
+                ["introduction"]
+            }
+            content:
+            {
+                Frontend[.div]
+                {
+                    ["section-container"]
+                }
+                content:
+                {
+                    Frontend[.div]
+                    {
+                        ["eyebrow"]
+                    }
+                    content:
+                    {
+                        symbol.kind.description
+                    }
+                    Frontend[.h1]
+                    {
+                        symbol.title
+                    }
+                    /* if self.blurb.isEmpty 
+                    {
+                        Frontend[.p]
+                        {
+                            ["topic-blurb"]
+                        }
+                        content:
+                        {
+                            "No overview available"
+                        }
+                    }
+                    else 
+                    {
+                        self.blurb.html(["class": "topic-blurb"])
+                    }
+                    if !self.discussion.relationships.isEmpty
+                    {
+                        for (relationship, _):(Paragraph, Context) in 
+                            self.discussion.relationships
+                        {
+                            relationship.html(["class": "topic-relationships"])
+                        }
+                    } */
+                }
+            }
+            Frontend[.section]
+            {
+                Frontend[.div]
+                {
+                    ["section-container"]
+                }
+                content: 
+                {
+                    Frontend[.h2]
+                    {
+                        "Declaration"
+                    }
+                    Frontend[.div]
+                    {
+                        ["declaration-container"]
+                    }
+                    content:
+                    {
+                        Self.render(code: symbol.declaration)
+                    }
+                    
+                    Frontend[.h2]
+                    {
+                        "Discussion"
+                    }
+                    Frontend[.pre]
+                    {
+                        Frontend[.code]
+                        {
+                            symbol.discussion
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     public 
     struct Documentation:Sendable
     {
         public 
-        var pages:[Symbol.ID: Frontend]
+        var pages:[String: Frontend]
         
         init(graph:Graph)
         {
-            self.pages = [:]
-            for descriptor:Graph.Symbol in graph.symbols 
-            {
-                // compute URI 
-                let path:[String]       = descriptor.path
-                let title:String        = descriptor.display.title 
-                let id:Symbol.ID        = .init(mangled: descriptor.id)
-                let content:Frontend    = Frontend[.article]
-                {
-                    Frontend[.h1] 
-                    {
-                        title 
-                    }
-                }
-                self.pages[id] = content 
-            }
+            let symbols:[String: Symbol] = .init(graph.symbols.map { ($0.id, .init($0)) }){ $1 }
+            self.pages = symbols.mapValues(Entrapta.render(_:))
         }
         
         public 
         subscript(symbol:String?, module module:String) -> Document.Dynamic<Document.HTML, Anchor>?
         {
             let page:Frontend
-            if let mangled:String = symbol 
+            if let symbol:String = symbol 
             {
-                guard let found:Frontend = self.pages[.init(mangled: mangled)]
+                guard let found:Frontend = self.pages[symbol]
                 else 
                 {
                     return nil 
@@ -87,11 +171,18 @@ extension Entrapta
                     }
                     Frontend[.ol]
                     {
-                        for symbol:Symbol.ID in self.pages.keys
+                        for symbol:String in self.pages.keys
                         {
                             Frontend[.li]
                             {
-                                Frontend.link(Demangle["$\(symbol.mangled)"], to: "/reference/\(module)?symbol=\(symbol.mangled)")
+                                if let mangled:String = try? Grammar.parse(symbol.unicodeScalars, as: Demangle.Rule<String.Index>.MangledName.self)
+                                {
+                                    Frontend.link(Demangle[mangled], to: "/reference/\(module)?symbol=\(symbol)")
+                                }
+                                else 
+                                {
+                                    Frontend.link(symbol, to: "/reference/\(module)?symbol=\(symbol)")
+                                }
                             }
                         }
                     }
