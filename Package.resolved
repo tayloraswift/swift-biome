@@ -5,8 +5,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-json",
       "state" : {
-        "branch" : "master",
-        "revision" : "d6157fd36990121ac200bd1364240b368f6cf164"
+        "revision" : "b97de2acf2d5f8e784349cb0f772369e683148ab"
       }
     },
     {
@@ -14,7 +13,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-structured-document",
       "state" : {
-        "revision" : "99ccc36647d11a2654d758df1208e74b6340438c"
+        "revision" : "8e3b8b5700e9dd3f1db593fc39c94d1e48336244"
       }
     },
     {

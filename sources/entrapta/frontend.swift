@@ -7,7 +7,7 @@ extension Entrapta
     typealias Frontend = Document.Element<Document.HTML, Anchor>
     
     public 
-    enum Anchor:DocumentID 
+    enum Anchor:DocumentID, Sendable
     {
         public 
         var documentId:String 
@@ -19,7 +19,7 @@ extension Entrapta
     class Symbol 
     {
         public 
-        struct ID:Hashable
+        struct ID:Hashable, Sendable
         {
             let mangled:String 
         }
@@ -91,7 +91,7 @@ extension Entrapta
                         {
                             Frontend[.li]
                             {
-                                Frontend.link(Demangle[symbol.mangled], to: "/reference/\(module)?symbol=\(symbol.mangled)")
+                                Frontend.link(Demangle["$\(symbol.mangled)"], to: "/reference/\(module)?symbol=\(symbol.mangled)")
                             }
                         }
                     }
