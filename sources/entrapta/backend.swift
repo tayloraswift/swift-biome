@@ -1,29 +1,8 @@
 import JSON
 
-struct Graph 
+extension Entrapta
 {
-    var symbols:[Symbol]
-    var edges:[Edge]
-    
-    init(from json:JSON) throws 
-    {
-        guard   case .object(let graph)     = json, 
-                case .object(let module)?   = graph["module"],
-                case .array(let symbols)?   = graph["symbols"],
-                case .array(let edges)?     = graph["relationships"]
-        else 
-        {
-            throw Graph.DecodingError.init()
-        }
-        // print(module)
-        self.symbols    = try symbols.map(Graph.Symbol.init(from:))
-        self.edges      = try   edges.map(Graph.Edge.init(from:))
-    }
-}
-
-extension Graph
-{
-    struct DecodingError:Error 
+    struct GraphDecodingError:Error 
     {
         let file:String, 
             line:Int 
@@ -33,15 +12,21 @@ extension Graph
             self.line = line 
         }
     }
+    enum Descriptor 
+    {
+    }
+}
+extension Entrapta.Descriptor 
+{
     struct Edge:Codable 
     {
         // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
         enum Kind:String, Codable
         {
             case member                     = "memberOf"
-            case conforms                   = "conformsTo"
-            case subclasses                 = "inheritsFrom"
-            case overrides                  = "overrides"
+            case conformer                  = "conformsTo"
+            case subclass                   = "inheritsFrom"
+            case override                   = "overrides"
             case requirement                = "requirementOf"
             case optionalRequirement        = "optionalRequirementOf"
             case defaultImplementation      = "defaultImplementationOf"
@@ -224,7 +209,7 @@ extension Graph
         
         let id:String
         var access:Access
-        var kind:Entrapta.Symbol.Kind 
+        var kind:Entrapta.Graph.Symbol.Kind.Declaration 
         var display:Display
         var location:Location? // some symbols are synthetic
         var path:[String]
@@ -284,27 +269,27 @@ extension Graph
             }
             
             self.kind           = try decoder.nestedContainer(keyedBy: CodingKeys.Kind.self, forKey: .kind)
-                .decode(Entrapta.Symbol.Kind.self, forKey: .identifier)
+                .decode(Entrapta.Graph.Symbol.Kind.Declaration.self, forKey: .identifier)
             self.id             = try decoder.nestedContainer(keyedBy: CodingKeys.Identifier.self, forKey: .identifier)
                 .decode(String.self, forKey: .mangled)
         }
     }
 }
-extension Graph.Symbol.Location:CustomStringConvertible 
+extension Entrapta.Descriptor.Symbol.Location:CustomStringConvertible 
 {
     var description:String 
     {
         "\(self.file):\(self.line):\(self.character)"
     }
 }
-extension Graph.Symbol.Signature:CustomStringConvertible 
+extension Entrapta.Descriptor.Symbol.Signature:CustomStringConvertible 
 {
     var description:String 
     {
         "\(self.parameters?.flatMap(\.lexemes).map(\.text).joined() ?? "<unavailable>")\(self.returns.map(\.text).joined())"
     }
 }
-extension Graph.Symbol:CustomStringConvertible 
+extension Entrapta.Descriptor.Symbol:CustomStringConvertible 
 {
     var description:String 
     {
