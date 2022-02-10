@@ -42,6 +42,8 @@ enum Entrapta
 {
     enum Topic:Hashable, CustomStringConvertible 
     {
+        case requirements 
+        case defaults
         case kind(Entrapta.Graph.Symbol.Kind)
         case custom(String)
         case cluster(String)
@@ -50,6 +52,8 @@ enum Entrapta
         {
             switch self 
             {
+            case .requirements:         return "Requirements"
+            case .defaults:             return "Default Implementations"
             case .kind(let kind):       return kind.plural 
             case .custom(let heading):  return heading 
             case .cluster(_):           return "See Also"
@@ -79,7 +83,7 @@ enum Entrapta
         }
         
         private 
-        init(prefix:String, modules:[(module:Symbol.Module, json:[JSON])]) throws 
+        init(prefix:[String], modules:[(module:Symbol.Module, json:[JSON])]) throws 
         {
             var symbols:[Symbol.ID: Symbol] = [:]
             for (module, json):(Symbol.Module, [JSON]) in modules
@@ -87,7 +91,7 @@ enum Entrapta
                 let root:Symbol = .init(prefix: prefix, module: module)
                 if case _? = symbols.updateValue(root, forKey: .module(module))
                 {
-                    print("warning: duplicate module '\(module.description)'")
+                    print("warning: duplicate module '\(module.identifier)'")
                 }
                 
                 for json:JSON in json 
@@ -131,7 +135,7 @@ enum Entrapta
                 }
             }
         }
-        init(prefix:String, modules json:[JSON]) throws
+        init(prefix:[String] = [], modules json:[JSON]) throws
         {
             var declarations:[(module:Symbol.Module, json:[JSON])] = []
                 declarations.reserveCapacity(json.count)
@@ -183,43 +187,75 @@ enum Entrapta
                         of: self.symbols.index(forKey: target)
                     )
                     {
-                    case (let symbol?, is: .member, of: let parent?): 
-                        self[symbol].parent = parent
-                        self[parent].members.append(symbol)
+                    case    (let symbol?, is: .member, of: let type?): 
+                        self[type].members.append(symbol)
                     
-                    case (let symbol?, is: .conformer, of: let destination?):
-                        break
-                    case (let symbol?, is: .subclass, of: let destination?):
-                        break
-                    case (let symbol?, is: .override, of: let destination?):
-                        break
-                    case (let symbol?, is: .requirement, of: let destination?):
-                        break
-                    case (let symbol?, is: .optionalRequirement, of: let destination?):
-                        break
-                    case (let symbol?, is: .defaultImplementation, of: let destination?):
-                        break
-                    case (nil, is: _, of: _): 
+                    case    (let symbol?, is: .conformer, of: let superclass?):
+                        self[symbol].conformances.append(superclass)
+                        self[superclass].conformers.append(symbol)
+                    case    (let symbol?, is: .subclass, of: let superclass?):
+                        if let incumbent:Index = self[symbol].superclass
+                        {
+                            print("warning: symbol \(self[symbol].title) has multiple superclasses '\(self[incumbent].title)', '\(self[superclass].title)'")
+                        }
+                        self[symbol].superclass = superclass
+                        self[superclass].subclasses.append(symbol)
+                        
+                    case    (let symbol?, is: .optionalRequirement, of: let `protocol`?),
+                            (let symbol?, is: .requirement, of: let `protocol`?):
+                        self[symbol].isRequirement = true
+                        self[`protocol`].requirements.append(symbol)
+                    
+                    case    (let symbol?, is: .override, of: let requirement?):
+                        if let incumbent:Index = self[symbol].overrides 
+                        {
+                            print("warning: symbol \(self[symbol].title) overrides multiple requirements '\(self[incumbent].title)', '\(self[requirement].title)'")
+                        }
+                        self[symbol].overrides = requirement 
+                        
+                    case    (let symbol?, is: .defaultImplementation, of: let requirement?):
+                        self[symbol].implements.append(requirement)
+                        self[requirement].defaults.append(symbol)
+                    
+                    case    (nil, is: _, of: _): 
                         print("warning: undefined symbol id '\(source)'")
-                    case (_, is: _, of: nil): 
+                    case    (_, is: _, of: nil): 
                         print("warning: undefined symbol id '\(target)'")
                     }
                 }
             }
             
-            // if a symbol has no declaration as its parent, it is a top-level 
-            // symbol, and its parent is its module. 
+            let table:[Breadcrumbs: [Index]] = .init(grouping: self.symbols.indices)
+            {
+                self[$0].breadcrumbs
+            }
+            // compute the DAG 
             for index:Index in self.symbols.indices 
             {
-                guard   case nil = self[index].parent, 
-                        case .declaration = self[index].kind, 
-                        let parent:Index = self.symbols.index(forKey: .module(self[index].module))
+                let breadcrumbs:Breadcrumbs = self[index].breadcrumbs
+                guard let tail:String = breadcrumbs.body.last
                 else 
                 {
+                    // is a module 
                     continue 
                 }
-                self[index].parent = parent
-                self[parent].members.append(index)
+                let parent:Breadcrumbs      = .init(body: [String].init(breadcrumbs.body.dropLast()), tail: tail)
+                guard   let matches:[Index] = table[parent], 
+                        let parent:Index    = matches.first
+                else 
+                {
+                    print("warning: symbol \(self[index].title) has no parent")
+                    continue 
+                }
+                self[index].parent = parent 
+                if case .module = self[parent].kind 
+                {
+                    self[parent].members.append(index)
+                }
+                if matches.count != 1 
+                {
+                    print("warning: symbol \(self[index].title) has more than one parent")
+                }
             }
             
             self.populateTopics()
@@ -230,7 +266,40 @@ enum Entrapta
         {
             for index:Index in self.symbols.indices 
             {
-                let topics:[Entrapta.Graph.Symbol.Kind: [Index]] = 
+                if !self[index].requirements.isEmpty 
+                {
+                    self[index].topics.append((.requirements, self[index].requirements))
+                }
+                if !self[index].defaults.isEmpty 
+                {
+                    self[index].topics.append((.defaults, self[index].defaults))
+                }
+                if !self[index].conformances.isEmpty 
+                {
+                    self[index].topics.append((.custom("conformances"), self[index].conformances))
+                }
+                if !self[index].conformers.isEmpty 
+                {
+                    self[index].topics.append((.custom("conformers"), self[index].conformers))
+                }
+                if !self[index].subclasses.isEmpty 
+                {
+                    self[index].topics.append((.custom("subclasses"), self[index].subclasses))
+                }
+                if let superclass:Index = self[index].superclass 
+                {
+                    self[index].topics.append((.custom("superclass"), [superclass]))
+                }
+                if !self[index].implements.isEmpty
+                {
+                    self[index].topics.append((.custom("implements"), self[index].implements))
+                }
+                if let overrides:Index = self[index].overrides 
+                {
+                    self[index].topics.append((.custom("overrides"), [overrides]))
+                }
+                
+                var topics:[Entrapta.Graph.Symbol.Kind: [Index]] = 
                     .init(grouping: self[index].members)
                 {
                     self[$0].kind
@@ -250,11 +319,16 @@ enum Entrapta
 }
 extension Entrapta.Graph 
 {
+    struct Breadcrumbs:Hashable 
+    {
+        let body:[String], 
+            tail:String
+    }
     public 
     struct Symbol 
     {
         public 
-        enum Module:Hashable, Sendable, CustomStringConvertible
+        enum Module:Hashable, Sendable
         {
             case swift 
             case framework(String, package:String)
@@ -264,17 +338,17 @@ extension Entrapta.Graph
             {
                 switch self 
                 {
-                case .swift:                                return "swift"
+                case .swift:                                return "Swift"
                 case .framework(let module, package: _):    return module
                 }
             }
             public 
-            var description:String 
+            var identifier:[String] 
             {
                 switch self 
                 {
-                case .swift:                                        return "swift"
-                case .framework(let module, package: let package):  return "\(package.lowercased())/\(module.lowercased())"
+                case .swift:                                        return ["swift"]
+                case .framework(let module, package: let package):  return [package.lowercased(), module.lowercased()]
                 }
             }
         }
@@ -300,12 +374,6 @@ extension Entrapta.Graph
                     return self.group
                 }
             }
-            // lowercases all path components 
-            init(prefix:String, components:[String], disambiguation:ID? = nil)
-            {
-                self.group          = "\(prefix)/\(components.joined(separator: "/").lowercased())"
-                self.disambiguation = disambiguation
-            }
             init(group:String, disambiguation:ID? = nil)
             {
                 self.group          = group
@@ -316,42 +384,130 @@ extension Entrapta.Graph
         let module:Module
         var path:Path
         
+        let breadcrumbs:Breadcrumbs
+        
         let title:String 
         let kind:Kind
         let signature:[SwiftLanguage.Lexeme]
         let declaration:[SwiftLanguage.Lexeme]
         
-        let discussion:String
+        let discussion:[Markdown.Block]
         
-        var parent:Index?
-        var members:[Index]
-        
+        var parent:Index?, 
+            isRequirement:Bool 
+        var members:[Index], 
+            defaults:[Index], 
+            requirements:[Index],
+            conformances:[Index],
+            conformers:[Index],
+            subclasses:[Index],
+            superclass:Index?, 
+            implements:[Index], 
+            overrides:Index?
+            
         var topics:[(key:Entrapta.Topic, members:[Index])]
         
-        init(prefix:String, module:Module) 
+        init(prefix:[String], module:Module) 
         {
-            self.module         = module 
-            self.path           = .init(group: "\(prefix)/\(module.description)")
-            self.title          = module.name 
-            self.kind           = .module 
-            self.signature      = []
-            self.declaration    = []
-            self.discussion     = ""
-            self.parent         = nil 
-            self.members        = []
-            self.topics         = []
+            self.init(kind:    .module, 
+                title:          module.name, 
+                breadcrumbs:   .init(body: [], tail: module.name), 
+                path:          .init(group: "/\((prefix + module.identifier).joined(separator: "/"))"), 
+                in:             module,
+                discussion:     [])
         }
-        init(prefix:String, declaration descriptor:Entrapta.Descriptor.Symbol, in module:Module) 
+        init(prefix:[String], declaration descriptor:Entrapta.Descriptor.Symbol, in module:Module) 
         {
+            guard let name:String = descriptor.path.last
+            else 
+            {
+                fatalError("empty symbol path")
+            }
+            // lowercase all path components 
+            let group:[String]
+            switch descriptor.kind 
+            {
+            // separated by a dot
+            case    .`associatedtype`,
+                    .`typealias`,
+                    .enumeration,
+                    .structure,
+                    .`class`,
+                    .`protocol`:
+                group = prefix + module.identifier + 
+                    CollectionOfOne<String>.init(descriptor.path.map{ $0.lowercased() }.joined(separator: "."))
+            // separated by a slash
+            case    .enumerationCase,
+                    .initializer,
+                    .deinitializer,
+                    .typeSubscript,
+                    .instanceSubscript,
+                    .typeProperty,
+                    .instanceProperty,
+                    .typeMethod,
+                    .instanceMethod,
+                    .global,
+                    .function,
+                    .`operator`:
+                group = prefix + module.identifier + 
+                [
+                    descriptor.path.dropLast().map{ $0.lowercased() }.joined(separator: "."),
+                    name.lowercased(),
+                ]
+            }
+            
+            let comment:String = descriptor.comment.joined(separator: "\n"), 
+                discussion:[Markdown.Block]
+            do 
+            {
+                discussion = try Grammar.parse(comment, as: Markdown.Rule<String.Index>.Block.self)
+            }
+            catch let error 
+            {
+                print(error)
+                discussion = [.paragraph(comment)]
+            }
+            
+            self.init(kind:    .declaration(descriptor.kind), 
+                title:          descriptor.display.title, 
+                breadcrumbs:   .init(body: [module.name] + descriptor.path.dropLast(), tail: name), 
+                path:          .init(group: "/\(group.joined(separator: "/"))"), 
+                in:             module,
+                signature:      descriptor.display.subtitle,
+                declaration:    descriptor.declaration,
+                discussion:     discussion)
+        }
+        init(
+            kind:Kind, 
+            title:String, 
+            breadcrumbs:Breadcrumbs, 
+            path:Path, 
+            in module:Module, 
+            signature:[SwiftLanguage.Lexeme] = [], 
+            declaration:[SwiftLanguage.Lexeme] = [], 
+            discussion:[Markdown.Block]) 
+        {
+            self.kind           = kind
+            self.title          = title 
+            self.breadcrumbs    = breadcrumbs
+            self.path           = path
             self.module         = module 
-            self.path           = .init(prefix: prefix, components: [module.description] + descriptor.path)
-            self.title          = descriptor.display.title 
-            self.kind           = .declaration(descriptor.kind)
-            self.signature      = descriptor.display.subtitle
-            self.declaration    = descriptor.declaration
-            self.discussion     = descriptor.comment.joined(separator: "\n")
+            self.signature      = signature
+            self.declaration    = declaration
+            self.discussion     = discussion
+            
             self.parent         = nil 
+            self.isRequirement  = false
             self.members        = []
+            self.defaults       = []
+            self.requirements   = []
+            self.conformances   = []
+            self.conformers     = []
+            self.subclasses     = []
+            self.superclass     = nil
+            self.implements     = []
+            self.overrides      = nil
+            
             self.topics         = []
         }
     }

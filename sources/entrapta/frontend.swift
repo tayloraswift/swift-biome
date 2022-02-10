@@ -43,11 +43,54 @@ extension Entrapta
         }
     }
     static 
+    func render(navigation symbol:Graph.Symbol, 
+        dereference:(Graph.Index) -> Graph.Symbol, 
+        resolve:(Graph.Symbol.ID) -> String?) -> Frontend
+    {
+        let tail:Frontend           = Frontend[.li]
+        {
+            symbol.breadcrumbs.tail 
+        }
+        var breadcrumbs:[Frontend]  = [tail]
+        var next:Graph.Index?       = symbol.parent
+        while let index:Graph.Index = next 
+        {
+            let parent:Graph.Symbol = dereference(index)
+            breadcrumbs.append(Frontend[.li]
+            {
+                Frontend.link(parent.breadcrumbs.tail, to: parent.path.canonical)
+            })
+            next = parent.parent
+        }
+        return Frontend[.nav]
+        {
+            Frontend[.ol] 
+            {
+                ["breadcrumbs-container"]
+            }
+            content:
+            {
+                // github icon 
+                /* Frontend[.li]
+                {
+                    ["github-icon-container"]
+                }
+                {
+                    HTML.element("a", ["href": github])
+                    {
+                        HTML.element("span", ["class": "github-icon", "title": "Github repository"])
+                    }
+                } */
+                breadcrumbs.reversed()
+            }
+        }
+    }
+    static 
     func render(symbol:Graph.Symbol, 
         dereference:(Graph.Index) -> Graph.Symbol, 
         resolve:(Graph.Symbol.ID) -> String?) -> Frontend
     {
-        Frontend[.div]
+        return Frontend[.main]
         {
             Frontend[.div]
             {
@@ -89,6 +132,17 @@ extension Entrapta
                             {
                                 "Blurb goes here."
                             }
+                            if symbol.isRequirement 
+                            {
+                                Frontend[.p]
+                                {
+                                    ["requirement"]
+                                }
+                                content:
+                                {
+                                    "Required."
+                                }
+                            }
                         }
                         Frontend[.section]
                         {
@@ -118,15 +172,33 @@ extension Entrapta
                         }
                         content: 
                         {
-                            Frontend[.h2]
+                            for block:Markdown.Block in symbol.discussion 
                             {
-                                "Overview"
-                            }
-                            Frontend[.pre]
-                            {
-                                Frontend[.code]
+                                switch block 
                                 {
-                                    symbol.discussion
+                                case .heading(let text, level: 2):
+                                    Frontend[.h2]
+                                    {
+                                        text 
+                                    }
+                                case .heading(let text, level: _):
+                                    Frontend[.h3]
+                                    {
+                                        text 
+                                    }
+                                case .paragraph(let text):
+                                    Frontend[.p]
+                                    {
+                                        text
+                                    }
+                                case .code(let lines):
+                                    Frontend[.pre]
+                                    {
+                                        Frontend[.code]
+                                        {
+                                            lines.joined(separator: "\n")
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -209,22 +281,15 @@ extension Entrapta
                             }
                         }
                     }
-                    Frontend[.div]
-                    {
-                        ["section-container"]
-                    }
-                    content: 
-                    {
-                        
-                        
-                    }
                 }
             }
-
         }
     }
     static 
-    func render(page:Frontend) -> Document.Dynamic<Document.HTML, Anchor> 
+    func render(page symbol:Graph.Symbol, 
+        dereference:(Graph.Index) -> Graph.Symbol, 
+        resolve:(Graph.Symbol.ID) -> String?) 
+        -> Document.Dynamic<Document.HTML, Anchor> 
     {
         .init 
         {
@@ -273,14 +338,12 @@ extension Entrapta
             }
             Frontend[.body]
             {
-                Frontend[.main]
-                {
-                    ["documentation"]
-                }
-                content: 
-                {
-                    page
-                }
+                ["documentation"]
+            }
+            content: 
+            {
+                Self.render(navigation: symbol, dereference: dereference, resolve: resolve)
+                Self.render(symbol: symbol, dereference: dereference, resolve: resolve)
             }
         }
     }
@@ -295,15 +358,15 @@ extension Entrapta
     public 
     struct Documentation:Sendable
     {
-        typealias Index = Dictionary<Graph.Symbol.Path, Frontend>.Index 
+        typealias Index = Dictionary<Graph.Symbol.Path, Document.Dynamic<Document.HTML, Anchor>>.Index 
         
-        var pages:[Graph.Symbol.Path: Frontend]
+        var pages:[Graph.Symbol.Path: Document.Dynamic<Document.HTML, Anchor>]
         var disambiguations:[Graph.Symbol.ID: Index]
         
         public 
-        init(symbolgraphs:[[UInt8]], prefix:String) throws 
+        init(symbolgraphs:[[UInt8]], prefix:[String]) throws 
         {
-            let prefix:String   = prefix.lowercased()
+            let prefix:[String] = prefix.map{ $0.lowercased() }
             let json:[JSON]     = try symbolgraphs.map 
             {
                 try Grammar.parse($0, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
@@ -312,16 +375,16 @@ extension Entrapta
             self.init(graph: graph, prefix: prefix)
         }
         
-        init(graph:Graph, prefix:String)
+        init(graph:Graph, prefix:[String])
         {
             // paths are always unique at this point 
-            let pages:[Graph.Symbol.Path: Frontend] = .init(uniqueKeysWithValues: 
-                graph.symbols.values.map
+            let pages:[Graph.Symbol.Path: Document.Dynamic<Document.HTML, Anchor>] = 
+                .init(uniqueKeysWithValues: graph.symbols.values.map
             {
-                (symbol:Graph.Symbol) -> (key:Graph.Symbol.Path, value:Frontend) in 
+                (symbol:Graph.Symbol) -> (key:Graph.Symbol.Path, value:Document.Dynamic<Document.HTML, Anchor>) in 
                 (
                     symbol.path, 
-                    Entrapta.render(symbol: symbol)
+                    Entrapta.render(page: symbol)
                     {
                         graph[$0]
                     }
@@ -349,14 +412,14 @@ extension Entrapta
             let key:Graph.Symbol.ID?    = disambiguation.map(Graph.Symbol.ID.declaration(precise:))
             let normalized:String       = group.lowercased()
             let path:Graph.Symbol.Path  = .init(group: normalized, disambiguation: key)
-            if let page:Frontend        = self.pages[path]
+            if let page:Document.Dynamic<Document.HTML, Anchor> = self.pages[path]
             {
                 guard normalized == group 
                 else 
                 {
                     return .found(path.canonical)
                 }
-                return .canonical(Entrapta.render(page: page))
+                return .canonical(page)
             }
             else if let key:Graph.Symbol.ID = key, 
                     let index:Index = self.disambiguations[key]
