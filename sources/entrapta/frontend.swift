@@ -38,7 +38,7 @@ extension Entrapta
                 classes = ["syntax-identifier"]
             }
             if  let precise:String = $0.reference, 
-                let resolved:Graph.Symbol = resolve(precise)
+                let resolved:Graph.Symbol = resolve(.declaration(precise: precise))
             {
                 return Frontend.link($0.text, to: resolved.path.canonical, internal: true)
                 {
@@ -421,7 +421,7 @@ extension Entrapta
             self.init(graph: graph, prefix: prefix)
         }
         
-        init(graph:Graph, prefix:[String]) throws 
+        init(graph:Graph, prefix:[String]) 
         {
             // paths are always unique at this point 
             let pages:[Graph.Symbol.Path: Document.Dynamic<Document.HTML, Anchor>] = 
@@ -430,7 +430,7 @@ extension Entrapta
                 (symbol:Graph.Symbol) -> (key:Graph.Symbol.Path, value:Document.Dynamic<Document.HTML, Anchor>) in 
                 (
                     symbol.path, 
-                    try Entrapta.render(page: symbol)
+                    Entrapta.render(page: symbol)
                     {
                         graph[$0]
                     }
