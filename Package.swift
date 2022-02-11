@@ -13,7 +13,7 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-structured-document",  branch: "master"),
         
         .package(url: "https://github.com/apple/swift-markdown.git",            branch: "main"),
-        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-5.6-DEVELOPMENT-SNAPSHOT-2022-01-09-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-02-03-a"),
     ],
     targets: 
     [

@@ -18,7 +18,8 @@ extension Entrapta
     }
     
     static 
-    func render(code:[SwiftLanguage.Lexeme]) -> [Frontend] 
+    func render(code:[SwiftLanguage.Lexeme], resolve:(Graph.Symbol.ID) -> Graph.Symbol?) 
+        -> [Frontend] 
     {
         code.map 
         {
@@ -36,16 +37,26 @@ extension Entrapta
             case .identifier, .label, .parameter: 
                 classes = ["syntax-identifier"]
             }
-            return Frontend.span($0.text)
+            if  let precise:String = $0.reference, 
+                let resolved:Graph.Symbol = resolve(precise)
             {
-                classes
+                return Frontend.link($0.text, to: resolved.path.canonical, internal: true)
+                {
+                    classes
+                }
+            }
+            else 
+            {
+                return Frontend.span($0.text)
+                {
+                    classes
+                }
             }
         }
     }
     static 
     func render(navigation symbol:Graph.Symbol, 
-        dereference:(Graph.Index) -> Graph.Symbol, 
-        resolve:(Graph.Symbol.ID) -> String?) -> Frontend
+        dereference:(Graph.Index) -> Graph.Symbol) -> Frontend
     {
         let tail:Frontend           = Frontend[.li]
         {
@@ -88,7 +99,7 @@ extension Entrapta
     static 
     func render(symbol:Graph.Symbol, 
         dereference:(Graph.Index) -> Graph.Symbol, 
-        resolve:(Graph.Symbol.ID) -> String?) -> Frontend
+        resolve:(Graph.Symbol.ID) -> Graph.Symbol?) -> Frontend
     {
         let discussion:(head:Frontend?, body:[Frontend]) 
         if let comment:String = symbol.comment 
@@ -322,7 +333,7 @@ extension Entrapta
     static 
     func render(page symbol:Graph.Symbol, 
         dereference:(Graph.Index) -> Graph.Symbol, 
-        resolve:(Graph.Symbol.ID) -> String?) 
+        resolve:(Graph.Symbol.ID) -> Graph.Symbol?) 
         -> Document.Dynamic<Document.HTML, Anchor> 
     {
         .init 
@@ -376,7 +387,7 @@ extension Entrapta
             }
             content: 
             {
-                Self.render(navigation: symbol, dereference: dereference, resolve: resolve)
+                Self.render(navigation: symbol, dereference: dereference)
                 Self.render(symbol: symbol, dereference: dereference, resolve: resolve)
             }
         }
@@ -410,7 +421,7 @@ extension Entrapta
             self.init(graph: graph, prefix: prefix)
         }
         
-        init(graph:Graph, prefix:[String])
+        init(graph:Graph, prefix:[String]) throws 
         {
             // paths are always unique at this point 
             let pages:[Graph.Symbol.Path: Document.Dynamic<Document.HTML, Anchor>] = 
@@ -419,13 +430,13 @@ extension Entrapta
                 (symbol:Graph.Symbol) -> (key:Graph.Symbol.Path, value:Document.Dynamic<Document.HTML, Anchor>) in 
                 (
                     symbol.path, 
-                    Entrapta.render(page: symbol)
+                    try Entrapta.render(page: symbol)
                     {
                         graph[$0]
                     }
                     resolve: 
                     {
-                        graph.symbols[$0].map(\.path.canonical)
+                        graph.symbols[$0]
                     } 
                 )
             })
