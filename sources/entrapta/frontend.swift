@@ -58,7 +58,7 @@ extension Entrapta
             let parent:Graph.Symbol = dereference(index)
             breadcrumbs.append(Frontend[.li]
             {
-                Frontend.link(parent.breadcrumbs.tail, to: parent.path.canonical)
+                Frontend.link(parent.breadcrumbs.tail, to: parent.path.canonical, internal: true)
             })
             next = parent.parent
         }
@@ -90,6 +90,61 @@ extension Entrapta
         dereference:(Graph.Index) -> Graph.Symbol, 
         resolve:(Graph.Symbol.ID) -> String?) -> Frontend
     {
+        let discussion:(head:Frontend?, body:[Frontend]) 
+        if let comment:String = symbol.comment 
+        {
+            discussion = Self.render(markdown: comment)
+            {
+                (path:String?) in 
+                Frontend[.code]
+                {
+                    path ?? "<unknown>"
+                }
+            }
+            link: 
+            {
+                (target:String?, content:[Frontend]) in 
+                if let target:String = target
+                {
+                    return Frontend[.a]
+                    {
+                        (target, as: Document.HTML.Href.self)
+                        Document.HTML.Target._blank
+                        Document.HTML.Rel.nofollow
+                    }
+                    content:
+                    {
+                        content
+                    }
+                }
+                else 
+                {
+                    return Frontend[.span]
+                    {
+                        content
+                    }
+                }
+            }
+            image: 
+            {
+                (source:String?, alt:[Frontend], title:String?) in 
+                if let source:String = source
+                {
+                    return Frontend[.img]
+                    {
+                        (source, as: Document.HTML.Src.self)
+                    }
+                }
+                else 
+                {
+                    return Frontend[.img]
+                }
+            }
+        }
+        else 
+        {
+            discussion = (nil, [])
+        }
         return Frontend[.main]
         {
             Frontend[.div]
@@ -128,9 +183,16 @@ extension Entrapta
                             {
                                 symbol.title
                             }
-                            Frontend[.p]
+                            if let head:Frontend = discussion.head 
                             {
-                                "Blurb goes here."
+                                head
+                            }
+                            else 
+                            {
+                                Frontend[.p]
+                                {
+                                    "No overview available."
+                                }
                             }
                             if symbol.isRequirement 
                             {
@@ -172,35 +234,7 @@ extension Entrapta
                         }
                         content: 
                         {
-                            for block:Markdown.Block in symbol.discussion 
-                            {
-                                switch block 
-                                {
-                                case .heading(let text, level: 2):
-                                    Frontend[.h2]
-                                    {
-                                        text 
-                                    }
-                                case .heading(let text, level: _):
-                                    Frontend[.h3]
-                                    {
-                                        text 
-                                    }
-                                case .paragraph(let text):
-                                    Frontend[.p]
-                                    {
-                                        text
-                                    }
-                                case .code(let lines):
-                                    Frontend[.pre]
-                                    {
-                                        Frontend[.code]
-                                        {
-                                            lines.joined(separator: "\n")
-                                        }
-                                    }
-                                }
-                            }
+                            discussion.body
                         }
                     }
                 }
@@ -371,6 +405,7 @@ extension Entrapta
             {
                 try Grammar.parse($0, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
             }
+            print("parsed JSON")
             let graph:Graph     = try .init(prefix: prefix, modules: json)
             self.init(graph: graph, prefix: prefix)
         }

@@ -1,4 +1,178 @@
-import Grammar 
+import Markdown 
+import StructuredDocument
+
+extension StructuredDocument.Document.Element where Domain == StructuredDocument.Document.HTML
+{
+    init(markdown:Markdown.Markup, 
+        symbol:(_ destination:String?) -> Self, 
+        link:(_ destination:String?, _ content:[Self]) -> Self, 
+        image:(_ source:String?, _ alt:[Self], _ title:String?) -> Self) 
+    {
+        func render(markdown:Markdown.Markup) -> Self 
+        {
+            .init(markdown: markdown, symbol: symbol, link: link, image: image)
+        }
+        
+        switch markdown 
+        {
+        case let node as Markdown.Document: 
+            self = Self[.main]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.BlockQuote: 
+            self = Self[.blockquote]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.CodeBlock: 
+            self = Self[.pre]
+            {
+                Self[.code]
+                {
+                    node.code
+                }
+            }
+        case let node as Markdown.Heading: 
+            let container:StructuredDocument.Document.HTML.Container 
+            switch node.level 
+            {
+            case 1:     container = .h2
+            case 2:     container = .h3
+            case 3:     container = .h4
+            case 4:     container = .h5
+            default:    container = .h6
+            }
+            self = Self[container]
+            {
+                node.children.map(render(markdown:))
+            }
+        case is Markdown.ThematicBreak: 
+            self = Self[.hr]
+        case let node as Markdown.HTMLBlock: 
+            self = .text(escaped: node.rawHTML)
+        case let node as Markdown.ListItem: 
+            self = Self[.li]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.OrderedList: 
+            self = Self[.ol]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.UnorderedList: 
+            self = Self[.ul]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.Paragraph: 
+            self = Self[.p]
+            {
+                node.children.map(render(markdown:))
+            }
+        case is Markdown.BlockDirective: 
+            self = Self[.div]
+            {
+                "(unsupported block directive)"
+            }
+        case let node as Markdown.InlineCode: 
+            self = Self[.code]
+            {
+                node.code
+            }
+        case let node as Markdown.CustomInline: 
+            self = .text(escaping: node.text)
+        case let node as Markdown.Emphasis: 
+            self = Self[.em]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.Image: 
+            self = image(node.source, node.children.map(render(markdown:)), node.title)
+        case let node as Markdown.InlineHTML: 
+            self = .text(escaped: node.rawHTML)
+        case let node as Markdown.LineBreak: 
+            self = Self[.br]
+        case let node as Markdown.Link: 
+            self = link(node.destination, node.children.map(render(markdown:)))
+        case let node as Markdown.SoftBreak: 
+            self = .text(escaped: " ")
+        case let node as Markdown.Strong: 
+            self = Self[.strong]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.Text: 
+            self = .text(escaping: node.string)
+        case let node as Markdown.Strikethrough: 
+            self = Self[.s]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.Table: 
+            self = Self[.table]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.Table.Row: 
+            self = Self[.tr]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.Table.Head: 
+            self = Self[.thead]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.Table.Body: 
+            self = Self[.tbody]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.Table.Cell: 
+            self = Self[.td]
+            {
+                node.children.map(render(markdown:))
+            }
+        case let node as Markdown.SymbolLink: 
+            self = symbol(node.destination)
+            
+        case let node: 
+            self = Self[.div]
+            {
+                "(unsupported markdown node '\(type(of: node))')"
+            }
+        }
+    }
+}
+extension Entrapta 
+{
+    static 
+    func render(markdown string:String, 
+        symbol:(_ destination:String?) -> Frontend, 
+        link:(_ destination:String?, _ content:[Frontend]) -> Frontend, 
+        image:(_ source:String?, _ alt:[Frontend], _ title:String?) -> Frontend) 
+        -> (head:Frontend?, body:[Frontend])
+    {
+        func render(markdown:Markdown.Markup) -> Frontend 
+        {
+            .init(markdown: markdown, symbol: symbol, link: link, image: image)
+        }
+        
+        let document:Markdown.Document  = .init(parsing: string)
+        let blocks:[Markdown.Markup]    = .init(document.children)
+        if  let head:Markdown.Markup    = blocks.first, head is Markdown.Paragraph
+        {
+            return (render(markdown: head), document.children.dropFirst().map(render(markdown:)))
+        }
+        else 
+        {
+            return (nil, document.children.map(render(markdown:)))
+        }
+    }
+}
+/* import Grammar 
 
 extension Grammar.Encoding where Terminal == Character
 {
@@ -68,58 +242,149 @@ extension Grammar
 
 enum Markdown 
 {
-    enum Block 
+    enum Block
     {
-        enum Element 
+        enum Line 
         {
+            case fence(language:String?)
             case rule(level:Int)
-            case line(String)
-            case block(Block)
-        }
-        
-        case heading(String, level:Int)
-        case paragraph(String)
-        case code([String])
-    }
-    enum Rule<Location> 
-    {
-        typealias Grapheme = Grammar.Encoding<Location, Character>.Grapheme
-    }
-}
-extension Markdown.Rule 
-{
-    enum Indent:Grammar.TerminalSequence
-    {
-        typealias Terminal = Character 
-        @inlinable public static 
-        var literal:String { "    " }
-    }
-    
-
-    enum Block:ParsingRule 
-    {
-        enum HorizontalRule:ParsingRule
-        {
-            typealias Terminal = Character 
-            static 
-            func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> Int
-                where   Diagnostics:ParsingDiagnostics, 
-                        Diagnostics.Source.Index == Location, Diagnostics.Source.Element == Terminal
+            case heading(level:Int, String)
+            case item(indent:Int, counter:Int?, String)
+            case text(indent:(quotient:Int, remainder:Int), String)
+            case columns([String?])
+            case empty 
+            
+            enum Rule<Location> 
             {
-                if let _:(Void, Void, Void) = 
-                    try? input.parse(as: (Grapheme.Equals, Grapheme.Equals, Grapheme.Equals).self)
-                {
-                    input.parse(as: Grapheme.Equals.self, in: Void.self)
-                    return 2
-                }
-                else 
-                {
-                    try input.parse(as: (Grapheme.Hyphen, Grapheme.Hyphen, Grapheme.Hyphen).self)
-                    input.parse(as: Grapheme.Hyphen.self, in: Void.self)
-                    return 3
-                }
+                typealias Grapheme  = Grammar.Encoding<Location, Character>.Grapheme
+                typealias Digit<T>  = Grammar.Digit<Location, Character, T>.Grapheme
             }
         }
+        
+        enum Rule<Location> 
+        {
+        }
+    }
+    
+    static 
+    func blocks(assembling lines:Block.Line) -> [Block]
+    {
+        
+    }
+}
+extension Markdown.Block.Line.Rule:ParsingRule 
+{
+    enum HorizontalRule:ParsingRule
+    {
+        typealias Terminal = Character 
+        static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> Int
+            where   Diagnostics:ParsingDiagnostics, 
+                    Diagnostics.Source.Index == Location, Diagnostics.Source.Element == Terminal
+        {
+            if let _:(Void, Void, Void) = 
+                try? input.parse(as: (Grapheme.Equals, Grapheme.Equals, Grapheme.Equals).self)
+            {
+                input.parse(as: Grapheme.Equals.self, in: Void.self)
+                return 2
+            }
+            else 
+            {
+                try input.parse(as: (Grapheme.Hyphen, Grapheme.Hyphen, Grapheme.Hyphen).self)
+                input.parse(as: Grapheme.Hyphen.self, in: Void.self)
+                return 3
+            }
+        }
+    }
+    enum ListDecorator:ParsingRule
+    {
+        typealias Terminal = Character 
+        static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> Int?
+            where   Diagnostics:ParsingDiagnostics, 
+                    Diagnostics.Source.Index == Location, Diagnostics.Source.Element == Terminal
+        {
+            if  let _:Void =    
+                input.parse(as: Grapheme.Asterisk?.self) ?? 
+                input.parse(as: Grapheme.Hyphen?.self) ?? 
+                input.parse(as: Grapheme.Plus?.self)
+            {
+                try input.parse(as: Grapheme.Space.self)
+                return nil
+            }
+            let counter:Int = try input.parse(as: Grammar.UnsignedIntegerLiteral<Digit<Int>.Decimal>.self)
+            try input.parse(as: Grapheme.Period.self)
+            try input.parse(as: Grapheme.Space.self)
+            return counter 
+        }
+    }
+    
+    typealias Terminal = Character 
+    static 
+    func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) -> Markdown.Block.Line
+        where   Diagnostics:ParsingDiagnostics, 
+                Diagnostics.Source.Index == Location, Diagnostics.Source.Element == Terminal
+    {
+        if  let _:Void = input.parse(as: Grapheme.Space?.self),
+            let _:Void = input.parse(as: Grapheme.Space?.self),
+            let _:Void = input.parse(as: Grapheme.Space?.self),
+            let _:Void = input.parse(as: Grapheme.Space?.self)
+        {
+            // indented 
+            let suffix:Diagnostics.Source.Subsequence = input.suffix()
+            return suffix.allSatisfy(\.isWhitespace) ? .empty : .indented(String.init(suffix))
+        }
+        if let level:Int = input.parse(as: Grammar.Count<Grapheme.Hashtag>?.self)
+        {
+            // strip leading and trailing whitespace
+            input.parse(as: Grapheme.Space.self, in: Void.self)
+            var suffix:String   = String.init(input.suffix())
+            while case true?    = suffix.last?.isWhitespace
+            {
+                suffix.removeLast()
+            }
+            return .heading(level: level, suffix)
+        }
+        else if let level:Int = input.parse(as: HorizontalRule?.self)
+        {
+            input.parse(as: Grapheme.Space.self, in: Void.self)
+            return .rule(level: level)
+        }
+        else if let counter:Int? = try? input.parse(as: ListDecorator.self)
+        {
+            // strip leading and trailing whitespace
+            input.parse(as: Grapheme.Space.self, in: Void.self)
+            var suffix:String   = String.init(input.suffix())
+            while case true?    = suffix.last?.isWhitespace
+            {
+                suffix.removeLast()
+            }
+            return .item(counter: counter, suffix)
+        }
+        else 
+        {
+            // strip trailing whitespace
+            var suffix:String   = String.init(input.suffix())
+            while case true?    = suffix.last?.isWhitespace
+            {
+                suffix.removeLast()
+            }
+            return .text(suffix)
+        }
+    }
+}
+extension Markdown.Block.Rule
+{
+    typealias Terminal = Markdown.Block.Line
+
+    //  Heading       ::= <text> + <rule>
+    //                  | <heading>
+    //  Paragraph     ::= <text> +
+    //  Code          ::= <indented> ( <empty> * <indented> + ) *
+    //                  | <fence> ( ... ) <fence> 
+    //  List          ::= <item>
+    enum Block:ParsingRule 
+    {
         enum Line
         {
             enum Element:Grammar.TerminalClass 
@@ -218,4 +483,4 @@ extension Markdown.Rule
             return blocks
         }
     }
-}
+} */

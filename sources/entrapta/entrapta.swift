@@ -391,7 +391,7 @@ extension Entrapta.Graph
         let signature:[SwiftLanguage.Lexeme]
         let declaration:[SwiftLanguage.Lexeme]
         
-        let discussion:[Markdown.Block]
+        let comment:String?
         
         var parent:Index?, 
             isRequirement:Bool 
@@ -414,7 +414,7 @@ extension Entrapta.Graph
                 breadcrumbs:   .init(body: [], tail: module.name), 
                 path:          .init(group: "/\((prefix + module.identifier).joined(separator: "/"))"), 
                 in:             module,
-                discussion:     [])
+                comment:       nil)
         }
         init(prefix:[String], declaration descriptor:Entrapta.Descriptor.Symbol, in module:Module) 
         {
@@ -423,6 +423,24 @@ extension Entrapta.Graph
             {
                 fatalError("empty symbol path")
             }
+            // percent-encoding, for the last component 
+            func hex(_ value:UInt8) -> UInt8
+            {
+                (value < 10 ? 0x30 : 0x57) + value 
+            }
+            let escaped:String = .init(decoding: name.lowercased().utf8.flatMap 
+            {
+                (byte:UInt8) -> [UInt8] in 
+                switch byte 
+                {
+                ///  [0-9]          [A-Z]        [a-z]            '-'    '.'   '_'   '~'
+                case 0x30 ... 0x39, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x2d, 0x2e, 0x5f, 0x7e, 
+                    0x28, 0x29, 0x3a, 0x3d, 0x26: // '():=&'
+                    return [byte] 
+                default: 
+                    return [0x25, hex(byte >> 4), hex(byte & 0x0f)]
+                }
+            }, as: Unicode.ASCII.self)
             // lowercase all path components 
             let group:[String]
             switch descriptor.kind 
@@ -449,24 +467,21 @@ extension Entrapta.Graph
                     .global,
                     .function,
                     .`operator`:
-                group = prefix + module.identifier + 
-                [
-                    descriptor.path.dropLast().map{ $0.lowercased() }.joined(separator: "."),
-                    name.lowercased(),
-                ]
+                if descriptor.path.dropLast().isEmpty 
+                {
+                    group = prefix + module.identifier + CollectionOfOne<String>.init(escaped)
+                }
+                else 
+                {
+                    group = prefix + module.identifier + 
+                    [
+                        descriptor.path.dropLast().map{ $0.lowercased() }.joined(separator: "."),
+                        escaped,
+                    ]
+                }
             }
             
-            let comment:String = descriptor.comment.joined(separator: "\n"), 
-                discussion:[Markdown.Block]
-            do 
-            {
-                discussion = try Grammar.parse(comment, as: Markdown.Rule<String.Index>.Block.self)
-            }
-            catch let error 
-            {
-                print(error)
-                discussion = [.paragraph(comment)]
-            }
+            let comment:String = descriptor.comment.joined(separator: "\n")
             
             self.init(kind:    .declaration(descriptor.kind), 
                 title:          descriptor.display.title, 
@@ -475,7 +490,7 @@ extension Entrapta.Graph
                 in:             module,
                 signature:      descriptor.display.subtitle,
                 declaration:    descriptor.declaration,
-                discussion:     discussion)
+                comment:        comment.isEmpty ? nil : comment)
         }
         init(
             kind:Kind, 
@@ -485,7 +500,7 @@ extension Entrapta.Graph
             in module:Module, 
             signature:[SwiftLanguage.Lexeme] = [], 
             declaration:[SwiftLanguage.Lexeme] = [], 
-            discussion:[Markdown.Block]) 
+            comment:String?) 
         {
             self.kind           = kind
             self.title          = title 
@@ -494,7 +509,7 @@ extension Entrapta.Graph
             self.module         = module 
             self.signature      = signature
             self.declaration    = declaration
-            self.discussion     = discussion
+            self.comment        = comment
             
             self.parent         = nil 
             self.isRequirement  = false
