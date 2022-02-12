@@ -1,17 +1,636 @@
 import JSON
 
-extension Entrapta
+extension Entrapta.Graph.Symbol 
 {
-    struct GraphDecodingError:Error 
+    init(from json:[String: JSON], in module:Module, prefix:[String]) throws 
     {
-        let file:String, 
-            line:Int 
-        init(file:String = #file, line:Int = #line)
+        var items:[String: JSON] = _move(json)
+        defer 
         {
-            self.file = file 
-            self.line = line 
+            if !items.isEmpty 
+            {
+                print("warning: unused json keys \(items) in symbol descriptor")
+            }
+        }
+        // decode id and kind 
+        let kind:Kind.Declaration
+        switch items.removeValue(forKey: "kind")
+        {
+        case .object(var items)?: 
+            defer 
+            {
+                // ignore 
+                items["displayName"] = nil
+                if !items.isEmpty 
+                {
+                    print("warning: unused json keys \(items) in 'kind'")
+                }
+            }
+            switch items.removeValue(forKey: "identifier")
+            {
+            case .string(let text)?:
+                guard let declaration:Kind.Declaration = .init(rawValue: text)
+                else 
+                {
+                    throw DecodingError.init(expected: Kind.Declaration.self, in: "kind.identifier", encountered: .string(text))
+                }
+                kind = declaration
+            case let value:
+                throw DecodingError.init(expected: String.self, in: "kind.identifier", encountered: value)
+            }
+        case let value:
+            throw DecodingError.init(expected: [String: JSON].self, in: "kind", encountered: value)
+        }
+        // decode path 
+        let path:[String]
+        switch items.removeValue(forKey: "pathComponents")
+        {
+        case .array(let elements)?:
+            path = try elements.map 
+            {
+                guard case .string(let text) = $0 
+                else 
+                {
+                    throw DecodingError.init(expected: String.self, in: "pathComponents[_:]", encountered: $0)
+                }
+                return text 
+            }
+        case let value:
+            throw DecodingError.init(expected: [JSON].self, in: "pathComponents", encountered: value)
+        }
+        // decode access level 
+        switch items.removeValue(forKey: "accessLevel")
+        {
+        case    .string("private")?,
+                .string("fileprivate")?,
+                .string("internal")?,
+                .string("public")?,
+                .string("open")?: 
+            break // don’t have a use for this yet 
+        case let value: 
+            throw DecodingError.init(expected: Access.self, in: "accessLevel", encountered: value)
+        }
+        // decode display title and signature
+        let title:String, 
+            signature:[Language.Lexeme]
+        switch items.removeValue(forKey: "names")
+        {
+        case .object(var items)?: 
+            defer 
+            {
+                // navigator does not tell us any useful information 
+                items["navigator"] = nil
+                if !items.isEmpty 
+                {
+                    print("warning: unused json keys \(items) in 'names' (path: \(path))")
+                }
+            }
+            // decode display title and signature
+            switch items.removeValue(forKey: "title")
+            {
+            case .string(let text)?: 
+                title = text 
+            case let value: 
+                throw DecodingError.init(expected: String.self, in: "names.title", encountered: value)
+            }
+            switch items.removeValue(forKey: "subHeading")
+            {
+            case .array(let elements)?: 
+                signature = try elements.map(Language.Lexeme.init(from:))
+            case let value: 
+                throw DecodingError.init(expected: [JSON].self, in: "names.subHeading", encountered: value)
+            }
+        case let value: 
+            throw DecodingError.init(expected: [String: JSON].self, in: "names", encountered: value)
+        }
+        // decode declaration 
+        let declaration:[Language.Lexeme]
+        switch items.removeValue(forKey: "declarationFragments")
+        {
+        case .array(let elements)?: 
+            declaration = try elements.map(Language.Lexeme.init(from:))
+        case let value: 
+            throw DecodingError.init(expected: [JSON].self, in: "declarationFragments", encountered: value)
+        }
+        // decode source location
+        switch items.removeValue(forKey: "location")
+        {
+        case nil, .null?: 
+            break 
+        case .object(var items)?: 
+            defer 
+            {
+                if !items.isEmpty 
+                {
+                    print("warning: unused json keys \(items) in 'location'")
+                }
+            }
+            switch items.removeValue(forKey: "uri")
+            {
+            case .string(_)?: 
+                break 
+            case let value: 
+                throw DecodingError.init(expected: String.self, in: "location.uri", encountered: value)
+            }
+            switch items.removeValue(forKey: "position")
+            {
+            case .object(var items)?: 
+                defer 
+                {
+                    if !items.isEmpty 
+                    {
+                        print("warning: unused json keys \(items) in 'location.position'")
+                    }
+                }
+                switch items.removeValue(forKey: "line")
+                {
+                case .number(_)?: 
+                    break 
+                case let value: 
+                    throw DecodingError.init(expected: Int.self, in: "location.position.line", encountered: value)
+                }
+                switch items.removeValue(forKey: "character")
+                {
+                case .number(_)?: 
+                    break 
+                case let value: 
+                    throw DecodingError.init(expected: Int.self, in: "location.position.character", encountered: value)
+                }
+            case let value: 
+                throw DecodingError.init(expected: [String: JSON].self, in: "location.position", encountered: value)
+            }
+        case let value?: 
+            throw DecodingError.init(expected: [String: JSON]?.self, in: "location", encountered: value)
+        }
+        // decode function signature
+        let function:(parameters:[Parameter], return:[Language.Lexeme])?
+        switch items.removeValue(forKey: "functionSignature")
+        {
+        case nil, .null?: 
+            function = nil
+        case .object(var items)?: 
+            defer 
+            {
+                if !items.isEmpty 
+                {
+                    print("warning: unused json keys \(items) in 'functionSignature'")
+                }
+            }
+            let parameters:[Parameter], 
+                returns:[Language.Lexeme]
+            switch items.removeValue(forKey: "parameters")
+            {
+            case nil, .null?:
+                parameters = []
+            case .array(let elements)?: 
+                parameters = try elements.map(Parameter.init(from:))
+            case let value?: 
+                throw DecodingError.init(expected: [JSON]?.self, in: "functionSignature.parameters", encountered: value)
+            }
+            switch items.removeValue(forKey: "returns")
+            {
+            case .array(let elements)?: 
+                returns = try elements.map(Language.Lexeme.init(from:))
+            case let value: 
+                throw DecodingError.init(expected: [JSON].self, in: "functionSignature.returns", encountered: value)
+            }
+            function = (parameters, returns)
+        case let value?: 
+            throw DecodingError.init(expected: [String: JSON]?.self, in: "functionSignature", encountered: value)
+        }
+        // decode extension info
+        let extends:(module:String?, where:[Language.Constraint])?
+        switch items.removeValue(forKey: "swiftExtension")
+        {
+        case nil, .null?: 
+            extends = nil
+        case .object(var items)?: 
+            defer 
+            {
+                if !items.isEmpty 
+                {
+                    print("warning: unused json keys \(items) in 'swiftExtension'")
+                }
+            }
+            let module:String, 
+                constraints:[Language.Constraint]
+            switch items.removeValue(forKey: "extendedModule")
+            {
+            case .string(let text)?: 
+                module = text
+            case let value: 
+                throw DecodingError.init(expected: String.self, in: "swiftExtension.extendedModule", encountered: value)
+            }
+            switch items.removeValue(forKey: "constraints")
+            {
+            case nil, .null?:
+                constraints = []
+            case .array(let elements)?: 
+                constraints = try elements.map(Language.Constraint.init(from:)) 
+            case let value?: 
+                throw DecodingError.init(expected: [JSON]?.self, in: "swiftExtension.constraints", encountered: value)
+            }
+            extends = (module, constraints)
+        case let value?: 
+            throw DecodingError.init(expected: [String: JSON]?.self, in: "swiftExtension", encountered: value)
+        }
+        // decode generics info 
+        let generic:(parameters:[Generic], constraints:[Language.Constraint])?
+        switch items.removeValue(forKey: "swiftGenerics")
+        {
+        case nil, .null?: 
+            generic = nil
+        case .object(var items)?: 
+            defer 
+            {
+                if !items.isEmpty 
+                {
+                    print("warning: unused json keys \(items) in 'swiftGenerics'")
+                }
+            }
+            let parameters:[Generic], 
+                constraints:[Language.Constraint]
+            switch items.removeValue(forKey: "parameters")
+            {
+            case nil, .null?:
+                parameters = []
+            case .array(let elements)?: 
+                parameters = try elements.map(Generic.init(from:)) 
+            case let value?: 
+                throw DecodingError.init(expected: [JSON]?.self, in: "swiftGenerics.parameters", encountered: value)
+            }
+            switch items.removeValue(forKey: "constraints")
+            {
+            case nil, .null?:
+                constraints = []
+            case .array(let elements)?: 
+                constraints = try elements.map(Language.Constraint.init(from:)) 
+            case let value?: 
+                throw DecodingError.init(expected: [JSON].self, in: "swiftGenerics.constraints", encountered: value)
+            }
+            generic = (parameters, constraints)
+        case let value?: 
+            throw DecodingError.init(expected: [String: JSON]?.self, in: "swiftGenerics", encountered: value)
+        }
+        // decode availability
+        let availability:[(key:Domain, value:Availability)]
+        switch items.removeValue(forKey: "availability")
+        {
+        case nil, .null?:
+            availability = []
+        case .array(let elements)?: 
+            availability = try elements.map 
+            {
+                let item:(key:Domain, value:Availability)
+                guard case .object(var items) = $0 
+                else 
+                {
+                    throw DecodingError.init(expected: [String: JSON].self, in: "availability[_:]", encountered: $0)
+                }
+                defer 
+                {
+                    if !items.isEmpty 
+                    {
+                        print("warning: unused json keys \(items) in 'availability[_:]'")
+                    }
+                }
+                switch items.removeValue(forKey: "domain")
+                {
+                case .string(let text)?: 
+                    guard let domain:Domain = .init(rawValue: text)
+                    else 
+                    {
+                        throw DecodingError.init(expected: Domain.self, in: "availability[_:].domain", encountered: .string(text))
+                    }
+                    item.key = domain 
+                case let value:
+                    throw DecodingError.init(expected: String.self, in: "availability[_:].domain", encountered: value)
+                }
+                let message:String?
+                switch items.removeValue(forKey: "message")
+                {
+                case nil, .null?: 
+                    message = nil
+                case .string(let text)?: 
+                    message = text
+                case let value:
+                    throw DecodingError.init(expected: String?.self, in: "availability[_:].message", encountered: value)
+                }
+                let renamed:String?
+                switch items.removeValue(forKey: "renamed")
+                {
+                case nil, .null?: 
+                    renamed = nil
+                case .string(let text)?: 
+                    renamed = text
+                case let value:
+                    throw DecodingError.init(expected: String?.self, in: "availability[_:].renamed", encountered: value)
+                }
+                
+                item.value = .init(
+                    introduced: try items.removeValue(forKey: "introduced").map(Entrapta.Version.init(from:)),
+                    deprecated: try items.removeValue(forKey: "deprecated").map(Entrapta.Version.init(from:)),
+                    obsoleted:  try items.removeValue(forKey: "obsoleted").map(Entrapta.Version.init(from:)), 
+                    renamed:    renamed,
+                    message:    message)
+                return item 
+            }
+        case let value?: 
+            throw DecodingError.init(expected: [String]?.self, in: "availability", encountered: value)
+        }
+        
+        // decode doccomment
+        let comment:String?
+        switch items.removeValue(forKey: "docComment")
+        {
+        case nil, .null?: 
+            comment = nil 
+        case .object(var items): 
+            defer 
+            {
+                if !items.isEmpty 
+                {
+                    print("warning: unused json keys \(items) in 'docComment'")
+                }
+            }
+            switch items.removeValue(forKey: "lines")
+            {
+            case .array(let elements)?:
+                comment = try elements.map 
+                {
+                    guard case .object(var items) = $0 
+                    else 
+                    {
+                        throw DecodingError.init(expected: [String: JSON].self, in: "docComment.lines[_:]", encountered: $0)
+                    }
+                    defer 
+                    {
+                        // ignore 
+                        items["range"] = nil
+                        
+                        if !items.isEmpty 
+                        {
+                            print("warning: unused json keys \(items) in 'docComment.lines[_:]'")
+                        }
+                    }
+                    switch items.removeValue(forKey: "text")
+                    {
+                    case .string(let text): 
+                        return text 
+                    case let value: 
+                        throw DecodingError.init(expected: String.self, in: "docComment.lines[_:].text", encountered: value)
+                    }
+                }.joined(separator: "\n")
+            case let value: 
+                throw DecodingError.init(expected: [JSON].self, in: "docComment.lines", encountered: value)
+            }
+        case let value?: 
+            throw DecodingError.init(expected: [String: JSON]?.self, in: "docComment", encountered: value)
+        }
+        
+        let assigned:(path:Path, breadcrumbs:Entrapta.Graph.Breadcrumbs) = 
+            Self.assign(prefix: prefix, module: module, path: path, kind: kind)
+        self.init(
+            kind:          .declaration(kind), 
+            title:          title, 
+            breadcrumbs:    assigned.breadcrumbs, 
+            path:           assigned.path, 
+            in:             module, 
+            signature:      signature, 
+            declaration:    declaration, 
+            comment:        comment)
+    }
+    
+    private static 
+    func assign(prefix:[String], module:Module, path:[String], kind:Kind.Declaration) 
+        -> (path:Path, breadcrumbs:Entrapta.Graph.Breadcrumbs)
+    {
+        guard let name:String = path.last
+        else 
+        {
+            fatalError("empty symbol path")
+        }
+        // percent-encoding, for the last component 
+        func hex(_ value:UInt8) -> UInt8
+        {
+            (value < 10 ? 0x30 : 0x57) + value 
+        }
+        let escaped:String = .init(decoding: name.lowercased().utf8.flatMap 
+        {
+            (byte:UInt8) -> [UInt8] in 
+            switch byte 
+            {
+            ///  [0-9]          [A-Z]        [a-z]            '-'    '.'   '_'   '~'
+            case 0x30 ... 0x39, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x2d, 0x2e, 0x5f, 0x7e, 
+                0x28, 0x29, 0x3a, 0x3d, 0x26: // '():=&'
+                return [byte] 
+            default: 
+                return [0x25, hex(byte >> 4), hex(byte & 0x0f)]
+            }
+        }, as: Unicode.ASCII.self)
+        // lowercase all path components 
+        let group:[String]
+        switch kind 
+        {
+        // separated by a dot
+        case    .`associatedtype`,
+                .`typealias`,
+                .enumeration,
+                .structure,
+                .`class`,
+                .`protocol`:
+            group = prefix + module.identifier + 
+                CollectionOfOne<String>.init(path.map{ $0.lowercased() }.joined(separator: "."))
+        // separated by a slash
+        case    .enumerationCase,
+                .initializer,
+                .deinitializer,
+                .typeSubscript,
+                .instanceSubscript,
+                .typeProperty,
+                .instanceProperty,
+                .typeMethod,
+                .instanceMethod,
+                .global,
+                .function,
+                .`operator`:
+            if path.dropLast().isEmpty 
+            {
+                group = prefix + module.identifier + CollectionOfOne<String>.init(escaped)
+            }
+            else 
+            {
+                group = prefix + module.identifier + 
+                [
+                    path.dropLast().map{ $0.lowercased() }.joined(separator: "."),
+                    escaped,
+                ]
+            }
+        }
+        
+        let breadcrumbs:Entrapta.Graph.Breadcrumbs = 
+                        .init(body: [module.name] + path.dropLast(), tail: name)
+        let path:Path = .init(group: "/\(group.joined(separator: "/"))")
+        return (path, breadcrumbs)
+    }
+}
+extension Entrapta.Version 
+{
+    typealias DecodingError = Entrapta.DecodingError<JSON, Self> 
+    
+    init(from json:JSON) throws
+    {
+        guard case .object(var items) = json 
+        else 
+        {
+            throw DecodingError.init(expected: [String: JSON].self, encountered: json)
+        }
+        defer 
+        {
+            if !items.isEmpty 
+            {
+                print("warning: unused json keys \(items) in version descriptor")
+            }
+        }
+        switch items.removeValue(forKey: "major")
+        {
+        case .number(let number)?: 
+            guard let major:Int = number(as: Int?.self)
+            else 
+            {
+                throw DecodingError.init(expected: Int.self, in: "major", encountered: .number(number))
+            }
+            self.major = major 
+        case let value: 
+            throw DecodingError.init(expected: JSON.Number.self, in: "major", encountered: value)
+        }
+        switch items.removeValue(forKey: "minor")
+        {
+        case nil, .null?: 
+            self.minor = nil 
+        case .number(let number)?: 
+            guard let minor:Int = number(as: Int?.self)
+            else 
+            {
+                throw DecodingError.init(expected: Int.self, in: "minor", encountered: .number(number))
+            }
+            self.minor = minor 
+        case let value: 
+            throw DecodingError.init(expected: JSON.Number?.self, in: "minor", encountered: value)
+        }
+        switch items.removeValue(forKey: "patch")
+        {
+        case nil, .null?:
+            self.patch = nil
+        case .number(let number)?: 
+            guard let patch:Int = number(as: Int?.self)
+            else 
+            {
+                throw DecodingError.init(expected: Int.self, in: "patch", encountered: .number(number))
+            }
+            self.patch = patch 
+        case let value?: 
+            throw DecodingError.init(expected: JSON.Number?.self, in: "patch", encountered: value)
         }
     }
+}
+extension Entrapta.Graph.Symbol.Generic 
+{
+    typealias DecodingError = Entrapta.DecodingError<JSON, Self>
+    
+    init(from json:JSON) throws 
+    {
+        guard case .object(var items) = json 
+        else 
+        {
+            throw DecodingError.init(expected: [String: JSON].self, encountered: json)
+        }
+        defer 
+        {
+            if !items.isEmpty 
+            {
+                print("warning: unused json keys \(items)")
+            }
+        }
+        switch items.removeValue(forKey: "name")
+        {
+        case .string(let text)?:
+            self.name = text 
+        case let value: 
+            throw DecodingError.init(expected: String.self, in: "name", encountered: value)
+        }
+        switch items.removeValue(forKey: "index")
+        {
+        case .number(let number)?:
+            guard let integer:Int = number(as: Int?.self)
+            else 
+            {
+                throw DecodingError.init(expected: Int.self, in: "name", encountered: .number(number))
+            }
+            self.index = integer 
+        case let value: 
+            throw DecodingError.init(expected: JSON.Number.self, in: "name", encountered: value)
+        }
+        switch items.removeValue(forKey: "depth")
+        {
+        case .number(let number)?:
+            guard let integer:Int = number(as: Int?.self)
+            else 
+            {
+                throw DecodingError.init(expected: Int.self, in: "depth", encountered: .number(number))
+            }
+            self.depth = integer 
+        case let value: 
+            throw DecodingError.init(expected: JSON.Number.self, in: "depth", encountered: value)
+        }
+    }
+}
+extension Entrapta.Graph.Symbol.Parameter 
+{
+    typealias DecodingError = Entrapta.DecodingError<JSON, Self>
+    
+    init(from json:JSON) throws 
+    {
+        guard case .object(var items) = json
+        else 
+        {
+            throw DecodingError.init(expected: [String: JSON].self, encountered: json)
+        }
+        defer 
+        {
+            if !items.isEmpty 
+            {
+                print("warning: unused json keys \(items)")
+            }
+        }
+        switch items.removeValue(forKey: "name")
+        {
+        case .string(let text)?:
+            self.label = text 
+        case let value:
+            throw DecodingError.init(expected: String.self, in: "name", encountered: value)
+        }
+        switch items.removeValue(forKey: "internalName")
+        {
+        case nil, .null?:
+            self.name = nil 
+        case .string(let text)?:
+            self.name = text 
+        case let value:
+            throw DecodingError.init(expected: String.self, in: "internalName", encountered: value)
+        }
+        switch items.removeValue(forKey: "declarationFragments")
+        {
+        case .array(let elements)?: 
+            self.fragment = try elements.map(Language.Lexeme.init(from:))
+        case let value: 
+            throw DecodingError.init(expected: [JSON].self, in: "declarationFragments", encountered: value)
+        }
+    } 
+}
+
+extension Entrapta
+{
     enum Descriptor 
     {
     }
@@ -56,254 +675,5 @@ extension Entrapta.Descriptor
             case source = "source"
             case origin = "sourceOrigin"
         }
-    }
-    struct Symbol:Decodable, Identifiable
-    {
-        enum Access:String, Codable  
-        {
-            case `private` 
-            case `fileprivate`
-            case `internal`
-            case `public`
-            case `open`
-        }
-
-        struct Display:Codable  
-        {            
-            var title:String
-            var subtitle:[SwiftLanguage.Lexeme]
-            
-            enum CodingKeys:String, CodingKey 
-            {
-                case title = "title"
-                case subtitle = "subHeading"
-            }
-        }
-        struct Location:Decodable 
-        {
-            var file:String 
-            var line:Int 
-            var character:Int 
-            
-            enum CodingKeys:String, CodingKey 
-            {
-                case file           = "uri"
-                case position       = "position"
-                enum Position:String, CodingKey 
-                {
-                    case line       = "line"
-                    case character  = "character"
-                }
-            }
-            init(from decoder:Decoder) throws 
-            {
-                let decoder:KeyedDecodingContainer = try decoder.container(keyedBy: CodingKeys.self)
-                self.file       = try decoder.decode(String.self, forKey: .file)
-                
-                let position:KeyedDecodingContainer = 
-                    try decoder.nestedContainer(keyedBy: CodingKeys.Position.self, forKey: .position)
-                self.line       = try position.decode(Int.self, forKey: .line)
-                self.character  = try position.decode(Int.self, forKey: .character)
-            }
-        }
-        struct Signature:Codable 
-        {
-            struct Parameter:Codable 
-            {
-                var label:String 
-                var name:String?
-                var lexemes:[SwiftLanguage.Lexeme]
-                
-                enum CodingKeys:String, CodingKey 
-                {
-                    case label      = "name"
-                    case name       = "internalName"
-                    case lexemes    = "declarationFragments"
-                }
-            }
-            var parameters:[Parameter]?
-            var returns:[SwiftLanguage.Lexeme]
-            
-            enum Position:String, CodingKey 
-            {
-                case parameters = "parameters"
-                case returns    = "returns"
-            }
-        }
-        struct Constraint:Codable 
-        {
-            // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/JSON.cpp
-            enum Kind:String, Codable 
-            {
-                case conformance    = "conformance"
-                case superclass     = "superclass"
-                case equals         = "sameType"
-            }
-            
-            var kind:Kind 
-            var lhs:String
-            var rhs:String
-            var rhsId:String?
-            
-            enum CodingKeys:String, CodingKey 
-            {
-                case kind       = "kind"
-                case lhs        = "lhs"
-                case rhs        = "rhs"
-                case rhsId      = "rhsPrecise"
-            }
-        }
-        struct Extension:Codable 
-        {
-            var module:String 
-            var constraints:[Constraint]? 
-            
-            enum CodingKeys:String, CodingKey 
-            {
-                case module         = "extendedModule"
-                case constraints    = "constraints"
-            }
-        }
-        struct Generic:Codable 
-        {
-            var name:String 
-            var index:Int 
-            var depth:Int 
-            
-            enum CodingKeys:String, CodingKey 
-            {
-                case name   = "name"
-                case index  = "index"
-                case depth  = "depth"
-            }
-        }
-        struct Generics:Codable 
-        {
-            var parameters:[Generic]?
-            var constraints:[Constraint]?
-            
-            enum CodingKeys:String, CodingKey 
-            {
-                case parameters     = "parameters"
-                case constraints    = "constraints"
-            }
-        }
-        struct Comment:Codable 
-        {
-            struct Line:Codable 
-            {
-                var text:String 
-                
-                enum CodingKeys:String, CodingKey 
-                {
-                    case text = "text"
-                }
-            }
-            var lines:[Line] 
-            
-            enum CodingKeys:String, CodingKey 
-            {
-                case lines = "lines"
-            }
-        }
-        
-        let id:String
-        var access:Access
-        var kind:Entrapta.Graph.Symbol.Kind.Declaration 
-        var display:Display
-        var location:Location? // some symbols are synthetic
-        var path:[String]
-        var signature:Signature?
-        var declaration:[SwiftLanguage.Lexeme]
-        var `extension`:Extension?
-        var generics:Generics?
-        var comment:[String]
-        
-        enum CodingKeys:String, CodingKey 
-        {
-            case access         = "accessLevel"
-            
-            case kind           = "kind"
-            enum Kind:String, CodingKey 
-            {
-                case identifier = "identifier"
-            }
-            
-            case identifier     = "identifier"
-            enum Identifier:String, CodingKey 
-            {
-                case mangled    = "precise"
-            }
-            
-            case display        = "names"
-            case location       = "location"
-            case path           = "pathComponents"
-            case signature      = "functionSignature"
-            case declaration    = "declarationFragments"
-            case `extension`    = "swiftExtension"
-            case generics       = "swiftGenerics"
-            case comment        = "docComment"
-        }
-        
-        init(from decoder:Decoder) throws 
-        {
-            let decoder:KeyedDecodingContainer = try decoder.container(keyedBy: CodingKeys.self)
-            
-            self.path           = try decoder.decode([String].self, forKey: .path)
-            self.access         = try decoder.decode(Access.self, forKey: .access)
-            self.display        = try decoder.decode(Display.self, forKey: .display)
-            self.declaration    = try decoder.decode([SwiftLanguage.Lexeme].self, forKey: .declaration)
-            
-            self.location       = try decoder.decodeIfPresent(Location.self, forKey: .location)
-            self.signature      = try decoder.decodeIfPresent(Signature.self, forKey: .signature)
-            self.extension      = try decoder.decodeIfPresent(Extension.self, forKey: .extension)
-            self.generics       = try decoder.decodeIfPresent(Generics.self, forKey: .generics)
-            
-            if let comment:Comment = try decoder.decodeIfPresent(Comment.self, forKey: .comment) 
-            {
-                self.comment    = comment.lines.map(\.text)
-            }
-            else 
-            {
-                self.comment    = []
-            }
-            
-            self.kind           = try decoder.nestedContainer(keyedBy: CodingKeys.Kind.self, forKey: .kind)
-                .decode(Entrapta.Graph.Symbol.Kind.Declaration.self, forKey: .identifier)
-            self.id             = try decoder.nestedContainer(keyedBy: CodingKeys.Identifier.self, forKey: .identifier)
-                .decode(String.self, forKey: .mangled)
-        }
-    }
-}
-extension Entrapta.Descriptor.Symbol.Location:CustomStringConvertible 
-{
-    var description:String 
-    {
-        "\(self.file):\(self.line):\(self.character)"
-    }
-}
-extension Entrapta.Descriptor.Symbol.Signature:CustomStringConvertible 
-{
-    var description:String 
-    {
-        "\(self.parameters?.flatMap(\.lexemes).map(\.text).joined() ?? "<unavailable>")\(self.returns.map(\.text).joined())"
-    }
-}
-extension Entrapta.Descriptor.Symbol:CustomStringConvertible 
-{
-    var description:String 
-    {
-        """
-        \(self.kind) \(self.path) (\(self.access), \(self.id))
-        {
-            display:        \(self.display.subtitle.map(\.text).joined())
-            signature:      \(self.signature?.description ?? "<unavailable>")
-            declaration:    \(self.declaration.map(\.text).joined())
-            location:       \(self.location?.description ?? "<synthesized>")
-            comment: 
-            '''
-            \(self.comment.map { "\($0)\n" }.joined())'''
-        }
-        """
     }
 }

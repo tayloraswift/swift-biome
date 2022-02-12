@@ -1,45 +1,31 @@
 import JSON 
 
-enum SwiftLanguage 
-{
-    struct Lexeme 
-    {
-        enum Kind:String 
-        {
-            // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/DeclarationFragmentPrinter.cpp
-            case keyword    = "keyword"
-            case attribute  = "attribute"
-            case number     = "number"
-            case string     = "string"
-            case identifier = "identifier"
-            case type       = "typeIdentifier"
-            case generic    = "genericParameter"
-            case parameter  = "internalParam"
-            case label      = "externalParam"
-            case text       = "text"
-        }
-        
-        let text:String 
-        let kind:Kind
-        let reference:String?
-    }
-}
-extension SwiftLanguage.Lexeme:Codable 
-{
-    enum CodingKeys:String, CodingKey 
-    {
-        case text       = "spelling"
-        case kind       = "kind"
-        case reference  = "preciseIdentifier"
-    }
-}
-extension SwiftLanguage.Lexeme.Kind:Codable 
-{
-}
-
 public 
 enum Entrapta 
 {
+    public 
+    struct DecodingError<Descriptor, Model>:Error 
+    {
+        let expected:Any.Type, 
+            path:String, 
+            encountered:Descriptor?
+        
+        init(expected:Any.Type, in path:String = "", encountered:Descriptor?)
+        {
+            self.expected       = expected 
+            self.path           = path 
+            self.encountered    = encountered
+        }
+    }
+    
+    public 
+    struct Version 
+    {
+        var major:Int 
+        var minor:Int?
+        var patch:Int?
+    }
+    
     enum Topic:Hashable, CustomStringConvertible 
     {
         case requirements 
@@ -88,7 +74,7 @@ enum Entrapta
             var symbols:[Symbol.ID: Symbol] = [:]
             for (module, json):(Symbol.Module, [JSON]) in modules
             {
-                let root:Symbol = .init(prefix: prefix, module: module)
+                let root:Symbol = .init(module: module, prefix: prefix)
                 if case _? = symbols.updateValue(root, forKey: .module(module))
                 {
                     print("warning: duplicate module '\(module.identifier)'")
@@ -96,10 +82,37 @@ enum Entrapta
                 
                 for json:JSON in json 
                 {
-                    let descriptor:Descriptor.Symbol = try .init(from: json)
-                    let symbol:Symbol   = .init(prefix: prefix, declaration: descriptor, in: module), 
-                        id:Symbol.ID    = .declaration(precise: descriptor.id)
-                    guard case nil = symbols.updateValue(symbol, forKey: id)
+                    guard case .object(var items) = json 
+                    else 
+                    {
+                        throw Symbol.DecodingError.init(expected: [String: JSON].self, encountered: json)
+                    }
+                    let id:Symbol.ID
+                    switch items.removeValue(forKey: "identifier")
+                    {
+                    case .object(var items)?: 
+                        defer 
+                        {
+                            items["interfaceLanguage"] = nil 
+                            
+                            if !items.isEmpty 
+                            {
+                                print("warning: unused json keys \(items) in 'identifier'")
+                            }
+                        }
+                        switch items.removeValue(forKey: "precise")
+                        {
+                        case .string(let text)?:
+                            id = .declaration(precise: text)
+                        case let value:
+                            throw Symbol.DecodingError.init(expected: String.self, in: "identifier.precise", encountered: value)
+                        }
+                    case let value:
+                        throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "identifier", encountered: value)
+                    }
+                    
+                    let symbol:Symbol   = try .init(from: items, in: module, prefix: prefix)
+                    guard case nil      = symbols.updateValue(symbol, forKey: id)
                     else 
                     {
                         print("warning: duplicate symbol id '\(id)'")
@@ -150,7 +163,7 @@ enum Entrapta
                         case .array(let relationships)? = graph["relationships"]
                 else 
                 {
-                    throw GraphDecodingError.init()
+                    throw Entrapta.DecodingError<JSON, Self>.init(expected: Self.self, encountered: json)
                 }
                 
                 let module:Symbol.Module 
@@ -171,7 +184,7 @@ enum Entrapta
 
             try self.init(prefix: prefix, modules: declarations)
             
-            for (module, json):(Symbol.Module, [JSON]) in edges 
+            for (_, json):(Symbol.Module, [JSON]) in edges 
             {
                 for json:JSON in json
                 {
@@ -299,7 +312,7 @@ enum Entrapta
                     self[index].topics.append((.custom("overrides"), [overrides]))
                 }
                 
-                var topics:[Entrapta.Graph.Symbol.Kind: [Index]] = 
+                let topics:[Entrapta.Graph.Symbol.Kind: [Index]] = 
                     .init(grouping: self[index].members)
                 {
                     self[$0].kind
@@ -327,6 +340,8 @@ extension Entrapta.Graph
     public 
     struct Symbol 
     {
+        typealias DecodingError = Entrapta.DecodingError<JSON, Self>
+        
         public 
         enum Module:Hashable, Sendable
         {
@@ -358,6 +373,103 @@ extension Entrapta.Graph
             case declaration(precise:String)
             case module(Module)
         }
+        public 
+        enum Kind:Hashable, CaseIterable, CustomStringConvertible 
+        {
+            public 
+            enum Declaration:String, Hashable, CaseIterable 
+            {    
+                case enumerationCase    = "swift.enum.case"
+                case `associatedtype`   = "swift.associatedtype"
+                case `typealias`        = "swift.typealias"
+                
+                case initializer        = "swift.init"
+                case deinitializer      = "swift.deinit"
+                case typeSubscript      = "swift.type.subscript"
+                case instanceSubscript  = "swift.subscript"
+                case typeProperty       = "swift.type.property"
+                case instanceProperty   = "swift.property"
+                case typeMethod         = "swift.type.method"
+                case instanceMethod     = "swift.method"
+                
+                case global             = "swift.var"
+                case function           = "swift.func"
+                case `operator`         = "swift.func.op"
+                case enumeration        = "swift.enum"
+                case structure          = "swift.struct"
+                case `class`            = "swift.class"
+                case `protocol`         = "swift.protocol"
+            }
+            
+            case declaration(Declaration)
+            case module 
+            
+            public static 
+            var allCases:[Self]
+            {
+                Declaration.allCases.map(Self.declaration(_:)) + CollectionOfOne<Self>.init(.module)
+            }
+            public 
+            var description:String 
+            {
+                switch self 
+                {
+                case .module:                   return "Module"
+                case .declaration(let kind):
+                    switch kind 
+                    {
+                    case .enumerationCase:      return "Enumeration Case"
+                    case .`associatedtype`:     return "Associated Type"
+                    case .`typealias`:          return "Typealias"
+                    case .initializer:          return "Initializer"
+                    case .deinitializer:        return "Deinitializer"
+                    case .typeSubscript:        return "Type Subscript"
+                    case .instanceSubscript:    return "Instance Subscript"
+                    case .typeProperty:         return "Type Property"
+                    case .instanceProperty:     return "Instance Property"
+                    case .typeMethod:           return "Type Method"
+                    case .instanceMethod:       return "Instance Method"
+                    case .global:               return "Global Variable"
+                    case .function:             return "Function"
+                    case .`operator`:           return "Operator"
+                    case .enumeration:          return "Enumeration"
+                    case .structure:            return "Structure"
+                    case .`class`:              return "Class"
+                    case .`protocol`:           return "Protocol"
+                    }
+                }
+            }
+            var plural:String 
+            {
+                switch self 
+                {
+                case .module:                   return "Modules"
+                case .declaration(let kind):
+                    switch kind 
+                    {
+                    case .enumerationCase:      return "Enumeration Cases"
+                    case .`associatedtype`:     return "Associated Types"
+                    case .`typealias`:          return "Typealiases"
+                    case .initializer:          return "Initializers"
+                    case .deinitializer:        return "Deinitializers"
+                    case .typeSubscript:        return "Type Subscripts"
+                    case .instanceSubscript:    return "Instance Subscripts"
+                    case .typeProperty:         return "Type Properties"
+                    case .instanceProperty:     return "Instance Properties"
+                    case .typeMethod:           return "Type Methods"
+                    case .instanceMethod:       return "Instance Methods"
+                    case .global:               return "Global Variables"
+                    case .function:             return "Functions"
+                    case .`operator`:           return "Operators"
+                    case .enumeration:          return "Enumerations"
+                    case .structure:            return "Structures"
+                    case .`class`:              return "Classes"
+                    case .`protocol`:           return "Protocols"
+                    }
+                }
+            }
+        }
+        public 
         struct Path:Hashable, Sendable
         {
             let group:String
@@ -380,6 +492,59 @@ extension Entrapta.Graph
                 self.disambiguation = disambiguation
             }
         }
+        public 
+        enum Access
+        {
+            case `private` 
+            case `fileprivate`
+            case `internal`
+            case `public`
+            case `open`
+        }
+        public 
+        enum Domain:String, Hashable  
+        {
+            case swift      = "Swift"
+            case wildcard   = "*"
+            
+            case iOS 
+            case macOS
+            case macCatalyst
+            case tvOS
+            case watchOS
+            
+            case openBSD    = "OpenBSD"
+            
+            case iOSApplicationExtension
+            case macOSApplicationExtension
+            case macCatalystApplicationExtension
+            case tvOSApplicationExtension
+            case watchOSApplicationExtension
+        }
+        public 
+        struct Availability
+        {
+            // case unavailable 
+            var introduced:Entrapta.Version?
+            var deprecated:Entrapta.Version?
+            var obsoleted:Entrapta.Version?
+            var renamed:String?
+            var message:String?
+        }
+        public 
+        struct Parameter
+        {
+            var label:String 
+            var name:String?
+            var fragment:[Language.Lexeme]
+        }
+        public 
+        struct Generic
+        {
+            var name:String 
+            var index:Int 
+            var depth:Int 
+        }
         
         let module:Module
         var path:Path
@@ -388,8 +553,8 @@ extension Entrapta.Graph
         
         let title:String 
         let kind:Kind
-        let signature:[SwiftLanguage.Lexeme]
-        let declaration:[SwiftLanguage.Lexeme]
+        let signature:[Language.Lexeme]
+        let declaration:[Language.Lexeme]
         
         let comment:String?
         
@@ -407,7 +572,7 @@ extension Entrapta.Graph
             
         var topics:[(key:Entrapta.Topic, members:[Index])]
         
-        init(prefix:[String], module:Module) 
+        init(module:Module, prefix:[String]) 
         {
             self.init(kind:    .module, 
                 title:          module.name, 
@@ -416,90 +581,15 @@ extension Entrapta.Graph
                 in:             module,
                 comment:       nil)
         }
-        init(prefix:[String], declaration descriptor:Entrapta.Descriptor.Symbol, in module:Module) 
-        {
-            guard let name:String = descriptor.path.last
-            else 
-            {
-                fatalError("empty symbol path")
-            }
-            // percent-encoding, for the last component 
-            func hex(_ value:UInt8) -> UInt8
-            {
-                (value < 10 ? 0x30 : 0x57) + value 
-            }
-            let escaped:String = .init(decoding: name.lowercased().utf8.flatMap 
-            {
-                (byte:UInt8) -> [UInt8] in 
-                switch byte 
-                {
-                ///  [0-9]          [A-Z]        [a-z]            '-'    '.'   '_'   '~'
-                case 0x30 ... 0x39, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x2d, 0x2e, 0x5f, 0x7e, 
-                    0x28, 0x29, 0x3a, 0x3d, 0x26: // '():=&'
-                    return [byte] 
-                default: 
-                    return [0x25, hex(byte >> 4), hex(byte & 0x0f)]
-                }
-            }, as: Unicode.ASCII.self)
-            // lowercase all path components 
-            let group:[String]
-            switch descriptor.kind 
-            {
-            // separated by a dot
-            case    .`associatedtype`,
-                    .`typealias`,
-                    .enumeration,
-                    .structure,
-                    .`class`,
-                    .`protocol`:
-                group = prefix + module.identifier + 
-                    CollectionOfOne<String>.init(descriptor.path.map{ $0.lowercased() }.joined(separator: "."))
-            // separated by a slash
-            case    .enumerationCase,
-                    .initializer,
-                    .deinitializer,
-                    .typeSubscript,
-                    .instanceSubscript,
-                    .typeProperty,
-                    .instanceProperty,
-                    .typeMethod,
-                    .instanceMethod,
-                    .global,
-                    .function,
-                    .`operator`:
-                if descriptor.path.dropLast().isEmpty 
-                {
-                    group = prefix + module.identifier + CollectionOfOne<String>.init(escaped)
-                }
-                else 
-                {
-                    group = prefix + module.identifier + 
-                    [
-                        descriptor.path.dropLast().map{ $0.lowercased() }.joined(separator: "."),
-                        escaped,
-                    ]
-                }
-            }
-            
-            let comment:String = descriptor.comment.joined(separator: "\n")
-            
-            self.init(kind:    .declaration(descriptor.kind), 
-                title:          descriptor.display.title, 
-                breadcrumbs:   .init(body: [module.name] + descriptor.path.dropLast(), tail: name), 
-                path:          .init(group: "/\(group.joined(separator: "/"))"), 
-                in:             module,
-                signature:      descriptor.display.subtitle,
-                declaration:    descriptor.declaration,
-                comment:        comment.isEmpty ? nil : comment)
-        }
+        
         init(
             kind:Kind, 
             title:String, 
             breadcrumbs:Breadcrumbs, 
             path:Path, 
             in module:Module, 
-            signature:[SwiftLanguage.Lexeme] = [], 
-            declaration:[SwiftLanguage.Lexeme] = [], 
+            signature:[Language.Lexeme] = [], 
+            declaration:[Language.Lexeme] = [], 
             comment:String?) 
         {
             self.kind           = kind
@@ -524,103 +614,6 @@ extension Entrapta.Graph
             self.overrides      = nil
             
             self.topics         = []
-        }
-    }
-}
-extension Entrapta.Graph.Symbol 
-{
-    enum Kind:Hashable, CaseIterable, CustomStringConvertible 
-    {
-        enum Declaration:String, Hashable, CaseIterable, Codable 
-        {    
-            case enumerationCase    = "swift.enum.case"
-            case `associatedtype`   = "swift.associatedtype"
-            case `typealias`        = "swift.typealias"
-            
-            case initializer        = "swift.init"
-            case deinitializer      = "swift.deinit"
-            case typeSubscript      = "swift.type.subscript"
-            case instanceSubscript  = "swift.subscript"
-            case typeProperty       = "swift.type.property"
-            case instanceProperty   = "swift.property"
-            case typeMethod         = "swift.type.method"
-            case instanceMethod     = "swift.method"
-            
-            case global             = "swift.var"
-            case function           = "swift.func"
-            case `operator`         = "swift.func.op"
-            case enumeration        = "swift.enum"
-            case structure          = "swift.struct"
-            case `class`            = "swift.class"
-            case `protocol`         = "swift.protocol"
-        }
-        
-        case declaration(Declaration)
-        case module 
-        
-        static 
-        var allCases:[Self]
-        {
-            Declaration.allCases.map(Self.declaration(_:)) + CollectionOfOne<Self>.init(.module)
-        }
-        
-        var description:String 
-        {
-            switch self 
-            {
-            case .module:                   return "Module"
-            case .declaration(let kind):
-                switch kind 
-                {
-                case .enumerationCase:      return "Enumeration Case"
-                case .`associatedtype`:     return "Associated Type"
-                case .`typealias`:          return "Typealias"
-                case .initializer:          return "Initializer"
-                case .deinitializer:        return "Deinitializer"
-                case .typeSubscript:        return "Type Subscript"
-                case .instanceSubscript:    return "Instance Subscript"
-                case .typeProperty:         return "Type Property"
-                case .instanceProperty:     return "Instance Property"
-                case .typeMethod:           return "Type Method"
-                case .instanceMethod:       return "Instance Method"
-                case .global:               return "Global Variable"
-                case .function:             return "Function"
-                case .`operator`:           return "Operator"
-                case .enumeration:          return "Enumeration"
-                case .structure:            return "Structure"
-                case .`class`:              return "Class"
-                case .`protocol`:           return "Protocol"
-                }
-            }
-        }
-        var plural:String 
-        {
-            switch self 
-            {
-            case .module:                   return "Modules"
-            case .declaration(let kind):
-                switch kind 
-                {
-                case .enumerationCase:      return "Enumeration Cases"
-                case .`associatedtype`:     return "Associated Types"
-                case .`typealias`:          return "Typealiases"
-                case .initializer:          return "Initializers"
-                case .deinitializer:        return "Deinitializers"
-                case .typeSubscript:        return "Type Subscripts"
-                case .instanceSubscript:    return "Instance Subscripts"
-                case .typeProperty:         return "Type Properties"
-                case .instanceProperty:     return "Instance Properties"
-                case .typeMethod:           return "Type Methods"
-                case .instanceMethod:       return "Instance Methods"
-                case .global:               return "Global Variables"
-                case .function:             return "Functions"
-                case .`operator`:           return "Operators"
-                case .enumeration:          return "Enumerations"
-                case .structure:            return "Structures"
-                case .`class`:              return "Classes"
-                case .`protocol`:           return "Protocols"
-                }
-            }
         }
     }
 }

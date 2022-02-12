@@ -18,39 +18,71 @@ extension Entrapta
     }
     
     static 
-    func render(code:[SwiftLanguage.Lexeme], resolve:(Graph.Symbol.ID) -> Graph.Symbol?) 
+    func render(code:[Language.Lexeme], resolve:(Graph.Symbol.ID) -> Graph.Symbol?) 
         -> [Frontend] 
     {
         code.map 
         {
-            let classes:[String]
-            switch $0.kind 
+            switch $0 
             {
-            case .text: 
-                return Frontend.text(escaped: $0.text)
-            case .type, .generic:
-                classes = ["syntax-type"] 
-            case .attribute, .keyword:
-                classes = ["syntax-keyword"]
-            case .number, .string: 
-                classes = ["syntax-literal"]
-            case .identifier, .label, .parameter: 
-                classes = ["syntax-identifier"]
-            }
-            if  let precise:String = $0.reference, 
-                let resolved:Graph.Symbol = resolve(.declaration(precise: precise))
-            {
-                return Frontend.link($0.text, to: resolved.path.canonical, internal: true)
+            case .code(let text, class: let classification):
+                let css:String
+                switch classification 
                 {
-                    classes
+                case .punctuation: 
+                    return Frontend.text(escaping: text)
+                case .type(let id?):
+                    guard let resolved:Graph.Symbol = resolve(id)
+                    else 
+                    {
+                        fallthrough
+                    }
+                    return Frontend.link(text, to: resolved.path.canonical, internal: true)
+                    {
+                        ["syntax-type"] 
+                    }
+                case .type(nil):
+                    css = "syntax-type"
+                case .identifier:
+                    css = "syntax-identifier"
+                case .generic:
+                    css = "syntax-generic"
+                case .argument:
+                    css = "syntax-parameter-label"
+                case .parameter:
+                    css = "syntax-parameter-name"
+                case .directive, .keyword, .attribute:
+                    css = "syntax-keyword"
+                case .pseudo:
+                    css = "syntax-pseudo-identifier"
+                case .number, .string:
+                    css = "syntax-literal"
+                case .interpolation:
+                    css = "syntax-interpolation-anchor"
+                case .macro:
+                    css = "syntax-macro"
                 }
-            }
-            else 
-            {
-                return Frontend.span($0.text)
+                return Frontend.span(text)
                 {
-                    classes
+                    [css]
                 }
+            case .comment(let text, documentation: _):
+                return Frontend.span(text)
+                {
+                    ["syntax-comment"]
+                } 
+            case .invalid(let text):
+                return Frontend.span(text)
+                {
+                    ["syntax-invalid"]
+                } 
+            case .newlines(let count):
+                return Frontend.span(String.init(repeating: "\n", count: count))
+                {
+                    ["syntax-newline"]
+                } 
+            case .spaces(let count):
+                return Frontend.text(escaped: String.init(repeating: " ", count: count)) 
             }
         }
     }
@@ -151,6 +183,17 @@ extension Entrapta
                     return Frontend[.img]
                 }
             }
+            highlight: 
+            {
+                (code:String) in 
+                Frontend[.pre]
+                {
+                    Frontend[.code]
+                    {
+                        Self.render(code: Language.highlight(code: code), resolve: resolve)
+                    }
+                }
+            }
         }
         else 
         {
@@ -235,7 +278,7 @@ extension Entrapta
                                 }
                                 content: 
                                 {
-                                    Self.render(code: symbol.declaration)
+                                    Self.render(code: symbol.declaration, resolve: resolve)
                                 }
                             }
                         }
@@ -317,7 +360,7 @@ extension Entrapta
                                                 }
                                                 content: 
                                                 {
-                                                    Self.render(code: member.signature)
+                                                    Self.render(code: member.signature){ _ in nil }
                                                 }
                                             }
                                         }

@@ -6,11 +6,12 @@ extension StructuredDocument.Document.Element where Domain == StructuredDocument
     init(markdown:Markdown.Markup, 
         symbol:(_ destination:String?) -> Self, 
         link:(_ destination:String?, _ content:[Self]) -> Self, 
-        image:(_ source:String?, _ alt:[Self], _ title:String?) -> Self) 
+        image:(_ source:String?, _ alt:[Self], _ title:String?) -> Self, 
+        highlight:(_ code:String) -> Self) 
     {
         func render(markdown:Markdown.Markup) -> Self 
         {
-            .init(markdown: markdown, symbol: symbol, link: link, image: image)
+            .init(markdown: markdown, symbol: symbol, link: link, image: image, highlight: highlight)
         }
         
         switch markdown 
@@ -26,13 +27,7 @@ extension StructuredDocument.Document.Element where Domain == StructuredDocument
                 node.children.map(render(markdown:))
             }
         case let node as Markdown.CodeBlock: 
-            self = Self[.pre]
-            {
-                Self[.code]
-                {
-                    node.code
-                }
-            }
+            self = highlight(node.code)
         case let node as Markdown.Heading: 
             let container:StructuredDocument.Document.HTML.Container 
             switch node.level 
@@ -92,11 +87,11 @@ extension StructuredDocument.Document.Element where Domain == StructuredDocument
             self = image(node.source, node.children.map(render(markdown:)), node.title)
         case let node as Markdown.InlineHTML: 
             self = .text(escaped: node.rawHTML)
-        case let node as Markdown.LineBreak: 
+        case is Markdown.LineBreak: 
             self = Self[.br]
         case let node as Markdown.Link: 
             self = link(node.destination, node.children.map(render(markdown:)))
-        case let node as Markdown.SoftBreak: 
+        case is Markdown.SoftBreak: 
             self = .text(escaped: " ")
         case let node as Markdown.Strong: 
             self = Self[.strong]
@@ -152,12 +147,13 @@ extension Entrapta
     func render(markdown string:String, 
         symbol:(_ destination:String?) -> Frontend, 
         link:(_ destination:String?, _ content:[Frontend]) -> Frontend, 
-        image:(_ source:String?, _ alt:[Frontend], _ title:String?) -> Frontend) 
+        image:(_ source:String?, _ alt:[Frontend], _ title:String?) -> Frontend,
+        highlight:(_ code:String) -> Frontend) 
         -> (head:Frontend?, body:[Frontend])
     {
         func render(markdown:Markdown.Markup) -> Frontend 
         {
-            .init(markdown: markdown, symbol: symbol, link: link, image: image)
+            .init(markdown: markdown, symbol: symbol, link: link, image: image, highlight: highlight)
         }
         
         let document:Markdown.Document  = .init(parsing: string)
