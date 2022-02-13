@@ -514,13 +514,12 @@ extension Entrapta.Graph
                 content:
                 {
                     self.renderSection(symbol.downstream.map { ($0, []) }, heading: "Refinements")
-                    self.renderSection(symbol.subclasses.map { ($0, []) }, heading: "Subclasses")
-                    // TODO: use the constraints
-                    self.renderSection(symbol.conformers, heading: "Conforming Types")
                     
                     self.renderTopics(symbol.topics.requirements, heading: "Requirements")
                     self.renderTopics(symbol.topics.members, heading: "Members")
                     
+                    self.renderSection(symbol.subclasses.map { ($0, []) }, heading: "Subclasses")
+                    self.renderSection(symbol.conformers, heading: "Conforming Types")
                     self.renderEpilogue(symbol)
                 }
             }
@@ -743,25 +742,53 @@ extension Entrapta
             self.pages = _move(pages)
         }
         
+        /// the `group` is the full URL path, without the query, and including 
+        /// the beginning slash '/' and path prefix. 
+        /// the path *must* be normalized with respect to slashes, but it 
+        /// *must not* be percent-decoded. (otherwise the user may be sent into 
+        /// an infinite redirect loop.)
+        ///
+        /// '/reference/swift-package/somemodule/foo/bar.baz%28_%3A%29':    OK (canonical page for `SomeModule.Foo.Bar.baz(_:)`)
+        /// '/reference/swift-package/somemodule/foo/bar.baz(_:)':          OK (301 redirect to `SomeModule.Foo.Bar.baz(_:)`)
+        /// '/reference/swift-package/SomeModule/FOO/BAR.BAZ(_:)':          OK (301 redirect to `SomeModule.Foo.Bar.baz(_:)`)
+        /// '/reference/swift-package/somemodule/foo/bar%2Ebaz%28_%3A%29':  OK (301 redirect to `SomeModule.Foo.Bar.baz(_:)`)
+        /// '/reference/swift-package/somemodule/foo//bar.baz%28_%3A%29':   Error (slashes not normalized)
+        ///
+        /// note: the URL of a page for an operator containing a slash '/' *must*
+        /// be percent-encoded; Entrapta will not be able to redirect it to the 
+        /// correct canonical URL. 
+        ///
+        /// note: the URL path is case-insensitive, but the disambiguation query 
+        /// *is* case-sensitive. the `disambiguation` parameter should include 
+        /// the mangled name only, without the `?overload=` part. if you provide 
+        /// a valid disambiguation query, the URL path can be complete garbage; 
+        /// Entrapta will respond with a 301 redirect to the correct page.
         public 
         subscript(group:String, disambiguation disambiguation:String?) -> Response?
         {
-            let key:Graph.Symbol.ID?    = disambiguation.map(Graph.Symbol.ID.declaration(precise:))
-            let normalized:String       = group.lowercased()
-            let path:Graph.Symbol.Path  = .init(group: normalized, disambiguation: key)
+            let path:Graph.Symbol.Path  = .init(group: Entrapta.normalize(path: group), 
+                disambiguation: disambiguation.map(Graph.Symbol.ID.declaration(precise:)))
             if let page:Graph.Page = self.pages[path]
             {
-                guard normalized == group 
-                else 
-                {
-                    return .found(path.canonical)
-                }
-                return .canonical(page)
+                return path.group == group ? .canonical(page) : .found(path.canonical)
             }
-            else if let key:Graph.Symbol.ID = key, 
-                    let index:Index = self.disambiguations[key]
+            guard let key:Graph.Symbol.ID = path.disambiguation
+            else 
+            {
+                return nil 
+            }
+            //  we were given a bad path + disambiguation key combo, 
+            //  but the query might still be valid 
+            if let index:Index = self.disambiguations[key]
             {
                 return .found(self.pages.keys[index].canonical)
+            }
+            //  we were given an extraneous disambiguation key, but the path might 
+            //  still be valid
+            let truncated:Graph.Symbol.Path = .init(group: path.group)
+            if case _? = self.pages[truncated]
+            {
+                return .found(truncated.canonical)
             }
             else 
             {

@@ -225,6 +225,7 @@ enum Entrapta
                 }
             }
             
+            self.sort()
             self.populateTopics()
         }
         
@@ -338,7 +339,6 @@ enum Entrapta
             {                
                 self[index].topics.requirements.append(contentsOf: self.organize(symbols: self[index].requirements))
                 self[index].topics.members.append(contentsOf: self.organize(symbols: self[index].members))
-                
             }
         }
         func organize(symbols:[Index]) -> [(key:Entrapta.Topic, indices:[Index])]
@@ -356,6 +356,41 @@ enum Entrapta
                     return nil 
                 }
                 return (.kind(kind), indices)
+            }
+        }
+        mutating 
+        func sort() 
+        {
+            for symbol:Index in self.symbols.indices 
+            {
+                self[symbol].members        = self[symbol].members.sorted
+                {
+                    self[$0].title < self[$1].title
+                }
+                self[symbol].implements     = self[symbol].implements.sorted
+                {
+                    self[$0].title < self[$1].title
+                }
+                self[symbol].defaults       = self[symbol].defaults.sorted
+                {
+                    self[$0].title < self[$1].title
+                }
+                self[symbol].requirements   = self[symbol].requirements.sorted
+                {
+                    self[$0].title < self[$1].title
+                }
+                self[symbol].upstream       = self[symbol].upstream.sorted
+                {
+                    self[$0.index].title < self[$1.index].title
+                }
+                self[symbol].downstream     = self[symbol].downstream.sorted
+                {
+                    self[$0].title < self[$1].title
+                }
+                self[symbol].conformers     = self[symbol].conformers.sorted
+                {
+                    self[$0.index].title < self[$1.index].title
+                }
             }
         }
     }
@@ -410,7 +445,7 @@ extension Entrapta.Graph
         typealias DecodingError = Entrapta.DecodingError<JSON, Self>
         
         public 
-        enum Module:Hashable, Sendable
+        enum Module:Hashable, Comparable, Sendable
         {
             case swift 
             case framework(String, package:String)
@@ -435,10 +470,10 @@ extension Entrapta.Graph
             }
         }
         public 
-        enum ID:Hashable, Sendable 
+        enum ID:Hashable, Comparable, Sendable 
         {
-            case declaration(precise:String)
             case module(Module)
+            case declaration(precise:String)
         }
         public 
         enum Kind:Hashable, CaseIterable, CustomStringConvertible 
@@ -446,7 +481,7 @@ extension Entrapta.Graph
             public 
             enum Declaration:String, Hashable, CaseIterable 
             {    
-                case enumerationCase    = "swift.enum.case"
+                case `case`             = "swift.enum.case"
                 case `associatedtype`   = "swift.associatedtype"
                 case `typealias`        = "swift.typealias"
                 
@@ -459,13 +494,14 @@ extension Entrapta.Graph
                 case typeMethod         = "swift.type.method"
                 case instanceMethod     = "swift.method"
                 
-                case global             = "swift.var"
-                case function           = "swift.func"
+                case  global            = "swift.var"
+                case  function          = "swift.func"
+                
                 case `operator`         = "swift.func.op"
-                case enumeration        = "swift.enum"
-                case structure          = "swift.struct"
+                case `enum`             = "swift.enum"
+                case `struct`           = "swift.struct"
                 case `class`            = "swift.class"
-                case actor              = "swift.actor"
+                case  actor             = "swift.actor"
                 case `protocol`         = "swift.protocol"
             }
             
@@ -486,9 +522,9 @@ extension Entrapta.Graph
                 case .declaration(let kind):
                     switch kind 
                     {
-                    case .enumerationCase:      return "Enumeration Case"
-                    case .`associatedtype`:     return "Associated Type"
-                    case .`typealias`:          return "Typealias"
+                    case .case:                 return "Enumeration Case"
+                    case .associatedtype:       return "Associated Type"
+                    case .typealias:            return "Typealias"
                     case .initializer:          return "Initializer"
                     case .deinitializer:        return "Deinitializer"
                     case .typeSubscript:        return "Type Subscript"
@@ -499,12 +535,12 @@ extension Entrapta.Graph
                     case .instanceMethod:       return "Instance Method"
                     case .global:               return "Global Variable"
                     case .function:             return "Function"
-                    case .`operator`:           return "Operator"
-                    case .enumeration:          return "Enumeration"
-                    case .structure:            return "Structure"
-                    case .`class`:              return "Class"
+                    case .operator:             return "Operator"
+                    case .enum:                 return "Enumeration"
+                    case .struct:               return "Structure"
+                    case .class:                return "Class"
                     case .actor:                return "Actor"
-                    case .`protocol`:           return "Protocol"
+                    case .protocol:             return "Protocol"
                     }
                 }
             }
@@ -516,9 +552,9 @@ extension Entrapta.Graph
                 case .declaration(let kind):
                     switch kind 
                     {
-                    case .enumerationCase:      return "Enumeration Cases"
-                    case .`associatedtype`:     return "Associated Types"
-                    case .`typealias`:          return "Typealiases"
+                    case .case:                 return "Enumeration Cases"
+                    case .associatedtype:       return "Associated Types"
+                    case .typealias:            return "Typealiases"
                     case .initializer:          return "Initializers"
                     case .deinitializer:        return "Deinitializers"
                     case .typeSubscript:        return "Type Subscripts"
@@ -529,12 +565,12 @@ extension Entrapta.Graph
                     case .instanceMethod:       return "Instance Methods"
                     case .global:               return "Global Variables"
                     case .function:             return "Functions"
-                    case .`operator`:           return "Operators"
-                    case .enumeration:          return "Enumerations"
-                    case .structure:            return "Structures"
-                    case .`class`:              return "Classes"
+                    case .operator:             return "Operators"
+                    case .enum:                 return "Enumerations"
+                    case .struct:               return "Structures"
+                    case .class:                return "Classes"
                     case .actor:                return "Actors"
-                    case .`protocol`:           return "Protocols"
+                    case .protocol:             return "Protocols"
                     }
                 }
             }
@@ -682,13 +718,13 @@ extension Entrapta.Graph
             let keyword:String?
             switch kind 
             {
-            case .declaration(.`typealias`):    keyword = "typealias"
-            case .declaration(.enumeration):    keyword = "enum"
-            case .declaration(.structure):      keyword = "struct"
-            case .declaration(.`class`):        keyword = "class"
-            case .declaration(.actor):          keyword = "actor"
-            case .declaration(.`protocol`):     keyword = "protocol"
-            default:                            keyword = nil 
+            case .declaration(.typealias):  keyword = "typealias"
+            case .declaration(.enum):       keyword = "enum"
+            case .declaration(.struct):     keyword = "struct"
+            case .declaration(.class):      keyword = "class"
+            case .declaration(.actor):      keyword = "actor"
+            case .declaration(.protocol):   keyword = "protocol"
+            default:                        keyword = nil 
             }
             
             self.kind           = kind

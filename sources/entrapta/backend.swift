@@ -405,74 +405,41 @@ extension Entrapta.Graph.Symbol
     func assign(prefix:[String], module:Module, path:[String], kind:Kind.Declaration) 
         -> (path:Path, breadcrumbs:Entrapta.Graph.Breadcrumbs)
     {
-        guard let name:String = path.last
+        guard let tail:String = path.last
         else 
         {
             fatalError("empty symbol path")
         }
-        // percent-encoding, for the last component 
-        func hex(_ value:UInt8) -> UInt8
-        {
-            (value < 10 ? 0x30 : 0x57) + value 
-        }
-        let escaped:String = .init(decoding: name.lowercased().utf8.flatMap 
-        {
-            (byte:UInt8) -> [UInt8] in 
-            switch byte 
-            {
-            ///  [0-9]          [A-Z]        [a-z]            '-'    '.'   '_'   '~'
-            case 0x30 ... 0x39, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x2d, 0x2e, 0x5f, 0x7e, 
-                0x28, 0x29, 0x3a, 0x3d, 0x26: // '():=&'
-                return [byte] 
-            default: 
-                return [0x25, hex(byte >> 4), hex(byte & 0x0f)]
-            }
-        }, as: Unicode.ASCII.self)
-        // lowercase all path components 
-        let group:[String]
+        // to reduce the need for disambiguation suffixes, nested types and members 
+        // use different syntax: 
+        // Foo.Bar.baz(qux:) -> 'foo/bar.baz(qux:)' ["foo", "bar.baz(qux:)"]
+        // 
+        // global variables, functions, and operators (including scoped operators) 
+        // start with a slash. so it’s 'prefix/swift/withunsafepointer(to:)', 
+        // not `prefix/swift.withunsafepointer(to:)`
+        let unescaped:[String] 
         switch kind 
         {
-        // separated by a dot
-        case    .`associatedtype`,
-                .`typealias`,
-                .enumeration,
-                .structure,
-                .`class`,
-                .actor,
-                .`protocol`:
-            group = prefix + module.identifier + 
-                CollectionOfOne<String>.init(path.map{ $0.lowercased() }.joined(separator: "."))
-        // separated by a slash
-        case    .enumerationCase,
-                .initializer,
-                .deinitializer,
-                .typeSubscript,
-                .instanceSubscript,
-                .typeProperty,
-                .instanceProperty,
-                .typeMethod,
-                .instanceMethod,
-                .global,
-                .function,
-                .`operator`:
-            if path.dropLast().isEmpty 
-            {
-                group = prefix + module.identifier + CollectionOfOne<String>.init(escaped)
-            }
+        case    .associatedtype, .typealias, .enum, .struct, .class, .actor, .protocol, .global, .function, .operator:
+            unescaped = prefix + module.identifier + path 
+        case    .case, .initializer, .deinitializer, 
+                .typeSubscript, .instanceSubscript, 
+                .typeProperty, .instanceProperty, 
+                .typeMethod, .instanceMethod:
+            guard let scope:String = path.dropLast().last 
             else 
             {
-                group = prefix + module.identifier + 
-                [
-                    path.dropLast().map{ $0.lowercased() }.joined(separator: "."),
-                    escaped,
-                ]
+                print("warning: member '\(path)' has no outer scope")
+                unescaped = module.identifier + path 
+                break 
             }
+            unescaped = prefix + module.identifier + path.dropLast(2) + CollectionOfOne<String>.init("\(scope).\(tail)")
         }
+        let group:String = Entrapta.normalize(path: unescaped)
         
         let breadcrumbs:Entrapta.Graph.Breadcrumbs = 
-                        .init(body: [module.name] + path.dropLast(), tail: name)
-        let path:Path = .init(group: "/\(group.joined(separator: "/"))")
-        return (path, breadcrumbs)
+                        .init(body: [module.name] + path.dropLast(), tail: tail)
+        return (.init(group: group), breadcrumbs)
     }
 }
 extension Entrapta.Version 

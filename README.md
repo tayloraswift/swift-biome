@@ -1,252 +1,53 @@
-# entrapta 
+<p align="center">
+  <strong><em><code>entrapta</code></em></strong><br><small><code>0.2.0</code></small>
+</p>
 
-*Entrapta* is an experimental tool to generate richly-linked, Apple-style API reference websites for Swift projects which can be deployed with Github Pages. 
+*Entrapta* is a pure-Swift documentation engine for generating and retrieving DocC-style API reference pages. **Entrapta aims to be backwards-compatible with the ad-hoc Markdown-based documentation formats popular among many existing Swift packages.** For example, *Entrapta* can import symbol graphs for the Swift standard library and render them as DocC-style reference pages, even though the Swift standard library is not documented in a DocC-compatible format.
 
-## usage 
+Since `0.2.0`, *Entrapta* is no longer a site generator. Instead, it is meant to be the back-end component of a web server or a static site generator. *Entrapta* handles symbol graph parsing, cross-linking, organization, presentation, HTML rendering, and query routing.
 
-```bash
-# build a deployable website 
-entrapta sources/*.swift 
-    --directory     "directory/to/build/website/in" 
-    --url-prefix    "https://adora.github.io/repository-name" 
-    --github        "https://github.com/adora/repository-name"
-    --title         "HTML Title to Display"
+A major design goal of *Entrapta* is to support **multi-package, multi-module use cases**. Over time, as the Swift package ecosystem has matured, more and more people are writing Swift on non-Apple platforms. Unlike in the early days of Swift, when large monolithic frameworks such as *Foundation* or *UIKit* were the norm, the Swift Package Manager has enabled greater modularization and atomization of Swift libraries. This is a good thing for the Swift community! However, this also exposes the limitations of single-module documentation engines, which do not provide an easy way to navigate between symbols in different, interconnected modules, or filter-out irrelevant imports.
 
-# build a local website 
-entrapta sources/*.swift 
-    --directory     "directory/to/build/website/in" 
-    # url-prefix must be an absolute path
-    --url-prefix    "$PWD/directory/to/build/website/in"
-    --github        "https://github.com/adora/repository-name"
-    --title         "HTML Title to Display"
-    --local
-```
+*Entrapta* powers the Swift standard library reference at [`swiftinit.org/reference/swift`](https://swiftinit.org/reference/swift)! It mostly has parity with the existing Apple Swift reference, although *Entrapta* doesn’t have access to the topical organization Apple uses on their site, so it uses a default, hierarchical organization for the standard library pages. There are a few missing features we are actively working on implementing: 
 
-## syntax 
+* Deprecation and availability tables 
 
-*Entrapta* collects three-slash (`///`) documentation comments in your project. An *Entrapta*-readable doccoment looks like this:
+* Parsing ad-hoc function parameter documentation from Markdown comments 
 
-```
-/// static func JPEG.Format.recognize(_:precision:)
-/// required 
-///     Detects this color format, given a set of component keys and a bit depth.
-/// - components    : Swift.Set<JPEG.Component.Key>
-///     The set of given component keys.
-/// - precision     : Swift.Int
-///     The given bit depth.
-/// - ->            : Self?
-///     A color format instance.
-```
+* An auto-complete function 
 
-The full syntax is this:
+* Links to definitions in source code
 
-```
-Whitespace              ::= ' ' ' ' *
-Endline                 ::= ' ' * '\n'
+* Detecting default implementations
 
-FunctionIdentifiers     ::= ( <Identifier> '.' ) * '(' <Operator> ')'
-                          | ( <Identifier> '.' ) * <Identifier>
+*Entrapta* already has a few features the Apple docs do not:
 
-Identifiers             ::= <Identifier> ( '.' <Identifier> ) * 
-Identifier              ::= <Swift Identifier Head> <Swift Identifier Character> *
-Operator                ::= <Swift Operator Head> <Swift Operator Character> *
-                          | <Swift Dot Operator Head> <Swift Dot Operator Character> *
+* Marking overridden protocol requirements as `associatedtype` inference hints, to reduce symbol clutter in namespaces like [`BidirectionalCollection`](https://swiftinit.org/reference/swift/bidirectionalcollection).
 
-FrameworkField          ::= <FrameworkField.Keyword> <Whitespace> <Identifier> <Endline>
-FrameworkField.Keyword  ::= 'module'
-                          | 'plugin'
+* Placing protocol requirements in their own section. 
 
-DependencyField         ::= 'import' <Whitespace> <Identifier> <Endline>
-                          | 'import' <Whitespace> <DependencyField.Keyword> <Whitespace> 
-                            <Identifier> '.' <Identifiers> <Endline>
-DependencyField.Keyword ::= 'protocol'
-                          | 'class'
-                          | 'struct'
-                          | 'enum'
-                          | 'typealias'
+* Stable links to API reference pages, and a robust overload disambiguation system based on compiler-mangled symbol names. 
 
-LexemeField             ::= ( <LexemeField.Keyword> <Whitespace> ) ? 
-                            'operator' <Whitespace> <Operator> 
-                            ( <Whitespace> ? ':' <Whitespace> ? <Identifier> ) ?
-                            <Endline>
-                          
-FunctionField           ::= <FunctionField.Keyword> <Whitespace> <FunctionIdentifiers> <TypeParameters> ? '?' ? 
-                            '(' ( <Identifier> ':' ) * ')' 
-                            ( <Whitespace> <FunctionField.Throws> ) ? <Endline>
-                          | 'case' <Whitespace> <FunctionIdentifiers> <Endline>
-FunctionField.Keyword   ::= 'init'
-                          | 'required' <Whitespace> 'init'
-                          | 'convenience' <Whitespace> 'init'
-                          | 'func'
-                          | 'mutating' <Whitespace> 'func'
-                          | 'prefix' <Whitespace> 'func'
-                          | 'postfix' <Whitespace> 'func'
-                          | 'static' <Whitespace> 'func'
-                          | 'static' <Whitespace> 'prefix' <Whitespace> 'func'
-                          | 'static' <Whitespace> 'postfix' <Whitespace> 'func'
-                          | 'case' 
-                          | 'indirect' <Whitespace> 'case' 
-FunctionField.Throws    ::= 'throws' 
-                          | 'rethrows'
+* URL normalization
 
-SubscriptField          ::= 'subscript' <Whitespace> <Identifiers> <TypeParameters> ? 
-                            '[' ( <Identifier> ':' ) * ']' <Whitespace> ? <Accessors> <Endline> 
+* Reduced need for disambiguation suffixes like `-enum` or `-struct`
 
-TypeParameters          ::= '<' <Whitespace> ? <Identifier> <Whitespace> ? 
-                            ( ',' <Whitespace> ? <Identifier> <Whitespace> ? ) * '>'
-                                                        
-PropertyField           ::= <PropertyField.Keyword> <Whitespace> <Identifiers> 
-                            <Whitespace> ? ':' <Whitespace> ? <Type> 
-                            ( <Whitespace> ? <MemberMutability> ) ? <Endline> 
-PropertyField.Keyword   ::= 'let'
-                          | 'var'
-                          | 'class' <Whitespace> 'var'
-                          | 'static' <Whitespace> 'let'
-                          | 'static' <Whitespace> 'var'
-  
-Accessors               ::= '{' <Whitespace> ? 'get' 
-                            ( ( <Whitespace> 'nonmutating' ) ? <Whitespace> 'set' ) ? <Whitespace> ? '}'
+Since `0.2.0`, *Entrapta* now uses `swift-symbolgraph-extract` as its static analysis backend. This greatly reduces the amount of effort needed to write *Entrapta*-compatible documentation comments, and provides much more accurate symbol linking and relationship analysis. However, the information `swift-symbolgraph-extract` provides is much more limited than what *Entrapta* `0.1.0` had access to, which means the following features are no longer implemented:
 
-AssociatedtypeField     ::= 'associatedtype' <Whitespace> <Identifiers> 
-                            ( <Whitespace> ? '=' <Whitespace> ? <Type> ) ? <Endline>
-                            
-TypealiasField          ::= 'typealias' <Whitespace> <Identifiers> <TypeParameters> ?
-                            <Whitespace> ? '=' <Whitespace> ? <Type> <Endline>
+* Symbol linking and member lookup on `associatedtype`s, generics, and `typealias`es
 
-TypeField               ::= <TypeField.Keyword> <Whitespace> <Identifiers> <TypeParameters> ? <Endline>
-TypeField.Keyword       ::= 'protocol'
-                          | 'class'
-                          | 'struct'
-                          | 'enum'
-                          | 'extension'
+* Generic constraint-based member lookup
 
-Protocols               ::= <Identifiers> ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
-ConformanceField        ::= ':' <Whitespace> ? <Protocols> 
-                            ( <Whitespace> <WhereClauses> ) ? <Endline>
+* Symbol linking inside code blocks 
 
-ImplementationField     ::= '?:' <Whitespace> ? <Protocols> 
-                            ( <Whitespace> <WhereClauses> ) ? <Endline>
-                          | '?' <Whitespace> ? <WhereClauses> <Endline>
+* Symbol links from the punctuation characters in sugared forms of `Array` (`[_]`), `Dictionary` (`[_:_]`), and `Optional` (`_?`) to the appropriate reference pages
 
-ConstraintsField        ::= <WhereClauses> <Endline>
-WhereClauses            ::= 'where' <Whitespace> <WhereClause> 
-                            ( <Whitespace> ? ',' <Whitespace> ? <WhereClause> ) * 
-WhereClause             ::= <Identifiers> <Whitespace> ? <WherePredicate>
-WherePredicate          ::= ':' <Whitespace> ? <Protocols> 
-                          | '==' <Whitespace> ? <Type>
+* Links from metatype suffixes (`.Type`, `.Protocol`) and keyword types (`Any`) to relevant chapters of the *The Swift Programming Language*
 
-AttributeField          ::= '@' <Whitespace> ? <DeclarationAttribute> <Endline>
-DeclarationAttribute    ::= 'frozen'
-                          | 'inlinable'
-                          | 'discardableResult'
-                          | 'resultBuilder'
-                          | 'propertyWrapper'
-                          | 'specialized' <Whitespace> <WhereClauses>
-                          | ':'  <Whitespace> ? <Type>
+* Links for built-in operator lexemes (the lexemes themselves, not the functions that use them as identifiers)
 
-ParameterField          ::= '-' <Whitespace> ? ('@' <Type> <Whitespace>) ?
-                            <ParameterName> <Whitespace> ? 
-                            ':' <Whitespace> ? <FunctionParameter> <Endline>
-ParameterName           ::= <Identifier> 
-                          | '->'
+* Links and reference pages for custom operator lexemes 
 
-DispatchField           ::= <DispatchField.Keyword> ( <Whitespace> <DispatchField.Keyword> ) * <Endline>
+* Annotations for members satisfying protocol requirements 
 
-RequirementField        ::= 'required' <Endline>
-                          | 'synthesized' <Endline>
-                          | 'defaulted' ( <Whitespace> <WhereClauses> ) ? <Endline>
-
-TopicKey                ::= [a-zA-Z0-9\-] *
-TopicField              ::= '#' <Whitespace> ? '[' <BalancedToken> * ']' <Whitespace> ? 
-                            '(' <Whitespace> ? <TopicKey> 
-                            ( <Whitespace> ? ',' <Whitespace> ? <TopicKey> ) * <Whitespace> ? ')' <Endline>
-
-TopicMembershipField    ::= '#' <Whitespace> ? '(' <Whitespace> ? 
-                            ( <Integer Literal> <Whitespace> ? ':' <Whitespace> ? ) ? 
-                            <TopicKey> <Whitespace> ? ')' <Endline>
-
-ParagraphField          ::= <ParagraphLine> <ParagraphLine> *
-ParagraphLine           ::= '    ' ' ' * [^\s] . * '\n'
-
-Field                   ::= <FrameworkField>
-                          | <AssociatedtypeField>
-                          | <AttributeField>
-                          | <ConformanceField>
-                          | <ConstraintsField>
-                          | <DispatchField>
-                          | <ImplementationField>
-                          | <FunctionField>
-                          | <LexemeField>
-                          | <ParameterField>
-                          | <PropertyField>
-                          | <RequirementField>
-                          | <SubscriptField>
-                          | <TopicField>
-                          | <TopicMembershipField>
-                          | <TypealiasField>
-                          | <TypeField>
-                          | <ParagraphField>
-                          | <Separator>
-Separator               ::= <Endline>
-Separator               ::= <Endline>
-
-Type                    ::= <UnwrappedType> '?' *
-UnwrappedType           ::= <NamedType>
-                          | <CompoundType>
-                          | <FunctionType>
-                          | <CollectionType>
-                          | <ProtocolCompositionType>
-NamedType               ::= <TypeIdentifier> ( '.' <TypeIdentifier> ) *
-TypeIdentifier          ::= <Identifier> <TypeArguments> ?
-TypeArguments           ::= '<' <Whitespace> ? <Type> <Whitespace> ? ( ',' <Whitespace> ? <Type> <Whitespace> ? ) * '>'
-CompoundType            ::= '(' <Whitespace> ? ( <LabeledType> <Whitespace> ? 
-                            ( ',' <Whitespace> ? <LabeledType> <Whitespace> ? ) * ) ? ')'
-LabeledType             ::= ( <Identifier> <Whitespace> ? ':' <Whitespace> ? ) ? <Type> 
-FunctionType            ::= ( <Attribute> <Whitespace> ) * <FunctionParameters> <Whitespace> ? 
-                            ( 'throws' <Whitespace> ? ) ? '->' <Whitespace> ? <Type>
-FunctionParameters      ::= '(' <Whitespace> ? ( <FunctionParameter> <Whitespace> ? 
-                            ( ',' <Whitespace> ? <FunctionParameter> <Whitespace> ? ) * ) ? ')'
-FunctionParameter       ::= ( <Attribute> <Whitespace> ) ? ( 'inout' <Whitespace> ) ? 
-                            <Type> ( <Whitespace> ? '...' ) ?
-Attribute               ::= '@' <Identifier>
-CollectionType          ::= '[' <Whitespace> ? <Type> <Whitespace> ? ( ':' <Whitespace> ? <Type> <Whitespace> ? ) ? ']'
-ProtocolCompositionType ::= <Identifiers> <Whitespace> ? '&' <Whitespace> ? <Identifiers>
-                            ( <Whitespace> ? '&' <Whitespace> ? <Identifiers> ) *
-
-BalancedToken           ::= [^\[\]\(\)\{\}]
-                          | '(' <BalancedToken> * ')'
-                          | '[' <BalancedToken> * ']'
-                          | '{' <BalancedToken> * '}'
-```
-
-Paragraph fields have their own mini-markdown syntax and an abbreviated link syntax for local and standard-library symbols.
-
-```
-ParagraphGrammar.Token  ::= <ParagraphLink> 
-                          | <ParagraphSymbolLink>
-                          | <ParagraphSubscript>
-                          | <ParagraphSuperscript>
-                          | '***'
-                          | '**'
-                          | '*'
-                          | .
-ParagraphSubscript      ::= '~' [^~] * '~'
-ParagraphSuperscript    ::= '^' [^\^] * '^'
-ParagraphInlineType     ::= '[[`' <Type> '`]]'
-ParagraphSymbolLink     ::= '[' <SymbolPath> <SymbolPath> * ( <Identifier> '`' ) * ']'
-SymbolPath              ::= '`' ( '(' <Identifiers> ').' ) ? <SymbolTail> 
-                            ( <Whitespace> ? '#' <Whitespace> ? 
-                                '(' <Whitespace> ? <TopicKey> <Whitespace> ? ')' ) ?
-                            '`'
-SymbolTail              ::= <FunctionIdentifiers> ? '(' <SymbolLabel> * ')' 
-                          | <Identifiers>         ? '[' <SymbolLabel> * ']'
-                          | <Identifiers>
-SymbolLabel             ::= <Identifier> '...' ? ':'
-ParagraphLink           ::= '[' [^\]] * '](' [^\)] ')'
-```
-
-Some Swift language features aren’t supported yet (`weak` variables, `static` subscripts, etc).
-
-## themes 
-
-Right now there is only one theme available, `big-sur.css`. You can see a deployed example of it [here](https://kelvin13.github.io/jpeg/JPEG/). The Apple *San Francisco* font is proprietary, so it is not possible (nor would it be interesting) to emulate the Apple API reference theme. 
+We are working on resurrecting some of these features using `swift-syntax` and information provided by the new symbol graph backend.
