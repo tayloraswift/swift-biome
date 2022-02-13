@@ -2,11 +2,8 @@ import StructuredDocument
 import HTML 
 import JSON
 
-extension Entrapta 
+extension Entrapta.Graph.Symbol 
 {
-    public 
-    typealias Frontend = Document.Element<Document.HTML, Anchor>
-    
     public 
     enum Anchor:DocumentID, Sendable
     {
@@ -16,89 +13,530 @@ extension Entrapta
             fatalError("unreachable")
         }
     }
+}
+extension Entrapta.Graph 
+{
+    public 
+    typealias Frontend  = Document.Element<Document.HTML, Symbol.Anchor>
+    public 
+    typealias Page      = Document.Dynamic<Document.HTML, Symbol.Anchor>
     
-    static 
-    func render(code:[Language.Lexeme], resolve:(Graph.Symbol.ID) -> Graph.Symbol?) 
-        -> [Frontend] 
+    func render(constraint:Language.Constraint) -> [Frontend] 
     {
-        code.map 
+        let subject:Language.Lexeme = .code(constraint.subject, class: .type(nil))
+        let prose:String
+        let object:Symbol.ID?
+        switch constraint.verb
         {
-            switch $0 
-            {
-            case .code(let text, class: let classification):
-                let css:String
-                switch classification 
+        case .inherits(from: let id): 
+            prose   = " inherits from "
+            object  = id
+        case .conforms(to: let id):
+            prose   = " conforms to "
+            object  = id
+        case .is(let id):
+            prose   = " is "
+            object  = id
+        }
+        return 
+            [
+                Frontend[.code]
                 {
-                case .punctuation: 
-                    return Frontend.text(escaping: text)
-                case .type(let id?):
-                    guard let resolved:Graph.Symbol = resolve(id)
-                    else 
-                    {
-                        fallthrough
-                    }
-                    return Frontend.link(text, to: resolved.path.canonical, internal: true)
-                    {
-                        ["syntax-type"] 
-                    }
-                case .type(nil):
-                    css = "syntax-type"
-                case .identifier:
-                    css = "syntax-identifier"
-                case .generic:
-                    css = "syntax-generic"
-                case .argument:
-                    css = "syntax-parameter-label"
-                case .parameter:
-                    css = "syntax-parameter-name"
-                case .directive, .keyword, .attribute:
-                    css = "syntax-keyword"
-                case .pseudo:
-                    css = "syntax-pseudo-identifier"
-                case .number, .string:
-                    css = "syntax-literal"
-                case .interpolation:
-                    css = "syntax-interpolation-anchor"
-                case .macro:
-                    css = "syntax-macro"
-                }
-                return Frontend.span(text)
+                    Self.render(lexeme: subject) { self.symbols[$0] }
+                },
+                Frontend.text(escaped: prose), 
+                Frontend[.code]
                 {
-                    [css]
-                }
-            case .comment(let text, documentation: _):
-                return Frontend.span(text)
-                {
-                    ["syntax-comment"]
-                } 
-            case .invalid(let text):
-                return Frontend.span(text)
-                {
-                    ["syntax-invalid"]
-                } 
-            case .newlines(let count):
-                return Frontend.span(String.init(repeating: "\n", count: count))
-                {
-                    ["syntax-newline"]
-                } 
-            case .spaces(let count):
-                return Frontend.text(escaped: String.init(repeating: " ", count: count)) 
-            }
+                    Self.render(lexeme: .code(constraint.object, class: .type(object))) { self.symbols[$0] }
+                },
+            ]
+    }
+    func render(constraints:[Language.Constraint]) -> [Frontend] 
+    {
+        guard let ultimate:Language.Constraint = constraints.last 
+        else 
+        {
+            fatalError("cannot call \(#function) with empty constraints array")
+        }
+        guard let penultimate:Language.Constraint = constraints.dropLast().last
+        else 
+        {
+            return self.render(constraint: ultimate)
+        }
+        if constraints.count < 3 
+        {
+            return self.render(constraint: penultimate) + 
+                CollectionOfOne<Frontend>.init(.text(escaped: " and ")) + 
+                self.render(constraint: ultimate)
+        }
+        else 
+        {
+            var fragments:[Frontend] = .init(constraints.dropLast()
+                .map(self.render(constraint:))
+                .joined(separator: CollectionOfOne<Frontend>.init(.text(escaped: ", "))))
+            fragments.append(.text(escaped: ", and "))
+            fragments.append(contentsOf: self.render(constraint: ultimate))
+            return fragments
         }
     }
     static 
-    func render(navigation symbol:Graph.Symbol, 
-        dereference:(Graph.Index) -> Graph.Symbol) -> Frontend
+    func render(lexeme:Language.Lexeme, resolve:((Symbol.ID) -> Symbol?)? = nil) -> Frontend
+    {
+        switch lexeme
+        {
+        case .code(let text, class: let classification):
+            let css:String
+            switch classification 
+            {
+            case .punctuation: 
+                return Frontend.text(escaping: text)
+            case .type(let id?):
+                guard let resolve:(Symbol.ID) -> Symbol? = resolve 
+                else 
+                {
+                    fallthrough
+                }
+                guard let resolved:Symbol = resolve(id)
+                else 
+                {
+                    print("warning: no symbol for id '\(id)'")
+                    fallthrough
+                }
+                return Frontend.link(text, to: resolved.path.canonical, internal: true)
+                {
+                    ["syntax-type"] 
+                }
+            case .type(nil):
+                css = "syntax-type"
+            case .identifier:
+                css = "syntax-identifier"
+            case .generic:
+                css = "syntax-generic"
+            case .argument:
+                css = "syntax-parameter-label"
+            case .parameter:
+                css = "syntax-parameter-name"
+            case .directive, .attribute, .keyword(.other):
+                css = "syntax-keyword"
+            case .keyword(.`init`):
+                css = "syntax-keyword syntax-swift-init"
+            case .keyword(.deinit):
+                css = "syntax-keyword syntax-swift-deinit"
+            case .keyword(.subscript):
+                css = "syntax-keyword syntax-swift-subscript"
+            case .pseudo:
+                css = "syntax-pseudo-identifier"
+            case .number, .string:
+                css = "syntax-literal"
+            case .interpolation:
+                css = "syntax-interpolation-anchor"
+            case .macro:
+                css = "syntax-macro"
+            }
+            return Frontend.span(text)
+            {
+                [css]
+            }
+        case .comment(let text, documentation: _):
+            return Frontend.span(text)
+            {
+                ["syntax-comment"]
+            } 
+        case .invalid(let text):
+            return Frontend.span(text)
+            {
+                ["syntax-invalid"]
+            } 
+        case .newlines(let count):
+            return Frontend.span(String.init(repeating: "\n", count: count))
+            {
+                ["syntax-newline"]
+            } 
+        case .spaces(let count):
+            return Frontend.text(escaped: String.init(repeating: " ", count: count)) 
+        }
+    }
+    static 
+    func render(code:[Language.Lexeme], resolve:((Symbol.ID) -> Symbol?)? = nil) -> [Frontend] 
+    {
+        code.map { Self.render(lexeme: $0, resolve: resolve) }
+    }
+    func render(code:[Language.Lexeme]) -> [Frontend] 
+    {
+        Self.render(code: code) { self.symbols[$0] }
+    }
+    func renderArticle(_ symbol:Symbol) -> Frontend
+    {
+        let relationships:[Frontend] = (symbol.interface.map 
+        {
+            _ in 
+            [
+                Frontend[.p]
+                {
+                    ["required"]
+                }
+                content:
+                {
+                    "Required."
+                }
+            ]
+        } ?? [])
+        + 
+        symbol.upstream.compactMap
+        {
+            (conformance:(index:Index, conditions:[Language.Constraint])) in 
+            
+            guard !conformance.conditions.isEmpty 
+            else 
+            {
+                return nil 
+            }
+            return Frontend[.p]
+            {
+                "Conforms to "
+                Frontend[.code] 
+                {
+                    Frontend[.a]
+                    {
+                        (self[conformance.index].path.canonical, as: Document.HTML.Href.self)
+                    }
+                    content: 
+                    {
+                        Self.render(code: self[conformance.index].breadcrumbs.lexemes)
+                    }
+                }
+                " when "
+                self.render(constraints: conformance.conditions)
+            }
+        }
+        
+        return Frontend[.article]
+        {
+            ["upper-container-left"]
+        }
+        content: 
+        {
+            Frontend[.section]
+            {
+                ["introduction"]
+            }
+            content:
+            {
+                Frontend[.p]
+                {
+                    ["eyebrow"]
+                }
+                content:
+                {
+                    symbol.kind.description
+                }
+                Frontend[.h1]
+                {
+                    symbol.title
+                }
+                if let head:Frontend = symbol.discussion.head 
+                {
+                    head
+                }
+                else 
+                {
+                    Frontend[.p]
+                    {
+                        "No overview available."
+                    }
+                }
+                if !relationships.isEmpty 
+                {
+                    Frontend[.ul]
+                    {
+                        ["relationships-list"]
+                    }
+                    content: 
+                    {
+                        for item:Frontend in relationships
+                        {
+                            Frontend[.li]
+                            {
+                                item
+                            }
+                        }
+                    }
+                }
+            }
+            Frontend[.section]
+            {
+                ["declaration"]
+            }
+            content:
+            {
+                Frontend[.h2]
+                {
+                    "Declaration"
+                }
+                Frontend[.pre]
+                {
+                    Frontend[.code] 
+                    {
+                        ["swift"]
+                    }
+                    content: 
+                    {
+                        self.render(code: symbol.declaration)
+                    }
+                }
+            }
+            Frontend[.section]
+            {
+                ["discussion"]
+            }
+            content: 
+            {
+                symbol.discussion.body
+            }
+        }
+    }
+    func renderSection(_ types:[(index:Index, conditions:[Language.Constraint])], heading:String) 
+        -> Frontend?
+    {
+        if types.isEmpty
+        {
+            return nil 
+        }
+        return Frontend[.section]
+        {
+            ["relationships"]
+        }
+        content: 
+        {
+            Frontend[.h2]
+            {
+                heading
+            }
+            Frontend[.ul]
+            {
+                for (index, conditions):(Index, [Language.Constraint]) in types 
+                {
+                    Frontend[.li]
+                    {
+                        Frontend[.code]
+                        {
+                            ["signature"]
+                        }
+                        content: 
+                        {
+                            Frontend[.a]
+                            {
+                                (self[index].path.canonical, as: Document.HTML.Href.self)
+                            }
+                            content: 
+                            {
+                                Self.render(code: self[index].breadcrumbs.lexemes)
+                            }
+                        }
+                        if !conditions.isEmpty
+                        {
+                            Frontend[.p]
+                            {
+                                ["relationship"]
+                            }
+                            content: 
+                            {
+                                "When "
+                                self.render(constraints: conditions)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    func renderTopics<S>(_ topics:S, heading:String) -> Frontend?
+        where S:Sequence, S.Element == (key:Entrapta.Topic, indices:[Index])
+    {
+        let topics:[Frontend] = topics.map
+        {
+            (topic:(heading:Entrapta.Topic, members:[Index])) in 
+            Frontend[.div]
+            {
+                ["topic-container"]
+            }
+            content:
+            {
+                Frontend[.div]
+                {
+                    ["topic-container-left"]
+                }
+                content:
+                {
+                    Frontend[.h3]
+                    {
+                        topic.heading.description
+                    }
+                }
+                Frontend[.ul]
+                {
+                    ["topic-container-right"]
+                }
+                content:
+                {
+                    for index:Index in topic.members
+                    {
+                        let member:Symbol = self[index]
+                        Frontend[.li]
+                        {
+                            Frontend[.code]
+                            {
+                                ["signature"]
+                            }
+                            content: 
+                            {
+                                Frontend[.a]
+                                {
+                                    (member.path.canonical, as: Document.HTML.Href.self)
+                                }
+                                content: 
+                                {
+                                    Self.render(code: member.signature)
+                                }
+                            }
+                            if let head:Frontend = member.discussion.head 
+                            {
+                                head
+                            }
+                            
+                            if let overridden:Index = member.overrides 
+                            {
+                                if let abstract:Index = self[overridden].parent 
+                                {
+                                    switch self[abstract].kind 
+                                    {
+                                    case .declaration(.class):
+                                        self.renderRelationship(overridden, "Overrides virtual member in ", abstract)
+                                    case .declaration(.protocol):
+                                        self.renderRelationship(overridden, "Type inference hint for requirement in ", abstract)
+                                    default: 
+                                        let _:Void = print("warning: parent of overridden symbol '\(self[overridden].title)' is not a class or protocol")
+                                    }
+                                }
+                                else 
+                                {
+                                    let _:Void = print("warning: parent of overridden symbol '\(self[overridden].title)' does not exist")
+                                }
+                            } 
+                        }
+                    } 
+                }
+            }
+        }
+        guard !topics.isEmpty 
+        else 
+        {
+            return nil
+        }
+        return Frontend[.section]
+        {
+            ["topics"]
+        }
+        content: 
+        {
+            Frontend[.h2]
+            {
+                heading
+            }
+            topics
+        }
+    }
+    func renderRelationship(_ target:Index, _ prose:String, _ type:Index) -> Frontend
+    {
+        Frontend[.p]
+        {
+            ["relationship"]
+        }
+        content:
+        {
+            prose 
+            Frontend[.code]
+            {
+                Frontend[.a]
+                {
+                    (self[target].path.canonical, as: Document.HTML.Href.self)
+                }
+                content: 
+                {
+                    Self.render(code: self[type].breadcrumbs.lexemes)
+                }
+            }
+        }
+    }
+    func renderEpilogue(_ symbol:Symbol) -> Frontend?
+    {
+        var category:String 
+        if case .declaration(.protocol) = symbol.kind 
+        {
+            category = "Implies"
+        }
+        else 
+        {
+            category = "Conforms To"
+        }
+        // TODO: use the constraint information
+        return self.renderSection(symbol.upstream, heading: category)
+    }
+    func renderMain(_ symbol:Symbol) -> Frontend
+    {
+        return Frontend[.main, id: nil]
+        {
+            Frontend[.div]
+            {
+                ["upper"]
+            }
+            content: 
+            {
+                Frontend[.div]
+                {
+                    ["upper-container"]
+                }
+                content: 
+                {
+                    self.renderArticle(symbol)
+                }
+            }
+            Frontend[.div]
+            {
+                ["lower"]
+            }
+            content: 
+            {
+                Frontend[.div]
+                {
+                    ["lower-container"]
+                }
+                content:
+                {
+                    self.renderSection(symbol.downstream.map { ($0, []) }, heading: "Refinements")
+                    self.renderSection(symbol.subclasses.map { ($0, []) }, heading: "Subclasses")
+                    // TODO: use the constraints
+                    self.renderSection(symbol.conformers, heading: "Conforming Types")
+                    
+                    self.renderTopics(symbol.topics.requirements, heading: "Requirements")
+                    self.renderTopics(symbol.topics.members, heading: "Members")
+                    
+                    self.renderEpilogue(symbol)
+                }
+            }
+        }
+    }
+    func renderNavigation(_ symbol:Symbol) -> Frontend
     {
         let tail:Frontend           = Frontend[.li]
         {
             symbol.breadcrumbs.tail 
         }
         var breadcrumbs:[Frontend]  = [tail]
-        var next:Graph.Index?       = symbol.parent
-        while let index:Graph.Index = next 
+        var next:Index?             = symbol.parent
+        while let index:Index       = next 
         {
-            let parent:Graph.Symbol = dereference(index)
+            let parent:Symbol       = self[index]
             breadcrumbs.append(Frontend[.li]
             {
                 Frontend.link(parent.breadcrumbs.tail, to: parent.path.canonical, internal: true)
@@ -128,256 +566,7 @@ extension Entrapta
             }
         }
     }
-    static 
-    func render(symbol:Graph.Symbol, 
-        dereference:(Graph.Index) -> Graph.Symbol, 
-        resolve:(Graph.Symbol.ID) -> Graph.Symbol?) -> Frontend
-    {
-        let discussion:(head:Frontend?, body:[Frontend]) 
-        if let comment:String = symbol.comment 
-        {
-            discussion = Self.render(markdown: comment)
-            {
-                (path:String?) in 
-                Frontend[.code]
-                {
-                    path ?? "<unknown>"
-                }
-            }
-            link: 
-            {
-                (target:String?, content:[Frontend]) in 
-                if let target:String = target
-                {
-                    return Frontend[.a]
-                    {
-                        (target, as: Document.HTML.Href.self)
-                        Document.HTML.Target._blank
-                        Document.HTML.Rel.nofollow
-                    }
-                    content:
-                    {
-                        content
-                    }
-                }
-                else 
-                {
-                    return Frontend[.span]
-                    {
-                        content
-                    }
-                }
-            }
-            image: 
-            {
-                (source:String?, alt:[Frontend], title:String?) in 
-                if let source:String = source
-                {
-                    return Frontend[.img]
-                    {
-                        (source, as: Document.HTML.Src.self)
-                    }
-                }
-                else 
-                {
-                    return Frontend[.img]
-                }
-            }
-            highlight: 
-            {
-                (code:String) in 
-                Frontend[.pre]
-                {
-                    Frontend[.code]
-                    {
-                        Self.render(code: Language.highlight(code: code), resolve: resolve)
-                    }
-                }
-            }
-        }
-        else 
-        {
-            discussion = (nil, [])
-        }
-        return Frontend[.main]
-        {
-            Frontend[.div]
-            {
-                ["upper"]
-            }
-            content: 
-            {
-                Frontend[.div]
-                {
-                    ["upper-container"]
-                }
-                content: 
-                {
-                    Frontend[.article]
-                    {
-                        ["upper-container-left"]
-                    }
-                    content: 
-                    {
-                        Frontend[.section]
-                        {
-                            ["introduction"]
-                        }
-                        content:
-                        {
-                            Frontend[.p]
-                            {
-                                ["eyebrow"]
-                            }
-                            content:
-                            {
-                                symbol.kind.description
-                            }
-                            Frontend[.h1]
-                            {
-                                symbol.title
-                            }
-                            if let head:Frontend = discussion.head 
-                            {
-                                head
-                            }
-                            else 
-                            {
-                                Frontend[.p]
-                                {
-                                    "No overview available."
-                                }
-                            }
-                            if symbol.isRequirement 
-                            {
-                                Frontend[.p]
-                                {
-                                    ["requirement"]
-                                }
-                                content:
-                                {
-                                    "Required."
-                                }
-                            }
-                        }
-                        Frontend[.section]
-                        {
-                            ["declaration"]
-                        }
-                        content:
-                        {
-                            Frontend[.h2]
-                            {
-                                "Declaration"
-                            }
-                            Frontend[.pre]
-                            {
-                                Frontend[.code] 
-                                {
-                                    ["swift"]
-                                }
-                                content: 
-                                {
-                                    Self.render(code: symbol.declaration, resolve: resolve)
-                                }
-                            }
-                        }
-                        Frontend[.section]
-                        {
-                            ["discussion"]
-                        }
-                        content: 
-                        {
-                            discussion.body
-                        }
-                    }
-                }
-            }
-            Frontend[.div]
-            {
-                ["lower"]
-            }
-            content: 
-            {
-                Frontend[.div]
-                {
-                    ["lower-container"]
-                }
-                content:
-                {
-                    Frontend[.section]
-                    {
-                        ["topics"]
-                    }
-                    content: 
-                    {
-                        Frontend[.h2]
-                        {
-                            "Topics"
-                        }
-                        for (topic, members):(Entrapta.Topic, [Graph.Index]) in symbol.topics 
-                        {
-                            Frontend[.div]
-                            {
-                                ["topic-container"]
-                            }
-                            content:
-                            {
-                                Frontend[.div]
-                                {
-                                    ["topic-container-left"]
-                                }
-                                content:
-                                {
-                                    Frontend[.h3]
-                                    {
-                                        topic.description
-                                    }
-                                }
-                                Frontend[.ul]
-                                {
-                                    ["topic-container-right"]
-                                }
-                                content:
-                                {
-                                    for member:Graph.Symbol in members.map(dereference)
-                                    {
-                                        Frontend[.li]
-                                        {
-                                            ["member"]
-                                        }
-                                        content: 
-                                        {
-                                            Frontend[.code]
-                                            {
-                                                ["signature"]
-                                            }
-                                            content: 
-                                            {
-                                                Frontend[.a]
-                                                {
-                                                    (member.path.canonical, as: Document.HTML.Href.self)
-                                                }
-                                                content: 
-                                                {
-                                                    Self.render(code: member.signature){ _ in nil }
-                                                }
-                                            }
-                                        }
-                                    } 
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    static 
-    func render(page symbol:Graph.Symbol, 
-        dereference:(Graph.Index) -> Graph.Symbol, 
-        resolve:(Graph.Symbol.ID) -> Graph.Symbol?) 
-        -> Document.Dynamic<Document.HTML, Anchor> 
+    func render(_ symbol:Symbol) -> Page
     {
         .init 
         {
@@ -430,25 +619,26 @@ extension Entrapta
             }
             content: 
             {
-                Self.render(navigation: symbol, dereference: dereference)
-                Self.render(symbol: symbol, dereference: dereference, resolve: resolve)
+                self.renderNavigation(symbol)
+                self.renderMain(symbol)
             }
         }
     }
-    
+}
+extension Entrapta
+{
     public 
     enum Response 
     {
-        case canonical(Document.Dynamic<Document.HTML, Anchor>)
+        case canonical(Graph.Page)
         case found(String)
     }
-    
     public 
     struct Documentation:Sendable
     {
-        typealias Index = Dictionary<Graph.Symbol.Path, Document.Dynamic<Document.HTML, Anchor>>.Index 
+        typealias Index = Dictionary<Graph.Symbol.Path, Graph.Page>.Index 
         
-        var pages:[Graph.Symbol.Path: Document.Dynamic<Document.HTML, Anchor>]
+        var pages:[Graph.Symbol.Path: Graph.Page]
         var disambiguations:[Graph.Symbol.ID: Index]
         
         public 
@@ -460,29 +650,87 @@ extension Entrapta
                 try Grammar.parse($0, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
             }
             print("parsed JSON")
-            let graph:Graph     = try .init(prefix: prefix, modules: json)
+            var graph:Graph     = try .init(prefix: prefix, modules: json)
+            // rendering must take place in two passes, since pages can include 
+            // snippets of other pages 
+            for index:Graph.Index in graph.symbols.indices 
+            {
+                guard !graph[index].comment.isEmpty
+                else 
+                {
+                    continue 
+                }
+                graph[index].discussion     = Entrapta.render(markdown: graph[index].comment)
+                {
+                    (path:String?) in 
+                    Graph.Frontend[.code]
+                    {
+                        path ?? "<unknown>"
+                    }
+                }
+                link: 
+                {
+                    (target:String?, content:[Graph.Frontend]) in 
+                    if let target:String = target
+                    {
+                        return Graph.Frontend[.a]
+                        {
+                            (target, as: Document.HTML.Href.self)
+                            Document.HTML.Target._blank
+                            Document.HTML.Rel.nofollow
+                        }
+                        content:
+                        {
+                            content
+                        }
+                    }
+                    else 
+                    {
+                        return Graph.Frontend[.span]
+                        {
+                            content
+                        }
+                    }
+                }
+                image: 
+                {
+                    (source:String?, alt:[Graph.Frontend], title:String?) in 
+                    if let source:String = source
+                    {
+                        return Graph.Frontend[.img]
+                        {
+                            (source, as: Document.HTML.Src.self)
+                        }
+                    }
+                    else 
+                    {
+                        return Graph.Frontend[.img]
+                    }
+                }
+                highlight: 
+                {
+                    (code:String) in 
+                    Graph.Frontend[.pre]
+                    {
+                        ["notebook"]
+                    }
+                    content:
+                    {
+                        Graph.Frontend[.code]
+                        {
+                            graph.render(code: Language.highlight(code: code))
+                        }
+                    }
+                }
+            }
             self.init(graph: graph, prefix: prefix)
         }
         
         init(graph:Graph, prefix:[String]) 
         {
             // paths are always unique at this point 
-            let pages:[Graph.Symbol.Path: Document.Dynamic<Document.HTML, Anchor>] = 
-                .init(uniqueKeysWithValues: graph.symbols.values.map
-            {
-                (symbol:Graph.Symbol) -> (key:Graph.Symbol.Path, value:Document.Dynamic<Document.HTML, Anchor>) in 
-                (
-                    symbol.path, 
-                    Entrapta.render(page: symbol)
-                    {
-                        graph[$0]
-                    }
-                    resolve: 
-                    {
-                        graph.symbols[$0]
-                    } 
-                )
-            })
+            let pages:[Graph.Symbol.Path: Graph.Page] = .init(uniqueKeysWithValues: 
+                graph.symbols.values.map { ($0.path, graph.render($0)) })
             self.disambiguations = .init(uniqueKeysWithValues: graph.symbols.map 
             {
                 guard let index:Index = pages.index(forKey: $0.value.path)
@@ -501,7 +749,7 @@ extension Entrapta
             let key:Graph.Symbol.ID?    = disambiguation.map(Graph.Symbol.ID.declaration(precise:))
             let normalized:String       = group.lowercased()
             let path:Graph.Symbol.Path  = .init(group: normalized, disambiguation: key)
-            if let page:Document.Dynamic<Document.HTML, Anchor> = self.pages[path]
+            if let page:Graph.Page = self.pages[path]
             {
                 guard normalized == group 
                 else 

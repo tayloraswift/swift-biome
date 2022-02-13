@@ -22,6 +22,7 @@ let package = Package(
             [
                 .product(name: "JSON",                  package: "swift-json"),
                 .product(name: "StructuredDocument",    package: "swift-structured-document"),
+                .product(name: "SwiftSyntaxParser",     package: "swift-syntax"),
                 .product(name: "SwiftSyntax",           package: "swift-syntax"),
                 .product(name: "Markdown",              package: "swift-markdown"),
             ], 

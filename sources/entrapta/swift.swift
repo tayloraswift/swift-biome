@@ -74,6 +74,14 @@ enum Language
         }
     }
     public 
+    enum Keyword 
+    {
+        case `init` 
+        case `deinit` 
+        case `subscript`
+        case other 
+    }
+    public 
     enum Lexeme 
     {
         public 
@@ -88,7 +96,7 @@ enum Language
             case parameter
             //  example: `#warning`. should be colored like a keyword
             case directive 
-            case keyword 
+            case keyword(Keyword) 
             case pseudo
             case number
             case string 
@@ -142,7 +150,15 @@ enum Language
             switch items.removeValue(forKey: "kind")
             {
             case .string("keyword")?:
-                self = .code(string, class: .keyword)
+                let keyword:Keyword 
+                switch string 
+                {
+                case "init":        keyword = .`init`
+                case "deinit":      keyword = .deinit
+                case "subscript":   keyword = .subscript
+                default:            keyword = .other 
+                }
+                self = .code(string, class: .keyword(keyword))
             case .string("attribute")?:
                 self = .code(string, class: .attribute)
             case .string("number")?:
@@ -200,14 +216,32 @@ enum Language
     static 
     func highlight(tree:Syntax) -> [Lexeme]
     {
-        tree.tokens.flatMap 
+        var lexemes:[Lexeme] = tree.tokens.flatMap 
         {
-            $0.leadingTrivia.map(Lexeme.init(_:))
-            +
-            CollectionOfOne<Lexeme>.init(.init($0))
-            +
-            $0.trailingTrivia.map(Lexeme.init(_:))
+            (token:TokenSyntax) -> [Lexeme] in 
+            if let lexeme:Lexeme = .init(token)
+            {
+                return 
+                    token.leadingTrivia.map(Lexeme.init(_:))
+                    +
+                    CollectionOfOne<Lexeme>.init(lexeme)
+                    +
+                    token.trailingTrivia.map(Lexeme.init(_:))
+            }
+            else 
+            {
+                return 
+                    token.leadingTrivia.map(Lexeme.init(_:))
+                    +
+                    token.trailingTrivia.map(Lexeme.init(_:))
+            }
         }
+        // strip trailing newlines 
+        while case .newlines(_)? = lexemes.last 
+        {
+            lexemes.removeLast()
+        }
+        return lexemes
     }
 }
 extension Language.Lexeme 
@@ -232,13 +266,26 @@ extension Language.Lexeme
             self = .comment(string, documentation: true)
         }
     }
-    init(_ token:TokenSyntax)
+    init?(_ token:TokenSyntax)
     {
+        guard !token.text.isEmpty
+        else 
+        {
+            return nil
+        }
         let classification:Class 
         switch token.tokenClassification.kind 
         {
         case .none:                         classification = .punctuation 
-        case .keyword:                      classification = .keyword 
+        case .keyword:
+            switch token.tokenKind 
+            {
+            case .initKeyword:              classification = .keyword(.`init`)
+            case .deinitKeyword:            classification = .keyword(.deinit)
+            case .subscriptKeyword:         classification = .keyword(.subscript)
+            default:                        classification = .keyword(.other)
+            }
+            
         case .identifier:                   classification = .identifier
         case .typeIdentifier:               classification = .type(nil)
         case .dollarIdentifier:             classification = .pseudo

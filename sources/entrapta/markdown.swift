@@ -145,13 +145,13 @@ extension Entrapta
 {
     static 
     func render(markdown string:String, 
-        symbol:(_ destination:String?) -> Frontend, 
-        link:(_ destination:String?, _ content:[Frontend]) -> Frontend, 
-        image:(_ source:String?, _ alt:[Frontend], _ title:String?) -> Frontend,
-        highlight:(_ code:String) -> Frontend) 
-        -> (head:Frontend?, body:[Frontend])
+        symbol:(_ destination:String?) -> Graph.Frontend, 
+        link:(_ destination:String?, _ content:[Graph.Frontend]) -> Graph.Frontend, 
+        image:(_ source:String?, _ alt:[Graph.Frontend], _ title:String?) -> Graph.Frontend,
+        highlight:(_ code:String) -> Graph.Frontend) 
+        -> (head:Graph.Frontend?, body:[Graph.Frontend])
     {
-        func render(markdown:Markdown.Markup) -> Frontend 
+        func render(markdown:Markdown.Markup) -> Graph.Frontend 
         {
             .init(markdown: markdown, symbol: symbol, link: link, image: image, highlight: highlight)
         }

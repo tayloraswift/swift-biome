@@ -199,7 +199,7 @@ extension Entrapta.Graph.Symbol
             throw DecodingError.init(expected: [String: JSON]?.self, in: "functionSignature", encountered: value)
         }
         // decode extension info
-        let extends:(module:String?, where:[Language.Constraint])?
+        let extends:(module:String, where:[Language.Constraint])?
         switch items.removeValue(forKey: "swiftExtension")
         {
         case nil, .null?: 
@@ -340,11 +340,11 @@ extension Entrapta.Graph.Symbol
         }
         
         // decode doccomment
-        let comment:String?
+        let comment:String
         switch items.removeValue(forKey: "docComment")
         {
         case nil, .null?: 
-            comment = nil 
+            comment = ""
         case .object(var items): 
             defer 
             {
@@ -438,6 +438,7 @@ extension Entrapta.Graph.Symbol
                 .enumeration,
                 .structure,
                 .`class`,
+                .actor,
                 .`protocol`:
             group = prefix + module.identifier + 
                 CollectionOfOne<String>.init(path.map{ $0.lowercased() }.joined(separator: "."))
@@ -629,51 +630,91 @@ extension Entrapta.Graph.Symbol.Parameter
     } 
 }
 
-extension Entrapta
+extension Entrapta.Graph.Edge 
 {
-    enum Descriptor 
+    typealias DecodingError = Entrapta.DecodingError<JSON, Self> 
+    
+    init(from json:JSON) throws 
     {
-    }
-}
-extension Entrapta.Descriptor 
-{
-    struct Edge:Codable 
-    {
-        // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
-        enum Kind:String, Codable
+        guard case .object(var items) = json
+        else 
         {
-            case member                     = "memberOf"
-            case conformer                  = "conformsTo"
-            case subclass                   = "inheritsFrom"
-            case override                   = "overrides"
-            case requirement                = "requirementOf"
-            case optionalRequirement        = "optionalRequirementOf"
-            case defaultImplementation      = "defaultImplementationOf"
+            throw DecodingError.init(expected: [String: JSON].self, encountered: json)
         }
-        struct Origin:Codable
+        defer 
         {
-            var id:String 
-            var display:String 
-            
-            enum CodingKeys:String, CodingKey 
+            if !items.isEmpty 
             {
-                case id         = "identifier"
-                case display    = "displayName"
+                print("warning: unused json keys \(items) in edge descriptor")
             }
         }
-        // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.cpp
-        var kind:Kind 
-        var target:String 
-        var source:String 
-        // if the source inherited docs 
-        var origin:Origin?
-        
-        enum CodingKeys:String, CodingKey 
+        // decode kind 
+        switch items.removeValue(forKey: "kind")
         {
-            case kind   = "kind"
-            case target = "target"
-            case source = "source"
-            case origin = "sourceOrigin"
+        case .string(let text)?:
+            guard let kind:Kind = .init(rawValue: text)
+            else 
+            {
+                throw DecodingError.init(expected: Kind.self, in: "kind", encountered: .string(text))
+            }
+            self.kind = kind 
+        case let value:
+            throw DecodingError.init(expected: String.self, in: "kind", encountered: value)
+        }
+        switch items.removeValue(forKey: "source")
+        {
+        case .string(let text)?:
+            self.source = .declaration(precise: text)
+        case let value:
+            throw DecodingError.init(expected: String.self, in: "source", encountered: value)
+        }
+        switch items.removeValue(forKey: "target")
+        {
+        case .string(let text)?:
+            self.target = .declaration(precise: text)
+        case let value:
+            throw DecodingError.init(expected: String.self, in: "source", encountered: value)
+        }
+        switch items.removeValue(forKey: "sourceOrigin")
+        {
+        case nil, .null?: 
+            self.origin = nil 
+        case .object(var items)?:
+            defer 
+            {
+                if !items.isEmpty 
+                {
+                    print("warning: unused json keys \(items) in 'sourceOrigin'")
+                }
+            }
+            let id:Entrapta.Graph.Symbol.ID, 
+                name:String 
+            switch items.removeValue(forKey: "identifier")
+            {
+            case .string(let text)?:
+                id = .declaration(precise: text)
+            case let value:
+                throw DecodingError.init(expected: String.self, in: "sourceOrigin.identifier", encountered: value)
+            }
+            switch items.removeValue(forKey: "displayName")
+            {
+            case .string(let text)?:
+                name = text
+            case let value:
+                throw DecodingError.init(expected: String.self, in: "sourceOrigin.displayName", encountered: value)
+            }
+            self.origin = (id, name)
+        case let value:
+            throw DecodingError.init(expected: [String: JSON]?.self, in: "sourceOrigin", encountered: value)
+        }
+        switch items.removeValue(forKey: "swiftConstraints")
+        {
+        case nil, .null?: 
+            self.constraints = []
+        case .array(let elements)?:
+            self.constraints = try elements.map(Language.Constraint.init(from:))
+        case let value:
+            throw DecodingError.init(expected: [JSON]?.self, in: "swiftConstraints", encountered: value)
         }
     }
 }

@@ -28,8 +28,8 @@ enum Entrapta
     
     enum Topic:Hashable, CustomStringConvertible 
     {
-        case requirements 
-        case defaults
+        // case requirements 
+        // case defaults
         case kind(Entrapta.Graph.Symbol.Kind)
         case custom(String)
         case cluster(String)
@@ -38,8 +38,8 @@ enum Entrapta
         {
             switch self 
             {
-            case .requirements:         return "Requirements"
-            case .defaults:             return "Default Implementations"
+            // case .requirements:         return "Requirements"
+            // case .defaults:             return "Default Implementations"
             case .kind(let kind):       return kind.plural 
             case .custom(let heading):  return heading 
             case .cluster(_):           return "See Also"
@@ -183,58 +183,12 @@ enum Entrapta
             }
 
             try self.init(prefix: prefix, modules: declarations)
-            
+            // link the edges 
             for (_, json):(Symbol.Module, [JSON]) in edges 
             {
                 for json:JSON in json
                 {
-                    let descriptor:Descriptor.Edge = try .init(from: json)
-                    
-                    let source:Symbol.ID = .declaration(precise: descriptor.source)
-                    let target:Symbol.ID = .declaration(precise: descriptor.target)
-                    
-                    switch 
-                    (
-                        self.symbols.index(forKey: source),
-                        is: descriptor.kind,
-                        of: self.symbols.index(forKey: target)
-                    )
-                    {
-                    case    (let symbol?, is: .member, of: let type?): 
-                        self[type].members.append(symbol)
-                    
-                    case    (let symbol?, is: .conformer, of: let superclass?):
-                        self[symbol].conformances.append(superclass)
-                        self[superclass].conformers.append(symbol)
-                    case    (let symbol?, is: .subclass, of: let superclass?):
-                        if let incumbent:Index = self[symbol].superclass
-                        {
-                            print("warning: symbol \(self[symbol].title) has multiple superclasses '\(self[incumbent].title)', '\(self[superclass].title)'")
-                        }
-                        self[symbol].superclass = superclass
-                        self[superclass].subclasses.append(symbol)
-                        
-                    case    (let symbol?, is: .optionalRequirement, of: let `protocol`?),
-                            (let symbol?, is: .requirement, of: let `protocol`?):
-                        self[symbol].isRequirement = true
-                        self[`protocol`].requirements.append(symbol)
-                    
-                    case    (let symbol?, is: .override, of: let requirement?):
-                        if let incumbent:Index = self[symbol].overrides 
-                        {
-                            print("warning: symbol \(self[symbol].title) overrides multiple requirements '\(self[incumbent].title)', '\(self[requirement].title)'")
-                        }
-                        self[symbol].overrides = requirement 
-                        
-                    case    (let symbol?, is: .defaultImplementation, of: let requirement?):
-                        self[symbol].implements.append(requirement)
-                        self[requirement].defaults.append(symbol)
-                    
-                    case    (nil, is: _, of: _): 
-                        print("warning: undefined symbol id '\(source)'")
-                    case    (_, is: _, of: nil): 
-                        print("warning: undefined symbol id '\(target)'")
-                    }
+                    self.link(edge: try .init(from: json))
                 }
             }
             
@@ -275,57 +229,133 @@ enum Entrapta
         }
         
         mutating 
+        func link(edge:Edge) 
+        {
+            switch 
+            (
+                self.symbols.index(forKey: edge.source),
+                is: edge.kind,
+                of: self.symbols.index(forKey: edge.target)
+            )
+            {
+            case    (let symbol?, is: .member, of: let type?): 
+                if !edge.constraints.isEmpty 
+                {
+                    print("warning: edge constraints are not supported for member relationships")
+                }
+                self[type].members.append(symbol)
+            
+            case    (let symbol?, is: .conformer, of: let upstream?):
+                if case .declaration(.protocol) = self[symbol].kind 
+                {
+                    // <Protocol>:<Protocol>
+                    if !edge.constraints.isEmpty 
+                    {
+                        print("warning: protocol '\(self[upstream].title)' cannot conditionally refine an upstream protocol")
+                    }
+                    
+                    self[symbol].upstream.append((upstream, []))
+                    self[upstream].downstream.append(symbol)
+                }
+                else if case .declaration(.protocol) = self[upstream].kind 
+                {
+                    // <Non-protocol>:<Protocol>
+                    self[symbol].upstream.append((upstream, edge.constraints))
+                    self[upstream].conformers.append((symbol, edge.constraints))
+                }
+                else 
+                {
+                    print("warning: ignored upstream type '\(self[upstream].title)' because it is not a protocol")
+                }
+            case    (let symbol?, is: .subclass, of: let superclass?):
+                if !edge.constraints.isEmpty 
+                {
+                    print("warning: edge constraints are not supported for subclass relationships")
+                }
+                if let incumbent:Index = self[symbol].superclass
+                {
+                    print("warning: symbol \(self[symbol].title) has multiple superclasses '\(self[incumbent].title)', '\(self[superclass].title)'")
+                }
+                if case .declaration(.class) = self[superclass].kind 
+                {
+                    self[symbol].superclass = superclass
+                    self[superclass].subclasses.append(symbol)
+                }
+                else 
+                {
+                    print("warning: ignored superclass type '\(self[superclass].title)' because it is not a class")
+                }
+                
+            case    (let symbol?, is: .optionalRequirement, of: let interface?),
+                    (let symbol?, is: .requirement, of: let interface?):
+                if !edge.constraints.isEmpty 
+                {
+                    print("warning: edge constraints are not supported for requirement relationships")
+                }
+                if let incumbent:Index = self[symbol].interface
+                {
+                    print("warning: symbol \(self[symbol].title) is a requirement of multiple protocols '\(self[incumbent].title)', '\(self[interface].title)'")
+                }
+                if case .declaration(.protocol) = self[interface].kind 
+                {
+                    self[symbol].interface = interface
+                    self[interface].requirements.append(symbol)
+                }
+                else 
+                {
+                    print("warning: ignored interface type '\(self[interface].title)' because it is not a protocol")
+                }
+            
+            case    (let symbol?, is: .override, of: let requirement?):
+                if !edge.constraints.isEmpty 
+                {
+                    print("warning: edge constraints are not supported for override relationships")
+                }
+                if let incumbent:Index = self[symbol].overrides 
+                {
+                    print("warning: symbol \(self[symbol].title) overrides multiple requirements '\(self[incumbent].title)', '\(self[requirement].title)'")
+                }
+                self[symbol].overrides = requirement 
+                
+            case    (let symbol?, is: .defaultImplementation, of: let requirement?):
+                if !edge.constraints.isEmpty 
+                {
+                    print("warning: edge constraints are not supported for default implementation relationships")
+                }
+                self[symbol].implements.append(requirement)
+                self[requirement].defaults.append(symbol)
+            
+            case    (nil, is: _, of: _): 
+                print("warning: undefined symbol id '\(edge.source)'")
+            case    (_, is: _, of: nil): 
+                print("warning: undefined symbol id '\(edge.target)'")
+            }
+        }
+        mutating 
         func populateTopics() 
         {
             for index:Index in self.symbols.indices 
-            {
-                if !self[index].requirements.isEmpty 
-                {
-                    self[index].topics.append((.requirements, self[index].requirements))
-                }
-                if !self[index].defaults.isEmpty 
-                {
-                    self[index].topics.append((.defaults, self[index].defaults))
-                }
-                if !self[index].conformances.isEmpty 
-                {
-                    self[index].topics.append((.custom("conformances"), self[index].conformances))
-                }
-                if !self[index].conformers.isEmpty 
-                {
-                    self[index].topics.append((.custom("conformers"), self[index].conformers))
-                }
-                if !self[index].subclasses.isEmpty 
-                {
-                    self[index].topics.append((.custom("subclasses"), self[index].subclasses))
-                }
-                if let superclass:Index = self[index].superclass 
-                {
-                    self[index].topics.append((.custom("superclass"), [superclass]))
-                }
-                if !self[index].implements.isEmpty
-                {
-                    self[index].topics.append((.custom("implements"), self[index].implements))
-                }
-                if let overrides:Index = self[index].overrides 
-                {
-                    self[index].topics.append((.custom("overrides"), [overrides]))
-                }
+            {                
+                self[index].topics.requirements.append(contentsOf: self.organize(symbols: self[index].requirements))
+                self[index].topics.members.append(contentsOf: self.organize(symbols: self[index].members))
                 
-                let topics:[Entrapta.Graph.Symbol.Kind: [Index]] = 
-                    .init(grouping: self[index].members)
+            }
+        }
+        func organize(symbols:[Index]) -> [(key:Entrapta.Topic, indices:[Index])]
+        {
+            let topics:[Symbol.Kind: [Index]] = .init(grouping: symbols)
+            {
+                self[$0].kind
+            }
+            return Entrapta.Graph.Symbol.Kind.allCases.compactMap
+            {
+                (kind:Symbol.Kind) in 
+                guard let indices:[Index] = topics[kind]
+                else 
                 {
-                    self[$0].kind
+                    return nil 
                 }
-                for kind:Entrapta.Graph.Symbol.Kind in Entrapta.Graph.Symbol.Kind.allCases 
-                {
-                    guard let members:[Index] = topics[kind]
-                    else 
-                    {
-                        continue 
-                    }
-                    self[index].topics.append((.kind(kind), members))
-                }
+                return (.kind(kind), indices)
             }
         }
     }
@@ -336,6 +366,43 @@ extension Entrapta.Graph
     {
         let body:[String], 
             tail:String
+        
+        var lexemes:[Language.Lexeme] 
+        {
+            // don’t include the module prefix, if this symbol is not the module 
+            // itself 
+            let body:ArraySlice<String>     = body.dropFirst()
+            var lexemes:[Language.Lexeme]   = []
+                lexemes.reserveCapacity(body.count * 2 + 1)
+            for current:String in body 
+            {
+                lexemes.append(.code(current,   class: .identifier))
+                lexemes.append(.code(".",       class: .punctuation))
+            }
+            lexemes.append(.code(self.tail,     class: .identifier))
+            return lexemes
+        }
+    }
+    struct Edge 
+    {
+        // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
+        enum Kind:String
+        {
+            case member                     = "memberOf"
+            case conformer                  = "conformsTo"
+            case subclass                   = "inheritsFrom"
+            case override                   = "overrides"
+            case requirement                = "requirementOf"
+            case optionalRequirement        = "optionalRequirementOf"
+            case defaultImplementation      = "defaultImplementationOf"
+        }
+        // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.cpp
+        var kind:Kind 
+        var target:Symbol.ID
+        var source:Symbol.ID 
+        // if the source inherited docs 
+        var origin:(id:Symbol.ID, name:String)?
+        var constraints:[Language.Constraint]
     }
     public 
     struct Symbol 
@@ -398,6 +465,7 @@ extension Entrapta.Graph
                 case enumeration        = "swift.enum"
                 case structure          = "swift.struct"
                 case `class`            = "swift.class"
+                case actor              = "swift.actor"
                 case `protocol`         = "swift.protocol"
             }
             
@@ -435,6 +503,7 @@ extension Entrapta.Graph
                     case .enumeration:          return "Enumeration"
                     case .structure:            return "Structure"
                     case .`class`:              return "Class"
+                    case .actor:                return "Actor"
                     case .`protocol`:           return "Protocol"
                     }
                 }
@@ -464,6 +533,7 @@ extension Entrapta.Graph
                     case .enumeration:          return "Enumerations"
                     case .structure:            return "Structures"
                     case .`class`:              return "Classes"
+                    case .actor:                return "Actors"
                     case .`protocol`:           return "Protocols"
                     }
                 }
@@ -556,21 +626,35 @@ extension Entrapta.Graph
         let signature:[Language.Lexeme]
         let declaration:[Language.Lexeme]
         
-        let comment:String?
+        let extends:(module:String, where:[Language.Constraint])?
+        let generic:(parameters:[Generic], constraints:[Language.Constraint])?
+        let availability:[(key:Domain, value:Availability)]
         
-        var parent:Index?, 
-            isRequirement:Bool 
+        let comment:String
+        var discussion:(head:Frontend?, body:[Frontend])
+        
+        var parent:Index?
+        
         var members:[Index], 
+        
+            implements:[Index], 
             defaults:[Index], 
+            
+            interface:Index?,
             requirements:[Index],
-            conformances:[Index],
-            conformers:[Index],
+            
+            upstream:[(index:Index, conditions:[Language.Constraint])], // protocols this type conforms to
+            downstream:[Index], // protocols that refine this type (empty if not a protocol)
+            conformers:[(index:Index, conditions:[Language.Constraint])], // non-protocol types that conform to this type (empty if not a protocol)
             subclasses:[Index],
             superclass:Index?, 
-            implements:[Index], 
             overrides:Index?
             
-        var topics:[(key:Entrapta.Topic, members:[Index])]
+        var topics:
+        (
+            requirements:[(key:Entrapta.Topic, indices:[Index])],
+            members:[(key:Entrapta.Topic, indices:[Index])]
+        )
         
         init(module:Module, prefix:[String]) 
         {
@@ -578,8 +662,7 @@ extension Entrapta.Graph
                 title:          module.name, 
                 breadcrumbs:   .init(body: [], tail: module.name), 
                 path:          .init(group: "/\((prefix + module.identifier).joined(separator: "/"))"), 
-                in:             module,
-                comment:       nil)
+                in:             module)
         }
         
         init(
@@ -590,30 +673,63 @@ extension Entrapta.Graph
             in module:Module, 
             signature:[Language.Lexeme] = [], 
             declaration:[Language.Lexeme] = [], 
-            comment:String?) 
+            extends:(module:String, where:[Language.Constraint])? = nil,
+            generic:(parameters:[Generic], constraints:[Language.Constraint])? = nil,
+            availability:[(key:Domain, value:Availability)] = [],
+            comment:String = "") 
         {
+            // if this is a (nested) type, print its fully-qualified signature
+            let keyword:String?
+            switch kind 
+            {
+            case .declaration(.`typealias`):    keyword = "typealias"
+            case .declaration(.enumeration):    keyword = "enum"
+            case .declaration(.structure):      keyword = "struct"
+            case .declaration(.`class`):        keyword = "class"
+            case .declaration(.actor):          keyword = "actor"
+            case .declaration(.`protocol`):     keyword = "protocol"
+            default:                            keyword = nil 
+            }
+            
             self.kind           = kind
             self.title          = title 
             self.breadcrumbs    = breadcrumbs
             self.path           = path
             self.module         = module 
-            self.signature      = signature
+            if let keyword:String = keyword 
+            {
+                self.signature  = [.code(keyword, class: .keyword(.other)), .spaces(1)] + breadcrumbs.lexemes 
+            }
+            else 
+            {
+                self.signature  = signature
+            }
             self.declaration    = declaration
+            self.extends        = extends
+            self.generic        = generic
+            self.availability   = availability
             self.comment        = comment
             
-            self.parent         = nil 
-            self.isRequirement  = false
+            self.discussion     = (nil, [])
+            
+            self.parent         = nil
+             
             self.members        = []
+            
+            self.implements     = []
             self.defaults       = []
+            
+            self.interface      = nil
             self.requirements   = []
-            self.conformances   = []
+            
+            self.upstream       = []
+            self.downstream     = []
             self.conformers     = []
             self.subclasses     = []
             self.superclass     = nil
-            self.implements     = []
             self.overrides      = nil
             
-            self.topics         = []
+            self.topics         = ([], [])
         }
     }
 }
