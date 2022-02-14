@@ -627,7 +627,7 @@ extension Entrapta.Graph
             {
                 Frontend[.title] 
                 {
-                    ""
+                    symbol.title
                 }
                 Frontend.metadata(charset: Unicode.UTF8.self)
                 Frontend.metadata 
@@ -752,15 +752,15 @@ extension Entrapta
         var disambiguations:[Graph.Symbol.ID: Index]
         
         public 
-        init(symbolgraphs:[[UInt8]], prefix:[String]) throws 
+        init(symbolgraphs:[Graph.Module: [UInt8]], prefix:[String]) throws 
         {
             let prefix:[String] = prefix.map{ $0.lowercased() }
-            let json:[JSON]     = try symbolgraphs.map 
+            let json:[Graph.Module: JSON] = try symbolgraphs.mapValues 
             {
                 try Grammar.parse($0, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
             }
             print("parsed JSON")
-            var graph:Graph     = try .init(prefix: prefix, modules: json)
+            var graph:Graph = try .init(modules: json, prefix: prefix)
             // rendering must take place in two passes, since pages can include 
             // snippets of other pages 
             for index:Graph.Index in graph.symbols.indices 
@@ -772,10 +772,10 @@ extension Entrapta
                 }
                 graph[index].comment.processed = .init(rendering: graph[index].comment.text, graph: graph, parameters: graph[index].parameters)
             }
-            self.init(graph: graph, prefix: prefix)
+            self.init(graph: graph)
         }
         
-        init(graph:Graph, prefix:[String]) 
+        init(graph:Graph) 
         {
             // paths are always unique at this point 
             let pages:[Graph.Symbol.Path: Graph.Page] = .init(uniqueKeysWithValues: 

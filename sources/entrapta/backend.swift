@@ -2,7 +2,7 @@ import JSON
 
 extension Entrapta.Graph.Symbol 
 {
-    init(from json:[String: JSON], in module:Module, prefix:[String]) throws 
+    init(from json:[String: JSON], in module:Entrapta.Graph.Module, prefix:[String]) throws 
     {
         var items:[String: JSON] = _move(json)
         defer 
@@ -428,7 +428,7 @@ extension Entrapta.Graph.Symbol
     }
     
     private static 
-    func assign(prefix:[String], module:Module, path:[String], kind:Kind) 
+    func assign(prefix:[String], module:Entrapta.Graph.Module, path:[String], kind:Kind) 
         -> (path:Path, breadcrumbs:Entrapta.Graph.Breadcrumbs)
     {
         guard let tail:String = path.last
@@ -466,7 +466,7 @@ extension Entrapta.Graph.Symbol
         let group:String = Entrapta.normalize(path: unescaped)
         
         let breadcrumbs:Entrapta.Graph.Breadcrumbs = 
-                        .init(body: [module.name] + path.dropLast(), tail: tail)
+                        .init(body: [module.title] + path.dropLast(), tail: tail)
         return (.init(group: group), breadcrumbs)
     }
 }

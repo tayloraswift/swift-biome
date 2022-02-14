@@ -193,7 +193,13 @@ extension Entrapta
                     }
                     switch (keyword.lowercased(), keywords.dropFirst().first)
                     {
-                    case ("tip", nil), ("note", nil), ("warning", nil), ("throws", nil), ("precondition", nil): 
+                    case    ("tip", nil), 
+                            ("note", nil), 
+                            ("info", nil), 
+                            ("warning", nil), 
+                            ("throws", nil), 
+                            ("important", nil), 
+                            ("precondition", nil): 
                         self.body.append(Graph.Frontend[.aside]
                         {
                             [keyword]

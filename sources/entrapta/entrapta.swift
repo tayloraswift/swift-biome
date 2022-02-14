@@ -58,6 +58,59 @@ enum Entrapta
     public 
     struct Graph 
     {
+        public 
+        enum Module:Hashable, Comparable, Sendable
+        {
+            case swift 
+            case concurrency
+            case community(module:String, package:String)
+            
+            var name:String 
+            {
+                switch self 
+                {
+                case .swift:
+                    return "Swift"
+                case .concurrency:
+                    return "_Concurrency"
+                case .community(module: let module, package: _):
+                    return module
+                }
+            }
+            var title:String 
+            {
+                switch self 
+                {
+                case .swift:
+                    return "Swift"
+                case .concurrency:
+                    return "Concurrency"
+                case .community(module: let module, package: _):
+                    return module
+                }
+            }
+            var identifier:[String] 
+            {
+                switch self 
+                {
+                case .swift:
+                    return ["swift"]
+                case .concurrency:
+                    return ["concurrency"]
+                case .community(module: let module, package: let package):  
+                    return [package.lowercased(), module.lowercased()]
+                }
+            }
+            var declaration:[Language.Lexeme]
+            {
+                [
+                    .code("import", class: .keyword(.other)),
+                    .spaces(1),
+                    .code(self.name, class: .identifier)
+                ]
+            }
+        }
+        
         typealias Index = Dictionary<Symbol.ID, Symbol>.Index
         
         var symbols:[Symbol.ID: Symbol]
@@ -76,11 +129,74 @@ enum Entrapta
             }
         }
         
+        init(modules json:[Module: JSON], prefix:[String] = []) throws
+        {
+            let destructured:[Module: (symbols:[JSON], edges:[JSON])] = try json.mapValues
+            {
+                guard   case .object(let graph)     = $0, 
+                        case .object(_)?            = graph["module"],
+                        case .array(let symbols)?   = graph["symbols"],
+                        case .array(let edges)?     = graph["relationships"]
+                else 
+                {
+                    throw Entrapta.DecodingError<JSON, Self>.init(expected: Self.self, encountered: $0)
+                }
+                
+                return (symbols: symbols, edges: edges)
+            }
+
+            try self.init(symbols: destructured.mapValues(\.symbols), prefix: prefix)
+            // link the edges 
+            for json:[JSON] in destructured.values.map(\.edges) 
+            {
+                for json:JSON in json
+                {
+                    self.link(edge: try .init(from: json))
+                }
+            }
+            
+            let table:[Breadcrumbs: [Index]] = .init(grouping: self.symbols.indices)
+            {
+                self[$0].breadcrumbs
+            }
+            // compute the DAG 
+            for index:Index in self.symbols.indices 
+            {
+                let breadcrumbs:Breadcrumbs = self[index].breadcrumbs
+                guard let tail:String = breadcrumbs.body.last
+                else 
+                {
+                    // is a module 
+                    continue 
+                }
+                let parent:Breadcrumbs      = .init(body: [String].init(breadcrumbs.body.dropLast()), tail: tail)
+                guard   let matches:[Index] = table[parent], 
+                        let parent:Index    = matches.first
+                else 
+                {
+                    print("warning: symbol \(self[index].title) has no parent")
+                    continue 
+                }
+                self[index].parent = parent 
+                if case .module = self[parent].kind 
+                {
+                    self[parent].members.append(index)
+                }
+                if matches.count != 1 
+                {
+                    print("warning: symbol \(self[index].title) has more than one parent")
+                }
+            }
+            
+            self.sort()
+            self.populateTopics()
+        }
+        
         private 
-        init(prefix:[String], modules:[(module:Symbol.Module, json:[JSON])]) throws 
+        init(symbols modules:[Module: [JSON]], prefix:[String]) throws 
         {
             var symbols:[Symbol.ID: Symbol] = [:]
-            for (module, json):(Symbol.Module, [JSON]) in modules
+            for (module, json):(Module, [JSON]) in modules
             {
                 let root:Symbol = .init(module: module, prefix: prefix)
                 if case _? = symbols.updateValue(root, forKey: .module(module))
@@ -155,86 +271,6 @@ enum Entrapta
                     self.symbols.values[overload].path.disambiguation = self.symbols.keys[overload]
                 }
             }
-        }
-        init(prefix:[String] = [], modules json:[JSON]) throws
-        {
-            var declarations:[(module:Symbol.Module, json:[JSON])] = []
-                declarations.reserveCapacity(json.count)
-            var edges:[(module:Symbol.Module, json:[JSON])] = []
-                edges.reserveCapacity(json.count)
-            
-            for json:JSON in json 
-            {
-                guard   case .object(let graph)         = json, 
-                        case .object(let json)?         = graph["module"],
-                        case .array(let symbols)?       = graph["symbols"],
-                        case .array(let relationships)? = graph["relationships"]
-                else 
-                {
-                    throw Entrapta.DecodingError<JSON, Self>.init(expected: Self.self, encountered: json)
-                }
-                
-                let module:Symbol.Module 
-                switch json["name"] 
-                {
-                case .string("Swift")?: 
-                    module = .swift 
-                case .string(let name)?:
-                    module = .framework(name, package: "unknown")
-                default:
-                    print("could not determine module name")
-                    continue 
-                }
-                // let descriptor:Descriptor.Module = try .init(from: module)
-                declarations.append((module, symbols))
-                edges.append((module, relationships))
-            }
-
-            try self.init(prefix: prefix, modules: declarations)
-            // link the edges 
-            for (_, json):(Symbol.Module, [JSON]) in edges 
-            {
-                for json:JSON in json
-                {
-                    self.link(edge: try .init(from: json))
-                }
-            }
-            
-            let table:[Breadcrumbs: [Index]] = .init(grouping: self.symbols.indices)
-            {
-                self[$0].breadcrumbs
-            }
-            // compute the DAG 
-            for index:Index in self.symbols.indices 
-            {
-                let breadcrumbs:Breadcrumbs = self[index].breadcrumbs
-                guard let tail:String = breadcrumbs.body.last
-                else 
-                {
-                    // is a module 
-                    continue 
-                }
-                let parent:Breadcrumbs      = .init(body: [String].init(breadcrumbs.body.dropLast()), tail: tail)
-                guard   let matches:[Index] = table[parent], 
-                        let parent:Index    = matches.first
-                else 
-                {
-                    print("warning: symbol \(self[index].title) has no parent")
-                    continue 
-                }
-                self[index].parent = parent 
-                if case .module = self[parent].kind 
-                {
-                    self[parent].members.append(index)
-                }
-                if matches.count != 1 
-                {
-                    print("warning: symbol \(self[index].title) has more than one parent")
-                }
-            }
-            
-            self.sort()
-            self.populateTopics()
         }
         
         mutating 
@@ -622,31 +658,6 @@ extension Entrapta.Graph
         typealias DecodingError = Entrapta.DecodingError<JSON, Self>
         
         public 
-        enum Module:Hashable, Comparable, Sendable
-        {
-            case swift 
-            case framework(String, package:String)
-            
-            public 
-            var name:String 
-            {
-                switch self 
-                {
-                case .swift:                                return "Swift"
-                case .framework(let module, package: _):    return module
-                }
-            }
-            public 
-            var identifier:[String] 
-            {
-                switch self 
-                {
-                case .swift:                                        return ["swift"]
-                case .framework(let module, package: let package):  return [package.lowercased(), module.lowercased()]
-                }
-            }
-        }
-        public 
         enum ID:Hashable, Comparable, Sendable 
         {
             case module(Module)
@@ -791,9 +802,10 @@ extension Entrapta.Graph
         {
             self.init(kind:    .module, 
                 title:          module.name, 
-                breadcrumbs:   .init(body: [], tail: module.name), 
+                breadcrumbs:   .init(body: [], tail: module.title), 
                 path:          .init(group: "/\((prefix + module.identifier).joined(separator: "/"))"), 
-                in:             module)
+                in:             module, 
+                declaration:    module.declaration)
         }
         
         init(
