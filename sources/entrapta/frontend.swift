@@ -228,13 +228,13 @@ extension Entrapta.Graph
                 }
                 content:
                 {
-                    symbol.kind.description
+                    symbol.kind.title
                 }
                 Frontend[.h1]
                 {
                     symbol.title
                 }
-                if let head:Frontend = symbol.discussion.head 
+                if let head:Frontend = symbol.comment.processed.head 
                 {
                     head
                 }
@@ -285,13 +285,63 @@ extension Entrapta.Graph
                     }
                 }
             }
-            Frontend[.section]
+            if !symbol.comment.processed.parameters.isEmpty
             {
-                ["discussion"]
+                Frontend[.section]
+                {
+                    ["parameters"]
+                }
+                content: 
+                {
+                    Frontend[.h2]
+                    {
+                        "Parameters"
+                    }
+                    Frontend[.dl]
+                    {
+                        for (name, comment):(String, [Frontend]) in symbol.comment.processed.parameters 
+                        {
+                            Frontend[.dt]
+                            {
+                                name
+                            }
+                            Frontend[.dd]
+                            {
+                                comment
+                            }
+                        }
+                    }
+                }
             }
-            content: 
+            if !symbol.comment.processed.returns.isEmpty
             {
-                symbol.discussion.body
+                Frontend[.section]
+                {
+                    ["returns"]
+                }
+                content: 
+                {
+                    Frontend[.h2]
+                    {
+                        "Returns"
+                    }
+                    symbol.comment.processed.returns
+                }
+            }
+            if !symbol.comment.processed.body.isEmpty 
+            {
+                Frontend[.section]
+                {
+                    ["discussion"]
+                }
+                content: 
+                {
+                    Frontend[.h2]
+                    {
+                        "Overview"
+                    }
+                    symbol.comment.processed.body
+                }
             }
         }
     }
@@ -351,11 +401,11 @@ extension Entrapta.Graph
         }
     }
     func renderTopics<S>(_ topics:S, heading:String) -> Frontend?
-        where S:Sequence, S.Element == (key:Entrapta.Topic, indices:[Index])
+        where S:Sequence, S.Element == (heading:Entrapta.Topic, indices:[Index])
     {
         let topics:[Frontend] = topics.map
         {
-            (topic:(heading:Entrapta.Topic, members:[Index])) in 
+            (topic:(heading:Entrapta.Topic, indices:[Index])) in 
             Frontend[.div]
             {
                 ["topic-container"]
@@ -379,7 +429,7 @@ extension Entrapta.Graph
                 }
                 content:
                 {
-                    for index:Index in topic.members
+                    for index:Index in topic.indices
                     {
                         let member:Symbol = self[index]
                         Frontend[.li]
@@ -399,7 +449,7 @@ extension Entrapta.Graph
                                     Self.render(code: member.signature)
                                 }
                             }
-                            if let head:Frontend = member.discussion.head 
+                            if let head:Frontend = member.comment.processed.head 
                             {
                                 head
                             }
@@ -410,9 +460,9 @@ extension Entrapta.Graph
                                 {
                                     switch self[abstract].kind 
                                     {
-                                    case .declaration(.class):
+                                    case .class:
                                         self.renderRelationship(overridden, "Overrides virtual member in ", abstract)
-                                    case .declaration(.protocol):
+                                    case .protocol:
                                         self.renderRelationship(overridden, "Type inference hint for requirement in ", abstract)
                                     default: 
                                         let _:Void = print("warning: parent of overridden symbol '\(self[overridden].title)' is not a class or protocol")
@@ -471,7 +521,7 @@ extension Entrapta.Graph
     func renderEpilogue(_ symbol:Symbol) -> Frontend?
     {
         var category:String 
-        if case .declaration(.protocol) = symbol.kind 
+        if case .protocol = symbol.kind 
         {
             category = "Implies"
         }
@@ -624,6 +674,67 @@ extension Entrapta.Graph
         }
     }
 }
+extension Entrapta.Graph 
+{
+    func renderSymbolLink(to path:String?) -> Frontend
+    {
+        Frontend[.code]
+        {
+            path ?? "<unknown>"
+        }
+    }
+    func renderLink(to target:String?, _ content:[Frontend]) -> Frontend
+    {
+        if let target:String = target
+        {
+            return Frontend[.a]
+            {
+                (target, as: Document.HTML.Href.self)
+                Document.HTML.Target._blank
+                Document.HTML.Rel.nofollow
+            }
+            content:
+            {
+                content
+            }
+        }
+        else 
+        {
+            return Frontend[.span]
+            {
+                content
+            }
+        }
+    }
+    func renderImage(source:String?, alt:[Frontend], title:String?) -> Frontend
+    {
+        if let source:String = source
+        {
+            return Frontend[.img]
+            {
+                (source, as: Document.HTML.Src.self)
+            }
+        }
+        else 
+        {
+            return Frontend[.img]
+        }
+    }
+    func renderNotebook(highlighting code:String) -> Frontend
+    {
+        Frontend[.pre]
+        {
+            ["notebook"]
+        }
+        content:
+        {
+            Frontend[.code]
+            {
+                self.render(code: Language.highlight(code: code))
+            }
+        }
+    }
+}
 extension Entrapta
 {
     public 
@@ -654,73 +765,12 @@ extension Entrapta
             // snippets of other pages 
             for index:Graph.Index in graph.symbols.indices 
             {
-                guard !graph[index].comment.isEmpty
+                guard !graph[index].comment.text.isEmpty
                 else 
                 {
                     continue 
                 }
-                graph[index].discussion     = Entrapta.render(markdown: graph[index].comment)
-                {
-                    (path:String?) in 
-                    Graph.Frontend[.code]
-                    {
-                        path ?? "<unknown>"
-                    }
-                }
-                link: 
-                {
-                    (target:String?, content:[Graph.Frontend]) in 
-                    if let target:String = target
-                    {
-                        return Graph.Frontend[.a]
-                        {
-                            (target, as: Document.HTML.Href.self)
-                            Document.HTML.Target._blank
-                            Document.HTML.Rel.nofollow
-                        }
-                        content:
-                        {
-                            content
-                        }
-                    }
-                    else 
-                    {
-                        return Graph.Frontend[.span]
-                        {
-                            content
-                        }
-                    }
-                }
-                image: 
-                {
-                    (source:String?, alt:[Graph.Frontend], title:String?) in 
-                    if let source:String = source
-                    {
-                        return Graph.Frontend[.img]
-                        {
-                            (source, as: Document.HTML.Src.self)
-                        }
-                    }
-                    else 
-                    {
-                        return Graph.Frontend[.img]
-                    }
-                }
-                highlight: 
-                {
-                    (code:String) in 
-                    Graph.Frontend[.pre]
-                    {
-                        ["notebook"]
-                    }
-                    content:
-                    {
-                        Graph.Frontend[.code]
-                        {
-                            graph.render(code: Language.highlight(code: code))
-                        }
-                    }
-                }
+                graph[index].comment.processed = .init(rendering: graph[index].comment.text, graph: graph, parameters: graph[index].parameters)
             }
             self.init(graph: graph, prefix: prefix)
         }

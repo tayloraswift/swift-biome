@@ -13,7 +13,7 @@ extension Entrapta.Graph.Symbol
             }
         }
         // decode id and kind 
-        let kind:Kind.Declaration
+        let kindname:String
         switch items.removeValue(forKey: "kind")
         {
         case .object(var items)?: 
@@ -29,12 +29,7 @@ extension Entrapta.Graph.Symbol
             switch items.removeValue(forKey: "identifier")
             {
             case .string(let text)?:
-                guard let declaration:Kind.Declaration = .init(rawValue: text)
-                else 
-                {
-                    throw DecodingError.init(expected: Kind.Declaration.self, in: "kind.identifier", encountered: .string(text))
-                }
-                kind = declaration
+                kindname = text
             case let value:
                 throw DecodingError.init(expected: String.self, in: "kind.identifier", encountered: value)
             }
@@ -163,7 +158,7 @@ extension Entrapta.Graph.Symbol
             throw DecodingError.init(expected: [String: JSON]?.self, in: "location", encountered: value)
         }
         // decode function signature
-        let function:(parameters:[Parameter], return:[Language.Lexeme])?
+        let function:(parameters:[Parameter], returns:[Language.Lexeme])?
         switch items.removeValue(forKey: "functionSignature")
         {
         case nil, .null?: 
@@ -327,12 +322,41 @@ extension Entrapta.Graph.Symbol
                     throw DecodingError.init(expected: String?.self, in: "availability[_:].renamed", encountered: value)
                 }
                 
+                let deprecation:Entrapta.Version?? 
+                if let version:Entrapta.Version = try items.removeValue(forKey: "deprecated").map(Entrapta.Version.init(from:))
+                {
+                    deprecation = .some(version)
+                }
+                else 
+                {
+                    switch items.removeValue(forKey: "isUnconditionallyDeprecated")
+                    {
+                    case nil, .null?, .bool(false)?: 
+                        deprecation = .none 
+                    case .bool(true)?: 
+                        deprecation = .some(nil)
+                    case let value?:
+                        throw DecodingError.init(expected: Bool?.self, in: "availability[_:].isUnconditionallyDeprecated", encountered: value)
+                    }
+                }
+                // possible be both unconditionally unavailable and unconditionally deprecated
+                let unavailable:Bool 
+                switch items.removeValue(forKey: "isUnconditionallyUnavailable")
+                {
+                case nil, .null?, .bool(false)?: 
+                    unavailable = false 
+                case .bool(true)?: 
+                    unavailable = true 
+                case let value?:
+                    throw DecodingError.init(expected: Bool?.self, in: "availability[_:].isUnconditionallyUnavailable", encountered: value)
+                }
                 item.value = .init(
+                    unavailable: unavailable,
+                    deprecated: deprecation,
                     introduced: try items.removeValue(forKey: "introduced").map(Entrapta.Version.init(from:)),
-                    deprecated: try items.removeValue(forKey: "deprecated").map(Entrapta.Version.init(from:)),
-                    obsoleted:  try items.removeValue(forKey: "obsoleted").map(Entrapta.Version.init(from:)), 
-                    renamed:    renamed,
-                    message:    message)
+                    obsoleted: try items.removeValue(forKey: "obsoleted").map(Entrapta.Version.init(from:)), 
+                    renamed: renamed,
+                    message: message)
                 return item 
             }
         case let value?: 
@@ -388,10 +412,12 @@ extension Entrapta.Graph.Symbol
             throw DecodingError.init(expected: [String: JSON]?.self, in: "docComment", encountered: value)
         }
         
+        // downcast the kind string 
+        let kind:Kind = try .init(kindname, function: function)
         let assigned:(path:Path, breadcrumbs:Entrapta.Graph.Breadcrumbs) = 
             Self.assign(prefix: prefix, module: module, path: path, kind: kind)
         self.init(
-            kind:          .declaration(kind), 
+            kind:           kind, 
             title:          title, 
             breadcrumbs:    assigned.breadcrumbs, 
             path:           assigned.path, 
@@ -402,7 +428,7 @@ extension Entrapta.Graph.Symbol
     }
     
     private static 
-    func assign(prefix:[String], module:Module, path:[String], kind:Kind.Declaration) 
+    func assign(prefix:[String], module:Module, path:[String], kind:Kind) 
         -> (path:Path, breadcrumbs:Entrapta.Graph.Breadcrumbs)
     {
         guard let tail:String = path.last
@@ -420,6 +446,8 @@ extension Entrapta.Graph.Symbol
         let unescaped:[String] 
         switch kind 
         {
+        case    .module: 
+            fatalError("unreachable")
         case    .associatedtype, .typealias, .enum, .struct, .class, .actor, .protocol, .global, .function, .operator:
             unescaped = prefix + module.identifier + path 
         case    .case, .initializer, .deinitializer, 
