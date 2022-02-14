@@ -12,11 +12,11 @@ A major design goal of *Entrapta* is to support **multi-package, multi-module us
 
 * Deprecation and availability tables 
 
-* Parsing ad-hoc function parameter documentation from Markdown comments 
+* <s>Parsing ad-hoc function parameter documentation from Markdown comments</s>
 
 * An auto-complete function 
 
-* Links to definitions in source code
+* Links from API reference pages to original source code
 
 * Detecting default implementations
 
@@ -27,6 +27,8 @@ A major design goal of *Entrapta* is to support **multi-package, multi-module us
 * Placing protocol requirements in their own section. 
 
 * Stable links to API reference pages, and a robust overload disambiguation system based on compiler-mangled symbol names. 
+
+* Cross-package and cross-module symbol linking
 
 * URL normalization
 
