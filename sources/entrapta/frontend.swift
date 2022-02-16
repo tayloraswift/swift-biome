@@ -5,12 +5,16 @@ import JSON
 extension Entrapta.Graph.Symbol 
 {
     public 
-    enum Anchor:DocumentID, Sendable
+    enum Anchor:String, DocumentID, Sendable
     {
+        case search         = "search"
+        case searchInput    = "search-input"
+        case searchResults  = "search-results"
+        
         public 
         var documentId:String 
         {
-            fatalError("unreachable")
+            self.rawValue
         }
     }
 }
@@ -594,24 +598,67 @@ extension Entrapta.Graph
         }
         return Frontend[.nav]
         {
-            Frontend[.ol] 
+            Frontend[.div]
             {
-                ["breadcrumbs-container"]
-            }
-            content:
+                ["breadcrumbs"]
+            } 
+            content: 
             {
-                // github icon 
-                /* Frontend[.li]
+                Frontend[.ol] 
                 {
-                    ["github-icon-container"]
+                    ["breadcrumbs-container"]
                 }
+                content:
                 {
-                    HTML.element("a", ["href": github])
+                    // github icon 
+                    /* Frontend[.li]
                     {
-                        HTML.element("span", ["class": "github-icon", "title": "Github repository"])
+                        ["github-icon-container"]
                     }
-                } */
-                breadcrumbs.reversed()
+                    {
+                        HTML.element("a", ["href": github])
+                        {
+                            HTML.element("span", ["class": "github-icon", "title": "Github repository"])
+                        }
+                    } */
+                    breadcrumbs.reversed()
+                }
+            }
+            Frontend[.div]
+            {
+                ["search-bar"]
+            } 
+            content: 
+            {
+                Frontend[.form, id: .search] 
+                {
+                    Document.HTML.Role.search
+                }
+                content: 
+                {
+                    Frontend[.div]
+                    {
+                        ["input-container"]
+                    }
+                    content: 
+                    {
+                        Frontend[.div]
+                        {
+                            ["bevel"]
+                        }
+                        Frontend[.input, id: .searchInput]
+                        {
+                            Document.HTML.InputType.text
+                            Document.HTML.Autocomplete.off
+                            ("search symbols", as: Document.HTML.Placeholder.self)
+                        }
+                        Frontend[.div]
+                        {
+                            ["bevel"]
+                        }
+                    }
+                    Frontend[.ol, id: .searchResults]
+                }
             }
         }
     }
@@ -651,6 +698,16 @@ extension Entrapta.Graph
                     ("https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400;1,600&display=swap", as: Document.HTML.Href.self)
                     Document.HTML.Rel.stylesheet 
                 }
+                Frontend[.script]
+                {
+                    ("/lunr.js", as: Document.HTML.Src.self)
+                    (true, as: Document.HTML.Defer.self)
+                }
+                Frontend[.script]
+                {
+                    ("/search.js", as: Document.HTML.Src.self)
+                    (true, as: Document.HTML.Defer.self)
+                }
                 Frontend[.link]
                 {
                     ("/entrapta.css", as: Document.HTML.Href.self)
@@ -660,6 +717,12 @@ extension Entrapta.Graph
                 {
                     ("/favicon.png", as: Document.HTML.Href.self)
                     Document.HTML.Rel.icon
+                }
+                Frontend[.link]
+                {
+                    ("/favicon.ico", as: Document.HTML.Href.self)
+                    Document.HTML.Rel.icon
+                    Resource.Binary.icon
                 }
             }
             Frontend[.body]
@@ -730,6 +793,7 @@ extension Entrapta.Graph
         {
             Frontend[.code]
             {
+                Self.render(lexeme: .newlines(0))
                 self.render(code: Language.highlight(code: code))
             }
         }
@@ -748,8 +812,11 @@ extension Entrapta
     {
         typealias Index = Dictionary<Graph.Symbol.Path, Graph.Page>.Index 
         
-        var pages:[Graph.Symbol.Path: Graph.Page]
-        var disambiguations:[Graph.Symbol.ID: Index]
+        let pages:[Graph.Symbol.Path: Graph.Page]
+        let disambiguations:[Graph.Symbol.ID: Index]
+        
+        public 
+        let search:JSON
         
         public 
         init(symbolgraphs:[Graph.Module: [UInt8]], prefix:[String]) throws 
@@ -789,7 +856,11 @@ extension Entrapta
                 }
                 return ($0.key, index)
             })
-            self.pages = _move(pages)
+            self.pages  = _move(pages)
+            self.search = .array(graph.search.map 
+            { 
+                .object(["uri": .string($0.uri), "title": .string($0.title), "text": .array($0.text.map(JSON.string(_:)))]) 
+            })
         }
         
         /// the `group` is the full URL path, without the query, and including 

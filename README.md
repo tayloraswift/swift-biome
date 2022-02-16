@@ -14,7 +14,7 @@ A major design goal of *Entrapta* is to support **multi-package, multi-module us
 
 * <s>Parsing ad-hoc function parameter documentation from Markdown comments</s>
 
-* An auto-complete function 
+* <s>An auto-complete function</s> 
 
 * Links from API reference pages to original source code
 

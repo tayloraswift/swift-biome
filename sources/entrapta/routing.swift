@@ -33,29 +33,29 @@ extension Entrapta
     static 
     func normalize(path:[String]) -> String 
     {
-        var encoded:[UInt8] = []
+        var utf8:[UInt8] = []
         for component:String in path 
         {
-            encoded.append(0x2f) // '/'
+            utf8.append(0x2f) // '/'
             for byte:UInt8 in component.utf8 
             {
                 if let unencoded:UInt8 = Self.normalize(byte: byte)
                 {
-                    encoded.append(unencoded)
+                    utf8.append(unencoded)
                 }
                 else 
                 {
                     // percent-encode
-                    encoded.append(0x25) // '%'
-                    encoded.append(Self.hex(byte >> 4))
-                    encoded.append(Self.hex(byte & 0x0f))
+                    utf8.append(0x25) // '%'
+                    utf8.append(Self.hex(byte >> 4))
+                    utf8.append(Self.hex(byte & 0x0f))
                 }
             }
         }
-        return String.init(unsafeUninitializedCapacity: encoded.count)
+        return String.init(unsafeUninitializedCapacity: utf8.count)
         {
-            $0.initialize(from: encoded)
-            return encoded.count
+            let (_, index):(Array<UInt8>.Iterator, Int) = $0.initialize(from: utf8)
+            return index - $0.startIndex 
         }
     }
     static 
@@ -114,8 +114,8 @@ extension Entrapta.URL
             }
             return String.init(unsafeUninitializedCapacity: utf8.count)
             {
-                $0.initialize(from: utf8)
-                return utf8.count
+                let (_, index):(Array<UInt8>.Iterator, Int) = $0.initialize(from: utf8)
+                return index - $0.startIndex 
             }
         }
     }
