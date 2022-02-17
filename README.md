@@ -10,7 +10,7 @@ A major design goal of *Entrapta* is to support **multi-package, multi-module us
 
 *Entrapta* powers the Swift standard library reference at [`swiftinit.org/reference/swift`](https://swiftinit.org/reference/swift)! It mostly has parity with the existing Apple Swift reference, although *Entrapta* doesn’t have access to the topical organization Apple uses on their site, so it uses a default, hierarchical organization for the standard library pages. There are a few missing features we are actively working on implementing: 
 
-* Deprecation and availability tables 
+* <s>Deprecation and availability tables</s>
 
 * <s>Parsing ad-hoc function parameter documentation from Markdown comments</s>
 

@@ -424,6 +424,13 @@ extension Entrapta.Graph.Symbol
             in:             module, 
             signature:      signature, 
             declaration:    declaration, 
+            extends:        extends, 
+            generic:        generic, 
+            availability:   [Domain: Availability].init(availability)
+            {
+                print("warning: multiple availability descriptors for the same domain")
+                return $1
+            }, 
             comment:        comment)
     }
     

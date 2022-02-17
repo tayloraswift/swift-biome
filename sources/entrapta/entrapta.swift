@@ -26,11 +26,22 @@ enum Entrapta
         case logLinear
     }
     public 
-    struct Version 
+    struct Version:CustomStringConvertible
     {
         var major:Int 
         var minor:Int?
         var patch:Int?
+        
+        public 
+        var description:String 
+        {
+            switch (self.minor, self.patch)
+            {
+            case (nil       , nil):         return "\(self.major)"
+            case (let minor?, nil):         return "\(self.major).\(minor)"
+            case (let minor , let patch?):  return "\(self.major).\(minor ?? 0).\(patch)"
+            }
+        }
     }
     public 
     enum Topic:Hashable, CustomStringConvertible 
@@ -771,7 +782,7 @@ extension Entrapta.Graph
         
         let extends:(module:String, where:[Language.Constraint])?
         let generic:(parameters:[Generic], constraints:[Language.Constraint])?
-        let availability:[(key:Domain, value:Availability)]
+        let availability:[Domain: Availability]
         
         var comment:(text:String, processed:Entrapta.Comment)
         
@@ -818,7 +829,7 @@ extension Entrapta.Graph
             declaration:[Language.Lexeme] = [], 
             extends:(module:String, where:[Language.Constraint])? = nil,
             generic:(parameters:[Generic], constraints:[Language.Constraint])? = nil,
-            availability:[(key:Domain, value:Availability)] = [],
+            availability:[Domain: Availability] = [:],
             comment:String = "") 
         {
             // if this is a (nested) type, print its fully-qualified signature

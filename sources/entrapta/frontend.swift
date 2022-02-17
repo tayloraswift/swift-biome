@@ -169,8 +169,106 @@ extension Entrapta.Graph
     {
         Self.render(code: code) { self.symbols[$0] }
     }
+    static 
+    func render(availability:Symbol.Availability) -> [Frontend]
+    {
+        var clauses:[Frontend] = []
+        if let version:Entrapta.Version = availability.introduced
+        {
+            clauses.append(Frontend[.p]
+            {
+                Frontend.span("\(version.description)+")
+                {
+                    ["version", "introduced"]
+                }
+            })
+        }
+        if availability.unavailable 
+        {
+            // unconditionally unavailable 
+            clauses.append(Frontend[.p]
+            {
+                Frontend[.strong]
+                {
+                    "Unavailable"
+                }
+            })
+        }
+        if let deprecation:Entrapta.Version? = availability.deprecated 
+        {
+            clauses.append(Frontend[.p]
+            {
+                Frontend[.strong]
+                {
+                    "Deprecated"
+                }
+                if let version:Entrapta.Version = deprecation 
+                {
+                    " since "
+                    Frontend.span(version.description)
+                    {
+                        ["version"]
+                    }
+                }
+            })
+        }
+        if let version:Entrapta.Version = availability.obsoleted 
+        {
+            clauses.append(Frontend[.p]
+            {
+                Frontend[.strong]
+                {
+                    "Obsolete"
+                }
+                " since "
+                Frontend.span(version.description)
+                {
+                    ["version"]
+                }
+            })
+        }
+        // need to render markdown
+        /* if let message:String = availability.message 
+        {
+            clauses.append(Frontend[.p]
+            {
+                ["message"]
+            }
+            content:
+            {
+                message
+            })
+        } */
+        return clauses
+    }
     func renderArticle(_ symbol:Symbol) -> Frontend
     {
+        let platforms:[Frontend] = 
+        [
+            Symbol.Domain.iOS,
+            Symbol.Domain.macOS,
+            Symbol.Domain.macCatalyst,
+            Symbol.Domain.tvOS,
+            Symbol.Domain.watchOS,
+            Symbol.Domain.windows,
+            Symbol.Domain.openBSD,
+        ].compactMap
+        {
+            (platform:Symbol.Domain) in 
+            guard let version:Entrapta.Version = symbol.availability[platform]?.introduced 
+            else 
+            {
+                return nil 
+            }
+            return Frontend[.li]
+            {
+                "\(platform.rawValue) "
+                Frontend.span("\(version.description)+")
+                {
+                    ["version"]
+                }
+            }
+        }
         let relationships:[Frontend] = (symbol.interface.map 
         {
             _ in 
@@ -264,6 +362,42 @@ extension Entrapta.Graph
                                 item
                             }
                         }
+                    }
+                }
+                if let availability:Symbol.Availability = symbol.availability[.swift]
+                {
+                    Frontend[.section]
+                    {
+                        ["availability"]
+                    }
+                    content:
+                    {
+                        Self.render(availability: availability)
+                    }
+                }
+                if let availability:Symbol.Availability = symbol.availability[.wildcard]
+                {
+                    Frontend[.section]
+                    {
+                        ["availability"]
+                    }
+                    content:
+                    {
+                        Self.render(availability: availability)
+                    }
+                }
+            }
+            if !platforms.isEmpty 
+            {
+                Frontend[.section]
+                {
+                    ["platforms"]
+                }
+                content: 
+                {
+                    Frontend[.ul]
+                    {
+                        platforms
                     }
                 }
             }
@@ -646,11 +780,19 @@ extension Entrapta.Graph
                         {
                             ["bevel"]
                         }
-                        Frontend[.input, id: .searchInput]
+                        Frontend[.div]
                         {
-                            Document.HTML.InputType.text
-                            Document.HTML.Autocomplete.off
-                            ("search symbols", as: Document.HTML.Placeholder.self)
+                            ["rectangle"]
+                        }
+                        content: 
+                        {
+                            Frontend[.input, id: .searchInput]
+                            {
+                                Document.HTML.InputType.search
+                                Document.HTML.Autocomplete.off
+                                // (true, as: Document.HTML.Autofocus.self)
+                                ("search symbols", as: Document.HTML.Placeholder.self)
+                            }
                         }
                         Frontend[.div]
                         {
