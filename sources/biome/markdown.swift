@@ -1,7 +1,7 @@
 import Markdown 
 import StructuredDocument
 
-extension Entrapta.Graph
+extension Biome.Graph
 {
     func render(markdown:Markdown.Markup) -> Frontend
     {
@@ -132,7 +132,7 @@ extension Entrapta.Graph
         }
     }
 }
-extension Entrapta 
+extension Biome 
 {
     struct Comment 
     {

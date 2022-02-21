@@ -2,7 +2,7 @@ import StructuredDocument
 import HTML 
 import JSON
 
-extension Entrapta.Graph.Symbol 
+extension Biome.Graph.Symbol 
 {
     public 
     enum Anchor:String, DocumentID, Sendable
@@ -18,7 +18,7 @@ extension Entrapta.Graph.Symbol
         }
     }
 }
-extension Entrapta.Graph 
+extension Biome.Graph 
 {
     public 
     typealias Frontend  = Document.Element<Document.HTML, Symbol.Anchor>
@@ -173,7 +173,7 @@ extension Entrapta.Graph
     func render(availability:Symbol.Availability) -> [Frontend]
     {
         var clauses:[Frontend] = []
-        if let version:Entrapta.Version = availability.introduced
+        if let version:Biome.Version = availability.introduced
         {
             clauses.append(Frontend[.p]
             {
@@ -194,7 +194,7 @@ extension Entrapta.Graph
                 }
             })
         }
-        if let deprecation:Entrapta.Version? = availability.deprecated 
+        if let deprecation:Biome.Version? = availability.deprecated 
         {
             clauses.append(Frontend[.p]
             {
@@ -202,7 +202,7 @@ extension Entrapta.Graph
                 {
                     "Deprecated"
                 }
-                if let version:Entrapta.Version = deprecation 
+                if let version:Biome.Version = deprecation 
                 {
                     " since "
                     Frontend.span(version.description)
@@ -212,7 +212,7 @@ extension Entrapta.Graph
                 }
             })
         }
-        if let version:Entrapta.Version = availability.obsoleted 
+        if let version:Biome.Version = availability.obsoleted 
         {
             clauses.append(Frontend[.p]
             {
@@ -255,7 +255,7 @@ extension Entrapta.Graph
         ].compactMap
         {
             (platform:Symbol.Domain) in 
-            guard let version:Entrapta.Version = symbol.availability[platform]?.introduced 
+            guard let version:Biome.Version = symbol.availability[platform]?.introduced 
             else 
             {
                 return nil 
@@ -539,11 +539,11 @@ extension Entrapta.Graph
         }
     }
     func renderTopics<S>(_ topics:S, heading:String) -> Frontend?
-        where S:Sequence, S.Element == (heading:Entrapta.Topic, indices:[Index])
+        where S:Sequence, S.Element == (heading:Biome.Topic, indices:[Index])
     {
         let topics:[Frontend] = topics.map
         {
-            (topic:(heading:Entrapta.Topic, indices:[Index])) in 
+            (topic:(heading:Biome.Topic, indices:[Index])) in 
             Frontend[.div]
             {
                 ["topic-container"]
@@ -852,7 +852,7 @@ extension Entrapta.Graph
                 }
                 Frontend[.link]
                 {
-                    ("/entrapta.css", as: Document.HTML.Href.self)
+                    ("/biome.css", as: Document.HTML.Href.self)
                     Document.HTML.Rel.stylesheet
                 }
                 Frontend[.link]
@@ -879,7 +879,7 @@ extension Entrapta.Graph
         }
     }
 }
-extension Entrapta.Graph 
+extension Biome.Graph 
 {
     func renderSymbolLink(to path:String?) -> Frontend
     {
@@ -941,7 +941,7 @@ extension Entrapta.Graph
         }
     }
 }
-extension Entrapta
+extension Biome
 {
     public 
     enum Response 
@@ -1018,18 +1018,18 @@ extension Entrapta
         /// '/reference/swift-package/somemodule/foo//bar.baz%28_%3A%29':   Error (slashes not normalized)
         ///
         /// note: the URL of a page for an operator containing a slash '/' *must*
-        /// be percent-encoded; Entrapta will not be able to redirect it to the 
+        /// be percent-encoded; Biome will not be able to redirect it to the 
         /// correct canonical URL. 
         ///
         /// note: the URL path is case-insensitive, but the disambiguation query 
         /// *is* case-sensitive. the `disambiguation` parameter should include 
         /// the mangled name only, without the `?overload=` part. if you provide 
         /// a valid disambiguation query, the URL path can be complete garbage; 
-        /// Entrapta will respond with a 301 redirect to the correct page.
+        /// Biome will respond with a 301 redirect to the correct page.
         public 
         subscript(group:String, disambiguation disambiguation:String?) -> Response?
         {
-            let path:Graph.Symbol.Path  = .init(group: Entrapta.normalize(path: group), 
+            let path:Graph.Symbol.Path  = .init(group: Biome.normalize(path: group), 
                 disambiguation: disambiguation.map(Graph.Symbol.ID.declaration(precise:)))
             if let page:Graph.Page = self.pages[path]
             {

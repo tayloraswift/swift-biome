@@ -2,10 +2,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "entrapta",
+    name: "swift-biome",
     products: 
     [
-        .library(name: "Entrapta", targets: ["Entrapta"]),
+        .library(name: "Biome", targets: ["Biome"]),
     ],
     dependencies: 
     [
@@ -17,7 +17,7 @@ let package = Package(
     ],
     targets: 
     [
-        .target(name: "Entrapta", 
+        .target(name: "Biome", 
             dependencies: 
             [
                 .product(name: "JSON",                  package: "swift-json"),
@@ -26,6 +26,6 @@ let package = Package(
                 .product(name: "SwiftSyntax",           package: "swift-syntax"),
                 .product(name: "Markdown",              package: "swift-markdown"),
             ], 
-            path: "sources/entrapta"),
+            path: "sources/biome"),
     ]
 )

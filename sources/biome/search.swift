@@ -15,14 +15,14 @@ extension Language.Lexeme
         }
     }
 }
-extension Entrapta.Graph.Symbol 
+extension Biome.Graph.Symbol 
 {
     var search:(uri:String, title:String, text:[String])
     {
         (self.path.canonical, self.title, self.signature.compactMap(\.search))
     }
 }
-extension Entrapta.Graph 
+extension Biome.Graph 
 {
     var search:[(uri:String, title:String, text:[String])]
     {

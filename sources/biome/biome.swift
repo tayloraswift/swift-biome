@@ -1,7 +1,7 @@
 import JSON 
 
 public 
-enum Entrapta 
+enum Biome 
 {
     public 
     struct DecodingError<Descriptor, Model>:Error 
@@ -150,7 +150,7 @@ enum Entrapta
                         case .array(let edges)?     = graph["relationships"]
                 else 
                 {
-                    throw Entrapta.DecodingError<JSON, Self>.init(expected: Self.self, encountered: $0)
+                    throw Biome.DecodingError<JSON, Self>.init(expected: Self.self, encountered: $0)
                 }
                 
                 return (symbols: symbols, edges: edges)
@@ -396,7 +396,7 @@ enum Entrapta
                 self[index].topics.members.append(contentsOf: self.organize(symbols: self[index].members))
             }
         }
-        func organize(symbols:[Index]) -> [(heading:Entrapta.Topic, indices:[Index])]
+        func organize(symbols:[Index]) -> [(heading:Biome.Topic, indices:[Index])]
         {
             let topics:[Topic.Automatic: [Index]] = .init(grouping: symbols)
             {
@@ -450,7 +450,7 @@ enum Entrapta
         }
     }
 }
-extension Entrapta.Topic 
+extension Biome.Topic 
 {
     public 
     enum Automatic:String, Hashable, CaseIterable
@@ -482,7 +482,7 @@ extension Entrapta.Topic
         }
     }
 }
-extension Entrapta.Graph.Symbol 
+extension Biome.Graph.Symbol 
 {
     public 
     enum Kind 
@@ -514,7 +514,7 @@ extension Entrapta.Graph.Symbol
         case `protocol`
         
         public 
-        var topic:Entrapta.Topic.Automatic
+        var topic:Biome.Topic.Automatic
         {
             switch self 
             {
@@ -586,7 +586,7 @@ extension Entrapta.Graph.Symbol
             case ("swift.protocol", nil):
                 self = .protocol
             default: 
-                throw Entrapta.DecodingError<Descriptor, Self>.init(expected: Self.self, encountered: (identifier, function))
+                throw Biome.DecodingError<Descriptor, Self>.init(expected: Self.self, encountered: (identifier, function))
             }
         }
         
@@ -619,7 +619,7 @@ extension Entrapta.Graph.Symbol
         }
     }
 }
-extension Entrapta.Graph 
+extension Biome.Graph 
 {
     struct Breadcrumbs:Hashable 
     {
@@ -666,7 +666,7 @@ extension Entrapta.Graph
     public 
     struct Symbol 
     {
-        typealias DecodingError = Entrapta.DecodingError<JSON, Self>
+        typealias DecodingError = Biome.DecodingError<JSON, Self>
         
         public 
         enum ID:Hashable, Comparable, Sendable 
@@ -733,9 +733,9 @@ extension Entrapta.Graph
         {
             var unavailable:Bool 
             // .some(nil) represents unconditional deprecation
-            var deprecated:Entrapta.Version??
-            var introduced:Entrapta.Version?
-            var obsoleted:Entrapta.Version?
+            var deprecated:Biome.Version??
+            var introduced:Biome.Version?
+            var obsoleted:Biome.Version?
             var renamed:String?
             var message:String?
         }
@@ -784,7 +784,7 @@ extension Entrapta.Graph
         let generic:(parameters:[Generic], constraints:[Language.Constraint])?
         let availability:[Domain: Availability]
         
-        var comment:(text:String, processed:Entrapta.Comment)
+        var comment:(text:String, processed:Biome.Comment)
         
         var parent:Index?
         
@@ -805,8 +805,8 @@ extension Entrapta.Graph
             
         var topics:
         (
-            requirements:[(heading:Entrapta.Topic, indices:[Index])],
-            members:[(heading:Entrapta.Topic, indices:[Index])]
+            requirements:[(heading:Biome.Topic, indices:[Index])],
+            members:[(heading:Biome.Topic, indices:[Index])]
         )
         
         init(module:Module, prefix:[String]) 

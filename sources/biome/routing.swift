@@ -1,6 +1,6 @@
 import Grammar 
 
-extension Entrapta 
+extension Biome 
 {
     fileprivate static 
     func hex(_ value:UInt8) -> UInt8
@@ -70,7 +70,7 @@ extension Entrapta
         typealias Digit<T>  = Grammar.Digit<Location, UInt8, T>.ASCII where T:BinaryInteger
     }
 }
-extension Entrapta.URL
+extension Biome.URL
 {
     enum Path:ParsingRule
     {
@@ -99,7 +99,7 @@ extension Entrapta.URL
                 {
                     byte = head 
                 }
-                if let unencoded:UInt8 = Entrapta.normalize(byte: byte)
+                if let unencoded:UInt8 = Biome.normalize(byte: byte)
                 {
                     // this is a byte that should not have been percent-encoded 
                     utf8.append(unencoded)
@@ -108,8 +108,8 @@ extension Entrapta.URL
                 {
                     // leave it be (but lowercase the percent-encoding if needed)
                     utf8.append(0x25) // '%'
-                    utf8.append(Entrapta.hex(byte >> 4))
-                    utf8.append(Entrapta.hex(byte & 0x0f))
+                    utf8.append(Biome.hex(byte >> 4))
+                    utf8.append(Biome.hex(byte & 0x0f))
                 }
             }
             return String.init(unsafeUninitializedCapacity: utf8.count)
