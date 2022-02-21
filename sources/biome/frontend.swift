@@ -730,7 +730,7 @@ extension Biome.Graph
             })
             next = parent.parent
         }
-        return Frontend[.nav]
+        return Frontend[.nav, id: nil]
         {
             Frontend[.div]
             {

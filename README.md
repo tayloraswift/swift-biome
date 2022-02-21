@@ -6,6 +6,8 @@
 
 *Biome* is a pure-Swift documentation engine for generating and retrieving DocC-style API reference pages. **Biome aims to be backwards-compatible with the ad-hoc Markdown-based documentation formats popular among many existing Swift packages.** For example, *Biome* can import symbol graphs for the Swift standard library and render them as DocC-style reference pages, even though the Swift standard library is not documented in a DocC-compatible format.
 
+![screenshot](screenshots/screenshot.png)
+
 Since `0.2.0`, *Biome* (formerly named *Entrapta*) is no longer a site generator. Instead, it is meant to be the back-end component of a web server or a static site generator. *Biome* handles symbol graph parsing, cross-linking, organization, presentation, HTML rendering, and query routing.
 
 A major design goal of *Biome* is to support **multi-package, multi-module use cases**. Over time, as the Swift package ecosystem has matured, more and more people are writing Swift on non-Apple platforms. Unlike in the early days of Swift, when large monolithic frameworks such as *Foundation* or *UIKit* were the norm, the Swift Package Manager has enabled greater modularization and atomization of Swift libraries. This is a good thing for the Swift community! However, this also exposes the limitations of single-module documentation engines, which do not provide an easy way to navigate between symbols in different, interconnected modules, or filter-out irrelevant imports.
