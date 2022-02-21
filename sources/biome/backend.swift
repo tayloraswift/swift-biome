@@ -1,8 +1,8 @@
 import JSON
 
-extension Entrapta.Graph.Symbol 
+extension Biome.Graph.Symbol 
 {
-    init(from json:[String: JSON], in module:Entrapta.Graph.Module, prefix:[String]) throws 
+    init(from json:[String: JSON], in module:Biome.Graph.Module, prefix:[String]) throws 
     {
         var items:[String: JSON] = _move(json)
         defer 
@@ -322,8 +322,8 @@ extension Entrapta.Graph.Symbol
                     throw DecodingError.init(expected: String?.self, in: "availability[_:].renamed", encountered: value)
                 }
                 
-                let deprecation:Entrapta.Version?? 
-                if let version:Entrapta.Version = try items.removeValue(forKey: "deprecated").map(Entrapta.Version.init(from:))
+                let deprecation:Biome.Version?? 
+                if let version:Biome.Version = try items.removeValue(forKey: "deprecated").map(Biome.Version.init(from:))
                 {
                     deprecation = .some(version)
                 }
@@ -353,8 +353,8 @@ extension Entrapta.Graph.Symbol
                 item.value = .init(
                     unavailable: unavailable,
                     deprecated: deprecation,
-                    introduced: try items.removeValue(forKey: "introduced").map(Entrapta.Version.init(from:)),
-                    obsoleted: try items.removeValue(forKey: "obsoleted").map(Entrapta.Version.init(from:)), 
+                    introduced: try items.removeValue(forKey: "introduced").map(Biome.Version.init(from:)),
+                    obsoleted: try items.removeValue(forKey: "obsoleted").map(Biome.Version.init(from:)), 
                     renamed: renamed,
                     message: message)
                 return item 
@@ -414,7 +414,7 @@ extension Entrapta.Graph.Symbol
         
         // downcast the kind string 
         let kind:Kind = try .init(kindname, function: function)
-        let assigned:(path:Path, breadcrumbs:Entrapta.Graph.Breadcrumbs) = 
+        let assigned:(path:Path, breadcrumbs:Biome.Graph.Breadcrumbs) = 
             Self.assign(prefix: prefix, module: module, path: path, kind: kind)
         self.init(
             kind:           kind, 
@@ -435,8 +435,8 @@ extension Entrapta.Graph.Symbol
     }
     
     private static 
-    func assign(prefix:[String], module:Entrapta.Graph.Module, path:[String], kind:Kind) 
-        -> (path:Path, breadcrumbs:Entrapta.Graph.Breadcrumbs)
+    func assign(prefix:[String], module:Biome.Graph.Module, path:[String], kind:Kind) 
+        -> (path:Path, breadcrumbs:Biome.Graph.Breadcrumbs)
     {
         guard let tail:String = path.last
         else 
@@ -470,16 +470,16 @@ extension Entrapta.Graph.Symbol
             }
             unescaped = prefix + module.identifier + path.dropLast(2) + CollectionOfOne<String>.init("\(scope).\(tail)")
         }
-        let group:String = Entrapta.normalize(path: unescaped)
+        let group:String = Biome.normalize(path: unescaped)
         
-        let breadcrumbs:Entrapta.Graph.Breadcrumbs = 
+        let breadcrumbs:Biome.Graph.Breadcrumbs = 
                         .init(body: [module.title] + path.dropLast(), tail: tail)
         return (.init(group: group), breadcrumbs)
     }
 }
-extension Entrapta.Version 
+extension Biome.Version 
 {
-    typealias DecodingError = Entrapta.DecodingError<JSON, Self> 
+    typealias DecodingError = Biome.DecodingError<JSON, Self> 
     
     init(from json:JSON) throws
     {
@@ -537,9 +537,9 @@ extension Entrapta.Version
         }
     }
 }
-extension Entrapta.Graph.Symbol.Generic 
+extension Biome.Graph.Symbol.Generic 
 {
-    typealias DecodingError = Entrapta.DecodingError<JSON, Self>
+    typealias DecodingError = Biome.DecodingError<JSON, Self>
     
     init(from json:JSON) throws 
     {
@@ -588,9 +588,9 @@ extension Entrapta.Graph.Symbol.Generic
         }
     }
 }
-extension Entrapta.Graph.Symbol.Parameter 
+extension Biome.Graph.Symbol.Parameter 
 {
-    typealias DecodingError = Entrapta.DecodingError<JSON, Self>
+    typealias DecodingError = Biome.DecodingError<JSON, Self>
     
     init(from json:JSON) throws 
     {
@@ -632,9 +632,9 @@ extension Entrapta.Graph.Symbol.Parameter
     } 
 }
 
-extension Entrapta.Graph.Edge 
+extension Biome.Graph.Edge 
 {
-    typealias DecodingError = Entrapta.DecodingError<JSON, Self> 
+    typealias DecodingError = Biome.DecodingError<JSON, Self> 
     
     init(from json:JSON) throws 
     {
@@ -689,7 +689,7 @@ extension Entrapta.Graph.Edge
                     print("warning: unused json keys \(items) in 'sourceOrigin'")
                 }
             }
-            let id:Entrapta.Graph.Symbol.ID, 
+            let id:Biome.Graph.Symbol.ID, 
                 name:String 
             switch items.removeValue(forKey: "identifier")
             {
