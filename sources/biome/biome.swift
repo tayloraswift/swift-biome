@@ -1,7 +1,7 @@
 import JSON 
 
 public 
-enum Biome 
+struct Biome 
 {
     public 
     struct DecodingError<Descriptor, Model>:Error 
@@ -67,385 +67,408 @@ enum Biome
     }
     
     public 
-    struct Graph 
+    struct Namespace:Hashable, Sendable 
     {
-        public 
-        enum Module:Hashable, Comparable, Sendable
+        var module:Module, 
+            extends:Module?
+        
+        var components:[String]
         {
-            case swift 
-            case concurrency
-            case community(module:String, package:String)
+            (self.extends ?? self.module).components
+        }
+        
+        public static 
+        var swift:Self 
+        {
+            .init(module: .swift, extends: nil)
+        }
+        public static 
+        var concurrency:Self 
+        {
+            .init(module: .concurrency, extends: nil)
+        }
+        public static 
+        func module(_ module:String, package:String, extends:Module?) -> Self
+        {
+            .init(module: .community(module: module, package: package), extends: extends)
+        }
+    }
+    public 
+    enum Module:Hashable, Comparable, Sendable
+    {
+        case swift 
+        case concurrency
+        case community(module:String, package:String)
+        
+        var name:String 
+        {
+            switch self 
+            {
+            case .swift:
+                return "Swift"
+            case .concurrency:
+                return "_Concurrency"
+            case .community(module: let module, package: _):
+                return module
+            }
+        }
+        var title:String 
+        {
+            switch self 
+            {
+            case .swift:
+                return "Swift"
+            case .concurrency:
+                return "Concurrency"
+            case .community(module: let module, package: _):
+                return module
+            }
+        }
+        var components:[String] 
+        {
+            switch self 
+            {
+            case .swift:
+                return ["swift"]
+            case .concurrency:
+                return ["concurrency"]
+            case .community(module: let module, package: let package):  
+                return [package.lowercased(), module.lowercased()]
+            }
+        }
+        var declaration:[Language.Lexeme]
+        {
+            [
+                .code("import", class: .keyword(.other)),
+                .spaces(1),
+                .code(self.name, class: .identifier)
+            ]
+        }
+    }
+    
+    typealias Index = Dictionary<Symbol.ID, Symbol>.Index
+    
+    var symbols:[Symbol.ID: Symbol]
+    let modules:[String: Index]
+    let groups:[String: [Index]]
+    
+    subscript(index:Index) -> Symbol
+    {
+        _read
+        {
+            yield self.symbols.values[index]
+        }
+        _modify
+        {
+            yield &self.symbols.values[index]
+        }
+    }
+    
+    init(namespaces json:[Namespace: JSON], prefix:[String] = []) throws
+    {
+        let destructured:[Namespace: (symbols:[JSON], edges:[JSON])] = try json.mapValues
+        {
+            guard   case .object(let graph)     = $0, 
+                    case .object(_)?            = graph["module"],
+                    case .array(let symbols)?   = graph["symbols"],
+                    case .array(let edges)?     = graph["relationships"]
+            else 
+            {
+                throw Biome.DecodingError<JSON, Self>.init(expected: Self.self, encountered: $0)
+            }
             
-            var name:String 
-            {
-                switch self 
-                {
-                case .swift:
-                    return "Swift"
-                case .concurrency:
-                    return "_Concurrency"
-                case .community(module: let module, package: _):
-                    return module
-                }
-            }
-            var title:String 
-            {
-                switch self 
-                {
-                case .swift:
-                    return "Swift"
-                case .concurrency:
-                    return "Concurrency"
-                case .community(module: let module, package: _):
-                    return module
-                }
-            }
-            var identifier:[String] 
-            {
-                switch self 
-                {
-                case .swift:
-                    return ["swift"]
-                case .concurrency:
-                    return ["concurrency"]
-                case .community(module: let module, package: let package):  
-                    return [package.lowercased(), module.lowercased()]
-                }
-            }
-            var declaration:[Language.Lexeme]
-            {
-                [
-                    .code("import", class: .keyword(.other)),
-                    .spaces(1),
-                    .code(self.name, class: .identifier)
-                ]
-            }
+            return (symbols: symbols, edges: edges)
         }
-        
-        typealias Index = Dictionary<Symbol.ID, Symbol>.Index
-        
-        var symbols:[Symbol.ID: Symbol]
-        let modules:[Index]
-        let groups:[String: [Index]]
-        
-        subscript(index:Index) -> Symbol
-        {
-            _read
-            {
-                yield self.symbols.values[index]
-            }
-            _modify
-            {
-                yield &self.symbols.values[index]
-            }
-        }
-        
-        init(modules json:[Module: JSON], prefix:[String] = []) throws
-        {
-            let destructured:[Module: (symbols:[JSON], edges:[JSON])] = try json.mapValues
-            {
-                guard   case .object(let graph)     = $0, 
-                        case .object(_)?            = graph["module"],
-                        case .array(let symbols)?   = graph["symbols"],
-                        case .array(let edges)?     = graph["relationships"]
-                else 
-                {
-                    throw Biome.DecodingError<JSON, Self>.init(expected: Self.self, encountered: $0)
-                }
-                
-                return (symbols: symbols, edges: edges)
-            }
 
-            try self.init(symbols: destructured.mapValues(\.symbols), prefix: prefix)
-            // link the edges 
-            for json:[JSON] in destructured.values.map(\.edges) 
+        try self.init(symbols: destructured.mapValues(\.symbols), prefix: prefix)
+        // link the edges 
+        for json:[JSON] in destructured.values.map(\.edges) 
+        {
+            for json:JSON in json
             {
-                for json:JSON in json
-                {
-                    self.link(edge: try .init(from: json))
-                }
+                self.link(edge: try .init(from: json))
             }
-            
-            let table:[Breadcrumbs: [Index]] = .init(grouping: self.symbols.indices)
-            {
-                self[$0].breadcrumbs
-            }
-            // compute the DAG 
-            for index:Index in self.symbols.indices 
-            {
-                let breadcrumbs:Breadcrumbs = self[index].breadcrumbs
-                guard let tail:String = breadcrumbs.body.last
-                else 
-                {
-                    // is a module 
-                    continue 
-                }
-                let parent:Breadcrumbs      = .init(body: [String].init(breadcrumbs.body.dropLast()), tail: tail)
-                guard   let matches:[Index] = table[parent], 
-                        let parent:Index    = matches.first
-                else 
-                {
-                    print("warning: symbol \(self[index].title) has no parent")
-                    continue 
-                }
-                self[index].parent = parent 
-                if case .module = self[parent].kind 
-                {
-                    self[parent].members.append(index)
-                }
-                if matches.count != 1 
-                {
-                    print("warning: symbol \(self[index].title) has more than one parent")
-                }
-            }
-            
-            self.sort()
-            self.populateTopics()
         }
         
-        private 
-        init(symbols modules:[Module: [JSON]], prefix:[String]) throws 
+        let table:[Breadcrumbs: [Index]] = .init(grouping: self.symbols.indices)
         {
-            var symbols:[Symbol.ID: Symbol] = [:]
-            for (module, json):(Module, [JSON]) in modules
+            self[$0].breadcrumbs
+        }
+        // compute the DAG 
+        for index:Index in self.symbols.indices 
+        {
+            guard let parent:Breadcrumbs = self[index].breadcrumbs.prefix
+            else 
             {
-                let root:Symbol = .init(module: module, prefix: prefix)
-                if case _? = symbols.updateValue(root, forKey: .module(module))
+                // is a module 
+                continue 
+            }
+            guard   let matches:[Index] = table[parent], 
+                    let parent:Index    = matches.first
+            else 
+            {
+                print("warning: symbol \(self[index].title) has no parent")
+                continue 
+            }
+            self[index].parent = parent 
+            if case .module = self[parent].kind 
+            {
+                self[parent].members.append(index)
+            }
+            if matches.count != 1 
+            {
+                print("warning: symbol \(self[index].title) has more than one parent")
+            }
+        }
+        
+        self.sort()
+        self.populateTopics()
+    }
+    
+    private 
+    init(symbols namespaces:[Namespace: [JSON]], prefix:[String]) throws 
+    {
+        var symbols:[Symbol.ID: Symbol] = [:]
+        for (namespace, json):(Namespace, [JSON]) in namespaces
+        {
+            if case nil = namespace.extends 
+            {
+                let root:Symbol = .init(module: namespace.module, prefix: prefix)
+                if case _? = symbols.updateValue(root, forKey: .module(namespace.module))
                 {
-                    print("warning: duplicate module '\(module.identifier)'")
+                    print("warning: duplicate module '\(namespace)'")
                 }
-                
-                for json:JSON in json 
+            }
+            
+            for json:JSON in json 
+            {
+                guard case .object(var items) = json 
+                else 
                 {
-                    guard case .object(var items) = json 
-                    else 
+                    throw Symbol.DecodingError.init(expected: [String: JSON].self, encountered: json)
+                }
+                let id:Symbol.ID
+                switch items.removeValue(forKey: "identifier")
+                {
+                case .object(var items)?: 
+                    defer 
                     {
-                        throw Symbol.DecodingError.init(expected: [String: JSON].self, encountered: json)
+                        items["interfaceLanguage"] = nil 
+                        
+                        if !items.isEmpty 
+                        {
+                            print("warning: unused json keys \(items) in 'identifier'")
+                        }
                     }
-                    let id:Symbol.ID
-                    switch items.removeValue(forKey: "identifier")
+                    switch items.removeValue(forKey: "precise")
                     {
-                    case .object(var items)?: 
-                        defer 
-                        {
-                            items["interfaceLanguage"] = nil 
-                            
-                            if !items.isEmpty 
-                            {
-                                print("warning: unused json keys \(items) in 'identifier'")
-                            }
-                        }
-                        switch items.removeValue(forKey: "precise")
-                        {
-                        case .string(let text)?:
-                            id = .declaration(precise: text)
-                        case let value:
-                            throw Symbol.DecodingError.init(expected: String.self, in: "identifier.precise", encountered: value)
-                        }
+                    case .string(let text)?:
+                        id = .declaration(precise: text)
                     case let value:
-                        throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "identifier", encountered: value)
+                        throw Symbol.DecodingError.init(expected: String.self, in: "identifier.precise", encountered: value)
                     }
-                    
-                    let symbol:Symbol   = try .init(from: items, in: module, prefix: prefix)
-                    guard case nil      = symbols.updateValue(symbol, forKey: id)
-                    else 
-                    {
-                        print("warning: duplicate symbol id '\(id)'")
-                        continue 
-                    }
+                case let value:
+                    throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "identifier", encountered: value)
                 }
-            }
-            // find all the modules in the dictionary 
-            self.modules = symbols.indices.filter 
-            {
-                if case .module = symbols.values[$0].kind
-                {
-                    return true 
-                }
+                
+                let symbol:Symbol   = try .init(from: items, in: namespace, prefix: prefix)
+                guard case nil      = symbols.updateValue(symbol, forKey: id)
                 else 
                 {
-                    return false 
+                    print("warning: duplicate symbol id '\(id)'")
+                    continue 
                 }
             }
-            // compute canonical paths. if paths collide, *every* symbol in 
-            // the path group gets a disambiguation tag 
-            self.groups = .init(grouping: symbols.indices)
+        }
+        // find all the modules in the dictionary 
+        self.modules = .init(uniqueKeysWithValues: symbols.indices.compactMap 
+        {
+            guard case .module = symbols.values[$0].kind
+            else 
             {
-                symbols.values[$0].path.group
+                return nil 
             }
-            
-            self.symbols = _move(symbols)
-            for overloads:[Index] in self.groups.values where overloads.count > 1
-            {
-                for overload:Index in overloads 
-                {
-                    self.symbols.values[overload].path.disambiguation = self.symbols.keys[overload]
-                }
-            }
+            // not the same as `title`!
+            return (symbols.values[$0].module.name, $0)
+        })
+        // compute canonical paths. if paths collide, *every* symbol in 
+        // the path group gets a disambiguation tag 
+        self.groups = .init(grouping: symbols.indices)
+        {
+            symbols.values[$0].path.group
         }
         
-        mutating 
-        func link(edge:Edge) 
+        self.symbols = _move(symbols)
+        for overloads:[Index] in self.groups.values where overloads.count > 1
         {
-            switch 
-            (
-                self.symbols.index(forKey: edge.source),
-                is: edge.kind,
-                of: self.symbols.index(forKey: edge.target)
-            )
+            for overload:Index in overloads 
             {
-            case    (let symbol?, is: .member, of: let type?): 
+                self.symbols.values[overload].path.disambiguation = self.symbols.keys[overload]
+            }
+        }
+    }
+    
+    mutating 
+    func link(edge:Edge) 
+    {
+        switch 
+        (
+            self.symbols.index(forKey: edge.source),
+            is: edge.kind,
+            of: self.symbols.index(forKey: edge.target)
+        )
+        {
+        case    (let symbol?, is: .member, of: let type?): 
+            if !edge.constraints.isEmpty 
+            {
+                print("warning: edge constraints are not supported for member relationships")
+            }
+            self[type].members.append(symbol)
+        
+        case    (let symbol?, is: .conformer, of: let upstream?):
+            if case .protocol = self[symbol].kind 
+            {
+                // <Protocol>:<Protocol>
                 if !edge.constraints.isEmpty 
                 {
-                    print("warning: edge constraints are not supported for member relationships")
-                }
-                self[type].members.append(symbol)
-            
-            case    (let symbol?, is: .conformer, of: let upstream?):
-                if case .protocol = self[symbol].kind 
-                {
-                    // <Protocol>:<Protocol>
-                    if !edge.constraints.isEmpty 
-                    {
-                        print("warning: protocol '\(self[upstream].title)' cannot conditionally refine an upstream protocol")
-                    }
-                    
-                    self[symbol].upstream.append((upstream, []))
-                    self[upstream].downstream.append(symbol)
-                }
-                else if case .protocol = self[upstream].kind 
-                {
-                    // <Non-protocol>:<Protocol>
-                    self[symbol].upstream.append((upstream, edge.constraints))
-                    self[upstream].conformers.append((symbol, edge.constraints))
-                }
-                else 
-                {
-                    print("warning: ignored upstream type '\(self[upstream].title)' because it is not a protocol")
-                }
-            case    (let symbol?, is: .subclass, of: let superclass?):
-                if !edge.constraints.isEmpty 
-                {
-                    print("warning: edge constraints are not supported for subclass relationships")
-                }
-                if let incumbent:Index = self[symbol].superclass
-                {
-                    print("warning: symbol \(self[symbol].title) has multiple superclasses '\(self[incumbent].title)', '\(self[superclass].title)'")
-                }
-                if case .class = self[superclass].kind 
-                {
-                    self[symbol].superclass = superclass
-                    self[superclass].subclasses.append(symbol)
-                }
-                else 
-                {
-                    print("warning: ignored superclass type '\(self[superclass].title)' because it is not a class")
+                    print("warning: protocol '\(self[upstream].title)' cannot conditionally refine an upstream protocol")
                 }
                 
-            case    (let symbol?, is: .optionalRequirement, of: let interface?),
-                    (let symbol?, is: .requirement, of: let interface?):
-                if !edge.constraints.isEmpty 
-                {
-                    print("warning: edge constraints are not supported for requirement relationships")
-                }
-                if let incumbent:Index = self[symbol].interface
-                {
-                    print("warning: symbol \(self[symbol].title) is a requirement of multiple protocols '\(self[incumbent].title)', '\(self[interface].title)'")
-                }
-                if case .protocol = self[interface].kind 
-                {
-                    self[symbol].interface = interface
-                    self[interface].requirements.append(symbol)
-                }
-                else 
-                {
-                    print("warning: ignored interface type '\(self[interface].title)' because it is not a protocol")
-                }
+                self[symbol].upstream.append((upstream, []))
+                self[upstream].downstream.append(symbol)
+            }
+            else if case .protocol = self[upstream].kind 
+            {
+                // <Non-protocol>:<Protocol>
+                self[symbol].upstream.append((upstream, edge.constraints))
+                self[upstream].conformers.append((symbol, edge.constraints))
+            }
+            else 
+            {
+                print("warning: ignored upstream type '\(self[upstream].title)' because it is not a protocol")
+            }
+        case    (let symbol?, is: .subclass, of: let superclass?):
+            if !edge.constraints.isEmpty 
+            {
+                print("warning: edge constraints are not supported for subclass relationships")
+            }
+            if let incumbent:Index = self[symbol].superclass
+            {
+                print("warning: symbol \(self[symbol].title) has multiple superclasses '\(self[incumbent].title)', '\(self[superclass].title)'")
+            }
+            if case .class = self[superclass].kind 
+            {
+                self[symbol].superclass = superclass
+                self[superclass].subclasses.append(symbol)
+            }
+            else 
+            {
+                print("warning: ignored superclass type '\(self[superclass].title)' because it is not a class")
+            }
             
-            case    (let symbol?, is: .override, of: let requirement?):
-                if !edge.constraints.isEmpty 
-                {
-                    print("warning: edge constraints are not supported for override relationships")
-                }
-                if let incumbent:Index = self[symbol].overrides 
-                {
-                    print("warning: symbol \(self[symbol].title) overrides multiple requirements '\(self[incumbent].title)', '\(self[requirement].title)'")
-                }
-                self[symbol].overrides = requirement 
-                
-            case    (let symbol?, is: .defaultImplementation, of: let requirement?):
-                if !edge.constraints.isEmpty 
-                {
-                    print("warning: edge constraints are not supported for default implementation relationships")
-                }
-                self[symbol].implements.append(requirement)
-                self[requirement].defaults.append(symbol)
+        case    (let symbol?, is: .optionalRequirement, of: let interface?),
+                (let symbol?, is: .requirement, of: let interface?):
+            if !edge.constraints.isEmpty 
+            {
+                print("warning: edge constraints are not supported for requirement relationships")
+            }
+            if let incumbent:Index = self[symbol].interface
+            {
+                print("warning: symbol \(self[symbol].title) is a requirement of multiple protocols '\(self[incumbent].title)', '\(self[interface].title)'")
+            }
+            if case .protocol = self[interface].kind 
+            {
+                self[symbol].interface = interface
+                self[interface].requirements.append(symbol)
+            }
+            else 
+            {
+                print("warning: ignored interface type '\(self[interface].title)' because it is not a protocol")
+            }
+        
+        case    (let symbol?, is: .override, of: let requirement?):
+            if !edge.constraints.isEmpty 
+            {
+                print("warning: edge constraints are not supported for override relationships")
+            }
+            if let incumbent:Index = self[symbol].overrides 
+            {
+                print("warning: symbol \(self[symbol].title) overrides multiple requirements '\(self[incumbent].title)', '\(self[requirement].title)'")
+            }
+            self[symbol].overrides = requirement 
             
-            case    (nil, is: _, of: _): 
-                print("warning: undefined symbol id '\(edge.source)'")
-            case    (_, is: _, of: nil): 
-                print("warning: undefined symbol id '\(edge.target)'")
-            }
-        }
-        mutating 
-        func populateTopics() 
-        {
-            for index:Index in self.symbols.indices 
-            {                
-                self[index].topics.requirements.append(contentsOf: self.organize(symbols: self[index].requirements))
-                self[index].topics.members.append(contentsOf: self.organize(symbols: self[index].members))
-            }
-        }
-        func organize(symbols:[Index]) -> [(heading:Biome.Topic, indices:[Index])]
-        {
-            let topics:[Topic.Automatic: [Index]] = .init(grouping: symbols)
+        case    (let symbol?, is: .defaultImplementation, of: let requirement?):
+            if !edge.constraints.isEmpty 
             {
-                self[$0].kind.topic
+                print("warning: edge constraints are not supported for default implementation relationships")
             }
-            return Topic.Automatic.allCases.compactMap
-            {
-                (topic:Topic.Automatic) in 
-                guard let indices:[Index] = topics[topic]
-                else 
-                {
-                    return nil 
-                }
-                return (.automatic(topic), indices)
-            }
+            self[symbol].implements.append(requirement)
+            self[requirement].defaults.append(symbol)
+        
+        case    (nil, is: _, of: _): 
+            print("warning: undefined symbol id '\(edge.source)'")
+        case    (_, is: _, of: nil): 
+            print("warning: undefined symbol id '\(edge.target)'")
         }
-        mutating 
-        func sort() 
+    }
+    mutating 
+    func populateTopics() 
+    {
+        for index:Index in self.symbols.indices 
+        {                
+            self[index].topics.requirements.append(contentsOf: self.organize(symbols: self[index].requirements))
+            self[index].topics.members.append(contentsOf: self.organize(symbols: self[index].members))
+        }
+    }
+    func organize(symbols:[Index]) -> [(heading:Biome.Topic, indices:[Index])]
+    {
+        let topics:[Topic.Automatic: [Index]] = .init(grouping: symbols)
         {
-            for symbol:Index in self.symbols.indices 
+            self[$0].kind.topic
+        }
+        return Topic.Automatic.allCases.compactMap
+        {
+            (topic:Topic.Automatic) in 
+            guard let indices:[Index] = topics[topic]
+            else 
             {
-                self[symbol].members        = self[symbol].members.sorted
-                {
-                    self[$0].title < self[$1].title
-                }
-                self[symbol].implements     = self[symbol].implements.sorted
-                {
-                    self[$0].title < self[$1].title
-                }
-                self[symbol].defaults       = self[symbol].defaults.sorted
-                {
-                    self[$0].title < self[$1].title
-                }
-                self[symbol].requirements   = self[symbol].requirements.sorted
-                {
-                    self[$0].title < self[$1].title
-                }
-                self[symbol].upstream       = self[symbol].upstream.sorted
-                {
-                    self[$0.index].title < self[$1.index].title
-                }
-                self[symbol].downstream     = self[symbol].downstream.sorted
-                {
-                    self[$0].title < self[$1].title
-                }
-                self[symbol].conformers     = self[symbol].conformers.sorted
-                {
-                    self[$0.index].title < self[$1.index].title
-                }
+                return nil 
+            }
+            return (.automatic(topic), indices)
+        }
+    }
+    mutating 
+    func sort() 
+    {
+        for symbol:Index in self.symbols.indices 
+        {
+            self[symbol].members        = self[symbol].members.sorted
+            {
+                self[$0].title < self[$1].title
+            }
+            self[symbol].implements     = self[symbol].implements.sorted
+            {
+                self[$0].title < self[$1].title
+            }
+            self[symbol].defaults       = self[symbol].defaults.sorted
+            {
+                self[$0].title < self[$1].title
+            }
+            self[symbol].requirements   = self[symbol].requirements.sorted
+            {
+                self[$0].title < self[$1].title
+            }
+            self[symbol].upstream       = self[symbol].upstream.sorted
+            {
+                self[$0.index].title < self[$1.index].title
+            }
+            self[symbol].downstream     = self[symbol].downstream.sorted
+            {
+                self[$0].title < self[$1].title
+            }
+            self[symbol].conformers     = self[symbol].conformers.sorted
+            {
+                self[$0.index].title < self[$1.index].title
             }
         }
     }
@@ -482,7 +505,7 @@ extension Biome.Topic
         }
     }
 }
-extension Biome.Graph.Symbol 
+extension Biome.Symbol 
 {
     public 
     enum Kind 
@@ -619,26 +642,40 @@ extension Biome.Graph.Symbol
         }
     }
 }
-extension Biome.Graph 
+extension Biome 
 {
     struct Breadcrumbs:Hashable 
     {
-        let body:[String], 
-            tail:String
+        let head:Module
+        let body:[String]
+        
+        var prefix:Self? 
+        {
+            guard case _? = self.body.last 
+            else 
+            {
+                return nil 
+            }
+            return .init(head: self.head, body: [String].init(self.body.dropLast()))
+        }
         
         var lexemes:[Language.Lexeme] 
         {
             // don’t include the module prefix, if this symbol is not the module 
             // itself 
-            let body:ArraySlice<String>     = body.dropFirst()
+            guard let tail:String = self.body.last 
+            else 
+            {
+                return [.code(self.head.title, class: .identifier)]
+            }
             var lexemes:[Language.Lexeme]   = []
-                lexemes.reserveCapacity(body.count * 2 + 1)
-            for current:String in body 
+                lexemes.reserveCapacity(self.body.count * 2 - 1)
+            for current:String in self.body.dropLast() 
             {
                 lexemes.append(.code(current,   class: .identifier))
                 lexemes.append(.code(".",       class: .punctuation))
             }
-            lexemes.append(.code(self.tail,     class: .identifier))
+            lexemes.append(.code(tail,          class: .identifier))
             return lexemes
         }
     }
@@ -695,6 +732,44 @@ extension Biome.Graph
             {
                 self.group          = group
                 self.disambiguation = disambiguation
+            }
+            init(prefix:[String], _ breadcrumbs:Breadcrumbs, kind:Kind) 
+            {
+                // to reduce the need for disambiguation suffixes, nested types and members 
+                // use different syntax: 
+                // Foo.Bar.baz(qux:) -> 'foo/bar.baz(qux:)' ["foo", "bar.baz(qux:)"]
+                // 
+                // global variables, functions, and operators (including scoped operators) 
+                // start with a slash. so it’s 'prefix/swift/withunsafepointer(to:)', 
+                // not `prefix/swift.withunsafepointer(to:)`
+                let unescaped:[String] 
+                switch kind 
+                {
+                case    .module: 
+                    unescaped = prefix + breadcrumbs.head.components
+                case    .associatedtype, .typealias, .enum, .struct, .class, .actor, .protocol, .global, .function, .operator:
+                    unescaped = prefix + breadcrumbs.head.components + breadcrumbs.body 
+                case    .case, .initializer, .deinitializer, 
+                        .typeSubscript, .instanceSubscript, 
+                        .typeProperty, .instanceProperty, 
+                        .typeMethod, .instanceMethod:
+                    guard let tail:String = breadcrumbs.body.last
+                    else 
+                    {
+                        fatalError("empty symbol path")
+                    }
+                    guard let scope:String = breadcrumbs.body.dropLast().last 
+                    else 
+                    {
+                        print("warning: member '\(breadcrumbs.body)' has no outer scope")
+                        unescaped = breadcrumbs.head.components + breadcrumbs.body 
+                        break 
+                    }
+                    unescaped = prefix + breadcrumbs.head.components + breadcrumbs.body.dropLast(2) + 
+                        CollectionOfOne<String>.init("\(scope).\(tail)")
+                }
+                
+                self.init(group: Biome.normalize(path: unescaped))
             }
         }
         public 
@@ -754,10 +829,9 @@ extension Biome.Graph
             var depth:Int 
         }
         
+        let breadcrumbs:Breadcrumbs
         let module:Module
         var path:Path
-        
-        let breadcrumbs:Breadcrumbs
         
         let title:String 
         let kind:Kind
@@ -813,9 +887,9 @@ extension Biome.Graph
         {
             self.init(kind:    .module, 
                 title:          module.name, 
-                breadcrumbs:   .init(body: [], tail: module.title), 
-                path:          .init(group: "/\((prefix + module.identifier).joined(separator: "/"))"), 
-                in:             module, 
+                breadcrumbs:   .init(head: module, body: []), 
+                module:         module, 
+                path:          .init(prefix: prefix, .init(head: module, body: []), kind: .module), 
                 declaration:    module.declaration)
         }
         
@@ -823,8 +897,8 @@ extension Biome.Graph
             kind:Kind, 
             title:String, 
             breadcrumbs:Breadcrumbs, 
+            module:Module,
             path:Path, 
-            in module:Module, 
             signature:[Language.Lexeme] = [], 
             declaration:[Language.Lexeme] = [], 
             extends:(module:String, where:[Language.Constraint])? = nil,
@@ -848,8 +922,8 @@ extension Biome.Graph
             self.kind           = kind
             self.title          = title 
             self.breadcrumbs    = breadcrumbs
+            self.module         = module
             self.path           = path
-            self.module         = module 
             if let keyword:String = keyword 
             {
                 self.signature  = [.code(keyword, class: .keyword(.other)), .spaces(1)] + breadcrumbs.lexemes 

@@ -1,8 +1,9 @@
+import Resource
 import StructuredDocument 
 import HTML 
 import JSON
 
-extension Biome.Graph.Symbol 
+extension Biome.Symbol 
 {
     public 
     enum Anchor:String, DocumentID, Sendable
@@ -18,7 +19,7 @@ extension Biome.Graph.Symbol
         }
     }
 }
-extension Biome.Graph 
+extension Biome 
 {
     public 
     typealias Frontend  = Document.Element<Document.HTML, Symbol.Anchor>
@@ -173,7 +174,7 @@ extension Biome.Graph
     func render(availability:Symbol.Availability) -> [Frontend]
     {
         var clauses:[Frontend] = []
-        if let version:Biome.Version = availability.introduced
+        if let version:Version = availability.introduced
         {
             clauses.append(Frontend[.p]
             {
@@ -194,7 +195,7 @@ extension Biome.Graph
                 }
             })
         }
-        if let deprecation:Biome.Version? = availability.deprecated 
+        if let deprecation:Version? = availability.deprecated 
         {
             clauses.append(Frontend[.p]
             {
@@ -202,7 +203,7 @@ extension Biome.Graph
                 {
                     "Deprecated"
                 }
-                if let version:Biome.Version = deprecation 
+                if let version:Version = deprecation 
                 {
                     " since "
                     Frontend.span(version.description)
@@ -212,7 +213,7 @@ extension Biome.Graph
                 }
             })
         }
-        if let version:Biome.Version = availability.obsoleted 
+        if let version:Version = availability.obsoleted 
         {
             clauses.append(Frontend[.p]
             {
@@ -243,6 +244,36 @@ extension Biome.Graph
     }
     func renderArticle(_ symbol:Symbol) -> Frontend
     {
+        let module:(index:Index, extended:(index:Index, where:[Language.Constraint])?)?
+        if case .module = symbol.kind 
+        {
+            module = nil 
+        }
+        else if let defined:Index = self.symbols.index(forKey: .module(symbol.module))
+        {
+            if let (name, constraints):(String, [Language.Constraint]) = symbol.extends 
+            {
+                if let extended:Index = self.modules[name]
+                {
+                    module = (defined, (extended, constraints))
+                }
+                else 
+                {
+                    print("warning: could not find extended module '\(name)'")
+                    module = (defined, nil)
+                }
+            }
+            else 
+            {
+                module = (defined, nil)
+            }
+        }
+        else 
+        {
+            print("warning: could not find module '\(symbol.module)'")
+            module = nil 
+        }
+        
         let platforms:[Frontend] = 
         [
             Symbol.Domain.iOS,
@@ -255,7 +286,7 @@ extension Biome.Graph
         ].compactMap
         {
             (platform:Symbol.Domain) in 
-            guard let version:Biome.Version = symbol.availability[platform]?.introduced 
+            guard let version:Version = symbol.availability[platform]?.introduced 
             else 
             {
                 return nil 
@@ -269,7 +300,7 @@ extension Biome.Graph
                 }
             }
         }
-        let relationships:[Frontend] = (symbol.interface.map 
+        var relationships:[Frontend] = symbol.interface.map 
         {
             _ in 
             [
@@ -282,34 +313,14 @@ extension Biome.Graph
                     "Required."
                 }
             ]
-        } ?? [])
-        + 
-        symbol.upstream.compactMap
+        } ?? []
+        if let constraints:[Language.Constraint] = module?.extended?.where, !constraints.isEmpty
         {
-            (conformance:(index:Index, conditions:[Language.Constraint])) in 
-            
-            guard !conformance.conditions.isEmpty 
-            else 
+            relationships.append(Frontend[.p]
             {
-                return nil 
-            }
-            return Frontend[.p]
-            {
-                "Conforms to "
-                Frontend[.code] 
-                {
-                    Frontend[.a]
-                    {
-                        (self[conformance.index].path.canonical, as: Document.HTML.Href.self)
-                    }
-                    content: 
-                    {
-                        Self.render(code: self[conformance.index].breadcrumbs.lexemes)
-                    }
-                }
-                " when "
-                self.render(constraints: conformance.conditions)
-            }
+                "Available when "
+                self.render(constraints: constraints)
+            })
         }
         
         return Frontend[.article]
@@ -324,13 +335,55 @@ extension Biome.Graph
             }
             content:
             {
-                Frontend[.p]
+                Frontend[.div]
                 {
-                    ["eyebrow"]
+                    ["eyebrows"]
                 }
                 content:
                 {
-                    symbol.kind.title
+                    Frontend.span(symbol.kind.title)
+                    {
+                        ["kind"]
+                    }
+                    if let module:(index:Index, extended:(index:Index, where:[Language.Constraint])?) = module 
+                    {
+                        Frontend[.span]
+                        {
+                            ["module"]
+                        }
+                        content: 
+                        {
+                            if let extended:Index = module.extended?.index 
+                            {
+                                Frontend[.span]
+                                {
+                                    ["extended"]
+                                }
+                                content:
+                                {
+                                    Frontend.link(self[extended].module.title, to: self[extended].path.canonical, internal: true)
+                                }
+                            }
+                            Frontend.link(self[module.index].module.title, to: self[module.index].path.canonical, internal: true)
+                        }
+                    }
+                    else 
+                    {
+                        Frontend[.code]
+                        {
+                            ["package"]
+                        }
+                        content: 
+                        {
+                            switch symbol.module 
+                            {
+                            case .swift, .concurrency: 
+                                "swift"
+                            case .community(module: _, package: let package): 
+                                package
+                            }
+                        }
+                    }
                 }
                 Frontend[.h1]
                 {
@@ -539,11 +592,11 @@ extension Biome.Graph
         }
     }
     func renderTopics<S>(_ topics:S, heading:String) -> Frontend?
-        where S:Sequence, S.Element == (heading:Biome.Topic, indices:[Index])
+        where S:Sequence, S.Element == (heading:Topic, indices:[Index])
     {
         let topics:[Frontend] = topics.map
         {
-            (topic:(heading:Biome.Topic, indices:[Index])) in 
+            (topic:(heading:Topic, indices:[Index])) in 
             Frontend[.div]
             {
                 ["topic-container"]
@@ -715,21 +768,26 @@ extension Biome.Graph
     }
     func renderNavigation(_ symbol:Symbol) -> Frontend
     {
-        let tail:Frontend           = Frontend[.li]
+        var breadcrumbs:[Frontend]
+        if let tail:String  = symbol.breadcrumbs.body.last 
         {
-            symbol.breadcrumbs.tail 
-        }
-        var breadcrumbs:[Frontend]  = [tail]
-        var next:Index?             = symbol.parent
-        while let index:Index       = next 
-        {
-            let parent:Symbol       = self[index]
-            breadcrumbs.append(Frontend[.li]
+            breadcrumbs     = [ Frontend[.li] { tail } ]
+            var next:Index?             = symbol.parent
+            while   let index:Index     = next, 
+                    let tail:String     = self[index].breadcrumbs.body.last 
             {
-                Frontend.link(parent.breadcrumbs.tail, to: parent.path.canonical, internal: true)
-            })
-            next = parent.parent
+                breadcrumbs.append(Frontend[.li]
+                {
+                    Frontend.link(tail, to: self[index].path.canonical, internal: true)
+                })
+                next = self[index].parent
+            }
         }
+        else 
+        {
+            breadcrumbs = [ Frontend[.li] { symbol.breadcrumbs.head.title } ]
+        }
+        
         return Frontend[.nav, id: nil]
         {
             Frontend[.div]
@@ -879,7 +937,7 @@ extension Biome.Graph
         }
     }
 }
-extension Biome.Graph 
+extension Biome 
 {
     func renderSymbolLink(to path:String?) -> Frontend
     {
@@ -946,50 +1004,66 @@ extension Biome
     public 
     enum Response 
     {
-        case canonical(Graph.Page)
+        case canonical(Page)
         case found(String)
+    }
+    public 
+    struct Diagnostics 
+    {
+        var uri:String
+        
+        mutating 
+        func warning(_ string:String)
+        {
+            print("(\(self.uri)): \(string)")
+        }
     }
     public 
     struct Documentation:Sendable
     {
-        typealias Index = Dictionary<Graph.Symbol.Path, Graph.Page>.Index 
+        typealias Index = Dictionary<Symbol.Path, Page>.Index 
         
-        let pages:[Graph.Symbol.Path: Graph.Page]
-        let disambiguations:[Graph.Symbol.ID: Index]
+        let pages:[Symbol.Path: Page]
+        let disambiguations:[Symbol.ID: Index]
         
         public 
         let search:JSON
         
         public 
-        init(symbolgraphs:[Graph.Module: [UInt8]], prefix:[String]) throws 
+        init(_ namespaces:[Namespace: [UInt8]], prefix:[String]) throws 
         {
             let prefix:[String] = prefix.map{ $0.lowercased() }
-            let json:[Graph.Module: JSON] = try symbolgraphs.mapValues 
+            let json:[Namespace: JSON] = try namespaces.mapValues 
             {
                 try Grammar.parse($0, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
             }
             print("parsed JSON")
-            var graph:Graph = try .init(modules: json, prefix: prefix)
+            var biome:Biome = try .init(namespaces: json, prefix: prefix)
+            var diagnostics:Diagnostics = .init(uri: "/")
             // rendering must take place in two passes, since pages can include 
             // snippets of other pages 
-            for index:Graph.Index in graph.symbols.indices 
+            for index:Biome.Index in biome.symbols.indices 
             {
-                guard !graph[index].comment.text.isEmpty
+                guard !biome[index].comment.text.isEmpty
                 else 
                 {
                     continue 
                 }
-                graph[index].comment.processed = .init(rendering: graph[index].comment.text, graph: graph, parameters: graph[index].parameters)
+                diagnostics.uri = biome[index].path.canonical 
+                biome[index].comment.processed = biome.render(
+                    markdown: biome[index].comment.text, 
+                    parameters: biome[index].parameters, 
+                    diagnostics: &diagnostics)
             }
-            self.init(graph: graph)
+            self.init(biome: biome)
         }
         
-        init(graph:Graph) 
+        init(biome:Biome) 
         {
             // paths are always unique at this point 
-            let pages:[Graph.Symbol.Path: Graph.Page] = .init(uniqueKeysWithValues: 
-                graph.symbols.values.map { ($0.path, graph.render($0)) })
-            self.disambiguations = .init(uniqueKeysWithValues: graph.symbols.map 
+            let pages:[Symbol.Path: Page] = .init(uniqueKeysWithValues: 
+                biome.symbols.values.map { ($0.path, biome.render($0)) })
+            self.disambiguations = .init(uniqueKeysWithValues: biome.symbols.map 
             {
                 guard let index:Index = pages.index(forKey: $0.value.path)
                 else 
@@ -999,7 +1073,7 @@ extension Biome
                 return ($0.key, index)
             })
             self.pages  = _move(pages)
-            self.search = .array(graph.search.map 
+            self.search = .array(biome.search.map 
             { 
                 .object(["uri": .string($0.uri), "title": .string($0.title), "text": .array($0.text.map(JSON.string(_:)))]) 
             })
@@ -1029,13 +1103,13 @@ extension Biome
         public 
         subscript(group:String, disambiguation disambiguation:String?) -> Response?
         {
-            let path:Graph.Symbol.Path  = .init(group: Biome.normalize(path: group), 
-                disambiguation: disambiguation.map(Graph.Symbol.ID.declaration(precise:)))
-            if let page:Graph.Page = self.pages[path]
+            let path:Symbol.Path  = .init(group: Biome.normalize(path: group), 
+                disambiguation: disambiguation.map(Symbol.ID.declaration(precise:)))
+            if let page:Page = self.pages[path]
             {
                 return path.group == group ? .canonical(page) : .found(path.canonical)
             }
-            guard let key:Graph.Symbol.ID = path.disambiguation
+            guard let key:Symbol.ID = path.disambiguation
             else 
             {
                 return nil 
@@ -1048,7 +1122,7 @@ extension Biome
             }
             //  we were given an extraneous disambiguation key, but the path might 
             //  still be valid
-            let truncated:Graph.Symbol.Path = .init(group: path.group)
+            let truncated:Symbol.Path = .init(group: path.group)
             if case _? = self.pages[truncated]
             {
                 return .found(truncated.canonical)

@@ -15,14 +15,14 @@ extension Language.Lexeme
         }
     }
 }
-extension Biome.Graph.Symbol 
+extension Biome.Symbol 
 {
     var search:(uri:String, title:String, text:[String])
     {
         (self.path.canonical, self.title, self.signature.compactMap(\.search))
     }
 }
-extension Biome.Graph 
+extension Biome 
 {
     var search:[(uri:String, title:String, text:[String])]
     {

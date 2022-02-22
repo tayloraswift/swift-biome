@@ -1,7 +1,7 @@
 import Markdown 
 import StructuredDocument
 
-extension Biome.Graph
+extension Biome
 {
     func render(markdown:Markdown.Markup) -> Frontend
     {
@@ -131,15 +131,200 @@ extension Biome.Graph
             }
         }
     }
+    
+    // expected parameters is unreliable, not available for subscripts
+    func render(markdown string:String, parameters _:[Symbol.Parameter], diagnostics:inout Diagnostics) -> Comment
+    {
+        var comment:Comment = .init() 
+        
+        let document:Markdown.Document      = .init(parsing: string)
+        
+        if diagnostics.uri == "/reference/swift-system/systempackage/filepath"
+        {
+            print(document.debugDescription())
+        }
+        
+        let blocks:[Markdown.BlockMarkup]   = .init(document.blockChildren)
+        let body:ArraySlice<Markdown.BlockMarkup>
+        if  let first:Markdown.BlockMarkup  = blocks.first, 
+                first is Markdown.Paragraph
+        {
+            comment.head = self.render(markdown: first)
+            body = blocks.dropFirst()
+        }
+        else 
+        {
+            comment.head = nil 
+            body = blocks[...]
+        }
+        // filter out top-level ‘ul’ blocks, since they may be special 
+        // var parameters:[String: [Biome.Frontend]] = [:]
+        comment.returns = []
+        comment.body = []
+        comment.complexity = nil
+        comment.parameters = []
+        for block:Markdown.BlockMarkup in body 
+        {
+            guard let list:Markdown.UnorderedList = block as? Markdown.UnorderedList 
+            else 
+            {
+                comment.body.append(self.render(markdown: block))
+                continue 
+            }
+            var ignored:[Markdown.ListItem] = []
+            for item:Markdown.ListItem in list.listItems 
+            {
+                guard   let (keywords, content):([String], [Markdown.BlockMarkup]) = Comment.keywords(prefixing: item, plain: true), 
+                        let  keyword:String = keywords.first
+                else 
+                {
+                    ignored.append(item)
+                    continue 
+                }
+                switch (keyword.lowercased(), keywords.dropFirst().first)
+                {
+                case    ("tip", nil), 
+                        ("note", nil), 
+                        ("info", nil), 
+                        ("warning", nil), 
+                        ("throws", nil), 
+                        ("important", nil), 
+                        ("precondition", nil): 
+                    comment.body.append(Biome.Frontend[.aside]
+                    {
+                        [keyword]
+                    }
+                    content:
+                    {
+                        Biome.Frontend[.h2]
+                        {
+                            keyword
+                        }
+                        content.map(self.render(markdown:))
+                    })
+                case ("complexity", nil): 
+                    /* if case _? = comment.complexity 
+                    {
+                        print("warning: detected multiple 'complexity' sections, only the last will be used")
+                    }
+                    guard   let first:Markdown.BlockMarkup = content.first, 
+                            let first:Markdown.Paragraph = first as? Markdown.Paragraph
+                    else 
+                    {
+                        print("warning: could not detect complexity function from section \(content)")
+                        ignored.append(item)
+                        continue 
+                    }
+                    let text:String = first.inlineChildren.map(\.plainText).joined()
+                    switch text.firstIndex(of: ")").map(text.prefix(through:))
+                    {
+                    case "O(1)"?: 
+                        comment.complexity = .constant
+                    case "O(n)"?, "O(m)"?: 
+                        comment.complexity = .linear
+                    case "O(n log n)"?: 
+                        comment.complexity = .logLinear
+                    default:
+                        print("warning: could not detect complexity function from string '\(text)'")
+                        ignored.append(item)
+                        continue 
+                    } */
+                    comment.body.append(Biome.Frontend[.aside]
+                    {
+                        [keyword]
+                    }
+                    content:
+                    {
+                        Biome.Frontend[.h2]
+                        {
+                            keyword
+                        }
+                        content.map(self.render(markdown:))
+                    })
+                case ("returns", nil): 
+                    if content.isEmpty
+                    {
+                        diagnostics.warning("'returns' section is completely empty")
+                    }
+                    if !comment.returns.isEmpty 
+                    {
+                        diagnostics.warning("detected multiple 'returns' sections, only the last will be used")
+                    }
+                    comment.returns = content.map(self.render(markdown:))
+                case ("parameters", nil): 
+                    guard let list:Markdown.BlockMarkup = content.first 
+                    else 
+                    {
+                        diagnostics.warning("'parameters' section is completely empty")
+                        continue 
+                    }
+                    // look for a nested list 
+                    guard let list:Markdown.UnorderedList = list as? Markdown.UnorderedList
+                    else 
+                    {
+                        fatalError("'parameters' section does not contain a sublist")
+                    }
+                    
+                    for item:Markdown.ListItem in list.listItems 
+                    {
+                        guard   let (keywords, content):([String], [Markdown.BlockMarkup]) = Comment.keywords(prefixing: item, plain: false), 
+                                let  name:String = keywords.first, keywords.dropFirst().isEmpty
+                        else 
+                        {
+                            fatalError("'parameters' section does not contain well-formed parameter comments: \(item.debugDescription())")
+                        }
+                        comment.parameters.append((name, content.map(self.render(markdown:))))
+                    }
+                case ("parameter", let name?): 
+                    if keywords.count > 2 
+                    {
+                        diagnostics.warning("ignored trailing keywords after 'parameter' heading (parameter '\(name)')")
+                    }
+                    if content.isEmpty
+                    {
+                        diagnostics.warning("'parameter' section is completely empty (parameter '\(name)')")
+                    } 
+                    comment.parameters.append((name, content.map(self.render(markdown:))))
+                default: 
+                    diagnostics.warning("unrecognized keywords: \(keywords)")
+                    ignored.append(item)
+                    continue 
+                }
+            }
+            guard ignored.isEmpty 
+            else 
+            {
+                comment.body.append(self.render(markdown: Markdown.UnorderedList.init(ignored)))
+                continue 
+            }
+        }
+        
+        /* comment.parameters = []
+        for parameter:Biome.Symbol.Parameter in expected 
+        {
+            let name:String = parameter.name ?? parameter.label
+            let comment:[Biome.Frontend]? = parameters.removeValue(forKey: name)
+            if case nil = comment 
+            {
+                print("warning: missing comment for parameter \(parameter)")
+            }
+            comment.parameters.append((name, comment ?? []))
+        }
+        if !parameters.isEmpty 
+        {
+            print("warning: ignored extraneous parameters \(parameters)")
+        } */
+        return comment
+    }
 }
 extension Biome 
 {
     struct Comment 
     {
-        var head:Graph.Frontend?, 
-            body:[Graph.Frontend]
-        var parameters:[(name:String, comment:[Graph.Frontend])]
-        var returns:[Graph.Frontend]
+        var head:Frontend?, 
+            body:[Frontend]
+        var parameters:[(name:String, comment:[Frontend])]
+        var returns:[Frontend]
         var complexity:Complexity?
         
         init() 
@@ -150,184 +335,9 @@ extension Biome
             self.returns = []
             self.complexity = nil
         }
-        // expected parameters in unreliable, not available fo subscripts
-        init(rendering string:String, graph:Graph, parameters _:[Graph.Symbol.Parameter]) 
-        {
-            let document:Markdown.Document      = .init(parsing: string)
-            let blocks:[Markdown.BlockMarkup]   = .init(document.blockChildren)
-            let body:ArraySlice<Markdown.BlockMarkup>
-            if  let first:Markdown.BlockMarkup  = blocks.first, 
-                    first is Markdown.Paragraph
-            {
-                self.head = graph.render(markdown: first)
-                body = blocks.dropFirst()
-            }
-            else 
-            {
-                self.head = nil 
-                body = blocks[...]
-            }
-            // filter out top-level ‘ul’ blocks, since they may be special 
-            // var parameters:[String: [Graph.Frontend]] = [:]
-            self.returns = []
-            self.body = []
-            self.complexity = nil
-            self.parameters = []
-            for block:Markdown.BlockMarkup in body 
-            {
-                guard let list:Markdown.UnorderedList = block as? Markdown.UnorderedList 
-                else 
-                {
-                    self.body.append(graph.render(markdown: block))
-                    continue 
-                }
-                var ignored:[Markdown.ListItem] = []
-                for item:Markdown.ListItem in list.listItems 
-                {
-                    guard   let (keywords, content):([String], [Markdown.BlockMarkup]) = Self.keywords(prefixing: item), 
-                            let  keyword:String = keywords.first
-                    else 
-                    {
-                        ignored.append(item)
-                        continue 
-                    }
-                    switch (keyword.lowercased(), keywords.dropFirst().first)
-                    {
-                    case    ("tip", nil), 
-                            ("note", nil), 
-                            ("info", nil), 
-                            ("warning", nil), 
-                            ("throws", nil), 
-                            ("important", nil), 
-                            ("precondition", nil): 
-                        self.body.append(Graph.Frontend[.aside]
-                        {
-                            [keyword]
-                        }
-                        content:
-                        {
-                            Graph.Frontend[.h2]
-                            {
-                                keyword
-                            }
-                            content.map(graph.render(markdown:))
-                        })
-                    case ("complexity", nil): 
-                        /* if case _? = self.complexity 
-                        {
-                            print("warning: detected multiple 'complexity' sections, only the last will be used")
-                        }
-                        guard   let first:Markdown.BlockMarkup = content.first, 
-                                let first:Markdown.Paragraph = first as? Markdown.Paragraph
-                        else 
-                        {
-                            print("warning: could not detect complexity function from section \(content)")
-                            ignored.append(item)
-                            continue 
-                        }
-                        let text:String = first.inlineChildren.map(\.plainText).joined()
-                        switch text.firstIndex(of: ")").map(text.prefix(through:))
-                        {
-                        case "O(1)"?: 
-                            self.complexity = .constant
-                        case "O(n)"?, "O(m)"?: 
-                            self.complexity = .linear
-                        case "O(n log n)"?: 
-                            self.complexity = .logLinear
-                        default:
-                            print("warning: could not detect complexity function from string '\(text)'")
-                            ignored.append(item)
-                            continue 
-                        } */
-                        self.body.append(Graph.Frontend[.aside]
-                        {
-                            [keyword]
-                        }
-                        content:
-                        {
-                            Graph.Frontend[.h2]
-                            {
-                                keyword
-                            }
-                            content.map(graph.render(markdown:))
-                        })
-                    case ("returns", nil): 
-                        if content.isEmpty
-                        {
-                            print("warning: 'returns' section is completely empty")
-                        }
-                        if !self.returns.isEmpty 
-                        {
-                            print("warning: detected multiple 'returns' sections, only the last will be used")
-                        }
-                        self.returns = content.map(graph.render(markdown:))
-                    case ("parameters", nil): 
-                        guard let list:Markdown.BlockMarkup = content.first 
-                        else 
-                        {
-                            print("warning: 'parameters' section is completely empty")
-                            continue 
-                        }
-                        // look for a nested list 
-                        guard let list:Markdown.UnorderedList = list as? Markdown.UnorderedList
-                        else 
-                        {
-                            fatalError("'parameters' section does not contain a sublist")
-                        }
-                        
-                        for item:Markdown.ListItem in list.listItems 
-                        {
-                            guard   let (keywords, content):([String], [Markdown.BlockMarkup]) = Self.keywords(prefixing: item), 
-                                    let  name:String = keywords.first, keywords.dropFirst().isEmpty
-                            else 
-                            {
-                                fatalError("'parameters' section does not contain well-formed parameter comments: \(item.debugDescription())")
-                            }
-                            self.parameters.append((name, content.map(graph.render(markdown:))))
-                        }
-                    case ("parameter", let name?): 
-                        if keywords.count > 2 
-                        {
-                            print("warning: ignored trailing keywords after 'parameter' heading (parameter '\(name)')")
-                        }
-                        if content.isEmpty
-                        {
-                            print("warning: 'parameter' section is completely empty (parameter '\(name)')")
-                        } 
-                        self.parameters.append((name, content.map(graph.render(markdown:))))
-                    default: 
-                        print("warning: unrecognized keywords: \(keywords)")
-                        ignored.append(item)
-                        continue 
-                    }
-                }
-                guard ignored.isEmpty 
-                else 
-                {
-                    self.body.append(graph.render(markdown: Markdown.UnorderedList.init(ignored)))
-                    continue 
-                }
-            }
-            
-            /* self.parameters = []
-            for parameter:Graph.Symbol.Parameter in expected 
-            {
-                let name:String = parameter.name ?? parameter.label
-                let comment:[Graph.Frontend]? = parameters.removeValue(forKey: name)
-                if case nil = comment 
-                {
-                    print("warning: missing comment for parameter \(parameter)")
-                }
-                self.parameters.append((name, comment ?? []))
-            }
-            if !parameters.isEmpty 
-            {
-                print("warning: ignored extraneous parameters \(parameters)")
-            } */
-        }
         
-        private static 
-        func keywords(prefixing item:Markdown.ListItem) -> (keywords:[String], content:[Markdown.BlockMarkup])?
+        static 
+        func keywords(prefixing item:Markdown.ListItem, plain:Bool) -> (keywords:[String], content:[Markdown.BlockMarkup])?
         {
             var outer:LazyMapSequence<Markdown.MarkupChildren, Markdown.BlockMarkup>.Iterator = 
                item.blockChildren.makeIterator()
@@ -339,17 +349,36 @@ extension Biome
             }
             var inner:LazyMapSequence<Markdown.MarkupChildren, Markdown.InlineMarkup>.Iterator = 
                 paragraph.inlineChildren.makeIterator()
-            guard   let first:Markdown.InlineMarkup = inner.next(),
-                    let first:Markdown.Text = first as? Markdown.Text, 
-                    let colon:String.Index = first.string.firstIndex(of: ":")
+            guard let first:Markdown.InlineMarkup = inner.next()
             else 
             {
                 return nil 
             }
-            let keywords:[String] = first.string.prefix(upTo: colon)
+            let string:String 
+            let colon:String.Index
+            if  let first:Markdown.Text = first as? Markdown.Text, 
+                let index:String.Index  = first.string.firstIndex(of: ":")
+            {
+                string  = first.string 
+                colon   = index 
+            }
+            // failing example here: https://developer.apple.com/documentation/system/filedescriptor/duplicate(as:retryoninterrupt:)
+            // apple docs just drop the parameter
+            else if !plain, 
+                let first:Markdown.InlineCode = first as? Markdown.InlineCode 
+            {
+                string  = first.code 
+                colon   = string.firstIndex(of: ":") ?? string.endIndex
+                print("warning: parameter name '`\(string)`' does not need backticks")
+            }
+            else 
+            {
+                return nil 
+            }
+            let keywords:[String] = string.prefix(upTo: colon)
                 .split(whereSeparator: \.isWhitespace)
                 .map(String.init(_:))
-            let remaining:Substring = first.string[colon...].dropFirst().drop(while: \.isWhitespace)
+            let remaining:Substring = string[colon...].dropFirst().drop(while: \.isWhitespace)
             guard remaining.isEmpty 
             else 
             {

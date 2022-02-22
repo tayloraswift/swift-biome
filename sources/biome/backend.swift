@@ -1,8 +1,8 @@
 import JSON
 
-extension Biome.Graph.Symbol 
+extension Biome.Symbol 
 {
-    init(from json:[String: JSON], in module:Biome.Graph.Module, prefix:[String]) throws 
+    init(from json:[String: JSON], in namespace:Biome.Namespace, prefix:[String]) throws 
     {
         var items:[String: JSON] = _move(json)
         defer 
@@ -414,14 +414,13 @@ extension Biome.Graph.Symbol
         
         // downcast the kind string 
         let kind:Kind = try .init(kindname, function: function)
-        let assigned:(path:Path, breadcrumbs:Biome.Graph.Breadcrumbs) = 
-            Self.assign(prefix: prefix, module: module, path: path, kind: kind)
+        let breadcrumbs:Biome.Breadcrumbs = .init(head: namespace.extends ?? namespace.module, body: path)
         self.init(
             kind:           kind, 
             title:          title, 
-            breadcrumbs:    assigned.breadcrumbs, 
-            path:           assigned.path, 
-            in:             module, 
+            breadcrumbs:    breadcrumbs, 
+            module:         namespace.module, 
+            path:          .init(prefix: prefix, breadcrumbs, kind: kind), 
             signature:      signature, 
             declaration:    declaration, 
             extends:        extends, 
@@ -432,49 +431,6 @@ extension Biome.Graph.Symbol
                 return $1
             }, 
             comment:        comment)
-    }
-    
-    private static 
-    func assign(prefix:[String], module:Biome.Graph.Module, path:[String], kind:Kind) 
-        -> (path:Path, breadcrumbs:Biome.Graph.Breadcrumbs)
-    {
-        guard let tail:String = path.last
-        else 
-        {
-            fatalError("empty symbol path")
-        }
-        // to reduce the need for disambiguation suffixes, nested types and members 
-        // use different syntax: 
-        // Foo.Bar.baz(qux:) -> 'foo/bar.baz(qux:)' ["foo", "bar.baz(qux:)"]
-        // 
-        // global variables, functions, and operators (including scoped operators) 
-        // start with a slash. so it’s 'prefix/swift/withunsafepointer(to:)', 
-        // not `prefix/swift.withunsafepointer(to:)`
-        let unescaped:[String] 
-        switch kind 
-        {
-        case    .module: 
-            fatalError("unreachable")
-        case    .associatedtype, .typealias, .enum, .struct, .class, .actor, .protocol, .global, .function, .operator:
-            unescaped = prefix + module.identifier + path 
-        case    .case, .initializer, .deinitializer, 
-                .typeSubscript, .instanceSubscript, 
-                .typeProperty, .instanceProperty, 
-                .typeMethod, .instanceMethod:
-            guard let scope:String = path.dropLast().last 
-            else 
-            {
-                print("warning: member '\(path)' has no outer scope")
-                unescaped = module.identifier + path 
-                break 
-            }
-            unescaped = prefix + module.identifier + path.dropLast(2) + CollectionOfOne<String>.init("\(scope).\(tail)")
-        }
-        let group:String = Biome.normalize(path: unescaped)
-        
-        let breadcrumbs:Biome.Graph.Breadcrumbs = 
-                        .init(body: [module.title] + path.dropLast(), tail: tail)
-        return (.init(group: group), breadcrumbs)
     }
 }
 extension Biome.Version 
@@ -537,7 +493,7 @@ extension Biome.Version
         }
     }
 }
-extension Biome.Graph.Symbol.Generic 
+extension Biome.Symbol.Generic 
 {
     typealias DecodingError = Biome.DecodingError<JSON, Self>
     
@@ -588,7 +544,7 @@ extension Biome.Graph.Symbol.Generic
         }
     }
 }
-extension Biome.Graph.Symbol.Parameter 
+extension Biome.Symbol.Parameter 
 {
     typealias DecodingError = Biome.DecodingError<JSON, Self>
     
@@ -632,7 +588,7 @@ extension Biome.Graph.Symbol.Parameter
     } 
 }
 
-extension Biome.Graph.Edge 
+extension Biome.Edge 
 {
     typealias DecodingError = Biome.DecodingError<JSON, Self> 
     
@@ -677,6 +633,13 @@ extension Biome.Graph.Edge
         case let value:
             throw DecodingError.init(expected: String.self, in: "source", encountered: value)
         }
+        switch items.removeValue(forKey: "targetFallback")
+        {
+        case nil, .null?, .string(_)?:
+            break // TODO: do something with this
+        case let value?:
+            throw DecodingError.init(expected: String?.self, in: "targetFallback", encountered: value)
+        }
         switch items.removeValue(forKey: "sourceOrigin")
         {
         case nil, .null?: 
@@ -689,7 +652,7 @@ extension Biome.Graph.Edge
                     print("warning: unused json keys \(items) in 'sourceOrigin'")
                 }
             }
-            let id:Biome.Graph.Symbol.ID, 
+            let id:Biome.Symbol.ID, 
                 name:String 
             switch items.removeValue(forKey: "identifier")
             {
