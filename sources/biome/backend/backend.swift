@@ -2,7 +2,76 @@ import JSON
 
 extension Biome.Symbol 
 {
-    init(from json:[String: JSON], in namespace:Biome.Namespace, prefix:[String]) throws 
+    typealias DecodingError = Biome.DecodingError<JSON, Self>
+}
+extension Biome.Module.ID 
+{
+    init(from json:JSON?) throws 
+    {
+        switch json
+        {
+        case .string("Swift")?:
+            self = .swift
+        case .string("_Concurrency")?:
+            self = .concurrency
+        case .string(let module)?:
+            self = .community(module)
+        default:
+            throw Biome.DecodingError<JSON, Self>.init(expected: String.self, encountered: json)
+        }
+    }
+}
+extension Biome 
+{
+    typealias ModuleDescriptor = 
+    (
+        graph:Graph,
+        symbols:[SymbolDescriptor], 
+        edges:[Edge]
+    )
+    typealias SymbolDescriptor = 
+    (
+        id:Symbol.ID,
+        kind:Symbol.Kind, 
+        title:String, 
+        path:[String], 
+        signature:[Language.Lexeme], 
+        declaration:[Language.Lexeme], 
+        extends:(module:Module.ID, where:[Language.Constraint])?,
+        generic:(parameters:[Symbol.Generic], constraints:[Language.Constraint])?,
+        availability:[(key:Symbol.Domain, value:Symbol.Availability)],
+        comment:String
+    )
+    
+    static 
+    func decode(module json:JSON) throws -> ModuleDescriptor
+    {
+        guard   case .object(let symbolgraph)   = json, 
+                case .object(let module)?       = symbolgraph["module"],
+                case .array(let symbols)?       = symbolgraph["symbols"],
+                case .array(let edges)?         = symbolgraph["relationships"]
+        else 
+        {
+            throw DecodingError<JSON, Self>.init(expected: Self.self, encountered: json)
+        }
+        
+        let decoded:ModuleDescriptor
+        decoded.graph       = .init(module: try .init(from: module["name"]), bystander: nil)
+        decoded.edges       = try edges.map(Edge.init(from:))
+        decoded.symbols     = try symbols.map
+        {
+            guard case .object(let items) = $0 
+            else 
+            {
+                throw Symbol.DecodingError.init(expected: [String: JSON].self, encountered: json)
+            }
+            return try Self.decode(symbol: items)
+        }
+        return decoded
+    }
+    
+    static 
+    func decode(symbol json:[String: JSON]) throws -> SymbolDescriptor
     {
         var items:[String: JSON] = _move(json)
         defer 
@@ -13,7 +82,31 @@ extension Biome.Symbol
             }
         }
         // decode id and kind 
-        let kindname:String
+        let id:Symbol.ID
+        switch items.removeValue(forKey: "identifier")
+        {
+        case .object(var items)?: 
+            defer 
+            {
+                items["interfaceLanguage"] = nil 
+                
+                if !items.isEmpty 
+                {
+                    print("warning: unused json keys \(items) in 'identifier'")
+                }
+            }
+            switch items.removeValue(forKey: "precise")
+            {
+            case .string(let text)?:
+                id = .init(text)
+            case let value:
+                throw Symbol.DecodingError.init(expected: String.self, in: "identifier.precise", encountered: value)
+            }
+        case let value:
+            throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "identifier", encountered: value)
+        }
+        
+        let kind:Symbol.Kind
         switch items.removeValue(forKey: "kind")
         {
         case .object(var items)?: 
@@ -29,12 +122,17 @@ extension Biome.Symbol
             switch items.removeValue(forKey: "identifier")
             {
             case .string(let text)?:
-                kindname = text
+                guard let `case`:Symbol.Kind = .init(rawValue: text)
+                else 
+                {
+                    throw Symbol.DecodingError.init(expected: Symbol.Kind.self, in: "kind.identifier", encountered: .string(text))
+                }
+                kind = `case`
             case let value:
-                throw DecodingError.init(expected: String.self, in: "kind.identifier", encountered: value)
+                throw Symbol.DecodingError.init(expected: String.self, in: "kind.identifier", encountered: value)
             }
         case let value:
-            throw DecodingError.init(expected: [String: JSON].self, in: "kind", encountered: value)
+            throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "kind", encountered: value)
         }
         // decode path 
         let path:[String]
@@ -46,12 +144,12 @@ extension Biome.Symbol
                 guard case .string(let text) = $0 
                 else 
                 {
-                    throw DecodingError.init(expected: String.self, in: "pathComponents[_:]", encountered: $0)
+                    throw Symbol.DecodingError.init(expected: String.self, in: "pathComponents[_:]", encountered: $0)
                 }
                 return text 
             }
         case let value:
-            throw DecodingError.init(expected: [JSON].self, in: "pathComponents", encountered: value)
+            throw Symbol.DecodingError.init(expected: [JSON].self, in: "pathComponents", encountered: value)
         }
         // decode access level 
         switch items.removeValue(forKey: "accessLevel")
@@ -63,7 +161,7 @@ extension Biome.Symbol
                 .string("open")?: 
             break // don’t have a use for this yet 
         case let value: 
-            throw DecodingError.init(expected: Access.self, in: "accessLevel", encountered: value)
+            throw Symbol.DecodingError.init(expected: Symbol.Access.self, in: "accessLevel", encountered: value)
         }
         // decode display title and signature
         let title:String, 
@@ -86,17 +184,17 @@ extension Biome.Symbol
             case .string(let text)?: 
                 title = text 
             case let value: 
-                throw DecodingError.init(expected: String.self, in: "names.title", encountered: value)
+                throw Symbol.DecodingError.init(expected: String.self, in: "names.title", encountered: value)
             }
             switch items.removeValue(forKey: "subHeading")
             {
             case .array(let elements)?: 
                 signature = try elements.map(Language.Lexeme.init(from:))
             case let value: 
-                throw DecodingError.init(expected: [JSON].self, in: "names.subHeading", encountered: value)
+                throw Symbol.DecodingError.init(expected: [JSON].self, in: "names.subHeading", encountered: value)
             }
         case let value: 
-            throw DecodingError.init(expected: [String: JSON].self, in: "names", encountered: value)
+            throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "names", encountered: value)
         }
         // decode declaration 
         let declaration:[Language.Lexeme]
@@ -105,7 +203,7 @@ extension Biome.Symbol
         case .array(let elements)?: 
             declaration = try elements.map(Language.Lexeme.init(from:))
         case let value: 
-            throw DecodingError.init(expected: [JSON].self, in: "declarationFragments", encountered: value)
+            throw Symbol.DecodingError.init(expected: [JSON].self, in: "declarationFragments", encountered: value)
         }
         // decode source location
         switch items.removeValue(forKey: "location")
@@ -125,7 +223,7 @@ extension Biome.Symbol
             case .string(_)?: 
                 break 
             case let value: 
-                throw DecodingError.init(expected: String.self, in: "location.uri", encountered: value)
+                throw Symbol.DecodingError.init(expected: String.self, in: "location.uri", encountered: value)
             }
             switch items.removeValue(forKey: "position")
             {
@@ -142,23 +240,23 @@ extension Biome.Symbol
                 case .number(_)?: 
                     break 
                 case let value: 
-                    throw DecodingError.init(expected: Int.self, in: "location.position.line", encountered: value)
+                    throw Symbol.DecodingError.init(expected: Int.self, in: "location.position.line", encountered: value)
                 }
                 switch items.removeValue(forKey: "character")
                 {
                 case .number(_)?: 
                     break 
                 case let value: 
-                    throw DecodingError.init(expected: Int.self, in: "location.position.character", encountered: value)
+                    throw Symbol.DecodingError.init(expected: Int.self, in: "location.position.character", encountered: value)
                 }
             case let value: 
-                throw DecodingError.init(expected: [String: JSON].self, in: "location.position", encountered: value)
+                throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "location.position", encountered: value)
             }
         case let value?: 
-            throw DecodingError.init(expected: [String: JSON]?.self, in: "location", encountered: value)
+            throw Symbol.DecodingError.init(expected: [String: JSON]?.self, in: "location", encountered: value)
         }
         // decode function signature
-        let function:(parameters:[Parameter], returns:[Language.Lexeme])?
+        let function:(parameters:[Symbol.Parameter], returns:[Language.Lexeme])?
         switch items.removeValue(forKey: "functionSignature")
         {
         case nil, .null?: 
@@ -171,30 +269,30 @@ extension Biome.Symbol
                     print("warning: unused json keys \(items) in 'functionSignature'")
                 }
             }
-            let parameters:[Parameter], 
+            let parameters:[Symbol.Parameter], 
                 returns:[Language.Lexeme]
             switch items.removeValue(forKey: "parameters")
             {
             case nil, .null?:
                 parameters = []
             case .array(let elements)?: 
-                parameters = try elements.map(Parameter.init(from:))
+                parameters = try elements.map(Symbol.Parameter.init(from:))
             case let value?: 
-                throw DecodingError.init(expected: [JSON]?.self, in: "functionSignature.parameters", encountered: value)
+                throw Symbol.DecodingError.init(expected: [JSON]?.self, in: "functionSignature.parameters", encountered: value)
             }
             switch items.removeValue(forKey: "returns")
             {
             case .array(let elements)?: 
                 returns = try elements.map(Language.Lexeme.init(from:))
             case let value: 
-                throw DecodingError.init(expected: [JSON].self, in: "functionSignature.returns", encountered: value)
+                throw Symbol.DecodingError.init(expected: [JSON].self, in: "functionSignature.returns", encountered: value)
             }
             function = (parameters, returns)
         case let value?: 
-            throw DecodingError.init(expected: [String: JSON]?.self, in: "functionSignature", encountered: value)
+            throw Symbol.DecodingError.init(expected: [String: JSON]?.self, in: "functionSignature", encountered: value)
         }
         // decode extension info
-        let extends:(module:String, where:[Language.Constraint])?
+        let extends:(module:Module.ID, where:[Language.Constraint])?
         switch items.removeValue(forKey: "swiftExtension")
         {
         case nil, .null?: 
@@ -207,15 +305,8 @@ extension Biome.Symbol
                     print("warning: unused json keys \(items) in 'swiftExtension'")
                 }
             }
-            let module:String, 
-                constraints:[Language.Constraint]
-            switch items.removeValue(forKey: "extendedModule")
-            {
-            case .string(let text)?: 
-                module = text
-            case let value: 
-                throw DecodingError.init(expected: String.self, in: "swiftExtension.extendedModule", encountered: value)
-            }
+            let module:Module.ID = try .init(from: items.removeValue(forKey: "extendedModule"))
+            let constraints:[Language.Constraint]
             switch items.removeValue(forKey: "constraints")
             {
             case nil, .null?:
@@ -223,14 +314,14 @@ extension Biome.Symbol
             case .array(let elements)?: 
                 constraints = try elements.map(Language.Constraint.init(from:)) 
             case let value?: 
-                throw DecodingError.init(expected: [JSON]?.self, in: "swiftExtension.constraints", encountered: value)
+                throw Symbol.DecodingError.init(expected: [JSON]?.self, in: "swiftExtension.constraints", encountered: value)
             }
             extends = (module, constraints)
         case let value?: 
-            throw DecodingError.init(expected: [String: JSON]?.self, in: "swiftExtension", encountered: value)
+            throw Symbol.DecodingError.init(expected: [String: JSON]?.self, in: "swiftExtension", encountered: value)
         }
         // decode generics info 
-        let generic:(parameters:[Generic], constraints:[Language.Constraint])?
+        let generic:(parameters:[Symbol.Generic], constraints:[Language.Constraint])?
         switch items.removeValue(forKey: "swiftGenerics")
         {
         case nil, .null?: 
@@ -243,16 +334,16 @@ extension Biome.Symbol
                     print("warning: unused json keys \(items) in 'swiftGenerics'")
                 }
             }
-            let parameters:[Generic], 
+            let parameters:[Symbol.Generic], 
                 constraints:[Language.Constraint]
             switch items.removeValue(forKey: "parameters")
             {
             case nil, .null?:
                 parameters = []
             case .array(let elements)?: 
-                parameters = try elements.map(Generic.init(from:)) 
+                parameters = try elements.map(Symbol.Generic.init(from:)) 
             case let value?: 
-                throw DecodingError.init(expected: [JSON]?.self, in: "swiftGenerics.parameters", encountered: value)
+                throw Symbol.DecodingError.init(expected: [JSON]?.self, in: "swiftGenerics.parameters", encountered: value)
             }
             switch items.removeValue(forKey: "constraints")
             {
@@ -261,14 +352,14 @@ extension Biome.Symbol
             case .array(let elements)?: 
                 constraints = try elements.map(Language.Constraint.init(from:)) 
             case let value?: 
-                throw DecodingError.init(expected: [JSON].self, in: "swiftGenerics.constraints", encountered: value)
+                throw Symbol.DecodingError.init(expected: [JSON].self, in: "swiftGenerics.constraints", encountered: value)
             }
             generic = (parameters, constraints)
         case let value?: 
-            throw DecodingError.init(expected: [String: JSON]?.self, in: "swiftGenerics", encountered: value)
+            throw Symbol.DecodingError.init(expected: [String: JSON]?.self, in: "swiftGenerics", encountered: value)
         }
         // decode availability
-        let availability:[(key:Domain, value:Availability)]
+        let availability:[(key:Symbol.Domain, value:Symbol.Availability)]
         switch items.removeValue(forKey: "availability")
         {
         case nil, .null?:
@@ -276,11 +367,11 @@ extension Biome.Symbol
         case .array(let elements)?: 
             availability = try elements.map 
             {
-                let item:(key:Domain, value:Availability)
+                let item:(key:Symbol.Domain, value:Symbol.Availability)
                 guard case .object(var items) = $0 
                 else 
                 {
-                    throw DecodingError.init(expected: [String: JSON].self, in: "availability[_:]", encountered: $0)
+                    throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "availability[_:]", encountered: $0)
                 }
                 defer 
                 {
@@ -292,14 +383,14 @@ extension Biome.Symbol
                 switch items.removeValue(forKey: "domain")
                 {
                 case .string(let text)?: 
-                    guard let domain:Domain = .init(rawValue: text)
+                    guard let domain:Symbol.Domain = .init(rawValue: text)
                     else 
                     {
-                        throw DecodingError.init(expected: Domain.self, in: "availability[_:].domain", encountered: .string(text))
+                        throw Symbol.DecodingError.init(expected: Symbol.Domain.self, in: "availability[_:].domain", encountered: .string(text))
                     }
                     item.key = domain 
                 case let value:
-                    throw DecodingError.init(expected: String.self, in: "availability[_:].domain", encountered: value)
+                    throw Symbol.DecodingError.init(expected: String.self, in: "availability[_:].domain", encountered: value)
                 }
                 let message:String?
                 switch items.removeValue(forKey: "message")
@@ -309,7 +400,7 @@ extension Biome.Symbol
                 case .string(let text)?: 
                     message = text
                 case let value:
-                    throw DecodingError.init(expected: String?.self, in: "availability[_:].message", encountered: value)
+                    throw Symbol.DecodingError.init(expected: String?.self, in: "availability[_:].message", encountered: value)
                 }
                 let renamed:String?
                 switch items.removeValue(forKey: "renamed")
@@ -319,11 +410,11 @@ extension Biome.Symbol
                 case .string(let text)?: 
                     renamed = text
                 case let value:
-                    throw DecodingError.init(expected: String?.self, in: "availability[_:].renamed", encountered: value)
+                    throw Symbol.DecodingError.init(expected: String?.self, in: "availability[_:].renamed", encountered: value)
                 }
                 
-                let deprecation:Biome.Version?? 
-                if let version:Biome.Version = try items.removeValue(forKey: "deprecated").map(Biome.Version.init(from:))
+                let deprecation:Version?? 
+                if let version:Version = try items.removeValue(forKey: "deprecated").map(Version.init(from:))
                 {
                     deprecation = .some(version)
                 }
@@ -336,7 +427,7 @@ extension Biome.Symbol
                     case .bool(true)?: 
                         deprecation = .some(nil)
                     case let value?:
-                        throw DecodingError.init(expected: Bool?.self, in: "availability[_:].isUnconditionallyDeprecated", encountered: value)
+                        throw Symbol.DecodingError.init(expected: Bool?.self, in: "availability[_:].isUnconditionallyDeprecated", encountered: value)
                     }
                 }
                 // possible be both unconditionally unavailable and unconditionally deprecated
@@ -348,19 +439,19 @@ extension Biome.Symbol
                 case .bool(true)?: 
                     unavailable = true 
                 case let value?:
-                    throw DecodingError.init(expected: Bool?.self, in: "availability[_:].isUnconditionallyUnavailable", encountered: value)
+                    throw Symbol.DecodingError.init(expected: Bool?.self, in: "availability[_:].isUnconditionallyUnavailable", encountered: value)
                 }
                 item.value = .init(
                     unavailable: unavailable,
                     deprecated: deprecation,
-                    introduced: try items.removeValue(forKey: "introduced").map(Biome.Version.init(from:)),
-                    obsoleted: try items.removeValue(forKey: "obsoleted").map(Biome.Version.init(from:)), 
+                    introduced: try items.removeValue(forKey: "introduced").map(Version.init(from:)),
+                    obsoleted: try items.removeValue(forKey: "obsoleted").map(Version.init(from:)), 
                     renamed: renamed,
                     message: message)
                 return item 
             }
         case let value?: 
-            throw DecodingError.init(expected: [String]?.self, in: "availability", encountered: value)
+            throw Symbol.DecodingError.init(expected: [String]?.self, in: "availability", encountered: value)
         }
         
         // decode doccomment
@@ -385,7 +476,7 @@ extension Biome.Symbol
                     guard case .object(var items) = $0 
                     else 
                     {
-                        throw DecodingError.init(expected: [String: JSON].self, in: "docComment.lines[_:]", encountered: $0)
+                        throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "docComment.lines[_:]", encountered: $0)
                     }
                     defer 
                     {
@@ -402,37 +493,32 @@ extension Biome.Symbol
                     case .string(let text): 
                         return text 
                     case let value: 
-                        throw DecodingError.init(expected: String.self, in: "docComment.lines[_:].text", encountered: value)
+                        throw Symbol.DecodingError.init(expected: String.self, in: "docComment.lines[_:].text", encountered: value)
                     }
                 }.joined(separator: "\n")
             case let value: 
-                throw DecodingError.init(expected: [JSON].self, in: "docComment.lines", encountered: value)
+                throw Symbol.DecodingError.init(expected: [JSON].self, in: "docComment.lines", encountered: value)
             }
         case let value?: 
-            throw DecodingError.init(expected: [String: JSON]?.self, in: "docComment", encountered: value)
+            throw Symbol.DecodingError.init(expected: [String: JSON]?.self, in: "docComment", encountered: value)
         }
         
-        // downcast the kind string 
-        let kind:Kind = try .init(kindname, function: function)
-        let breadcrumbs:Biome.Breadcrumbs = .init(head: namespace.extends ?? namespace.module, body: path)
-        self.init(
-            kind:           kind, 
-            title:          title, 
-            breadcrumbs:    breadcrumbs, 
-            module:         namespace.module, 
-            path:          .init(prefix: prefix, breadcrumbs, kind: kind), 
-            signature:      signature, 
-            declaration:    declaration, 
-            extends:        extends, 
-            generic:        generic, 
-            availability:   [Domain: Availability].init(availability)
-            {
-                print("warning: multiple availability descriptors for the same domain")
-                return $1
-            }, 
-            comment:        comment)
+        return 
+            (
+                id:             id,
+                kind:           kind, 
+                title:          title, 
+                path:           path,
+                signature:      signature, 
+                declaration:    declaration, 
+                extends:        extends, 
+                generic:        generic, 
+                availability:   availability, 
+                comment:        comment
+            )
     }
 }
+
 extension Biome.Version 
 {
     typealias DecodingError = Biome.DecodingError<JSON, Self> 
@@ -622,14 +708,14 @@ extension Biome.Edge
         switch items.removeValue(forKey: "source")
         {
         case .string(let text)?:
-            self.source = .declaration(precise: text)
+            self.source = .init(text)
         case let value:
             throw DecodingError.init(expected: String.self, in: "source", encountered: value)
         }
         switch items.removeValue(forKey: "target")
         {
         case .string(let text)?:
-            self.target = .declaration(precise: text)
+            self.target = .init(text)
         case let value:
             throw DecodingError.init(expected: String.self, in: "source", encountered: value)
         }
@@ -657,7 +743,7 @@ extension Biome.Edge
             switch items.removeValue(forKey: "identifier")
             {
             case .string(let text)?:
-                id = .declaration(precise: text)
+                id = .init(text)
             case let value:
                 throw DecodingError.init(expected: String.self, in: "sourceOrigin.identifier", encountered: value)
             }

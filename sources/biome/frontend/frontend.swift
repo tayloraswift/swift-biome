@@ -47,12 +47,12 @@ extension Biome
             [
                 Frontend[.code]
                 {
-                    Self.render(lexeme: subject) { self.symbols[$0] }
+                    Self.render(lexeme: subject) { self[id: $0] }
                 },
                 Frontend.text(escaped: prose), 
                 Frontend[.code]
                 {
-                    Self.render(lexeme: .code(constraint.object, class: .type(object))) { self.symbols[$0] }
+                    Self.render(lexeme: .code(constraint.object, class: .type(object))) { self[id: $0] }
                 },
             ]
     }
@@ -168,7 +168,7 @@ extension Biome
     }
     func render(code:[Language.Lexeme]) -> [Frontend] 
     {
-        Self.render(code: code) { self.symbols[$0] }
+        Self.render(code: code) { self[id: $0] }
     }
     static 
     func render(availability:Symbol.Availability) -> [Frontend]
@@ -244,16 +244,16 @@ extension Biome
     }
     func renderArticle(_ symbol:Symbol) -> Frontend
     {
-        let module:(index:Index, extended:(index:Index, where:[Language.Constraint])?)?
-        if case .module = symbol.kind 
+        /* let module:(index:Int, extended:(index:Int, where:[Language.Constraint])?)?
+        /* if case .module = symbol.kind 
         {
             module = nil 
-        }
-        else if let defined:Index = self.symbols.index(forKey: .module(symbol.module))
+        } */
+        if let defined:Int = self.symbols.index(forKey: .module(symbol.module))
         {
             if let (name, constraints):(String, [Language.Constraint]) = symbol.extends 
             {
-                if let extended:Index = self.modules[name]
+                if let extended:Int = self.modules[name]
                 {
                     module = (defined, (extended, constraints))
                 }
@@ -272,7 +272,7 @@ extension Biome
         {
             print("warning: could not find module '\(symbol.module)'")
             module = nil 
-        }
+        } */
         
         let platforms:[Frontend] = 
         [
@@ -300,9 +300,11 @@ extension Biome
                 }
             }
         }
-        var relationships:[Frontend] = symbol.interface.map 
+        var relationships:[Frontend] 
+        if  case .witness(let witness, callable: _) = symbol.relationships, 
+            case _? = witness.requirementOf 
         {
-            _ in 
+            relationships = 
             [
                 Frontend[.p]
                 {
@@ -313,15 +315,19 @@ extension Biome
                     "Required."
                 }
             ]
-        } ?? []
-        if let constraints:[Language.Constraint] = module?.extended?.where, !constraints.isEmpty
+        }
+        else 
+        {
+            relationships = []
+        }
+        /* if let constraints:[Language.Constraint] = module?.extended?.where, !constraints.isEmpty
         {
             relationships.append(Frontend[.p]
             {
                 "Available when "
                 self.render(constraints: constraints)
             })
-        }
+        } */
         
         return Frontend[.article]
         {
@@ -345,7 +351,7 @@ extension Biome
                     {
                         ["kind"]
                     }
-                    if let module:(index:Index, extended:(index:Index, where:[Language.Constraint])?) = module 
+                    /* if let module:(index:Int, extended:(index:Int, where:[Language.Constraint])?) = module 
                     {
                         Frontend[.span]
                         {
@@ -353,7 +359,7 @@ extension Biome
                         }
                         content: 
                         {
-                            if let extended:Index = module.extended?.index 
+                            if let extended:Int = module.extended?.index 
                             {
                                 Frontend[.span]
                                 {
@@ -383,7 +389,7 @@ extension Biome
                                 package
                             }
                         }
-                    }
+                    } */
                 }
                 Frontend[.h1]
                 {
@@ -536,7 +542,7 @@ extension Biome
             }
         }
     }
-    func renderSection(_ types:[(index:Index, conditions:[Language.Constraint])], heading:String) 
+    func renderSection(_ types:[(index:Int, conditions:[Language.Constraint])], heading:String) 
         -> Frontend?
     {
         if types.isEmpty
@@ -555,7 +561,7 @@ extension Biome
             }
             Frontend[.ul]
             {
-                for (index, conditions):(Index, [Language.Constraint]) in types 
+                for (index, conditions):(Int, [Language.Constraint]) in types 
                 {
                     Frontend[.li]
                     {
@@ -571,7 +577,7 @@ extension Biome
                             }
                             content: 
                             {
-                                Self.render(code: self[index].breadcrumbs.lexemes)
+                                Self.render(code: self[index].qualified)
                             }
                         }
                         if !conditions.isEmpty
@@ -592,11 +598,11 @@ extension Biome
         }
     }
     func renderTopics<S>(_ topics:S, heading:String) -> Frontend?
-        where S:Sequence, S.Element == (heading:Topic, indices:[Index])
+        where S:Sequence, S.Element == (heading:Topic, indices:[Int])
     {
         let topics:[Frontend] = topics.map
         {
-            (topic:(heading:Topic, indices:[Index])) in 
+            (topic:(heading:Topic, indices:[Int])) in 
             Frontend[.div]
             {
                 ["topic-container"]
@@ -620,7 +626,7 @@ extension Biome
                 }
                 content:
                 {
-                    for index:Index in topic.indices
+                    for index:Int in topic.indices
                     {
                         let member:Symbol = self[index]
                         Frontend[.li]
@@ -645,9 +651,10 @@ extension Biome
                                 head
                             }
                             
-                            if let overridden:Index = member.overrides 
+                            if  case .witness(let witness, callable: _) = member.relationships, 
+                                let overridden:Int = witness.overrideOf 
                             {
-                                if let abstract:Index = self[overridden].parent 
+                                if let abstract:Int = self[overridden].breadcrumbs.parent 
                                 {
                                     switch self[abstract].kind 
                                     {
@@ -687,7 +694,7 @@ extension Biome
             topics
         }
     }
-    func renderRelationship(_ target:Index, _ prose:String, _ type:Index) -> Frontend
+    func renderRelationship(_ target:Int, _ prose:String, _ type:Int) -> Frontend
     {
         Frontend[.p]
         {
@@ -704,24 +711,10 @@ extension Biome
                 }
                 content: 
                 {
-                    Self.render(code: self[type].breadcrumbs.lexemes)
+                    Self.render(code: self[type].qualified)
                 }
             }
         }
-    }
-    func renderEpilogue(_ symbol:Symbol) -> Frontend?
-    {
-        var category:String 
-        if case .protocol = symbol.kind 
-        {
-            category = "Implies"
-        }
-        else 
-        {
-            category = "Conforms To"
-        }
-        // TODO: use the constraint information
-        return self.renderSection(symbol.upstream, heading: category)
     }
     func renderMain(_ symbol:Symbol) -> Frontend
     {
@@ -754,38 +747,42 @@ extension Biome
                 }
                 content:
                 {
-                    self.renderSection(symbol.downstream.map { ($0, []) }, heading: "Refinements")
+                    if case .protocol(let abstract) = symbol.relationships 
+                    {
+                        self.renderSection(abstract.downstream.map { ($0, []) }, heading: "Refinements")
+                    }
                     
                     self.renderTopics(symbol.topics.requirements, heading: "Requirements")
                     self.renderTopics(symbol.topics.members, heading: "Members")
                     
-                    self.renderSection(symbol.subclasses.map { ($0, []) }, heading: "Subclasses")
-                    self.renderSection(symbol.conformers, heading: "Conforming Types")
-                    self.renderEpilogue(symbol)
+                    switch symbol.relationships 
+                    {
+                    case .protocol(let abstract):
+                        self.renderSection(abstract.conformers, heading: "Conforming Types")
+                        self.renderSection(abstract.upstream.map{ ($0, []) }, heading: "Implies")
+                    case .class(let concrete, subclasses: let subclasses, superclass: _):
+                        self.renderSection(subclasses.map { ($0, []) }, heading: "Subclasses")
+                        self.renderSection(concrete.upstream, heading: "Conforms To")
+                    case .enum(let concrete), .struct(let concrete), .actor(let concrete):
+                        self.renderSection(concrete.upstream, heading: "Conforms To")
+                    default: 
+                        let _:Void = ()
+                    }
                 }
             }
         }
     }
     func renderNavigation(_ symbol:Symbol) -> Frontend
     {
-        var breadcrumbs:[Frontend]
-        if let tail:String  = symbol.breadcrumbs.body.last 
+        var breadcrumbs:[Frontend]  = [ Frontend[.li] { symbol.breadcrumbs.last } ]
+        var next:Int?               = symbol.breadcrumbs.parent
+        while let index:Int         = next
         {
-            breadcrumbs     = [ Frontend[.li] { tail } ]
-            var next:Index?             = symbol.parent
-            while   let index:Index     = next, 
-                    let tail:String     = self[index].breadcrumbs.body.last 
+            breadcrumbs.append(Frontend[.li]
             {
-                breadcrumbs.append(Frontend[.li]
-                {
-                    Frontend.link(tail, to: self[index].path.canonical, internal: true)
-                })
-                next = self[index].parent
-            }
-        }
-        else 
-        {
-            breadcrumbs = [ Frontend[.li] { symbol.breadcrumbs.head.title } ]
+                Frontend.link(self[index].breadcrumbs.last, to: self[index].path.canonical, internal: true)
+            })
+            next = self[index].breadcrumbs.parent
         }
         
         return Frontend[.nav, id: nil]
@@ -995,141 +992,6 @@ extension Biome
             {
                 Self.render(lexeme: .newlines(0))
                 self.render(code: Language.highlight(code: code))
-            }
-        }
-    }
-}
-extension Biome
-{
-    public 
-    enum Response 
-    {
-        case canonical(Page)
-        case found(String)
-    }
-    public 
-    struct Diagnostics 
-    {
-        var uri:String
-        
-        mutating 
-        func warning(_ string:String)
-        {
-            print("(\(self.uri)): \(string)")
-        }
-    }
-    public 
-    struct Documentation:Sendable
-    {
-        typealias Index = Dictionary<Symbol.Path, Page>.Index 
-        
-        let pages:[Symbol.Path: Page]
-        let disambiguations:[Symbol.ID: Index]
-        
-        public 
-        let search:JSON
-        
-        public 
-        init(_ namespaces:[Namespace: [UInt8]], prefix:[String]) throws 
-        {
-            let prefix:[String] = prefix.map{ $0.lowercased() }
-            let json:[Namespace: JSON] = try namespaces.mapValues 
-            {
-                try Grammar.parse($0, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
-            }
-            print("parsed JSON")
-            var biome:Biome = try .init(namespaces: json, prefix: prefix)
-            var diagnostics:Diagnostics = .init(uri: "/")
-            // rendering must take place in two passes, since pages can include 
-            // snippets of other pages 
-            for index:Biome.Index in biome.symbols.indices 
-            {
-                guard !biome[index].comment.text.isEmpty
-                else 
-                {
-                    continue 
-                }
-                diagnostics.uri = biome[index].path.canonical 
-                biome[index].comment.processed = biome.render(
-                    markdown: biome[index].comment.text, 
-                    parameters: biome[index].parameters, 
-                    diagnostics: &diagnostics)
-            }
-            self.init(biome: biome)
-        }
-        
-        init(biome:Biome) 
-        {
-            // paths are always unique at this point 
-            let pages:[Symbol.Path: Page] = .init(uniqueKeysWithValues: 
-                biome.symbols.values.map { ($0.path, biome.render($0)) })
-            self.disambiguations = .init(uniqueKeysWithValues: biome.symbols.map 
-            {
-                guard let index:Index = pages.index(forKey: $0.value.path)
-                else 
-                {
-                    fatalError("unreachable")
-                }
-                return ($0.key, index)
-            })
-            self.pages  = _move(pages)
-            self.search = .array(biome.search.map 
-            { 
-                .object(["uri": .string($0.uri), "title": .string($0.title), "text": .array($0.text.map(JSON.string(_:)))]) 
-            })
-        }
-        
-        /// the `group` is the full URL path, without the query, and including 
-        /// the beginning slash '/' and path prefix. 
-        /// the path *must* be normalized with respect to slashes, but it 
-        /// *must not* be percent-decoded. (otherwise the user may be sent into 
-        /// an infinite redirect loop.)
-        ///
-        /// '/reference/swift-package/somemodule/foo/bar.baz%28_%3A%29':    OK (canonical page for `SomeModule.Foo.Bar.baz(_:)`)
-        /// '/reference/swift-package/somemodule/foo/bar.baz(_:)':          OK (301 redirect to `SomeModule.Foo.Bar.baz(_:)`)
-        /// '/reference/swift-package/SomeModule/FOO/BAR.BAZ(_:)':          OK (301 redirect to `SomeModule.Foo.Bar.baz(_:)`)
-        /// '/reference/swift-package/somemodule/foo/bar%2Ebaz%28_%3A%29':  OK (301 redirect to `SomeModule.Foo.Bar.baz(_:)`)
-        /// '/reference/swift-package/somemodule/foo//bar.baz%28_%3A%29':   Error (slashes not normalized)
-        ///
-        /// note: the URL of a page for an operator containing a slash '/' *must*
-        /// be percent-encoded; Biome will not be able to redirect it to the 
-        /// correct canonical URL. 
-        ///
-        /// note: the URL path is case-insensitive, but the disambiguation query 
-        /// *is* case-sensitive. the `disambiguation` parameter should include 
-        /// the mangled name only, without the `?overload=` part. if you provide 
-        /// a valid disambiguation query, the URL path can be complete garbage; 
-        /// Biome will respond with a 301 redirect to the correct page.
-        public 
-        subscript(group:String, disambiguation disambiguation:String?) -> Response?
-        {
-            let path:Symbol.Path  = .init(group: Biome.normalize(path: group), 
-                disambiguation: disambiguation.map(Symbol.ID.declaration(precise:)))
-            if let page:Page = self.pages[path]
-            {
-                return path.group == group ? .canonical(page) : .found(path.canonical)
-            }
-            guard let key:Symbol.ID = path.disambiguation
-            else 
-            {
-                return nil 
-            }
-            //  we were given a bad path + disambiguation key combo, 
-            //  but the query might still be valid 
-            if let index:Index = self.disambiguations[key]
-            {
-                return .found(self.pages.keys[index].canonical)
-            }
-            //  we were given an extraneous disambiguation key, but the path might 
-            //  still be valid
-            let truncated:Symbol.Path = .init(group: path.group)
-            if case _? = self.pages[truncated]
-            {
-                return .found(truncated.canonical)
-            }
-            else 
-            {
-                return nil
             }
         }
     }

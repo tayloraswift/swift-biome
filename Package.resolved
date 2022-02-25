@@ -1,0 +1,77 @@
+{
+  "pins" : [
+    {
+      "identity" : "swift-cmark",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-cmark.git",
+      "state" : {
+        "branch" : "gfm",
+        "revision" : "6ddaa3991789bd790a9a6004566f99d85bfcb675"
+      }
+    },
+    {
+      "identity" : "swift-grammar",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kelvin13/swift-grammar",
+      "state" : {
+        "revision" : "e5fa764ce53bf77d78a85f371d7c067e55f44985",
+        "version" : "0.1.1"
+      }
+    },
+    {
+      "identity" : "swift-json",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kelvin13/swift-json",
+      "state" : {
+        "revision" : "bf789b21060b70e384a29e8639cab19e7945cac9",
+        "version" : "0.1.6"
+      }
+    },
+    {
+      "identity" : "swift-markdown",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-markdown.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "4f0c76fcd29fea648915f41e2aa896d47608087a"
+      }
+    },
+    {
+      "identity" : "swift-resource",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kelvin13/swift-resource.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "503c8303e5d8e4f51f389c4d5d33c79df554a60a"
+      }
+    },
+    {
+      "identity" : "swift-structured-document",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kelvin13/swift-structured-document",
+      "state" : {
+        "branch" : "master",
+        "revision" : "e63a1f48a5eb52d6714babcdcb55c39e2fe9e5b9"
+      }
+    },
+    {
+      "identity" : "swift-syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kelvin13/swift-syntax.git",
+      "state" : {
+        "branch" : "kelvin13-omit-unsafe-flags",
+        "revision" : "3882170d768f3e817f11eb615a8299a4b8f09109"
+      }
+    },
+    {
+      "identity" : "swift-system",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-system.git",
+      "state" : {
+        "revision" : "836bc4557b74fe6d2660218d56e3ce96aff76574",
+        "version" : "1.1.1"
+      }
+    }
+  ],
+  "version" : 2
+}

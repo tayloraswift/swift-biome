@@ -26,6 +26,6 @@ extension Biome
 {
     var search:[(uri:String, title:String, text:[String])]
     {
-        self.symbols.values.map(\.search)
+        self.symbols.map(\.search)
     }
 }

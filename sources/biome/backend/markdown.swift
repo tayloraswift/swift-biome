@@ -133,7 +133,7 @@ extension Biome
     }
     
     // expected parameters is unreliable, not available for subscripts
-    func render(markdown string:String, parameters _:[Symbol.Parameter], diagnostics:inout Diagnostics) -> Comment
+    func render(markdown string:String, diagnostics:inout Diagnostics) -> Comment
     {
         var comment:Comment = .init() 
         

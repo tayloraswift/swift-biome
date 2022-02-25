@@ -6,7 +6,7 @@ public
 enum Language 
 {
     public 
-    struct Constraint
+    struct Constraint:Sendable
     {
         typealias DecodingError = Biome.DecodingError<JSON, Self>
         
@@ -55,7 +55,7 @@ enum Language
             case .null?, nil:
                 id = nil 
             case .string(let text)?:
-                id = .declaration(precise: text) 
+                id = .init(text) 
             case let value?:
                 throw DecodingError.init(expected: String?.self, in: "rhsPrecise", encountered: value)
             }
@@ -74,7 +74,7 @@ enum Language
         }
     }
     public 
-    enum Keyword 
+    enum Keyword:Sendable 
     {
         case `init` 
         case `deinit` 
@@ -82,10 +82,10 @@ enum Language
         case other 
     }
     public 
-    enum Lexeme 
+    enum Lexeme:Sendable
     {
         public 
-        enum Class 
+        enum Class:Sendable
         {
             case punctuation 
             case type(Biome.Symbol.ID?)
@@ -142,7 +142,7 @@ enum Language
             case .null?, nil:
                 id = nil 
             case .string(let text)?:
-                id = .declaration(precise: text) 
+                id = .init(text) 
             case let value?:
                 throw DecodingError.init(expected: String?.self, in: "preciseIdentifier", encountered: value)
             }
