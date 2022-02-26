@@ -23,13 +23,12 @@ extension Biome.Module.ID
 }
 extension Biome 
 {
-    typealias ModuleDescriptor = 
+    typealias Target = 
     (
-        graph:Graph,
-        symbols:[SymbolDescriptor], 
-        edges:[Edge]
+        module:Module.ID, 
+        bystanders:[Module.ID]
     )
-    typealias SymbolDescriptor = 
+    typealias Vertex = 
     (
         id:Symbol.ID,
         kind:Symbol.Kind, 
@@ -44,7 +43,7 @@ extension Biome
     )
     
     static 
-    func decode(module json:JSON) throws -> ModuleDescriptor
+    func decode(module json:JSON) throws -> (module:Module.ID, vertices:[Vertex], edges:[Edge])
     {
         guard   case .object(let symbolgraph)   = json, 
                 case .object(let module)?       = symbolgraph["module"],
@@ -55,10 +54,10 @@ extension Biome
             throw DecodingError<JSON, Self>.init(expected: Self.self, encountered: json)
         }
         
-        let decoded:ModuleDescriptor
-        decoded.graph       = .init(module: try .init(from: module["name"]), bystander: nil)
+        let decoded:(module:Module.ID, vertices:[Vertex], edges:[Edge])
+        decoded.module      = try .init(from: module["name"])
         decoded.edges       = try edges.map(Edge.init(from:))
-        decoded.symbols     = try symbols.map
+        decoded.vertices    = try symbols.map
         {
             guard case .object(let items) = $0 
             else 
@@ -71,9 +70,9 @@ extension Biome
     }
     
     static 
-    func decode(symbol json:[String: JSON]) throws -> SymbolDescriptor
+    func decode(symbol json:[String: JSON]) throws -> Vertex
     {
-        var items:[String: JSON] = _move(json)
+        var items:[String: JSON] = json
         defer 
         {
             if !items.isEmpty 
