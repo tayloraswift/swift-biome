@@ -4,6 +4,7 @@ extension Biome
     enum SymbolIdentifierError:Error 
     {
         case duplicate(symbol:Symbol.ID)
+        case undefined(symbol:Symbol.ID)
     }
     public 
     enum SymbolExtensionError:Error 
@@ -40,9 +41,9 @@ extension Biome
     {        
         public 
         let id:ID
-        let module:Module.Index 
-        let bystander:Module.Index? 
-        var namespace:Module.Index 
+        let module:Int 
+        let bystander:Int? 
+        var namespace:Int 
         {
             self.bystander ?? self.module
         }
@@ -55,7 +56,12 @@ extension Biome
         let generics:[Generic], 
             genericConstraints:[Language.Constraint], 
             extensionConstraints:[Language.Constraint]
-        let availability:[Domain: Availability]
+        let availability:
+        (
+            unconditional:UnconditionalAvailability?, 
+            swift:SwiftAvailability?
+        )
+        let platforms:[Domain: Availability]
         
         let breadcrumbs:(last:String, parent:Int?)
         let relationships:Relationships
@@ -63,10 +69,11 @@ extension Biome
         var topics:
         (
             requirements:[(heading:Biome.Topic, indices:[Int])],
-            members:[(heading:Biome.Topic, indices:[Int])]
+            members:[(heading:Biome.Topic, indices:[Int])],
+            removed:[(heading:Biome.Topic, indices:[Int])]
         )
         
-        init(modules:Module.View, 
+        init(modules:Modules, 
             path:Path, 
             breadcrumbs:Breadcrumbs, 
             parent:Int?, 
@@ -104,9 +111,9 @@ extension Biome
             self.declaration    = vertex.declaration
             self.relationships  = relationships
             
-            if let extended:Module.ID       = vertex.extends?.module
+            if let extended:Module.ID   = vertex.extends?.module
             {
-                let extended:Module.Index   = try modules.index(of: extended)
+                let extended:Int        = try modules.index(of: extended)
                 if  extended != self.module
                 {
                     switch self.bystander
@@ -121,18 +128,54 @@ extension Biome
             self.generics               = vertex.generic?.parameters ?? []
             self.genericConstraints     = vertex.generic?.constraints ?? []
             self.extensionConstraints   = vertex.extends?.where ?? []
-            var availability:[Domain: Availability] = [:]
+            
+            var platforms:[Domain: Availability] = [:]
+            var availability:(unconditional:UnconditionalAvailability?, swift:SwiftAvailability?) = (nil, nil)
             for (domain, value):(Domain, Availability) in vertex.availability 
             {
-                guard case nil = availability.updateValue(value, forKey: domain)
-                else 
+                switch domain 
                 {
-                    throw SymbolAvailabilityError.duplicate(domain: domain, in: self.id)
+                case .wildcard:
+                    guard case nil = availability.unconditional 
+                    else 
+                    {
+                        throw SymbolAvailabilityError.duplicate(domain: domain, in: self.id)
+                    }
+                    let deprecated:Bool 
+                    if case .some(nil) = value.deprecated 
+                    {
+                        deprecated = true 
+                    }
+                    else 
+                    {
+                        deprecated = false 
+                    }
+                    availability.unconditional = .init(unavailable: value.unavailable, 
+                        deprecated: deprecated, 
+                        renamed: value.renamed, 
+                        message: value.message)
+                case .swift:
+                    guard case nil = availability.swift 
+                    else 
+                    {
+                        throw SymbolAvailabilityError.duplicate(domain: domain, in: self.id)
+                    }
+                    availability.swift = .init(
+                        deprecated: value.deprecated ?? nil, 
+                        obsoleted: value.obsoleted,
+                        renamed: value.renamed, 
+                        message: value.message)
+                default:
+                    guard case nil = platforms.updateValue(value, forKey: domain)
+                    else 
+                    {
+                        throw SymbolAvailabilityError.duplicate(domain: domain, in: self.id)
+                    }
                 }
             }
-            self.availability           = availability
-            
-            self.topics         = ([], [])
+            self.availability   = availability
+            self.platforms      = platforms
+            self.topics         = ([], [], [])
         }
         
         var kind:Kind 
@@ -286,6 +329,38 @@ extension Biome.Symbol
         case macCatalystApplicationExtension
         case tvOSApplicationExtension
         case watchOSApplicationExtension
+        
+        static 
+        var platforms:[Self]
+        {
+            [
+                Self.iOS ,
+                Self.macOS,
+                Self.macCatalyst,
+                Self.tvOS,
+                Self.watchOS,
+                Self.windows,
+                Self.openBSD,
+            ]
+        }
+    }
+    public 
+    struct UnconditionalAvailability:Sendable
+    {
+        var unavailable:Bool 
+        var deprecated:Bool 
+        var renamed:String?
+        var message:String?
+    }
+    public 
+    struct SwiftAvailability:Sendable
+    {
+        // unconditionals not allowed 
+        var deprecated:Biome.Version?
+        var introduced:Biome.Version?
+        var obsoleted:Biome.Version?
+        var renamed:String?
+        var message:String?
     }
     public 
     struct Availability:Sendable

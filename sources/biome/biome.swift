@@ -68,16 +68,14 @@ struct Biome:Sendable
     }
     enum Index 
     {
-        case module(Module.Index)
+        case module(Int)
         case symbol(Int)
     }
     
-    private 
-    let indices:[Symbol.ID: Int]
     private(set)
-    var symbols:[Symbol],
-        modules:Module.View
-    let packages:[String?: (modules:Range<Module.Index>, hash:Resource.Version)]
+    var symbols:Symbols,
+        modules:Modules
+    let packages:[String?: (modules:Range<Int>, hash:Resource.Version)]
     let routes:[Path: Index]
     
     subscript(_index index:Index, modules modules:[Article], symbols symbols:[Article]) -> Resource
@@ -85,32 +83,11 @@ struct Biome:Sendable
         switch index 
         {
         case .module(let index): 
-            return self.page(for: index, article: modules[index.value], articles: symbols)
+            return self.page(for: index, article: modules[index], articles: symbols)
         case .symbol(let index):
             return self.page(for: index, articles: symbols)
         }
     }
-    subscript(index:Int) -> Symbol
-    {
-        _read
-        {
-            yield self.symbols[index]
-        }
-        _modify
-        {
-            yield &self.symbols[index]
-        }
-    }
-    subscript(id id:Symbol.ID) -> Symbol? 
-    {
-        guard let index:Int = self.indices[id]
-        else 
-        {
-            return nil 
-        }
-        return self.symbols[index]
-    }
-
     
     private static 
     func indices(for vertices:[Vertex]) throws -> [Symbol.ID: Int]
@@ -127,8 +104,8 @@ struct Biome:Sendable
         return indices
     }
     
-    init(prefix:[String], vertices:[Vertex], edges:[Edge], modules:Module.View, 
-        packages:[String?: (modules:Range<Module.Index>, hash:Resource.Version)])
+    init(prefix:[String], vertices:[Vertex], edges:[Edge], modules:Modules, 
+        packages:[String?: (modules:Range<Int>, hash:Resource.Version)])
         throws
     {
         //  build lookup table 
@@ -163,7 +140,7 @@ struct Biome:Sendable
         // breadcrumbs
         let breadcrumbs:[Breadcrumbs] = modules.indices.flatMap
         {
-            (module:Module.Index) -> [Breadcrumbs] in
+            (module:Int) -> [Breadcrumbs] in
             
             var breadcrumbs:[Breadcrumbs] = modules[module].symbols.core.map 
             {
@@ -173,7 +150,7 @@ struct Biome:Sendable
                     bystander: nil, 
                     path:   vertices[$0].path)
             }
-            for (bystander, symbols):(Module.Index, Range<Int>) in modules[module].symbols.extensions
+            for (bystander, symbols):(Int, Range<Int>) in modules[module].symbols.extensions
             {
                 let graph:Graph = .init(module: modules[module].id, bystander: modules[bystander].id)
                 for index:Int in symbols
@@ -237,9 +214,7 @@ struct Biome:Sendable
                 paths[overload].disambiguation = vertices[overload].id
             }
         }
-        
-        self.init(packages: packages, modules: modules, indices: indices, 
-            comments: vertices.map(\.comment), 
+        let symbols:Symbols = .init(indices: indices, 
             symbols: try vertices.indices.map 
         {
             try .init(modules:  modules, 
@@ -249,24 +224,24 @@ struct Biome:Sendable
                 relationships:  relationships[$0],
                 vertex:         vertices[$0])
         })
+        self.init(packages: packages, 
+            modules: modules, 
+            symbols: symbols)
     }
     private 
     init(
-        packages:[String?: (modules:Range<Module.Index>, hash:Resource.Version)], modules:Module.View, 
-        indices:[Symbol.ID: Int], 
-        comments:[String], 
-        symbols:[Symbol])
+        packages:[String?: (modules:Range<Int>, hash:Resource.Version)], 
+        modules:Modules, 
+        symbols:Symbols)
     {
         // symbols 
-        self.indices = indices 
-        self.symbols = symbols 
-        // modules 
-        self.modules = modules
-        self.packages = packages
+        self.modules    = modules 
+        self.symbols    = symbols 
+        self.packages   = packages
         
         // paths (combined)
         var routes:[Path: Index] = [:]
-        for module:Module.Index in self.modules.startIndex ..< self.modules.endIndex 
+        for module:Int in self.modules.indices
         {
             guard case nil = routes.updateValue(.module(module), forKey: self.modules[module].path)
             else 
@@ -285,7 +260,7 @@ struct Biome:Sendable
         self.routes = routes
         
         // gather toplevels 
-        for module:Module.Index in self.modules.indices 
+        for module:Int in self.modules.indices 
         {
             for symbol:Int in self.modules[module].symbols.core 
             {
@@ -296,31 +271,68 @@ struct Biome:Sendable
                 }
                 self.modules[module].toplevel.append(symbol)
             }
+            // sort 
+            self.modules[module].toplevel.sort
+            {
+                self.symbols[$0].title < self.symbols[$1].title
+            }
         }
         
         // topics 
-        for index:Module.Index in self.modules.indices 
+        for index:Int in self.modules.indices 
         {
-            self.modules[index].topics.append(contentsOf: self.organize(symbols: self.modules[index].toplevel))
+            let groups:[Bool: [Int]] = self.partition(symbols: self.modules[index].toplevel)
+            self.modules[index].topics.members.append(contentsOf: self.organize(symbols: groups[false, default: []]))
+            self.modules[index].topics.removed.append(contentsOf: self.organize(symbols: groups[true,  default: []]))
         }
         for index:Int in self.symbols.indices 
         {
-            if case .protocol(let abstract) = self[index].relationships 
+            if case .protocol(let abstract) = self.symbols[index].relationships 
             {
-                self[index].topics.requirements.append(contentsOf: self.organize(symbols: abstract.requirements))
+                self.symbols[index].topics.requirements.append(contentsOf: self.organize(symbols: abstract.requirements))
             }
-            if let members:[Int] = self[index].relationships.members
+            guard let members:[Int] = self.symbols[index].relationships.members
+            else 
             {
-                self[index].topics.members.append(contentsOf: self.organize(symbols: members))
+                continue 
             }
+            let groups:[Bool: [Int]] = self.partition(symbols: members)
+            self.symbols[index].topics.members.append(contentsOf: self.organize(symbols: groups[false, default: []]))
+            self.symbols[index].topics.removed.append(contentsOf: self.organize(symbols: groups[true,  default: []]))
         }
     }
-    
+    private 
+    func partition(symbols:[Int]) -> [Bool: [Int]]
+    {
+        .init(grouping: symbols)
+        {
+            if let availability:Symbol.UnconditionalAvailability = self.symbols[$0].availability.unconditional
+            {
+                if availability.unavailable || availability.deprecated
+                {
+                    return true 
+                }
+            }
+            if let availability:Symbol.SwiftAvailability = self.symbols[$0].availability.swift
+            {
+                if case _? = availability.deprecated
+                {
+                    return true 
+                }
+                if case _? = availability.obsoleted 
+                {
+                    return true 
+                }
+            }
+            return false
+        }
+    }
+    private 
     func organize(symbols:[Int]) -> [(heading:Biome.Topic, indices:[Int])]
     {
         let topics:[Topic.Automatic: [Int]] = .init(grouping: symbols)
         {
-            self[$0].kind.topic
+            self.symbols[$0].kind.topic
         }
         return Topic.Automatic.allCases.compactMap
         {
@@ -373,8 +385,8 @@ extension Biome
     {
         let package:String?
         let graph:Graph
-        let module:Module.Index 
-        let bystander:Module.Index? 
+        let module:Int 
+        let bystander:Int? 
         let path:[String]
         
         var last:String 

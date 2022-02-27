@@ -54,7 +54,7 @@ extension Biome
         )
         {
             var modules:[(Module.ID, [Module.ID])]  = []
-            let packages:[(String?, Range<Int>)]    = packages.map 
+            let packages:[(String?, Range<Int>)]    = packages.sorted(by: { ($0.key ?? "_") < ($1.key ?? "_") }).map 
             {
                 var targets:[Module.ID: [Module.ID]] = [:]
                 for name:String in $0.value 
@@ -77,12 +77,12 @@ extension Biome
         }
         
         private static 
-        func indices(for targets:[Target]) throws -> [Module.ID: Module.Index]
+        func indices(for targets:[Target]) throws -> [Module.ID: Int]
         {
-            var indices:[Module.ID: Module.Index] = [:]
+            var indices:[Module.ID: Int] = [:]
             for (index, target):(Int, Target) in targets.enumerated()
             {
-                guard case nil = indices.updateValue(.init(index), forKey: target.module)
+                guard case nil = indices.updateValue(index, forKey: target.module)
                 else
                 {
                     throw ModuleIdentifierError.duplicate(module: target.module)
@@ -98,11 +98,11 @@ extension Biome
             let prefix:[String] = prefix.map{ $0.lowercased() }
             
             let (names, targets):([(String?, Range<Int>)], [Target]) = Self.modules(names)
-            let indices:[Module.ID: Module.Index] = try Self.indices(for: targets)
+            let indices:[Module.ID: Int] = try Self.indices(for: targets)
             var vertices:[Vertex] = []
             var modules:[Module] = []
             var edges:[Edge] = []
-            var packages:[String?: (modules:Range<Module.Index>, hash:Resource.Version)] = [:]
+            var packages:[String?: (modules:Range<Int>, hash:Resource.Version)] = [:]
             for package:(name:String?, targets:Range<Int>) in names 
             {
                 var version:Resource.Version = .semantic(0, 1, 1)
@@ -142,12 +142,12 @@ extension Biome
                     }
                     let stem:String     = target.module.identifier 
                     let core:Range<Int> = try await graph(name: stem)
-                    var extensions:[(bystander:Module.Index, symbols:Range<Int>)] = [] 
+                    var extensions:[(bystander:Int, symbols:Range<Int>)] = [] 
                     for bystander:Module.ID in target.bystanders
                     {
                         // reconstruct the name
-                        let name:String                 = "\(stem)@\(bystander.identifier)"
-                        guard let index:Module.Index    = indices[bystander]
+                        let name:String     = "\(stem)@\(bystander.identifier)"
+                        guard let index:Int = indices[bystander]
                         else 
                         {
                             // a module extends a bystander module we do not have the 
@@ -162,24 +162,68 @@ extension Biome
                     let module:Module   = .init(id: target.module, package: package.name, 
                         path: path, core: core, extensions: extensions)
                     modules.append(module)
+                    
+                    if target.bystanders.isEmpty
+                    {
+                        print("loaded module '\(target.module.identifier)' (from package '\(package.name ?? "swift")')")
+                    }
+                    else 
+                    {
+                        print("loaded module '\(target.module.identifier)' (from package '\(package.name ?? "swift")', bystanders: \(target.bystanders.map{ "'\($0.identifier)'" }).joined(separator: ", ")))")
+                    }
                 }
                 packages[package.name] = (.init(package.targets.lowerBound) ..< .init(package.targets.upperBound), version)
             }
-            print("parsed JSON")
+            
+            print("loaded \(vertices.count) vertices and \(edges.count) edges from \(modules.count) module(s)")
+            
             let comments:[String]   = vertices.map(\.comment)
             let biome:Biome         = try .init(prefix: prefix, 
                 vertices: vertices, 
                 edges: edges, 
-                modules: .init(modules, indices: indices), 
+                modules: .init(indices: _move(indices), modules: modules), 
                 packages: packages)
+                
+            print("validated biome")
+            
             // render articles 
-            self.symbols            = biome.symbols.indices.map 
+            self.symbols            = zip(biome.symbols.indices, comments).map 
             {
-                biome.article(for: $0, comment: comments[$0]) 
+                biome.article(symbol: $0.0, comment: $0.1) 
             }
-            self.modules            = []//biome.modules.indices
-            self.biome              = biome 
-            self.search             = .array(biome.search.map 
+            self.modules            =     biome.modules.indices.map 
+            {
+                biome.article(module: $0, comment: "") 
+            }
+            
+            let memory:Int = self.modules.reduce(0)
+            {
+                $0 + $1.size
+            }
+            +
+            self.symbols.reduce(0)
+            {
+                $0 + $1.size
+            }
+            
+            print("rendered \(self.modules.count + self.symbols.count) articles (\(memory) bytes)")
+            
+            self.biome              = _move(biome)
+            
+            for module:Module in self.biome.modules
+            {
+                var errors:Int = 0
+                for index:Int in module.allSymbols.joined()
+                {
+                    errors += self.symbols[index].errors.count
+                }
+                if errors > 0 
+                {
+                    print("note: \(errors) errors(s) in module '\(module.id.identifier)'")
+                }
+            }
+            
+            self.search             = .array(self.biome.search.map 
             { 
                 .object(["uri": .string($0.uri), "title": .string($0.title), "text": .array($0.text.map(JSON.string(_:)))]) 
             })
@@ -222,7 +266,7 @@ extension Biome
             }
             //  we were given a bad path + disambiguation key combo, 
             //  but the query might still be valid 
-            if let symbol:Symbol = self.biome[id: key]
+            if let symbol:Symbol = self.biome.symbols[key]
             {
                 return .found(symbol.path.canonical)
             }

@@ -11,108 +11,6 @@ extension Biome
     public 
     struct Module:Identifiable, Sendable
     {
-        public 
-        struct View:RandomAccessCollection, Sendable
-        {
-            public 
-            typealias Index = Module.Index
-            /* public 
-            typealias Indices = Range<Module.Index>
-            public 
-            typealias SubSequence = ArraySlice<Module> */
-            
-            private 
-            var modules:[Module]
-            private 
-            let lookup:[ID: Index]
-            
-            public 
-            var startIndex:Index 
-            {
-                .init(self.modules.startIndex)
-            }
-            public 
-            var endIndex:Index 
-            {
-                .init(self.modules.endIndex)
-            }
-            /* public 
-            var indices:Range<Index> 
-            {
-                self.startIndex ..< self.endIndex
-            } */
-            
-            public 
-            subscript(index:Index) -> Module 
-            {
-                _read 
-                {
-                    yield self.modules[index.value]
-                }
-                _modify
-                {
-                    yield &self.modules[index.value]
-                }
-            }
-            /* public 
-            subscript(range:Range<Index>) -> ArraySlice<Module> 
-            {
-                _read 
-                {
-                    yield self.modules[range.lowerBound.value ..< range.upperBound.value]
-                }
-                _modify
-                {
-                    yield &self.modules[range.lowerBound.value ..< range.upperBound.value]
-                }
-            } */
-            
-            init(_ modules:[Module], indices:[ID: Index])
-            {
-                self.modules = modules 
-                self.lookup = indices 
-            }
-            
-            func index(of id:ID) throws -> Index
-            {
-                guard let index:Index = self.lookup[id]
-                else 
-                {
-                    throw ModuleIdentifierError.undefined(module: id)
-                }
-                return index
-            }
-        }
-        public 
-        struct Index:Hashable, Comparable, Strideable, Sendable 
-        {
-            public 
-            typealias Stride = Int 
-            
-            let value:Int 
-            
-            public static 
-            func < (lhs:Self, rhs:Self) -> Bool 
-            {
-                lhs.value < rhs.value
-            }
-            
-            init(_ value:Int)
-            {
-                self.value = value
-            }
-            
-            public 
-            func advanced(by distance:Int) -> Self 
-            {
-                .init(self.value + distance)
-            }
-            public 
-            func distance(to index:Self) -> Int
-            {
-                index.value - self.value
-            }
-        }
         public
         enum ID:Hashable, Comparable, Sendable
         {
@@ -170,10 +68,14 @@ extension Biome
         let package:String?
         let path:Path
         
-        let symbols:(core:Range<Int>, extensions:[(bystander:Index, symbols:Range<Int>)])
+        let symbols:(core:Range<Int>, extensions:[(bystander:Int, symbols:Range<Int>)])
         var toplevel:[Int]
         
-        var topics:[(heading:Biome.Topic, indices:[Int])]
+        var topics:
+        (
+            members:[(heading:Biome.Topic, indices:[Int])],
+            removed:[(heading:Biome.Topic, indices:[Int])]
+        )
         var declaration:[Language.Lexeme] 
         {
             [.code("import", class: .keyword(.other)), .spaces(1), .code(self.id.identifier, class: .identifier)]
@@ -182,16 +84,20 @@ extension Biome
         {
             self.id.title
         }
+        var allSymbols:[Range<Int>] 
+        {
+            [self.symbols.core] + self.symbols.extensions.map(\.symbols)
+        }
         
         init(id:ID, package:String?, path:Path, core:Range<Int>, 
-            extensions:[(bystander:Index, symbols:Range<Int>)])
+            extensions:[(bystander:Int, symbols:Range<Int>)])
         {
             self.id         = id 
             self.package    = package
             self.path       = path
             self.symbols    = (core, extensions)
             self.toplevel   = []
-            self.topics     = []
+            self.topics     = ([], [])
         }
     }
     
