@@ -1184,6 +1184,32 @@ extension Biome
             {
                 relationships = []
             }
+            if  case .witness(let witness, callable: _) = symbol.relationships,
+                let parent:Int                          = symbol.breadcrumbs.parent,
+                let extensionMethod:Int                 = witness.specializationOf, 
+                let extendedProtocol:Int                = self.biome.symbols[extensionMethod].breadcrumbs.parent 
+            {
+                relationships.append(Element[.li] 
+                {
+                    Element[.p]
+                    {
+                        "Specialization of "
+                        Element.link("statically-dispatched protocol member", to: self.biome.symbols[extensionMethod].path.canonical, internal: true)
+                        " in "
+                        Element[.code]
+                        {
+                            Element[.a]
+                            {
+                                (self.biome.symbols[extendedProtocol].path.canonical, as: HTML.Href.self)
+                            }
+                            content: 
+                            {
+                                Biome.render(code: self.biome.symbols[extendedProtocol].qualified)
+                            }
+                        }
+                    }
+                })
+            }
             if !symbol.extensionConstraints.isEmpty
             {
                 relationships.append(Element[.li] 

@@ -36,6 +36,7 @@ extension Biome
         case superclass(Int, in:Symbol.Kind, Int) 
         
         case defaultImplementationOf([Int], Symbol.Kind, Int) 
+        case specializationOf(Int, Symbol.Kind, Int) 
         case requirementOf(Int, Symbol.Kind, Int) 
         case overrideOf(Int, Symbol.Kind, Int) 
         

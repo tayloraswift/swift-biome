@@ -176,23 +176,40 @@ struct Biome:Sendable
                     let start:Int   = vertices.endIndex
                     for vertex:Vertex in descriptor.vertices 
                     {
-                        if case nil = symbolIndices.index(forKey: vertex.id)
+                        switch vertex.id 
                         {
-                            symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
-                            vertices.append(vertex)
-                        }
-                        else 
-                        {
-                            // duplicate symbol id. 
-                            // if the symbol is synthetic, and extends a different module, 
-                            // ignore and blacklist. otherwise, throw an error immediately
-                            guard case (_?, .synthesized) = (bystander, vertex.id)
+                        case .natural:
+                            if case nil = symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
+                            {
+                                vertices.append(vertex)
+                            }
                             else 
                             {
                                 throw SymbolIdentifierError.duplicate(symbol: vertex.id, in: module, bystander: bystander) 
                             }
-                            blacklisted.insert(vertex.id)
+                        
+                        case .synthesized(let template, for: let scope):
+                            if case nil = symbolIndices.index(forKey: vertex.id)
+                            {
+                                symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
+                                vertices.append(vertex)
+                                // infer an extra edge
+                                edges.append(.init(specialization: .synthesized(template, for: scope), of: .natural(template)))
+                            }
+                            else 
+                            {
+                                // duplicate symbol id. 
+                                // if the symbol is synthetic, and extends a different module, 
+                                // ignore and blacklist. otherwise, throw an error immediately
+                                guard case (_?, .synthesized) = (bystander, vertex.id)
+                                else 
+                                {
+                                    throw SymbolIdentifierError.duplicate(symbol: vertex.id, in: module, bystander: bystander) 
+                                }
+                                blacklisted.insert(vertex.id)
+                            }
                         }
+                        
                     }
                     let end:Int     = vertices.endIndex
                     

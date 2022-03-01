@@ -144,6 +144,8 @@ extension Biome.Symbol
                 defaultImplementations:[Int]
             var overrideOf:Int?,
                 _overrides:[Int]
+            var specializationOf:Int?,
+                specializations:[Int]
             var requirementOf:Int? // points to a protocol 
             
             mutating 
@@ -151,6 +153,7 @@ extension Biome.Symbol
             {
                 self.defaultImplementationOf.sort(by: ascending)
                 self.defaultImplementations.sort(by: ascending)
+                self.specializations.sort(by: ascending)
                 self._overrides.sort(by: ascending)
             }
         }
@@ -170,6 +173,8 @@ extension Biome.Symbol
                     defaultImplementations: references.defaultImplementations, 
                     overrideOf: references.overrideOf,
                     _overrides: references._overrides, 
+                    specializationOf: references.specializationOf, 
+                    specializations: references.specializations, 
                     requirementOf: references.requirementOf)
             }
             var concrete:Concrete 
@@ -326,6 +331,8 @@ extension Biome.Symbol
             }
             // callables can be default implementations
             // callables can have default implementations
+            // callables can be specializations
+            // callables can have specializations
             switch kind 
             {
             case    .initializer, .typeSubscript, .instanceSubscript, 
@@ -340,6 +347,10 @@ extension Biome.Symbol
                 else 
                 {
                     throw Biome.LinkingError.defaultImplementationOf(references.defaultImplementationOf, kind, index) 
+                }
+                if let `extension`:Int = references.specializationOf 
+                {
+                    throw Biome.LinkingError.specializationOf(`extension`, kind, index) 
                 }
             }
         }
