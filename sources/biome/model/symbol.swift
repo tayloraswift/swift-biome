@@ -1,42 +1,6 @@
 extension Biome 
 {
     public 
-    enum SymbolIdentifierError:Error 
-    {
-        case duplicate(symbol:Symbol.ID, in:String)
-        case undefined(symbol:Symbol.ID)
-    }
-    public 
-    enum SymbolExtensionError:Error 
-    {
-        case mismatch(decoded:Module.ID, expected:Module.ID, in:Symbol.ID)
-    }
-    enum SymbolAvailabilityError:Error 
-    {
-        case duplicate(domain:Symbol.Domain, in:Symbol.ID)
-    }
-    enum LinkingError:Error 
-    {
-        case constraints(on:Int, is:Edge.Kind, of:Int)
-        case duplicate(Int, have:Int, is:Edge.Kind, of:Int)
-        
-        
-        case members([Int], in:Symbol.Kind, Int) 
-        case conformers([(index:Int, conditions:[Language.Constraint])], in:Symbol.Kind, Int) 
-        case conformances([(index:Int, conditions:[Language.Constraint])], in:Symbol.Kind, Int) 
-        case requirements([Int], in:Symbol.Kind, Int) 
-        case subclasses([Int], in:Symbol.Kind, Int) 
-        case superclass(Int, in:Symbol.Kind, Int) 
-        
-        case defaultImplementationOf([Int], Symbol.Kind, Int) 
-        case requirementOf(Int, Symbol.Kind, Int) 
-        case overrideOf(Int, Symbol.Kind, Int) 
-        
-        case island(associatedtype:Int)
-        case orphaned(symbol:Int)
-        case junction(symbol:Int)
-    }
-    public 
     struct Symbol:Sendable, Identifiable  
     {        
         public 
@@ -215,15 +179,6 @@ extension Biome
 }
 extension Biome.Symbol 
 {
-    public 
-    struct ID:Hashable, Sendable 
-    {
-        let string:String 
-        init(_ string:String)
-        {
-            self.string = string 
-        }
-    }
     public 
     enum Kind:String, Sendable, Hashable
     {

@@ -93,7 +93,7 @@ extension Biome
             switch items.removeValue(forKey: "precise")
             {
             case .string(let text)?:
-                id = .init(text)
+                id = try Grammar.parse(text.utf8, as: Symbol.ID.Rule<String.Index>.USR.self)
             case let value:
                 throw Symbol.DecodingError.init(expected: String.self, in: "identifier.precise", encountered: value)
             }
@@ -703,14 +703,14 @@ extension Biome.Edge
         switch items.removeValue(forKey: "source")
         {
         case .string(let text)?:
-            self.source = .init(text)
+            self.source = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
         case let value:
             throw DecodingError.init(expected: String.self, in: "source", encountered: value)
         }
         switch items.removeValue(forKey: "target")
         {
         case .string(let text)?:
-            self.target = .init(text)
+            self.target = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
         case let value:
             throw DecodingError.init(expected: String.self, in: "source", encountered: value)
         }
@@ -738,7 +738,7 @@ extension Biome.Edge
             switch items.removeValue(forKey: "identifier")
             {
             case .string(let text)?:
-                id = .init(text)
+                id = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
             case let value:
                 throw DecodingError.init(expected: String.self, in: "sourceOrigin.identifier", encountered: value)
             }

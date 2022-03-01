@@ -1,5 +1,6 @@
 import SwiftSyntax
 import SwiftSyntaxParser
+import Grammar
 import JSON 
 
 public 
@@ -55,7 +56,7 @@ enum Language
             case .null?, nil:
                 id = nil 
             case .string(let text)?:
-                id = .init(text) 
+                id = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
             case let value?:
                 throw DecodingError.init(expected: String?.self, in: "rhsPrecise", encountered: value)
             }
@@ -142,7 +143,7 @@ enum Language
             case .null?, nil:
                 id = nil 
             case .string(let text)?:
-                id = .init(text) 
+                id = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
             case let value?:
                 throw DecodingError.init(expected: String?.self, in: "preciseIdentifier", encountered: value)
             }

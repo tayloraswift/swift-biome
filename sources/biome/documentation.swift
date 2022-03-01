@@ -161,9 +161,13 @@ extension Biome
         public 
         subscript(group:String, disambiguation disambiguation:String?) -> Response?
         {
-            let path:Path  = .init(group: Biome.normalize(path: group), 
-                disambiguation: disambiguation.map(Symbol.ID.init(_:)))
-            if let index:Index = self.routes[path]
+            let disambiguation:Symbol.ID? = try? disambiguation.map
+            {
+                try Grammar.parse($0.utf8, as: Symbol.ID.Rule<String.Index>.USR.self)
+            }
+            let path:Path       = .init(group: Biome.normalize(path: group), 
+                disambiguation: disambiguation)
+            if let index:Index  = self.routes[path]
             {
                 return path.group == group ? .canonical(self[index]) : .found(path.canonical)
             }

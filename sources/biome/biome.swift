@@ -144,8 +144,9 @@ struct Biome:Sendable
             var version:Resource.Version = .semantic(0, 1, 1)
             for target:(module:Module.ID, bystanders:[Module.ID]) in targets[package.targets]
             {
-                func graph(name:String) async throws -> Range<Int>
+                func graph(_ module:Module.ID, bystander:Module.ID?) async throws -> Range<Int>
                 {
+                    let name:String = bystander.map { "\(module.identifier)@\($0.identifier)" } ?? module.identifier
                     let json:JSON
                     switch try await load(package.id, name)
                     {
@@ -170,27 +171,74 @@ struct Biome:Sendable
                     {
                         throw ModuleIdentifierError.mismatch(decoded: descriptor.module, expected: target.module)
                     }
-                    edges.append(contentsOf: descriptor.edges)
+                    
+                    var blacklisted:Set<Symbol.ID> = []
                     let start:Int   = vertices.endIndex
                     for vertex:Vertex in descriptor.vertices 
                     {
-                        guard case nil = symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
-                        else
+                        if case nil = symbolIndices.index(forKey: vertex.id)
                         {
-                            throw SymbolIdentifierError.duplicate(symbol: vertex.id, in: name)
+                            symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
+                            vertices.append(vertex)
                         }
-                        vertices.append(vertex)
+                        else 
+                        {
+                            // duplicate symbol id. 
+                            // if the symbol is synthetic, and extends a different module, 
+                            // ignore and blacklist. otherwise, throw an error immediately
+                            guard case (_?, .synthesized) = (bystander, vertex.id)
+                            else 
+                            {
+                                throw SymbolIdentifierError.duplicate(symbol: vertex.id, in: module, bystander: bystander) 
+                            }
+                            blacklisted.insert(vertex.id)
+                        }
                     }
                     let end:Int     = vertices.endIndex
+                    
+                    if blacklisted.count != 0 
+                    {
+                        print("blacklisted \(blacklisted.count) duplicate vert(ex/icies) in '\(name)'")
+                    }
+                    
+                    var pruned:Int = 0
+                    for edge:Edge in descriptor.edges 
+                    {
+                        switch (blacklisted.contains(edge.source), blacklisted.contains(edge.target))
+                        {
+                        case (false, false):
+                            edges.append(edge)
+                        case (true,  false):
+                            guard   case .member = edge.kind,
+                                    case .natural(let scope) = edge.target, 
+                                    case .synthesized(_, for: scope) = edge.source
+                            else 
+                            {
+                                fallthrough 
+                            }
+                            // allow recovery
+                            pruned += 1
+                        case (true, true): 
+                            // if we didn’t throw an error before, throw it now 
+                            throw SymbolIdentifierError.duplicate(symbol: edge.source, in: module, bystander: bystander) 
+                        case (false, true): 
+                            // if we didn’t throw an error before, throw it now 
+                            throw SymbolIdentifierError.duplicate(symbol: edge.target, in: module, bystander: bystander) 
+                        }
+                    }
+                    
+                    if pruned != 0 
+                    {
+                        print("pruned \(pruned) duplicate edge(s) with blacklisted endpoints in '\(name)'")
+                    }
+                    
                     return start ..< end
                 }
-                let stem:String     = target.module.identifier 
-                let core:Range<Int> = try await graph(name: stem)
+                let core:Range<Int> = try await graph(target.module, bystander: nil)
                 var extensions:[(bystander:Int, symbols:Range<Int>)] = [] 
                 for bystander:Module.ID in target.bystanders
                 {
                     // reconstruct the name
-                    let name:String     = "\(stem)@\(bystander.identifier)"
                     guard let index:Int = moduleIndices[bystander]
                     else 
                     {
@@ -200,7 +248,7 @@ struct Biome:Sendable
                         //print("warning: ignored module extensions '\(name)'")
                         //continue 
                     }
-                    extensions.append((index, try await graph(name: name)))
+                    extensions.append((index, try await graph(target.module, bystander: bystander)))
                 }
                 let path:Path       = .init(prefix: prefix, package: package.id, namespace: target.module)
                 let module:Module   = .init(id: target.module, package: packages.endIndex, 

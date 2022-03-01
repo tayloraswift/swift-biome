@@ -1,51 +1,12 @@
+#if os(Linux)
 import Glibc
-import JSON 
+#elseif os(macOS)
+import Darwin
+#endif 
 
 enum Demangle 
 {
-    enum Rule<Location> 
-    {
-        typealias Codepoint = Grammar.Encoding<Location, Unicode.Scalar> 
-    }
-}
-extension Demangle.Rule 
-{
-    enum MangledName:ParsingRule 
-    {
-        typealias Terminal = Unicode.Scalar 
-        
-        enum Element:Grammar.TerminalClass 
-        {
-            typealias Terminal      = Unicode.Scalar 
-            typealias Construction  = Character 
-            static 
-            func parse(terminal:Unicode.Scalar) -> Character?
-            {
-                switch terminal
-                {
-                // A-Z, a-z, 0-9, _
-                case "0" ... "9", "A" ... "Z", "a" ... "z", "_": 
-                    return .init(terminal)
-                default: 
-                    return nil
-                }
-            }
-        }
-        
-        static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> String
-            where   Diagnostics:ParsingDiagnostics, 
-                    Diagnostics.Source.Index == Location, Diagnostics.Source.Element == Terminal
-        {
-            let prefix:String = input.parse(as: Element.self, in: String.self)
-            try input.parse(as: Codepoint.Colon.self)
-            let suffix:String = input.parse(as: Element.self, in: String.self)
-            return prefix + suffix
-        }
-    }
-}
-extension Demangle 
-{
+    #if os(Linux) || os(macOS)
     private 
     typealias Function = @convention(c) 
     (
@@ -75,7 +36,8 @@ extension Demangle
     static 
     subscript(mangled:String) -> String
     {
-        guard let string:UnsafeMutablePointer<Int8> = self.function("$\(mangled)", mangled.utf8.count, nil, nil, 0)
+        guard   let mangled:String = mangled.first.map({ "$\($0)\(mangled.dropFirst(2))" }),
+                let string:UnsafeMutablePointer<Int8> = self.function(mangled, mangled.utf8.count, nil, nil, 0)
         else 
         {
             print("warning: could not demangle symbol '\(mangled)'")
@@ -87,4 +49,12 @@ extension Demangle
         }
         return String.init(cString: string)
     }
+    #else 
+    static 
+    subscript(mangled:String) -> String
+    {
+        print("warning: could not demangle symbol '\(mangled)' (demangling not supported on this platform)")
+        return mangled
+    }
+    #endif
 }

@@ -10,7 +10,7 @@ extension Biome
         {
             if let id:Symbol.ID = self.disambiguation 
             {
-                return "\(self.group)?overload=\(id.string)"
+                return "\(self.group)?overload=\(id.usr)"
             }
             else 
             {
