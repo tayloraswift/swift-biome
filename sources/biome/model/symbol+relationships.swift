@@ -35,8 +35,8 @@ extension Biome.Symbol
                     .class(let concrete, subclasses: _, superclass: _),
                     .actor(let concrete):
                 return concrete.members.isEmpty ? nil : concrete.members
-            case .protocol:
-                return nil
+            case .protocol(let abstract):
+                return abstract.members
             case .associatedtype:
                 return nil
             case .witness: 
