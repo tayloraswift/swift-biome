@@ -3,7 +3,7 @@ extension Biome
     public 
     enum SymbolIdentifierError:Error 
     {
-        case duplicate(symbol:Symbol.ID)
+        case duplicate(symbol:Symbol.ID, in:String)
         case undefined(symbol:Symbol.ID)
     }
     public 
@@ -73,7 +73,7 @@ extension Biome
             removed:[(heading:Biome.Topic, indices:[Int])]
         )
         
-        init(modules:Modules, 
+        init(modules:Storage<Module>, 
             path:Path, 
             breadcrumbs:Breadcrumbs, 
             parent:Int?, 
@@ -113,7 +113,11 @@ extension Biome
             
             if let extended:Module.ID   = vertex.extends?.module
             {
-                let extended:Int        = try modules.index(of: extended)
+                guard let extended:Int  = modules.index(of: extended)
+                else 
+                {
+                    throw ModuleIdentifierError.undefined(module: extended)
+                }
                 if  extended != self.module
                 {
                     switch self.bystander

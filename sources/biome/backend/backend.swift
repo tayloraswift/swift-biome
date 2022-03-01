@@ -10,12 +10,8 @@ extension Biome.Module.ID
     {
         switch json
         {
-        case .string("Swift")?:
-            self = .swift
-        case .string("_Concurrency")?:
-            self = .concurrency
         case .string(let module)?:
-            self = .community(module)
+            self = .init(module)
         default:
             throw Biome.DecodingError<JSON, Self>.init(expected: String.self, encountered: json)
         }

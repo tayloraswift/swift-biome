@@ -22,10 +22,23 @@ extension Biome
             self.group          = group
             self.disambiguation = disambiguation
         }
-        init(prefix:[String], package:String?, namespace:Module.ID) 
+        init(prefix:[String], package:Package.ID) 
         {
-            var unescaped:[String]  = prefix 
-            if  let package:String  = package 
+            var unescaped:[String] = prefix 
+            switch package 
+            {
+            case .swift: 
+                // otherwise would collide with `swift/`
+                unescaped.append("standard-library")
+            case .community(let package):
+                unescaped.append(package)
+            }
+            self.init(group: Biome.normalize(path: unescaped))
+        }
+        init(prefix:[String], package:Package.ID, namespace:Module.ID) 
+        {
+            var unescaped:[String] = prefix 
+            if case .community(let package) = package 
             {
                 unescaped.append(package)
             }
@@ -40,7 +53,7 @@ extension Biome
                 path: breadcrumbs.path, 
                 dot: dot)
         }
-        init(prefix:[String], package:String?, namespace:Module.ID, path:[String], dot:Bool) 
+        init(prefix:[String], package:Package.ID, namespace:Module.ID, path:[String], dot:Bool) 
         {
             // to reduce the need for disambiguation suffixes, nested types and members 
             // use different syntax: 
@@ -50,7 +63,7 @@ extension Biome
             // start with a slash. so it’s 'prefix/swift/withunsafepointer(to:)', 
             // not `prefix/swift.withunsafepointer(to:)`
             var unescaped:[String]  = prefix 
-            if  let package:String  = package 
+            if case .community(let package) = package 
             {
                 unescaped.append(package)
             }

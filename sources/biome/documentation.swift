@@ -40,151 +40,28 @@ extension Biome
     public 
     struct Documentation:Sendable
     {
+        enum Index 
+        {
+            case package(Int)
+            case module(Int)
+            case symbol(Int)
+        }
+        
         let biome:Biome
         let symbols:[Article], 
-            modules:[Article]
+            modules:[Article], 
+            packages:[Article]
+        let routes:[Path: Index]
         public 
         let search:JSON
         
-        private static 
-        func modules(_ packages:[String?: [String]]) -> 
-        (
-            packages:[(String?, Range<Int>)],
-            modules:[(module:Module.ID, bystanders:[Module.ID])]
-        )
-        {
-            var modules:[(Module.ID, [Module.ID])]  = []
-            let packages:[(String?, Range<Int>)]    = packages.sorted(by: { ($0.key ?? "_") < ($1.key ?? "_") }).map 
-            {
-                var targets:[Module.ID: [Module.ID]] = [:]
-                for name:String in $0.value 
-                {
-                    let identifiers:[Module.ID] = name.split(separator: "@").map(Module.ID.init(_:))
-                    guard let module:Module.ID  = identifiers.first 
-                    else 
-                    {
-                        continue // name was all '@' signs
-                    }
-                    let bystanders:ArraySlice<Module.ID> = identifiers.dropFirst()
-                    targets[module, default: []].append(contentsOf: bystanders.prefix(1))
-                }
-                let start:Int   = modules.endIndex 
-                modules.append(contentsOf: targets.map { ($0.key, $0.value) })
-                let end:Int     = modules.endIndex 
-                return ($0.key, start ..< end)
-            }
-            return (packages, modules)
-        }
-        
-        private static 
-        func indices(for targets:[Target]) throws -> [Module.ID: Int]
-        {
-            var indices:[Module.ID: Int] = [:]
-            for (index, target):(Int, Target) in targets.enumerated()
-            {
-                guard case nil = indices.updateValue(index, forKey: target.module)
-                else
-                {
-                    throw ModuleIdentifierError.duplicate(module: target.module)
-                }
-            }
-            return indices
-        }
-        
         public 
-        init(packages names:[String?: [String]], prefix:[String], 
-            loader load:(_ package:String?, _ module:String) async throws -> Resource) async throws 
+        init(packages:[Package.ID: [String]], prefix:[String], 
+            loader load:(_ package:Package.ID, _ module:String) async throws -> Resource) async throws 
         {
-            let prefix:[String] = prefix.map{ $0.lowercased() }
-            
-            let (names, targets):([(String?, Range<Int>)], [Target]) = Self.modules(names)
-            let indices:[Module.ID: Int] = try Self.indices(for: targets)
-            var vertices:[Vertex] = []
-            var modules:[Module] = []
-            var edges:[Edge] = []
-            var packages:[String?: (modules:Range<Int>, hash:Resource.Version)] = [:]
-            for package:(name:String?, targets:Range<Int>) in names 
-            {
-                var version:Resource.Version = .semantic(0, 1, 1)
-                for target:(module:Module.ID, bystanders:[Module.ID]) in targets[package.targets]
-                {
-                    func graph(name:String) async throws -> Range<Int>
-                    {
-                        let json:JSON
-                        switch try await load(package.name, name)
-                        {
-                        case    .text   (let string, type: .json, version: let component?):
-                            json = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
-                            version *= component
-                        case    .bytes  (let bytes, type: .json, version: let component?):
-                            json = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
-                            version *= component
-                        case    .text   (_, type: .json, version: nil),
-                                .bytes  (_, type: .json, version: nil):
-                            throw ResourceVersionError.missing
-                        case    .text   (_, type: let type, version: _),
-                                .bytes  (_, type: let type, version: _):
-                            throw ResourceTypeError.init(type.description, expected: Resource.Text.json.description)
-                        case    .binary (_, type: let type, version: _):
-                            throw ResourceTypeError.init(type.description, expected: Resource.Text.json.description)
-                        }
-                        let descriptor:(module:Module.ID, vertices:[Vertex], edges:[Edge]) = try Biome.decode(module: json)
-                        guard descriptor.module == target.module 
-                        else 
-                        {
-                            throw ModuleIdentifierError.mismatch(decoded: descriptor.module, expected: target.module)
-                        }
-                        edges.append(contentsOf: descriptor.edges)
-                        let start:Int   = vertices.endIndex
-                        vertices.append(contentsOf: descriptor.vertices)
-                        let end:Int     = vertices.endIndex
-                        return start ..< end
-                    }
-                    let stem:String     = target.module.identifier 
-                    let core:Range<Int> = try await graph(name: stem)
-                    var extensions:[(bystander:Int, symbols:Range<Int>)] = [] 
-                    for bystander:Module.ID in target.bystanders
-                    {
-                        // reconstruct the name
-                        let name:String     = "\(stem)@\(bystander.identifier)"
-                        guard let index:Int = indices[bystander]
-                        else 
-                        {
-                            // a module extends a bystander module we do not have the 
-                            // primary symbolgraph for
-                            throw ModuleIdentifierError.undefined(module: bystander)
-                            //print("warning: ignored module extensions '\(name)'")
-                            //continue 
-                        }
-                        extensions.append((index, try await graph(name: name)))
-                    }
-                    let path:Path       = .init(prefix: prefix, package: package.name, namespace: target.module)
-                    let module:Module   = .init(id: target.module, package: package.name, 
-                        path: path, core: core, extensions: extensions)
-                    modules.append(module)
-                    
-                    if target.bystanders.isEmpty
-                    {
-                        print("loaded module '\(target.module.identifier)' (from package '\(package.name ?? "swift")')")
-                    }
-                    else 
-                    {
-                        print("loaded module '\(target.module.identifier)' (from package '\(package.name ?? "swift")', bystanders: \(target.bystanders.map{ "'\($0.identifier)'" }).joined(separator: ", ")))")
-                    }
-                }
-                packages[package.name] = (.init(package.targets.lowerBound) ..< .init(package.targets.upperBound), version)
-            }
-            
-            print("loaded \(vertices.count) vertices and \(edges.count) edges from \(modules.count) module(s)")
-            
-            let comments:[String]   = vertices.map(\.comment)
-            let biome:Biome         = try .init(prefix: prefix, 
-                vertices: vertices, 
-                edges: edges, 
-                modules: .init(indices: _move(indices), modules: modules), 
-                packages: packages)
-                
-            print("validated biome")
+            let (biome, comments):(Biome, [String]) = try await Biome.load(packages: packages, 
+                prefix: prefix.map{ $0.lowercased() }, 
+                loader: load)
             
             // render articles 
             self.symbols            = zip(biome.symbols.indices, comments).map 
@@ -195,20 +72,56 @@ extension Biome
             {
                 biome.article(module: $0, comment: "") 
             }
-            
-            let memory:Int = self.modules.reduce(0)
+            self.packages           =     biome.packages.indices.map 
             {
-                $0 + $1.size
+                biome.article(package: $0, comment: "") 
             }
-            +
-            self.symbols.reduce(0)
-            {
-                $0 + $1.size
-            }
-            
-            print("rendered \(self.modules.count + self.symbols.count) articles (\(memory) bytes)")
-            
             self.biome              = _move(biome)
+            self.search             = .array(self.biome.search.map 
+            { 
+                .object(["uri": .string($0.uri), "title": .string($0.title), "text": .array($0.text.map(JSON.string(_:)))]) 
+            })
+            // paths (combined)
+            var routes:[Path: Index] = [:]
+            for package:Int in self.biome.packages.indices
+            {
+                guard case nil = routes.updateValue(.package(package), forKey: self.biome.packages[package].path)
+                else 
+                {
+                    fatalError("unreachable")
+                }
+            }
+            for module:Int in self.biome.modules.indices
+            {
+                guard case nil = routes.updateValue(.module(module), forKey: self.biome.modules[module].path)
+                else 
+                {
+                    fatalError("unreachable")
+                }
+            }
+            for symbol:Int in self.biome.symbols.indices
+            {
+                guard case nil = routes.updateValue(.symbol(symbol), forKey: self.biome.symbols[symbol].path)
+                else 
+                {
+                    fatalError("unreachable")
+                }
+            }
+            self.routes = routes
+            
+            var _memory:Int 
+            {
+                self.modules.reduce(0)
+                {
+                    $0 + $1.size
+                }
+                +
+                self.symbols.reduce(0)
+                {
+                    $0 + $1.size
+                }
+            }
+            print("rendered \(self.modules.count + self.symbols.count) articles (\(_memory >> 10) KB)")
             
             for module:Module in self.biome.modules
             {
@@ -219,14 +132,9 @@ extension Biome
                 }
                 if errors > 0 
                 {
-                    print("note: \(errors) errors(s) in module '\(module.id.identifier)'")
+                    print("note: \(errors) linter warnings(s) in module '\(module.id.identifier)'")
                 }
             }
-            
-            self.search             = .array(self.biome.search.map 
-            { 
-                .object(["uri": .string($0.uri), "title": .string($0.title), "text": .array($0.text.map(JSON.string(_:)))]) 
-            })
         }
         
         /// the `group` is the full URL path, without the query, and including 
@@ -255,7 +163,7 @@ extension Biome
         {
             let path:Path  = .init(group: Biome.normalize(path: group), 
                 disambiguation: disambiguation.map(Symbol.ID.init(_:)))
-            if let index:Index = self.biome.routes[path]
+            if let index:Index = self.routes[path]
             {
                 return path.group == group ? .canonical(self[index]) : .found(path.canonical)
             }
@@ -273,7 +181,7 @@ extension Biome
             //  we were given an extraneous disambiguation key, but the path might 
             //  still be valid
             let truncated:Path = .init(group: path.group)
-            if case _? = self.biome.routes[truncated]
+            if case _? = self.routes[truncated]
             {
                 return .found(truncated.canonical)
             }
@@ -284,9 +192,15 @@ extension Biome
         }
         subscript(index:Index) -> Resource 
         {
-            self.biome[_index: index, 
-                modules: self.modules, 
-                symbols: self.symbols]
+            switch index 
+            {
+            case .package(let index): 
+                return self.biome.page(package: index, article: self.packages[index])
+            case .module(let index): 
+                return self.biome.page(module: index, article: self.modules[index], articles: self.symbols)
+            case .symbol(let index):
+                return self.biome.page(symbol: index, articles: self.symbols)
+            }
         }
     }
 }

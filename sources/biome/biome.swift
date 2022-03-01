@@ -19,13 +19,13 @@ struct Biome:Sendable
         }
     }
     
-    public 
+    /* public 
     enum Complexity:Sendable 
     {
         case constant
         case linear
         case logLinear
-    }
+    } */
     public 
     struct Version:CustomStringConvertible, Sendable
     {
@@ -66,50 +66,182 @@ struct Biome:Sendable
             }
         }
     }
-    enum Index 
-    {
-        case module(Int)
-        case symbol(Int)
-    }
     
     private(set)
-    var symbols:Symbols,
-        modules:Modules
-    let packages:[String?: (modules:Range<Int>, hash:Resource.Version)]
-    let routes:[Path: Index]
+    var symbols:Storage<Symbol>,
+        modules:Storage<Module>, 
+        packages:Storage<Package>
     
-    subscript(_index index:Index, modules modules:[Article], symbols symbols:[Article]) -> Resource
+    private static 
+    func modules(_ packages:[Package.ID: [String]]) -> 
+    (
+        packages:[(id:Package.ID, targets:Range<Int>)],
+        modules:[(module:Module.ID, bystanders:[Module.ID])]
+    )
     {
-        switch index 
+        var modules:[(Module.ID, [Module.ID])]  = []
+        let packages:[(Package.ID, Range<Int>)] = packages.sorted
         {
-        case .module(let index): 
-            return self.page(for: index, article: modules[index], articles: symbols)
-        case .symbol(let index):
-            return self.page(for: index, articles: symbols)
+            $0.key < $1.key
         }
+        .map 
+        {
+            var targets:[Module.ID: [Module.ID]] = [:]
+            for name:String in $0.value
+            {
+                let identifiers:[Module.ID] = name.split(separator: "@").map(Module.ID.init(_:))
+                guard let module:Module.ID  = identifiers.first 
+                else 
+                {
+                    continue // name was all '@' signs
+                }
+                let bystanders:ArraySlice<Module.ID> = identifiers.dropFirst()
+                targets[module, default: []].append(contentsOf: bystanders.prefix(1))
+            }
+            let start:Int   = modules.endIndex 
+            modules.append(contentsOf: targets.sorted { $0.key.identifier < $1.key.identifier })
+            let end:Int     = modules.endIndex 
+            return ($0.key, start ..< end)
+        }
+        return (packages, modules)
     }
     
     private static 
-    func indices(for vertices:[Vertex]) throws -> [Symbol.ID: Int]
+    func indices<Element, ID>(for elements:[Element], by id:KeyPath<Element, ID>, else error:(ID) -> Error) 
+        throws -> [ID: Int]
+        where ID:Hashable
     {
-        var indices:[Symbol.ID: Int] = [:]
-        for (index, symbol):(Int, Vertex) in vertices.enumerated()
+        var indices:[ID: Int] = [:]
+        for (index, element):(Int, Element) in elements.enumerated()
         {
-            guard case nil = indices.updateValue(index, forKey: symbol.id)
+            guard case nil = indices.updateValue(index, forKey: element[keyPath: id])
             else
             {
-                throw SymbolIdentifierError.duplicate(symbol: symbol.id)
+                throw error(element[keyPath: id])
             }
         }
         return indices
     }
     
-    init(prefix:[String], vertices:[Vertex], edges:[Edge], modules:Modules, 
-        packages:[String?: (modules:Range<Int>, hash:Resource.Version)])
+    static 
+    func load(packages names:[Package.ID: [String]], prefix:[String], 
+        loader load:(_ package:Package.ID, _ module:String) async throws -> Resource) 
+        async throws -> (biome:Self, comments:[String])
+    {
+        let (names, targets):([(id:Package.ID, targets:Range<Int>)], [Target]) = Self.modules(names)
+        
+        let packageIndices:[Package.ID: Int]    = try Self.indices(for: names, by: \.id, 
+            else: PackageIdentifierError.duplicate(package:))
+        let moduleIndices:[Module.ID: Int]      = try Self.indices(for: targets, by: \.module, 
+            else: ModuleIdentifierError.duplicate(module:))
+        var symbolIndices:[Symbol.ID: Int]      = [:]
+        var edges:[Edge]        = []
+        var vertices:[Vertex]   = []
+        var modules:[Module]    = []
+        var packages:[Package]  = []
+        for package:(id:Package.ID, targets:Range<Int>) in names 
+        {
+            var version:Resource.Version = .semantic(0, 1, 1)
+            for target:(module:Module.ID, bystanders:[Module.ID]) in targets[package.targets]
+            {
+                func graph(name:String) async throws -> Range<Int>
+                {
+                    let json:JSON
+                    switch try await load(package.id, name)
+                    {
+                    case    .text   (let string, type: .json, version: let component?):
+                        json = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
+                        version *= component
+                    case    .bytes  (let bytes, type: .json, version: let component?):
+                        json = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
+                        version *= component
+                    case    .text   (_, type: .json, version: nil),
+                            .bytes  (_, type: .json, version: nil):
+                        throw ResourceVersionError.missing
+                    case    .text   (_, type: let type, version: _),
+                            .bytes  (_, type: let type, version: _):
+                        throw ResourceTypeError.init(type.description, expected: Resource.Text.json.description)
+                    case    .binary (_, type: let type, version: _):
+                        throw ResourceTypeError.init(type.description, expected: Resource.Text.json.description)
+                    }
+                    let descriptor:(module:Module.ID, vertices:[Vertex], edges:[Edge]) = try Biome.decode(module: json)
+                    guard descriptor.module == target.module 
+                    else 
+                    {
+                        throw ModuleIdentifierError.mismatch(decoded: descriptor.module, expected: target.module)
+                    }
+                    edges.append(contentsOf: descriptor.edges)
+                    let start:Int   = vertices.endIndex
+                    for vertex:Vertex in descriptor.vertices 
+                    {
+                        guard case nil = symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
+                        else
+                        {
+                            throw SymbolIdentifierError.duplicate(symbol: vertex.id, in: name)
+                        }
+                        vertices.append(vertex)
+                    }
+                    let end:Int     = vertices.endIndex
+                    return start ..< end
+                }
+                let stem:String     = target.module.identifier 
+                let core:Range<Int> = try await graph(name: stem)
+                var extensions:[(bystander:Int, symbols:Range<Int>)] = [] 
+                for bystander:Module.ID in target.bystanders
+                {
+                    // reconstruct the name
+                    let name:String     = "\(stem)@\(bystander.identifier)"
+                    guard let index:Int = moduleIndices[bystander]
+                    else 
+                    {
+                        // a module extends a bystander module we do not have the 
+                        // primary symbolgraph for
+                        throw ModuleIdentifierError.undefined(module: bystander)
+                        //print("warning: ignored module extensions '\(name)'")
+                        //continue 
+                    }
+                    extensions.append((index, try await graph(name: name)))
+                }
+                let path:Path       = .init(prefix: prefix, package: package.id, namespace: target.module)
+                let module:Module   = .init(id: target.module, package: packages.endIndex, 
+                    path: path, core: core, extensions: extensions)
+                modules.append(module)
+                
+                if target.bystanders.isEmpty
+                {
+                    print("loaded module '\(target.module.identifier)' (from package '\(package.id.name)')")
+                }
+                else 
+                {
+                    print("loaded module '\(target.module.identifier)' (from package '\(package.id.name)', bystanders: \(target.bystanders.map{ "'\($0.identifier)'" }.joined(separator: ", ")))")
+                }
+            }
+            let path:Path       = .init(prefix: prefix, package: package.id)
+            let package:Package = .init(id: package.id, path: path, modules: package.targets, hash: version)
+            packages.append(package)
+        }
+        
+        print("loaded \(vertices.count) vertices and \(edges.count) edges from \(modules.count) module(s)")
+        
+        let biome:Biome = try .init(prefix: prefix, 
+            indices:    symbolIndices, 
+            vertices:   vertices, 
+            edges:      edges, 
+            modules:   .init(indices: _move(moduleIndices),  elements: modules), 
+            packages:  .init(indices: _move(packageIndices), elements: packages))
+        
+        var _memory:Int 
+        {
+            MemoryLayout<Module>.stride * biome.modules.count + MemoryLayout<Symbol>.stride * biome.symbols.count
+        }
+        print("initialized biome (\(_memory >> 10) KB)")
+        return (biome, vertices.map(\.comment))
+    }
+    private 
+    init(prefix:[String], indices:[Symbol.ID: Int], vertices:[Vertex], edges:[Edge], 
+        modules:Storage<Module>, packages:Storage<Package>)
         throws
     {
-        //  build lookup table 
-        let indices:[Symbol.ID: Int]        = try Self.indices(for: vertices)
         //  link 
         var references:[Edge.References]    = .init(repeating: .init(), count: vertices.count)
         for edge:Edge in _move(edges)
@@ -142,24 +274,27 @@ struct Biome:Sendable
         {
             (module:Int) -> [Breadcrumbs] in
             
-            var breadcrumbs:[Breadcrumbs] = modules[module].symbols.core.map 
+            let packageID:Package.ID        = packages[modules[module].package].id, 
+                moduleID:Module.ID          = modules[module].id
+            var breadcrumbs:[Breadcrumbs]   = modules[module].symbols.core.map 
             {
-                .init(package: modules[module].package, 
-                    graph: .init(module: modules[module].id, bystander: nil), 
-                    module: module, 
-                    bystander: nil, 
-                    path:   vertices[$0].path)
+                .init(package:  packageID, 
+                    graph:     .init(module: moduleID, bystander: nil), 
+                    module:     module, 
+                    bystander:  nil, 
+                    path:       vertices[$0].path)
             }
             for (bystander, symbols):(Int, Range<Int>) in modules[module].symbols.extensions
             {
-                let graph:Graph = .init(module: modules[module].id, bystander: modules[bystander].id)
+                let packageID:Package.ID    = packages[modules[bystander].package].id,
+                    bystanderID:Module.ID   = modules[bystander].id
                 for index:Int in symbols
                 {
-                    breadcrumbs.append(.init(package: modules[bystander].package, 
-                        graph: graph, 
-                        module: module, 
-                        bystander: bystander, 
-                        path: vertices[index].path))
+                    breadcrumbs.append(.init(package: packageID, 
+                        graph:     .init(module: moduleID, bystander: bystanderID), 
+                        module:     module, 
+                        bystander:  bystander, 
+                        path:       vertices[index].path))
                 }
             }
             return breadcrumbs
@@ -214,8 +349,8 @@ struct Biome:Sendable
                 paths[overload].disambiguation = vertices[overload].id
             }
         }
-        let symbols:Symbols = .init(indices: indices, 
-            symbols: try vertices.indices.map 
+        let symbols:Storage<Symbol> = .init(indices: indices, elements: 
+            try vertices.indices.map 
         {
             try .init(modules:  modules, 
                 path:           paths[$0], 
@@ -229,35 +364,12 @@ struct Biome:Sendable
             symbols: symbols)
     }
     private 
-    init(
-        packages:[String?: (modules:Range<Int>, hash:Resource.Version)], 
-        modules:Modules, 
-        symbols:Symbols)
+    init(packages:Storage<Package>, modules:Storage<Module>, symbols:Storage<Symbol>)
     {
         // symbols 
+        self.packages   = packages
         self.modules    = modules 
         self.symbols    = symbols 
-        self.packages   = packages
-        
-        // paths (combined)
-        var routes:[Path: Index] = [:]
-        for module:Int in self.modules.indices
-        {
-            guard case nil = routes.updateValue(.module(module), forKey: self.modules[module].path)
-            else 
-            {
-                fatalError("unreachable")
-            }
-        }
-        for symbol:Int in self.symbols.indices
-        {
-            guard case nil = routes.updateValue(.symbol(symbol), forKey: self.symbols[symbol].path)
-            else 
-            {
-                fatalError("unreachable")
-            }
-        }
-        self.routes = routes
         
         // gather toplevels 
         for module:Int in self.modules.indices 
@@ -383,7 +495,7 @@ extension Biome
 {
     struct Breadcrumbs:Hashable 
     {
-        let package:String?
+        let package:Package.ID
         let graph:Graph
         let module:Int 
         let bystander:Int? 
