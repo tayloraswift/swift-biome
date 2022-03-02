@@ -1,6 +1,6 @@
 extension Biome 
 {
-    struct Breadcrumbs:Hashable 
+    struct Lineage:Hashable 
     {
         let package:Package.ID
         let graph:Graph

@@ -27,7 +27,7 @@ extension Biome
         )
         let platforms:[Domain: Availability]
         
-        let breadcrumbs:(last:String, parent:Int?)
+        let lineage:(last:String, parent:Int?)
         let relationships:Relationships
             
         var topics:
@@ -39,7 +39,7 @@ extension Biome
         
         init(modules:Storage<Module>, 
             path:Path, 
-            breadcrumbs:Breadcrumbs, 
+            lineage:Lineage, 
             parent:Int?, 
             relationships:Relationships, 
             vertex:Vertex) 
@@ -58,12 +58,12 @@ extension Biome
             default:            keyword = nil 
             }
             self.id             = vertex.id
-            self.module         = breadcrumbs.module 
-            self.bystander      = breadcrumbs.bystander
+            self.module         = lineage.module 
+            self.bystander      = lineage.bystander
             self.path           = path
             self.title          = vertex.title 
-            self.breadcrumbs    = (breadcrumbs.last, parent)
-            self.qualified      = breadcrumbs.lexemes
+            self.lineage        = (lineage.last, parent)
+            self.qualified      = lineage.lexemes
             if let keyword:String = keyword 
             {
                 self.signature  = [.code(keyword, class: .keyword(.other)), .spaces(1)] + self.qualified

@@ -521,15 +521,15 @@ extension Biome
         typealias Element           = HTML.Element<Anchor>
         let symbol:Symbol           = self.symbols[index]
         
-        var breadcrumbs:[Element]   = [ Element[.li] { symbol.breadcrumbs.last } ]
-        var next:Int?               = symbol.breadcrumbs.parent
+        var breadcrumbs:[Element]   = [ Element[.li] { symbol.lineage.last } ]
+        var next:Int?               = symbol.lineage.parent
         while let index:Int         = next
         {
             breadcrumbs.append(Element[.li]
             {
-                Element.link(self.symbols[index].breadcrumbs.last, to: self.symbols[index].path.canonical, internal: true)
+                Element.link(self.symbols[index].lineage.last, to: self.symbols[index].path.canonical, internal: true)
             })
-            next = self.symbols[index].breadcrumbs.parent
+            next = self.symbols[index].lineage.parent
         }
         breadcrumbs.reverse()
         
@@ -573,7 +573,7 @@ extension Biome
         var relationships:[Element]     = []
         if let overridden:Int           = symbol.relationships.overrideOf
         {
-            guard let interface:Int     = self.symbols[overridden].breadcrumbs.parent 
+            guard let interface:Int     = self.symbols[overridden].lineage.parent 
             else 
             {
                 fatalError("unimplemented: parent of overridden symbol '\(self.symbols[overridden].title)' does not exist")
@@ -1185,9 +1185,8 @@ extension Biome
                 relationships = []
             }
             if  case .witness(let witness, callable: _) = symbol.relationships,
-                let parent:Int                          = symbol.breadcrumbs.parent,
                 let extensionMethod:Int                 = witness.specializationOf, 
-                let extendedProtocol:Int                = self.biome.symbols[extensionMethod].breadcrumbs.parent 
+                let extendedProtocol:Int                = self.biome.symbols[extensionMethod].lineage.parent 
             {
                 relationships.append(Element[.li] 
                 {
@@ -1232,7 +1231,7 @@ extension Biome
                 
                 Element[.h1]
                 {
-                    symbol.breadcrumbs.last
+                    symbol.lineage.last
                 }
                 
                 blurb ?? Element[.p]

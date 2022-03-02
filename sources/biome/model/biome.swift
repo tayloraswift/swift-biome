@@ -319,14 +319,14 @@ struct Biome:Sendable
                 vertices[$0].title < vertices[$1].title
             }
         }
-        // breadcrumbs
-        let breadcrumbs:[Breadcrumbs] = modules.indices.flatMap
+        // lineages
+        let lineages:[Lineage] = modules.indices.flatMap
         {
-            (module:Int) -> [Breadcrumbs] in
+            (module:Int) -> [Lineage] in
             
             let packageID:Package.ID        = packages[modules[module].package].id, 
                 moduleID:Module.ID          = modules[module].id
-            var breadcrumbs:[Breadcrumbs]   = modules[module].symbols.core.map 
+            var lineages:[Lineage]   = modules[module].symbols.core.map 
             {
                 .init(package:  packageID, 
                     graph:     .init(module: moduleID, bystander: nil), 
@@ -340,26 +340,26 @@ struct Biome:Sendable
                     bystanderID:Module.ID   = modules[bystander].id
                 for index:Int in symbols
                 {
-                    breadcrumbs.append(.init(package: packageID, 
+                    lineages.append(.init(package: packageID, 
                         graph:     .init(module: moduleID, bystander: bystanderID), 
                         module:     module, 
                         bystander:  bystander, 
                         path:       vertices[index].path))
                 }
             }
-            return breadcrumbs
+            return lineages
         }
-        var paths:[Path] = breadcrumbs.indices.map
+        var paths:[Path] = lineages.indices.map
         {
             switch vertices[$0].kind 
             {
             case    .associatedtype, .typealias, .enum, .struct, .class, .actor, .protocol, .var, .func, .operator:
-                return .init(prefix: prefix, breadcrumbs[$0], dot: false)
+                return .init(prefix: prefix, lineages[$0], dot: false)
             case    .case, .initializer, .deinitializer, 
                     .typeSubscript, .instanceSubscript, 
                     .typeProperty, .instanceProperty, 
                     .typeMethod, .instanceMethod:
-                return .init(prefix: prefix, breadcrumbs[$0], dot: true)
+                return .init(prefix: prefix, lineages[$0], dot: true)
             }
         }
         // parents
@@ -370,7 +370,7 @@ struct Biome:Sendable
         var parents:[Int?] = .init(repeating: nil, count: vertices.count)
         for index:Int in vertices.indices 
         {
-            guard let parent:Breadcrumbs = breadcrumbs[index].parent
+            guard let parent:Lineage = lineages[index].parent
             else 
             {
                 // is a top-level symbol  
@@ -404,7 +404,7 @@ struct Biome:Sendable
         {
             try .init(modules:  modules, 
                 path:           paths[$0], 
-                breadcrumbs:    breadcrumbs[$0], 
+                lineage:        lineages[$0], 
                 parent:         parents[$0], 
                 relationships:  relationships[$0],
                 vertex:         vertices[$0])
@@ -426,7 +426,7 @@ struct Biome:Sendable
         {
             for symbol:Int in self.modules[module].symbols.core 
             {
-                guard case nil = symbols[symbol].breadcrumbs.parent
+                guard case nil = symbols[symbol].lineage.parent
                 else 
                 {
                     continue 

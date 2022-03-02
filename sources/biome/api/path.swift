@@ -47,12 +47,12 @@ extension Biome
             unescaped.append(namespace.title)
             self.init(group: Self.normalize(lowercasing: unescaped))
         }
-        init(prefix:[String], _ breadcrumbs:Breadcrumbs, dot:Bool) 
+        init(prefix:[String], _ lineage:Lineage, dot:Bool) 
         {
             self.init(prefix: prefix, 
-                package: breadcrumbs.package, 
-                namespace: breadcrumbs.graph.namespace, 
-                path: breadcrumbs.path, 
+                package: lineage.package, 
+                namespace: lineage.graph.namespace, 
+                path: lineage.path, 
                 dot: dot)
         }
         init(prefix:[String], package:Package.ID, namespace:Module.ID, path:[String], dot:Bool) 
