@@ -4,13 +4,6 @@ import Resource
 public 
 struct Biome:Sendable 
 {
-    /* public 
-    enum Complexity:Sendable 
-    {
-        case constant
-        case linear
-        case logLinear
-    } */
     public 
     struct Version:CustomStringConvertible, Sendable
     {
@@ -26,28 +19,6 @@ struct Biome:Sendable
             case (nil       , nil):         return "\(self.major)"
             case (let minor?, nil):         return "\(self.major).\(minor)"
             case (let minor , let patch?):  return "\(self.major).\(minor ?? 0).\(patch)"
-            }
-        }
-    }
-    public 
-    enum Topic:Hashable, Sendable, CustomStringConvertible 
-    {
-        // case requirements 
-        // case defaults
-        case custom(String)
-        case automatic(Automatic)
-        case cluster(String)
-        
-        public
-        var description:String 
-        {
-            switch self 
-            {
-            // case .requirements:         return "Requirements"
-            // case .defaults:             return "Default Implementations"
-            case .custom(let heading):      return heading 
-            case .automatic(let automatic): return automatic.heading 
-            case .cluster(_):               return "See Also"
             }
         }
     }
@@ -126,7 +97,7 @@ struct Biome:Sendable
         var packages:[Package]  = []
         for package:(id:Package.ID, targets:Range<Int>) in names 
         {
-            var version:Resource.Version = .semantic(0, 1, 1)
+            var version:Resource.Version = .semantic(0, 1, 2)
             for target:(module:Module.ID, bystanders:[Module.ID]) in targets[package.targets]
             {
                 func graph(_ module:Module.ID, bystander:Module.ID?) async throws -> Range<Int>
@@ -266,8 +237,9 @@ struct Biome:Sendable
                     print("loaded module '\(target.module.identifier)' (from package '\(package.id.name)', bystanders: \(target.bystanders.map{ "'\($0.identifier)'" }.joined(separator: ", ")))")
                 }
             }
-            let path:Path       = .init(prefix: prefix, package: package.id)
-            let package:Package = .init(id: package.id, path: path, modules: package.targets, hash: version)
+            let path:Path       = .init(prefix: prefix, package: package.id), 
+                search:Path     = .init(prefix: prefix, package: package.id, suffix: "search.json")
+            let package:Package = .init(id: package.id, path: path, search: search, modules: package.targets, hash: version)
             packages.append(package)
         }
         
@@ -505,38 +477,6 @@ struct Biome:Sendable
                 return nil 
             }
             return (.automatic(topic), indices)
-        }
-    }
-}
-extension Biome.Topic 
-{
-    public 
-    enum Automatic:String, Sendable, Hashable, CaseIterable
-    {
-        case module             = "Modules"
-        case `case`             = "Enumeration Cases"
-        case `associatedtype`   = "Associated Types"
-        case `typealias`        = "Typealiases"
-        case initializer        = "Initializers"
-        case deinitializer      = "Deinitializers"
-        case typeSubscript      = "Type Subscripts"
-        case instanceSubscript  = "Instance Subscripts"
-        case typeProperty       = "Type Properties"
-        case instanceProperty   = "Instance Properties"
-        case typeMethod         = "Type Methods"
-        case instanceMethod     = "Instance Methods"
-        case global             = "Global Variables"
-        case function           = "Functions"
-        case `operator`         = "Operators"
-        case `enum`             = "Enumerations"
-        case `struct`           = "Structures"
-        case `class`            = "Classes"
-        case actor              = "Actors"
-        case `protocol`         = "Protocols"
-        
-        var heading:String 
-        {
-            self.rawValue
         }
     }
 }

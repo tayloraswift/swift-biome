@@ -19,7 +19,7 @@ extension Biome
         }
     }
     
-    func page(package:Int, article:Article) -> Resource
+    func page(package:Int, article:Article, filter:[Package.ID]) -> Resource
     {
         typealias Element   = HTML.Element<Anchor>
         let dynamic:Element = Element[.div]
@@ -52,7 +52,7 @@ extension Biome
                             {
                                 Element[.a]
                                 {
-                                    (self.modules[module].path.canonical, as: HTML.Href.self)
+                                    (self.modules[module].path.description, as: HTML.Href.self)
                                 }
                                 content: 
                                 {
@@ -64,9 +64,9 @@ extension Biome
                 }
             }
         }
-        return Self.page(title: self.packages[package].name, article: article, dynamic: dynamic)
+        return Self.page(title: self.packages[package].name, article: article, filter: filter, dynamic: dynamic)
     }
-    func page(module:Int, article:Article, articles:[Article]) -> Resource
+    func page(module:Int, article:Article, articles:[Article], filter:[Package.ID]) -> Resource
     {
         typealias Element   = HTML.Element<Anchor>
         let dynamic:Element = Element[.div]
@@ -78,9 +78,9 @@ extension Biome
             self.render(topics: self.modules[module].topics.members, heading: "Members", articles: articles)
             self.render(topics: self.modules[module].topics.removed, heading: "Removed Members", articles: articles)
         }
-        return Self.page(title: self.modules[module].title, article: article, dynamic: dynamic)
+        return Self.page(title: self.modules[module].title, article: article, filter: filter, dynamic: dynamic)
     }
-    func page(symbol index:Int, articles:[Article]) -> Resource
+    func page(symbol index:Int, articles:[Article], filter:[Package.ID]) -> Resource
     {
         typealias Element   = HTML.Element<Anchor>
         let symbol:Symbol   = self.symbols[index]
@@ -114,10 +114,10 @@ extension Biome
             
             self.render(topics: symbol.topics.removed,      heading: "Removed Members", articles: articles)
         }
-        return Self.page(title: symbol.title, article: articles[index], dynamic: dynamic)
+        return Self.page(title: symbol.title, article: articles[index], filter: filter, dynamic: dynamic)
     }
     private static 
-    func page(title:String, article:Article, dynamic:HTML.Element<Anchor>) -> Resource
+    func page(title:String, article:Article, filter:[Package.ID], dynamic:HTML.Element<Anchor>) -> Resource
     {
         typealias Element = HTML.Element<Anchor>
         let document:DocumentRoot<HTML, Anchor> = .init 
@@ -138,22 +138,6 @@ extension Biome
                     ("viewport", "width=device-width, initial-scale=1")
                 }
                 
-                Element[.link] 
-                {
-                    ("https://fonts.googleapis.com", as: HTML.Href.self)
-                    HTML.Rel.preconnect 
-                }
-                Element[.link] 
-                {
-                    HTML.Crossorigin.anonymous 
-                    ("https://fonts.gstatic.com", as: HTML.Href.self)
-                    HTML.Rel.preconnect 
-                }
-                Element[.link] 
-                {
-                    ("https://fonts.googleapis.com/css2?family=Literata:ital,wght@0,400;0,600;1,400;1,600&display=swap", as: HTML.Href.self)
-                    HTML.Rel.stylesheet 
-                }
                 Element[.script]
                 {
                     ("/lunr.js", as: HTML.Src.self)
@@ -163,6 +147,16 @@ extension Biome
                 {
                     ("/search.js", as: HTML.Src.self)
                     (true, as: HTML.Defer.self)
+                }
+                Element[.script]
+                {
+                    // package name is alphanumeric, we should enforce this in 
+                    // `Package.ID`, otherwise this could be a security hole
+                    let source:String = 
+                    """
+                    includedPackages = [\(filter.map { "'\($0.name)'" }.joined(separator: ","))];
+                    """
+                    Element.text(escaped: source)
                 }
                 Element[.link]
                 {
@@ -293,7 +287,7 @@ extension Biome
                 {
                     Element[.a]
                     {
-                        (self.symbols[item.index].path.canonical, as: HTML.Href.self)
+                        (self.symbols[item.index].path.description, as: HTML.Href.self)
                     }
                     content: 
                     {
@@ -527,7 +521,7 @@ extension Biome
         {
             breadcrumbs.append(Element[.li]
             {
-                Element.link(self.symbols[index].lineage.last, to: self.symbols[index].path.canonical, internal: true)
+                Element.link(self.symbols[index].lineage.last, to: self.symbols[index].path.description, internal: true)
             })
             next = self.symbols[index].lineage.parent
         }
@@ -596,7 +590,7 @@ extension Biome
                     {
                         Element[.a]
                         {
-                            (self.symbols[overridden].path.canonical, as: HTML.Href.self)
+                            (self.symbols[overridden].path.description, as: HTML.Href.self)
                         }
                         content: 
                         {
@@ -629,7 +623,7 @@ extension Biome
             {
                 Element[.a]
                 {
-                    (symbol.path.canonical, as: HTML.Href.self)
+                    (symbol.path.description, as: HTML.Href.self)
                 }
                 content: 
                 {
@@ -692,10 +686,10 @@ extension Biome
                     }
                     content:
                     {
-                        Element.link(self.modules[extended].title, to: self.modules[extended].path.canonical, internal: true)
+                        Element.link(self.modules[extended].title, to: self.modules[extended].path.description, internal: true)
                     }
                 }
-                Element.link(self.modules[symbol.module].title, to: self.modules[symbol.module].path.canonical, internal: true)
+                Element.link(self.modules[symbol.module].title, to: self.modules[symbol.module].path.description, internal: true)
             }
         }
     }
@@ -979,7 +973,7 @@ extension Biome
                 self.errors.append(SymbolIdentifierError.undefined(symbol: id))
                 return Biome.render(lexeme: lexeme)
             }
-            return Element.link(text, to: path.canonical, internal: true)
+            return Element.link(text, to: path.description, internal: true)
             {
                 ["syntax-type"] 
             }
@@ -1144,7 +1138,7 @@ extension Biome
                     content:
                     {
                         Element.link(self.biome.packages[module.package].name, 
-                            to: self.biome.packages[module.package].path.canonical, 
+                            to: self.biome.packages[module.package].path.description, 
                             internal: true)
                     }
                 }
@@ -1193,13 +1187,13 @@ extension Biome
                     Element[.p]
                     {
                         "Specialization of "
-                        Element.link("statically-dispatched protocol member", to: self.biome.symbols[extensionMethod].path.canonical, internal: true)
+                        Element.link("statically-dispatched protocol member", to: self.biome.symbols[extensionMethod].path.description, internal: true)
                         " in "
                         Element[.code]
                         {
                             Element[.a]
                             {
-                                (self.biome.symbols[extendedProtocol].path.canonical, as: HTML.Href.self)
+                                (self.biome.symbols[extendedProtocol].path.description, as: HTML.Href.self)
                             }
                             content: 
                             {

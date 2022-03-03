@@ -22,7 +22,7 @@ extension Biome
             {
                 switch self 
                 {
-                case .swift:                return "swift"
+                case .swift:                return "swift-standard-library"
                 case .community(let name):  return name 
                 }
             }
@@ -31,6 +31,7 @@ extension Biome
         public 
         let id:ID
         let path:Path
+        let search:Path
         let modules:Range<Int>, 
             hash:Resource.Version
         

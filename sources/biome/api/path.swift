@@ -8,7 +8,17 @@ extension Biome
         let group:String
         var disambiguation:Symbol.ID?
         
+        @available(*, unavailable, renamed: "description")
+        var uri:String 
+        {
+            self.description 
+        }
+        @available(*, deprecated, renamed: "description")
         var canonical:String 
+        {
+            self.description 
+        }
+        var description:String 
         {
             if let id:Symbol.ID = self.disambiguation 
             {
@@ -24,17 +34,11 @@ extension Biome
             self.group          = group
             self.disambiguation = disambiguation
         }
-        init(prefix:[String], package:Package.ID) 
+        init(prefix:[String], package:Package.ID, suffix:String...) 
         {
             var unescaped:[String] = prefix 
-            switch package 
-            {
-            case .swift: 
-                // otherwise would collide with `swift/`
-                unescaped.append("standard-library")
-            case .community(let package):
-                unescaped.append(package)
-            }
+            unescaped.append(package.name)
+            unescaped.append(contentsOf: suffix)
             self.init(group: Self.normalize(lowercasing: unescaped))
         }
         init(prefix:[String], package:Package.ID, namespace:Module.ID) 

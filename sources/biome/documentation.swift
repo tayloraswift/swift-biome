@@ -6,38 +6,20 @@ extension Biome
     public 
     struct Documentation:Sendable
     {
+        typealias Route = (index:Index, canonical:Path?)
         enum Index 
         {
+            case packageSearchIndex(Int)
             case package(Int)
             case module(Int)
             case symbol(Int)
         }
         
-        /* struct PathView 
-        {
-            let biome:Biome 
-            
-            subscript(index:Documentation.Index) -> Path 
-            {
-                switch index 
-                {
-                case .package(let index):
-                    return self.biome.packages[index].path
-                case .module(let index): 
-                    return self.biome.modules[index].path
-                case .symbol(let index):
-                    return self.biome.symbols[index].path
-                }
-            }
-        } */
-        
         let biome:Biome
         let symbols:[Article], 
             modules:[Article], 
-            packages:[Article]
-        let routes:[Path: Index]
-        public 
-        let search:Resource
+            packages:[(article:Article, searchIndex:Resource)]
+        let routes:[Path: Route]
         
         public 
         init(packages:[Package.ID: [String]], prefix:[String], 
@@ -48,7 +30,7 @@ extension Biome
                 loader: load)
             
             // render articles 
-            self.symbols            = zip(biome.symbols.indices, comments).map 
+            self.symbols            = zip(biome.symbols.indices, _move(comments)).map 
             {
                 biome.article(symbol: $0.0, comment: $0.1) 
             }
@@ -58,26 +40,41 @@ extension Biome
             }
             self.packages           =     biome.packages.indices.map 
             {
-                biome.article(package: $0, comment: "") 
+                (
+                    article:              biome.article(package: $0, comment: ""),
+                    searchIndex:          biome.searchIndex(for: biome.packages[$0])
+                )
             }
             self.biome              = _move(biome)
-            self.search             = .text(JSON.array(self.biome.search.map 
-            { 
-                .object(["uri": .string($0.uri), "title": .string($0.title), "text": .array($0.text.map(JSON.string(_:)))]) 
-            }).description, type: .json, version: .semantic(999, 9, 9))
+            
             // paths (combined)
-            var routes:[Path: Index] = [:]
-            for package:Int in self.biome.packages.indices
+            var routes:[Path: Route] = [:]
+            for (index, package):(Int, Package) in zip(self.biome.packages.indices, self.biome.packages)
             {
-                guard case nil = routes.updateValue(.package(package), forKey: self.biome.packages[package].path)
+                guard   case nil = routes.updateValue((.package(index), nil), forKey: package.path), 
+                        case nil = routes.updateValue((.packageSearchIndex(index), nil), forKey: package.search)
                 else 
                 {
                     fatalError("unreachable")
                 }
+                // insert the 'standard-library' -> 'swift-standard-library' redirect 
+                if case .swift = package.id 
+                {
+                    guard   case nil = routes.updateValue((.package(index), package.path), 
+                            forKey: Path.init(prefix: prefix, package: .community("standard-library"))), 
+                            case nil = routes.updateValue((.package(index), package.path), 
+                            forKey: Path.init(prefix: prefix, package: .community("swift-stdlib"))),
+                            case nil = routes.updateValue((.package(index), package.path), 
+                            forKey: Path.init(prefix: prefix, package: .community("stdlib")))
+                    else 
+                    {
+                        fatalError("unreachable")
+                    }
+                }
             }
             for module:Int in self.biome.modules.indices
             {
-                guard case nil = routes.updateValue(.module(module), forKey: self.biome.modules[module].path)
+                guard case nil = routes.updateValue((.module(module), nil), forKey: self.biome.modules[module].path)
                 else 
                 {
                     fatalError("unreachable")
@@ -85,7 +82,7 @@ extension Biome
             }
             for symbol:Int in self.biome.symbols.indices
             {
-                guard case nil = routes.updateValue(.symbol(symbol), forKey: self.biome.symbols[symbol].path)
+                guard case nil = routes.updateValue((.symbol(symbol), nil), forKey: self.biome.symbols[symbol].path)
                 else 
                 {
                     fatalError("unreachable")
@@ -126,7 +123,7 @@ extension Biome
             -> (content:Resource?, canonical:String)?
         {
             let (path, redirected):(Path, Bool) = Path.normalize(uri.path, parameters: uri.query)
-            guard let index:Index = self.routes[path]
+            guard let (index, canonical):(Index, Path?) = self.routes[path]
             else 
             {
                 guard let symbol:Symbol.ID = path.disambiguation
@@ -141,14 +138,14 @@ extension Biome
                     //  we were given a bad path + disambiguation key combo, 
                     //  but the disambiguation key matched a symbol. 
                     //  respond with a 301 redirect to the actual URI of that symbol 
-                    return (nil, path.canonical)
+                    return (nil, path.description)
                 }
                 let truncated:Path  = .init(group: path.group)
-                if case _? = self.routes[truncated]
+                if case (_, let canonical)? = self.routes[truncated]
                 {
                     //  we were given an extraneous disambiguation key, but the path 
                     //  itself was still valid.  
-                    return (nil, truncated.canonical)
+                    return (nil, (canonical ?? truncated).description)
                 }
                 else 
                 {
@@ -157,9 +154,13 @@ extension Biome
             }
             //  we found the resource. if we had to significantly alter the uri, 
             //  (e.g., discarding unknown query parameters), force a 301 redirect. 
-            if redirected 
+            if let canonical:Path = _move(canonical)
             {
-                return (nil, path.canonical)
+                return (nil, canonical.description)
+            }
+            else if redirected 
+            {
+                return (nil, path.description)
             }
             //  if the uri was already canonical, or only differed in 
             //  percent-encoding, return the resource, but include the canonical uri
@@ -167,14 +168,19 @@ extension Biome
             let resource:Resource
             switch index 
             {
-            case .package(let index): 
-                resource = self.biome.page(package: index, article: self.packages[index])
-            case .module(let index): 
-                resource = self.biome.page(module: index, article: self.modules[index], articles: self.symbols)
-            case .symbol(let index):
-                resource = self.biome.page(symbol: index, articles: self.symbols)
+            case .packageSearchIndex(let package): 
+                resource = self.packages[package].searchIndex
+            case .package(let package): 
+                let _filter:[Package.ID] = self.biome.packages.map(\.id)
+                resource = self.biome.page(package: package, article: self.packages[package].article, filter: _filter)
+            case .module(let module): 
+                let _filter:[Package.ID] = self.biome.packages.map(\.id)
+                resource = self.biome.page(module: module, article: self.modules[module], articles: self.symbols, filter: _filter)
+            case .symbol(let symbol):
+                let _filter:[Package.ID] = self.biome.packages.map(\.id)
+                resource = self.biome.page(symbol: symbol, articles: self.symbols, filter: _filter)
             }
-            return (resource, path.canonical)
+            return (resource, path.description)
         }
         /// the `group` is the full URL path, without the query, and including 
         /// the beginning slash '/' and path prefix. 
