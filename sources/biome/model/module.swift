@@ -1,13 +1,5 @@
 extension Biome 
-{
-    public 
-    enum ModuleIdentifierError:Error 
-    {
-        case mismatch(decoded:Module.ID, expected:Module.ID)
-        case duplicate(module:Module.ID)
-        case undefined(module:Module.ID)
-    }
-    
+{    
     public 
     struct Module:Identifiable, Sendable
     {
@@ -75,6 +67,10 @@ extension Biome
                     .spaces(1),
                     .code(self.identifier, class: .identifier)
                 ]
+            }
+            func graphIdentifier(bystander:Self?) -> String
+            {
+                bystander.map { "\(self.identifier)@\($0.identifier)" } ?? self.identifier
             }
         }
         

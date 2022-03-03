@@ -79,9 +79,129 @@ struct Biome:Sendable
         return indices
     }
     
+    private static
+    func load(package:Package.ID, graph name:String, hashingInto version:inout Resource.Version,
+        with load:(_ package:Package.ID, _ module:String) async throws -> Resource) 
+        async throws -> JSON 
+    {
+        let json:JSON
+        switch try await load(package, name)
+        {
+        case    .text   (let string, type: .json, version: let component?):
+            json = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
+            version *= component
+        case    .bytes  (let bytes, type: .json, version: let component?):
+            json = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
+            version *= component
+        case    .text   (_, type: .json, version: nil),
+                .bytes  (_, type: .json, version: nil):
+            throw ResourceVersionError.missing
+        case    .text   (_, type: let type, version: _),
+                .bytes  (_, type: let type, version: _):
+            throw ResourceTypeError.init(type.description, expected: Resource.Text.json.description)
+        case    .binary (_, type: let type, version: _):
+            throw ResourceTypeError.init(type.description, expected: Resource.Text.json.description)
+        }
+        return json
+    }
+    private static
+    func populate(
+        symbolIndices:inout [Symbol.ID: Int],
+        vertices:inout [Vertex], 
+        edges:inout [Edge],
+        from json:JSON, 
+        module:Module.ID, 
+        prune:Bool = false) 
+        throws -> Range<Int>
+    {
+        let descriptor:(module:Module.ID, vertices:[Vertex], edges:[Edge]) = try Self.decode(module: json)
+        guard descriptor.module == module 
+        else 
+        {
+            throw ModuleIdentifierError.mismatch(decoded: descriptor.module)
+        }
+        
+        var blacklisted:Set<Symbol.ID> = []
+        let start:Int   = vertices.endIndex
+        for vertex:Vertex in descriptor.vertices 
+        {
+            switch vertex.id 
+            {
+            case .natural:
+                if case nil = symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
+                {
+                    vertices.append(vertex)
+                }
+                else 
+                {
+                    throw SymbolIdentifierError.duplicate(symbol: vertex.id) 
+                }
+            
+            case .synthesized:
+                if case nil = symbolIndices.index(forKey: vertex.id)
+                {
+                    symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
+                    vertices.append(vertex)
+                    // infer an extra edge
+                    // edges.append(.init(specialization: .synthesized(template, for: scope), of: .natural(template)))
+                }
+                else if prune, case .synthesized = vertex.id 
+                {
+                    // duplicate symbol id. 
+                    // if the symbol is synthetic, and extends a different module, 
+                    // ignore and blacklist. otherwise, throw an error immediately
+                    blacklisted.insert(vertex.id)
+                }
+                else 
+                {
+                    throw SymbolIdentifierError.duplicate(symbol: vertex.id) 
+                }
+            }
+        }
+        let end:Int     = vertices.endIndex
+        
+        if blacklisted.count != 0 
+        {
+            print("blacklisted \(blacklisted.count) duplicate vert(ex/icies) in '\(module.title)'")
+        }
+        
+        var pruned:Int = 0
+        for edge:Edge in descriptor.edges 
+        {
+            switch (blacklisted.contains(edge.source), blacklisted.contains(edge.target))
+            {
+            case (false, false):
+                edges.append(edge)
+            case (true,  false):
+                guard   case .member = edge.kind,
+                        case .natural(let scope) = edge.target, 
+                        case .synthesized(_, for: scope) = edge.source
+                else 
+                {
+                    fallthrough 
+                }
+                // allow recovery
+                pruned += 1
+            case (true, true): 
+                // if we didn’t throw an error before, throw it now 
+                throw SymbolIdentifierError.duplicate(symbol: edge.source) 
+            case (false, true): 
+                // if we didn’t throw an error before, throw it now 
+                throw SymbolIdentifierError.duplicate(symbol: edge.target) 
+            }
+        }
+        
+        if pruned != 0 
+        {
+            print("pruned \(pruned) duplicate edge(s) with blacklisted endpoints in '\(module.title)'")
+        }
+        
+        return start ..< end
+    }
+    
     static 
     func load(packages names:[Package.ID: [String]], prefix:[String], 
-        loader load:(_ package:Package.ID, _ module:String) async throws -> Resource) 
+        loader:(_ package:Package.ID, _ module:String) async throws -> Resource) 
         async throws -> (biome:Self, comments:[String])
     {
         let (names, targets):([(id:Package.ID, targets:Range<Int>)], [Target]) = Self.modules(names)
@@ -100,114 +220,24 @@ struct Biome:Sendable
             var version:Resource.Version = .semantic(0, 1, 2)
             for target:(module:Module.ID, bystanders:[Module.ID]) in targets[package.targets]
             {
-                func graph(_ module:Module.ID, bystander:Module.ID?) async throws -> Range<Int>
+                let core:Range<Int>
+                do 
                 {
-                    let name:String = bystander.map { "\(module.identifier)@\($0.identifier)" } ?? module.identifier
-                    let json:JSON
-                    switch try await load(package.id, name)
-                    {
-                    case    .text   (let string, type: .json, version: let component?):
-                        json = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
-                        version *= component
-                    case    .bytes  (let bytes, type: .json, version: let component?):
-                        json = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
-                        version *= component
-                    case    .text   (_, type: .json, version: nil),
-                            .bytes  (_, type: .json, version: nil):
-                        throw ResourceVersionError.missing
-                    case    .text   (_, type: let type, version: _),
-                            .bytes  (_, type: let type, version: _):
-                        throw ResourceTypeError.init(type.description, expected: Resource.Text.json.description)
-                    case    .binary (_, type: let type, version: _):
-                        throw ResourceTypeError.init(type.description, expected: Resource.Text.json.description)
-                    }
-                    let descriptor:(module:Module.ID, vertices:[Vertex], edges:[Edge]) = try Biome.decode(module: json)
-                    guard descriptor.module == target.module 
-                    else 
-                    {
-                        throw ModuleIdentifierError.mismatch(decoded: descriptor.module, expected: target.module)
-                    }
-                    
-                    var blacklisted:Set<Symbol.ID> = []
-                    let start:Int   = vertices.endIndex
-                    for vertex:Vertex in descriptor.vertices 
-                    {
-                        switch vertex.id 
-                        {
-                        case .natural:
-                            if case nil = symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
-                            {
-                                vertices.append(vertex)
-                            }
-                            else 
-                            {
-                                throw SymbolIdentifierError.duplicate(symbol: vertex.id, in: module, bystander: bystander) 
-                            }
-                        
-                        case .synthesized(let template, for: let scope):
-                            if case nil = symbolIndices.index(forKey: vertex.id)
-                            {
-                                symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
-                                vertices.append(vertex)
-                                // infer an extra edge
-                                edges.append(.init(specialization: .synthesized(template, for: scope), of: .natural(template)))
-                            }
-                            else 
-                            {
-                                // duplicate symbol id. 
-                                // if the symbol is synthetic, and extends a different module, 
-                                // ignore and blacklist. otherwise, throw an error immediately
-                                guard case (_?, .synthesized) = (bystander, vertex.id)
-                                else 
-                                {
-                                    throw SymbolIdentifierError.duplicate(symbol: vertex.id, in: module, bystander: bystander) 
-                                }
-                                blacklisted.insert(vertex.id)
-                            }
-                        }
-                        
-                    }
-                    let end:Int     = vertices.endIndex
-                    
-                    if blacklisted.count != 0 
-                    {
-                        print("blacklisted \(blacklisted.count) duplicate vert(ex/icies) in '\(name)'")
-                    }
-                    
-                    var pruned:Int = 0
-                    for edge:Edge in descriptor.edges 
-                    {
-                        switch (blacklisted.contains(edge.source), blacklisted.contains(edge.target))
-                        {
-                        case (false, false):
-                            edges.append(edge)
-                        case (true,  false):
-                            guard   case .member = edge.kind,
-                                    case .natural(let scope) = edge.target, 
-                                    case .synthesized(_, for: scope) = edge.source
-                            else 
-                            {
-                                fallthrough 
-                            }
-                            // allow recovery
-                            pruned += 1
-                        case (true, true): 
-                            // if we didn’t throw an error before, throw it now 
-                            throw SymbolIdentifierError.duplicate(symbol: edge.source, in: module, bystander: bystander) 
-                        case (false, true): 
-                            // if we didn’t throw an error before, throw it now 
-                            throw SymbolIdentifierError.duplicate(symbol: edge.target, in: module, bystander: bystander) 
-                        }
-                    }
-                    
-                    if pruned != 0 
-                    {
-                        print("pruned \(pruned) duplicate edge(s) with blacklisted endpoints in '\(name)'")
-                    }
-                    
-                    return start ..< end
+                    core = try Self.populate(
+                        symbolIndices: &symbolIndices,
+                        vertices: &vertices, 
+                        edges: &edges,
+                        from: try await Self.load(
+                            package: package.id, 
+                            graph: target.module.graphIdentifier(bystander: nil), 
+                            hashingInto: &version, 
+                            with: loader), 
+                        module: target.module)
                 }
-                let core:Range<Int> = try await graph(target.module, bystander: nil)
+                catch let error 
+                {
+                    throw GraphLoadingError.init(error, module: target.module, bystander: nil)
+                }
                 var extensions:[(bystander:Int, symbols:Range<Int>)] = [] 
                 for bystander:Module.ID in target.bystanders
                 {
@@ -221,12 +251,28 @@ struct Biome:Sendable
                         //print("warning: ignored module extensions '\(name)'")
                         //continue 
                     }
-                    extensions.append((index, try await graph(target.module, bystander: bystander)))
+                    do 
+                    {
+                        extensions.append((index, try Self.populate(
+                            symbolIndices: &symbolIndices,
+                            vertices: &vertices, 
+                            edges: &edges,
+                            from: try await Self.load(
+                                package: package.id, 
+                                graph: target.module.graphIdentifier(bystander: bystander), 
+                                hashingInto: &version, 
+                                with: loader), 
+                            module: target.module, 
+                            prune: true)))
+                    }
+                    catch let error 
+                    {
+                        throw GraphLoadingError.init(error, module: target.module, bystander: bystander)
+                    }
                 }
-                let path:Path       = .init(prefix: prefix, package: package.id, namespace: target.module)
-                let module:Module   = .init(id: target.module, package: packages.endIndex, 
-                    path: path, core: core, extensions: extensions)
-                modules.append(module)
+                let path:Path = .init(prefix: prefix, package: package.id, namespace: target.module)
+                modules.append(.init(id: target.module, package: packages.endIndex, 
+                    path: path, core: core, extensions: extensions))
                 
                 if target.bystanders.isEmpty
                 {
@@ -275,7 +321,23 @@ struct Biome:Sendable
                 print("warning: undefined symbol id in edge '\(edge.source)' -> '\(edge.target)'")
                 continue 
             } 
-            try edge.link(source, to: target, in: &references)
+            if  let _origin:Symbol.ID    = edge.origin?.id, 
+                let origin:Int          = indices[_origin]
+            {
+                // `vertices[source].id` is not necessarily synthesized, 
+                // because it could be an inherited `associatedtype`, which does 
+                // not contain '::SYNTHESIZED::'
+                guard case .natural = vertices[origin].id
+                else 
+                {
+                    fatalError("inherited docs from a synthesized symbol")
+                }
+                try edge.link(source, to: target, origin: origin, in: &references)
+            }
+            else 
+            {
+                try edge.link(source, to: target, origin: nil,    in: &references)
+            }
         }
         // validate 
         let colors:[Symbol.Kind] = vertices.map(\.kind)
@@ -379,6 +441,7 @@ struct Biome:Sendable
                 lineage:        lineages[$0], 
                 parent:         parents[$0], 
                 relationships:  relationships[$0],
+                commentOrigin:  references[$0].sourceOrigin, 
                 vertex:         vertices[$0])
         })
         self.init(packages: packages, 

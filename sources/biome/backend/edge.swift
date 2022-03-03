@@ -12,8 +12,9 @@ extension Biome
                 overrideOf:Int?,
                 _overrides:[Int],
                 
-                specializationOf:Int?,
-                specializations:[Int],
+                sourceOrigin:Int?,
+                //specializationOf:Int?,
+                //specializations:[Int],
                 
                 requirementOf:Int?,
                 requirements:[Int],
@@ -30,8 +31,9 @@ extension Biome
                 self.defaultImplementations     = []
                 self.overrideOf                 = nil
                 self._overrides                 = []
-                self.specializationOf           = nil
-                self.specializations            = []
+                self.sourceOrigin               = nil
+                // self.specializationOf           = nil
+                // self.specializations            = []
                 self.requirementOf              = nil
                 self.requirements               = []
                 self.upstream                   = []
@@ -52,7 +54,7 @@ extension Biome
             case defaultImplementation  = "defaultImplementationOf"
             
             // extras 
-            case specialization 
+            // case specialization 
         }
         // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.cpp
         var kind:Kind 
@@ -62,16 +64,16 @@ extension Biome
         var origin:(id:Symbol.ID, name:String)?
         var constraints:[Language.Constraint]
         
-        init(specialization source:Symbol.ID, of target:Symbol.ID)
+        /* init(specialization source:Symbol.ID, of target:Symbol.ID)
         {
             self.kind = .specialization 
             self.source = source 
             self.target = target 
             self.origin = nil 
             self.constraints = []
-        }
+        } */
         
-        func link(_ source:Int, to target:Int, in table:inout [References]) throws 
+        func link(_ source:Int, to target:Int, origin:Int?, in table:inout [References]) throws 
         {
             switch self.kind
             {
@@ -82,6 +84,16 @@ extension Biome
                     throw LinkingError.constraints(on: source, is: self.kind, of: target)
                 }
                 table[target].members.append(source)
+                guard let origin:Int = origin
+                else 
+                {
+                    break 
+                }
+                if let incumbent:Int = table[source].sourceOrigin
+                {
+                    throw LinkingError.duplicate(source, have: incumbent, is: self.kind, of: target)
+                }
+                table[source].sourceOrigin = origin
             
             case .conformer:
                 table[source].upstream.append((target, self.constraints))
@@ -136,7 +148,7 @@ extension Biome
                 table[target].defaultImplementations.append(source)
             
             // inferred edges 
-            case .specialization:
+            /* case .specialization:
                 guard self.constraints.isEmpty 
                 else 
                 {
@@ -147,7 +159,7 @@ extension Biome
                     throw LinkingError.duplicate(source, have: incumbent, is: self.kind, of: target)
                 }
                 table[source].specializationOf = target
-                table[target].specializations.append(source)
+                table[target].specializations.append(source) */
             }
         }
     }

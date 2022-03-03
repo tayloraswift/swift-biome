@@ -4,7 +4,7 @@ extension Biome
     enum SymbolIdentifierError:Error 
     {
         // global errors 
-        case duplicate(symbol:Symbol.ID, in:Module.ID, bystander:Module.ID?)
+        case duplicate(symbol:Symbol.ID)
         case undefined(symbol:Symbol.ID)
         // local errors
         
@@ -36,7 +36,6 @@ extension Biome
         case superclass(Int, in:Symbol.Kind, Int) 
         
         case defaultImplementationOf([Int], Symbol.Kind, Int) 
-        case specializationOf(Int, Symbol.Kind, Int) 
         case requirementOf(Int, Symbol.Kind, Int) 
         case overrideOf(Int, Symbol.Kind, Int) 
         

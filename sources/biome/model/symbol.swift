@@ -29,6 +29,7 @@ extension Biome
         
         let lineage:(last:String, parent:Int?)
         let relationships:Relationships
+        let commentOrigin:Int?
             
         var topics:
         (
@@ -42,6 +43,7 @@ extension Biome
             lineage:Lineage, 
             parent:Int?, 
             relationships:Relationships, 
+            commentOrigin:Int?, 
             vertex:Vertex) 
             throws 
         {
@@ -74,6 +76,7 @@ extension Biome
             }
             self.declaration    = vertex.declaration
             self.relationships  = relationships
+            self.commentOrigin  = commentOrigin
             
             if let extended:Module.ID   = vertex.extends?.module
             {

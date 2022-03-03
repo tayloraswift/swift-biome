@@ -111,10 +111,18 @@ extension Biome
             default: 
                 let _:Void = ()
             }
-            
             self.render(topics: symbol.topics.removed,      heading: "Removed Members", articles: articles)
         }
-        return Self.page(title: symbol.title, article: articles[index], filter: filter, dynamic: dynamic)
+        let article:Article 
+        if let origin:Int = symbol.commentOrigin
+        {
+            article = articles[index].overlaid(over: articles[origin])
+        }
+        else 
+        {
+            article = articles[index]
+        }
+        return Self.page(title: symbol.title, article: article, filter: filter, dynamic: dynamic)
     }
     private static 
     func page(title:String, article:Article, filter:[Package.ID], dynamic:HTML.Element<Anchor>) -> Resource
@@ -250,7 +258,15 @@ extension Biome
                         }
                         content: 
                         {
-                            article.full
+                            Element[.article]
+                            {
+                                ["upper-container-left"]
+                            }
+                            content: 
+                            {
+                                article.summary
+                                article.discussion
+                            }
                         }
                     }
                     Element[.div]
@@ -405,9 +421,13 @@ extension Biome
         {
             .text(escaped: self.baked.card)
         }
-        var full:Element
+        var summary:Element
         {
-            .text(escaped: self.baked.full)
+            .text(escaped: self.baked.summary)
+        }
+        var discussion:Element?
+        {
+            self.baked.discussion.map(Element.text(escaped:))
         }
         
         let errors:[Error]
@@ -417,20 +437,31 @@ extension Biome
         (
             navigator:String,
             card:String,
-            full:String
+            summary:String,
+            discussion:String?
         )
         
         var size:Int 
         {
             self.baked.navigator.utf8.count +
             self.baked.card.utf8.count + 
-            self.baked.full.utf8.count
+            self.baked.summary.utf8.count +
+            (self.baked.discussion?.utf8.count ?? 0)
         }
         
-        init(navigator:String, card:String, full:String, errors:[Error])
+        init(navigator:String, card:String, summary:String, discussion:String?, errors:[Error])
         {
-            self.baked = (navigator: navigator, card: card, full: full)
+            self.baked = (navigator: navigator, card: card, summary: summary, discussion: discussion)
             self.errors = errors 
+        }
+        
+        func overlaid(over original:Self) -> Self 
+        {
+            .init(navigator: self.baked.navigator, 
+                card: self.baked.card, 
+                summary: self.baked.summary, 
+                discussion: self.baked.discussion ?? original.baked.discussion, 
+                errors: self.errors)
         }
     }
     
@@ -450,26 +481,26 @@ extension Biome
             card
         }
         var renderer:DiagnosticRenderer = .init(biome: self, errors: [])
-        let comment:Comment = renderer.content(markdown: comment)
-        let full:Element = Element[.article]
-        {
-            ["upper-container-left"]
-        }
-        content: 
-        {
-            renderer.introduction(for: self.packages[index], blurb: comment.head)
-            renderer.render(declaration: [])
-            // these shouldn’t usually be here, but if for some reason, someone 
-            // writes a package doc that has these fields, print them instead of 
-            // discarding them.
-            Self.render(parameters: comment.parameters)
-            Self.render(section: comment.returns,       heading: "Returns",  class: "returns")
-            Self.render(section: comment.discussion,    heading: "Overview", class: "discussion")
-        }
+        let comment:Comment     = renderer.content(markdown: comment)
+        let summary:[Element?]  = 
+        [
+            renderer.introduction(for: self.packages[index], blurb: comment.head),
+            renderer.render(declaration: []),
+        ]
+        // these shouldn’t usually be here, but if for some reason, someone 
+        // writes a package doc that has these fields, print them instead of 
+        // discarding them.
+        let discussion:[Element?] = 
+        [
+            Self.render(parameters: comment.parameters),
+            Self.render(section: comment.returns,       heading: "Returns",  class: "returns"),
+            Self.render(section: comment.discussion,    heading: "Overview", class: "discussion"),
+        ]
         return .init(
             navigator:  navigator.rendered, 
             card:       card.rendered, 
-            full:       full.rendered, 
+            summary:    summary.compactMap { $0?.rendered }.joined(), 
+            discussion: discussion.compactMap { $0?.rendered }.joined(), 
             errors:     renderer.errors)
     }
     func article(module index:Int, comment:String) -> Article
@@ -489,25 +520,26 @@ extension Biome
         }
         var renderer:DiagnosticRenderer = .init(biome: self, errors: [])
         let comment:Comment = renderer.content(markdown: comment)
-        let full:Element = Element[.article]
-        {
-            ["upper-container-left"]
-        }
-        content: 
-        {
-            renderer.introduction(for: self.modules[index], blurb: comment.head)
-            renderer.render(declaration: self.modules[index].declaration)
-            // these shouldn’t usually be here, but if for some reason, someone 
-            // writes a module doc that has these fields, print them instead of 
-            // discarding them.
-            Self.render(parameters: comment.parameters)
-            Self.render(section: comment.returns,       heading: "Returns",  class: "returns")
-            Self.render(section: comment.discussion,    heading: "Overview", class: "discussion")
-        }
+        
+        let summary:[Element?]      = 
+        [
+            renderer.introduction(for: self.modules[index], blurb: comment.head),
+            renderer.render(declaration: self.modules[index].declaration),
+        ]
+        // these shouldn’t usually be here, but if for some reason, someone 
+        // writes a module doc that has these fields, print them instead of 
+        // discarding them.
+        let discussion:[Element?]   = 
+        [
+            Self.render(parameters: comment.parameters),
+            Self.render(section: comment.returns,       heading: "Returns",  class: "returns"),
+            Self.render(section: comment.discussion,    heading: "Overview", class: "discussion"),
+        ]
         return .init(
             navigator:  navigator.rendered, 
             card:       card.rendered, 
-            full:       full.rendered, 
+            summary:    summary.compactMap { $0?.rendered }.joined(), 
+            discussion: discussion.compactMap { $0?.rendered }.joined(), 
             errors:     renderer.errors)
     }
     func article(symbol index:Int, comment:String) -> Article
@@ -539,25 +571,38 @@ extension Biome
         var renderer:DiagnosticRenderer = .init(biome: self, errors: [])
         let comment:Comment = renderer.content(markdown: comment)
         
-        let card:Element   = self.renderArticleCard(symbol, blurb: comment.head)
-        let full:Element   = Element[.article]
+        let card:Element            = self.renderArticleCard(symbol, blurb: comment.head)
+        let summary:[Element?]      = 
+        [
+            renderer.introduction(for: symbol, blurb: comment.head),
+            Self.render(platforms: symbol.platforms),
+            renderer.render(declaration: symbol.declaration),
+        ]
+        if case _? = symbol.commentOrigin 
         {
-            ["upper-container-left"]
+            // don’t re-render duplicated docs 
+            return .init(
+                navigator:  navigator.rendered, 
+                card:       card.rendered, 
+                summary:    summary.compactMap { $0?.rendered }.joined(), 
+                discussion: nil, 
+                errors:     renderer.errors)
         }
-        content: 
+        else 
         {
-            renderer.introduction(for: symbol, blurb: comment.head)
-            Self.render(platforms: symbol.platforms)
-            renderer.render(declaration: symbol.declaration)
-            Self.render(parameters: comment.parameters)
-            Self.render(section: comment.returns,       heading: "Returns",  class: "returns")
-            Self.render(section: comment.discussion,    heading: "Overview", class: "discussion")
+            let discussion:[Element?]    = 
+            [
+                Self.render(parameters: comment.parameters),
+                Self.render(section: comment.returns,       heading: "Returns",  class: "returns"),
+                Self.render(section: comment.discussion,    heading: "Overview", class: "discussion"),
+            ]
+            return .init(
+                navigator:  navigator.rendered, 
+                card:       card.rendered, 
+                summary:    summary.compactMap { $0?.rendered }.joined(), 
+                discussion: discussion.compactMap { $0?.rendered }.joined(), 
+                errors:     renderer.errors)
         }
-        return .init(
-            navigator:  navigator.rendered, 
-            card:       card.rendered, 
-            full:       full.rendered, 
-            errors:     renderer.errors)
     }
     
     private 
@@ -1178,31 +1223,33 @@ extension Biome
             {
                 relationships = []
             }
-            if  case .witness(let witness, callable: _) = symbol.relationships,
-                let extensionMethod:Int                 = witness.specializationOf, 
-                let extendedProtocol:Int                = self.biome.symbols[extensionMethod].lineage.parent 
+            // TODO: need to rework this, because real types can still inherit 
+            // docs, if they satisfy protocol requirements and have no documentation 
+            // of their own...
+            
+            /* if  let origin:Int = symbol.relationships.sourceOrigin 
+                let conformance:Int = self.biome.symbols[origin].lineage.parent 
             {
                 relationships.append(Element[.li] 
                 {
                     Element[.p]
                     {
-                        "Specialization of "
-                        Element.link("statically-dispatched protocol member", to: self.biome.symbols[extensionMethod].path.description, internal: true)
-                        " in "
+                        Element.link("Inherited", to: self.biome.symbols[origin].path.description, internal: true)
+                        " from "
                         Element[.code]
                         {
                             Element[.a]
                             {
-                                (self.biome.symbols[extendedProtocol].path.description, as: HTML.Href.self)
+                                (self.biome.symbols[conformance].path.description, as: HTML.Href.self)
                             }
                             content: 
                             {
-                                Biome.render(code: self.biome.symbols[extendedProtocol].qualified)
+                                Biome.render(code: self.biome.symbols[conformance].qualified)
                             }
                         }
                     }
                 })
-            }
+            } */
             if !symbol.extensionConstraints.isEmpty
             {
                 relationships.append(Element[.li] 
