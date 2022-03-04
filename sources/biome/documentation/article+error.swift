@@ -7,15 +7,15 @@ extension Biome
     enum ArticleReturnsError:Error 
     {
         case empty 
-        case duplicate(section:[HTML.Element<Anchor>])
+        case duplicate(section:[HTML.Element<Never>])
     }
     enum ArticleParametersError:Error, CustomStringConvertible
     {
         case empty(parameter:String?) 
         
-        case invalidListItem(HTML.Element<Anchor>)
-        case invalidList(HTML.Element<Anchor>)
-        case multipleLists([HTML.Element<Anchor>])
+        case invalidListItem(HTML.Element<Never>)
+        case invalidList(HTML.Element<Never>)
+        case multipleLists([HTML.Element<Never>])
         
         var description:String 
         {

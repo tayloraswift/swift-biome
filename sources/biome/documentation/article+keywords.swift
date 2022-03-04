@@ -4,7 +4,7 @@ import HTML
 extension Biome 
 {
     static 
-    func keywords(prefixing content:[HTML.Element<Anchor>]) -> (keywords:[String], trimmed:[HTML.Element<Anchor>])?
+    func keywords(prefixing content:[HTML.Element<Never>]) -> (keywords:[String], trimmed:[HTML.Element<Never>])?
     {
         //  p 
         //  {
@@ -16,7 +16,7 @@ extension Biome
         //  }
         //  ...
         guard   case .container(.p, id: let id, attributes: let attributes, content: var inline)? = content.first, 
-                let first:HTML.Element<Anchor> = inline.first 
+                let first:HTML.Element<Never> = inline.first 
         else 
         {
             return nil
@@ -79,11 +79,11 @@ extension Biome
         
         if inline.isEmpty 
         {
-            return (keywords, [HTML.Element<Anchor>].init(content.dropFirst()))
+            return (keywords, [HTML.Element<Never>].init(content.dropFirst()))
         }
         else 
         {
-            var content:[HTML.Element<Anchor>] = content
+            var content:[HTML.Element<Never>] = content
                 content[0] = .container(.p, id: id, attributes: attributes, content: inline)
             return (keywords, content)
         }

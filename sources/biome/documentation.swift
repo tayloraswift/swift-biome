@@ -7,7 +7,7 @@ extension Biome
     struct Documentation:Sendable
     {
         typealias Route = (index:Index, canonical:Path?)
-        enum Index 
+        enum Index:Hashable, Sendable 
         {
             case packageSearchIndex(Int)
             case package(Int)
@@ -203,41 +203,5 @@ extension Biome
         /// the mangled name only, without the `?overload=` part. if you provide 
         /// a valid disambiguation query, the URL path can be complete garbage; 
         /// Biome will respond with a 301 redirect to the correct page.
-        /* public 
-        subscript(group:String, disambiguation disambiguation:String?) -> Response?
-        {
-            let disambiguation:Symbol.ID? = try? disambiguation.map
-            {
-                try Grammar.parse($0.utf8, as: Symbol.ID.Rule<String.Index>.USR.self)
-            }
-            let path:Path       = .init(group: Biome.normalize(path: group), 
-                disambiguation: disambiguation)
-            if let index:Index  = self.routes[path]
-            {
-                return path.group == group ? .canonical(self[index]) : .found(path.canonical)
-            }
-            guard let key:Symbol.ID = path.disambiguation
-            else 
-            {
-                return nil 
-            }
-            //  we were given a bad path + disambiguation key combo, 
-            //  but the query might still be valid 
-            if let symbol:Symbol = self.biome.symbols[key]
-            {
-                return .found(symbol.path.canonical)
-            }
-            //  we were given an extraneous disambiguation key, but the path might 
-            //  still be valid
-            let truncated:Path = .init(group: path.group)
-            if case _? = self.routes[truncated]
-            {
-                return .found(truncated.canonical)
-            }
-            else 
-            {
-                return nil
-            }
-        } */
     }
 }
