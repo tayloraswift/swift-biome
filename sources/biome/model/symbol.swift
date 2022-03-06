@@ -13,13 +13,13 @@ extension Biome
         }
         let path:Path
         let title:String 
-        let qualified:[Language.Lexeme]
-        let signature:[Language.Lexeme]
-        let declaration:[Language.Lexeme]
+        let qualified:[SwiftLanguage.Lexeme<ID>]
+        let signature:[SwiftLanguage.Lexeme<ID>]
+        let declaration:[SwiftLanguage.Lexeme<ID>]
         
         let generics:[Generic], 
-            genericConstraints:[Language.Constraint], 
-            extensionConstraints:[Language.Constraint]
+            genericConstraints:[SwiftLanguage.Constraint<ID>], 
+            extensionConstraints:[SwiftLanguage.Constraint<ID>]
         let availability:
         (
             unconditional:UnconditionalAvailability?, 
@@ -37,6 +37,28 @@ extension Biome
             members:[(heading:Biome.Topic, indices:[Int])],
             removed:[(heading:Biome.Topic, indices:[Int])]
         )
+        
+        var _size:Int 
+        {
+            var size:Int = MemoryLayout<Self>.stride 
+            size += self.path.group.utf8.count
+            size += self.title.utf8.count
+            
+            size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.qualified.count
+            size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.signature.count
+            size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.declaration.count
+            size += MemoryLayout<Generic>.stride * self.generics.count
+            size += MemoryLayout<SwiftLanguage.Constraint<ID>>.stride * self.genericConstraints.count
+            size += MemoryLayout<SwiftLanguage.Constraint<ID>>.stride * self.extensionConstraints.count
+            size += MemoryLayout<(Domain, Availability)>.stride * self.platforms.capacity
+            
+            size += MemoryLayout<(heading:Biome.Topic, indices:[Int])>.stride * self.topics.requirements.count
+            size += MemoryLayout<(heading:Biome.Topic, indices:[Int])>.stride * self.topics.members.count
+            size += MemoryLayout<(heading:Biome.Topic, indices:[Int])>.stride * self.topics.removed.count
+            
+            size += self.relationships._heapSize
+            return size
+        }
         
         init(modules:Storage<Module>, 
             path:Path, 
@@ -340,7 +362,7 @@ extension Biome.Symbol
     {
         var label:String 
         var name:String?
-        var fragment:[Language.Lexeme]
+        var fragment:[SwiftLanguage.Lexeme<ID>]
     }
     public 
     struct Generic:Sendable

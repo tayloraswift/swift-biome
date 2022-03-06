@@ -1,9 +1,5 @@
 import JSON
 
-extension Biome.Symbol 
-{
-    typealias DecodingError = Biome.DecodingError<JSON, Self>
-}
 extension Biome.Module.ID 
 {
     init(from json:JSON?) throws 
@@ -13,7 +9,7 @@ extension Biome.Module.ID
         case .string(let module)?:
             self = .init(module)
         default:
-            throw Biome.DecodingError<JSON, Self>.init(expected: String.self, encountered: json)
+            throw Biome.DecodingError<Self>.invalid(value: json, key: nil)
         }
     }
 }
@@ -30,10 +26,10 @@ extension Biome
         kind:Symbol.Kind, 
         title:String, 
         path:[String], 
-        signature:[Language.Lexeme], 
-        declaration:[Language.Lexeme], 
-        extends:(module:Module.ID, where:[Language.Constraint])?,
-        generic:(parameters:[Symbol.Generic], constraints:[Language.Constraint])?,
+        signature:[SwiftLanguage.Lexeme<Symbol.ID>], 
+        declaration:[SwiftLanguage.Lexeme<Symbol.ID>], 
+        extends:(module:Module.ID, where:[SwiftLanguage.Constraint<Symbol.ID>])?,
+        generic:(parameters:[Symbol.Generic], constraints:[SwiftLanguage.Constraint<Symbol.ID>])?,
         availability:[(key:Symbol.Domain, value:Symbol.Availability)],
         comment:String
     )
@@ -41,13 +37,15 @@ extension Biome
     static 
     func decode(module json:JSON) throws -> (module:Module.ID, vertices:[Vertex], edges:[Edge])
     {
+        typealias DecodingError = Biome.DecodingError<[Symbol]>
+        
         guard   case .object(let symbolgraph)   = json, 
                 case .object(let module)?       = symbolgraph["module"],
                 case .array(let symbols)?       = symbolgraph["symbols"],
                 case .array(let edges)?         = symbolgraph["relationships"]
         else 
         {
-            throw DecodingError<JSON, Self>.init(expected: Self.self, encountered: json)
+            throw DecodingError.invalid(value: json, key: nil)
         }
         
         let decoded:(module:Module.ID, vertices:[Vertex], edges:[Edge])
@@ -58,7 +56,7 @@ extension Biome
             guard case .object(let items) = $0 
             else 
             {
-                throw Symbol.DecodingError.init(expected: [String: JSON].self, encountered: json)
+                throw DecodingError.invalid(value: $0, key: "symbols[_:]")
             }
             return try Self.decode(symbol: items)
         }
@@ -68,6 +66,8 @@ extension Biome
     static 
     func decode(symbol json:[String: JSON]) throws -> Vertex
     {
+        typealias DecodingError = Biome.DecodingError<Symbol>
+        
         var items:[String: JSON] = json
         defer 
         {
@@ -95,10 +95,10 @@ extension Biome
             case .string(let text)?:
                 id = try Grammar.parse(text.utf8, as: Symbol.ID.Rule<String.Index>.USR.self)
             case let value:
-                throw Symbol.DecodingError.init(expected: String.self, in: "identifier.precise", encountered: value)
+                throw DecodingError.invalid(value: value, key: "identifier.precise")
             }
         case let value:
-            throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "identifier", encountered: value)
+            throw DecodingError.invalid(value: value, key: "identifier")
         }
         
         let kind:Symbol.Kind
@@ -120,14 +120,14 @@ extension Biome
                 guard let `case`:Symbol.Kind = .init(rawValue: text)
                 else 
                 {
-                    throw Symbol.DecodingError.init(expected: Symbol.Kind.self, in: "kind.identifier", encountered: .string(text))
+                    throw DecodingError.invalid(value: .string(text), key: "kind.identifier")
                 }
                 kind = `case`
             case let value:
-                throw Symbol.DecodingError.init(expected: String.self, in: "kind.identifier", encountered: value)
+                throw DecodingError.invalid(value: value, key: "kind.identifier")
             }
         case let value:
-            throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "kind", encountered: value)
+            throw DecodingError.invalid(value: value, key: "kind")
         }
         // decode path 
         let path:[String]
@@ -139,12 +139,12 @@ extension Biome
                 guard case .string(let text) = $0 
                 else 
                 {
-                    throw Symbol.DecodingError.init(expected: String.self, in: "pathComponents[_:]", encountered: $0)
+                    throw DecodingError.invalid(value: $0, key: "pathComponents[_:]")
                 }
                 return text 
             }
         case let value:
-            throw Symbol.DecodingError.init(expected: [JSON].self, in: "pathComponents", encountered: value)
+            throw DecodingError.invalid(value: value, key: "pathComponents")
         }
         // decode access level 
         switch items.removeValue(forKey: "accessLevel")
@@ -156,11 +156,11 @@ extension Biome
                 .string("open")?: 
             break // don’t have a use for this yet 
         case let value: 
-            throw Symbol.DecodingError.init(expected: Symbol.Access.self, in: "accessLevel", encountered: value)
+            throw DecodingError.invalid(value: value, key: "accessLevel")
         }
         // decode display title and signature
         let title:String, 
-            signature:[Language.Lexeme]
+            signature:[SwiftLanguage.Lexeme<Symbol.ID>]
         switch items.removeValue(forKey: "names")
         {
         case .object(var items)?: 
@@ -179,26 +179,26 @@ extension Biome
             case .string(let text)?: 
                 title = text 
             case let value: 
-                throw Symbol.DecodingError.init(expected: String.self, in: "names.title", encountered: value)
+                throw DecodingError.invalid(value: value, key: "names.title")
             }
             switch items.removeValue(forKey: "subHeading")
             {
             case .array(let elements)?: 
-                signature = try elements.map(Language.Lexeme.init(from:))
+                signature = try elements.map(Self.decode(lexeme:))
             case let value: 
-                throw Symbol.DecodingError.init(expected: [JSON].self, in: "names.subHeading", encountered: value)
+                throw DecodingError.invalid(value: value, key: "names.subHeading")
             }
         case let value: 
-            throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "names", encountered: value)
+            throw DecodingError.invalid(value: value, key: "names")
         }
         // decode declaration 
-        let declaration:[Language.Lexeme]
+        let declaration:[SwiftLanguage.Lexeme<Symbol.ID>]
         switch items.removeValue(forKey: "declarationFragments")
         {
         case .array(let elements)?: 
-            declaration = try elements.map(Language.Lexeme.init(from:))
+            declaration = try elements.map(Self.decode(lexeme:))
         case let value: 
-            throw Symbol.DecodingError.init(expected: [JSON].self, in: "declarationFragments", encountered: value)
+            throw DecodingError.invalid(value: value, key: "declarationFragments")
         }
         // decode source location
         switch items.removeValue(forKey: "location")
@@ -218,7 +218,7 @@ extension Biome
             case .string(_)?: 
                 break 
             case let value: 
-                throw Symbol.DecodingError.init(expected: String.self, in: "location.uri", encountered: value)
+                throw DecodingError.invalid(value: value, key: "location.uri")
             }
             switch items.removeValue(forKey: "position")
             {
@@ -235,23 +235,23 @@ extension Biome
                 case .number(_)?: 
                     break 
                 case let value: 
-                    throw Symbol.DecodingError.init(expected: Int.self, in: "location.position.line", encountered: value)
+                    throw DecodingError.invalid(value: value, key: "location.position.line")
                 }
                 switch items.removeValue(forKey: "character")
                 {
                 case .number(_)?: 
                     break 
                 case let value: 
-                    throw Symbol.DecodingError.init(expected: Int.self, in: "location.position.character", encountered: value)
+                    throw DecodingError.invalid(value: value, key: "location.position.character")
                 }
             case let value: 
-                throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "location.position", encountered: value)
+                throw DecodingError.invalid(value: value, key: "location.position")
             }
         case let value?: 
-            throw Symbol.DecodingError.init(expected: [String: JSON]?.self, in: "location", encountered: value)
+            throw DecodingError.invalid(value: value, key: "location")
         }
         // decode function signature
-        let function:(parameters:[Symbol.Parameter], returns:[Language.Lexeme])?
+        let function:(parameters:[Symbol.Parameter], returns:[SwiftLanguage.Lexeme<Symbol.ID>])?
         switch items.removeValue(forKey: "functionSignature")
         {
         case nil, .null?: 
@@ -265,7 +265,7 @@ extension Biome
                 }
             }
             let parameters:[Symbol.Parameter], 
-                returns:[Language.Lexeme]
+                returns:[SwiftLanguage.Lexeme<Symbol.ID>]
             switch items.removeValue(forKey: "parameters")
             {
             case nil, .null?:
@@ -273,21 +273,21 @@ extension Biome
             case .array(let elements)?: 
                 parameters = try elements.map(Symbol.Parameter.init(from:))
             case let value?: 
-                throw Symbol.DecodingError.init(expected: [JSON]?.self, in: "functionSignature.parameters", encountered: value)
+                throw DecodingError.invalid(value: value, key: "functionSignature.parameters")
             }
             switch items.removeValue(forKey: "returns")
             {
             case .array(let elements)?: 
-                returns = try elements.map(Language.Lexeme.init(from:))
+                returns = try elements.map(Self.decode(lexeme:))
             case let value: 
-                throw Symbol.DecodingError.init(expected: [JSON].self, in: "functionSignature.returns", encountered: value)
+                throw DecodingError.invalid(value: value, key: "functionSignature.returns")
             }
             function = (parameters, returns)
         case let value?: 
-            throw Symbol.DecodingError.init(expected: [String: JSON]?.self, in: "functionSignature", encountered: value)
+            throw DecodingError.invalid(value: value, key: "functionSignature")
         }
         // decode extension info
-        let extends:(module:Module.ID, where:[Language.Constraint])?
+        let extends:(module:Module.ID, where:[SwiftLanguage.Constraint<Symbol.ID>])?
         switch items.removeValue(forKey: "swiftExtension")
         {
         case nil, .null?: 
@@ -301,22 +301,22 @@ extension Biome
                 }
             }
             let module:Module.ID = try .init(from: items.removeValue(forKey: "extendedModule"))
-            let constraints:[Language.Constraint]
+            let constraints:[SwiftLanguage.Constraint<Symbol.ID>]
             switch items.removeValue(forKey: "constraints")
             {
             case nil, .null?:
                 constraints = []
             case .array(let elements)?: 
-                constraints = try elements.map(Language.Constraint.init(from:)) 
+                constraints = try elements.map(Self.decode(constraint:)) 
             case let value?: 
-                throw Symbol.DecodingError.init(expected: [JSON]?.self, in: "swiftExtension.constraints", encountered: value)
+                throw DecodingError.invalid(value: value, key: "swiftExtension.constraints")
             }
             extends = (module, constraints)
         case let value?: 
-            throw Symbol.DecodingError.init(expected: [String: JSON]?.self, in: "swiftExtension", encountered: value)
+            throw DecodingError.invalid(value: value, key: "swiftExtension")
         }
         // decode generics info 
-        let generic:(parameters:[Symbol.Generic], constraints:[Language.Constraint])?
+        let generic:(parameters:[Symbol.Generic], constraints:[SwiftLanguage.Constraint<Symbol.ID>])?
         switch items.removeValue(forKey: "swiftGenerics")
         {
         case nil, .null?: 
@@ -330,7 +330,7 @@ extension Biome
                 }
             }
             let parameters:[Symbol.Generic], 
-                constraints:[Language.Constraint]
+                constraints:[SwiftLanguage.Constraint<Symbol.ID>]
             switch items.removeValue(forKey: "parameters")
             {
             case nil, .null?:
@@ -338,20 +338,20 @@ extension Biome
             case .array(let elements)?: 
                 parameters = try elements.map(Symbol.Generic.init(from:)) 
             case let value?: 
-                throw Symbol.DecodingError.init(expected: [JSON]?.self, in: "swiftGenerics.parameters", encountered: value)
+                throw DecodingError.invalid(value: value, key: "swiftGenerics.parameters")
             }
             switch items.removeValue(forKey: "constraints")
             {
             case nil, .null?:
                 constraints = []
             case .array(let elements)?: 
-                constraints = try elements.map(Language.Constraint.init(from:)) 
+                constraints = try elements.map(Self.decode(constraint:)) 
             case let value?: 
-                throw Symbol.DecodingError.init(expected: [JSON].self, in: "swiftGenerics.constraints", encountered: value)
+                throw DecodingError.invalid(value: value, key: "swiftGenerics.constraints")
             }
             generic = (parameters, constraints)
         case let value?: 
-            throw Symbol.DecodingError.init(expected: [String: JSON]?.self, in: "swiftGenerics", encountered: value)
+            throw DecodingError.invalid(value: value, key: "swiftGenerics")
         }
         // decode availability
         let availability:[(key:Symbol.Domain, value:Symbol.Availability)]
@@ -366,7 +366,7 @@ extension Biome
                 guard case .object(var items) = $0 
                 else 
                 {
-                    throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "availability[_:]", encountered: $0)
+                    throw DecodingError.invalid(value: $0, key: "availability[_:]")
                 }
                 defer 
                 {
@@ -381,11 +381,11 @@ extension Biome
                     guard let domain:Symbol.Domain = .init(rawValue: text)
                     else 
                     {
-                        throw Symbol.DecodingError.init(expected: Symbol.Domain.self, in: "availability[_:].domain", encountered: .string(text))
+                        throw DecodingError.invalid(value: .string(text), key: "availability[_:].domain")
                     }
                     item.key = domain 
                 case let value:
-                    throw Symbol.DecodingError.init(expected: String.self, in: "availability[_:].domain", encountered: value)
+                    throw DecodingError.invalid(value: value, key: "availability[_:].domain")
                 }
                 let message:String?
                 switch items.removeValue(forKey: "message")
@@ -395,7 +395,7 @@ extension Biome
                 case .string(let text)?: 
                     message = text
                 case let value:
-                    throw Symbol.DecodingError.init(expected: String?.self, in: "availability[_:].message", encountered: value)
+                    throw DecodingError.invalid(value: value, key: "availability[_:].message")
                 }
                 let renamed:String?
                 switch items.removeValue(forKey: "renamed")
@@ -405,7 +405,7 @@ extension Biome
                 case .string(let text)?: 
                     renamed = text
                 case let value:
-                    throw Symbol.DecodingError.init(expected: String?.self, in: "availability[_:].renamed", encountered: value)
+                    throw DecodingError.invalid(value: value, key: "availability[_:].renamed")
                 }
                 
                 let deprecation:Version?? 
@@ -422,7 +422,7 @@ extension Biome
                     case .bool(true)?: 
                         deprecation = .some(nil)
                     case let value?:
-                        throw Symbol.DecodingError.init(expected: Bool?.self, in: "availability[_:].isUnconditionallyDeprecated", encountered: value)
+                        throw DecodingError.invalid(value: value, key: "availability[_:].isUnconditionallyDeprecated")
                     }
                 }
                 // possible be both unconditionally unavailable and unconditionally deprecated
@@ -434,7 +434,7 @@ extension Biome
                 case .bool(true)?: 
                     unavailable = true 
                 case let value?:
-                    throw Symbol.DecodingError.init(expected: Bool?.self, in: "availability[_:].isUnconditionallyUnavailable", encountered: value)
+                    throw DecodingError.invalid(value: value, key: "availability[_:].isUnconditionallyUnavailable")
                 }
                 item.value = .init(
                     unavailable: unavailable,
@@ -446,7 +446,7 @@ extension Biome
                 return item 
             }
         case let value?: 
-            throw Symbol.DecodingError.init(expected: [String]?.self, in: "availability", encountered: value)
+            throw DecodingError.invalid(value: value, key: "availability")
         }
         
         // decode doccomment
@@ -471,7 +471,7 @@ extension Biome
                     guard case .object(var items) = $0 
                     else 
                     {
-                        throw Symbol.DecodingError.init(expected: [String: JSON].self, in: "docComment.lines[_:]", encountered: $0)
+                        throw DecodingError.invalid(value: $0, key: "docComment.lines[_:]")
                     }
                     defer 
                     {
@@ -488,14 +488,14 @@ extension Biome
                     case .string(let text): 
                         return text 
                     case let value: 
-                        throw Symbol.DecodingError.init(expected: String.self, in: "docComment.lines[_:].text", encountered: value)
+                        throw DecodingError.invalid(value: value, key: "docComment.lines[_:].text")
                     }
                 }.joined(separator: "\n")
             case let value: 
-                throw Symbol.DecodingError.init(expected: [JSON].self, in: "docComment.lines", encountered: value)
+                throw DecodingError.invalid(value: value, key: "docComment.lines")
             }
         case let value?: 
-            throw Symbol.DecodingError.init(expected: [String: JSON]?.self, in: "docComment", encountered: value)
+            throw DecodingError.invalid(value: value, key: "docComment")
         }
         
         return 
@@ -512,18 +512,161 @@ extension Biome
                 comment:        comment
             )
     }
+    
+    static 
+    func decode(constraint json:JSON) throws -> SwiftLanguage.Constraint<Symbol.ID> 
+    {
+        typealias DecodingError = Biome.DecodingError<SwiftLanguage.Constraint<Symbol.ID>>
+        
+        guard case .object(var items) = json 
+        else 
+        {
+            throw DecodingError.invalid(value: json, key: nil)
+        }
+        defer 
+        {
+            if !items.isEmpty 
+            {
+                print("warning: unused json keys \(items)")
+            }
+        }
+        let subject:String, 
+            verb:SwiftLanguage.Constraint<Symbol.ID>.Verb, 
+            object:String 
+        switch items.removeValue(forKey: "lhs")
+        {
+        case .string(let text)?:
+            subject = text 
+        case let value:
+            throw DecodingError.invalid(value: value, key: "lhs")
+        }
+        switch items.removeValue(forKey: "rhs")
+        {
+        case .string(let text)?:
+            object = text 
+        case let value:
+            throw DecodingError.invalid(value: value, key: "rhs")
+        }
+        let id:Symbol.ID?
+        switch items.removeValue(forKey: "rhsPrecise")
+        {
+        case .null?, nil:
+            id = nil 
+        case .string(let text)?:
+            id = try Grammar.parse(text.utf8, as: Symbol.ID.Rule<String.Index>.USR.self)
+        case let value?:
+            throw DecodingError.invalid(value: value, key: "rhsPrecise")
+        }
+        // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/JSON.cpp
+        switch items.removeValue(forKey: "kind")
+        {
+        case .string("superclass")?:
+            verb = .inherits(from: id)
+        case .string("conformance")?:
+            verb = .conforms(to: id)
+        case .string("sameType")?:
+            verb = .is(id)
+        case let value:
+            throw DecodingError.invalid(value: value, key: "kind")
+        }
+        guard items.isEmpty 
+        else 
+        {
+            throw DecodingError.unused(keys: [String].init(items.keys))
+        }
+        return .init(subject: subject, verb: verb, object: object)
+    }
+    static 
+    func decode(lexeme json:JSON) throws -> SwiftLanguage.Lexeme<Symbol.ID> 
+    {
+        typealias DecodingError = Biome.DecodingError<SwiftLanguage.Lexeme<Symbol.ID>>
+        
+        guard case .object(var items) = json 
+        else 
+        {
+            throw DecodingError.invalid(value: json, key: nil)
+        }
+        let string:String 
+        switch items.removeValue(forKey: "spelling")
+        {
+        case .string(let text)?:
+            string = text 
+        case let value:
+            throw DecodingError.invalid(value: value, key: "spelling")
+        }
+        let id:Biome.Symbol.ID?
+        switch items.removeValue(forKey: "preciseIdentifier")
+        {
+        case .null?, nil:
+            id = nil 
+        case .string(let text)?:
+            id = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
+        case let value?:
+            throw DecodingError.invalid(value: value, key: "spelling")
+        }
+        // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/DeclarationFragmentPrinter.cpp
+        let lexeme:SwiftLanguage.Lexeme<Symbol.ID> 
+        switch items.removeValue(forKey: "kind")
+        {
+        case .string("keyword")?:
+            let keyword:SwiftLanguage.Keyword 
+            switch string 
+            {
+            case "init":        keyword = .`init`
+            case "deinit":      keyword = .deinit
+            case "subscript":   keyword = .subscript
+            default:            keyword = .other 
+            }
+            lexeme = .code(string, class: .keyword(keyword))
+        case .string("attribute")?:
+            lexeme = .code(string, class: .attribute)
+        case .string("number")?:
+            lexeme = .code(string, class: .number) 
+        case .string("string")?:
+            lexeme = .code(string, class: .string) 
+        case .string("identifier")?:
+            lexeme = .code(string, class: .identifier) 
+        case .string("typeIdentifier")?:
+            lexeme = .code(string, class: .type(id)) 
+        case .string("genericParameter")?:
+            lexeme = .code(string, class: .generic) 
+        case .string("internalParam")?:
+            lexeme = .code(string, class: .parameter) 
+        case .string("externalParam")?:
+            lexeme = .code(string, class: .argument) 
+        case .string("text")?:
+            if string.allSatisfy(\.isWhitespace)
+            {
+                lexeme = .spaces(1)
+            }
+            else 
+            {
+                lexeme = .code(string, class: .punctuation) 
+            }
+        case let value?:
+            throw DecodingError.invalid(value: value, key: "kind")
+        case nil:
+            throw DecodingError.undefined(key: "kind")
+        }
+        guard items.isEmpty 
+        else 
+        {
+            throw DecodingError.unused(keys: [String].init(items.keys))
+        }
+        return lexeme
+    }
 }
 
 extension Biome.Version 
 {
-    typealias DecodingError = Biome.DecodingError<JSON, Self> 
-    
     init(from json:JSON) throws
     {
+        typealias DecodingError = Biome.DecodingError<Self> 
+        
         guard case .object(var items) = json 
         else 
         {
-            throw DecodingError.init(expected: [String: JSON].self, encountered: json)
+            throw DecodingError.invalid(value: json, key: nil)
         }
         defer 
         {
@@ -538,11 +681,11 @@ extension Biome.Version
             guard let major:Int = number(as: Int?.self)
             else 
             {
-                throw DecodingError.init(expected: Int.self, in: "major", encountered: .number(number))
+                throw DecodingError.invalid(value: .number(number), key: "major")
             }
             self.major = major 
         case let value: 
-            throw DecodingError.init(expected: JSON.Number.self, in: "major", encountered: value)
+            throw DecodingError.invalid(value: value, key: "major")
         }
         switch items.removeValue(forKey: "minor")
         {
@@ -552,11 +695,11 @@ extension Biome.Version
             guard let minor:Int = number(as: Int?.self)
             else 
             {
-                throw DecodingError.init(expected: Int.self, in: "minor", encountered: .number(number))
+                throw DecodingError.invalid(value: .number(number), key: "minor")
             }
             self.minor = minor 
         case let value: 
-            throw DecodingError.init(expected: JSON.Number?.self, in: "minor", encountered: value)
+            throw DecodingError.invalid(value: value, key: "minor")
         }
         switch items.removeValue(forKey: "patch")
         {
@@ -566,24 +709,24 @@ extension Biome.Version
             guard let patch:Int = number(as: Int?.self)
             else 
             {
-                throw DecodingError.init(expected: Int.self, in: "patch", encountered: .number(number))
+                throw DecodingError.invalid(value: .number(number), key: "patch")
             }
             self.patch = patch 
         case let value?: 
-            throw DecodingError.init(expected: JSON.Number?.self, in: "patch", encountered: value)
+            throw DecodingError.invalid(value: value, key: "patch")
         }
     }
 }
 extension Biome.Symbol.Generic 
 {
-    typealias DecodingError = Biome.DecodingError<JSON, Self>
-    
     init(from json:JSON) throws 
     {
+        typealias DecodingError = Biome.DecodingError<Self>
+        
         guard case .object(var items) = json 
         else 
         {
-            throw DecodingError.init(expected: [String: JSON].self, encountered: json)
+            throw DecodingError.invalid(value: json, key: nil)
         }
         defer 
         {
@@ -597,7 +740,7 @@ extension Biome.Symbol.Generic
         case .string(let text)?:
             self.name = text 
         case let value: 
-            throw DecodingError.init(expected: String.self, in: "name", encountered: value)
+            throw DecodingError.invalid(value: value, key: "name")
         }
         switch items.removeValue(forKey: "index")
         {
@@ -605,11 +748,11 @@ extension Biome.Symbol.Generic
             guard let integer:Int = number(as: Int?.self)
             else 
             {
-                throw DecodingError.init(expected: Int.self, in: "name", encountered: .number(number))
+                throw DecodingError.invalid(value: .number(number), key: "name")
             }
             self.index = integer 
         case let value: 
-            throw DecodingError.init(expected: JSON.Number.self, in: "name", encountered: value)
+            throw DecodingError.invalid(value: value, key: "name")
         }
         switch items.removeValue(forKey: "depth")
         {
@@ -617,24 +760,24 @@ extension Biome.Symbol.Generic
             guard let integer:Int = number(as: Int?.self)
             else 
             {
-                throw DecodingError.init(expected: Int.self, in: "depth", encountered: .number(number))
+                throw DecodingError.invalid(value: .number(number), key: "depth")
             }
             self.depth = integer 
         case let value: 
-            throw DecodingError.init(expected: JSON.Number.self, in: "depth", encountered: value)
+            throw DecodingError.invalid(value: value, key: "depth")
         }
     }
 }
 extension Biome.Symbol.Parameter 
 {
-    typealias DecodingError = Biome.DecodingError<JSON, Self>
-    
     init(from json:JSON) throws 
     {
+        typealias DecodingError = Biome.DecodingError<Self>
+        
         guard case .object(var items) = json
         else 
         {
-            throw DecodingError.init(expected: [String: JSON].self, encountered: json)
+            throw DecodingError.invalid(value: json, key: nil)
         }
         defer 
         {
@@ -648,7 +791,7 @@ extension Biome.Symbol.Parameter
         case .string(let text)?:
             self.label = text 
         case let value:
-            throw DecodingError.init(expected: String.self, in: "name", encountered: value)
+            throw DecodingError.invalid(value: value, key: "name")
         }
         switch items.removeValue(forKey: "internalName")
         {
@@ -657,28 +800,28 @@ extension Biome.Symbol.Parameter
         case .string(let text)?:
             self.name = text 
         case let value:
-            throw DecodingError.init(expected: String.self, in: "internalName", encountered: value)
+            throw DecodingError.invalid(value: value, key: "internalName")
         }
         switch items.removeValue(forKey: "declarationFragments")
         {
         case .array(let elements)?: 
-            self.fragment = try elements.map(Language.Lexeme.init(from:))
+            self.fragment = try elements.map(Biome.decode(lexeme:))
         case let value: 
-            throw DecodingError.init(expected: [JSON].self, in: "declarationFragments", encountered: value)
+            throw DecodingError.invalid(value: value, key: "declarationFragments")
         }
     } 
 }
 
 extension Biome.Edge 
 {
-    typealias DecodingError = Biome.DecodingError<JSON, Self> 
-    
     init(from json:JSON) throws 
     {
+        typealias DecodingError = Biome.DecodingError<Self>
+         
         guard case .object(var items) = json
         else 
         {
-            throw DecodingError.init(expected: [String: JSON].self, encountered: json)
+            throw DecodingError.invalid(value: json, key: nil)
         }
         defer 
         {
@@ -694,32 +837,32 @@ extension Biome.Edge
             guard let kind:Kind = .init(rawValue: text)
             else 
             {
-                throw DecodingError.init(expected: Kind.self, in: "kind", encountered: .string(text))
+                throw DecodingError.invalid(value: .string(text), key: "kind")
             }
             self.kind = kind 
         case let value:
-            throw DecodingError.init(expected: String.self, in: "kind", encountered: value)
+            throw DecodingError.invalid(value: value, key: "kind")
         }
         switch items.removeValue(forKey: "source")
         {
         case .string(let text)?:
             self.source = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
         case let value:
-            throw DecodingError.init(expected: String.self, in: "source", encountered: value)
+            throw DecodingError.invalid(value: value, key: "source")
         }
         switch items.removeValue(forKey: "target")
         {
         case .string(let text)?:
             self.target = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
         case let value:
-            throw DecodingError.init(expected: String.self, in: "source", encountered: value)
+            throw DecodingError.invalid(value: value, key: "source")
         }
         switch items.removeValue(forKey: "targetFallback")
         {
         case nil, .null?, .string(_)?:
             break // TODO: do something with this
         case let value?:
-            throw DecodingError.init(expected: String?.self, in: "targetFallback", encountered: value)
+            throw DecodingError.invalid(value: value, key: "targetFallback")
         }
         switch items.removeValue(forKey: "sourceOrigin")
         {
@@ -740,27 +883,27 @@ extension Biome.Edge
             case .string(let text)?:
                 id = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
             case let value:
-                throw DecodingError.init(expected: String.self, in: "sourceOrigin.identifier", encountered: value)
+                throw DecodingError.invalid(value: value, key: "sourceOrigin.identifier")
             }
             switch items.removeValue(forKey: "displayName")
             {
             case .string(let text)?:
                 name = text
             case let value:
-                throw DecodingError.init(expected: String.self, in: "sourceOrigin.displayName", encountered: value)
+                throw DecodingError.invalid(value: value, key: "sourceOrigin.displayName")
             }
             self.origin = (id, name)
         case let value:
-            throw DecodingError.init(expected: [String: JSON]?.self, in: "sourceOrigin", encountered: value)
+            throw DecodingError.invalid(value: value, key: "sourceOrigin")
         }
         switch items.removeValue(forKey: "swiftConstraints")
         {
         case nil, .null?: 
             self.constraints = []
         case .array(let elements)?:
-            self.constraints = try elements.map(Language.Constraint.init(from:))
+            self.constraints = try elements.map(Biome.decode(constraint:))
         case let value:
-            throw DecodingError.init(expected: [JSON]?.self, in: "swiftConstraints", encountered: value)
+            throw DecodingError.invalid(value: value, key: "swiftConstraints")
         }
     }
 }

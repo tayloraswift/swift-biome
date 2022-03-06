@@ -16,18 +16,4 @@ extension Biome
             self.encountered    = encountered
         }
     }
-    public 
-    struct DecodingError<Descriptor, Model>:Error 
-    {
-        let expected:Any.Type, 
-            path:String, 
-            encountered:Descriptor?
-        
-        init(expected:Any.Type, in path:String = "", encountered:Descriptor?)
-        {
-            self.expected       = expected 
-            self.path           = path 
-            self.encountered    = encountered
-        }
-    }
 }

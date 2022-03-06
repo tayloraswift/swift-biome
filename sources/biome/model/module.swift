@@ -60,7 +60,7 @@ extension Biome
                     return module
                 }
             }
-            var declaration:[Language.Lexeme]
+            var declaration:[SwiftLanguage.Lexeme<Symbol.ID>]
             {
                 [
                     .code("import", class: .keyword(.other)),
@@ -88,7 +88,7 @@ extension Biome
             members:[(heading:Biome.Topic, indices:[Int])],
             removed:[(heading:Biome.Topic, indices:[Int])]
         )
-        var declaration:[Language.Lexeme] 
+        var declaration:[SwiftLanguage.Lexeme<Symbol.ID>] 
         {
             [.code("import", class: .keyword(.other)), .spaces(1), .code(self.id.identifier, class: .identifier)]
         }
@@ -96,9 +96,9 @@ extension Biome
         {
             self.id.title
         }
-        var allSymbols:[Range<Int>] 
+        var allSymbols:FlattenSequence<[Range<Int>]>
         {
-            [self.symbols.core] + self.symbols.extensions.map(\.symbols)
+            ([self.symbols.core] + self.symbols.extensions.map(\.symbols)).joined()
         }
         
         init(id:ID, package:Int, path:Path, core:Range<Int>, 

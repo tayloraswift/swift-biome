@@ -68,6 +68,27 @@ extension Biome.Symbol
             }
         }
         
+        var _heapSize:Int 
+        {
+            switch self 
+            {
+            case .typealias: 
+                return 0
+            case .class(let concrete, subclasses: let subclasses, superclass: _):
+                return concrete._heapSize + MemoryLayout<Int>.stride * subclasses.count
+            case    .enum(let concrete),
+                    .struct(let concrete),
+                    .actor(let concrete):
+                return concrete._heapSize
+            case .protocol(let abstract):
+                return abstract._heapSize
+            case .associatedtype:
+                return 0
+            case .witness(let witness, callable: _): 
+                return witness._heapSize
+            }
+        }
+        
         mutating 
         func sort(by ascending:(Int, Int) -> Bool) 
         {
@@ -107,7 +128,18 @@ extension Biome.Symbol
                 
                 upstream:[Int], // protocols this type conforms to
                 downstream:[Int], // protocols that refine this type (empty if not a protocol)
-                conformers:[(index:Int, conditions:[Language.Constraint])]
+                conformers:[(index:Int, conditions:[SwiftLanguage.Constraint<ID>])]
+            
+            var _heapSize:Int 
+            {
+                var size:Int = MemoryLayout<Int>.stride * self.requirements.count
+                size += MemoryLayout<Int>.stride * self.members.count
+                size += MemoryLayout<Int>.stride * self.upstream.count
+                size += MemoryLayout<Int>.stride * self.downstream.count
+                size += MemoryLayout<(index:Int, conditions:[SwiftLanguage.Constraint<ID>])>.stride * self.conformers.count
+                size += MemoryLayout<SwiftLanguage.Constraint<ID>>.stride * self.conformers.map(\.conditions.count).reduce(0, +)
+                return size
+            }
             
             mutating 
             func sort(by ascending:(Int, Int) -> Bool) 
@@ -126,7 +158,15 @@ extension Biome.Symbol
         {
             private(set)
             var members:[Int], 
-                upstream:[(index:Int, conditions:[Language.Constraint])]
+                upstream:[(index:Int, conditions:[SwiftLanguage.Constraint<ID>])]
+                
+            var _heapSize:Int 
+            {
+                var size:Int = MemoryLayout<Int>.stride * self.members.count
+                size += MemoryLayout<(index:Int, conditions:[SwiftLanguage.Constraint<ID>])>.stride * self.upstream.count
+                size += MemoryLayout<SwiftLanguage.Constraint<ID>>.stride * self.upstream.map(\.conditions.count).reduce(0, +)
+                return size
+            }
             
             mutating 
             func sort(by ascending:(Int, Int) -> Bool) 
@@ -145,6 +185,14 @@ extension Biome.Symbol
             var overrideOf:Int?,
                 _overrides:[Int]
             var requirementOf:Int? // points to a protocol 
+            
+            var _heapSize:Int 
+            {
+                var size:Int = MemoryLayout<Int>.stride * self.defaultImplementationOf.count
+                size += MemoryLayout<Int>.stride * self.defaultImplementations.count
+                size += MemoryLayout<Int>.stride * self._overrides.count
+                return size
+            }
             
             mutating 
             func sort(by ascending:(Int, Int) -> Bool) 
@@ -179,8 +227,8 @@ extension Biome.Symbol
             var abstract:Abstract 
             {
                 var downstream:[Int] = [], 
-                    conformers:[(index:Int, conditions:[Language.Constraint])] = []
-                for (index, conditions):(Int, [Language.Constraint]) in references.downstream 
+                    conformers:[(index:Int, conditions:[SwiftLanguage.Constraint<ID>])] = []
+                for (index, conditions):(Int, [SwiftLanguage.Constraint<ID>]) in references.downstream 
                 {
                     if case .protocol = colors[index]
                     {

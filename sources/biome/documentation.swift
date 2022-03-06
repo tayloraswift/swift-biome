@@ -107,7 +107,7 @@ extension Biome
             for module:Module in self.biome.modules
             {
                 var errors:Int = 0
-                for index:Int in module.allSymbols.joined()
+                for index:Int in module.allSymbols
                 {
                     errors += self.symbols[index].errors.count
                 }

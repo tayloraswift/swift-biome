@@ -19,8 +19,8 @@ extension Biome
                 requirementOf:Int?,
                 requirements:[Int],
                 
-                upstream:[(index:Int, conditions:[Language.Constraint])], // protocols this type conforms to
-                downstream:[(index:Int, conditions:[Language.Constraint])], // types that conform to this type 
+                upstream:[(index:Int, conditions:[SwiftLanguage.Constraint<Symbol.ID>])], // protocols this type conforms to
+                downstream:[(index:Int, conditions:[SwiftLanguage.Constraint<Symbol.ID>])], // types that conform to this type 
                 subclasses:[Int],
                 superclass:Int?
             
@@ -62,7 +62,7 @@ extension Biome
         var target:Symbol.ID
         // if the source inherited docs 
         var origin:(id:Symbol.ID, name:String)?
-        var constraints:[Language.Constraint]
+        var constraints:[SwiftLanguage.Constraint<Symbol.ID>]
         
         /* init(specialization source:Symbol.ID, of target:Symbol.ID)
         {

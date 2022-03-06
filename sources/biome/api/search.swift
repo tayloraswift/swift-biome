@@ -1,7 +1,7 @@
 import JSON 
 import Resource
 
-extension Language.Lexeme 
+extension SwiftLanguage.Lexeme 
 {
     var search:String? 
     {

@@ -34,9 +34,9 @@ extension Biome
             }
         }
         
-        var lexemes:[Language.Lexeme] 
+        var lexemes:[SwiftLanguage.Lexeme<Symbol.ID>] 
         {
-            var lexemes:[Language.Lexeme]   = []
+            var lexemes:[SwiftLanguage.Lexeme<Symbol.ID>] = []
                 lexemes.reserveCapacity(self.path.count * 2 - 1)
             for current:String in self.path.dropLast() 
             {

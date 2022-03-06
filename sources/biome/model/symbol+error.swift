@@ -29,8 +29,8 @@ extension Biome
         
         
         case members([Int], in:Symbol.Kind, Int) 
-        case conformers([(index:Int, conditions:[Language.Constraint])], in:Symbol.Kind, Int) 
-        case conformances([(index:Int, conditions:[Language.Constraint])], in:Symbol.Kind, Int) 
+        case conformers([(index:Int, conditions:[SwiftLanguage.Constraint<Symbol.ID>])], in:Symbol.Kind, Int) 
+        case conformances([(index:Int, conditions:[SwiftLanguage.Constraint<Symbol.ID>])], in:Symbol.Kind, Int) 
         case requirements([Int], in:Symbol.Kind, Int) 
         case subclasses([Int], in:Symbol.Kind, Int) 
         case superclass(Int, in:Symbol.Kind, Int) 

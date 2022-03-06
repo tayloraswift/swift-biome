@@ -1,579 +1,1169 @@
-import Resource
-import StructuredDocument
+import Markdown
+import StructuredDocument 
 import HTML
 
 extension Biome 
 {
-    enum Anchor:DocumentID, Hashable, Sendable
+    typealias Comment =
+    (
+        head:HTML.Element<Never>?, 
+        parameters:[(name:String, comment:[HTML.Element<Never>])],
+        returns:[HTML.Element<Never>],
+        discussion:[HTML.Element<Never>]
+    )
+    
+    struct Article 
     {
-        case card(Documentation.Index)
+        typealias Element       = HTML.Element<Anchor>
+        typealias StaticElement = HTML.Element<Never>
         
-        case navigator
-        case introduction
-        case summary
-        case platforms
-        case declaration
-        case discussion
-        
-        case search
-        case searchInput
-        case searchResults
-        
-        public 
-        var documentId:String 
+        /* enum Content
         {
-            switch self 
+            case documented(Element)
+            case synthesized(from:Int)
+            case inherited(from:Int)
+        } */
+        var navigator:Element
+        {
+            .text(escaped: self.baked.navigator)
+        }
+        var platforms:Element?
+        {
+            self.baked.platforms.map(Element.text(escaped:))
+        }
+        var summary:Element?
+        {
+            self.baked.summary.map(Element.text(escaped:))
+        }
+        var declaration:Element
+        {
+            .text(escaped: self.baked.declaration)
+        }
+        var discussion:Element?
+        {
+            self.baked.discussion.map(Element.text(escaped:))
+        }
+        
+        let errors:[Error]
+        let introduction:Element 
+        let card:Element
+        private 
+        let baked:
+        (
+            navigator:String,
+            summary:String?, 
+            platforms:String?, 
+            declaration:String,
+            discussion:String?
+        )
+        
+        var size:Int 
+        {
+            var size:Int = self.baked.navigator.utf8.count
+            size        += self.baked.declaration.utf8.count
+            size        += self.baked.platforms?.utf8.count   ?? 0
+            size        += self.baked.summary?.utf8.count     ?? 0
+            size        += self.baked.discussion?.utf8.count  ?? 0
+            return size
+        }
+        
+        var substitutions:[Anchor: Element] 
+        {
+            var substitutions:[Anchor: Element] =
+            [
+                .navigator:     self.navigator,
+                .introduction:  self.introduction,
+                .declaration:   self.declaration,
+            ]
+            if let platforms:Element = self.platforms
             {
-            case .search:           return "search"
-            case .searchInput:      return "search-input"
-            case .searchResults:    return "search-results"
-            default: 
-                fatalError("unreachable")
+                substitutions[.platforms]   = platforms
             }
+            if let summary:Element = self.summary
+            {
+                substitutions[.summary]     = summary
+            }
+            if let discussion:Element = self.discussion
+            {
+                substitutions[.discussion]  = discussion
+            }
+            return substitutions
+        }
+        
+        init(card:Element, 
+            navigator:StaticElement, 
+            introduction:Element, 
+            summary:StaticElement?, 
+            platforms:StaticElement?, 
+            declaration:StaticElement, 
+            discussion:[StaticElement], 
+            errors:[Error])
+        {
+            /* self.card               = .text(escaped: "")
+            self.baked.navigator    = ""
+            
+            self.introduction       = .text(escaped: "")
+            
+            self.baked.summary      = ""
+            self.baked.platforms    = ""
+            self.baked.declaration  = ""
+            self.baked.discussion   = "" */
+            
+            self.card               = card
+            self.baked.navigator    = navigator.rendered
+            
+            self.introduction       = introduction
+            
+            self.baked.summary      = summary?.rendered
+            self.baked.platforms    = platforms?.rendered
+            self.baked.declaration  = declaration.rendered
+            self.baked.discussion   = discussion.isEmpty ? nil : discussion.map(\.rendered).joined()
+            
+            self.errors             = errors 
         }
     }
     
-    func page(package:Int, article:Article, filter:[Package.ID]) -> Resource
+    func article(package index:Int, comment:String) -> Article
     {
-        typealias Element   = HTML.Element<Anchor>
-        let dynamic:Element = Element[.div]
+        typealias Element       = HTML.Element<Anchor>
+        typealias StaticElement = HTML.Element<Never>
+        let card:Element        = Element[.li] 
+        { 
+            self.packages[index].name 
+        }
+        let navigator:StaticElement = StaticElement[.ol] 
         {
-            ["lower-container"]
+            ["breadcrumbs-container"]
         }
         content:
         {
-            Element[.section]
-            {
-                ["relationships"]
-            }
-            content: 
-            {
-                Element[.h2]
-                {
-                    "Modules"
-                }
-                Element[.ul]
-                {
-                    for module:Int in self.packages[package].modules
-                    {
-                        Element[.li]
-                        {
-                            Element[.code]
-                            {
-                                ["signature"]
-                            }
-                            content: 
-                            {
-                                Element[.a]
-                                {
-                                    (self.modules[module].path.description, as: HTML.Href.self)
-                                }
-                                content: 
-                                {
-                                    Self.render(lexeme: .code(self.modules[module].id.identifier, class: .identifier))
-                                }
-                            }
-                        }
-                    }
-                }
+            StaticElement[.li] 
+            { 
+                self.packages[index].name 
             }
         }
-        return Self.page(title: self.packages[package].name, substitutions: article.substitutions, filter: filter, dynamic: dynamic)
-    }
-    func page(module:Int, article:Article, articles:[Article], filter:[Package.ID]) -> Resource
-    {
-        typealias Element = HTML.Element<Anchor>
+        var renderer:ArticleRenderer    = .init(biome: self)
+        let introduction:Element        = renderer.introduction(for: self.packages[index])
+        let declaration:StaticElement   = renderer.render(declaration: [])
         
-        var references:Set<Int> = []
-        let dynamic:Element = Element[.div]
+        let comment:Comment             = renderer.content(markdown: comment)
+        return .init(card:  card, 
+            navigator:      navigator, 
+            introduction:   introduction,
+            summary:        comment.head, 
+            platforms:      nil,
+            declaration:    declaration,
+            discussion:
+            [
+                ArticleRenderer.render(parameters: comment.parameters),
+                ArticleRenderer.render(section: comment.returns,       heading: "Returns",  class: "returns"),
+                ArticleRenderer.render(section: comment.discussion,    heading: "Overview", class: "discussion"),
+            ].compactMap { $0 }, 
+            errors:         renderer.errors)
+    }
+    func article(module index:Int, comment:String) -> Article
+    {
+        typealias Element       = HTML.Element<Anchor>
+        typealias StaticElement = HTML.Element<Never>
+        let card:Element        = Element[.li] 
+        { 
+            self.modules[index].title 
+        }
+        let navigator:StaticElement = StaticElement[.ol] 
         {
-            ["lower-container"]
+            ["breadcrumbs-container"]
         }
         content:
         {
-            self.render(topics: self.modules[module].topics.members, heading: "Members", 
-                articles: articles, 
-                references: &references)
-            self.render(topics: self.modules[module].topics.removed, heading: "Removed Members", 
-                articles: articles, 
-                references: &references)
+            StaticElement[.li] 
+            { 
+                self.modules[index].title 
+            }
         }
-        var substitutions:[Anchor: Element] = article.substitutions
-        for reference:Int in references 
-        {
-            substitutions[.card(.symbol(reference))] = articles[reference].summary
-        }
-        return Self.page(title: self.modules[module].title, substitutions: substitutions, filter: filter, dynamic: dynamic)
-    }
-    func page(symbol index:Int, articles:[Article], filter:[Package.ID]) -> Resource
-    {
-        typealias Element = HTML.Element<Anchor>
-        let symbol:Symbol = self.symbols[index]
+        var renderer:ArticleRenderer    = .init(biome: self)
+        let introduction:Element        = renderer.introduction(for: self.modules[index])
+        let declaration:StaticElement   = renderer.render(declaration: self.modules[index].declaration)
         
-        var references:Set<Int> = []
-        let dynamic:Element     = Element[.div]
-        {
-            ["lower-container"]
-        }
-        content:
-        {
-            if case .protocol(let abstract) = symbol.relationships 
-            {
-                self.render(list: abstract.downstream.map { ($0, []) }, heading: "Refinements")
-            }
-            
-            self.render(topics: symbol.topics.requirements, heading: "Requirements", 
-                articles: articles, 
-                references: &references)
-            self.render(topics: symbol.topics.members,      heading: "Members", 
-                articles: articles, 
-                references: &references)
-            
-            switch symbol.relationships 
-            {
-            case .protocol(let abstract):
-                self.render(list: abstract.upstream.map{ ($0, []) },    heading: "Implies")
-                self.render(list: abstract.conformers,                  heading: "Conforming Types")
-            case .class(let concrete, subclasses: let subclasses, superclass: _):
-                self.render(list: subclasses.map { ($0, []) },          heading: "Subclasses")
-                self.render(list: concrete.upstream,                    heading: "Conforms To")
-            case .enum(let concrete), .struct(let concrete), .actor(let concrete):
-                self.render(list: concrete.upstream,                    heading: "Conforms To")
-            default: 
-                let _:Void = ()
-            }
-            self.render(topics: symbol.topics.removed,      heading: "Removed Members", 
-                articles: articles, 
-                references: &references)
-        }
-        var substitutions:[Anchor: Element] = articles[index].substitutions
-        if  let origin:Int = symbol.commentOrigin
-        {
-            substitutions[.summary]     = articles[origin].summary
-            substitutions[.discussion]  = articles[origin].discussion
-        }
-        if case nil = substitutions.index(forKey: .summary)
-        {
-            substitutions[.summary]     = Element[.p]
-            {
-                "No overview available."
-            }
-        }
-        for reference:Int in references 
-        {
-            substitutions[.card(.symbol(reference))] = articles[reference].summary
-        }
-        return Self.page(title: symbol.title, 
-            substitutions: substitutions, 
-            filter: filter, 
-            dynamic: dynamic)
+        let comment:Comment             = renderer.content(markdown: comment)
+        return .init(card:  card, 
+            navigator:      navigator, 
+            introduction:   introduction,
+            summary:        comment.head,
+            platforms:      nil,
+            declaration:    declaration,
+            discussion:     
+            [
+                ArticleRenderer.render(parameters: comment.parameters),
+                ArticleRenderer.render(section: comment.returns,       heading: "Returns",  class: "returns"),
+                ArticleRenderer.render(section: comment.discussion,    heading: "Overview", class: "discussion"),
+            ].compactMap { $0 }, 
+            errors:         renderer.errors)
     }
-    private static 
-    func page(title:String, substitutions:[Anchor: HTML.Element<Anchor>], filter:[Package.ID], dynamic:HTML.Element<Anchor>) -> Resource
+    func article(symbol index:Int, comment:String) -> Article
     {
-        typealias Element = HTML.Element<Anchor>
-        let document:DocumentRoot<HTML, Anchor> = .init 
+        typealias Element           = HTML.Element<Anchor>
+        typealias StaticElement     = HTML.Element<Never>
+        let symbol:Symbol           = self.symbols[index]
+        
+        var breadcrumbs:[StaticElement]   = [ StaticElement[.li] { symbol.lineage.last } ]
+        var next:Int?               = symbol.lineage.parent
+        while let index:Int         = next
         {
-            HTML.Lang.en
+            breadcrumbs.append(StaticElement[.li]
+            {
+                StaticElement.link(self.symbols[index].lineage.last, to: self.symbols[index].path.description, internal: true)
+            })
+            next = self.symbols[index].lineage.parent
+        }
+        breadcrumbs.reverse()
+        
+        let navigator:StaticElement  = StaticElement[.ol] 
+        {
+            ["breadcrumbs-container"]
         }
         content:
         {
-            Element[.head]
-            {
-                Element[.title] 
-                {
-                    title
-                }
-                Element.metadata(charset: Unicode.UTF8.self)
-                Element.metadata 
-                {
-                    ("viewport", "width=device-width, initial-scale=1")
-                }
-                
-                Element[.script]
-                {
-                    ("/lunr.js", as: HTML.Src.self)
-                    (true, as: HTML.Defer.self)
-                }
-                Element[.script]
-                {
-                    ("/search.js", as: HTML.Src.self)
-                    (true, as: HTML.Defer.self)
-                }
-                Element[.script]
-                {
-                    // package name is alphanumeric, we should enforce this in 
-                    // `Package.ID`, otherwise this could be a security hole
-                    let source:String = 
-                    """
-                    includedPackages = [\(filter.map { "'\($0.name)'" }.joined(separator: ","))];
-                    """
-                    Element.text(escaped: source)
-                }
-                Element[.link]
-                {
-                    ("/biome.css", as: HTML.Href.self)
-                    HTML.Rel.stylesheet
-                }
-                Element[.link]
-                {
-                    ("/favicon.png", as: HTML.Href.self)
-                    HTML.Rel.icon
-                }
-                Element[.link]
-                {
-                    ("/favicon.ico", as: HTML.Href.self)
-                    HTML.Rel.icon
-                    Resource.Binary.icon
-                }
-            }
-            Element[.body]
-            {
-                ["documentation"]
-            }
-            content: 
-            {
-                Element[.nav]
-                {
-                    Element[.div]
-                    {
-                        ["breadcrumbs"]
-                    } 
-                    content: 
-                    {
-                        Element.anchor(id: .navigator)
-                    }
-                    Element[.div]
-                    {
-                        ["search-bar"]
-                    } 
-                    content: 
-                    {
-                        Element[.form, id: .search] 
-                        {
-                            HTML.Role.search
-                        }
-                        content: 
-                        {
-                            Element[.div]
-                            {
-                                ["input-container"]
-                            }
-                            content: 
-                            {
-                                Element[.div]
-                                {
-                                    ["bevel"]
-                                }
-                                Element[.div]
-                                {
-                                    ["rectangle"]
-                                }
-                                content: 
-                                {
-                                    Element[.input, id: .searchInput]
-                                    {
-                                        HTML.InputType.search
-                                        HTML.Autocomplete.off
-                                        // (true, as: HTML.Autofocus.self)
-                                        ("search symbols", as: HTML.Placeholder.self)
-                                    }
-                                }
-                                Element[.div]
-                                {
-                                    ["bevel"]
-                                }
-                            }
-                            Element[.ol, id: .searchResults]
-                        }
-                    }
-                }
-                Element[.main]
-                {
-                    Element[.div]
-                    {
-                        ["upper"]
-                    }
-                    content: 
-                    {
-                        Element[.div]
-                        {
-                            ["upper-container"]
-                        }
-                        content: 
-                        {
-                            Element[.article]
-                            {
-                                ["upper-container-left"]
-                            }
-                            content: 
-                            {
-                                Element.anchor(id: .introduction)
-                                Element.anchor(id: .platforms)
-                                Element.anchor(id: .declaration)
-                                Element.anchor(id: .discussion)
-                            }
-                        }
-                    }
-                    Element[.div]
-                    {
-                        ["lower"]
-                    }
-                    content: 
-                    {
-                        dynamic
-                    }
-                }
-            }
+            breadcrumbs
         }
-        return .html(utf8: document.template(of: [UInt8].self).apply(substitutions).joined(), version: nil)
+        
+        var renderer:ArticleRenderer    = .init(biome: self)
+        let introduction:Element        = renderer.introduction(for: symbol)
+        let declaration:StaticElement   = renderer.render(declaration: symbol.declaration)
+        let summary:StaticElement?, 
+            discussion:[StaticElement]
+        if case _? = symbol.commentOrigin 
+        {
+            // don’t re-render duplicated docs 
+            summary             = nil 
+            discussion          = []
+        }
+        else 
+        {
+            let comment:Comment = renderer.content(markdown: comment)
+            summary             = comment.head
+            discussion          = 
+            [
+                ArticleRenderer.render(parameters: comment.parameters),
+                ArticleRenderer.render(section: comment.returns,       heading: "Returns",  class: "returns"),
+                ArticleRenderer.render(section: comment.discussion,    heading: "Overview", class: "discussion"),
+            ].compactMap { $0 }
+        }
+        return .init(card:  self.card(symbol: index), 
+            navigator:      navigator, 
+            introduction:   introduction,
+            summary:        summary, 
+            platforms:      ArticleRenderer.render(platforms: symbol.platforms),
+            declaration:    declaration,
+            discussion:     discussion, 
+            errors:         renderer.errors)
     }
     
     private 
-    func render<S>(list types:S, heading:String) -> HTML.Element<Anchor>?
-        where S:Sequence, S.Element == (index:Int, conditions:[Language.Constraint])
+    func card(symbol index:Int) -> HTML.Element<Anchor>
     {
-        typealias Element = HTML.Element<Anchor>
-        // we will discard all errors from dynamic rendering
-        var renderer:ArticleRenderer = .init(biome: self)
-        let list:[Element] = types.map 
+        typealias Element               = HTML.Element<Anchor>
+        let symbol:Symbol               = self.symbols[index]
+        var relationships:[Element]     = []
+        if let overridden:Int           = symbol.relationships.overrideOf
         {
-            (item:(index:Int, conditions:[Language.Constraint])) in 
-            Element[.li]
+            guard let interface:Int     = self.symbols[overridden].lineage.parent 
+            else 
             {
-                Element[.code]
+                fatalError("unimplemented: parent of overridden symbol '\(self.symbols[overridden].title)' does not exist")
+            }
+            let prose:String
+            if case .protocol = self.symbols[interface].kind
+            {
+                prose = "Type inference hint for requirement in "
+            } 
+            else 
+            {
+                prose = "Overrides virtual member in "
+            }
+            relationships.append(Element[.li]
+            {
+                Element[.p]
                 {
-                    ["signature"]
+                    prose 
+                    Element[.code]
+                    {
+                        Element[.a]
+                        {
+                            (self.symbols[overridden].path.description, as: HTML.Href.self)
+                        }
+                        content: 
+                        {
+                            Self.render(code: self.symbols[interface].qualified)
+                        }
+                    }
+                }
+            })
+        } 
+        /* if !symbol.extensionConstraints.isEmpty
+        {
+            relationships.append(Element[.li] 
+            {
+                Element[.p]
+                {
+                    "Available when "
+                    self.render(constraints: symbol.extensionConstraints)
+                }
+            })
+        } */
+        
+        let availability:[Element] = Self.render(availability: symbol.availability)
+        return Element[.li]
+        {
+            Element[.code]
+            {
+                ["signature"]
+            }
+            content: 
+            {
+                Element[.a]
+                {
+                    (symbol.path.description, as: HTML.Href.self)
                 }
                 content: 
                 {
-                    Element[.a]
-                    {
-                        (self.symbols[item.index].path.description, as: HTML.Href.self)
-                    }
-                    content: 
-                    {
-                        Self.render(code: self.symbols[item.index].qualified)
-                    }
+                    Self.render(code: symbol.signature)
                 }
-                if !item.conditions.isEmpty
+            }
+            
+            Element.anchor(id: .card(.symbol(symbol.commentOrigin ?? index)))
+            
+            if !relationships.isEmpty 
+            {
+                Element[.ul]
                 {
-                    Element[.p]
-                    {
-                        ["relationship"]
-                    }
-                    content: 
-                    {
-                        "When "
-                        renderer.render(constraints: item.conditions)
-                    }
+                    ["relationships-list"]
+                }
+                content: 
+                {
+                    relationships
                 }
             }
-        }
-        guard !list.isEmpty
-        else
-        {
-            return nil 
-        }
-        return Element[.section]
-        {
-            ["relationships"]
-        }
-        content: 
-        {
-            Element[.h2]
+            if !availability.isEmpty 
             {
-                heading
-            }
-            Element[.ul]
-            {
-                list
+                Element[.ul]
+                {
+                    ["availability-list"]
+                }
+                content: 
+                {
+                    availability
+                }
             }
         }
     }
-    private 
-    func render<S>(topics:S, heading:String, articles:[Article], references:inout Set<Int>) -> HTML.Element<Anchor>?
-        where S:Sequence, S.Element == (heading:Topic, indices:[Int])
+}
+extension Biome 
+{
+    struct ArticleRenderer 
     {
         typealias Element = HTML.Element<Anchor>
-        let topics:[Element] = topics.map
+        typealias StaticElement = HTML.Element<Never>
+        
+        let biome:Biome 
+        var errors:[Error]
+        
+        init(biome:Biome)
         {
-            (topic:(heading:Topic, indices:[Int])) in 
-            let cards:[Element] = topic.indices.map
+            self.biome = biome 
+            self.errors = []
+        }
+        
+        mutating 
+        func render<ID>(code:[SwiftLanguage.Lexeme<Symbol.ID>], anchors _:ID.Type = ID.self) -> [HTML.Element<ID>] 
+        {
+            code.map 
             {
-                references.insert(self.symbols[$0].commentOrigin ?? $0)
-                return articles[$0].card
-            } 
-            return Element[.div]
+                self.render(lexeme: $0, anchors: ID.self)
+            }
+        }
+        mutating 
+        func render<ID>(lexeme:SwiftLanguage.Lexeme<Symbol.ID>, anchors _:ID.Type = ID.self) -> HTML.Element<ID>
+        {
+            guard case .code(let text, class: .type(let id?)) = lexeme
+            else 
             {
-                ["topic-container"]
+                return Biome.render(lexeme: lexeme)
+            }
+            guard let path:Path = self.biome.symbols[id]?.path
+            else 
+            {
+                self.errors.append(SymbolIdentifierError.undefined(symbol: id))
+                return Biome.render(lexeme: lexeme)
+            }
+            return HTML.Element<ID>.link(text, to: path.description, internal: true)
+            {
+                ["syntax-type"] 
+            }
+        }
+        mutating 
+        func render(constraint:SwiftLanguage.Constraint<Symbol.ID>) -> [Element] 
+        {
+            let subject:SwiftLanguage.Lexeme<Symbol.ID> = .code(constraint.subject, class: .type(nil))
+            let prose:String
+            let object:Symbol.ID?
+            switch constraint.verb
+            {
+            case .inherits(from: let id): 
+                prose   = " inherits from "
+                object  = id
+            case .conforms(to: let id):
+                prose   = " conforms to "
+                object  = id
+            case .is(let id):
+                prose   = " is "
+                object  = id
+            }
+            return 
+                [
+                    Element[.code]
+                    {
+                        self.render(lexeme: subject)
+                    },
+                    Element.text(escaped: prose), 
+                    Element[.code]
+                    {
+                        self.render(lexeme: .code(constraint.object, class: .type(object)))
+                    },
+                ]
+        }
+        mutating 
+        func render(constraints:[SwiftLanguage.Constraint<Symbol.ID>]) -> [Element] 
+        {
+            guard let ultimate:SwiftLanguage.Constraint<Symbol.ID> = constraints.last 
+            else 
+            {
+                fatalError("cannot call \(#function) with empty constraints array")
+            }
+            guard let penultimate:SwiftLanguage.Constraint<Symbol.ID> = constraints.dropLast().last
+            else 
+            {
+                return self.render(constraint: ultimate)
+            }
+            var fragments:[Element]
+            if constraints.count < 3 
+            {
+                fragments =                  self.render(constraint: penultimate)
+                fragments.append(.text(escaped: " and "))
+                fragments.append(contentsOf: self.render(constraint: ultimate))
+            }
+            else 
+            {
+                fragments = []
+                for constraint:SwiftLanguage.Constraint<Symbol.ID> in constraints.dropLast(2)
+                {
+                    fragments.append(contentsOf: self.render(constraint: constraint))
+                    fragments.append(.text(escaped: ", "))
+                }
+                fragments.append(contentsOf: self.render(constraint: penultimate))
+                fragments.append(.text(escaped: ", and "))
+                fragments.append(contentsOf: self.render(constraint: ultimate))
+            }
+            return fragments
+        }
+        mutating 
+        func render(declaration:[SwiftLanguage.Lexeme<Symbol.ID>]) -> StaticElement
+        {
+            StaticElement[.section]
+            {
+                ["declaration"]
             }
             content:
             {
-                Element[.div]
+                StaticElement[.h2]
                 {
-                    ["topic-container-left"]
+                    "Declaration"
                 }
-                content:
+                StaticElement[.pre]
                 {
-                    Element[.h3]
+                    StaticElement[.code] 
                     {
-                        topic.heading.description
+                        ["swift"]
                     }
-                }
-                Element[.ul]
-                {
-                    ["topic-container-right"]
-                }
-                content:
-                {
-                    cards
-                }
-            }
-        }
-        guard !topics.isEmpty 
-        else 
-        {
-            return nil
-        }
-        return Element[.section]
-        {
-            ["topics"]
-        }
-        content: 
-        {
-            Element[.h2]
-            {
-                heading
-            }
-            topics
-        }
-    }
-    
-    static 
-    func render(availability:(unconditional:Symbol.UnconditionalAvailability?, swift:Symbol.SwiftAvailability?)) -> [HTML.Element<Anchor>]
-    {
-        typealias Element = HTML.Element<Anchor>
-        var availabilities:[Element] = []
-        if let availability:Symbol.UnconditionalAvailability = availability.unconditional
-        {
-            if availability.unavailable 
-            {
-                availabilities.append(Self.render(availability: "Unavailable"))
-            }
-            else if availability.deprecated 
-            {
-                availabilities.append(Self.render(availability: "Deprecated"))
-            }
-        }
-        if let availability:Symbol.SwiftAvailability = availability.swift
-        {
-            if let version:Version = availability.obsoleted 
-            {
-                availabilities.append(Self.render(availability: "Obsolete", since: ("Swift", version)))
-            } 
-            else if let version:Version = availability.deprecated 
-            {
-                availabilities.append(Self.render(availability: "Deprecated", since: ("Swift", version)))
-            }
-            else if let version:Version = availability.introduced
-            {
-                availabilities.append(Self.render(availability: "Available", since: ("Swift", version)))
-            }
-        }
-        return availabilities
-    }
-    static 
-    func render(availability adjective:String, since:(domain:String, version:Version)? = nil) -> HTML.Element<Anchor>
-    {
-        typealias Element = HTML.Element<Anchor>
-        return Element[.li]
-        {
-            Element[.p]
-            {
-                Element[.strong]
-                {
-                    adjective
-                }
-                if let (domain, version):(String, Version) = since 
-                {
-                    " since \(domain) "
-                    Element.span(version.description)
+                    content: 
                     {
-                        ["version"]
+                        self.render(code: declaration)
                     }
                 }
             }
         }
-    }
-    
-    static 
-    func render<ID>(code:[Language.Lexeme], anchors:ID.Type = ID.self) -> [HTML.Element<ID>] 
-    {
-        code.map
+        
+        static
+        func render(platforms availability:[Symbol.Domain: Symbol.Availability]) -> StaticElement?
         {
-            Self.render(lexeme: $0, anchors: ID.self)
+            var platforms:[StaticElement] = []
+            for platform:Symbol.Domain in Symbol.Domain.platforms 
+            {
+                if let availability:Symbol.Availability = availability[platform]
+                {
+                    if availability.unavailable 
+                    {
+                        platforms.append(StaticElement[.li]
+                        {
+                            "\(platform.rawValue) unavailable"
+                        })
+                    }
+                    else if case nil? = availability.deprecated 
+                    {
+                        platforms.append(StaticElement[.li]
+                        {
+                            "\(platform.rawValue) deprecated"
+                        })
+                    }
+                    else if case let version?? = availability.deprecated 
+                    {
+                        platforms.append(StaticElement[.li]
+                        {
+                            "\(platform.rawValue) deprecated since "
+                            StaticElement.span("\(version.description)")
+                            {
+                                ["version"]
+                            }
+                        })
+                    }
+                    else if let version:Version = availability.introduced 
+                    {
+                        platforms.append(StaticElement[.li]
+                        {
+                            "\(platform.rawValue) "
+                            StaticElement.span("\(version.description)+")
+                            {
+                                ["version"]
+                            }
+                        })
+                    }
+                }
+            }
+            guard !platforms.isEmpty
+            else 
+            {
+                return nil
+            }
+            return StaticElement[.section]
+            {
+                ["platforms"]
+            }
+            content: 
+            {
+                StaticElement[.ul]
+                {
+                    platforms
+                }
+            }
         }
-    }
-    static 
-    func render<ID>(lexeme:Language.Lexeme, anchors:ID.Type = ID.self) -> HTML.Element<ID>
-    {
-        switch lexeme
+        
+        // could be static 
+        func introduction(for package:Package) -> Element
         {
-        case .code(let text, class: let classification):
-            let css:String
-            switch classification 
+            Element[.section]
             {
-            case .punctuation: 
-                return HTML.Element<ID>.text(escaping: text)
-            case .type:
-                css = "syntax-type"
-            case .identifier:
-                css = "syntax-identifier"
-            case .generic:
-                css = "syntax-generic"
-            case .argument:
-                css = "syntax-parameter-label"
-            case .parameter:
-                css = "syntax-parameter-name"
-            case .directive, .attribute, .keyword(.other):
-                css = "syntax-keyword"
-            case .keyword(.`init`):
-                css = "syntax-keyword syntax-swift-init"
-            case .keyword(.deinit):
-                css = "syntax-keyword syntax-swift-deinit"
-            case .keyword(.subscript):
-                css = "syntax-keyword syntax-swift-subscript"
-            case .pseudo:
-                css = "syntax-pseudo-identifier"
-            case .number, .string:
-                css = "syntax-literal"
-            case .interpolation:
-                css = "syntax-interpolation-anchor"
-            case .macro:
-                css = "syntax-macro"
+                ["introduction"]
             }
-            return HTML.Element<ID>.span(text)
+            content:
             {
-                [css]
+                self.eyebrows(for: package)
+                Element[.h1]
+                {
+                    package.name
+                }
+                Element.anchor(id: .summary)
             }
-        case .comment(let text, documentation: _):
-            return HTML.Element<ID>.span(text)
+        }
+        // could be static 
+        func introduction(for module:Module) -> Element
+        {
+            Element[.section]
             {
-                ["syntax-comment"]
-            } 
-        case .invalid(let text):
-            return HTML.Element<ID>.span(text)
+                ["introduction"]
+            }
+            content:
             {
-                ["syntax-invalid"]
-            } 
-        case .newlines(let count):
-            return HTML.Element<ID>.span(String.init(repeating: "\n", count: count))
+                self.eyebrows(for: module)
+                Element[.h1]
+                {
+                    module.title
+                }
+                Element.anchor(id: .summary)
+            }
+        }
+        mutating 
+        func introduction(for symbol:Symbol) -> Element
+        {
+            var relationships:[Element] 
+            if case _? = symbol.relationships.requirementOf
             {
-                ["syntax-newline"]
-            } 
-        case .spaces(let count):
-            return HTML.Element<ID>.text(escaped: String.init(repeating: " ", count: count)) 
+                relationships = 
+                [
+                    Element[.li] 
+                    {
+                        Element[.p]
+                        {
+                            ["required"]
+                        }
+                        content:
+                        {
+                            "Required."
+                        }
+                    }
+                ]
+            }
+            else 
+            {
+                relationships = []
+            }
+            // TODO: need to rework this, because real types can still inherit 
+            // docs, if they satisfy protocol requirements and have no documentation 
+            // of their own...
+            
+            /* if  let origin:Int = symbol.relationships.sourceOrigin 
+                let conformance:Int = self.biome.symbols[origin].lineage.parent 
+            {
+                relationships.append(Element[.li] 
+                {
+                    Element[.p]
+                    {
+                        Element.link("Inherited", to: self.biome.symbols[origin].path.description, internal: true)
+                        " from "
+                        Element[.code]
+                        {
+                            Element[.a]
+                            {
+                                (self.biome.symbols[conformance].path.description, as: HTML.Href.self)
+                            }
+                            content: 
+                            {
+                                Biome.render(code: self.biome.symbols[conformance].qualified)
+                            }
+                        }
+                    }
+                })
+            } */
+            if !symbol.extensionConstraints.isEmpty
+            {
+                relationships.append(Element[.li] 
+                {
+                    Element[.p]
+                    {
+                        "Available when "
+                        self.render(constraints: symbol.extensionConstraints)
+                    }
+                })
+            }
+            let availability:[Element] = Biome.render(availability: symbol.availability)
+            return Element[.section]
+            {
+                ["introduction"]
+            }
+            content:
+            {
+                self.eyebrows(for: symbol)
+                Element[.h1]
+                {
+                    symbol.lineage.last
+                }
+                Element.anchor(id: .summary)
+                if !relationships.isEmpty 
+                {
+                    Element[.ul]
+                    {
+                        ["relationships-list"]
+                    }
+                    content: 
+                    {
+                        relationships
+                    }
+                }
+                if !availability.isEmpty 
+                {
+                    Element[.ul]
+                    {
+                        ["availability-list"]
+                    }
+                    content: 
+                    {
+                        availability
+                    }
+                }
+            }
+        }
+        
+        private 
+        func eyebrows(for package:Package) -> Element
+        {
+            Element[.div]
+            {
+                ["eyebrows"]
+            }
+            content:
+            {
+                if case .swift = package.id 
+                {
+                    Element.span("Standard Library")
+                    {
+                        ["kind"]
+                    }
+                }
+                else 
+                {
+                    Element.span("Package")
+                    {
+                        ["kind"]
+                    }
+                }
+            }
+        }
+        private 
+        func eyebrows(for module:Module) -> Element
+        {
+            Element[.div]
+            {
+                ["eyebrows"]
+            }
+            content:
+            {
+                Element.span("Module")
+                {
+                    ["kind"]
+                }
+                Element[.span]
+                {
+                    ["package"]
+                }
+                content:
+                {
+                    Element.link(self.biome.packages[module.package].name, 
+                        to: self.biome.packages[module.package].path.description, 
+                        internal: true)
+                }
+            }
+        }
+        private 
+        func eyebrows(for symbol:Symbol) -> Element
+        {
+            Element[.div]
+            {
+                ["eyebrows"]
+            }
+            content:
+            {
+                Element.span(symbol.kind.title)
+                {
+                    ["kind"]
+                }
+                Element[.span]
+                {
+                    ["module"]
+                }
+                content: 
+                {
+                    if let extended:Int = symbol.bystander
+                    {
+                        Element[.span]
+                        {
+                            ["extended"]
+                        }
+                        content:
+                        {
+                            Element.link(self.biome.modules[extended].title, to: self.biome.modules[extended].path.description, internal: true)
+                        }
+                    }
+                    Element.link(self.biome.modules[symbol.module].title, to: self.biome.modules[symbol.module].path.description, internal: true)
+                }
+            }
+        }
+        
+        static 
+        func render(section content:[StaticElement], heading:String, class:String) -> StaticElement?
+        {
+            guard !content.isEmpty 
+            else 
+            {
+                return nil 
+            }
+            return StaticElement[.section]
+            {
+                [`class`]
+            }
+            content: 
+            {
+                StaticElement[.h2]
+                {
+                    heading
+                }
+                content
+            }
+        }
+        static 
+        func render(parameters:[(name:String, comment:[StaticElement])]) -> StaticElement?
+        {
+            guard !parameters.isEmpty 
+            else 
+            {
+                return nil 
+            }
+            return StaticElement[.section]
+            {
+                ["parameters"]
+            }
+            content: 
+            {
+                StaticElement[.h2]
+                {
+                    "Parameters"
+                }
+                StaticElement[.dl]
+                {
+                    for (name, comment):(String, [StaticElement]) in parameters 
+                    {
+                        StaticElement[.dt]
+                        {
+                            name
+                        }
+                        StaticElement[.dd]
+                        {
+                            comment
+                        }
+                    }
+                }
+            }
+        }
+        
+        mutating 
+        func content(markdown string:String) -> Comment
+        {
+            guard !string.isEmpty 
+            else 
+            {
+                return (nil, [], [], [])
+            }
+            return self.content(markdown: Markdown.Document.init(parsing: string))
+        }
+        // expected parameters is unreliable, not available for subscripts
+        private mutating 
+        func content(markdown document:Markdown.Document) -> Comment
+        {
+            let content:[StaticElement] = document.blockChildren.map { self.render(markup: $0) }
+            let head:StaticElement?
+            let body:ArraySlice<StaticElement>
+            if  let first:StaticElement = content.first, 
+                case .container(.p, id: _, attributes: _, content: _) = first
+            {
+                head = first
+                body = content.dropFirst()
+            }
+            else 
+            {
+                head = nil 
+                body = content[...]
+            }
+            
+            var parameters:[(name:String, comment:[StaticElement])] = []
+            var returns:[StaticElement]      = []
+            var discussion:[StaticElement]   = []
+            for block:StaticElement in body 
+            {
+                // filter out top-level ‘ul’ blocks, since they may be special 
+                guard case .container(.ul, id: let id, attributes: let attributes, content: let items) = block 
+                else 
+                {
+                    discussion.append(block)
+                    continue 
+                }
+                
+                var ignored:[StaticElement] = []
+                for item:StaticElement in items
+                {
+                    guard   case .container(.li, id: _, attributes: _, content: let content) = item, 
+                            let (keywords, content):([String], [StaticElement]) = Biome.keywords(prefixing: content)
+                    else 
+                    {
+                        ignored.append(item)
+                        continue 
+                    }
+                    // `keywords` always contains at least one keyword
+                    let keyword:String = keywords[0]
+                    do 
+                    {
+                        switch keyword
+                        {
+                        case "parameters": 
+                            guard keywords.count == 1 
+                            else 
+                            {
+                                throw ArticleAsideError.undefined(keywords: keywords)
+                            }
+                            parameters.append(contentsOf: try Self.parameters(in: content))
+                            
+                        case "parameter": 
+                            guard keywords.count == 2 
+                            else 
+                            {
+                                throw ArticleAsideError.undefined(keywords: keywords)
+                            }
+                            let name:String = keywords[1]
+                            if content.isEmpty
+                            {
+                                throw ArticleParametersError.empty(parameter: name)
+                            } 
+                            parameters.append((name, content))
+                        
+                        case "returns":
+                            guard keywords.count == 1 
+                            else 
+                            {
+                                throw ArticleAsideError.undefined(keywords: keywords)
+                            }
+                            if content.isEmpty
+                            {
+                                throw ArticleReturnsError.empty
+                            }
+                            if returns.isEmpty 
+                            {
+                                returns = content
+                            }
+                            else 
+                            {
+                                throw ArticleReturnsError.duplicate(section: returns)
+                            }
+                        
+                        case "tip", "note", "info", "warning", "throws", "important", "precondition", "complexity":
+                            guard keywords.count == 1 
+                            else 
+                            {
+                                throw ArticleAsideError.undefined(keywords: keywords)
+                            }
+                            discussion.append(StaticElement[.aside]
+                            {
+                                [keyword]
+                            }
+                            content:
+                            {
+                                StaticElement[.h2]
+                                {
+                                    keyword
+                                }
+                                
+                                content
+                            })
+                            
+                        default:
+                            throw ArticleAsideError.undefined(keywords: keywords)
+                            /* if case _? = comment.complexity 
+                            {
+                                print("warning: detected multiple 'complexity' sections, only the last will be used")
+                            }
+                            guard   let first:Markdown.BlockMarkup = content.first, 
+                                    let first:Markdown.Paragraph = first as? Markdown.Paragraph
+                            else 
+                            {
+                                print("warning: could not detect complexity function from section \(content)")
+                                ignored.append(item)
+                                continue 
+                            }
+                            let text:String = first.inlineChildren.map(\.plainText).joined()
+                            switch text.firstIndex(of: ")").map(text.prefix(through:))
+                            {
+                            case "O(1)"?: 
+                                comment.complexity = .constant
+                            case "O(n)"?, "O(m)"?: 
+                                comment.complexity = .linear
+                            case "O(n log n)"?: 
+                                comment.complexity = .logLinear
+                            default:
+                                print("warning: could not detect complexity function from string '\(text)'")
+                                ignored.append(item)
+                                continue 
+                            } */
+                        }
+                    }
+                    catch let error 
+                    {
+                        self.errors.append(error)
+                        ignored.append(item)
+                    }
+                }
+                guard ignored.isEmpty 
+                else 
+                {
+                    discussion.append(.container(.ul, id: id, attributes: attributes, content: ignored))
+                    continue 
+                }
+            }
+            
+            return (head, parameters, returns, discussion)
+        }
+        private static
+        func parameters(in content:[StaticElement]) throws -> [(name:String, comment:[StaticElement])]
+        {
+            guard let first:StaticElement = content.first 
+            else 
+            {
+                throw ArticleParametersError.empty(parameter: nil)
+            }
+            // look for a nested list 
+            guard case .container(.ul, id: _, attributes: _, content: let items) = first 
+            else 
+            {
+                throw ArticleParametersError.invalidList(first)
+            }
+            if case _? = content.dropFirst().first
+            {
+                throw ArticleParametersError.multipleLists(content)
+            }
+            
+            var parameters:[(name:String, comment:[StaticElement])] = []
+            for item:StaticElement in items
+            {
+                guard   case .container(.li, id: _, attributes: _, content: let content) = item, 
+                        let (keywords, content):([String], [StaticElement]) = Biome.keywords(prefixing: content), 
+                        let name:String = keywords.first, keywords.count == 1
+                else 
+                {
+                    throw ArticleParametersError.invalidListItem(item)
+                }
+                parameters.append((name, content))
+            }
+            return parameters
+        }
+        private mutating  
+        func render(markup:Markdown.Markup) -> StaticElement
+        {
+            let container:HTML.Container 
+            switch markup 
+            {
+            case is Markdown.LineBreak:             return StaticElement[.br]
+            case is Markdown.SoftBreak:             return StaticElement.text(escaped: " ")
+            case is Markdown.ThematicBreak:         return StaticElement[.hr]
+            case let node as Markdown.CustomInline: return StaticElement.text(escaping: node.text)
+            case let node as Markdown.Text:         return StaticElement.text(escaping: node.string)
+            case let node as Markdown.HTMLBlock:    return StaticElement.text(escaped: node.rawHTML)
+            case let node as Markdown.InlineHTML:   return StaticElement.text(escaped: node.rawHTML)
+            
+            case is Markdown.Document:          container = .main
+            case is Markdown.BlockQuote:        container = .blockquote
+            case is Markdown.Emphasis:          container = .em
+            case let node as Markdown.Heading: 
+                switch node.level 
+                {
+                case 1:                         container = .h2
+                case 2:                         container = .h3
+                case 3:                         container = .h4
+                case 4:                         container = .h5
+                default:                        container = .h6
+                }
+            case is Markdown.ListItem:          container = .li
+            case is Markdown.OrderedList:       container = .ol
+            case is Markdown.Paragraph:         container = .p
+            case is Markdown.Strikethrough:     container = .s
+            case is Markdown.Strong:            container = .strong
+            case is Markdown.Table:             container = .table
+            case is Markdown.Table.Row:         container = .tr
+            case is Markdown.Table.Head:        container = .thead
+            case is Markdown.Table.Body:        container = .tbody
+            case is Markdown.Table.Cell:        container = .td
+            case is Markdown.UnorderedList:     container = .ul
+            
+            case let node as Markdown.CodeBlock: 
+                return StaticElement[.pre]
+                {
+                    ["notebook"]
+                }
+                content:
+                {
+                    StaticElement[.code]
+                    {
+                        Biome.render(lexeme: .newlines(0))
+                        Biome.render(code: SwiftLanguage.highlight(code: node.code, links: Symbol.ID.self))
+                    }
+                }
+            case let node as Markdown.InlineCode: 
+                return StaticElement[.code]
+                {
+                    node.code
+                }
+
+            case is Markdown.BlockDirective: 
+                return StaticElement[.div]
+                {
+                    "(unsupported block directive)"
+                }
+            
+            case let node as Markdown.Image: 
+                // TODO: do something with these
+                let _:String?       = node.title 
+                let _:[StaticElement]    = node.children.map 
+                {
+                    self.render(markup: $0)
+                }
+                guard let source:String = node.source
+                else 
+                {
+                    self.errors.append(ArticleContentError.missingImageSource)
+                    return StaticElement[.img]
+                }
+                return StaticElement[.img]
+                {
+                    (source, as: HTML.Src.self)
+                }
+            
+            case let node as Markdown.Link: 
+                let display:[StaticElement] = node.children.map 
+                {
+                    self.render(markup: $0)
+                }
+                guard let target:String = node.destination
+                else 
+                {
+                    self.errors.append(ArticleContentError.missingLinkDestination)
+                    return StaticElement[.span]
+                    {
+                        display
+                    }
+                }
+                return StaticElement[.a]
+                {
+                    (target, as: HTML.Href.self)
+                    HTML.Target._blank
+                    HTML.Rel.nofollow
+                }
+                content:
+                {
+                    display
+                }
+                
+            case let node as Markdown.SymbolLink: 
+                guard let path:String = node.destination
+                else 
+                {
+                    self.errors.append(ArticleSymbolLinkError.empty)
+                    return StaticElement[.code]
+                    {
+                        "<empty symbol path>"
+                    }
+                }
+                return StaticElement[.code]
+                {
+                    path
+                }
+                
+            case let node: 
+                self.errors.append(ArticleContentError.unsupported(markup: node))
+                return StaticElement[.div]
+                {
+                    "(unsupported markdown node '\(type(of: node))')"
+                }
+            }
+            return StaticElement[container]
+            {
+                markup.children.map
+                {
+                    self.render(markup: $0)
+                }
+            }
         }
     }
 }

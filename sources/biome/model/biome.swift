@@ -271,8 +271,9 @@ struct Biome:Sendable
                     }
                 }
                 let path:Path = .init(prefix: prefix, package: package.id, namespace: target.module)
-                modules.append(.init(id: target.module, package: packages.endIndex, 
-                    path: path, core: core, extensions: extensions))
+                let module:Module = .init(id: target.module, package: packages.endIndex, 
+                    path: path, core: core, extensions: extensions)
+                modules.append(module)
                 
                 if target.bystanders.isEmpty
                 {
@@ -282,6 +283,22 @@ struct Biome:Sendable
                 {
                     print("loaded module '\(target.module.identifier)' (from package '\(package.id.name)', bystanders: \(target.bystanders.map{ "'\($0.identifier)'" }.joined(separator: ", ")))")
                 }
+                
+                var _synthetic:Int 
+                {
+                    module.allSymbols.reduce(0)
+                    {
+                        if case .synthesized = vertices[$1].id 
+                        {
+                            return $0 + 1
+                        }
+                        else 
+                        {
+                            return $0
+                        }
+                    }
+                }
+                print("note: \(_synthetic) of \(module.allSymbols.count) vertices are synthetic")
             }
             let path:Path       = .init(prefix: prefix, package: package.id), 
                 search:Path     = .init(prefix: prefix, package: package.id, suffix: "search.json")
@@ -300,7 +317,10 @@ struct Biome:Sendable
         
         var _memory:Int 
         {
-            MemoryLayout<Module>.stride * biome.modules.count + MemoryLayout<Symbol>.stride * biome.symbols.count
+            MemoryLayout<Module>.stride * biome.modules.count + biome.symbols.reduce(0)
+            {
+                $0 + $1._size
+            }
         }
         print("initialized biome (\(_memory >> 10) KB)")
         return (biome, vertices.map(\.comment))
