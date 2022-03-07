@@ -60,14 +60,6 @@ extension Biome
                     return module
                 }
             }
-            var declaration:[SwiftLanguage.Lexeme<Symbol.ID>]
-            {
-                [
-                    .code("import", class: .keyword(.other)),
-                    .spaces(1),
-                    .code(self.identifier, class: .identifier)
-                ]
-            }
             func graphIdentifier(bystander:Self?) -> String
             {
                 bystander.map { "\(self.identifier)@\($0.identifier)" } ?? self.identifier

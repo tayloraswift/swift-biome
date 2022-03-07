@@ -255,11 +255,11 @@ extension Biome
             throw DecodingError.invalid(value: value, key: "location")
         }
         // decode function signature
-        let function:(parameters:[Symbol.Parameter], returns:[SwiftLanguage.Lexeme<Symbol.ID>])?
+        // let function:(parameters:[Symbol.Parameter], returns:[SwiftLanguage.Lexeme<Symbol.ID>])?
         switch items.removeValue(forKey: "functionSignature")
         {
         case nil, .null?: 
-            function = nil
+            break // function = nil
         case .object(var items)?: 
             defer 
             {
@@ -268,26 +268,26 @@ extension Biome
                     print("warning: unused json keys \(items) in 'functionSignature'")
                 }
             }
-            let parameters:[Symbol.Parameter], 
-                returns:[SwiftLanguage.Lexeme<Symbol.ID>]
+            // let parameters:[Symbol.Parameter], 
+            //     returns:[SwiftLanguage.Lexeme<Symbol.ID>]
             switch items.removeValue(forKey: "parameters")
             {
             case nil, .null?:
-                parameters = []
-            case .array(let elements)?: 
-                parameters = try elements.map(Symbol.Parameter.init(from:))
+                break // parameters = []
+            case .array(_)?: 
+                break // parameters = try elements.map(Symbol.Parameter.init(from:))
             case let value?: 
                 throw DecodingError.invalid(value: value, key: "functionSignature.parameters")
             }
             switch items.removeValue(forKey: "returns")
             {
-            case .array(let elements)?: 
+            case .array(_)?: 
                 // TODO: do something with these
-                returns = [] // try elements.map(Self.decode(lexeme:))
+                break // try elements.map(Self.decode(lexeme:))
             case let value: 
                 throw DecodingError.invalid(value: value, key: "functionSignature.returns")
             }
-            function = (parameters, returns)
+            // function = (parameters, returns)
         case let value?: 
             throw DecodingError.invalid(value: value, key: "functionSignature")
         }
@@ -583,7 +583,7 @@ extension Biome
     static 
     func decode(lexeme json:JSON) throws -> (text:String, highlight:SwiftHighlight, link:Symbol.ID?)
     {
-        typealias DecodingError = Biome.DecodingError<SwiftLanguage.Lexeme<Symbol.ID>>
+        typealias DecodingError = Biome.DecodingError<(text:String, highlight:SwiftHighlight, link:Symbol.ID?)>
         
         guard case .object(var items) = json 
         else 
@@ -763,7 +763,7 @@ extension Biome.Symbol.Generic
         }
     }
 }
-extension Biome.Symbol.Parameter 
+/* extension Biome.Symbol.Parameter 
 {
     init(from json:JSON) throws 
     {
@@ -805,7 +805,7 @@ extension Biome.Symbol.Parameter
             throw DecodingError.invalid(value: value, key: "declarationFragments")
         }
     } 
-}
+} */
 
 extension Biome.Edge 
 {

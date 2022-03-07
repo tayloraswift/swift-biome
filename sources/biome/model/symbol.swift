@@ -375,13 +375,13 @@ extension Biome.Symbol
         var renamed:String?
         var message:String?
     }
-    public 
+    /* public 
     struct Parameter:Sendable
     {
         var label:String 
         var name:String?
-        var fragment:[SwiftLanguage.Lexeme<ID>]
-    }
+        // var fragment:[SwiftLanguage.Lexeme<ID>]
+    } */
     public 
     struct Generic:Sendable
     {

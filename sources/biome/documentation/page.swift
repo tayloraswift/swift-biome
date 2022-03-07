@@ -70,7 +70,7 @@ extension Biome
                                 }
                                 content: 
                                 {
-                                    Self.render(lexeme: .code(self.modules[module].id.identifier, class: .identifier))
+                                    Element.highlight(self.modules[module].id.identifier, .identifier)
                                 }
                             }
                         }
@@ -353,9 +353,9 @@ extension Biome
                 }
                 content: 
                 {
-                    Self.render("import", highlight: .keywordText)
-                    Self.render(" ", highlight: .text)
-                    Self.render(module.id.identifier, highlight: .identifier)
+                    Element.highlight("import", .keywordText)
+                    Element.highlight(" ", .text)
+                    Element.highlight(module.id.identifier, .identifier)
                 }
             }
         }
@@ -381,7 +381,7 @@ extension Biome
                 }
                 content: 
                 {
-                    symbol.declaration.map(self.render(_:highlight:link:))
+                    symbol.declaration.map(self.highlight(_:_:link:))
                 }
             }
         }
@@ -399,10 +399,10 @@ extension Biome
         {
             for component:String in symbol.scope 
             {
-                Self.render(component, highlight: .identifier)
-                Self.render(".", highlight: .text)
+                Element.highlight(component, .identifier)
+                Element.highlight(".", .text)
             }
-            Self.render(symbol.title, highlight: .identifier)
+            Element.highlight(symbol.title, .identifier)
         }
     }
     private 
@@ -587,7 +587,7 @@ extension Biome
                 }
                 content: 
                 {
-                    symbol.signature.map(Self.render(_:highlight:))
+                    symbol.signature.content.map(Element.highlight(_:_:))
                 }
             }
             
@@ -675,7 +675,7 @@ extension Biome
         }
     }
     
-    func render(_ text:String, highlight:SwiftHighlight, link:Int?) -> HTML.Element<Anchor>
+    func highlight(_ text:String, _ highlight:SwiftHighlight, link:Int?) -> HTML.Element<Anchor>
     {
         if let index:Int = link 
         {
@@ -686,11 +686,15 @@ extension Biome
         }
         else 
         {
-            return Self.render(text, highlight: highlight)
+            return .highlight(text, highlight)
         }
     }
+}
+
+extension DocumentElement where Domain == HTML 
+{
     static 
-    func render(_ text:String, highlight:SwiftHighlight) -> HTML.Element<Anchor>
+    func highlight(_ text:String, _ highlight:SwiftHighlight) -> Self
     {
         let css:[String]
         switch highlight
@@ -727,75 +731,5 @@ extension Biome
             css = ["syntax-invalid"]
         }
         return .span(text) { css }
-    }
-    
-    static 
-    func render<ID>(code:[SwiftLanguage.Lexeme<Symbol.ID>], anchors:ID.Type = ID.self) -> [HTML.Element<ID>] 
-    {
-        code.map
-        {
-            Self.render(lexeme: $0, anchors: ID.self)
-        }
-    }
-    static 
-    func render<ID>(lexeme:SwiftLanguage.Lexeme<Symbol.ID>, anchors:ID.Type = ID.self) -> HTML.Element<ID>
-    {
-        switch lexeme
-        {
-        case .code(let text, class: let classification):
-            let css:String
-            switch classification 
-            {
-            case .punctuation: 
-                return HTML.Element<ID>.text(escaping: text)
-            case .type:
-                css = "syntax-type"
-            case .identifier:
-                css = "syntax-identifier"
-            case .generic:
-                css = "syntax-generic"
-            case .argument:
-                css = "syntax-parameter-label"
-            case .parameter:
-                css = "syntax-parameter-name"
-            case .directive, .attribute, .keyword(.other):
-                css = "syntax-keyword"
-            case .keyword(.`init`):
-                css = "syntax-keyword syntax-swift-init"
-            case .keyword(.deinit):
-                css = "syntax-keyword syntax-swift-deinit"
-            case .keyword(.subscript):
-                css = "syntax-keyword syntax-swift-subscript"
-            case .pseudo:
-                css = "syntax-pseudo-identifier"
-            case .number, .string:
-                css = "syntax-literal"
-            case .interpolation:
-                css = "syntax-interpolation-anchor"
-            case .macro:
-                css = "syntax-macro"
-            }
-            return HTML.Element<ID>.span(text)
-            {
-                [css]
-            }
-        case .comment(let text, documentation: _):
-            return HTML.Element<ID>.span(text)
-            {
-                ["syntax-comment"]
-            } 
-        case .invalid(let text):
-            return HTML.Element<ID>.span(text)
-            {
-                ["syntax-invalid"]
-            } 
-        case .newlines(let count):
-            return HTML.Element<ID>.span(String.init(repeating: "\n", count: count))
-            {
-                ["syntax-newline"]
-            } 
-        case .spaces(let count):
-            return HTML.Element<ID>.text(escaped: String.init(repeating: " ", count: count)) 
-        }
     }
 }

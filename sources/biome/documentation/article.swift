@@ -275,36 +275,8 @@ extension Biome
         }
         
         mutating 
-        func render<ID>(code:[SwiftLanguage.Lexeme<Symbol.ID>], anchors _:ID.Type = ID.self) -> [HTML.Element<ID>] 
-        {
-            code.map 
-            {
-                self.render(lexeme: $0, anchors: ID.self)
-            }
-        }
-        mutating 
-        func render<ID>(lexeme:SwiftLanguage.Lexeme<Symbol.ID>, anchors _:ID.Type = ID.self) -> HTML.Element<ID>
-        {
-            guard case .code(let text, class: .type(let id?)) = lexeme
-            else 
-            {
-                return Biome.render(lexeme: lexeme)
-            }
-            guard let path:Path = self.biome.symbols[id]?.path
-            else 
-            {
-                self.errors.append(SymbolIdentifierError.undefined(symbol: id))
-                return Biome.render(lexeme: lexeme)
-            }
-            return HTML.Element<ID>.link(text, to: path.description, internal: true)
-            {
-                ["syntax-type"] 
-            }
-        }
-        mutating 
         func render(constraint:SwiftLanguage.Constraint<Symbol.ID>) -> [Element] 
         {
-            let subject:SwiftLanguage.Lexeme<Symbol.ID> = .code(constraint.subject, class: .type(nil))
             let prose:String
             let object:Symbol.ID?
             switch constraint.verb
@@ -323,12 +295,12 @@ extension Biome
                 [
                     Element[.code]
                     {
-                        self.render(lexeme: subject)
+                        Element.highlight(constraint.subject, .type)
                     },
                     Element.text(escaped: prose), 
                     Element[.code]
                     {
-                        self.render(lexeme: .code(constraint.object, class: .type(object)))
+                        self.biome.highlight(constraint.object, .type, link: object.flatMap(self.biome.symbols.index(of:)))
                     },
                 ]
         }
@@ -366,32 +338,6 @@ extension Biome
             }
             return fragments
         }
-        /* mutating 
-        func render(declaration:[SwiftLanguage.Lexeme<Symbol.ID>]) -> StaticElement
-        {
-            StaticElement[.section]
-            {
-                ["declaration"]
-            }
-            content:
-            {
-                StaticElement[.h2]
-                {
-                    "Declaration"
-                }
-                StaticElement[.pre]
-                {
-                    StaticElement[.code] 
-                    {
-                        ["swift"]
-                    }
-                    content: 
-                    {
-                        self.render(code: declaration)
-                    }
-                }
-            }
-        } */
         
         static
         func render(platforms availability:[Symbol.Domain: Symbol.Availability]) -> StaticElement?
@@ -977,8 +923,11 @@ extension Biome
                 {
                     StaticElement[.code]
                     {
-                        Biome.render(lexeme: .newlines(0))
-                        Biome.render(code: SwiftLanguage.highlight(code: node.code, links: Symbol.ID.self))
+                        StaticElement.highlight("", .newlines)
+                        for (text, highlight):(String, SwiftHighlight) in SwiftHighlight.highlight(node.code)
+                        {
+                            StaticElement.highlight(text, highlight)
+                        }
                     }
                 }
             case let node as Markdown.InlineCode: 

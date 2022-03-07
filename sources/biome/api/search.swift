@@ -1,24 +1,6 @@
 import JSON 
 import Resource
 
-extension SwiftLanguage.Lexeme 
-{
-    var search:String? 
-    {
-        switch self 
-        {
-        case    .code(let text, class: .argument),
-                .code(let text, class: .identifier),
-                .code(let text, class: .keyword(.`init`)),
-                .code(let text, class: .keyword(.deinit)),
-                .code(let text, class: .keyword(.subscript)):
-            return text.lowercased() 
-        default: 
-            return nil
-        }
-    }
-}
-
 extension Biome.Symbol 
 {
     var search:JSON
@@ -27,7 +9,7 @@ extension Biome.Symbol
         [
             "title": .string(self.title), 
             "uri":   .string(self.path.description), 
-            "text":   .array(self.signature.compactMap
+            "text":   .array(self.signature.content.compactMap
             {
                 (text:String, highlight:SwiftHighlight) in
                 switch highlight
