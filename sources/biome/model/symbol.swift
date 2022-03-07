@@ -1,3 +1,5 @@
+import Highlight
+
 extension Biome 
 {
     public 

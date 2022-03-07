@@ -1,4 +1,5 @@
 import JSON
+import Highlight
 
 extension Biome.Module.ID 
 {
