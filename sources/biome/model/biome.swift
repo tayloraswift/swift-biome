@@ -370,7 +370,7 @@ struct Biome:Sendable
         {
             relationships[index].sort
             {
-                vertices[$0].title < vertices[$1].title
+                (vertices[$0].path.last ?? "") < (vertices[$1].path.last ?? "")
             }
         }
         // lineages
@@ -456,7 +456,7 @@ struct Biome:Sendable
         let symbols:Storage<Symbol> = .init(indices: indices, elements: 
             try vertices.indices.map 
         {
-            try .init(modules:  modules, 
+            return try .init(modules: modules, indices: indices,
                 path:           paths[$0], 
                 lineage:        lineages[$0], 
                 parent:         parents[$0], 
@@ -481,7 +481,7 @@ struct Biome:Sendable
         {
             for symbol:Int in self.modules[module].symbols.core 
             {
-                guard case nil = symbols[symbol].lineage.parent
+                guard case nil = symbols[symbol].parent
                 else 
                 {
                     continue 

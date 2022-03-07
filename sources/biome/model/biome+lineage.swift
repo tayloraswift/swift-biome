@@ -34,7 +34,7 @@ extension Biome
             }
         }
         
-        var lexemes:[SwiftLanguage.Lexeme<Symbol.ID>] 
+        /* var lexemes:[SwiftLanguage.Lexeme<Symbol.ID>] 
         {
             var lexemes:[SwiftLanguage.Lexeme<Symbol.ID>] = []
                 lexemes.reserveCapacity(self.path.count * 2 - 1)
@@ -45,7 +45,7 @@ extension Biome
             }
             lexemes.append(.code(self.last,     class: .identifier))
             return lexemes
-        }
+        } */
     }
 
 }

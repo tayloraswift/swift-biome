@@ -35,10 +35,10 @@ extension Biome
         {
             self.baked.summary.map(Element.text(escaped:))
         }
-        var declaration:Element
+        /* var declaration:Element
         {
             .text(escaped: self.baked.declaration)
-        }
+        } */
         var discussion:Element?
         {
             self.baked.discussion.map(Element.text(escaped:))
@@ -46,21 +46,21 @@ extension Biome
         
         let errors:[Error]
         let introduction:Element 
-        let card:Element
+        //let card:Element
         private 
         let baked:
         (
             navigator:String,
             summary:String?, 
             platforms:String?, 
-            declaration:String,
+        //    declaration:String,
             discussion:String?
         )
         
         var size:Int 
         {
             var size:Int = self.baked.navigator.utf8.count
-            size        += self.baked.declaration.utf8.count
+            //size        += self.baked.declaration.utf8.count
             size        += self.baked.platforms?.utf8.count   ?? 0
             size        += self.baked.summary?.utf8.count     ?? 0
             size        += self.baked.discussion?.utf8.count  ?? 0
@@ -73,7 +73,7 @@ extension Biome
             [
                 .navigator:     self.navigator,
                 .introduction:  self.introduction,
-                .declaration:   self.declaration,
+            //    .declaration:   self.declaration,
             ]
             if let platforms:Element = self.platforms
             {
@@ -90,12 +90,12 @@ extension Biome
             return substitutions
         }
         
-        init(card:Element, 
+        init(//card:Element, 
             navigator:StaticElement, 
             introduction:Element, 
             summary:StaticElement?, 
             platforms:StaticElement?, 
-            declaration:StaticElement, 
+            // declaration:StaticElement, 
             discussion:[StaticElement], 
             errors:[Error])
         {
@@ -109,14 +109,14 @@ extension Biome
             self.baked.declaration  = ""
             self.baked.discussion   = "" */
             
-            self.card               = card
+            //self.card               = card
             self.baked.navigator    = navigator.rendered
             
             self.introduction       = introduction
             
             self.baked.summary      = summary?.rendered
             self.baked.platforms    = platforms?.rendered
-            self.baked.declaration  = declaration.rendered
+            // self.baked.declaration  = declaration.rendered
             self.baked.discussion   = discussion.isEmpty ? nil : discussion.map(\.rendered).joined()
             
             self.errors             = errors 
@@ -127,10 +127,10 @@ extension Biome
     {
         typealias Element       = HTML.Element<Anchor>
         typealias StaticElement = HTML.Element<Never>
-        let card:Element        = Element[.li] 
-        { 
-            self.packages[index].name 
-        }
+        // let card:Element        = Element[.li] 
+        // { 
+        //     self.packages[index].name 
+        // }
         let navigator:StaticElement = StaticElement[.ol] 
         {
             ["breadcrumbs-container"]
@@ -144,15 +144,15 @@ extension Biome
         }
         var renderer:ArticleRenderer    = .init(biome: self)
         let introduction:Element        = renderer.introduction(for: self.packages[index])
-        let declaration:StaticElement   = renderer.render(declaration: [])
+        // let declaration:StaticElement   = renderer.render(declaration: [])
         
         let comment:Comment             = renderer.content(markdown: comment)
-        return .init(card:  card, 
+        return .init(//card:  card, 
             navigator:      navigator, 
             introduction:   introduction,
             summary:        comment.head, 
             platforms:      nil,
-            declaration:    declaration,
+            // declaration:    declaration,
             discussion:
             [
                 ArticleRenderer.render(parameters: comment.parameters),
@@ -165,10 +165,10 @@ extension Biome
     {
         typealias Element       = HTML.Element<Anchor>
         typealias StaticElement = HTML.Element<Never>
-        let card:Element        = Element[.li] 
-        { 
-            self.modules[index].title 
-        }
+        // let card:Element        = Element[.li] 
+        // { 
+        //     self.modules[index].title 
+        // }
         let navigator:StaticElement = StaticElement[.ol] 
         {
             ["breadcrumbs-container"]
@@ -182,15 +182,15 @@ extension Biome
         }
         var renderer:ArticleRenderer    = .init(biome: self)
         let introduction:Element        = renderer.introduction(for: self.modules[index])
-        let declaration:StaticElement   = renderer.render(declaration: self.modules[index].declaration)
+        // let declaration:StaticElement   = renderer.render(declaration: self.modules[index].declaration)
         
         let comment:Comment             = renderer.content(markdown: comment)
-        return .init(card:  card, 
+        return .init(// card:  card, 
             navigator:      navigator, 
             introduction:   introduction,
             summary:        comment.head,
             platforms:      nil,
-            declaration:    declaration,
+            // declaration:    declaration,
             discussion:     
             [
                 ArticleRenderer.render(parameters: comment.parameters),
@@ -205,15 +205,15 @@ extension Biome
         typealias StaticElement     = HTML.Element<Never>
         let symbol:Symbol           = self.symbols[index]
         
-        var breadcrumbs:[StaticElement]   = [ StaticElement[.li] { symbol.lineage.last } ]
-        var next:Int?               = symbol.lineage.parent
+        var breadcrumbs:[StaticElement]   = [ StaticElement[.li] { symbol.title } ]
+        var next:Int?               = symbol.parent
         while let index:Int         = next
         {
             breadcrumbs.append(StaticElement[.li]
             {
-                StaticElement.link(self.symbols[index].lineage.last, to: self.symbols[index].path.description, internal: true)
+                StaticElement.link(self.symbols[index].title, to: self.symbols[index].path.description, internal: true)
             })
-            next = self.symbols[index].lineage.parent
+            next = self.symbols[index].parent
         }
         breadcrumbs.reverse()
         
@@ -228,7 +228,7 @@ extension Biome
         
         var renderer:ArticleRenderer    = .init(biome: self)
         let introduction:Element        = renderer.introduction(for: symbol)
-        let declaration:StaticElement   = renderer.render(declaration: symbol.declaration)
+        // let declaration:StaticElement   = renderer.render(declaration: symbol.declaration)
         let summary:StaticElement?, 
             discussion:[StaticElement]
         if case _? = symbol.commentOrigin 
@@ -248,113 +248,14 @@ extension Biome
                 ArticleRenderer.render(section: comment.discussion,    heading: "Overview", class: "discussion"),
             ].compactMap { $0 }
         }
-        return .init(card:  self.card(symbol: index), 
+        return .init(// card:  self.card(symbol: index), 
             navigator:      navigator, 
             introduction:   introduction,
             summary:        summary, 
             platforms:      ArticleRenderer.render(platforms: symbol.platforms),
-            declaration:    declaration,
+            // declaration:    declaration,
             discussion:     discussion, 
             errors:         renderer.errors)
-    }
-    
-    private 
-    func card(symbol index:Int) -> HTML.Element<Anchor>
-    {
-        typealias Element               = HTML.Element<Anchor>
-        let symbol:Symbol               = self.symbols[index]
-        var relationships:[Element]     = []
-        if let overridden:Int           = symbol.relationships.overrideOf
-        {
-            guard let interface:Int     = self.symbols[overridden].lineage.parent 
-            else 
-            {
-                fatalError("unimplemented: parent of overridden symbol '\(self.symbols[overridden].title)' does not exist")
-            }
-            let prose:String
-            if case .protocol = self.symbols[interface].kind
-            {
-                prose = "Type inference hint for requirement in "
-            } 
-            else 
-            {
-                prose = "Overrides virtual member in "
-            }
-            relationships.append(Element[.li]
-            {
-                Element[.p]
-                {
-                    prose 
-                    Element[.code]
-                    {
-                        Element[.a]
-                        {
-                            (self.symbols[overridden].path.description, as: HTML.Href.self)
-                        }
-                        content: 
-                        {
-                            Self.render(code: self.symbols[interface].qualified)
-                        }
-                    }
-                }
-            })
-        } 
-        /* if !symbol.extensionConstraints.isEmpty
-        {
-            relationships.append(Element[.li] 
-            {
-                Element[.p]
-                {
-                    "Available when "
-                    self.render(constraints: symbol.extensionConstraints)
-                }
-            })
-        } */
-        
-        let availability:[Element] = Self.render(availability: symbol.availability)
-        return Element[.li]
-        {
-            Element[.code]
-            {
-                ["signature"]
-            }
-            content: 
-            {
-                Element[.a]
-                {
-                    (symbol.path.description, as: HTML.Href.self)
-                }
-                content: 
-                {
-                    Self.render(code: symbol.signature)
-                }
-            }
-            
-            Element.anchor(id: .card(.symbol(symbol.commentOrigin ?? index)))
-            
-            if !relationships.isEmpty 
-            {
-                Element[.ul]
-                {
-                    ["relationships-list"]
-                }
-                content: 
-                {
-                    relationships
-                }
-            }
-            if !availability.isEmpty 
-            {
-                Element[.ul]
-                {
-                    ["availability-list"]
-                }
-                content: 
-                {
-                    availability
-                }
-            }
-        }
     }
 }
 extension Biome 
@@ -465,7 +366,7 @@ extension Biome
             }
             return fragments
         }
-        mutating 
+        /* mutating 
         func render(declaration:[SwiftLanguage.Lexeme<Symbol.ID>]) -> StaticElement
         {
             StaticElement[.section]
@@ -490,7 +391,7 @@ extension Biome
                     }
                 }
             }
-        }
+        } */
         
         static
         func render(platforms availability:[Symbol.Domain: Symbol.Availability]) -> StaticElement?
@@ -663,7 +564,7 @@ extension Biome
                 self.eyebrows(for: symbol)
                 Element[.h1]
                 {
-                    symbol.lineage.last
+                    symbol.title
                 }
                 Element.anchor(id: .summary)
                 if !relationships.isEmpty 

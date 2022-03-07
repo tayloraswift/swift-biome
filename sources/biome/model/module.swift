@@ -88,10 +88,6 @@ extension Biome
             members:[(heading:Biome.Topic, indices:[Int])],
             removed:[(heading:Biome.Topic, indices:[Int])]
         )
-        var declaration:[SwiftLanguage.Lexeme<Symbol.ID>] 
-        {
-            [.code("import", class: .keyword(.other)), .spaces(1), .code(self.id.identifier, class: .identifier)]
-        }
         var title:String 
         {
             self.id.title

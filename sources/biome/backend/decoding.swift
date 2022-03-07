@@ -24,10 +24,10 @@ extension Biome
     (
         id:Symbol.ID,
         kind:Symbol.Kind, 
-        title:String, 
+//        title:String, 
         path:[String], 
-        signature:[SwiftLanguage.Lexeme<Symbol.ID>], 
-        declaration:[SwiftLanguage.Lexeme<Symbol.ID>], 
+        signature:Notebook<SwiftHighlight, Never>, 
+        declaration:Notebook<SwiftHighlight, Symbol.ID>, 
         extends:(module:Module.ID, where:[SwiftLanguage.Constraint<Symbol.ID>])?,
         generic:(parameters:[Symbol.Generic], constraints:[SwiftLanguage.Constraint<Symbol.ID>])?,
         availability:[(key:Symbol.Domain, value:Symbol.Availability)],
@@ -159,8 +159,7 @@ extension Biome
             throw DecodingError.invalid(value: value, key: "accessLevel")
         }
         // decode display title and signature
-        let title:String, 
-            signature:[SwiftLanguage.Lexeme<Symbol.ID>]
+        let signature:Notebook<SwiftHighlight, Never> 
         switch items.removeValue(forKey: "names")
         {
         case .object(var items)?: 
@@ -176,15 +175,20 @@ extension Biome
             // decode display title and signature
             switch items.removeValue(forKey: "title")
             {
-            case .string(let text)?: 
-                title = text 
+            case .string(_)?: 
+                // discard title
+                break 
             case let value: 
                 throw DecodingError.invalid(value: value, key: "names.title")
             }
             switch items.removeValue(forKey: "subHeading")
             {
             case .array(let elements)?: 
-                signature = try elements.map(Self.decode(lexeme:))
+                signature = Notebook<SwiftHighlight, Symbol.ID>.init(try elements.map(Self.decode(lexeme:)))
+                    .compactMapLinks 
+                {
+                    _ in Never?.none
+                }
             case let value: 
                 throw DecodingError.invalid(value: value, key: "names.subHeading")
             }
@@ -192,11 +196,11 @@ extension Biome
             throw DecodingError.invalid(value: value, key: "names")
         }
         // decode declaration 
-        let declaration:[SwiftLanguage.Lexeme<Symbol.ID>]
+        let declaration:Notebook<SwiftHighlight, Symbol.ID>
         switch items.removeValue(forKey: "declarationFragments")
         {
         case .array(let elements)?: 
-            declaration = try elements.map(Self.decode(lexeme:))
+            declaration = .init(try elements.map(Self.decode(lexeme:)))
         case let value: 
             throw DecodingError.invalid(value: value, key: "declarationFragments")
         }
@@ -278,7 +282,8 @@ extension Biome
             switch items.removeValue(forKey: "returns")
             {
             case .array(let elements)?: 
-                returns = try elements.map(Self.decode(lexeme:))
+                // TODO: do something with these
+                returns = [] // try elements.map(Self.decode(lexeme:))
             case let value: 
                 throw DecodingError.invalid(value: value, key: "functionSignature.returns")
             }
@@ -502,7 +507,6 @@ extension Biome
             (
                 id:             id,
                 kind:           kind, 
-                title:          title, 
                 path:           path,
                 signature:      signature, 
                 declaration:    declaration, 
@@ -577,7 +581,7 @@ extension Biome
         return .init(subject: subject, verb: verb, object: object)
     }
     static 
-    func decode(lexeme json:JSON) throws -> SwiftLanguage.Lexeme<Symbol.ID> 
+    func decode(lexeme json:JSON) throws -> (text:String, highlight:SwiftHighlight, link:Symbol.ID?)
     {
         typealias DecodingError = Biome.DecodingError<SwiftLanguage.Lexeme<Symbol.ID>>
         
@@ -594,55 +598,46 @@ extension Biome
         case let value:
             throw DecodingError.invalid(value: value, key: "spelling")
         }
-        let id:Biome.Symbol.ID?
+        let id:Symbol.ID?
         switch items.removeValue(forKey: "preciseIdentifier")
         {
         case .null?, nil:
             id = nil 
         case .string(let text)?:
-            id = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
+            id = try Grammar.parse(text.utf8, as: Symbol.ID.Rule<String.Index>.USR.self)
         case let value?:
             throw DecodingError.invalid(value: value, key: "spelling")
         }
         // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/DeclarationFragmentPrinter.cpp
-        let lexeme:SwiftLanguage.Lexeme<Symbol.ID> 
+        let highlight:SwiftHighlight
         switch items.removeValue(forKey: "kind")
         {
         case .string("keyword")?:
-            let keyword:SwiftLanguage.Keyword 
             switch string 
             {
-            case "init":        keyword = .`init`
-            case "deinit":      keyword = .deinit
-            case "subscript":   keyword = .subscript
-            default:            keyword = .other 
+            case "init", "deinit", "subscript":
+                highlight = .keywordIdentifier
+            default:
+                highlight = .keywordText
             }
-            lexeme = .code(string, class: .keyword(keyword))
         case .string("attribute")?:
-            lexeme = .code(string, class: .attribute)
+            highlight = .attribute
         case .string("number")?:
-            lexeme = .code(string, class: .number) 
+            highlight = .number
         case .string("string")?:
-            lexeme = .code(string, class: .string) 
+            highlight = .string
         case .string("identifier")?:
-            lexeme = .code(string, class: .identifier) 
+            highlight = .identifier
         case .string("typeIdentifier")?:
-            lexeme = .code(string, class: .type(id)) 
+            highlight = .type
         case .string("genericParameter")?:
-            lexeme = .code(string, class: .generic) 
+            highlight = .generic
         case .string("internalParam")?:
-            lexeme = .code(string, class: .parameter) 
+            highlight = .parameter
         case .string("externalParam")?:
-            lexeme = .code(string, class: .argument) 
+            highlight = .argument
         case .string("text")?:
-            if string.allSatisfy(\.isWhitespace)
-            {
-                lexeme = .spaces(1)
-            }
-            else 
-            {
-                lexeme = .code(string, class: .punctuation) 
-            }
+            highlight = .text
         case let value?:
             throw DecodingError.invalid(value: value, key: "kind")
         case nil:
@@ -653,7 +648,7 @@ extension Biome
         {
             throw DecodingError.unused(keys: [String].init(items.keys))
         }
-        return lexeme
+        return (string, highlight, id)
     }
 }
 
@@ -805,7 +800,7 @@ extension Biome.Symbol.Parameter
         switch items.removeValue(forKey: "declarationFragments")
         {
         case .array(let elements)?: 
-            self.fragment = try elements.map(Biome.decode(lexeme:))
+            self.fragment = [] // try elements.map(Biome.decode(lexeme:))
         case let value: 
             throw DecodingError.invalid(value: value, key: "declarationFragments")
         }

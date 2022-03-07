@@ -18,6 +18,7 @@ extension SwiftLanguage.Lexeme
         }
     }
 }
+
 extension Biome.Symbol 
 {
     var search:JSON
@@ -28,7 +29,14 @@ extension Biome.Symbol
             "uri":   .string(self.path.description), 
             "text":   .array(self.signature.compactMap
             {
-                $0.search.map(JSON.string(_:))
+                (text:String, highlight:SwiftHighlight) in
+                switch highlight
+                {
+                case .identifier, .keywordIdentifier, .argument: 
+                    return JSON.string(text)
+                default: 
+                    return nil
+                }
             }),
         ]) 
     }

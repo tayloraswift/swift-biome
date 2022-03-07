@@ -12,10 +12,28 @@ extension Biome
             self.bystander ?? self.module
         }
         let path:Path
+        let scope:[String]
         let title:String 
-        let qualified:[SwiftLanguage.Lexeme<ID>]
+        let signature:Notebook<SwiftHighlight, Never>
+        let declaration:Notebook<SwiftHighlight, Int>
+        /* 
+        var lexemes:[SwiftLanguage.Lexeme<Symbol.ID>] 
+        {
+            var lexemes:[SwiftLanguage.Lexeme<Symbol.ID>] = []
+                lexemes.reserveCapacity(self.path.count * 2 - 1)
+            for current:String in self.path.dropLast() 
+            {
+                lexemes.append(.code(current,   class: .identifier))
+                lexemes.append(.code(".",       class: .punctuation))
+            }
+            lexemes.append(.code(self.last,     class: .identifier))
+            return lexemes
+        }
+        */
+        
+        /* let qualified:[SwiftLanguage.Lexeme<ID>]
         let signature:[SwiftLanguage.Lexeme<ID>]
-        let declaration:[SwiftLanguage.Lexeme<ID>]
+        let declaration:[SwiftLanguage.Lexeme<ID>] */
         
         let generics:[Generic], 
             genericConstraints:[SwiftLanguage.Constraint<ID>], 
@@ -27,7 +45,7 @@ extension Biome
         )
         let platforms:[Domain: Availability]
         
-        let lineage:(last:String, parent:Int?)
+        let parent:Int?
         let relationships:Relationships
         let commentOrigin:Int?
             
@@ -44,9 +62,9 @@ extension Biome
             size += self.path.group.utf8.count
             size += self.title.utf8.count
             
-            size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.qualified.count
-            size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.signature.count
-            size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.declaration.count
+            //size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.qualified.count
+            //size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.signature.count
+            //size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.declaration.count
             size += MemoryLayout<Generic>.stride * self.generics.count
             size += MemoryLayout<SwiftLanguage.Constraint<ID>>.stride * self.genericConstraints.count
             size += MemoryLayout<SwiftLanguage.Constraint<ID>>.stride * self.extensionConstraints.count
@@ -60,7 +78,7 @@ extension Biome
             return size
         }
         
-        init(modules:Storage<Module>, 
+        init(modules:Storage<Module>, indices:[Symbol.ID: Int],
             path:Path, 
             lineage:Lineage, 
             parent:Int?, 
@@ -70,7 +88,7 @@ extension Biome
             throws 
         {
             // if this is a (nested) type, print its fully-qualified signature
-            let keyword:String?
+            /* let keyword:String?
             switch relationships 
             {
             case .typealias:    keyword = "typealias"
@@ -80,23 +98,23 @@ extension Biome
             case .actor:        keyword = "actor"
             case .protocol:     keyword = "protocol"
             default:            keyword = nil 
-            }
+            } */
             self.id             = vertex.id
             self.module         = lineage.module 
             self.bystander      = lineage.bystander
             self.path           = path
-            self.title          = vertex.title 
-            self.lineage        = (lineage.last, parent)
-            self.qualified      = lineage.lexemes
-            if let keyword:String = keyword 
+            
+            var scope:[String]  = vertex.path
+            self.title          = scope.removeLast()
+            self.scope          = scope 
+            self.parent         = parent
+            
+            self.signature      = vertex.signature
+            self.declaration    = vertex.declaration.compactMapLinks 
             {
-                self.signature  = [.code(keyword, class: .keyword(.other)), .spaces(1)] + self.qualified
+                // TODO: emit warning
+                indices[$0]
             }
-            else 
-            {
-                self.signature  = vertex.signature
-            }
-            self.declaration    = vertex.declaration
             self.relationships  = relationships
             self.commentOrigin  = commentOrigin
             

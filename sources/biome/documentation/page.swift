@@ -99,6 +99,7 @@ extension Biome
                 references: &references)
         }
         var substitutions:[Anchor: Element] = article.substitutions
+            substitutions[.declaration]     = Self.declaration(for: self.modules[module])
         for reference:Int in references 
         {
             substitutions[.card(.symbol(reference))] = articles[reference].summary
@@ -147,6 +148,7 @@ extension Biome
                 references: &references)
         }
         var substitutions:[Anchor: Element] = articles[index].substitutions
+            substitutions[.declaration]     = self.declaration(for: symbol)
         if  let origin:Int = symbol.commentOrigin
         {
             substitutions[.summary]     = articles[origin].summary
@@ -329,13 +331,87 @@ extension Biome
         return .html(utf8: document.template(of: [UInt8].self).apply(substitutions).joined(), version: nil)
     }
     
+    static 
+    func declaration(for module:Module) -> HTML.Element<Anchor>
+    {
+        typealias Element = HTML.Element<Anchor>
+        return Element[.section]
+        {
+            ["declaration"]
+        }
+        content:
+        {
+            Element[.h2]
+            {
+                "Declaration"
+            }
+            Element[.pre]
+            {
+                Element[.code] 
+                {
+                    ["swift"]
+                }
+                content: 
+                {
+                    Self.render("import", highlight: .keywordText)
+                    Self.render(" ", highlight: .text)
+                    Self.render(module.id.identifier, highlight: .identifier)
+                }
+            }
+        }
+    }
+    func declaration(for symbol:Symbol) -> HTML.Element<Anchor>
+    {
+        typealias Element = HTML.Element<Anchor>
+        return Element[.section]
+        {
+            ["declaration"]
+        }
+        content:
+        {
+            Element[.h2]
+            {
+                "Declaration"
+            }
+            Element[.pre]
+            {
+                Element[.code] 
+                {
+                    ["swift"]
+                }
+                content: 
+                {
+                    symbol.declaration.map(self.render(_:highlight:link:))
+                }
+            }
+        }
+    }
+
+    static 
+    func render(item symbol:Symbol) -> HTML.Element<Anchor>
+    {
+        typealias Element = HTML.Element<Anchor>
+        return Element[.a]
+        {
+            (symbol.path.description, as: HTML.Href.self)
+        }
+        content: 
+        {
+            for component:String in symbol.scope 
+            {
+                Self.render(component, highlight: .identifier)
+                Self.render(".", highlight: .text)
+            }
+            Self.render(symbol.title, highlight: .identifier)
+        }
+    }
     private 
     func render<S>(list types:S, heading:String) -> HTML.Element<Anchor>?
         where S:Sequence, S.Element == (index:Int, conditions:[SwiftLanguage.Constraint<Symbol.ID>])
     {
         typealias Element = HTML.Element<Anchor>
         // we will discard all errors from dynamic rendering
-        var renderer:ArticleRenderer = .init(biome: self)
+        var _renderer:ArticleRenderer = .init(biome: self)
         let list:[Element] = types.map 
         {
             (item:(index:Int, conditions:[SwiftLanguage.Constraint<Symbol.ID>])) in 
@@ -347,14 +423,7 @@ extension Biome
                 }
                 content: 
                 {
-                    Element[.a]
-                    {
-                        (self.symbols[item.index].path.description, as: HTML.Href.self)
-                    }
-                    content: 
-                    {
-                        Self.render(code: self.symbols[item.index].qualified)
-                    }
+                    Self.render(item: self.symbols[item.index])
                 }
                 if !item.conditions.isEmpty
                 {
@@ -365,7 +434,7 @@ extension Biome
                     content: 
                     {
                         "When "
-                        renderer.render(constraints: item.conditions)
+                        _renderer.render(constraints: item.conditions)
                     }
                 }
             }
@@ -402,7 +471,7 @@ extension Biome
             let cards:[Element] = topic.indices.map
             {
                 references.insert(self.symbols[$0].commentOrigin ?? $0)
-                return articles[$0].card
+                return self.card(symbol: $0)
             } 
             return Element[.div]
             {
@@ -447,6 +516,105 @@ extension Biome
                 heading
             }
             topics
+        }
+    }
+    
+    private 
+    func card(symbol index:Int) -> HTML.Element<Anchor>
+    {
+        typealias Element               = HTML.Element<Anchor>
+        let symbol:Symbol               = self.symbols[index]
+        var relationships:[Element]     = []
+        if let overridden:Int           = symbol.relationships.overrideOf
+        {
+            guard let interface:Int     = self.symbols[overridden].parent 
+            else 
+            {
+                fatalError("unimplemented: parent of overridden symbol '\(self.symbols[overridden].title)' does not exist")
+            }
+            let prose:String
+            if case .protocol = self.symbols[interface].kind
+            {
+                prose = "Type inference hint for requirement in "
+            } 
+            else 
+            {
+                prose = "Overrides virtual member in "
+            }
+            relationships.append(Element[.li]
+            {
+                Element[.p]
+                {
+                    prose 
+                    Element[.code]
+                    {
+                        Element[.a]
+                        {
+                            (self.symbols[overridden].path.description, as: HTML.Href.self)
+                        }
+                        content: 
+                        {
+                            Self.render(item: self.symbols[interface])
+                        }
+                    }
+                }
+            })
+        } 
+        /* if !symbol.extensionConstraints.isEmpty
+        {
+            relationships.append(Element[.li] 
+            {
+                Element[.p]
+                {
+                    "Available when "
+                    self.render(constraints: symbol.extensionConstraints)
+                }
+            })
+        } */
+        
+        let availability:[Element] = Self.render(availability: symbol.availability)
+        return Element[.li]
+        {
+            Element[.code]
+            {
+                ["signature"]
+            }
+            content: 
+            {
+                Element[.a]
+                {
+                    (symbol.path.description, as: HTML.Href.self)
+                }
+                content: 
+                {
+                    symbol.signature.map(Self.render(_:highlight:))
+                }
+            }
+            
+            Element.anchor(id: .card(.symbol(symbol.commentOrigin ?? index)))
+            
+            if !relationships.isEmpty 
+            {
+                Element[.ul]
+                {
+                    ["relationships-list"]
+                }
+                content: 
+                {
+                    relationships
+                }
+            }
+            if !availability.isEmpty 
+            {
+                Element[.ul]
+                {
+                    ["availability-list"]
+                }
+                content: 
+                {
+                    availability
+                }
+            }
         }
     }
     
@@ -505,6 +673,60 @@ extension Biome
                 }
             }
         }
+    }
+    
+    func render(_ text:String, highlight:SwiftHighlight, link:Int?) -> HTML.Element<Anchor>
+    {
+        if let index:Int = link 
+        {
+            return .link(text, to: self.symbols[index].path.description, internal: true)
+            {
+                ["syntax-type"] 
+            }
+        }
+        else 
+        {
+            return Self.render(text, highlight: highlight)
+        }
+    }
+    static 
+    func render(_ text:String, highlight:SwiftHighlight) -> HTML.Element<Anchor>
+    {
+        let css:[String]
+        switch highlight
+        {
+        case .text: 
+            return .text(escaping: text)
+        case .type:
+            css = ["syntax-type"]
+        case .identifier:
+            css = ["syntax-identifier"]
+        case .generic:
+            css = ["syntax-generic"]
+        case .argument:
+            css = ["syntax-parameter-label"]
+        case .parameter:
+            css = ["syntax-parameter-name"]
+        case .directive, .attribute, .keywordText:
+            css = ["syntax-keyword"]
+        case .keywordIdentifier:
+            css = ["syntax-keyword", "syntax-keyword-identifier"]
+        case .pseudo:
+            css = ["syntax-pseudo-identifier"]
+        case .number, .string:
+            css = ["syntax-literal"]
+        case .interpolation:
+            css = ["syntax-interpolation-anchor"]
+        case .keywordDirective:
+            css = ["syntax-macro"]
+        case .newlines:
+            css = ["syntax-newline"]
+        case .comment, .documentationComment:
+            css = ["syntax-comment"]
+        case .invalid:
+            css = ["syntax-invalid"]
+        }
+        return .span(text) { css }
     }
     
     static 
