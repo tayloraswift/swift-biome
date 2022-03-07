@@ -16,24 +16,6 @@ extension Biome
         let title:String 
         let signature:Notebook<SwiftHighlight, Never>
         let declaration:Notebook<SwiftHighlight, Int>
-        /* 
-        var lexemes:[SwiftLanguage.Lexeme<Symbol.ID>] 
-        {
-            var lexemes:[SwiftLanguage.Lexeme<Symbol.ID>] = []
-                lexemes.reserveCapacity(self.path.count * 2 - 1)
-            for current:String in self.path.dropLast() 
-            {
-                lexemes.append(.code(current,   class: .identifier))
-                lexemes.append(.code(".",       class: .punctuation))
-            }
-            lexemes.append(.code(self.last,     class: .identifier))
-            return lexemes
-        }
-        */
-        
-        /* let qualified:[SwiftLanguage.Lexeme<ID>]
-        let signature:[SwiftLanguage.Lexeme<ID>]
-        let declaration:[SwiftLanguage.Lexeme<ID>] */
         
         let generics:[Generic], 
             genericConstraints:[SwiftLanguage.Constraint<ID>], 

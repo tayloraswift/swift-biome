@@ -3,7 +3,6 @@ extension Biome.Topic
     public 
     enum Automatic:String, Sendable, Hashable, CaseIterable
     {
-        //case module             = "Modules"
         case `case`             = "Enumeration Cases"
         case `associatedtype`   = "Associated Types"
         case `typealias`        = "Typealiases"

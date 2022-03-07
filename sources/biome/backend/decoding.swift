@@ -24,7 +24,6 @@ extension Biome
     (
         id:Symbol.ID,
         kind:Symbol.Kind, 
-//        title:String, 
         path:[String], 
         signature:Notebook<SwiftHighlight, Never>, 
         declaration:Notebook<SwiftHighlight, Symbol.ID>, 

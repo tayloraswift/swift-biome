@@ -230,68 +230,6 @@ struct Notebook<Highlight, Link>:Sequence where Highlight:RawRepresentable, High
         }
     }
     
-
-    /* 
-    @inlinable public 
-    func map<T>(_ transform:(_ text:String, _ highlight:Highlight, _ link:Link?) throws -> T) rethrows -> [T]
-    {
-        var transformed:[T]     = []
-            transformed.reserveCapacity(self.elements.count)
-        var slabIndex:Int       = self.slab.startIndex, 
-            elementIndex:Int    = self.elements.startIndex 
-            
-        for link:(index:Int, target:Link) in self.links 
-        {
-            for index:Int in elementIndex ..< link.index
-            {
-                let (text, highlight):(String, Highlight) = self.element(at: index, slab: &slabIndex)
-                transformed.append(try transform(text, highlight, nil))
-            }
-            let (text, highlight):(String, Highlight) = self.element(at: link.index, slab: &slabIndex)
-            transformed.append(try transform(text, highlight, link.target))
-            elementIndex = link.index + 1
-        }
-        for index:Int in elementIndex ..< self.elements.endIndex
-        {
-            let (text, highlight):(String, Highlight) = self.element(at: index, slab: &slabIndex)
-            transformed.append(try transform(text, highlight, nil))
-        }
-        return transformed
-    }
-    @inlinable public 
-    func compactMap<T>(_ transform:(_ text:String, _ highlight:Highlight, _ link:Link?) throws -> T?) rethrows -> [T]
-    {
-        var transformed:[T]     = []
-        var slabIndex:Int       = self.slab.startIndex, 
-            elementIndex:Int    = self.elements.startIndex 
-        for link:(index:Int, target:Link) in self.links 
-        {
-            for index:Int in elementIndex ..< link.index
-            {
-                let (text, highlight):(String, Highlight) = self.element(at: index, slab: &slabIndex)
-                if let value:T = try transform(text, highlight, nil)
-                {
-                    transformed.append(value)
-                }
-            }
-            let (text, highlight):(String, Highlight) = self.element(at: link.index, slab: &slabIndex)
-            if let value:T = try transform(text, highlight, link.target)
-            {
-                transformed.append(value)
-            }
-            elementIndex = link.index + 1
-        }
-        for index:Int in elementIndex ..< self.elements.endIndex
-        {
-            let (text, highlight):(String, Highlight) = self.element(at: index, slab: &slabIndex)
-            if let value:T = try transform(text, highlight, nil)
-            {
-                transformed.append(value)
-            }
-        }
-        return transformed
-    } */
-    
     @inlinable public 
     func mapLinks<T>(_ transform:(Link) throws -> T) rethrows -> Notebook<Highlight, T>
     {

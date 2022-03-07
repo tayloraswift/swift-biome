@@ -35,10 +35,6 @@ extension Biome
         {
             self.baked.summary.map(Element.text(escaped:))
         }
-        /* var declaration:Element
-        {
-            .text(escaped: self.baked.declaration)
-        } */
         var discussion:Element?
         {
             self.baked.discussion.map(Element.text(escaped:))
@@ -46,21 +42,18 @@ extension Biome
         
         let errors:[Error]
         let introduction:Element 
-        //let card:Element
         private 
         let baked:
         (
             navigator:String,
             summary:String?, 
             platforms:String?, 
-        //    declaration:String,
             discussion:String?
         )
         
         var size:Int 
         {
             var size:Int = self.baked.navigator.utf8.count
-            //size        += self.baked.declaration.utf8.count
             size        += self.baked.platforms?.utf8.count   ?? 0
             size        += self.baked.summary?.utf8.count     ?? 0
             size        += self.baked.discussion?.utf8.count  ?? 0
@@ -73,7 +66,6 @@ extension Biome
             [
                 .navigator:     self.navigator,
                 .introduction:  self.introduction,
-            //    .declaration:   self.declaration,
             ]
             if let platforms:Element = self.platforms
             {
@@ -90,12 +82,11 @@ extension Biome
             return substitutions
         }
         
-        init(//card:Element, 
+        init(
             navigator:StaticElement, 
             introduction:Element, 
             summary:StaticElement?, 
             platforms:StaticElement?, 
-            // declaration:StaticElement, 
             discussion:[StaticElement], 
             errors:[Error])
         {
@@ -109,14 +100,12 @@ extension Biome
             self.baked.declaration  = ""
             self.baked.discussion   = "" */
             
-            //self.card               = card
             self.baked.navigator    = navigator.rendered
             
             self.introduction       = introduction
             
             self.baked.summary      = summary?.rendered
             self.baked.platforms    = platforms?.rendered
-            // self.baked.declaration  = declaration.rendered
             self.baked.discussion   = discussion.isEmpty ? nil : discussion.map(\.rendered).joined()
             
             self.errors             = errors 
@@ -127,10 +116,7 @@ extension Biome
     {
         typealias Element       = HTML.Element<Anchor>
         typealias StaticElement = HTML.Element<Never>
-        // let card:Element        = Element[.li] 
-        // { 
-        //     self.packages[index].name 
-        // }
+        
         let navigator:StaticElement = StaticElement[.ol] 
         {
             ["breadcrumbs-container"]
@@ -144,15 +130,12 @@ extension Biome
         }
         var renderer:ArticleRenderer    = .init(biome: self)
         let introduction:Element        = renderer.introduction(for: self.packages[index])
-        // let declaration:StaticElement   = renderer.render(declaration: [])
-        
         let comment:Comment             = renderer.content(markdown: comment)
-        return .init(//card:  card, 
+        return .init(
             navigator:      navigator, 
             introduction:   introduction,
             summary:        comment.head, 
             platforms:      nil,
-            // declaration:    declaration,
             discussion:
             [
                 ArticleRenderer.render(parameters: comment.parameters),
@@ -165,10 +148,7 @@ extension Biome
     {
         typealias Element       = HTML.Element<Anchor>
         typealias StaticElement = HTML.Element<Never>
-        // let card:Element        = Element[.li] 
-        // { 
-        //     self.modules[index].title 
-        // }
+        
         let navigator:StaticElement = StaticElement[.ol] 
         {
             ["breadcrumbs-container"]
@@ -182,15 +162,12 @@ extension Biome
         }
         var renderer:ArticleRenderer    = .init(biome: self)
         let introduction:Element        = renderer.introduction(for: self.modules[index])
-        // let declaration:StaticElement   = renderer.render(declaration: self.modules[index].declaration)
-        
         let comment:Comment             = renderer.content(markdown: comment)
-        return .init(// card:  card, 
+        return .init(
             navigator:      navigator, 
             introduction:   introduction,
             summary:        comment.head,
             platforms:      nil,
-            // declaration:    declaration,
             discussion:     
             [
                 ArticleRenderer.render(parameters: comment.parameters),
@@ -228,7 +205,6 @@ extension Biome
         
         var renderer:ArticleRenderer    = .init(biome: self)
         let introduction:Element        = renderer.introduction(for: symbol)
-        // let declaration:StaticElement   = renderer.render(declaration: symbol.declaration)
         let summary:StaticElement?, 
             discussion:[StaticElement]
         if case _? = symbol.commentOrigin 
@@ -248,12 +224,11 @@ extension Biome
                 ArticleRenderer.render(section: comment.discussion,    heading: "Overview", class: "discussion"),
             ].compactMap { $0 }
         }
-        return .init(// card:  self.card(symbol: index), 
+        return .init(
             navigator:      navigator, 
             introduction:   introduction,
             summary:        summary, 
             platforms:      ArticleRenderer.render(platforms: symbol.platforms),
-            // declaration:    declaration,
             discussion:     discussion, 
             errors:         renderer.errors)
     }
