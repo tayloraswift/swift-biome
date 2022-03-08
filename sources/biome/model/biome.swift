@@ -305,6 +305,9 @@ struct Biome:Sendable
             let package:Package = .init(id: package.id, path: path, search: search, modules: package.targets, hash: version)
             packages.append(package)
         }
+        // it’s important to know about implicitly private symbols, if they serve as 
+        // a generic extension method, a generic constraint, or a storage location 
+        // for an inherited doccomment 
         
         print("loaded \(vertices.count) vertices and \(edges.count) edges from \(modules.count) module(s)")
         
@@ -334,30 +337,7 @@ struct Biome:Sendable
         var references:[Edge.References]    = .init(repeating: .init(), count: vertices.count)
         for edge:Edge in _move(edges)
         {
-            guard   let source:Int = indices[edge.source], 
-                    let target:Int = indices[edge.target]
-            else 
-            {
-                print("warning: undefined symbol id in edge '\(edge.source)' -> '\(edge.target)'")
-                continue 
-            } 
-            if  let _origin:Symbol.ID    = edge.origin?.id, 
-                let origin:Int          = indices[_origin]
-            {
-                // `vertices[source].id` is not necessarily synthesized, 
-                // because it could be an inherited `associatedtype`, which does 
-                // not contain '::SYNTHESIZED::'
-                guard case .natural = vertices[origin].id
-                else 
-                {
-                    fatalError("inherited docs from a synthesized symbol")
-                }
-                try edge.link(source, to: target, origin: origin, in: &references)
-            }
-            else 
-            {
-                try edge.link(source, to: target, origin: nil,    in: &references)
-            }
+            try edge.link(&references, indices: indices)
         }
         // validate 
         let colors:[Symbol.Kind] = vertices.map(\.kind)

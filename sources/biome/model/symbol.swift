@@ -20,8 +20,8 @@ extension Biome
         let declaration:Notebook<SwiftHighlight, Int>
         
         let generics:[Generic], 
-            genericConstraints:[SwiftLanguage.Constraint<ID>], 
-            extensionConstraints:[SwiftLanguage.Constraint<ID>]
+            genericConstraints:[SwiftConstraint<Int>], 
+            extensionConstraints:[SwiftConstraint<Int>]
         let availability:
         (
             unconditional:UnconditionalAvailability?, 
@@ -50,8 +50,8 @@ extension Biome
             //size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.signature.count
             //size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.declaration.count
             size += MemoryLayout<Generic>.stride * self.generics.count
-            size += MemoryLayout<SwiftLanguage.Constraint<ID>>.stride * self.genericConstraints.count
-            size += MemoryLayout<SwiftLanguage.Constraint<ID>>.stride * self.extensionConstraints.count
+            size += MemoryLayout<SwiftConstraint<Int>>.stride * self.genericConstraints.count
+            size += MemoryLayout<SwiftConstraint<Int>>.stride * self.extensionConstraints.count
             size += MemoryLayout<(Domain, Availability)>.stride * self.platforms.capacity
             
             size += MemoryLayout<(heading:Biome.Topic, indices:[Int])>.stride * self.topics.requirements.count
@@ -121,8 +121,14 @@ extension Biome
                 }
             }
             self.generics               = vertex.generic?.parameters ?? []
-            self.genericConstraints     = vertex.generic?.constraints ?? []
-            self.extensionConstraints   = vertex.extends?.where ?? []
+            self.genericConstraints     = vertex.generic?.constraints.map 
+            {
+                $0.map(to: indices)
+            } ?? []
+            self.extensionConstraints   = vertex.extends?.where.map
+            {
+                $0.map(to: indices)
+            } ?? []
             
             var platforms:[Domain: Availability] = [:]
             var availability:(unconditional:UnconditionalAvailability?, swift:SwiftAvailability?) = (nil, nil)

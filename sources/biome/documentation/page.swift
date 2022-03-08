@@ -78,7 +78,9 @@ extension Biome
                 }
             }
         }
-        return Self.page(title: self.packages[package].name, substitutions: article.substitutions, filter: filter, dynamic: dynamic)
+        var substitutions:[Anchor: Element] = article.substitutions
+            substitutions[.introduction]    = Self.introduction(for: self.packages[package])
+        return Self.page(title: self.packages[package].name, substitutions: substitutions, filter: filter, dynamic: dynamic)
     }
     func page(module:Int, article:Article, articles:[Article], filter:[Package.ID]) -> Resource
     {
@@ -99,6 +101,7 @@ extension Biome
                 references: &references)
         }
         var substitutions:[Anchor: Element] = article.substitutions
+            substitutions[.introduction]    = self.introduction(for: self.modules[module])
             substitutions[.declaration]     = Self.declaration(for: self.modules[module])
         for reference:Int in references 
         {
@@ -148,7 +151,10 @@ extension Biome
                 references: &references)
         }
         var substitutions:[Anchor: Element] = articles[index].substitutions
+            substitutions[.introduction]    = self.introduction(for: symbol)
             substitutions[.declaration]     = self.declaration(for: symbol)
+            
+            substitutions[.platforms]       = Self.render(platforms: symbol.platforms)
         if  let origin:Int = symbol.commentOrigin
         {
             substitutions[.summary]     = articles[origin].summary
@@ -330,8 +336,236 @@ extension Biome
         }
         return .html(utf8: document.template(of: [UInt8].self).apply(substitutions).joined(), version: nil)
     }
+}
+extension Biome 
+{
+    private static 
+    func introduction(for package:Package) -> HTML.Element<Anchor>
+    {
+        typealias Element = HTML.Element<Anchor>
+        return Element[.section]
+        {
+            ["introduction"]
+        }
+        content:
+        {
+            Self.eyebrows(for: package)
+            Element[.h1]
+            {
+                package.name
+            }
+            Element.anchor(id: .summary)
+        }
+    }
+    private 
+    func introduction(for module:Module) -> HTML.Element<Anchor>
+    {
+        typealias Element = HTML.Element<Anchor>
+        return Element[.section]
+        {
+            ["introduction"]
+        }
+        content:
+        {
+            self.eyebrows(for: module)
+            Element[.h1]
+            {
+                module.title
+            }
+            Element.anchor(id: .summary)
+        }
+    }
+    private 
+    func introduction(for symbol:Symbol) -> HTML.Element<Anchor>
+    {
+        typealias Element = HTML.Element<Anchor>
+        var relationships:[Element] 
+        if case _? = symbol.relationships.requirementOf
+        {
+            relationships = 
+            [
+                Element[.li] 
+                {
+                    Element[.p]
+                    {
+                        ["required"]
+                    }
+                    content:
+                    {
+                        "Required."
+                    }
+                }
+            ]
+        }
+        else 
+        {
+            relationships = []
+        }
+        // TODO: need to rework this, because real types can still inherit 
+        // docs, if they satisfy protocol requirements and have no documentation 
+        // of their own...
+        
+        /* if  let origin:Int = symbol.relationships.sourceOrigin 
+            let conformance:Int = self.biome.symbols[origin].lineage.parent 
+        {
+            relationships.append(Element[.li] 
+            {
+                Element[.p]
+                {
+                    Element.link("Inherited", to: self.biome.symbols[origin].path.description, internal: true)
+                    " from "
+                    Element[.code]
+                    {
+                        Element[.a]
+                        {
+                            (self.biome.symbols[conformance].path.description, as: HTML.Href.self)
+                        }
+                        content: 
+                        {
+                            Biome.render(code: self.biome.symbols[conformance].qualified)
+                        }
+                    }
+                }
+            })
+        } */
+        if !symbol.extensionConstraints.isEmpty
+        {
+            relationships.append(Element[.li] 
+            {
+                Element[.p]
+                {
+                    "Available when "
+                    self.render(constraints: symbol.extensionConstraints)
+                }
+            })
+        }
+        let availability:[Element] = Biome.render(availability: symbol.availability)
+        return Element[.section]
+        {
+            ["introduction"]
+        }
+        content:
+        {
+            self.eyebrows(for: symbol)
+            Element[.h1]
+            {
+                symbol.title
+            }
+            Element.anchor(id: .summary)
+            if !relationships.isEmpty 
+            {
+                Element[.ul]
+                {
+                    ["relationships-list"]
+                }
+                content: 
+                {
+                    relationships
+                }
+            }
+            if !availability.isEmpty 
+            {
+                Element[.ul]
+                {
+                    ["availability-list"]
+                }
+                content: 
+                {
+                    availability
+                }
+            }
+        }
+    }
     
-    static 
+    private static 
+    func eyebrows(for package:Package) -> HTML.Element<Anchor>
+    {
+        typealias Element = HTML.Element<Anchor>
+        return Element[.div]
+        {
+            ["eyebrows"]
+        }
+        content:
+        {
+            if case .swift = package.id 
+            {
+                Element.span("Standard Library")
+                {
+                    ["kind"]
+                }
+            }
+            else 
+            {
+                Element.span("Package")
+                {
+                    ["kind"]
+                }
+            }
+        }
+    }
+    private 
+    func eyebrows(for module:Module) -> HTML.Element<Anchor>
+    {
+        typealias Element = HTML.Element<Anchor>
+        return Element[.div]
+        {
+            ["eyebrows"]
+        }
+        content:
+        {
+            Element.span("Module")
+            {
+                ["kind"]
+            }
+            Element[.span]
+            {
+                ["package"]
+            }
+            content:
+            {
+                Element.link(self.packages[module.package].name, 
+                    to: self.packages[module.package].path.description, 
+                    internal: true)
+            }
+        }
+    }
+    private 
+    func eyebrows(for symbol:Symbol) -> HTML.Element<Anchor>
+    {
+        typealias Element = HTML.Element<Anchor>
+        return Element[.div]
+        {
+            ["eyebrows"]
+        }
+        content:
+        {
+            Element.span(symbol.kind.title)
+            {
+                ["kind"]
+            }
+            Element[.span]
+            {
+                ["module"]
+            }
+            content: 
+            {
+                if let extended:Int = symbol.bystander
+                {
+                    Element[.span]
+                    {
+                        ["extended"]
+                    }
+                    content:
+                    {
+                        Element.link(self.modules[extended].title, to: self.modules[extended].path.description, internal: true)
+                    }
+                }
+                Element.link(self.modules[symbol.module].title, to: self.modules[symbol.module].path.description, internal: true)
+            }
+        }
+    }
+    
+    private static 
     func declaration(for module:Module) -> HTML.Element<Anchor>
     {
         typealias Element = HTML.Element<Anchor>
@@ -360,6 +594,7 @@ extension Biome
             }
         }
     }
+    private 
     func declaration(for symbol:Symbol) -> HTML.Element<Anchor>
     {
         typealias Element = HTML.Element<Anchor>
@@ -386,8 +621,74 @@ extension Biome
             }
         }
     }
+    
+    
+    private static
+    func render(platforms availability:[Symbol.Domain: Symbol.Availability]) -> HTML.Element<Anchor>?
+    {
+        typealias Element = HTML.Element<Anchor>
+        var platforms:[Element] = []
+        for platform:Symbol.Domain in Symbol.Domain.platforms 
+        {
+            if let availability:Symbol.Availability = availability[platform]
+            {
+                if availability.unavailable 
+                {
+                    platforms.append(Element[.li]
+                    {
+                        "\(platform.rawValue) unavailable"
+                    })
+                }
+                else if case nil? = availability.deprecated 
+                {
+                    platforms.append(Element[.li]
+                    {
+                        "\(platform.rawValue) deprecated"
+                    })
+                }
+                else if case let version?? = availability.deprecated 
+                {
+                    platforms.append(Element[.li]
+                    {
+                        "\(platform.rawValue) deprecated since "
+                        Element.span("\(version.description)")
+                        {
+                            ["version"]
+                        }
+                    })
+                }
+                else if let version:Version = availability.introduced 
+                {
+                    platforms.append(Element[.li]
+                    {
+                        "\(platform.rawValue) "
+                        Element.span("\(version.description)+")
+                        {
+                            ["version"]
+                        }
+                    })
+                }
+            }
+        }
+        guard !platforms.isEmpty
+        else 
+        {
+            return nil
+        }
+        return Element[.section]
+        {
+            ["platforms"]
+        }
+        content: 
+        {
+            Element[.ul]
+            {
+                platforms
+            }
+        }
+    }
 
-    static 
+    private static 
     func render(item symbol:Symbol) -> HTML.Element<Anchor>
     {
         typealias Element = HTML.Element<Anchor>
@@ -407,14 +708,12 @@ extension Biome
     }
     private 
     func render<S>(list types:S, heading:String) -> HTML.Element<Anchor>?
-        where S:Sequence, S.Element == (index:Int, conditions:[SwiftLanguage.Constraint<Symbol.ID>])
+        where S:Sequence, S.Element == (index:Int, conditions:[SwiftConstraint<Int>])
     {
         typealias Element = HTML.Element<Anchor>
-        // we will discard all errors from dynamic rendering
-        var _renderer:ArticleRenderer = .init(biome: self)
         let list:[Element] = types.map 
         {
-            (item:(index:Int, conditions:[SwiftLanguage.Constraint<Symbol.ID>])) in 
+            (item:(index:Int, conditions:[SwiftConstraint<Int>])) in 
             Element[.li]
             {
                 Element[.code]
@@ -434,7 +733,7 @@ extension Biome
                     content: 
                     {
                         "When "
-                        _renderer.render(constraints: item.conditions)
+                        self.render(constraints: item.conditions)
                     }
                 }
             }
@@ -618,7 +917,7 @@ extension Biome
         }
     }
     
-    static 
+    private static 
     func render(availability:(unconditional:Symbol.UnconditionalAvailability?, swift:Symbol.SwiftAvailability?)) -> [HTML.Element<Anchor>]
     {
         typealias Element = HTML.Element<Anchor>
@@ -651,7 +950,7 @@ extension Biome
         }
         return availabilities
     }
-    static 
+    private static 
     func render(availability adjective:String, since:(domain:String, version:Version)? = nil) -> HTML.Element<Anchor>
     {
         typealias Element = HTML.Element<Anchor>
@@ -675,18 +974,77 @@ extension Biome
         }
     }
     
-    func highlight(_ text:String, _ highlight:SwiftHighlight, link:Int?) -> HTML.Element<Anchor>
+    private 
+    func render(constraints:[SwiftConstraint<Int>]) -> [HTML.Element<Anchor>] 
     {
-        if let index:Int = link 
+        typealias Element = HTML.Element<Anchor>
+        guard let ultimate:SwiftConstraint<Int> = constraints.last 
+        else 
         {
-            return .link(text, to: self.symbols[index].path.description, internal: true)
-            {
-                ["syntax-type"] 
-            }
+            fatalError("cannot call \(#function) with empty constraints array")
+        }
+        guard let penultimate:SwiftConstraint<Int> = constraints.dropLast().last
+        else 
+        {
+            return self.render(constraint: ultimate)
+        }
+        var fragments:[Element]
+        if constraints.count < 3 
+        {
+            fragments =                  self.render(constraint: penultimate)
+            fragments.append(.text(escaped: " and "))
+            fragments.append(contentsOf: self.render(constraint: ultimate))
         }
         else 
         {
-            return .highlight(text, highlight)
+            fragments = []
+            for constraint:SwiftConstraint<Int> in constraints.dropLast(2)
+            {
+                fragments.append(contentsOf: self.render(constraint: constraint))
+                fragments.append(.text(escaped: ", "))
+            }
+            fragments.append(contentsOf: self.render(constraint: penultimate))
+            fragments.append(.text(escaped: ", and "))
+            fragments.append(contentsOf: self.render(constraint: ultimate))
+        }
+        return fragments
+    }
+    private 
+    func render(constraint:SwiftConstraint<Int>) -> [HTML.Element<Anchor>] 
+    {
+        typealias Element = HTML.Element<Anchor>
+        let prose:String
+        switch constraint.verb
+        {
+        case .subclasses: 
+            prose   = " inherits from "
+        case .implements:
+            prose   = " conforms to "
+        case .is:
+            prose   = " is "
+        }
+        let subject:Element = Element[.code]
+        {
+            Element.highlight(constraint.subject, .type)
+        }
+        let object:Element = Element[.code]
+        {
+            self.highlight(constraint.object, .type, link: constraint.link)
+        }
+        return [subject, Element.text(escaped: prose), object]
+    }
+
+    private 
+    func highlight(_ text:String, _ highlight:SwiftHighlight, link:Int?) -> HTML.Element<Anchor>
+    {
+        return link.map { self.highlight(text, highlight, link: $0) } ?? .highlight(text, highlight)
+    }
+    private 
+    func highlight(_ text:String, _ highlight:SwiftHighlight, link index:Int) -> HTML.Element<Anchor>
+    {
+        .link(text, to: self.symbols[index].path.description, internal: true)
+        {
+            ["syntax-type"] 
         }
     }
 }

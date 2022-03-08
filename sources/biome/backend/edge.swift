@@ -1,3 +1,24 @@
+extension SwiftConstraint where Link == Biome.Symbol.ID
+{
+    func map<T>(to transform:[Biome.Symbol.ID: T]) -> SwiftConstraint<T>
+    {
+        // TODO: turn this back into a `map` when we can enforce this again 
+        //try self.map 
+        self.flatMap 
+        {
+            if let transformed:T = transform[$0]
+            {
+                return transformed 
+            }
+            else 
+            {
+                return nil
+                // throw Biome.SymbolIdentifierError.undefined(symbol: $0)
+            }
+        }
+    }
+}
+
 extension Biome 
 {
     struct Edge 
@@ -19,8 +40,8 @@ extension Biome
                 requirementOf:Int?,
                 requirements:[Int],
                 
-                upstream:[(index:Int, conditions:[SwiftLanguage.Constraint<Symbol.ID>])], // protocols this type conforms to
-                downstream:[(index:Int, conditions:[SwiftLanguage.Constraint<Symbol.ID>])], // types that conform to this type 
+                upstream:[(index:Int, conditions:[SwiftConstraint<Int>])], // protocols this type conforms to
+                downstream:[(index:Int, conditions:[SwiftConstraint<Int>])], // types that conform to this type 
                 subclasses:[Int],
                 superclass:Int?
             
@@ -62,7 +83,7 @@ extension Biome
         var target:Symbol.ID
         // if the source inherited docs 
         var origin:(id:Symbol.ID, name:String)?
-        var constraints:[SwiftLanguage.Constraint<Symbol.ID>]
+        var constraints:[SwiftConstraint<Symbol.ID>]
         
         /* init(specialization source:Symbol.ID, of target:Symbol.ID)
         {
@@ -73,16 +94,68 @@ extension Biome
             self.constraints = []
         } */
         
+        func link(_ table:inout [References], indices:[Symbol.ID: Int]) throws 
+        {
+            guard let source:Int = indices[self.source]
+            else 
+            {
+                throw SymbolIdentifierError.undefined(symbol: self.source)
+            }
+            guard let target:Int = indices[self.target]
+            else 
+            {
+                throw SymbolIdentifierError.undefined(symbol: self.target)
+            } 
+            let constraints:[SwiftConstraint<Int>] = self.constraints.map 
+            {
+                $0.map(to: indices)
+            }
+            if let origin:Symbol.ID     = self.origin?.id
+            {
+                /* guard let origin:Int    = indices[origin]
+                else 
+                {
+                    throw SymbolIdentifierError.undefined(symbol: origin)
+                } */
+                // `vertices[source].id` is not necessarily synthesized, 
+                // because it could be an inherited `associatedtype`, which does 
+                // not contain '::SYNTHESIZED::'
+                try self.link(source, to: target, origin: indices[origin], constraints: constraints, 
+                    in: &table)
+            }
+            else 
+            {
+                try self.link(source, to: target, origin: nil,    constraints: constraints, 
+                    in: &table)
+            }
+        }
+        private  
+        func link(_ source:Int, to target:Int, origin:Int?, 
+            constraints:[SwiftConstraint<Int>], 
+            in table:inout [References]) throws 
+        {
+            if constraints.isEmpty
+            {
+                try self.link(source, to: target, origin: origin, in: &table)
+            }
+            else 
+            {
+                // only `conformer` edges can have constraints 
+                guard case .conformer = self.kind 
+                else 
+                {
+                    throw LinkingError.constraints(on: source, is: self.kind, of: target)
+                }
+                table[source].upstream.append((target, constraints))
+                table[target].downstream.append((source, constraints))
+            }
+        }
+        private  
         func link(_ source:Int, to target:Int, origin:Int?, in table:inout [References]) throws 
         {
             switch self.kind
             {
             case .member: 
-                guard self.constraints.isEmpty 
-                else 
-                {
-                    throw LinkingError.constraints(on: source, is: self.kind, of: target)
-                }
                 table[target].members.append(source)
                 guard let origin:Int = origin
                 else 
@@ -96,15 +169,10 @@ extension Biome
                 table[source].sourceOrigin = origin
             
             case .conformer:
-                table[source].upstream.append((target, self.constraints))
-                table[target].downstream.append((source, self.constraints))
+                table[source].upstream.append((target, []))
+                table[target].downstream.append((source, []))
             
             case .subclass:
-                guard self.constraints.isEmpty 
-                else 
-                {
-                    throw LinkingError.constraints(on: source, is: self.kind, of: target)
-                }
                 if let incumbent:Int = table[source].superclass
                 {
                     throw LinkingError.duplicate(source, have: incumbent, is: self.kind, of: target)
@@ -113,11 +181,6 @@ extension Biome
                 table[target].subclasses.append(source)
                 
             case .optionalRequirement, .requirement:
-                guard self.constraints.isEmpty 
-                else 
-                {
-                    throw LinkingError.constraints(on: source, is: self.kind, of: target)
-                }
                 if let incumbent:Int = table[source].requirementOf
                 {
                     throw LinkingError.duplicate(source, have: incumbent, is: self.kind, of: target)
@@ -126,11 +189,6 @@ extension Biome
                 table[target].requirements.append(source)
             
             case .override:
-                guard self.constraints.isEmpty 
-                else 
-                {
-                    throw LinkingError.constraints(on: source, is: self.kind, of: target)
-                }
                 if let incumbent:Int = table[source].overrideOf
                 {
                     throw LinkingError.duplicate(source, have: incumbent, is: self.kind, of: target)
@@ -139,11 +197,6 @@ extension Biome
                 table[target]._overrides.append(source)
                 
             case .defaultImplementation:
-                guard self.constraints.isEmpty 
-                else 
-                {
-                    throw LinkingError.constraints(on: source, is: self.kind, of: target)
-                }
                 table[source].defaultImplementationOf.append(target)
                 table[target].defaultImplementations.append(source)
             

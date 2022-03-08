@@ -28,8 +28,8 @@ extension Biome
         path:[String], 
         signature:Notebook<SwiftHighlight, Never>, 
         declaration:Notebook<SwiftHighlight, Symbol.ID>, 
-        extends:(module:Module.ID, where:[SwiftLanguage.Constraint<Symbol.ID>])?,
-        generic:(parameters:[Symbol.Generic], constraints:[SwiftLanguage.Constraint<Symbol.ID>])?,
+        extends:(module:Module.ID, where:[SwiftConstraint<Symbol.ID>])?,
+        generic:(parameters:[Symbol.Generic], constraints:[SwiftConstraint<Symbol.ID>])?,
         availability:[(key:Symbol.Domain, value:Symbol.Availability)],
         comment:String
     )
@@ -292,7 +292,7 @@ extension Biome
             throw DecodingError.invalid(value: value, key: "functionSignature")
         }
         // decode extension info
-        let extends:(module:Module.ID, where:[SwiftLanguage.Constraint<Symbol.ID>])?
+        let extends:(module:Module.ID, where:[SwiftConstraint<Symbol.ID>])?
         switch items.removeValue(forKey: "swiftExtension")
         {
         case nil, .null?: 
@@ -306,7 +306,7 @@ extension Biome
                 }
             }
             let module:Module.ID = try .init(from: items.removeValue(forKey: "extendedModule"))
-            let constraints:[SwiftLanguage.Constraint<Symbol.ID>]
+            let constraints:[SwiftConstraint<Symbol.ID>]
             switch items.removeValue(forKey: "constraints")
             {
             case nil, .null?:
@@ -321,7 +321,7 @@ extension Biome
             throw DecodingError.invalid(value: value, key: "swiftExtension")
         }
         // decode generics info 
-        let generic:(parameters:[Symbol.Generic], constraints:[SwiftLanguage.Constraint<Symbol.ID>])?
+        let generic:(parameters:[Symbol.Generic], constraints:[SwiftConstraint<Symbol.ID>])?
         switch items.removeValue(forKey: "swiftGenerics")
         {
         case nil, .null?: 
@@ -335,7 +335,7 @@ extension Biome
                 }
             }
             let parameters:[Symbol.Generic], 
-                constraints:[SwiftLanguage.Constraint<Symbol.ID>]
+                constraints:[SwiftConstraint<Symbol.ID>]
             switch items.removeValue(forKey: "parameters")
             {
             case nil, .null?:
@@ -518,9 +518,9 @@ extension Biome
     }
     
     static 
-    func decode(constraint json:JSON) throws -> SwiftLanguage.Constraint<Symbol.ID> 
+    func decode(constraint json:JSON) throws -> SwiftConstraint<Symbol.ID> 
     {
-        typealias DecodingError = Biome.DecodingError<SwiftLanguage.Constraint<Symbol.ID>>
+        typealias DecodingError = Biome.DecodingError<SwiftConstraint<Symbol.ID>>
         
         guard case .object(var items) = json 
         else 
@@ -535,14 +535,26 @@ extension Biome
             }
         }
         let subject:String, 
-            verb:SwiftLanguage.Constraint<Symbol.ID>.Verb, 
-            object:String 
+            verb:SwiftConstraintVerb, 
+            object:String
         switch items.removeValue(forKey: "lhs")
         {
         case .string(let text)?:
             subject = text 
         case let value:
             throw DecodingError.invalid(value: value, key: "lhs")
+        }
+        // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/JSON.cpp
+        switch items.removeValue(forKey: "kind")
+        {
+        case .string("superclass")?:
+            verb = .subclasses
+        case .string("conformance")?:
+            verb = .implements
+        case .string("sameType")?:
+            verb = .is
+        case let value:
+            throw DecodingError.invalid(value: value, key: "kind")
         }
         switch items.removeValue(forKey: "rhs")
         {
@@ -561,24 +573,12 @@ extension Biome
         case let value?:
             throw DecodingError.invalid(value: value, key: "rhsPrecise")
         }
-        // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/JSON.cpp
-        switch items.removeValue(forKey: "kind")
-        {
-        case .string("superclass")?:
-            verb = .inherits(from: id)
-        case .string("conformance")?:
-            verb = .conforms(to: id)
-        case .string("sameType")?:
-            verb = .is(id)
-        case let value:
-            throw DecodingError.invalid(value: value, key: "kind")
-        }
         guard items.isEmpty 
         else 
         {
             throw DecodingError.unused(keys: [String].init(items.keys))
         }
-        return .init(subject: subject, verb: verb, object: object)
+        return .init(subject, verb, object, link: id)
     }
     static 
     func decode(lexeme json:JSON) throws -> (text:String, highlight:SwiftHighlight, link:Symbol.ID?)

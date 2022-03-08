@@ -27,10 +27,6 @@ extension Biome
         {
             .text(escaped: self.baked.navigator)
         }
-        var platforms:Element?
-        {
-            self.baked.platforms.map(Element.text(escaped:))
-        }
         var summary:Element?
         {
             self.baked.summary.map(Element.text(escaped:))
@@ -41,20 +37,17 @@ extension Biome
         }
         
         let errors:[Error]
-        let introduction:Element 
         private 
         let baked:
         (
             navigator:String,
             summary:String?, 
-            platforms:String?, 
             discussion:String?
         )
         
         var size:Int 
         {
             var size:Int = self.baked.navigator.utf8.count
-            size        += self.baked.platforms?.utf8.count   ?? 0
             size        += self.baked.summary?.utf8.count     ?? 0
             size        += self.baked.discussion?.utf8.count  ?? 0
             return size
@@ -65,12 +58,7 @@ extension Biome
             var substitutions:[Anchor: Element] =
             [
                 .navigator:     self.navigator,
-                .introduction:  self.introduction,
             ]
-            if let platforms:Element = self.platforms
-            {
-                substitutions[.platforms]   = platforms
-            }
             if let summary:Element = self.summary
             {
                 substitutions[.summary]     = summary
@@ -84,9 +72,7 @@ extension Biome
         
         init(
             navigator:StaticElement, 
-            introduction:Element, 
             summary:StaticElement?, 
-            platforms:StaticElement?, 
             discussion:[StaticElement], 
             errors:[Error])
         {
@@ -102,10 +88,7 @@ extension Biome
             
             self.baked.navigator    = navigator.rendered
             
-            self.introduction       = introduction
-            
             self.baked.summary      = summary?.rendered
-            self.baked.platforms    = platforms?.rendered
             self.baked.discussion   = discussion.isEmpty ? nil : discussion.map(\.rendered).joined()
             
             self.errors             = errors 
@@ -129,13 +112,10 @@ extension Biome
             }
         }
         var renderer:ArticleRenderer    = .init(biome: self)
-        let introduction:Element        = renderer.introduction(for: self.packages[index])
         let comment:Comment             = renderer.content(markdown: comment)
         return .init(
             navigator:      navigator, 
-            introduction:   introduction,
             summary:        comment.head, 
-            platforms:      nil,
             discussion:
             [
                 ArticleRenderer.render(parameters: comment.parameters),
@@ -161,13 +141,10 @@ extension Biome
             }
         }
         var renderer:ArticleRenderer    = .init(biome: self)
-        let introduction:Element        = renderer.introduction(for: self.modules[index])
         let comment:Comment             = renderer.content(markdown: comment)
         return .init(
             navigator:      navigator, 
-            introduction:   introduction,
             summary:        comment.head,
-            platforms:      nil,
             discussion:     
             [
                 ArticleRenderer.render(parameters: comment.parameters),
@@ -204,7 +181,6 @@ extension Biome
         }
         
         var renderer:ArticleRenderer    = .init(biome: self)
-        let introduction:Element        = renderer.introduction(for: symbol)
         let summary:StaticElement?, 
             discussion:[StaticElement]
         if case _? = symbol.commentOrigin 
@@ -226,9 +202,7 @@ extension Biome
         }
         return .init(
             navigator:      navigator, 
-            introduction:   introduction,
             summary:        summary, 
-            platforms:      ArticleRenderer.render(platforms: symbol.platforms),
             discussion:     discussion, 
             errors:         renderer.errors)
     }
@@ -237,7 +211,6 @@ extension Biome
 {
     struct ArticleRenderer 
     {
-        typealias Element = HTML.Element<Anchor>
         typealias StaticElement = HTML.Element<Never>
         
         let biome:Biome 
@@ -247,355 +220,6 @@ extension Biome
         {
             self.biome = biome 
             self.errors = []
-        }
-        
-        mutating 
-        func render(constraint:SwiftLanguage.Constraint<Symbol.ID>) -> [Element] 
-        {
-            let prose:String
-            let object:Symbol.ID?
-            switch constraint.verb
-            {
-            case .inherits(from: let id): 
-                prose   = " inherits from "
-                object  = id
-            case .conforms(to: let id):
-                prose   = " conforms to "
-                object  = id
-            case .is(let id):
-                prose   = " is "
-                object  = id
-            }
-            return 
-                [
-                    Element[.code]
-                    {
-                        Element.highlight(constraint.subject, .type)
-                    },
-                    Element.text(escaped: prose), 
-                    Element[.code]
-                    {
-                        self.biome.highlight(constraint.object, .type, link: object.flatMap(self.biome.symbols.index(of:)))
-                    },
-                ]
-        }
-        mutating 
-        func render(constraints:[SwiftLanguage.Constraint<Symbol.ID>]) -> [Element] 
-        {
-            guard let ultimate:SwiftLanguage.Constraint<Symbol.ID> = constraints.last 
-            else 
-            {
-                fatalError("cannot call \(#function) with empty constraints array")
-            }
-            guard let penultimate:SwiftLanguage.Constraint<Symbol.ID> = constraints.dropLast().last
-            else 
-            {
-                return self.render(constraint: ultimate)
-            }
-            var fragments:[Element]
-            if constraints.count < 3 
-            {
-                fragments =                  self.render(constraint: penultimate)
-                fragments.append(.text(escaped: " and "))
-                fragments.append(contentsOf: self.render(constraint: ultimate))
-            }
-            else 
-            {
-                fragments = []
-                for constraint:SwiftLanguage.Constraint<Symbol.ID> in constraints.dropLast(2)
-                {
-                    fragments.append(contentsOf: self.render(constraint: constraint))
-                    fragments.append(.text(escaped: ", "))
-                }
-                fragments.append(contentsOf: self.render(constraint: penultimate))
-                fragments.append(.text(escaped: ", and "))
-                fragments.append(contentsOf: self.render(constraint: ultimate))
-            }
-            return fragments
-        }
-        
-        static
-        func render(platforms availability:[Symbol.Domain: Symbol.Availability]) -> StaticElement?
-        {
-            var platforms:[StaticElement] = []
-            for platform:Symbol.Domain in Symbol.Domain.platforms 
-            {
-                if let availability:Symbol.Availability = availability[platform]
-                {
-                    if availability.unavailable 
-                    {
-                        platforms.append(StaticElement[.li]
-                        {
-                            "\(platform.rawValue) unavailable"
-                        })
-                    }
-                    else if case nil? = availability.deprecated 
-                    {
-                        platforms.append(StaticElement[.li]
-                        {
-                            "\(platform.rawValue) deprecated"
-                        })
-                    }
-                    else if case let version?? = availability.deprecated 
-                    {
-                        platforms.append(StaticElement[.li]
-                        {
-                            "\(platform.rawValue) deprecated since "
-                            StaticElement.span("\(version.description)")
-                            {
-                                ["version"]
-                            }
-                        })
-                    }
-                    else if let version:Version = availability.introduced 
-                    {
-                        platforms.append(StaticElement[.li]
-                        {
-                            "\(platform.rawValue) "
-                            StaticElement.span("\(version.description)+")
-                            {
-                                ["version"]
-                            }
-                        })
-                    }
-                }
-            }
-            guard !platforms.isEmpty
-            else 
-            {
-                return nil
-            }
-            return StaticElement[.section]
-            {
-                ["platforms"]
-            }
-            content: 
-            {
-                StaticElement[.ul]
-                {
-                    platforms
-                }
-            }
-        }
-        
-        // could be static 
-        func introduction(for package:Package) -> Element
-        {
-            Element[.section]
-            {
-                ["introduction"]
-            }
-            content:
-            {
-                self.eyebrows(for: package)
-                Element[.h1]
-                {
-                    package.name
-                }
-                Element.anchor(id: .summary)
-            }
-        }
-        // could be static 
-        func introduction(for module:Module) -> Element
-        {
-            Element[.section]
-            {
-                ["introduction"]
-            }
-            content:
-            {
-                self.eyebrows(for: module)
-                Element[.h1]
-                {
-                    module.title
-                }
-                Element.anchor(id: .summary)
-            }
-        }
-        mutating 
-        func introduction(for symbol:Symbol) -> Element
-        {
-            var relationships:[Element] 
-            if case _? = symbol.relationships.requirementOf
-            {
-                relationships = 
-                [
-                    Element[.li] 
-                    {
-                        Element[.p]
-                        {
-                            ["required"]
-                        }
-                        content:
-                        {
-                            "Required."
-                        }
-                    }
-                ]
-            }
-            else 
-            {
-                relationships = []
-            }
-            // TODO: need to rework this, because real types can still inherit 
-            // docs, if they satisfy protocol requirements and have no documentation 
-            // of their own...
-            
-            /* if  let origin:Int = symbol.relationships.sourceOrigin 
-                let conformance:Int = self.biome.symbols[origin].lineage.parent 
-            {
-                relationships.append(Element[.li] 
-                {
-                    Element[.p]
-                    {
-                        Element.link("Inherited", to: self.biome.symbols[origin].path.description, internal: true)
-                        " from "
-                        Element[.code]
-                        {
-                            Element[.a]
-                            {
-                                (self.biome.symbols[conformance].path.description, as: HTML.Href.self)
-                            }
-                            content: 
-                            {
-                                Biome.render(code: self.biome.symbols[conformance].qualified)
-                            }
-                        }
-                    }
-                })
-            } */
-            if !symbol.extensionConstraints.isEmpty
-            {
-                relationships.append(Element[.li] 
-                {
-                    Element[.p]
-                    {
-                        "Available when "
-                        self.render(constraints: symbol.extensionConstraints)
-                    }
-                })
-            }
-            let availability:[Element] = Biome.render(availability: symbol.availability)
-            return Element[.section]
-            {
-                ["introduction"]
-            }
-            content:
-            {
-                self.eyebrows(for: symbol)
-                Element[.h1]
-                {
-                    symbol.title
-                }
-                Element.anchor(id: .summary)
-                if !relationships.isEmpty 
-                {
-                    Element[.ul]
-                    {
-                        ["relationships-list"]
-                    }
-                    content: 
-                    {
-                        relationships
-                    }
-                }
-                if !availability.isEmpty 
-                {
-                    Element[.ul]
-                    {
-                        ["availability-list"]
-                    }
-                    content: 
-                    {
-                        availability
-                    }
-                }
-            }
-        }
-        
-        private 
-        func eyebrows(for package:Package) -> Element
-        {
-            Element[.div]
-            {
-                ["eyebrows"]
-            }
-            content:
-            {
-                if case .swift = package.id 
-                {
-                    Element.span("Standard Library")
-                    {
-                        ["kind"]
-                    }
-                }
-                else 
-                {
-                    Element.span("Package")
-                    {
-                        ["kind"]
-                    }
-                }
-            }
-        }
-        private 
-        func eyebrows(for module:Module) -> Element
-        {
-            Element[.div]
-            {
-                ["eyebrows"]
-            }
-            content:
-            {
-                Element.span("Module")
-                {
-                    ["kind"]
-                }
-                Element[.span]
-                {
-                    ["package"]
-                }
-                content:
-                {
-                    Element.link(self.biome.packages[module.package].name, 
-                        to: self.biome.packages[module.package].path.description, 
-                        internal: true)
-                }
-            }
-        }
-        private 
-        func eyebrows(for symbol:Symbol) -> Element
-        {
-            Element[.div]
-            {
-                ["eyebrows"]
-            }
-            content:
-            {
-                Element.span(symbol.kind.title)
-                {
-                    ["kind"]
-                }
-                Element[.span]
-                {
-                    ["module"]
-                }
-                content: 
-                {
-                    if let extended:Int = symbol.bystander
-                    {
-                        Element[.span]
-                        {
-                            ["extended"]
-                        }
-                        content:
-                        {
-                            Element.link(self.biome.modules[extended].title, to: self.biome.modules[extended].path.description, internal: true)
-                        }
-                    }
-                    Element.link(self.biome.modules[symbol.module].title, to: self.biome.modules[symbol.module].path.description, internal: true)
-                }
-            }
         }
         
         static 

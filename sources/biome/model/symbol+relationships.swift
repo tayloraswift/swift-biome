@@ -128,7 +128,7 @@ extension Biome.Symbol
                 
                 upstream:[Int], // protocols this type conforms to
                 downstream:[Int], // protocols that refine this type (empty if not a protocol)
-                conformers:[(index:Int, conditions:[SwiftLanguage.Constraint<ID>])]
+                conformers:[(index:Int, conditions:[SwiftConstraint<Int>])]
             
             var _heapSize:Int 
             {
@@ -136,8 +136,8 @@ extension Biome.Symbol
                 size += MemoryLayout<Int>.stride * self.members.count
                 size += MemoryLayout<Int>.stride * self.upstream.count
                 size += MemoryLayout<Int>.stride * self.downstream.count
-                size += MemoryLayout<(index:Int, conditions:[SwiftLanguage.Constraint<ID>])>.stride * self.conformers.count
-                size += MemoryLayout<SwiftLanguage.Constraint<ID>>.stride * self.conformers.map(\.conditions.count).reduce(0, +)
+                size += MemoryLayout<(index:Int, conditions:[SwiftConstraint<Int>])>.stride * self.conformers.count
+                size += MemoryLayout<SwiftConstraint<Int>>.stride * self.conformers.map(\.conditions.count).reduce(0, +)
                 return size
             }
             
@@ -158,13 +158,13 @@ extension Biome.Symbol
         {
             private(set)
             var members:[Int], 
-                upstream:[(index:Int, conditions:[SwiftLanguage.Constraint<ID>])]
+                upstream:[(index:Int, conditions:[SwiftConstraint<Int>])]
                 
             var _heapSize:Int 
             {
                 var size:Int = MemoryLayout<Int>.stride * self.members.count
-                size += MemoryLayout<(index:Int, conditions:[SwiftLanguage.Constraint<ID>])>.stride * self.upstream.count
-                size += MemoryLayout<SwiftLanguage.Constraint<ID>>.stride * self.upstream.map(\.conditions.count).reduce(0, +)
+                size += MemoryLayout<(index:Int, conditions:[SwiftConstraint<Int>])>.stride * self.upstream.count
+                size += MemoryLayout<SwiftConstraint<Int>>.stride * self.upstream.map(\.conditions.count).reduce(0, +)
                 return size
             }
             
@@ -227,8 +227,8 @@ extension Biome.Symbol
             var abstract:Abstract 
             {
                 var downstream:[Int] = [], 
-                    conformers:[(index:Int, conditions:[SwiftLanguage.Constraint<ID>])] = []
-                for (index, conditions):(Int, [SwiftLanguage.Constraint<ID>]) in references.downstream 
+                    conformers:[(index:Int, conditions:[SwiftConstraint<Int>])] = []
+                for (index, conditions):(Int, [SwiftConstraint<Int>]) in references.downstream 
                 {
                     if case .protocol = colors[index]
                     {
