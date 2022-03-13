@@ -2,18 +2,22 @@ import Highlight
 
 extension Biome 
 {
-    public 
     struct Symbol:Sendable, Identifiable  
     {        
-        public 
         let id:ID
-        let module:Int 
+        // symbol may be mythical, in which case it will not have a module
+        let module:Int? 
         let bystander:Int? 
-        var namespace:Int 
+        var namespace:Int? 
         {
             self.bystander ?? self.module
         }
-        let path:Path
+        /// This symbol’s canonical parent. If the symbol is a protocol extension 
+        /// member, this points to the protocol.
+        let parent:Int?
+        let commentOrigin:Int?
+        let relationships:Relationships
+        /// The original scope this symbol was defined in. 
         let scope:[String]
         let title:String 
         let signature:Notebook<SwiftHighlight, Never>
@@ -29,69 +33,51 @@ extension Biome
         )
         let platforms:[Domain: Availability]
         
-        let parent:Int?
-        let relationships:Relationships
-        let commentOrigin:Int?
-            
-        var topics:
-        (
-            requirements:[(heading:Biome.Topic, indices:[Int])],
-            members:[(heading:Biome.Topic, indices:[Int])],
-            removed:[(heading:Biome.Topic, indices:[Int])]
-        )
+        // var topics:
+        // (
+        //     requirements:[(heading:Biome.Topic, indices:[Int])],
+        //     members:[(heading:Biome.Topic, indices:[Int])],
+        //     removed:[(heading:Biome.Topic, indices:[Int])]
+        // )
         
         var _size:Int 
         {
             var size:Int = MemoryLayout<Self>.stride 
-            size += self.path.group.utf8.count
+            size += self.id.string.utf8.count
+            size += MemoryLayout<String>.stride * self.scope.count
+            size += self.scope.reduce(0) { $0 + $1.utf8.count }
             size += self.title.utf8.count
             
-            //size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.qualified.count
-            //size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.signature.count
-            //size += MemoryLayout<SwiftLanguage.Lexeme<ID>>.stride * self.declaration.count
+            size += MemoryLayout<UInt64>.stride * self.signature.content.elements.count
+            size += self.signature.content.storage.utf8.count
+            
+            size += MemoryLayout<UInt64>.stride * self.declaration.content.elements.count
+            size += self.declaration.content.storage.utf8.count
+            
             size += MemoryLayout<Generic>.stride * self.generics.count
             size += MemoryLayout<SwiftConstraint<Int>>.stride * self.genericConstraints.count
             size += MemoryLayout<SwiftConstraint<Int>>.stride * self.extensionConstraints.count
             size += MemoryLayout<(Domain, Availability)>.stride * self.platforms.capacity
-            
-            size += MemoryLayout<(heading:Biome.Topic, indices:[Int])>.stride * self.topics.requirements.count
-            size += MemoryLayout<(heading:Biome.Topic, indices:[Int])>.stride * self.topics.members.count
-            size += MemoryLayout<(heading:Biome.Topic, indices:[Int])>.stride * self.topics.removed.count
             
             size += self.relationships._heapSize
             return size
         }
         
         init(modules:Storage<Module>, indices:[Symbol.ID: Int],
-            path:Path, 
-            lineage:Lineage, 
-            parent:Int?, 
-            relationships:Relationships, 
-            commentOrigin:Int?, 
-            vertex:Vertex) 
+            vertex:Vertex,
+            edges:Edge.References, 
+            relationships:Relationships) 
             throws 
         {
-            // if this is a (nested) type, print its fully-qualified signature
-            /* let keyword:String?
-            switch relationships 
-            {
-            case .typealias:    keyword = "typealias"
-            case .enum:         keyword = "enum"
-            case .struct:       keyword = "struct"
-            case .class:        keyword = "class"
-            case .actor:        keyword = "actor"
-            case .protocol:     keyword = "protocol"
-            default:            keyword = nil 
-            } */
             self.id             = vertex.id
-            self.module         = lineage.module 
-            self.bystander      = lineage.bystander
-            self.path           = path
+            self.module         = edges.module 
+            self.bystander      = edges.bystander
             
             var scope:[String]  = vertex.path
             self.title          = scope.removeLast()
             self.scope          = scope 
-            self.parent         = parent
+            self.parent         = edges.parent
+            self.commentOrigin  = edges.commentOrigin
             
             self.signature      = vertex.signature
             self.declaration    = vertex.declaration.compactMapLinks 
@@ -100,7 +86,6 @@ extension Biome
                 indices[$0]
             }
             self.relationships  = relationships
-            self.commentOrigin  = commentOrigin
             
             if let extended:Module.ID   = vertex.extends?.module
             {
@@ -176,7 +161,7 @@ extension Biome
             }
             self.availability   = availability
             self.platforms      = platforms
-            self.topics         = ([], [], [])
+            // self.topics         = ([], [], [])
         }
         
         var kind:Kind 
@@ -212,7 +197,6 @@ extension Biome
 }
 extension Biome.Symbol 
 {
-    public 
     enum Kind:String, Sendable, Hashable
     {
         case `case`             = "swift.enum.case"
@@ -238,7 +222,7 @@ extension Biome.Symbol
         case `protocol`         = "swift.protocol"
         
         public 
-        var topic:Biome.Topic.Automatic
+        var topic:Documentation.Topic.Automatic
         {
             switch self 
             {
@@ -264,7 +248,6 @@ extension Biome.Symbol
             }
         }
         
-        public 
         var title:String 
         {
             switch self 
@@ -291,7 +274,6 @@ extension Biome.Symbol
             }
         }
     }
-    public 
     enum Access:Sendable
     {
         case `private` 
@@ -300,71 +282,7 @@ extension Biome.Symbol
         case `public`
         case `open`
     }
-    // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/AvailabilityMixin.cpp
-    public 
-    enum Domain:String, Sendable, Hashable  
-    {
-        case wildcard   = "*"
-        case swift      = "Swift"
-        case swiftpm    = "SwiftPM"
-        
-        case iOS 
-        case macOS
-        case macCatalyst
-        case tvOS
-        case watchOS
-        case windows    = "Windows"
-        case openBSD    = "OpenBSD"
-        
-        case iOSApplicationExtension
-        case macOSApplicationExtension
-        case macCatalystApplicationExtension
-        case tvOSApplicationExtension
-        case watchOSApplicationExtension
-        
-        static 
-        var platforms:[Self]
-        {
-            [
-                Self.iOS ,
-                Self.macOS,
-                Self.macCatalyst,
-                Self.tvOS,
-                Self.watchOS,
-                Self.windows,
-                Self.openBSD,
-            ]
-        }
-    }
-    public 
-    struct UnconditionalAvailability:Sendable
-    {
-        var unavailable:Bool 
-        var deprecated:Bool 
-        var renamed:String?
-        var message:String?
-    }
-    public 
-    struct SwiftAvailability:Sendable
-    {
-        // unconditionals not allowed 
-        var deprecated:Biome.Version?
-        var introduced:Biome.Version?
-        var obsoleted:Biome.Version?
-        var renamed:String?
-        var message:String?
-    }
-    public 
-    struct Availability:Sendable
-    {
-        var unavailable:Bool 
-        // .some(nil) represents unconditional deprecation
-        var deprecated:Biome.Version??
-        var introduced:Biome.Version?
-        var obsoleted:Biome.Version?
-        var renamed:String?
-        var message:String?
-    }
+
     /* public 
     struct Parameter:Sendable
     {
@@ -372,8 +290,7 @@ extension Biome.Symbol
         var name:String?
         // var fragment:[SwiftLanguage.Lexeme<ID>]
     } */
-    public 
-    struct Generic:Sendable
+    struct Generic:Hashable, Sendable
     {
         var name:String 
         var index:Int 

@@ -1,4 +1,4 @@
-extension Biome.Topic 
+extension Documentation.Topic 
 {
     public 
     enum Automatic:String, Sendable, Hashable, CaseIterable
@@ -29,7 +29,7 @@ extension Biome.Topic
         }
     }
 }
-extension Biome 
+extension Documentation 
 {
     public 
     enum Topic:Hashable, Sendable, CustomStringConvertible 

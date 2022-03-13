@@ -34,7 +34,7 @@ extension Biome.Symbol
                     .struct(let concrete),
                     .class(let concrete, subclasses: _, superclass: _),
                     .actor(let concrete):
-                return concrete.members.isEmpty ? nil : concrete.members
+                return concrete.members
             case .protocol(let abstract):
                 return abstract.members
             case .associatedtype:
@@ -158,6 +158,7 @@ extension Biome.Symbol
         {
             private(set)
             var members:[Int], 
+            //  crimes:[Int],
                 upstream:[(index:Int, conditions:[SwiftConstraint<Int>])]
                 
             var _heapSize:Int 
@@ -183,14 +184,14 @@ extension Biome.Symbol
             var defaultImplementationOf:[Int],
                 defaultImplementations:[Int]
             var overrideOf:Int?,
-                _overrides:[Int]
+                overrides:[Int]
             var requirementOf:Int? // points to a protocol 
             
             var _heapSize:Int 
             {
                 var size:Int = MemoryLayout<Int>.stride * self.defaultImplementationOf.count
                 size += MemoryLayout<Int>.stride * self.defaultImplementations.count
-                size += MemoryLayout<Int>.stride * self._overrides.count
+                size += MemoryLayout<Int>.stride * self.overrides.count
                 return size
             }
             
@@ -199,7 +200,7 @@ extension Biome.Symbol
             {
                 self.defaultImplementationOf.sort(by: ascending)
                 self.defaultImplementations.sort(by: ascending)
-                self._overrides.sort(by: ascending)
+                self.overrides.sort(by: ascending)
             }
         }
         struct TypeWitness:Sendable 
@@ -217,12 +218,19 @@ extension Biome.Symbol
                     defaultImplementationOf: references.defaultImplementationOf, 
                     defaultImplementations: references.defaultImplementations, 
                     overrideOf: references.overrideOf,
-                    _overrides: references._overrides, 
+                    overrides: references.overrides, 
                     requirementOf: references.requirementOf)
             }
             var concrete:Concrete 
             {
-                .init(members: references.members, upstream: references.upstream)
+                // at some point we want to partition the members array into 
+                // natural and synthetic members, so we do not need to compare 
+                // parent indices in order to detect crimes. 
+                // to unblock this, we need an abstraction for zipping two 
+                // sorted sequences into one sorted sequence.
+                // note: crimes can be reported more than once, but natural members 
+                // cannot duplicate
+                .init(members: references.members + Set.init(references.crimes), upstream: references.upstream)
             }
             var abstract:Abstract 
             {
@@ -300,6 +308,18 @@ extension Biome.Symbol
                 self = .witness(witness, callable: .deinitializer)
             }
             
+            // concrete types can be victims
+            switch kind 
+            {
+            case    .enum, .struct, .class, .actor:
+                break 
+            default:
+                guard references.crimes.isEmpty 
+                else 
+                {
+                    throw Biome.LinkingError.crimes(references.crimes, in: kind, index) 
+                }
+            }
             // abstract and concrete types can have members 
             // abstract and concrete types can conform to things 
             switch kind 

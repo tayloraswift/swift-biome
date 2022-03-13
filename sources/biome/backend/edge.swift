@@ -25,15 +25,20 @@ extension Biome
     {
         struct References 
         {
+            let parent:Int?, 
+                module:Int?, 
+                bystander:Int?
+            
             var members:[Int], 
+                crimes:[Int],
             
                 defaultImplementationOf:[Int], 
                 defaultImplementations:[Int], 
                 
                 overrideOf:Int?,
-                _overrides:[Int],
+                overrides:[Int],
                 
-                sourceOrigin:Int?,
+                commentOrigin:Int?,
                 //specializationOf:Int?,
                 //specializations:[Int],
                 
@@ -45,14 +50,18 @@ extension Biome
                 subclasses:[Int],
                 superclass:Int?
             
-            init() 
+            init(parent:Int?, module:Int?, bystander:Int?) 
             {
+                self.parent                     = parent
+                self.module                     = module
+                self.bystander                  = bystander
                 self.members                    = []
+                self.crimes                     = []
                 self.defaultImplementationOf    = []
                 self.defaultImplementations     = []
                 self.overrideOf                 = nil
-                self._overrides                 = []
-                self.sourceOrigin               = nil
+                self.overrides                  = []
+                self.commentOrigin              = nil
                 // self.specializationOf           = nil
                 // self.specializations            = []
                 self.requirementOf              = nil
@@ -66,6 +75,7 @@ extension Biome
         // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
         enum Kind:String
         {
+            case crime // like `member`, but for synthetic members
             case member                 = "memberOf"
             case conformer              = "conformsTo"
             case subclass               = "inheritsFrom"
@@ -73,13 +83,10 @@ extension Biome
             case requirement            = "requirementOf"
             case optionalRequirement    = "optionalRequirementOf"
             case defaultImplementation  = "defaultImplementationOf"
-            
-            // extras 
-            // case specialization 
         }
         // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.cpp
         var kind:Kind 
-        var source:Symbol.ID 
+        var source:Symbol.ID
         var target:Symbol.ID
         // if the source inherited docs 
         var origin:(id:Symbol.ID, name:String)?
@@ -100,7 +107,7 @@ extension Biome
             else 
             {
                 throw SymbolIdentifierError.undefined(symbol: self.source)
-            }
+            } 
             guard let target:Int = indices[self.target]
             else 
             {
@@ -110,33 +117,39 @@ extension Biome
             {
                 $0.map(to: indices)
             }
-            if let origin:Symbol.ID     = self.origin?.id
+            // even after inferring the existence of mythical symbols, it’s still 
+            // possible for the documentation origin to be unknown to us. this 
+            // is fine, as we need a copy of the inherited docs anyways.
+            if  let origin:Symbol.ID    = self.origin?.id, 
+                let origin:Int          = indices[origin]
             {
-                /* guard let origin:Int    = indices[origin]
-                else 
+                if let incumbent:Int = table[source].commentOrigin
                 {
-                    throw SymbolIdentifierError.undefined(symbol: origin)
-                } */
+                    // origin is allowed to duplicate, as long as the index is the same 
+                    guard incumbent == origin
+                    else 
+                    {
+                        fatalError("unimplemented")
+                    }
+                }
+                else if origin != source 
+                {
+                    table[source].commentOrigin = origin
+                }
                 // `vertices[source].id` is not necessarily synthesized, 
                 // because it could be an inherited `associatedtype`, which does 
                 // not contain '::SYNTHESIZED::'
-                try self.link(source, to: target, origin: indices[origin], constraints: constraints, 
-                    in: &table)
             }
-            else 
-            {
-                try self.link(source, to: target, origin: nil,    constraints: constraints, 
-                    in: &table)
-            }
+            
+            try self.link(source, to: target, constraints: constraints, in: &table)
         }
         private  
-        func link(_ source:Int, to target:Int, origin:Int?, 
-            constraints:[SwiftConstraint<Int>], 
+        func link(_ source:Int, to target:Int, constraints:[SwiftConstraint<Int>], 
             in table:inout [References]) throws 
         {
             if constraints.isEmpty
             {
-                try self.link(source, to: target, origin: origin, in: &table)
+                try self.link(source, to: target, in: &table)
             }
             else 
             {
@@ -151,22 +164,19 @@ extension Biome
             }
         }
         private  
-        func link(_ source:Int, to target:Int, origin:Int?, in table:inout [References]) throws 
+        func link(_ source:Int, to target:Int, in table:inout [References]) throws 
         {
             switch self.kind
             {
+            case .crime: 
+                table[target].crimes.append(source)
             case .member: 
-                table[target].members.append(source)
-                guard let origin:Int = origin
+                guard case target? = table[source].parent 
                 else 
                 {
-                    break 
+                    fatalError("natural declaration is not member of parent")
                 }
-                if let incumbent:Int = table[source].sourceOrigin
-                {
-                    throw LinkingError.duplicate(source, have: incumbent, is: self.kind, of: target)
-                }
-                table[source].sourceOrigin = origin
+                table[target].members.append(source)
             
             case .conformer:
                 table[source].upstream.append((target, []))
@@ -194,7 +204,7 @@ extension Biome
                     throw LinkingError.duplicate(source, have: incumbent, is: self.kind, of: target)
                 }
                 table[source].overrideOf = target 
-                table[target]._overrides.append(source)
+                table[target].overrides.append(source)
                 
             case .defaultImplementation:
                 table[source].defaultImplementationOf.append(target)

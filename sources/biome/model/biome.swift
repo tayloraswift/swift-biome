@@ -55,7 +55,7 @@ struct Biome:Sendable
                 targets[module, default: []].append(contentsOf: bystanders.prefix(1))
             }
             let start:Int   = modules.endIndex 
-            modules.append(contentsOf: targets.sorted { $0.key.identifier < $1.key.identifier })
+            modules.append(contentsOf: targets.sorted { $0.key.string < $1.key.string })
             let end:Int     = modules.endIndex 
             return ($0.key, start ..< end)
         }
@@ -77,6 +77,65 @@ struct Biome:Sendable
             }
         }
         return indices
+    }
+    
+    private static
+    func populate(
+        symbolIndices:inout [Symbol.ID: Int],
+        mythical:inout [Symbol.ID: Vertex],
+        vertices:inout [Vertex], 
+        edges:inout [Edge],
+        from json:JSON, 
+        module:Module.ID, 
+        prune:Bool = false) 
+        throws -> Range<Int>
+    {
+        let descriptor:(module:Module.ID, vertices:[Vertex], edges:[Edge]) = try Self.decode(module: json)
+        guard descriptor.module == module 
+        else 
+        {
+            throw ModuleIdentifierError.mismatch(decoded: descriptor.module)
+        }
+        edges.append(contentsOf: descriptor.edges)
+        
+        let start:Int = vertices.endIndex
+        //var _count:Int = 0
+        for vertex:Vertex in descriptor.vertices 
+        {
+            //defer 
+            //{
+            //    _count += 1
+            //}
+            if vertex.isCanonical
+            {
+                if case _? = symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
+                {
+                    throw SymbolIdentifierError.duplicate(symbol: vertex.id) 
+                }
+                vertices.append(vertex)
+                mythical.removeValue(forKey: vertex.id)
+            }
+            else if let duplicate:Int = symbolIndices[vertex.id]
+            {
+                guard vertex ~~ vertices[duplicate]
+                else 
+                {
+                    throw SymbolIdentifierError.duplicate(symbol: vertex.id) 
+                }
+            }
+            else if let duplicate:Vertex = mythical.updateValue(vertex, forKey: vertex.id)
+            {
+                // only add the vertex to the mythical list if we don’t already 
+                // have it in the normal list 
+                guard vertex ~~ duplicate 
+                else 
+                {
+                    throw SymbolIdentifierError.duplicate(symbol: vertex.id) 
+                }
+            }
+        }
+        let end:Int = vertices.endIndex
+        return start ..< end
     }
     
     private static
@@ -104,103 +163,8 @@ struct Biome:Sendable
         }
         return json
     }
-    private static
-    func populate(
-        symbolIndices:inout [Symbol.ID: Int],
-        vertices:inout [Vertex], 
-        edges:inout [Edge],
-        from json:JSON, 
-        module:Module.ID, 
-        prune:Bool = false) 
-        throws -> Range<Int>
-    {
-        let descriptor:(module:Module.ID, vertices:[Vertex], edges:[Edge]) = try Self.decode(module: json)
-        guard descriptor.module == module 
-        else 
-        {
-            throw ModuleIdentifierError.mismatch(decoded: descriptor.module)
-        }
-        
-        var blacklisted:Set<Symbol.ID> = []
-        let start:Int   = vertices.endIndex
-        for vertex:Vertex in descriptor.vertices 
-        {
-            switch vertex.id 
-            {
-            case .natural:
-                if case nil = symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
-                {
-                    vertices.append(vertex)
-                }
-                else 
-                {
-                    throw SymbolIdentifierError.duplicate(symbol: vertex.id) 
-                }
-            
-            case .synthesized:
-                if case nil = symbolIndices.index(forKey: vertex.id)
-                {
-                    symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
-                    vertices.append(vertex)
-                    // infer an extra edge
-                    // edges.append(.init(specialization: .synthesized(template, for: scope), of: .natural(template)))
-                }
-                else if prune, case .synthesized = vertex.id 
-                {
-                    // duplicate symbol id. 
-                    // if the symbol is synthetic, and extends a different module, 
-                    // ignore and blacklist. otherwise, throw an error immediately
-                    blacklisted.insert(vertex.id)
-                }
-                else 
-                {
-                    throw SymbolIdentifierError.duplicate(symbol: vertex.id) 
-                }
-            }
-        }
-        let end:Int     = vertices.endIndex
-        
-        if blacklisted.count != 0 
-        {
-            print("blacklisted \(blacklisted.count) duplicate vert(ex/icies) in '\(module.title)'")
-        }
-        
-        var pruned:Int = 0
-        for edge:Edge in descriptor.edges 
-        {
-            switch (blacklisted.contains(edge.source), blacklisted.contains(edge.target))
-            {
-            case (false, false):
-                edges.append(edge)
-            case (true,  false):
-                guard   case .member = edge.kind,
-                        case .natural(let scope) = edge.target, 
-                        case .synthesized(_, for: scope) = edge.source
-                else 
-                {
-                    fallthrough 
-                }
-                // allow recovery
-                pruned += 1
-            case (true, true): 
-                // if we didn’t throw an error before, throw it now 
-                throw SymbolIdentifierError.duplicate(symbol: edge.source) 
-            case (false, true): 
-                // if we didn’t throw an error before, throw it now 
-                throw SymbolIdentifierError.duplicate(symbol: edge.target) 
-            }
-        }
-        
-        if pruned != 0 
-        {
-            print("pruned \(pruned) duplicate edge(s) with blacklisted endpoints in '\(module.title)'")
-        }
-        
-        return start ..< end
-    }
-    
     static 
-    func load(packages names:[Package.ID: [String]], prefix:[String], 
+    func load(packages names:[Package.ID: [String]], 
         loader:(_ package:Package.ID, _ module:String) async throws -> Resource) 
         async throws -> (biome:Self, comments:[String])
     {
@@ -211,8 +175,12 @@ struct Biome:Sendable
         let moduleIndices:[Module.ID: Int]      = try Self.indices(for: targets, by: \.module, 
             else: ModuleIdentifierError.duplicate(module:))
         var symbolIndices:[Symbol.ID: Int]      = [:]
-        var edges:[Edge]        = []
+        // we need the mythical dictionary in case we run into synthesized 
+        // extensions before the generic base (in which case, they would be assigned 
+        // to the wrong module)
+        var mythical:[Symbol.ID: Vertex]        = [:]
         var vertices:[Vertex]   = []
+        var edges:[Edge]        = []
         var modules:[Module]    = []
         var packages:[Package]  = []
         for package:(id:Package.ID, targets:Range<Int>) in names 
@@ -225,6 +193,7 @@ struct Biome:Sendable
                 {
                     core = try Self.populate(
                         symbolIndices: &symbolIndices,
+                        mythical: &mythical,
                         vertices: &vertices, 
                         edges: &edges,
                         from: try await Self.load(
@@ -255,6 +224,7 @@ struct Biome:Sendable
                     {
                         extensions.append((index, try Self.populate(
                             symbolIndices: &symbolIndices,
+                            mythical: &mythical,
                             vertices: &vertices, 
                             edges: &edges,
                             from: try await Self.load(
@@ -270,48 +240,50 @@ struct Biome:Sendable
                         throw GraphLoadingError.init(error, module: target.module, bystander: bystander)
                     }
                 }
-                let path:Path = .init(prefix: prefix, package: package.id, namespace: target.module)
                 let module:Module = .init(id: target.module, package: packages.endIndex, 
-                    path: path, core: core, extensions: extensions)
+                    core: core, extensions: extensions)
                 modules.append(module)
                 
                 if target.bystanders.isEmpty
                 {
-                    print("loaded module '\(target.module.identifier)' (from package '\(package.id.name)')")
+                    print("loaded module '\(target.module.string)' (from package '\(package.id.name)')")
                 }
                 else 
                 {
-                    print("loaded module '\(target.module.identifier)' (from package '\(package.id.name)', bystanders: \(target.bystanders.map{ "'\($0.identifier)'" }.joined(separator: ", ")))")
+                    print("loaded module '\(target.module.string)' (from package '\(package.id.name)', bystanders: \(target.bystanders.map{ "'\($0.string)'" }.joined(separator: ", ")))")
                 }
-                
-                var _synthetic:Int 
-                {
-                    module.allSymbols.reduce(0)
-                    {
-                        if case .synthesized = vertices[$1].id 
-                        {
-                            return $0 + 1
-                        }
-                        else 
-                        {
-                            return $0
-                        }
-                    }
-                }
-                print("note: \(_synthetic) of \(module.allSymbols.count) vertices are synthetic")
             }
-            let path:Path       = .init(prefix: prefix, package: package.id), 
-                search:Path     = .init(prefix: prefix, package: package.id, suffix: "search.json")
-            let package:Package = .init(id: package.id, path: path, search: search, modules: package.targets, hash: version)
+            let package:Package = .init(id: package.id, modules: package.targets, hash: version)
             packages.append(package)
         }
-        // it’s important to know about implicitly private symbols, if they serve as 
-        // a generic extension method, a generic constraint, or a storage location 
-        // for an inherited doccomment 
+        // only keep mythical vertices if we don’t have the generic base available
+        for (generic, vertex):(Symbol.ID, Vertex) in mythical 
+        {
+            guard case nil = symbolIndices.updateValue(vertices.endIndex, forKey: generic)
+            else 
+            {
+                fatalError("unreachable")
+            }
+            vertices.append(vertex)
+            
+            print("note: inferred existence of mythical symbol '\(generic)'")
+        }
+        
+        /* if start != end 
+        {
+            // generate the mythical package and module 
+            let module:Module   = .init(id: .mythical, package: packages.endIndex, 
+                path: .init(prefix: prefix, package: .mythical, namespace: .mythical), 
+                core: start ..< end, 
+                extensions: [])
+            modules.append(module)
+            let package:Package = .init(id: package.id, path: path, search: search, modules: modules.endIndex - 1 ..< modules.endIndex, 
+                hash: .semantic(0, 0, 0))
+        } */
         
         print("loaded \(vertices.count) vertices and \(edges.count) edges from \(modules.count) module(s)")
         
-        let biome:Biome = try .init(prefix: prefix, 
+        let biome:Biome = try .init(
             indices:    symbolIndices, 
             vertices:   vertices, 
             edges:      edges, 
@@ -328,13 +300,101 @@ struct Biome:Sendable
         print("initialized biome (\(_memory >> 10) KB)")
         return (biome, vertices.map(\.comment))
     }
+    
     private 
-    init(prefix:[String], indices:[Symbol.ID: Int], vertices:[Vertex], edges:[Edge], 
+    struct Lineage:Hashable
+    {
+        let namespace:Int 
+        let path:ArraySlice<String>
+        
+        init(namespace:Int, path:ArraySlice<String>)
+        {
+            self.namespace  = namespace 
+            self.path       = path
+        }
+        init(namespace:Int, path:[String])
+        {
+            self.init(namespace: namespace, path: path[...])
+        }
+        
+        var parent:Self? 
+        {
+            let path:ArraySlice<String> = self.path.dropLast()
+            return path.isEmpty ? nil : .init(namespace: self.namespace, path: path)
+        }
+    }
+    private static 
+    func lineages(vertices:[Vertex], modules:Storage<Module>, packages:Storage<Package>) -> [(module:Int, lineage:Lineage)]
+    {
+        modules.indices.flatMap
+        {
+            (module:Int) -> [(module:Int, lineage:Lineage)] in
+            
+            var lineages:[Lineage] = modules[module].symbols.core.map 
+            {
+                .init(namespace: module, path: vertices[$0].path)
+            }
+            for (bystander, symbols):(Int, Range<Int>) in modules[module].symbols.extensions
+            {
+                for index:Int in symbols
+                {
+                    lineages.append(.init(namespace: bystander, path: vertices[index].path))
+                }
+            }
+            return lineages.map { (module, $0) }
+        }
+    }
+    private static 
+    func parents(vertices:[Vertex], modules:Storage<Module>, packages:Storage<Package>) 
+        throws -> [Edge.References]
+    {
+        // lineages. these only form a *subsequence* of all the vertices; mythical 
+        // symbols do not have lineages
+        let lineages:[(module:Int, lineage:Lineage)] = Self.lineages(vertices: vertices, modules: modules, packages: packages)
+        let parents:[Lineage: Int] = [Lineage: [Int]].init(grouping: lineages.indices)
+        {
+            lineages[$0].lineage
+        }.compactMapValues 
+        {
+            if let first = $0.first, $0.dropFirst().isEmpty 
+            {
+                return first
+            }
+            else 
+            {
+                return nil 
+            }
+        }
+        let references:[Edge.References] = try lineages.indices.map
+        {
+            let (module, lineage):(Int, Lineage) = lineages[$0]
+            let bystander:Int? = module == lineage.namespace ? nil : lineage.namespace
+            guard let parent:Lineage = lineage.parent
+            else 
+            {
+                // is a top-level symbol  
+                return .init(parent: nil, module: module, bystander: bystander) 
+            }
+            if let parent:Int = parents[parent] 
+            {
+                return .init(parent: parent, module: module, bystander: bystander) 
+            }
+            else 
+            {
+                throw LinkingError.orphaned(symbol: $0)
+            }
+        }
+        return references + repeatElement(.init(parent: nil, module: nil, bystander: nil), 
+            count: vertices.count - references.count)
+    }
+    private 
+    init(indices:[Symbol.ID: Int], vertices:[Vertex], edges:[Edge], 
         modules:Storage<Module>, packages:Storage<Package>)
         throws
     {
+        var references:[Edge.References] = try Self.parents(vertices: vertices, 
+            modules: modules, packages: packages)
         //  link 
-        var references:[Edge.References]    = .init(repeating: .init(), count: vertices.count)
         for edge:Edge in _move(edges)
         {
             try edge.link(&references, indices: indices)
@@ -353,100 +413,16 @@ struct Biome:Sendable
                 (vertices[$0].path.last ?? "") < (vertices[$1].path.last ?? "")
             }
         }
-        // lineages
-        let lineages:[Lineage] = modules.indices.flatMap
-        {
-            (module:Int) -> [Lineage] in
-            
-            let packageID:Package.ID        = packages[modules[module].package].id, 
-                moduleID:Module.ID          = modules[module].id
-            var lineages:[Lineage]   = modules[module].symbols.core.map 
-            {
-                .init(package:  packageID, 
-                    graph:     .init(module: moduleID, bystander: nil), 
-                    module:     module, 
-                    bystander:  nil, 
-                    path:       vertices[$0].path)
-            }
-            for (bystander, symbols):(Int, Range<Int>) in modules[module].symbols.extensions
-            {
-                let packageID:Package.ID    = packages[modules[bystander].package].id,
-                    bystanderID:Module.ID   = modules[bystander].id
-                for index:Int in symbols
-                {
-                    lineages.append(.init(package: packageID, 
-                        graph:     .init(module: moduleID, bystander: bystanderID), 
-                        module:     module, 
-                        bystander:  bystander, 
-                        path:       vertices[index].path))
-                }
-            }
-            return lineages
-        }
-        var paths:[Path] = lineages.indices.map
-        {
-            switch vertices[$0].kind 
-            {
-            case    .associatedtype, .typealias, .enum, .struct, .class, .actor, .protocol, .var, .func, .operator:
-                return .init(prefix: prefix, lineages[$0], dot: false)
-            case    .case, .initializer, .deinitializer, 
-                    .typeSubscript, .instanceSubscript, 
-                    .typeProperty, .instanceProperty, 
-                    .typeMethod, .instanceMethod:
-                return .init(prefix: prefix, lineages[$0], dot: true)
-            }
-        }
-        // parents
-        let table:[String: [Int]] = .init(grouping: vertices.indices)
-        {
-            paths[$0].group
-        }
-        var parents:[Int?] = .init(repeating: nil, count: vertices.count)
-        for index:Int in vertices.indices 
-        {
-            guard let parent:Lineage = lineages[index].parent
-            else 
-            {
-                // is a top-level symbol  
-                continue 
-            }
-            let path:Path = .init(prefix: prefix, parent, dot: false)
-            guard   let matches:[Int] = table[path.group], 
-                    let parent:Int = matches.first
-            else 
-            {
-                throw LinkingError.orphaned(symbol: index)
-            }
-            guard matches.count == 1
-            else 
-            {
-                throw LinkingError.junction(symbol: index)
-            }
-            parents[index] = parent 
-        }
-        // canonical paths. if paths collide, *every* symbol in 
-        // the path group gets a disambiguation tag 
-        for overloads:[Int] in table.values where overloads.count > 1
-        {
-            for overload:Int in overloads 
-            {
-                paths[overload].disambiguation = vertices[overload].id
-            }
-        }
+        
         let symbols:Storage<Symbol> = .init(indices: indices, elements: 
             try vertices.indices.map 
-        {
-            return try .init(modules: modules, indices: indices,
-                path:           paths[$0], 
-                lineage:        lineages[$0], 
-                parent:         parents[$0], 
-                relationships:  relationships[$0],
-                commentOrigin:  references[$0].sourceOrigin, 
-                vertex:         vertices[$0])
-        })
-        self.init(packages: packages, 
-            modules: modules, 
-            symbols: symbols)
+            {
+                try Symbol.init(modules: modules, indices: indices,
+                    vertex:         vertices[$0],
+                    edges:          references[$0], 
+                    relationships:  relationships[$0])
+            })
+        self.init(packages: packages, modules: modules, symbols: symbols)
     }
     private 
     init(packages:Storage<Package>, modules:Storage<Module>, symbols:Storage<Symbol>)
@@ -474,43 +450,27 @@ struct Biome:Sendable
                 self.symbols[$0].title < self.symbols[$1].title
             }
         }
-        
-        // topics 
-        for index:Int in self.modules.indices 
+    }
+    
+    func comments(backing symbols:[Int]) -> [Int]
+    {
+        symbols.map 
         {
-            let groups:[Bool: [Int]] = self.partition(symbols: self.modules[index].toplevel)
-            self.modules[index].topics.members.append(contentsOf: self.organize(symbols: groups[false, default: []]))
-            self.modules[index].topics.removed.append(contentsOf: self.organize(symbols: groups[true,  default: []]))
-        }
-        for index:Int in self.symbols.indices 
-        {
-            if case .protocol(let abstract) = self.symbols[index].relationships 
-            {
-                self.symbols[index].topics.requirements.append(contentsOf: self.organize(symbols: abstract.requirements))
-            }
-            guard let members:[Int] = self.symbols[index].relationships.members
-            else 
-            {
-                continue 
-            }
-            let groups:[Bool: [Int]] = self.partition(symbols: members)
-            self.symbols[index].topics.members.append(contentsOf: self.organize(symbols: groups[false, default: []]))
-            self.symbols[index].topics.removed.append(contentsOf: self.organize(symbols: groups[true,  default: []]))
+            self.symbols[$0].commentOrigin ?? $0
         }
     }
-    private 
     func partition(symbols:[Int]) -> [Bool: [Int]]
     {
         .init(grouping: symbols)
         {
-            if let availability:Symbol.UnconditionalAvailability = self.symbols[$0].availability.unconditional
+            if let availability:UnconditionalAvailability = self.symbols[$0].availability.unconditional
             {
                 if availability.unavailable || availability.deprecated
                 {
                     return true 
                 }
             }
-            if let availability:Symbol.SwiftAvailability = self.symbols[$0].availability.swift
+            if let availability:SwiftAvailability = self.symbols[$0].availability.swift
             {
                 if case _? = availability.deprecated
                 {
@@ -524,22 +484,69 @@ struct Biome:Sendable
             return false
         }
     }
-    private 
-    func organize(symbols:[Int]) -> [(heading:Biome.Topic, indices:[Int])]
+    func organize(symbols:[Int], in scope:Int?) -> [(heading:Documentation.Topic, symbols:[(witness:Int, victim:Int?)])]
     {
-        let topics:[Topic.Automatic: [Int]] = .init(grouping: symbols)
+        let topics:[Documentation.Topic.Automatic: [Int]] = .init(grouping: symbols)
         {
             self.symbols[$0].kind.topic
         }
-        return Topic.Automatic.allCases.compactMap
+        return Documentation.Topic.Automatic.allCases.compactMap
         {
-            (topic:Topic.Automatic) in 
-            guard let indices:[Int] = topics[topic]
+            if  let indices:[Int] = topics[$0]
+            {
+                let indices:[(witness:Int, victim:Int?)] = indices.map 
+                {
+                    if  let scope:Int = scope, 
+                        let parent:Int = self.symbols[$0].parent, parent != scope 
+                    {
+                        return (witness: $0, victim: scope)
+                    }
+                    else 
+                    {
+                        return (witness: $0, victim: nil)
+                    }
+                }
+                return (.automatic($0), indices)
+            }
             else 
             {
                 return nil 
             }
-            return (.automatic(topic), indices)
+        }
+    }
+    
+    /// returns a package index.
+    private 
+    func packageCitizenship(symbol:Int) -> Int? 
+    {
+        guard let module:Int = self.symbols[symbol].module
+        else 
+        {
+            // mythical symbols are not citizens of any package 
+            return nil
+        }
+        let package:Int = self.modules[module].package
+        switch self.symbols[symbol].bystander 
+        {
+        case nil:
+            // symbols that live in the same namespace as the modules that vend 
+            // them are always package citizens 
+            return package 
+        case let bystander?: 
+            return self.modules[bystander].package == package ? package : nil
+        }
+    }
+    private 
+    func packageCitizenship(symbol:Int, specialization scope:Int) -> Int? 
+    {
+        if  let package:Int = self.packageCitizenship(symbol: symbol), 
+            case package?   = self.packageCitizenship(symbol: scope)
+        {
+            return package 
+        }
+        else 
+        {
+            return nil 
         }
     }
 }

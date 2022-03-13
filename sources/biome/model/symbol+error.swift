@@ -1,6 +1,9 @@
 extension Biome 
 {
-    public 
+    enum SymbolResolutionError:Error 
+    {
+        case synthetic(resolution:USR)
+    }
     enum SymbolIdentifierError:Error 
     {
         // global errors 
@@ -13,14 +16,13 @@ extension Biome
         /// unique id does not start with a supported language prefix (‘c’ or ‘s’)
         // case unsupportedLanguage(code:UInt8)
     }
-    public 
     enum SymbolExtensionError:Error 
     {
         case mismatch(decoded:Module.ID, expected:Module.ID, in:Symbol.ID)
     }
     enum SymbolAvailabilityError:Error 
     {
-        case duplicate(domain:Symbol.Domain, in:Symbol.ID)
+        case duplicate(domain:Domain, in:Symbol.ID)
     }
     enum LinkingError:Error 
     {
@@ -29,6 +31,7 @@ extension Biome
         
         
         case members([Int], in:Symbol.Kind, Int) 
+        case crimes([Int], in:Symbol.Kind, Int) 
         case conformers([(index:Int, conditions:[SwiftConstraint<Int>])], in:Symbol.Kind, Int) 
         case conformances([(index:Int, conditions:[SwiftConstraint<Int>])], in:Symbol.Kind, Int) 
         case requirements([Int], in:Symbol.Kind, Int) 
@@ -41,6 +44,6 @@ extension Biome
         
         case island(associatedtype:Int)
         case orphaned(symbol:Int)
-        case junction(symbol:Int)
+        //case junction(symbol:Int)
     }
 }

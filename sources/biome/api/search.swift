@@ -1,15 +1,18 @@
 import JSON 
 import Resource
 
-extension Biome.Symbol 
+extension Documentation 
 {
-    var search:JSON
+    private 
+    func searchEntry(_ index:Int) -> JSON 
     {
-        .object(
+        let uri:String = self.print(uri: uri(witness: index, victim: nil))
+        let symbol:Biome.Symbol = self.biome.symbols[index]
+        return .object(
         [
-            "title": .string(self.title), 
-            "uri":   .string(self.path.description), 
-            "text":   .array(self.signature.content.compactMap
+            "title": .string(symbol.title), 
+            "uri":   .string(uri), 
+            "text":   .array(symbol.signature.content.compactMap
             {
                 (text:String, highlight:SwiftHighlight) in
                 switch highlight
@@ -22,33 +25,19 @@ extension Biome.Symbol
             }),
         ]) 
     }
-}
-extension Biome 
-{
-    @available(*, deprecated)
-    var search:[(uri:String, title:String, text:[String])]
-    {
-        fatalError("unreachable")
-    }
     
-    func searchIndex(for package:Package) -> Resource
+    func searchIndex(for package:Biome.Package) -> Resource
     {
         let json:JSON = .array(package.modules.flatMap 
         { 
             (module:Int) -> FlattenSequence<[[JSON]]> in 
-            let module:Module = self.modules[module]
+            let module:Biome.Module = self.biome.modules[module]
             return (module.symbols.extensions.map
             {
-                $0.symbols.map 
-                {
-                    self.symbols[$0].search
-                }
+                $0.symbols.map(self.searchEntry(_:)) 
             }
             + 
-            CollectionOfOne<[JSON]>.init(module.symbols.core.map 
-            {
-                self.symbols[$0].search
-            })).joined()
+            CollectionOfOne<[JSON]>.init(module.symbols.core.map(self.searchEntry(_:)))).joined()
         })
         let serialization:String = _move(json).description
         return .text(serialization, type: .json, version: package.hash)

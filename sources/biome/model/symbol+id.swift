@@ -2,46 +2,41 @@ import Grammar
 
 extension Biome.Symbol 
 {
+    struct ID:Hashable, CustomStringConvertible, Sendable 
+    {
+        let string:String 
+        
+        init(_ string:String)
+        {
+            self.string = string 
+        }
+        
+        var description:String
+        {
+            Demangle[self.string]
+        }
+    }
+}
+extension Biome 
+{
     enum InterfaceLanguage
     {
         case c 
         case swift 
     }
-    public 
-    enum ID:Hashable, CustomStringConvertible, Sendable 
+    enum USR:Hashable, CustomStringConvertible, Sendable 
     {
-        @available(*, unavailable)
-        var string:String { "" }
+        case natural(Symbol.ID)
+        case synthesized(from:Symbol.ID, for:Symbol.ID)
         
-        @available(*, unavailable)
-        init(_ string:String)
-        {
-            fatalError("unreachable")
-        }
-        
-        case natural(String)
-        case synthesized(String, for:String)
-        
-        var usr:String 
+        var description:String 
         {
             switch self 
             {
-            case .natural(let string): 
-                return string 
-            case .synthesized(let string, for: let scope): 
-                return "\(string)::SYNTHESIZED::\(scope)"
-            }
-        }
-        
-        public 
-        var description:String
-        {
-            switch self 
-            {
-            case .natural(let string): 
-                return Demangle[string]
-            case .synthesized(let string, for: let scope): 
-                return "synthesized \(Demangle[string]) for \(Demangle[scope])"
+            case .natural(let id): 
+                return id.string 
+            case .synthesized(from: let generic, for: let scope): 
+                return "\(generic.string)::SYNTHESIZED::\(scope.string)"
             }
         }
         
@@ -51,8 +46,7 @@ extension Biome.Symbol
         }
     }
 }
-
-extension Biome.Symbol.ID.Rule
+extension Biome.USR.Rule:ParsingRule
 {
     enum Synthesized:Grammar.TerminalSequence 
     {
@@ -110,24 +104,22 @@ extension Biome.Symbol.ID.Rule
             return .init(decoding: input[start ..< end], as: Unicode.UTF8.self)
         }
     }
-    enum USR:ParsingRule 
+    
+    // USR  ::= <Mangled Name> ( '::SYNTHESIZED::' <Mangled Name> ) ?
+    typealias Terminal = UInt8
+    static 
+    func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> Biome.USR
+        where   Diagnostics:ParsingDiagnostics, 
+                Diagnostics.Source.Index == Location,
+                Diagnostics.Source.Element == Terminal
     {
-        // USR  ::= <Mangled Name> ( '::SYNTHESIZED::' <Mangled Name> ) ?
-        typealias Terminal = UInt8
-        static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> Biome.Symbol.ID
-            where   Diagnostics:ParsingDiagnostics, 
-                    Diagnostics.Source.Index == Location,
-                    Diagnostics.Source.Element == Terminal
+        let first:String    = try input.parse(as: MangledName.self)
+        guard let _:Void    = input.parse(as: Synthesized?.self)
+        else 
         {
-            let first:String    = try input.parse(as: MangledName.self)
-            guard let _:Void    = input.parse(as: Synthesized?.self)
-            else 
-            {
-                return .natural(first)
-            }
-            let second:String   = try input.parse(as: MangledName.self)
-            return .synthesized(first, for: second)
+            return .natural(.init(first))
         }
+        let second:String   = try input.parse(as: MangledName.self)
+        return .synthesized(from: .init(first), for: .init(second))
     }
 }

@@ -4,29 +4,50 @@ import HTML
 
 extension Biome 
 {
-    typealias Comment =
-    (
-        head:HTML.Element<Never>?, 
-        parameters:[(name:String, comment:[HTML.Element<Never>])],
-        returns:[HTML.Element<Never>],
-        discussion:[HTML.Element<Never>]
-    )
+    func article(package _:Int, comment:String) -> Documentation.Article
+    {
+        .init(comment: comment, biome: self)
+    }
+    func article(module _:Int, comment:String) -> Documentation.Article
+    {
+        .init(comment: comment, biome: self)
+    }
+    func article(symbol index:Int, comment:String) -> Documentation.Article
+    {
+        if case _? = self.symbols[index].commentOrigin 
+        {
+            // don’t re-render duplicated docs 
+            return .init()
+        }
+        else 
+        {
+            return .init(comment: comment, biome: self)
+        }
+    }
+}
+extension Documentation 
+{
+    typealias StaticElement = HTML.Element<Never>
+        
+    private 
+    struct Comment
+    {
+        let summary:StaticElement?, 
+            parameters:[(name:String, comment:[StaticElement])],
+            returns:[StaticElement],
+            discussion:[StaticElement]
+    }
     
     struct Article 
     {
-        typealias Element       = HTML.Element<Anchor>
-        typealias StaticElement = HTML.Element<Never>
+        var errors:[Error]
+        private 
+        let baked:
+        (
+            summary:String?, 
+            discussion:String?
+        )
         
-        /* enum Content
-        {
-            case documented(Element)
-            case synthesized(from:Int)
-            case inherited(from:Int)
-        } */
-        var navigator:Element
-        {
-            .text(escaped: self.baked.navigator)
-        }
         var summary:Element?
         {
             self.baked.summary.map(Element.text(escaped:))
@@ -36,29 +57,16 @@ extension Biome
             self.baked.discussion.map(Element.text(escaped:))
         }
         
-        let errors:[Error]
-        private 
-        let baked:
-        (
-            navigator:String,
-            summary:String?, 
-            discussion:String?
-        )
-        
         var size:Int 
         {
-            var size:Int = self.baked.navigator.utf8.count
-            size        += self.baked.summary?.utf8.count     ?? 0
+            var size:Int = self.baked.summary?.utf8.count     ?? 0
             size        += self.baked.discussion?.utf8.count  ?? 0
             return size
         }
         
         var substitutions:[Anchor: Element] 
         {
-            var substitutions:[Anchor: Element] =
-            [
-                .navigator:     self.navigator,
-            ]
+            var substitutions:[Anchor: Element] = [:]
             if let summary:Element = self.summary
             {
                 substitutions[.summary]     = summary
@@ -69,230 +77,54 @@ extension Biome
             }
             return substitutions
         }
-        
-        init(
-            navigator:StaticElement, 
-            summary:StaticElement?, 
-            discussion:[StaticElement], 
-            errors:[Error])
+                
+        init() 
         {
-            /* self.card               = .text(escaped: "")
-            self.baked.navigator    = ""
-            
-            self.introduction       = .text(escaped: "")
-            
-            self.baked.summary      = ""
-            self.baked.platforms    = ""
-            self.baked.declaration  = ""
-            self.baked.discussion   = "" */
-            
-            self.baked.navigator    = navigator.rendered
-            
-            self.baked.summary      = summary?.rendered
-            self.baked.discussion   = discussion.isEmpty ? nil : discussion.map(\.rendered).joined()
-            
-            self.errors             = errors 
-        }
-    }
-    
-    func article(package index:Int, comment:String) -> Article
-    {
-        typealias Element       = HTML.Element<Anchor>
-        typealias StaticElement = HTML.Element<Never>
-        
-        let navigator:StaticElement = StaticElement[.ol] 
-        {
-            ["breadcrumbs-container"]
-        }
-        content:
-        {
-            StaticElement[.li] 
-            { 
-                self.packages[index].name 
-            }
-        }
-        var renderer:ArticleRenderer    = .init(biome: self)
-        let comment:Comment             = renderer.content(markdown: comment)
-        return .init(
-            navigator:      navigator, 
-            summary:        comment.head, 
-            discussion:
-            [
-                ArticleRenderer.render(parameters: comment.parameters),
-                ArticleRenderer.render(section: comment.returns,       heading: "Returns",  class: "returns"),
-                ArticleRenderer.render(section: comment.discussion,    heading: "Overview", class: "discussion"),
-            ].compactMap { $0 }, 
-            errors:         renderer.errors)
-    }
-    func article(module index:Int, comment:String) -> Article
-    {
-        typealias Element       = HTML.Element<Anchor>
-        typealias StaticElement = HTML.Element<Never>
-        
-        let navigator:StaticElement = StaticElement[.ol] 
-        {
-            ["breadcrumbs-container"]
-        }
-        content:
-        {
-            StaticElement[.li] 
-            { 
-                self.modules[index].title 
-            }
-        }
-        var renderer:ArticleRenderer    = .init(biome: self)
-        let comment:Comment             = renderer.content(markdown: comment)
-        return .init(
-            navigator:      navigator, 
-            summary:        comment.head,
-            discussion:     
-            [
-                ArticleRenderer.render(parameters: comment.parameters),
-                ArticleRenderer.render(section: comment.returns,       heading: "Returns",  class: "returns"),
-                ArticleRenderer.render(section: comment.discussion,    heading: "Overview", class: "discussion"),
-            ].compactMap { $0 }, 
-            errors:         renderer.errors)
-    }
-    func article(symbol index:Int, comment:String) -> Article
-    {
-        typealias Element           = HTML.Element<Anchor>
-        typealias StaticElement     = HTML.Element<Never>
-        let symbol:Symbol           = self.symbols[index]
-        
-        var breadcrumbs:[StaticElement]   = [ StaticElement[.li] { symbol.title } ]
-        var next:Int?               = symbol.parent
-        while let index:Int         = next
-        {
-            breadcrumbs.append(StaticElement[.li]
-            {
-                StaticElement.link(self.symbols[index].title, to: self.symbols[index].path.description, internal: true)
-            })
-            next = self.symbols[index].parent
-        }
-        breadcrumbs.reverse()
-        
-        let navigator:StaticElement  = StaticElement[.ol] 
-        {
-            ["breadcrumbs-container"]
-        }
-        content:
-        {
-            breadcrumbs
-        }
-        
-        var renderer:ArticleRenderer    = .init(biome: self)
-        let summary:StaticElement?, 
-            discussion:[StaticElement]
-        if case _? = symbol.commentOrigin 
-        {
-            // don’t re-render duplicated docs 
-            summary             = nil 
-            discussion          = []
-        }
-        else 
-        {
-            let comment:Comment = renderer.content(markdown: comment)
-            summary             = comment.head
-            discussion          = 
-            [
-                ArticleRenderer.render(parameters: comment.parameters),
-                ArticleRenderer.render(section: comment.returns,       heading: "Returns",  class: "returns"),
-                ArticleRenderer.render(section: comment.discussion,    heading: "Overview", class: "discussion"),
-            ].compactMap { $0 }
-        }
-        return .init(
-            navigator:      navigator, 
-            summary:        summary, 
-            discussion:     discussion, 
-            errors:         renderer.errors)
-    }
-}
-extension Biome 
-{
-    struct ArticleRenderer 
-    {
-        typealias StaticElement = HTML.Element<Never>
-        
-        let biome:Biome 
-        var errors:[Error]
-        
-        init(biome:Biome)
-        {
-            self.biome = biome 
+            self.baked = (nil, nil)
             self.errors = []
         }
         
-        static 
-        func render(section content:[StaticElement], heading:String, class:String) -> StaticElement?
+        init(comment:String, biome _:Biome)
         {
-            guard !content.isEmpty 
-            else 
+            let (comment, errors):(Comment, [Error]) = Self.render(markdown: comment)
+            
+            var discussion:[StaticElement] = []
+            if let section:StaticElement = Self.render(parameters: comment.parameters)
             {
-                return nil 
+                discussion.append(section)
             }
-            return StaticElement[.section]
+            if let section:StaticElement = Self.render(section: comment.returns,    heading: "Returns",  class: "returns")
             {
-                [`class`]
+                discussion.append(section)
             }
-            content: 
+            if let section:StaticElement = Self.render(section: comment.discussion, heading: "Overview", class: "discussion")
             {
-                StaticElement[.h2]
-                {
-                    heading
-                }
-                content
+                discussion.append(section)
             }
-        }
-        static 
-        func render(parameters:[(name:String, comment:[StaticElement])]) -> StaticElement?
-        {
-            guard !parameters.isEmpty 
-            else 
-            {
-                return nil 
-            }
-            return StaticElement[.section]
-            {
-                ["parameters"]
-            }
-            content: 
-            {
-                StaticElement[.h2]
-                {
-                    "Parameters"
-                }
-                StaticElement[.dl]
-                {
-                    for (name, comment):(String, [StaticElement]) in parameters 
-                    {
-                        StaticElement[.dt]
-                        {
-                            name
-                        }
-                        StaticElement[.dd]
-                        {
-                            comment
-                        }
-                    }
-                }
-            }
+            
+            self.baked.discussion   = discussion.isEmpty ? nil : discussion.map(\.rendered).joined()
+            self.baked.summary      = comment.summary?.rendered
+            self.errors             = errors 
         }
         
-        mutating 
-        func content(markdown string:String) -> Comment
+        private static 
+        func render(markdown string:String) -> (comment:Comment, errors:[Error])
         {
-            guard !string.isEmpty 
+            if string.isEmpty 
+            {
+                return (.init(summary: nil, parameters: [], returns: [], discussion: []), [])
+            }
             else 
             {
-                return (nil, [], [], [])
+                return Self.render(markdown: Markdown.Document.init(parsing: string))
             }
-            return self.content(markdown: Markdown.Document.init(parsing: string))
         }
         // expected parameters is unreliable, not available for subscripts
-        private mutating 
-        func content(markdown document:Markdown.Document) -> Comment
+        private static 
+        func render(markdown document:Markdown.Document) -> (comment:Comment, errors:[Error])
         {
-            let content:[StaticElement] = document.blockChildren.map { self.render(markup: $0) }
+            var errors:[Error]          = []
+            let content:[StaticElement] = document.blockChildren.map { Self.render(markup: $0, errors: &errors) }
             let head:StaticElement?
             let body:ArraySlice<StaticElement>
             if  let first:StaticElement = content.first, 
@@ -428,7 +260,7 @@ extension Biome
                     }
                     catch let error 
                     {
-                        self.errors.append(error)
+                        errors.append(error)
                         ignored.append(item)
                     }
                 }
@@ -440,43 +272,14 @@ extension Biome
                 }
             }
             
-            return (head, parameters, returns, discussion)
+            let comment:Comment = .init(summary: head, 
+                parameters: parameters, 
+                returns: returns, 
+                discussion: discussion)
+            return (comment, errors)
         }
-        private static
-        func parameters(in content:[StaticElement]) throws -> [(name:String, comment:[StaticElement])]
-        {
-            guard let first:StaticElement = content.first 
-            else 
-            {
-                throw ArticleParametersError.empty(parameter: nil)
-            }
-            // look for a nested list 
-            guard case .container(.ul, id: _, attributes: _, content: let items) = first 
-            else 
-            {
-                throw ArticleParametersError.invalidList(first)
-            }
-            if case _? = content.dropFirst().first
-            {
-                throw ArticleParametersError.multipleLists(content)
-            }
-            
-            var parameters:[(name:String, comment:[StaticElement])] = []
-            for item:StaticElement in items
-            {
-                guard   case .container(.li, id: _, attributes: _, content: let content) = item, 
-                        let (keywords, content):([String], [StaticElement]) = Biome.keywords(prefixing: content), 
-                        let name:String = keywords.first, keywords.count == 1
-                else 
-                {
-                    throw ArticleParametersError.invalidListItem(item)
-                }
-                parameters.append((name, content))
-            }
-            return parameters
-        }
-        private mutating  
-        func render(markup:Markdown.Markup) -> StaticElement
+        private static 
+        func render(markup:Markdown.Markup, errors:inout [Error]) -> StaticElement
         {
             let container:HTML.Container 
             switch markup 
@@ -546,12 +349,12 @@ extension Biome
                 let _:String?       = node.title 
                 let _:[StaticElement]    = node.children.map 
                 {
-                    self.render(markup: $0)
+                    Self.render(markup: $0, errors: &errors)
                 }
                 guard let source:String = node.source
                 else 
                 {
-                    self.errors.append(ArticleContentError.missingImageSource)
+                    errors.append(ArticleContentError.missingImageSource)
                     return StaticElement[.img]
                 }
                 return StaticElement[.img]
@@ -562,12 +365,12 @@ extension Biome
             case let node as Markdown.Link: 
                 let display:[StaticElement] = node.children.map 
                 {
-                    self.render(markup: $0)
+                    Self.render(markup: $0, errors: &errors)
                 }
                 guard let target:String = node.destination
                 else 
                 {
-                    self.errors.append(ArticleContentError.missingLinkDestination)
+                    errors.append(ArticleContentError.missingLinkDestination)
                     return StaticElement[.span]
                     {
                         display
@@ -588,7 +391,7 @@ extension Biome
                 guard let path:String = node.destination
                 else 
                 {
-                    self.errors.append(ArticleSymbolLinkError.empty)
+                    errors.append(ArticleSymbolLinkError.empty)
                     return StaticElement[.code]
                     {
                         "<empty symbol path>"
@@ -600,7 +403,7 @@ extension Biome
                 }
                 
             case let node: 
-                self.errors.append(ArticleContentError.unsupported(markup: node))
+                errors.append(ArticleContentError.unsupported(markup: node))
                 return StaticElement[.div]
                 {
                     "(unsupported markdown node '\(type(of: node))')"
@@ -610,9 +413,99 @@ extension Biome
             {
                 markup.children.map
                 {
-                    self.render(markup: $0)
+                    Self.render(markup: $0, errors: &errors)
                 }
             }
+        }
+        
+        static 
+        func render(section content:[StaticElement], heading:String, class:String) -> StaticElement?
+        {
+            guard !content.isEmpty 
+            else 
+            {
+                return nil 
+            }
+            return StaticElement[.section]
+            {
+                [`class`]
+            }
+            content: 
+            {
+                StaticElement[.h2]
+                {
+                    heading
+                }
+                content
+            }
+        }
+        static 
+        func render(parameters:[(name:String, comment:[StaticElement])]) -> StaticElement?
+        {
+            guard !parameters.isEmpty 
+            else 
+            {
+                return nil 
+            }
+            return StaticElement[.section]
+            {
+                ["parameters"]
+            }
+            content: 
+            {
+                StaticElement[.h2]
+                {
+                    "Parameters"
+                }
+                StaticElement[.dl]
+                {
+                    for (name, comment):(String, [StaticElement]) in parameters 
+                    {
+                        StaticElement[.dt]
+                        {
+                            name
+                        }
+                        StaticElement[.dd]
+                        {
+                            comment
+                        }
+                    }
+                }
+            }
+        }
+        
+        private static
+        func parameters(in content:[StaticElement]) throws -> [(name:String, comment:[StaticElement])]
+        {
+            guard let first:StaticElement = content.first 
+            else 
+            {
+                throw ArticleParametersError.empty(parameter: nil)
+            }
+            // look for a nested list 
+            guard case .container(.ul, id: _, attributes: _, content: let items) = first 
+            else 
+            {
+                throw ArticleParametersError.invalidList(first)
+            }
+            if case _? = content.dropFirst().first
+            {
+                throw ArticleParametersError.multipleLists(content)
+            }
+            
+            var parameters:[(name:String, comment:[StaticElement])] = []
+            for item:StaticElement in items
+            {
+                guard   case .container(.li, id: _, attributes: _, content: let content) = item, 
+                        let (keywords, content):([String], [StaticElement]) = Biome.keywords(prefixing: content), 
+                        let name:String = keywords.first, keywords.count == 1
+                else 
+                {
+                    throw ArticleParametersError.invalidListItem(item)
+                }
+                parameters.append((name, content))
+            }
+            return parameters
         }
     }
 }

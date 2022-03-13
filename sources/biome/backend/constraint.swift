@@ -1,10 +1,10 @@
-enum SwiftConstraintVerb:Sendable
+enum SwiftConstraintVerb:Hashable, Sendable
 {
     case subclasses
     case implements
     case `is`
 }
-struct SwiftConstraint<Link> 
+struct SwiftConstraint<Link>
 {
     var subject:String
     var verb:SwiftConstraintVerb 
@@ -29,3 +29,5 @@ struct SwiftConstraint<Link>
     }
 }
 extension SwiftConstraint:Sendable where Link:Sendable {}
+extension SwiftConstraint:Hashable where Link:Hashable {}
+extension SwiftConstraint:Equatable where Link:Equatable {}

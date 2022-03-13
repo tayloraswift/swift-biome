@@ -1,6 +1,8 @@
 import JSON
 import Highlight
 
+infix operator ~~ :ComparisonPrecedence
+
 extension Biome.Module.ID 
 {
     init(from json:JSON?) throws 
@@ -21,18 +23,38 @@ extension Biome
         module:Module.ID, 
         bystanders:[Module.ID]
     )
-    typealias Vertex = 
-    (
-        id:Symbol.ID,
-        kind:Symbol.Kind, 
-        path:[String], 
-        signature:Notebook<SwiftHighlight, Never>, 
-        declaration:Notebook<SwiftHighlight, Symbol.ID>, 
-        extends:(module:Module.ID, where:[SwiftConstraint<Symbol.ID>])?,
-        generic:(parameters:[Symbol.Generic], constraints:[SwiftConstraint<Symbol.ID>])?,
-        availability:[(key:Symbol.Domain, value:Symbol.Availability)],
-        comment:String
-    )
+    struct Vertex
+    {
+        var isCanonical:Bool
+        var id:Symbol.ID,
+            kind:Symbol.Kind, 
+            path:[String], 
+            signature:Notebook<SwiftHighlight, Never>, 
+            declaration:Notebook<SwiftHighlight, Symbol.ID>, 
+            extends:(module:Module.ID, where:[SwiftConstraint<Symbol.ID>])?,
+            generic:(parameters:[Symbol.Generic], constraints:[SwiftConstraint<Symbol.ID>])?,
+            availability:[(key:Biome.Domain, value:Biome.Availability)],
+            comment:String
+        
+        static 
+        func ~~ (lhs:Self, rhs:Self) -> Bool 
+        {
+            if  lhs.id                      == rhs.id,
+                lhs.kind                    == rhs.kind, 
+                lhs.extends?.module         == rhs.extends?.module,
+                lhs.extends?.where          == rhs.extends?.where,
+                lhs.generic?.parameters     == rhs.generic?.parameters,
+                lhs.generic?.constraints    == rhs.generic?.constraints,
+                lhs.comment                 == rhs.comment
+            {
+                return true 
+            }
+            else 
+            {
+                return false
+            }
+        }
+    }
     
     static 
     func decode(module json:JSON) throws -> (module:Module.ID, vertices:[Vertex], edges:[Edge])
@@ -78,6 +100,7 @@ extension Biome
         }
         // decode id and kind 
         let id:Symbol.ID
+        let isCanonical:Bool
         switch items.removeValue(forKey: "identifier")
         {
         case .object(var items)?: 
@@ -93,7 +116,15 @@ extension Biome
             switch items.removeValue(forKey: "precise")
             {
             case .string(let text)?:
-                id = try Grammar.parse(text.utf8, as: Symbol.ID.Rule<String.Index>.USR.self)
+                switch try Grammar.parse(text.utf8, as: USR.Rule<String.Index>.self)
+                {
+                case .natural(let natural): 
+                    id = natural 
+                    isCanonical = true 
+                case .synthesized(from: let generic, for: _): 
+                    id = generic 
+                    isCanonical = false 
+                }
             case let value:
                 throw DecodingError.invalid(value: value, key: "identifier.precise")
             }
@@ -359,7 +390,7 @@ extension Biome
             throw DecodingError.invalid(value: value, key: "swiftGenerics")
         }
         // decode availability
-        let availability:[(key:Symbol.Domain, value:Symbol.Availability)]
+        let availability:[(key:Domain, value:Availability)]
         switch items.removeValue(forKey: "availability")
         {
         case nil, .null?:
@@ -367,7 +398,7 @@ extension Biome
         case .array(let elements)?: 
             availability = try elements.map 
             {
-                let item:(key:Symbol.Domain, value:Symbol.Availability)
+                let item:(key:Domain, value:Availability)
                 guard case .object(var items) = $0 
                 else 
                 {
@@ -383,7 +414,7 @@ extension Biome
                 switch items.removeValue(forKey: "domain")
                 {
                 case .string(let text)?: 
-                    guard let domain:Symbol.Domain = .init(rawValue: text)
+                    guard let domain:Domain = .init(rawValue: text)
                     else 
                     {
                         throw DecodingError.invalid(value: .string(text), key: "availability[_:].domain")
@@ -503,18 +534,17 @@ extension Biome
             throw DecodingError.invalid(value: value, key: "docComment")
         }
         
-        return 
-            (
-                id:             id,
-                kind:           kind, 
-                path:           path,
-                signature:      signature, 
-                declaration:    declaration, 
-                extends:        extends, 
-                generic:        generic, 
-                availability:   availability, 
-                comment:        comment
-            )
+        return .init(
+            isCanonical:    isCanonical, 
+            id:             id,
+            kind:           kind, 
+            path:           path,
+            signature:      signature, 
+            declaration:    declaration, 
+            extends:        extends, 
+            generic:        generic, 
+            availability:   availability, 
+            comment:        comment)
     }
     
     static 
@@ -569,7 +599,13 @@ extension Biome
         case .null?, nil:
             id = nil 
         case .string(let text)?:
-            id = try Grammar.parse(text.utf8, as: Symbol.ID.Rule<String.Index>.USR.self)
+            switch try Grammar.parse(text.utf8, as: USR.Rule<String.Index>.self)
+            {
+            case .natural(let natural): 
+                id = natural 
+            case let synthesized: 
+                throw SymbolResolutionError.synthetic(resolution: synthesized)
+            }
         case let value?:
             throw DecodingError.invalid(value: value, key: "rhsPrecise")
         }
@@ -604,7 +640,13 @@ extension Biome
         case .null?, nil:
             id = nil 
         case .string(let text)?:
-            id = try Grammar.parse(text.utf8, as: Symbol.ID.Rule<String.Index>.USR.self)
+            switch try Grammar.parse(text.utf8, as: USR.Rule<String.Index>.self)
+            {
+            case .natural(let natural): 
+                id = natural 
+            case let synthesized: 
+                throw SymbolResolutionError.synthetic(resolution: synthesized)
+            }
         case let value?:
             throw DecodingError.invalid(value: value, key: "spelling")
         }
@@ -838,17 +880,18 @@ extension Biome.Edge
         case let value:
             throw DecodingError.invalid(value: value, key: "kind")
         }
-        switch items.removeValue(forKey: "source")
-        {
-        case .string(let text)?:
-            self.source = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
-        case let value:
-            throw DecodingError.invalid(value: value, key: "source")
-        }
+        
         switch items.removeValue(forKey: "target")
         {
         case .string(let text)?:
-            self.target = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
+            // synthesized symbols cannot be targets 
+            switch try Grammar.parse(text.utf8, as: Biome.USR.Rule<String.Index>.self)
+            {
+            case .natural(let natural): 
+                self.target = natural 
+            case let synthesized: 
+                throw Biome.SymbolResolutionError.synthetic(resolution: synthesized)
+            }
         case let value:
             throw DecodingError.invalid(value: value, key: "source")
         }
@@ -858,6 +901,29 @@ extension Biome.Edge
             break // TODO: do something with this
         case let value?:
             throw DecodingError.invalid(value: value, key: "targetFallback")
+        }
+        
+        switch items.removeValue(forKey: "source")
+        {
+        case .string(let text)?:
+            switch try Grammar.parse(text.utf8, as: Biome.USR.Rule<String.Index>.self)
+            {
+            case .natural(let natural): 
+                self.source = natural 
+            // synthesized symbols can only be members of the type in their id
+            case .synthesized(from: let generic, for: self.target):
+                self.source = generic 
+                guard case .member = self.kind 
+                else 
+                {
+                    throw Biome.SymbolResolutionError.synthetic(resolution: .synthesized(from: generic, for: self.target))
+                }
+                self.kind = .crime 
+            case let invalid:
+                throw Biome.SymbolResolutionError.synthetic(resolution: invalid)
+            }
+        case let value:
+            throw DecodingError.invalid(value: value, key: "source")
         }
         switch items.removeValue(forKey: "sourceOrigin")
         {
@@ -876,7 +942,14 @@ extension Biome.Edge
             switch items.removeValue(forKey: "identifier")
             {
             case .string(let text)?:
-                id = try Grammar.parse(text.utf8, as: Biome.Symbol.ID.Rule<String.Index>.USR.self)
+                // synthesized symbols cannot be documentation origins  
+                switch try Grammar.parse(text.utf8, as: Biome.USR.Rule<String.Index>.self)
+                {
+                case .natural(let natural): 
+                    id = natural 
+                case let synthesized: 
+                    throw Biome.SymbolResolutionError.synthetic(resolution: synthesized)
+                }
             case let value:
                 throw DecodingError.invalid(value: value, key: "sourceOrigin.identifier")
             }

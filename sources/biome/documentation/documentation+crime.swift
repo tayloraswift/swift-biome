@@ -2,11 +2,13 @@ import Resource
 import StructuredDocument
 import HTML
 
-extension Biome 
+extension Documentation 
 {
+    typealias Element = HTML.Element<Anchor>
+    
     enum Anchor:DocumentID, Hashable, Sendable
     {
-        case card(Documentation.Index)
+        case symbol(Int)
         
         case navigator
         case introduction
@@ -33,10 +35,10 @@ extension Biome
         }
     }
     
-    func page(package:Int, article:Article, filter:[Package.ID]) -> Resource
+    func page(package index:Int, filter:[Biome.Package.ID]) -> Resource
     {
-        typealias Element   = HTML.Element<Anchor>
-        let dynamic:Element = Element[.div]
+        let package:Biome.Package   = self.biome.packages[index]
+        let dynamic:Element         = Element[.div]
         {
             ["lower-container"]
         }
@@ -54,7 +56,7 @@ extension Biome
                 }
                 Element[.ul]
                 {
-                    for module:Int in self.packages[package].modules
+                    for module:Int in package.modules
                     {
                         Element[.li]
                         {
@@ -64,58 +66,51 @@ extension Biome
                             }
                             content: 
                             {
-                                Element[.a]
-                                {
-                                    (self.modules[module].path.description, as: HTML.Href.self)
-                                }
-                                content: 
-                                {
-                                    Element.highlight(self.modules[module].id.identifier, .identifier)
-                                }
+                                self.item(module: module)
                             }
                         }
                     }
                 }
             }
         }
-        var substitutions:[Anchor: Element] = article.substitutions
-            substitutions[.introduction]    = Self.introduction(for: self.packages[package])
-        return Self.page(title: self.packages[package].name, substitutions: substitutions, filter: filter, dynamic: dynamic)
+        var substitutions:[Anchor: Element] = self.packages[index].substitutions
+            substitutions[.navigator]       = Self.navigator(for: package)
+            substitutions[.introduction]    = Self.introduction(for: package)
+        return Self.page(title: package.name, substitutions: substitutions, filter: filter, dynamic: dynamic)
     }
-    func page(module:Int, article:Article, articles:[Article], filter:[Package.ID]) -> Resource
+    func page(module index:Int, filter:[Biome.Package.ID]) -> Resource
     {
-        typealias Element = HTML.Element<Anchor>
+        let module:Biome.Module     = self.biome.modules[index]
         
-        var references:Set<Int> = []
+        let groups:[Bool: [Int]]    = self.biome.partition(symbols: module.toplevel)
+        let comments:Set<Int>       = .init(self.biome.comments(backing: module.toplevel))
+        
         let dynamic:Element = Element[.div]
         {
             ["lower-container"]
         }
         content:
         {
-            self.render(topics: self.modules[module].topics.members, heading: "Members", 
-                articles: articles, 
-                references: &references)
-            self.render(topics: self.modules[module].topics.removed, heading: "Removed Members", 
-                articles: articles, 
-                references: &references)
+            self.topics(self.biome.organize(symbols: groups[false, default: []], in: nil), heading: "Members")
+            self.topics(self.biome.organize(symbols: groups[true,  default: []], in: nil), heading: "Removed Members")
         }
-        var substitutions:[Anchor: Element] = article.substitutions
-            substitutions[.introduction]    = self.introduction(for: self.modules[module])
-            substitutions[.declaration]     = Self.declaration(for: self.modules[module])
-        for reference:Int in references 
+        var substitutions:[Anchor: Element] = self.modules[index].substitutions
+            substitutions[.navigator]       = Self.navigator(for: module)
+            substitutions[.introduction]    = self.introduction(for: module)
+            substitutions[.declaration]     = Self.declaration(for: module)
+        for origin:Int in comments 
         {
-            substitutions[.card(.symbol(reference))] = articles[reference].summary
+            substitutions[.symbol(origin)]  = self.symbols[origin].summary
         }
-        return Self.page(title: self.modules[module].title, substitutions: substitutions, filter: filter, dynamic: dynamic)
+        return Self.page(title: module.title, substitutions: substitutions, filter: filter, dynamic: dynamic)
     }
-    func page(symbol index:Int, articles:[Article], filter:[Package.ID]) -> Resource
+    func page(witness:Int, victim:Int?, filter:[Biome.Package.ID]) -> Resource
     {
-        typealias Element = HTML.Element<Anchor>
-        let symbol:Symbol = self.symbols[index]
+        let symbol:Biome.Symbol     = self.biome.symbols[witness]
         
-        var references:Set<Int> = []
-        let dynamic:Element     = Element[.div]
+        let groups:[Bool: [Int]]    = symbol.relationships.members.map(self.biome.partition(symbols:)) ?? [:]
+        var comments:Set<Int>       = symbol.relationships.members.map(self.biome.comments(backing:)).map(Set.init(_:)) ?? []
+        let dynamic:Element         = Element[.div]
         {
             ["lower-container"]
         }
@@ -123,63 +118,55 @@ extension Biome
         {
             if case .protocol(let abstract) = symbol.relationships 
             {
-                self.render(list: abstract.downstream.map { ($0, []) }, heading: "Refinements")
+                self.list(types: abstract.downstream.map { ($0, []) }, heading: "Refinements")
+                
+                self.topics(self.biome.organize(symbols: abstract.requirements, in: witness), heading: "Requirements")
+                let _:Void = comments.formUnion(self.biome.comments(backing: abstract.requirements))
             }
             
-            self.render(topics: symbol.topics.requirements, heading: "Requirements", 
-                articles: articles, 
-                references: &references)
-            self.render(topics: symbol.topics.members,      heading: "Members", 
-                articles: articles, 
-                references: &references)
+            self.topics(self.biome.organize(symbols: groups[false, default: []], in: witness), heading: "Members")
             
             switch symbol.relationships 
             {
             case .protocol(let abstract):
-                self.render(list: abstract.upstream.map{ ($0, []) },    heading: "Implies")
-                self.render(list: abstract.conformers,                  heading: "Conforming Types")
+                self.list(types: abstract.upstream.map{ ($0, []) },    heading: "Implies")
+                self.list(types: abstract.conformers,                  heading: "Conforming Types")
             case .class(let concrete, subclasses: let subclasses, superclass: _):
-                self.render(list: subclasses.map { ($0, []) },          heading: "Subclasses")
-                self.render(list: concrete.upstream,                    heading: "Conforms To")
+                self.list(types: subclasses.map { ($0, []) },          heading: "Subclasses")
+                self.list(types: concrete.upstream,                    heading: "Conforms To")
             case .enum(let concrete), .struct(let concrete), .actor(let concrete):
-                self.render(list: concrete.upstream,                    heading: "Conforms To")
+                self.list(types: concrete.upstream,                    heading: "Conforms To")
             default: 
                 let _:Void = ()
             }
-            self.render(topics: symbol.topics.removed,      heading: "Removed Members", 
-                articles: articles, 
-                references: &references)
+            self.topics(self.biome.organize(symbols: groups[true, default: []], in: witness), heading: "Removed Members")
         }
-        var substitutions:[Anchor: Element] = articles[index].substitutions
-            substitutions[.introduction]    = self.introduction(for: symbol)
+        var substitutions:[Anchor: Element] = self.symbols[witness].substitutions
+            substitutions[.navigator]       = self.navigator(for: symbol, in: victim)
+            substitutions[.introduction]    = self.introduction(for: symbol, witnessing: victim)
             substitutions[.declaration]     = self.declaration(for: symbol)
-            
-            substitutions[.platforms]       = Self.render(platforms: symbol.platforms)
+            substitutions[.platforms]       = Self.platforms(availability: symbol.platforms)
         if  let origin:Int = symbol.commentOrigin
         {
-            substitutions[.summary]     = articles[origin].summary
-            substitutions[.discussion]  = articles[origin].discussion
+            substitutions[.summary]         = self.symbols[origin].summary
+            substitutions[.discussion]      = self.symbols[origin].discussion
         }
         if case nil = substitutions.index(forKey: .summary)
         {
-            substitutions[.summary]     = Element[.p]
+            substitutions[.summary]         = Element[.p]
             {
                 "No overview available."
             }
         }
-        for reference:Int in references 
+        for origin:Int in comments 
         {
-            substitutions[.card(.symbol(reference))] = articles[reference].summary
+            substitutions[.symbol(origin)]  = self.symbols[origin].summary
         }
-        return Self.page(title: symbol.title, 
-            substitutions: substitutions, 
-            filter: filter, 
-            dynamic: dynamic)
+        return Self.page(title: symbol.title, substitutions: substitutions, filter: filter, dynamic: dynamic)
     }
     private static 
-    func page(title:String, substitutions:[Anchor: HTML.Element<Anchor>], filter:[Package.ID], dynamic:HTML.Element<Anchor>) -> Resource
+    func page(title:String, substitutions:[Anchor: Element], filter:[Biome.Package.ID], dynamic:Element) -> Resource
     {
-        typealias Element = HTML.Element<Anchor>
         let document:DocumentRoot<HTML, Anchor> = .init 
         {
             HTML.Lang.en
@@ -336,13 +323,63 @@ extension Biome
         }
         return .html(utf8: document.template(of: [UInt8].self).apply(substitutions).joined(), version: nil)
     }
-}
-extension Biome 
-{
+    
     private static 
-    func introduction(for package:Package) -> HTML.Element<Anchor>
+    func navigator(for package:Biome.Package) -> Element
     {
-        typealias Element = HTML.Element<Anchor>
+        Element[.ol] 
+        {
+            ["breadcrumbs-container"]
+        }
+        content:
+        {
+            Element[.li] 
+            { 
+                package.name 
+            }
+        }
+    }
+    private static 
+    func navigator(for module:Biome.Module) -> Element
+    {
+        Element[.ol] 
+        {
+            ["breadcrumbs-container"]
+        }
+        content:
+        {
+            Element[.li] 
+            { 
+                module.title 
+            }
+        }
+    }
+    private 
+    func navigator(for symbol:Biome.Symbol, in scope:Int?) -> Element
+    {
+        var breadcrumbs:[Element]   = [ Element[.li] { symbol.title } ]
+        var next:Int?               = scope ?? symbol.parent
+        while let index:Int         = next
+        {
+            breadcrumbs.append(Element[.li]
+            {
+                Element.link(self.biome.symbols[index].title, to: self.print(uri: self.uri(witness: index, victim: nil)), internal: true)
+            })
+            next = self.biome.symbols[index].parent
+        }
+        return Element[.ol] 
+        {
+            ["breadcrumbs-container"]
+        }
+        content:
+        {
+            breadcrumbs.reversed()
+        }
+    }
+    
+    private static 
+    func introduction(for package:Biome.Package) -> Element
+    {
         return Element[.section]
         {
             ["introduction"]
@@ -358,10 +395,9 @@ extension Biome
         }
     }
     private 
-    func introduction(for module:Module) -> HTML.Element<Anchor>
+    func introduction(for module:Biome.Module) -> Element
     {
-        typealias Element = HTML.Element<Anchor>
-        return Element[.section]
+        Element[.section]
         {
             ["introduction"]
         }
@@ -376,9 +412,8 @@ extension Biome
         }
     }
     private 
-    func introduction(for symbol:Symbol) -> HTML.Element<Anchor>
+    func introduction(for symbol:Biome.Symbol, witnessing victim:Int?) -> Element
     {
-        typealias Element = HTML.Element<Anchor>
         var relationships:[Element] 
         if case _? = symbol.relationships.requirementOf
         {
@@ -401,33 +436,7 @@ extension Biome
         {
             relationships = []
         }
-        // TODO: need to rework this, because real types can still inherit 
-        // docs, if they satisfy protocol requirements and have no documentation 
-        // of their own...
         
-        /* if  let origin:Int = symbol.relationships.sourceOrigin 
-            let conformance:Int = self.biome.symbols[origin].lineage.parent 
-        {
-            relationships.append(Element[.li] 
-            {
-                Element[.p]
-                {
-                    Element.link("Inherited", to: self.biome.symbols[origin].path.description, internal: true)
-                    " from "
-                    Element[.code]
-                    {
-                        Element[.a]
-                        {
-                            (self.biome.symbols[conformance].path.description, as: HTML.Href.self)
-                        }
-                        content: 
-                        {
-                            Biome.render(code: self.biome.symbols[conformance].qualified)
-                        }
-                    }
-                }
-            })
-        } */
         if !symbol.extensionConstraints.isEmpty
         {
             relationships.append(Element[.li] 
@@ -435,18 +444,18 @@ extension Biome
                 Element[.p]
                 {
                     "Available when "
-                    self.render(constraints: symbol.extensionConstraints)
+                    self.constraints(symbol.extensionConstraints)
                 }
             })
         }
-        let availability:[Element] = Biome.render(availability: symbol.availability)
+        let availability:[Element] = Self.availability(symbol.availability)
         return Element[.section]
         {
             ["introduction"]
         }
         content:
         {
-            self.eyebrows(for: symbol)
+            self.eyebrows(for: symbol, witnessing: victim)
             Element[.h1]
             {
                 symbol.title
@@ -478,10 +487,9 @@ extension Biome
     }
     
     private static 
-    func eyebrows(for package:Package) -> HTML.Element<Anchor>
+    func eyebrows(for package:Biome.Package) -> Element
     {
-        typealias Element = HTML.Element<Anchor>
-        return Element[.div]
+        Element[.div]
         {
             ["eyebrows"]
         }
@@ -504,10 +512,9 @@ extension Biome
         }
     }
     private 
-    func eyebrows(for module:Module) -> HTML.Element<Anchor>
+    func eyebrows(for module:Biome.Module) -> Element
     {
-        typealias Element = HTML.Element<Anchor>
-        return Element[.div]
+        Element[.div]
         {
             ["eyebrows"]
         }
@@ -523,16 +530,37 @@ extension Biome
             }
             content:
             {
-                Element.link(self.packages[module.package].name, 
-                    to: self.packages[module.package].path.description, 
-                    internal: true)
+                self.link(package: module.package)
             }
         }
     }
     private 
-    func eyebrows(for symbol:Symbol) -> HTML.Element<Anchor>
+    func eyebrows(for symbol:Biome.Symbol, witnessing victim:Int?) -> Element
     {
-        typealias Element = HTML.Element<Anchor>
+        let electorate:Element?, 
+            colony:Element
+        if let module:Int   = symbol.module
+        {
+            colony          = self.link(module: module)
+            if      let victim:Int      = victim, 
+                    let namespace:Int   = self.biome.symbols[victim].namespace, namespace != module
+            {
+                electorate  = self.link(module: namespace)
+            }
+            else if let namespace:Int   =                     symbol.namespace, namespace != module 
+            {
+                electorate  = self.link(module: namespace)
+            }
+            else 
+            {
+                electorate  = nil
+            }
+        }
+        else 
+        {
+            colony          = Element.span("(Mythical)") 
+            electorate      = nil
+        }
         return Element[.div]
         {
             ["eyebrows"]
@@ -549,27 +577,26 @@ extension Biome
             }
             content: 
             {
-                if let extended:Int = symbol.bystander
+                if let electorate:Element = electorate
                 {
                     Element[.span]
                     {
-                        ["extended"]
+                        ["electorate"]
                     }
                     content:
                     {
-                        Element.link(self.modules[extended].title, to: self.modules[extended].path.description, internal: true)
+                        electorate
                     }
                 }
-                Element.link(self.modules[symbol.module].title, to: self.modules[symbol.module].path.description, internal: true)
+                colony 
             }
         }
     }
     
     private static 
-    func declaration(for module:Module) -> HTML.Element<Anchor>
+    func declaration(for module:Biome.Module) -> Element
     {
-        typealias Element = HTML.Element<Anchor>
-        return Element[.section]
+        Element[.section]
         {
             ["declaration"]
         }
@@ -589,16 +616,15 @@ extension Biome
                 {
                     Element.highlight("import", .keywordText)
                     Element.highlight(" ", .text)
-                    Element.highlight(module.id.identifier, .identifier)
+                    Element.highlight(module.id.string, .identifier)
                 }
             }
         }
     }
     private 
-    func declaration(for symbol:Symbol) -> HTML.Element<Anchor>
+    func declaration(for symbol:Biome.Symbol) -> Element
     {
-        typealias Element = HTML.Element<Anchor>
-        return Element[.section]
+        Element[.section]
         {
             ["declaration"]
         }
@@ -622,15 +648,13 @@ extension Biome
         }
     }
     
-    
     private static
-    func render(platforms availability:[Symbol.Domain: Symbol.Availability]) -> HTML.Element<Anchor>?
+    func platforms(availability:[Biome.Domain: Biome.Availability]) -> Element?
     {
-        typealias Element = HTML.Element<Anchor>
         var platforms:[Element] = []
-        for platform:Symbol.Domain in Symbol.Domain.platforms 
+        for platform:Biome.Domain in Biome.Domain.platforms 
         {
-            if let availability:Symbol.Availability = availability[platform]
+            if let availability:Biome.Availability = availability[platform]
             {
                 if availability.unavailable 
                 {
@@ -657,7 +681,7 @@ extension Biome
                         }
                     })
                 }
-                else if let version:Version = availability.introduced 
+                else if let version:Biome.Version = availability.introduced 
                 {
                     platforms.append(Element[.li]
                     {
@@ -688,29 +712,56 @@ extension Biome
         }
     }
 
-    private static 
-    func render(item symbol:Symbol) -> HTML.Element<Anchor>
+    private 
+    func link(package:Int) -> Element
     {
-        typealias Element = HTML.Element<Anchor>
+        .link(self.biome.packages[package].name, to: self.print(uri: self.uri(package: package)), internal: true)
+    }
+    private 
+    func link(module:Int) -> Element
+    {
+        .link(self.biome.modules[module].title, to: self.print(uri: self.uri(module: module)), internal: true)
+    }
+    
+    private 
+    func item(module:Int) -> Element
+    {
         return Element[.a]
         {
-            (symbol.path.description, as: HTML.Href.self)
+            (self.print(uri: self.uri(module: module)), as: HTML.Href.self)
         }
         content: 
         {
-            for component:String in symbol.scope 
+            Element.highlight(self.biome.modules[module].id.string, .identifier)
+        }
+    }
+    private 
+    func item(symbol:Int) -> Element
+    {
+        self.item(symbol: symbol, displaying: symbol)
+    }
+    private 
+    func item(symbol:Int, displaying display:Int) -> Element
+    {
+        return Element[.a]
+        {
+            (self.print(uri: self.uri(witness: symbol, victim: nil)), as: HTML.Href.self)
+        }
+        content: 
+        {
+            for component:String in self.biome.symbols[display].scope 
             {
                 Element.highlight(component, .identifier)
                 Element.highlight(".", .text)
             }
-            Element.highlight(symbol.title, .identifier)
+            Element.highlight(self.biome.symbols[display].title, .identifier)
         }
     }
+    
     private 
-    func render<S>(list types:S, heading:String) -> HTML.Element<Anchor>?
+    func list<S>(types:S, heading:String) -> Element?
         where S:Sequence, S.Element == (index:Int, conditions:[SwiftConstraint<Int>])
     {
-        typealias Element = HTML.Element<Anchor>
         let list:[Element] = types.map 
         {
             (item:(index:Int, conditions:[SwiftConstraint<Int>])) in 
@@ -722,7 +773,7 @@ extension Biome
                 }
                 content: 
                 {
-                    Self.render(item: self.symbols[item.index])
+                    self.item(symbol: item.index)
                 }
                 if !item.conditions.isEmpty
                 {
@@ -733,7 +784,7 @@ extension Biome
                     content: 
                     {
                         "When "
-                        self.render(constraints: item.conditions)
+                        self.constraints(item.conditions)
                     }
                 }
             }
@@ -760,18 +811,13 @@ extension Biome
         }
     }
     private 
-    func render<S>(topics:S, heading:String, articles:[Article], references:inout Set<Int>) -> HTML.Element<Anchor>?
-        where S:Sequence, S.Element == (heading:Topic, indices:[Int])
+    func topics<S>(_ topics:S, heading:String) -> Element?
+        where S:Sequence, S.Element == (heading:Topic, symbols:[(witness:Int, victim:Int?)])
     {
-        typealias Element = HTML.Element<Anchor>
         let topics:[Element] = topics.map
         {
-            (topic:(heading:Topic, indices:[Int])) in 
-            let cards:[Element] = topic.indices.map
-            {
-                references.insert(self.symbols[$0].commentOrigin ?? $0)
-                return self.card(symbol: $0)
-            } 
+            (topic:(heading:Topic, symbols:[(witness:Int, victim:Int?)])) in 
+
             return Element[.div]
             {
                 ["topic-container"]
@@ -795,7 +841,10 @@ extension Biome
                 }
                 content:
                 {
-                    cards
+                    for (witness, victim):(Int, Int?) in topic.symbols
+                    {
+                        self.card(witness: witness, victim: victim)
+                    }
                 }
             }
         }
@@ -819,59 +868,34 @@ extension Biome
     }
     
     private 
-    func card(symbol index:Int) -> HTML.Element<Anchor>
+    func card(witness:Int, victim:Int?) -> Element
     {
-        typealias Element               = HTML.Element<Anchor>
-        let symbol:Symbol               = self.symbols[index]
-        var relationships:[Element]     = []
-        if let overridden:Int           = symbol.relationships.overrideOf
+        let symbol:Biome.Symbol     = self.biome.symbols[witness]
+        let availability:[Element]  = Self.availability(symbol.availability)
+        var relationships:[Element] = []
+        if  case nil = victim, 
+            let overridden:Int  =                   symbol.relationships.overrideOf, 
+            let interface:Int   = self.biome.symbols[overridden].parent 
         {
-            guard let interface:Int     = self.symbols[overridden].parent 
-            else 
-            {
-                fatalError("unimplemented: parent of overridden symbol '\(self.symbols[overridden].title)' does not exist")
-            }
-            let prose:String
-            if case .protocol = self.symbols[interface].kind
-            {
-                prose = "Type inference hint for requirement in "
-            } 
-            else 
-            {
-                prose = "Overrides virtual member in "
-            }
             relationships.append(Element[.li]
             {
                 Element[.p]
                 {
-                    prose 
+                    if case .protocol = self.biome.symbols[interface].kind
+                    {
+                        "Refines requirement in "
+                    } 
+                    else 
+                    {
+                        "Overrides virtual member in "
+                    } 
                     Element[.code]
                     {
-                        Element[.a]
-                        {
-                            (self.symbols[overridden].path.description, as: HTML.Href.self)
-                        }
-                        content: 
-                        {
-                            Self.render(item: self.symbols[interface])
-                        }
+                        self.item(symbol: overridden, displaying: interface)
                     }
                 }
             })
         } 
-        /* if !symbol.extensionConstraints.isEmpty
-        {
-            relationships.append(Element[.li] 
-            {
-                Element[.p]
-                {
-                    "Available when "
-                    self.render(constraints: symbol.extensionConstraints)
-                }
-            })
-        } */
-        
-        let availability:[Element] = Self.render(availability: symbol.availability)
         return Element[.li]
         {
             Element[.code]
@@ -882,7 +906,7 @@ extension Biome
             {
                 Element[.a]
                 {
-                    (symbol.path.description, as: HTML.Href.self)
+                    (self.print(uri: self.uri(witness: witness, victim: victim)), as: HTML.Href.self)
                 }
                 content: 
                 {
@@ -890,7 +914,7 @@ extension Biome
                 }
             }
             
-            Element.anchor(id: .card(.symbol(symbol.commentOrigin ?? index)))
+            Element.anchor(id: .symbol(symbol.commentOrigin ?? witness))
             
             if !relationships.isEmpty 
             {
@@ -918,42 +942,40 @@ extension Biome
     }
     
     private static 
-    func render(availability:(unconditional:Symbol.UnconditionalAvailability?, swift:Symbol.SwiftAvailability?)) -> [HTML.Element<Anchor>]
+    func availability(_ availability:(unconditional:Biome.UnconditionalAvailability?, swift:Biome.SwiftAvailability?)) -> [Element]
     {
-        typealias Element = HTML.Element<Anchor>
         var availabilities:[Element] = []
-        if let availability:Symbol.UnconditionalAvailability = availability.unconditional
+        if let availability:Biome.UnconditionalAvailability = availability.unconditional
         {
             if availability.unavailable 
             {
-                availabilities.append(Self.render(availability: "Unavailable"))
+                availabilities.append(Self.availability("Unavailable"))
             }
             else if availability.deprecated 
             {
-                availabilities.append(Self.render(availability: "Deprecated"))
+                availabilities.append(Self.availability("Deprecated"))
             }
         }
-        if let availability:Symbol.SwiftAvailability = availability.swift
+        if let availability:Biome.SwiftAvailability = availability.swift
         {
-            if let version:Version = availability.obsoleted 
+            if let version:Biome.Version = availability.obsoleted 
             {
-                availabilities.append(Self.render(availability: "Obsolete", since: ("Swift", version)))
+                availabilities.append(Self.availability("Obsolete", since: ("Swift", version)))
             } 
-            else if let version:Version = availability.deprecated 
+            else if let version:Biome.Version = availability.deprecated 
             {
-                availabilities.append(Self.render(availability: "Deprecated", since: ("Swift", version)))
+                availabilities.append(Self.availability("Deprecated", since: ("Swift", version)))
             }
-            else if let version:Version = availability.introduced
+            else if let version:Biome.Version = availability.introduced
             {
-                availabilities.append(Self.render(availability: "Available", since: ("Swift", version)))
+                availabilities.append(Self.availability("Available", since: ("Swift", version)))
             }
         }
         return availabilities
     }
     private static 
-    func render(availability adjective:String, since:(domain:String, version:Version)? = nil) -> HTML.Element<Anchor>
+    func availability(_ adjective:String, since:(domain:String, version:Biome.Version)? = nil) -> Element
     {
-        typealias Element = HTML.Element<Anchor>
         return Element[.li]
         {
             Element[.p]
@@ -962,7 +984,7 @@ extension Biome
                 {
                     adjective
                 }
-                if let (domain, version):(String, Version) = since 
+                if let (domain, version):(String, Biome.Version) = since 
                 {
                     " since \(domain) "
                     Element.span(version.description)
@@ -975,9 +997,8 @@ extension Biome
     }
     
     private 
-    func render(constraints:[SwiftConstraint<Int>]) -> [HTML.Element<Anchor>] 
+    func constraints(_ constraints:[SwiftConstraint<Int>]) -> [Element] 
     {
-        typealias Element = HTML.Element<Anchor>
         guard let ultimate:SwiftConstraint<Int> = constraints.last 
         else 
         {
@@ -986,33 +1007,32 @@ extension Biome
         guard let penultimate:SwiftConstraint<Int> = constraints.dropLast().last
         else 
         {
-            return self.render(constraint: ultimate)
+            return self.constraint(ultimate)
         }
         var fragments:[Element]
         if constraints.count < 3 
         {
-            fragments =                  self.render(constraint: penultimate)
+            fragments =                  self.constraint(penultimate)
             fragments.append(.text(escaped: " and "))
-            fragments.append(contentsOf: self.render(constraint: ultimate))
+            fragments.append(contentsOf: self.constraint(ultimate))
         }
         else 
         {
             fragments = []
             for constraint:SwiftConstraint<Int> in constraints.dropLast(2)
             {
-                fragments.append(contentsOf: self.render(constraint: constraint))
+                fragments.append(contentsOf: self.constraint(constraint))
                 fragments.append(.text(escaped: ", "))
             }
-            fragments.append(contentsOf: self.render(constraint: penultimate))
+            fragments.append(contentsOf: self.constraint(penultimate))
             fragments.append(.text(escaped: ", and "))
-            fragments.append(contentsOf: self.render(constraint: ultimate))
+            fragments.append(contentsOf: self.constraint(ultimate))
         }
         return fragments
     }
     private 
-    func render(constraint:SwiftConstraint<Int>) -> [HTML.Element<Anchor>] 
+    func constraint(_ constraint:SwiftConstraint<Int>) -> [Element] 
     {
-        typealias Element = HTML.Element<Anchor>
         let prose:String
         switch constraint.verb
         {
@@ -1035,14 +1055,14 @@ extension Biome
     }
 
     private 
-    func highlight(_ text:String, _ highlight:SwiftHighlight, link:Int?) -> HTML.Element<Anchor>
+    func highlight(_ text:String, _ highlight:SwiftHighlight, link:Int?) -> Element
     {
         return link.map { self.highlight(text, highlight, link: $0) } ?? .highlight(text, highlight)
     }
     private 
-    func highlight(_ text:String, _ highlight:SwiftHighlight, link index:Int) -> HTML.Element<Anchor>
+    func highlight(_ text:String, _ highlight:SwiftHighlight, link index:Int) -> Element
     {
-        .link(text, to: self.symbols[index].path.description, internal: true)
+        .link(text, to: self.print(uri: self.uri(witness: index, victim: nil)), internal: true)
         {
             ["syntax-type"] 
         }

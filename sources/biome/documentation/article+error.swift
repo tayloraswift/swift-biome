@@ -2,7 +2,7 @@ import Markdown
 import StructuredDocument 
 import HTML 
 
-extension Biome 
+extension Documentation 
 {
     enum ArticleReturnsError:Error 
     {

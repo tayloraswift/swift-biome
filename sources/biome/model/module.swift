@@ -4,65 +4,29 @@ extension Biome
     struct Module:Identifiable, Sendable
     {
         public
-        enum ID:Hashable, Comparable, Sendable
+        struct ID:Hashable, Sendable
         {
-            case swift 
-            case dispatch
-            case concurrency
-            case differentiation
-            case distributed
-            case matchingEngine
-            case stringProcessing
-            case community(String)
+            let string:String 
+            
+            // TODO: migrate off of String
+            init(_ _utf8:[UInt8]) 
+            {
+                self.init(String.init(decoding: _utf8, as: Unicode.UTF8.self))
+            }
             
             init<S>(_ string:S) where S:StringProtocol 
             {
-                switch string 
-                {
-                case "Swift":               self = .swift 
-                case "Dispatch":            self = .dispatch 
-                case "_Concurrency":        self = .concurrency
-                case "_Differentiation":    self = .differentiation
-                case "_Distributed":        self = .distributed
-                case "_MatchingEngine":     self = .matchingEngine
-                case "_StringProcessing":   self = .stringProcessing
-                default:                    self = .community(String.init(string))
-                }
+                self.string = .init(string)
             }
             
-            var identifier:String 
+            var title:Substring 
             {
-                switch self 
-                {
-                case .swift:            return "Swift"
-                case .dispatch:         return "Dispatch"
-                case .concurrency:      return "_Concurrency"
-                case .differentiation:  return "_Differentiation"
-                case .distributed:      return "_Distributed"
-                case .matchingEngine:   return "_MatchingEngine"
-                case .stringProcessing: return "_StringProcessing"
-                case .community(let module):
-                    return module
-                }
+                self.string.drop { $0 == "_" } 
             }
-            var title:String 
-            {
-                switch self 
-                {
-                case .swift:            return "Swift"
-                case .dispatch:         return "Dispatch"
-                case .concurrency:      return "Concurrency"
-                case .differentiation:  return "Differentiation"
-                case .distributed:      return "Distributed"
-                case .matchingEngine:   return "MatchingEngine"
-                case .stringProcessing: return "StringProcessing"
-                case .community(let module):
-                    return module
-                }
-            }
+            
             func graphIdentifier(bystander:Self?) -> String
             {
-                bystander.map { "\(self.identifier)@\($0.identifier)" } ?? self.identifier
+                bystander.map { "\(self.string)@\($0.string)" } ?? self.string
             }
         }
         
@@ -70,38 +34,29 @@ extension Biome
         let id:ID
         public 
         let package:Int
-        let path:Path
         
         let symbols:(core:Range<Int>, extensions:[(bystander:Int, symbols:Range<Int>)])
         var toplevel:[Int]
         
-        var topics:
-        (
-            members:[(heading:Biome.Topic, indices:[Int])],
-            removed:[(heading:Biome.Topic, indices:[Int])]
-        )
         var title:String 
         {
-            self.id.title
+            .init(self.id.title)
         }
         var allSymbols:FlattenSequence<[Range<Int>]>
         {
             ([self.symbols.core] + self.symbols.extensions.map(\.symbols)).joined()
         }
         
-        init(id:ID, package:Int, path:Path, core:Range<Int>, 
-            extensions:[(bystander:Int, symbols:Range<Int>)])
+        init(id:ID, package:Int, core:Range<Int>, extensions:[(bystander:Int, symbols:Range<Int>)])
         {
             self.id         = id 
             self.package    = package
-            self.path       = path
             self.symbols    = (core, extensions)
             self.toplevel   = []
-            self.topics     = ([], [])
         }
     }
     
-    public 
+    /* public 
     struct Graph:Hashable, Sendable 
     {
         var module:Module.ID, 
@@ -111,5 +66,5 @@ extension Biome
         {
             self.bystander ?? self.module 
         }
-    }
+    } */
 }

@@ -1,6 +1,6 @@
 extension Biome 
 {
-    struct Lineage:Hashable 
+    /* struct Lineage:Hashable 
     {
         let package:Package.ID
         let graph:Graph
@@ -46,6 +46,6 @@ extension Biome
             lexemes.append(.code(self.last,     class: .identifier))
             return lexemes
         } */
-    }
+    } */
 
 }
