@@ -4,7 +4,7 @@ import JSON
 public 
 struct Documentation:Sendable
 {
-    struct URI:Equatable, Sendable 
+    struct URI:Equatable, CustomStringConvertible, Sendable 
     {
         //  4 ways to access docs:
         //  1.  ( path + ) witness id + victim id
@@ -69,7 +69,7 @@ struct Documentation:Sendable
             // case root 
             //  '/' 'swift-standard-library'
             //  '/' 'swift-standard-library' '/search' ( '.' 'json' )
-            case package(Int, stem:UInt, leaf:UInt)
+            case package(UInt, stem:UInt, leaf:UInt)
             //  '/' 'swift'
             //  '/' 'swift-nio/niocore'
             //  '/' 'swift-nio/niocore' '/foo/bar' ( '.' 'baz(_:)' ) ( '?overload=' 's:xxx' )
@@ -83,18 +83,64 @@ struct Documentation:Sendable
             case witness   
             case crime
         }
-        struct Path:Equatable, Sendable 
+        struct Path:Equatable, CustomStringConvertible, Sendable 
         {
             var stem:[[UInt8]], 
                 leaf:[UInt8]
+            
+            init(root:[UInt8], trunk:[UInt8], stem:[[UInt8]], leaf:[UInt8])
+            {
+                switch (root.isEmpty, trunk.isEmpty)
+                {
+                case (true,   true):    self.init(stem:                 stem, leaf: leaf)
+                case (false,  true):    self.init(stem: [root       ] + stem, leaf: leaf)
+                case (false, false):    self.init(stem: [root, trunk] + stem, leaf: leaf)
+                case (true,  false):    self.init(stem: [      trunk] + stem, leaf: leaf)
+                }
+            }
+            init(root:[UInt8], stem:[[UInt8]], leaf:[UInt8])
+            {
+                switch root.isEmpty 
+                {
+                case true:              self.init(stem:          stem, leaf: leaf)
+                case false:             self.init(stem: [root] + stem, leaf: leaf)
+                }
+            }
+            init(stem:[[UInt8]], leaf:[UInt8])
+            {
+                self.stem = stem 
+                self.leaf = leaf 
+            }
+            
+            var description:String 
+            {
+                """
+                \(self.stem.map 
+                { 
+                    "/\(String.init(decoding: $0, as: Unicode.UTF8.self))" 
+                }.joined())\
+                \(self.leaf.isEmpty ? "" : ".\(String.init(decoding: self.leaf, as: Unicode.UTF8.self))")
+                """
+            }
         }
-        struct Query:Hashable, Sendable 
+        struct Query:Hashable, CustomStringConvertible, Sendable 
         {
             var witness:Int, 
                 victim:Int?
+            
+            var description:String 
+            {
+                "?overload=[\(self.witness)]\(self.victim.map { "&self=[\($0)]" } ?? "")"
+            }
         }
+        
         var path:Path
         var query:Query?
+        
+        var description:String 
+        {
+            "\(self.path)\(self.query?.description ?? "")"
+        }
         
         static 
         func concatenate<Stem>(normalized stem:Stem) -> [UInt8]
@@ -121,6 +167,42 @@ struct Documentation:Sendable
         case ambiguous
     }
     
+    struct Table<Key> where Key:Hashable 
+    {
+        private 
+        var table:[Key: UInt]
+        
+        init() 
+        {
+            self.table = [:]
+        }
+        
+        subscript(key:Key) -> UInt? 
+        {
+            _read 
+            {
+                yield self.table[key]
+            }
+            _modify
+            {
+                yield &self.table[key]
+            }
+        }
+        
+        mutating 
+        func register(_ key:Key) -> UInt 
+        {
+            var counter:UInt = .init(self.table.count)
+            self.table.merge(CollectionOfOne<(Key, UInt)>.init((key, counter))) 
+            { 
+                (current:UInt, _:UInt) in 
+                counter = current 
+                return current 
+            }
+            return counter
+        }
+    }
+    
     let prefix:String
     let biome:Biome
     let packages:[Article], 
@@ -130,9 +212,11 @@ struct Documentation:Sendable
     private(set)
     var _search:[Resource] 
     private(set)
-    var overloads:[Int: URI.Overloading],
+    var overloads:[URI.Query: URI.Overloading],
         routes:[URI.Resolved: Index],
-        greens:[[UInt8]: UInt]
+        greens:Table<[UInt8]>, 
+        trunks:Table<[UInt8]>, 
+        roots:Table<[UInt8]>
     
     public 
     init(prefix:String, packages:[Biome.Package.ID: [String]], 
@@ -165,13 +249,27 @@ struct Documentation:Sendable
         
         self.overloads  = [:]
         self.routes     = [:]
-        // TODO: we need to account for colliding module names under case folding
-        self.greens     = [:]
+        self.greens     = .init()
+        self.trunks     = .init()
+        self.roots      = .init()
         
         for index:Int in self.biome.packages.indices
         {
             self.publish(packageSearchIndex: index)
             self.publish(package: index)
+            // set up redirects 
+            if case .swift = self.biome.packages[index].id 
+            {
+                for name:String in 
+                [
+                    "standard-library", 
+                    "swift-stdlib", 
+                    "stdlib"
+                ]
+                {
+                    self.publish(package: index, under: [UInt8].init(name.utf8))
+                }
+            }
         }
         for index:Int in self.biome.modules.indices
         {
@@ -189,6 +287,25 @@ struct Documentation:Sendable
                 }
             }
         }
+        
+        // verify that every crime is reachable without redirects 
+        /* if  true 
+        {
+            for index:Int in self.biome.symbols.indices
+            {
+                Swift.print("testing \((witness: index, victim: Optional<Int>.none))")
+                self.validate(uri: self.uri(witness: index, victim: nil))
+                for member:Int in self.biome.symbols[index].relationships.members ?? []
+                {
+                    if  let interface:Int = self.biome.symbols[member].parent, 
+                            interface != index 
+                    {
+                        Swift.print("testing \((witness: member, victim: index))")
+                        self.validate(uri: self.uri(witness: member, victim: index))
+                    }
+                }
+            }
+        } */
         
         self._search = self.biome.packages.map(self.searchIndex(for:))
         
@@ -223,40 +340,47 @@ struct Documentation:Sendable
     private mutating 
     func publish(packageSearchIndex package:Int) 
     {
-        let (stem, leaf):([[UInt8]], leaf:[UInt8]) = self.stem(packageSearchIndex: package)
-        self.publish(.package(package), disambiguated: .package(package, 
-            stem: self.register(stem: stem), 
-            leaf: self.register(leaf: leaf)))
+        self.publish(.packageSearchIndex(package), 
+            disambiguated: .package(self.roots.register(self.root(package: package)), 
+            stem:   self.greens.register(URI.concatenate(normalized: self.stem(packageSearchIndex: package))), 
+            leaf:   self.greens.register(self.leaf(packageSearchIndex: package))))
     }
     private mutating 
     func publish(package:Int) 
     {
-        let empty:UInt          = self.register(leaf: [])
-        let key:URI.Resolved    = .package(package, stem: empty, leaf: empty)
-        self.publish(.package(package), disambiguated: key)
+        self.publish(package: package, under: self.root(package: package))
+    }
+    private mutating 
+    func publish(package:Int, under name:[UInt8]) 
+    {
+        let empty:UInt = self.greens.register([])
+        self.publish(.package(package), 
+            disambiguated: .package(self.roots.register(name), 
+            stem:   empty, 
+            leaf:   empty))
     }
     private mutating 
     func publish(module:Int) 
     {
-        let empty:UInt          = self.register(leaf: [])
-        let key:URI.Resolved    = .namespaced(
-                    self.register(leaf: URI.encode(component: self.biome.modules[module].id.title.utf8)), 
+        let empty:UInt = self.greens.register([])
+        self.publish(.module(module), 
+            disambiguated: .namespaced(self.trunks.register(self.trunk(namespace: module)), 
             stem:   empty, 
             leaf:   empty, 
-            overload: nil)
-        self.publish(.module(module), disambiguated: key)
+            overload: nil))
     }
     private mutating 
     func publish(witness:Int, victim:Int?) 
     {
-        var selector:URI.Resolved
+        var selector:URI.Resolved, 
+            amount:URI.Overloading? = nil
         if let namespace:Int = self.biome.symbols[victim ?? witness].namespace
         {
             let (stem, leaf):([[UInt8]], leaf:[UInt8]) = self.stem(witness: witness, victim: victim)
             selector = .namespaced(
-                        self.register(leaf: URI.encode(component: self.biome.modules[namespace].id.title.utf8)), 
-                stem:   self.register(stem: stem), 
-                leaf:   self.register(leaf: leaf), 
+                        self.trunks.register(self.trunk(namespace: namespace)), 
+                stem:   self.greens.register(URI.concatenate(normalized: stem)), 
+                leaf:   self.greens.register(leaf), 
                 overload: nil)
         }
         else 
@@ -276,16 +400,20 @@ struct Documentation:Sendable
                 // does, because it always adds a parameter on its non-trapping paths 
                 var location:URI.Resolved   = self.routes.keys[index]
                 let amount:URI.Overloading  = self.disambiguate(&location, with: witness, victim: victim)
-                self.overloads.updateValue(amount, forKey: witness)
+                self.overloads.updateValue(amount, forKey: .init(witness: witness, victim: victim))
                 self.publish(.symbol(witness, victim: victim), disambiguated: location)
                 fallthrough
             
             case .ambiguous:
-                let _:URI.Overloading       = self.disambiguate(&selector, with: witness, victim: victim)
+                amount = self.disambiguate(&selector, with: witness, victim: victim)
                 
             default: 
                 fatalError("unreachable")
             }
+        }
+        if let amount:URI.Overloading  = amount
+        {
+            self.overloads.updateValue(amount, forKey: .init(witness: witness, victim: victim))
         }
         self.publish(.symbol(witness, victim: victim), disambiguated: selector)
     }
@@ -310,64 +438,43 @@ struct Documentation:Sendable
         case    (.namespaced(let namespace, stem: let stem, leaf: let leaf, overload: nil),    _):
             selector = .namespaced(namespace, stem:   stem, leaf:     leaf, overload: witness)
             return .witness 
-            
-        case (let base, let victim?):
-            Swift.print(base, witness, victim)
-            Swift.print(self.biome.symbols[witness].module as Any)
-            Swift.print(self.biome.symbols[witness].bystander as Any)
-            Swift.print(self.biome.symbols[witness].id)
-            Swift.print(self.biome.symbols[victim].module as Any)
-            Swift.print(self.biome.symbols[victim].bystander as Any)
-            Swift.print(self.biome.symbols[victim].id)
-            fallthrough
         default: 
             fatalError("unreachable")
         }
     }
     
-    private mutating 
-    func register(stem:[[UInt8]]) -> UInt
-    {
-        self.register(leaf: URI.concatenate(normalized: stem))
-    }
-    private mutating 
-    func register(leaf:[UInt8]) -> UInt 
-    {
-        var counter:UInt = .init(self.greens.count)
-        self.greens.merge(CollectionOfOne<([UInt8], UInt)>.init((leaf, counter))) 
-        { 
-            (current:UInt, _:UInt) in 
-            counter = current 
-            return current 
-        }
-        return counter
-    }
-    
-    // does not include the package name!
     private 
-    func stem(packageSearchIndex package:Int) -> (stem:[[UInt8]], leaf:[UInt8])
+    func stem(packageSearchIndex package:Int) -> [[UInt8]]
     {
-        ([[UInt8].init("search".utf8)], [UInt8].init("json".utf8))
+        [[UInt8].init("search".utf8)]
     }
     private 
-    func trunk(package:Int) -> [[UInt8]]
+    func leaf(packageSearchIndex package:Int) -> [UInt8]
     {
-        [URI.encode(component: self.biome.packages[package].id.name.utf8)]
+        [UInt8].init("json".utf8)
     }
     private 
-    func trunk(module:Int) -> [[UInt8]]
+    func root(package:Int) -> [UInt8]
     {
-        let module:Biome.Module = self.biome.modules[module]
-        if case .community(let package) = self.biome.packages[module.package].id
+        URI.encode(component: self.biome.packages[package].id.name.utf8)
+    }
+    private 
+    func root(namespace module:Int) -> [UInt8]
+    {
+        if case .community(let package) = self.biome.packages[self.biome.modules[module].package].id
         {
-            return [URI.encode(component: package.utf8), URI.encode(component: module.id.title.utf8)]
+            return URI.encode(component: package.utf8)
         }
         else 
         {
-            return [                                     URI.encode(component: module.id.title.utf8)]
+            return []
         }
     }
-    // this path does not contain the module or prefix!
+    private 
+    func trunk(namespace module:Int) -> [UInt8]
+    {
+        URI.encode(component: self.biome.modules[module].id.title.utf8)
+    }
     private 
     func stem(witness:Int, victim:Int?) -> (stem:[[UInt8]], leaf:[UInt8])
     {
@@ -399,39 +506,66 @@ struct Documentation:Sendable
     
     func uri(packageSearchIndex package:Int) -> URI  
     {
-        let (stem, leaf):([[UInt8]], [UInt8]) = self.stem(packageSearchIndex: package)
-        return .init(path: .init(stem: self.trunk(package: package) + stem, leaf: leaf), query: nil)
+        return .init(path: .init(
+            root: self.root(package: package), 
+            stem: self.stem(packageSearchIndex: package), 
+            leaf: self.leaf(packageSearchIndex: package)), 
+            query: nil)
     }
     func uri(package:Int) -> URI  
     {
-        .init(path: .init(stem: self.trunk(package: package), leaf: []), query: nil)
+        .init(path: .init(
+            root: self.root(package: package), 
+            stem: [], 
+            leaf: []), 
+            query: nil)
     }
     func uri(module:Int) -> URI 
     {
-        .init(path: .init(stem: self.trunk(module: module), leaf: []), query: nil)
+        .init(path: .init(
+            root: self.root(namespace: module), 
+            trunk: self.trunk(namespace: module), 
+            stem: [], 
+            leaf: []), 
+            query: nil)
     }
     func uri(witness:Int, victim:Int?) -> URI   
     {
-        let path:URI.Path
+        let path:URI.Path, 
+            query:URI.Query?
         if let namespace:Int = self.biome.symbols[victim ?? witness].namespace
         {
             let (stem, leaf):([[UInt8]], [UInt8]) = self.stem(witness: witness, victim: victim)
-            path = .init(stem: self.trunk(module: namespace) + stem, leaf: leaf)
+            path = .init(
+                root: self.root(namespace: namespace), 
+                trunk: self.trunk(namespace: namespace), 
+                stem: stem, 
+                leaf: leaf)
+            switch self.overloads[.init(witness: witness, victim: victim)]
+            {
+            case nil: 
+                query = nil
+            case .witness: 
+                query = .init(witness: witness, victim: nil)
+            case .crime:
+                query = .init(witness: witness, victim: victim)
+            }
         }
         else 
         {
             // mythical 
             path = .init(stem: [], leaf: [])
+            switch self.overloads[.init(witness: witness, victim: victim)]
+            {
+            case nil: 
+                query = .init(witness: witness, victim: victim)
+            case .witness: 
+                fatalError("unreachable")
+            case .crime:
+                query = .init(witness: witness, victim: victim)
+            }
         }
-        switch self.overloads[witness]
-        {
-        case nil: 
-            return .init(path: path, query: nil)
-        case .witness: 
-            return .init(path: path, query: .init(witness: witness, victim: nil))
-        case .crime:
-            return .init(path: path, query: .init(witness: witness, victim: victim))
-        }
+        return .init(path: path, query: query)
     }
     
     func print(uri:URI) -> String 
@@ -454,10 +588,24 @@ struct Documentation:Sendable
         }
         return string
     }
+    
+    private 
+    func validate(uri:URI) 
+    {
+        let uri:String = self.print(uri: uri)
+        switch self[uri]
+        {
+        case nil: 
+            fatalError("uri '\(uri)' can never be accessed")
+        case (nil, let canonical)?: 
+            fatalError("uri '\(uri)' always redirects to '\(canonical)'")
+        case (_?, _)?:
+            break 
+        }
+    }
 
     public 
-    subscript(uri:(path:String, query:Substring?), referrer referrer:(path:String, query:Substring?)? = nil)
-        -> (content:Resource?, canonical:String)?
+    subscript(uri:String, referrer _:String? = nil) -> (content:Resource?, canonical:String)?
     {
         let (uri, redirect):(URI, Bool) = self.normalize(uri: uri)
         
@@ -465,18 +613,20 @@ struct Documentation:Sendable
         {
             self.biome.packages.map(\.id)
         }
-        Swift.print(uri)
+        
         guard let resolved:URI.Resolved = self.resolve(uri: uri)
         else 
         {
             return nil 
         }
-        Swift.print(resolved)
+        
         let canonical:URI, 
             resource:Resource 
         switch self.routes[resolved]  
         {
-        case nil, .ambiguous: 
+        case nil:
+            return nil 
+        case .ambiguous: 
             return nil 
         case .packageSearchIndex(let index):
             canonical   = self.uri(packageSearchIndex: index)

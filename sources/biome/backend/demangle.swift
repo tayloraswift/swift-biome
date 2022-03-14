@@ -28,20 +28,21 @@ enum Demangle
         guard let symbol:UnsafeMutableRawPointer = dlsym(swift, "swift_demangle") 
         else 
         {
-            fatalError("could not load symbll 'swift_demangle'")
+            fatalError("could not load symbol 'swift_demangle'")
         }
         return unsafeBitCast(symbol, to: Function.self)
     }()
     
     static 
-    subscript(mangled:String) -> String
+    subscript(mangled:[UInt8]) -> String
     {
-        guard   let mangled:String = mangled.first.map({ "$\($0)\(mangled.dropFirst(2))" }),
-                let string:UnsafeMutablePointer<Int8> = self.function(mangled, mangled.utf8.count, nil, nil, 0)
+        // '$s' 
+        let prefixed:[UInt8] = [0x24, 0x73] + mangled
+        guard let string:UnsafeMutablePointer<Int8> = self.function(prefixed, prefixed.count, nil, nil, 0)
         else 
         {
-            print("warning: could not demangle symbol '\(mangled)'")
-            return mangled 
+            print("warning: could not demangle symbol '\(String.init(decoding: mangled, as: Unicode.UTF8.self))'")
+            return String.init(decoding: mangled, as: Unicode.UTF8.self) 
         }
         defer 
         {

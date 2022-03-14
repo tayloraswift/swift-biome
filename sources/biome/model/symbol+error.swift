@@ -14,7 +14,7 @@ extension Biome
         /// unique id is completely empty
         case empty
         /// unique id does not start with a supported language prefix (‘c’ or ‘s’)
-        // case unsupportedLanguage(code:UInt8)
+        case unsupportedLanguage(code:UInt8)
     }
     enum SymbolExtensionError:Error 
     {

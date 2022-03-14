@@ -190,12 +190,12 @@ extension Documentation
             return witness.map { .resolution(witness: $0, victim: nil) } 
         }
         
-        guard let package:Int   = self.biome.packages.index(of: Biome.Package.ID.init(first))
+        guard let root:UInt     = self.roots[first]
         else 
         {
-            if let root:UInt    = self.greens[first]
+            if let trunk:UInt   = self.trunks[first]
             {
-                return self.resolve(namespace: root, 
+                return self.resolve(namespace: trunk, 
                     stem: uri.path.stem.dropFirst(), 
                     leaf: uri.path.leaf, 
                     overload: witness)
@@ -206,9 +206,9 @@ extension Documentation
             }
         }
         if  let second:[UInt8]  = components.next(),
-            let root:UInt       = self.greens[second]
+            let trunk:UInt      = self.trunks[second]
         {
-            return self.resolve(namespace: root, 
+            return self.resolve(namespace: trunk, 
                 stem: uri.path.stem.dropFirst(2), 
                 leaf: uri.path.leaf, 
                 overload: witness)
@@ -219,7 +219,7 @@ extension Documentation
         {
             return witness.map { .resolution(witness: $0, victim: nil) }  
         }
-        return .package(package, stem: stem, leaf: leaf)
+        return .package(root, stem: stem, leaf: leaf)
     }
     private 
     func resolve(namespace:UInt, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) -> URI.Resolved?
@@ -233,16 +233,43 @@ extension Documentation
         return .namespaced(namespace, stem: stem, leaf: leaf, overload: overload)
     }
     
-    func normalize(uri:(path:String, query:Substring?)) -> (uri:URI, changed:Bool)
+    func normalize(uri:String) -> (uri:URI, changed:Bool)
+    {
+        let path:Substring, 
+            query:Substring?
+        switch (question: uri.firstIndex(of: "?"), hash: uri.firstIndex(of: "#"))
+        {
+        case (question: let question?, hash: let hash?):
+            guard question < hash 
+            else 
+            {
+                fallthrough
+            }
+            path    = uri[..<question]
+            query   = uri[question ..< hash].dropFirst()
+        case (question: nil          , hash: let hash?):
+            path    = uri[..<hash]
+            query   = nil
+        case (question: let question?, hash: nil):
+            path    = uri[..<question]
+            query   = uri[question...].dropFirst()
+        case (question: nil          , hash: nil):
+            path    = uri[...]
+            query   = nil
+        }
+        return self.normalize(path: path, query: query)
+    }
+    private 
+    func normalize(path:Substring, query:Substring?) -> (uri:URI, changed:Bool)
     {
         var changed:Bool        = false 
         let uri:URI  = .init(
-            path:  self.normalize(path:  uri.path,  changed: &changed),
-            query: self.normalize(query: uri.query, changed: &changed))
+            path:  self.normalize(path:  path,  changed: &changed),
+            query: self.normalize(query: query, changed: &changed))
         return (uri, changed)
     }
     private 
-    func normalize(path:String, changed:inout Bool) -> URI.Path
+    func normalize(path:Substring, changed:inout Bool) -> URI.Path
     {
         var prefix:String.Iterator  = self.prefix.makeIterator()
         var start:String.Index      = path.endIndex
@@ -306,7 +333,7 @@ extension Documentation
         }
         // accept empty query, as this models the lone '?' suffix, which is distinct 
         // from `nil` query
-        guard let query:[(key:String, value:String)] = 
+        guard let query:[(key:[UInt8], value:[UInt8])] = 
             try? Grammar.parse(query.utf8, as: URI.Rule<String.Index>.Query.self)
         else 
         {
@@ -319,17 +346,17 @@ extension Documentation
         var witness:Int?    = nil  
         var victim:Int?     = nil
         
-        for (key, value):(String, String) in query 
+        for (key, value):([UInt8], [UInt8]) in query 
         {
             let id:(witness:Biome.Symbol.ID?, victim:Biome.Symbol.ID?)
             parameter:
-            switch key
+            switch String.init(decoding: key, as: Unicode.UTF8.self)
             {
             case "self": 
-                id = (nil, .init(value))
+                id = (nil, try? Grammar.parse(value, as: Biome.USR.Rule<Array<UInt8>.Index>.MangledName.self))
             
             case "overload": 
-                switch try? Grammar.parse(value.utf8, as: Biome.USR.Rule<String.Index>.self) 
+                switch try? Grammar.parse(value, as: Biome.USR.Rule<Array<UInt8>.Index>.self) 
                 {
                 case nil: 
                     changed = true 
@@ -346,25 +373,28 @@ extension Documentation
                 continue  
             }
             
-            if case nil = witness, 
-                let index:Int = id.witness.flatMap(self.biome.symbols.index(of:))
+            if  let index:Int = id.witness.flatMap(self.biome.symbols.index(of:))
             {
-                witness = index 
+                if case nil = witness
+                {
+                    witness = index 
+                }
+                else 
+                {
+                    changed = true 
+                }
             }
-            else
+            if  let index:Int = id.victim.flatMap(self.biome.symbols.index(of:))
             {
-                changed = true 
+                if case nil = victim
+                {
+                    victim  = index 
+                }
+                else
+                {
+                    changed = true 
+                }
             }
-            if case nil = victim, 
-                let index:Int = id.victim.flatMap(self.biome.symbols.index(of:))
-            {
-                victim  = index 
-            }
-            else
-            {
-                changed = true 
-            }
-
         }
         //  victim id without witness id is useless 
         return witness.map { .init(witness: $0, victim: victim) }
@@ -571,7 +601,7 @@ extension Documentation.URI.Rule
             {
                 typealias Terminal = UInt8
                 static 
-                func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) -> String
+                func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) -> [UInt8]
                 where   Diagnostics:ParsingDiagnostics, 
                         Diagnostics.Source.Index == Location, 
                         Diagnostics.Source.Element == Terminal
@@ -579,32 +609,32 @@ extension Documentation.URI.Rule
                     let start:Location  = input.index 
                         input.parse(as: CodeUnit.self, in: Void.self)
                     let end:Location    = input.index 
-                    return .init(decoding: Documentation.URI.normalize(query: input[start ..< end]), as: Unicode.UTF8.self)
+                    return Documentation.URI.normalize(query: input[start ..< end])
                 }
             }
             
             typealias Terminal = UInt8
             static 
-            func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> (key:String, value:String)
+            func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> (key:[UInt8], value:[UInt8])
                 where   Diagnostics:ParsingDiagnostics, 
                         Diagnostics.Source.Index == Location, 
                         Diagnostics.Source.Element == Terminal
             {
-                let key:String      = try input.parse(as: CodeUnits.self)
+                let key:[UInt8]     = try input.parse(as: CodeUnits.self)
                 try input.parse(as: ASCII.Equals.self)
-                let value:String    = try input.parse(as: CodeUnits.self)
+                let value:[UInt8]   = try input.parse(as: CodeUnits.self)
                 return (key, value)
             }
         }
         
         typealias Terminal = UInt8
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> [(key:String, value:String)]
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> [(key:[UInt8], value:[UInt8])]
             where   Diagnostics:ParsingDiagnostics, 
                     Diagnostics.Source.Index == Location, 
                     Diagnostics.Source.Element == Terminal
         {
-            try input.parse(as: Grammar.Join<Query.Item, Separator, [(key:String, value:String)]>.self) 
+            try input.parse(as: Grammar.Join<Query.Item, Separator, [(key:[UInt8], value:[UInt8])]>.self) 
         }
     }
 }

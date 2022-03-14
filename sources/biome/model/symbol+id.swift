@@ -2,18 +2,36 @@ import Grammar
 
 extension Biome.Symbol 
 {
-    struct ID:Hashable, CustomStringConvertible, Sendable 
+    enum ID:Hashable, CustomStringConvertible, Sendable 
     {
-        let string:String 
+        case swift([UInt8])
+        case c([UInt8])
         
+        var string:String 
+        {
+            switch self 
+            {
+            case .swift(let utf8): 
+                return "s\(String.init(decoding: utf8, as: Unicode.UTF8.self))"
+            case .c(let utf8):
+                return "c\(String.init(decoding: utf8, as: Unicode.UTF8.self))"
+            }
+        }
+        /* 
         init(_ string:String)
         {
             self.string = string 
         }
-        
+         */
         var description:String
         {
-            Demangle[self.string]
+            switch self 
+            {
+            case .swift(let utf8):
+                return Demangle[utf8]
+            case .c(let utf8): 
+                return "c-language symbol '\(String.init(decoding: utf8, as: Unicode.UTF8.self))'"
+            }
         }
     }
 }
@@ -24,11 +42,12 @@ extension Biome
         case c 
         case swift 
     }
-    enum USR:Hashable, CustomStringConvertible, Sendable 
+    enum USR:Hashable, Sendable 
     {
         case natural(Symbol.ID)
         case synthesized(from:Symbol.ID, for:Symbol.ID)
         
+        @available(*, unavailable)
         var description:String 
         {
             switch self 
@@ -83,25 +102,34 @@ extension Biome.USR.Rule:ParsingRule
             }
         }
         
-        // Mangled Identifier ::= <Language> ':' <Mangled Identifier Head> <Mangled Identifier Next> *
+        // Mangled Identifier ::= <Language> ':' ? <Mangled Identifier Head> <Mangled Identifier Next> *
         typealias Terminal      = UInt8
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> String
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> Biome.Symbol.ID
             where   Diagnostics:ParsingDiagnostics, 
                     Diagnostics.Source.Index == Location,
                     Diagnostics.Source.Element == Terminal
         {
-            let start:Location  = input.index 
-            guard let _:UInt8   = input.next()
+            guard let language:UInt8    = input.next()
             else 
             {
                 throw Biome.SymbolIdentifierError.empty 
             }
-            try input.parse(as: ASCII.Colon.self)
+                input.parse(as: ASCII.Colon?.self)
+            let start:Location          = input.index 
             try input.parse(as: Element.self)
                 input.parse(as: Element.self, in: Void.self)
             let end:Location    = input.index 
-            return .init(decoding: input[start ..< end], as: Unicode.UTF8.self)
+            let utf8:[UInt8]    = [UInt8].init(input[start ..< end])
+            switch language 
+            {
+            case 0x73: // 's'
+                return .swift(utf8)
+            case 0x63: // 'c'
+                return .c(utf8)
+            case let code: 
+                throw Biome.SymbolIdentifierError.unsupportedLanguage(code: code)
+            }
         }
     }
     
@@ -113,13 +141,13 @@ extension Biome.USR.Rule:ParsingRule
                 Diagnostics.Source.Index == Location,
                 Diagnostics.Source.Element == Terminal
     {
-        let first:String    = try input.parse(as: MangledName.self)
-        guard let _:Void    = input.parse(as: Synthesized?.self)
+        let first:Biome.Symbol.ID   = try input.parse(as: MangledName.self)
+        guard let _:Void            = input.parse(as: Synthesized?.self)
         else 
         {
-            return .natural(.init(first))
+            return .natural(first)
         }
-        let second:String   = try input.parse(as: MangledName.self)
-        return .synthesized(from: .init(first), for: .init(second))
+        let second:Biome.Symbol.ID  = try input.parse(as: MangledName.self)
+        return .synthesized(from: first, for: second)
     }
 }
