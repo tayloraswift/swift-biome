@@ -170,7 +170,7 @@ struct Biome:Sendable
     {
         let (names, targets):([(id:Package.ID, targets:Range<Int>)], [Target]) = Self.modules(names)
         
-        let packageIndices:[Package.ID: Int]    = try Self.indices(for: names, by: \.id, 
+        let packageIndices:[Package.ID: Int]    = try Self.indices(for: names,   by: \.id, 
             else: PackageIdentifierError.duplicate(package:))
         let moduleIndices:[Module.ID: Int]      = try Self.indices(for: targets, by: \.module, 
             else: ModuleIdentifierError.duplicate(module:))

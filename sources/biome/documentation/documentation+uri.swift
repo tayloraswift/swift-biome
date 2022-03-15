@@ -1,238 +1,7 @@
 import Grammar
 
-extension Documentation 
-{
-    /* struct Specialization 
-    {
-        struct ID:Hashable, Sendable 
-        {
-            private 
-            let _witness:UInt32, 
-                _victim:UInt32 // nil is UInt32.max
-            
-            static 
-            func synthesized(from witness:Int, for victim:Int) -> Self 
-            {
-                let witness:UInt32   = .init(witness), 
-                    victim:UInt32    = .init(victim)
-                precondition(victim != .max)
-                return .init(_witness: witness, _victim: victim)
-            }
-            static 
-            func natural(_ symbol:Int) -> Self 
-            {
-                let symbol:UInt32   = .init(symbol)
-                return .init(_witness: symbol, _victim: .max)
-            }
-            
-            var witness:Int 
-            {
-                .init(self._witness)
-            }
-            var victim:Int? 
-            {
-                self._victim != .max ? .init(self._victim) : nil
-            }
-        }
-        enum Flag
-        {
-            case unique
-            case overloaded
-            case overloadedScope
-        }
-        
-        var flag:Flag 
-        var stem:[UInt8]
-        
-        init(_ stem:[UInt8])
-        {
-            self.flag = .unique 
-            self.stem = stem
-        }
-    }
-    
-    
-    static 
-    func _lookups() 
-    {
-        struct _Key 
-        {
-            let namespace:Int 
-        }
-    }
-    
-    
-    
-
-    mutating 
-    func stem(disambiguating index:Dictionary<Specialization.ID, Specialization>.Index)
-        -> [UInt8]
-    {
-        self.disambiguate(index)
-        return self.specializations.values[index].stem
-    }
-    mutating 
-    func stem(disambiguating index:Dictionary<Specialization.ID, Specialization>.Index, 
-        while collision:(_ stem:[UInt8]) throws -> Void?)
-        rethrows -> [UInt8]
-    {
-        while case _? = try collision(self.specializations.values[index].stem)
-        {
-            self.disambiguate(index)
-        }
-        return self.specializations.values[index].stem
-    }
-    private 
-    func stem(symbol:Int, scope:Int?) -> [UInt8] 
-    {
-        guard let namespace:Int = self.symbols[scope ?? symbol].namespace 
-        else 
-        {
-            // mythical symbol, can only be accessed through USR 
-            return []
-        }
-        let symbol:Symbol       = self.symbols[symbol]
-        let module:Module       = self.modules[namespace]
-        let package:Package.ID  = self.packages[module.package].id
-        
-        var components:[String] 
-        if case .community(let package) = _move(package)
-        {
-            components = [package, module.id.title]
-        }
-        else 
-        {
-            components =          [module.id.title]
-        }
-        let penultimate:String 
-        let ultimate:String = symbol.title
-        if  let scope:Int   = scope
-        {
-            penultimate     = self.symbols[scope].title
-            components.append(contentsOf: self.symbols[scope].scope)
-        } 
-        else if let title:String = symbol.scope.last 
-        {
-            penultimate     = title
-            components.append(contentsOf: symbol.scope.dropLast())
-        }
-        else 
-        {
-            // toplevel 
-            components.append(ultimate)
-            return URI.path(components.map(\.utf8))
-        }
-        
-        return URI.path(components.map(\.utf8))
-    }
-    private mutating 
-    func disambiguate(_ index:Dictionary<Specialization.ID, Specialization>.Index)
-    {
-        let specialization:Specialization.ID = self.specializations.keys[index]
-        switch self.specializations.values[index].flag
-        {
-        case .unique:
-            self.specializations.values[index].stem.append(
-                contentsOf: "?overload=\(self.symbols[specialization.symbol].id.string)".utf8)
-            self.specializations.values[index].flag = .overloaded 
-        case .overloaded:
-            guard let scope:Int = specialization.scope 
-            else 
-            {
-                fallthrough
-            }
-            self.specializations.values[index].stem.append(
-                contentsOf: "&self=\(self.symbols[scope].id.string)".utf8)
-            self.specializations.values[index].flag = .overloadedScope 
-        case .overloadedScope:
-            fatalError("unreachable")
-        }
-    } */
-
-}
-
-extension Documentation.URI
-{
-    // these APIs assume the inputs are *not* percent-encoded at all! 
-    /* static 
-    func stem<Path>(normalizing path:Path) -> [UInt8]
-        where Path:Collection, Path.Element:Sequence, Path.Element.Element == UInt8
-    {
-        // returned string is *empty* if `path` is empty, it is not '/'
-        var utf8:[UInt8] = []
-            utf8.reserveCapacity(path.reduce(0) { $0 + $1.underestimatedCount + 1 })
-        for component:Path.Element in path 
-        {
-            utf8.append(0x2f) // '/'
-            Self.component(normalizing: component, into: &utf8)
-        }
-        return utf8
-    } */
-
-}
-
 extension Documentation
 {    
-    func resolve(uri:URI) -> URI.Resolved?
-    {
-        if  let query:URI.Query = uri.query, 
-            let victim:Int = query.victim
-        {
-            return .resolution(witness: query.witness, victim: victim)
-        }
-        
-        let witness:Int?                        = uri.query?.witness 
-        var components:Array<[UInt8]>.Iterator  = uri.path.stem.makeIterator()
-        
-        guard let first:[UInt8] = components.next()
-        else 
-        {
-            return witness.map { .resolution(witness: $0, victim: nil) } 
-        }
-        
-        guard let root:UInt     = self.roots[first]
-        else 
-        {
-            if let trunk:UInt   = self.trunks[first]
-            {
-                return self.resolve(namespace: trunk, 
-                    stem: uri.path.stem.dropFirst(), 
-                    leaf: uri.path.leaf, 
-                    overload: witness)
-            }
-            else 
-            {
-                return witness.map { .resolution(witness: $0, victim: nil) }  
-            }
-        }
-        if  let second:[UInt8]  = components.next(),
-            let trunk:UInt      = self.trunks[second]
-        {
-            return self.resolve(namespace: trunk, 
-                stem: uri.path.stem.dropFirst(2), 
-                leaf: uri.path.leaf, 
-                overload: witness)
-        }
-        guard   let stem:UInt   = self.greens[URI.concatenate(normalized: uri.path.stem.dropFirst())],
-                let leaf:UInt   = self.greens[uri.path.leaf]
-        else 
-        {
-            return witness.map { .resolution(witness: $0, victim: nil) }  
-        }
-        return .package(root, stem: stem, leaf: leaf)
-    }
-    private 
-    func resolve(namespace:UInt, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) -> URI.Resolved?
-    {
-        guard   let stem:UInt = self.greens[URI.concatenate(normalized: stem)],
-                let leaf:UInt = self.greens[leaf]
-        else 
-        {
-            return overload.map { .resolution(witness: $0, victim: nil) } 
-        }
-        return .namespaced(namespace, stem: stem, leaf: leaf, overload: overload)
-    }
-    
     func normalize(uri:String) -> (uri:URI, changed:Bool)
     {
         let path:Substring, 
@@ -309,7 +78,31 @@ extension Documentation
         let dot:String.Index            = path.firstIndex(of: 0x2e) ?? path.endIndex
         var stem:[Substring.UTF8View]   = path[..<dot].split(separator: 0x2f, 
             omittingEmptySubsequences: false)
-        let leaf:Substring.UTF8View     = path[dot...].dropFirst()
+
+        let leaf:Substring.UTF8View
+        switch stem.last?.isEmpty
+        {
+        case nil, true?: 
+            //  if the stem ends with a slash, it will end in an empty substring. 
+            //  in this case, preserve the leading dot, and consider it part of the 
+            //  leaf. this allows us to redirect the range operator URI 
+            //
+            //      '/reference/swift/comparable/...(_:_:)'
+            //
+            //  to its canonical form:
+            //
+            //      '/reference/swift/comparable....(_:_:)'
+            // 
+            //  we don’t need any special logic for top-level operators that begin 
+            //  with a dot, because we have not parsed the root or trunk segments.
+            // 
+            //  leaves are allowed at the top level, banning them would require 
+            //  us to recursively check `stem.last`, since there could be multiple 
+            //  consecutive slashes.
+            leaf = path[dot...]
+        case false?: 
+            leaf = path[dot...].dropFirst()
+        }
         
         let count:Int = stem.count
             stem.removeAll(where: \.isEmpty)
@@ -353,7 +146,18 @@ extension Documentation
             switch String.init(decoding: key, as: Unicode.UTF8.self)
             {
             case "self": 
-                id = (nil, try? Grammar.parse(value, as: Biome.USR.Rule<Array<UInt8>.Index>.MangledName.self))
+                if let victim:Biome.Symbol.ID = try? Grammar.parse(value, as: Biome.USR.Rule<Array<UInt8>.Index>.MangledName.self)
+                {
+                    // if the mangled name contained a colon ('SymbolGraphGen style')
+                    // get rid of it 
+                    changed = changed || value.contains(0x3a) 
+                    id      = (nil, victim)
+                }
+                else 
+                {
+                    changed = true
+                    id      = (nil, nil)
+                }
             
             case "overload": 
                 switch try? Grammar.parse(value, as: Biome.USR.Rule<Array<UInt8>.Index>.self) 
@@ -362,10 +166,16 @@ extension Documentation
                     changed = true 
                     continue  
                 case .natural(let natural)?:
-                    id = (natural, nil)
+                    
+                    changed = changed || value.contains(0x3a) 
+                    id      = (natural, nil)
                 
                 case .synthesized(from: let witness, for: let victim)?:
-                    id = (witness, victim)
+                    // this is supported for backwards-compatibility, 
+                    // but the `::SYNTHESIZED::` infix is deprecated, so issue 
+                    // a redirect 
+                    changed = true 
+                    id      = (witness, victim)
                 }
 
             default: 

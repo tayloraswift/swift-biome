@@ -83,6 +83,11 @@ struct Documentation:Sendable
             case witness   
             case crime
         }
+        enum Redirect
+        {
+            case temporary 
+            case permanent
+        }
         struct Path:Equatable, CustomStringConvertible, Sendable 
         {
             var stem:[[UInt8]], 
@@ -156,7 +161,6 @@ struct Documentation:Sendable
             return utf8
         }
     }
-    
     enum Index:Hashable, Sendable 
     {
         case packageSearchIndex(Int)
@@ -212,7 +216,9 @@ struct Documentation:Sendable
     private(set)
     var _search:[Resource] 
     private(set)
-    var overloads:[URI.Query: URI.Overloading],
+    var rootless:Set<UInt>, // trunk keys
+        operators:Set<UInt>, // leaf keys
+        overloads:[URI.Query: URI.Overloading],
         routes:[URI.Resolved: Index],
         greens:Table<[UInt8]>, 
         trunks:Table<[UInt8]>, 
@@ -247,6 +253,8 @@ struct Documentation:Sendable
         self.prefix     = prefix 
         self.biome      = biome
         
+        self.rootless   = [ ]
+        self.operators  = [ ]
         self.overloads  = [:]
         self.routes     = [:]
         self.greens     = .init()
@@ -363,11 +371,17 @@ struct Documentation:Sendable
     func publish(module:Int) 
     {
         let empty:UInt = self.greens.register([])
+        let trunk:UInt = self.trunks.register(self.trunk(namespace: module))
         self.publish(.module(module), 
-            disambiguated: .namespaced(self.trunks.register(self.trunk(namespace: module)), 
+            disambiguated: .namespaced(trunk, 
             stem:   empty, 
             leaf:   empty, 
             overload: nil))
+        // whitelist standard library modules 
+        if case .swift = self.biome.packages[self.biome.modules[module].package].id 
+        {
+            self.rootless.insert(trunk)
+        }
     }
     private mutating 
     func publish(witness:Int, victim:Int?) 
@@ -376,12 +390,17 @@ struct Documentation:Sendable
             amount:URI.Overloading? = nil
         if let namespace:Int = self.biome.symbols[victim ?? witness].namespace
         {
-            let (stem, leaf):([[UInt8]], leaf:[UInt8]) = self.stem(witness: witness, victim: victim)
-            selector = .namespaced(
-                        self.trunks.register(self.trunk(namespace: namespace)), 
-                stem:   self.greens.register(URI.concatenate(normalized: stem)), 
-                leaf:   self.greens.register(leaf), 
-                overload: nil)
+            let normalized:(stem:[[UInt8]], leaf:[UInt8]) = self.stem(witness: witness, victim: victim)
+            let trunk:UInt  = self.trunks.register(self.trunk(namespace: namespace))
+            let stem:UInt   = self.greens.register(URI.concatenate(normalized: normalized.stem))
+            let leaf:UInt   = self.greens.register(normalized.leaf)
+            // whitelist operator leaves so they can recieve permanent redirects 
+            // instead of temporary redirects 
+            if case .operator = self.biome.symbols[witness].kind 
+            {
+                self.operators.insert(leaf)
+            }
+            selector = .namespaced(trunk, stem: stem, leaf: leaf, overload: nil)
         }
         else 
         {
@@ -595,59 +614,198 @@ struct Documentation:Sendable
         let uri:String = self.print(uri: uri)
         switch self[uri]
         {
-        case nil: 
+        case nil, .none?: 
             fatalError("uri '\(uri)' can never be accessed")
-        case (nil, let canonical)?: 
-            fatalError("uri '\(uri)' always redirects to '\(canonical)'")
-        case (_?, _)?:
+        case .maybe(canonical: _, at: let location), .found(canonical: _, at: let location): 
+            fatalError("uri '\(uri)' always redirects to '\(location)'")
+        case .matched:
             break 
         }
     }
 
     public 
-    subscript(uri:String, referrer _:String? = nil) -> (content:Resource?, canonical:String)?
+    subscript(uri:String, referrer _:String? = nil) -> StaticResponse?
     {
-        let (uri, redirect):(URI, Bool) = self.normalize(uri: uri)
+        let response:(payload:Resource, location:URI)?,
+            redirect:(always:Bool, temporarily:Bool), 
+            normalized:URI 
         
+        (normalized, redirect.always)      = self.normalize(uri: uri)
+        
+        if  let query:URI.Query     = normalized.query, 
+            let victim:Int          = query.victim, 
+            let index:Index         = self.resolve(overload: query.witness, self: victim)
+        {
+            response                = self[index]
+            redirect.temporarily    = false 
+        }
+        else if let (index, assigned):(Index, assigned:Bool) = 
+            self.resolve(path: normalized.path, overload: normalized.query?.witness)
+        {
+            response                = self[index]
+            redirect.temporarily    = !assigned
+        }
+        else if let witness:Int     = normalized.query?.witness,
+                let index:Index     = self.resolve(mythical: witness)
+        {
+            response                = self[index]
+            redirect.temporarily    = false
+        }
+        else 
+        {
+            return nil
+        }
+        guard let response:(payload:Resource, location:URI) = response 
+        else 
+        {
+            //return .none(self.notFound)
+            return nil
+        }
+        
+        let location:String     = self.print(uri: response.location)
+        // TODO: fixme
+        let canonical:String    = location 
+        
+        switch (matches: response.location == normalized, redirect: redirect) 
+        {
+        case    (matches:  true, redirect: (always: false, temporarily: _)):
+            // ignore temporary-redirect flag, since temporary redirects should never match 
+            return .matched(canonical: canonical, response.payload)
+        case    (matches:  true, redirect: (always:  true, temporarily: _)),
+                (matches: false, redirect: (always:     _, temporarily: false)):
+            return   .found(canonical: canonical, at: location)
+        case    (matches: false, redirect: (always:     _, temporarily:  true)):
+            return   .maybe(canonical: canonical, at: location)
+        }
+    }
+    
+    // TODO: implement disambiguation pages so this can become non-optional
+    subscript(index:Index) -> (payload:Resource, location:URI)?
+    {
         var _filter:[Biome.Package.ID] 
         {
             self.biome.packages.map(\.id)
         }
-        
-        guard let resolved:URI.Resolved = self.resolve(uri: uri)
-        else 
-        {
-            return nil 
-        }
-        
-        let canonical:URI, 
+        let location:URI, 
             resource:Resource 
-        switch self.routes[resolved]  
+        switch index
         {
-        case nil:
-            return nil 
         case .ambiguous: 
-            return nil 
+            return nil
         case .packageSearchIndex(let index):
-            canonical   = self.uri(packageSearchIndex: index)
-            resource    = self._search[index]
+            location = self.uri(packageSearchIndex: index)
+            resource = self._search[index]
         
         case .package(let index):
-            canonical   = self.uri(package: index)
-            resource    = self.page(package: index, filter: _filter)
+            location = self.uri(package: index)
+            resource = self.page(package: index, filter: _filter)
         case .module(let index):
-            canonical   = self.uri(module: index)
-            resource    = self.page(module: index, filter: _filter)
+            location = self.uri(module: index)
+            resource = self.page(module: index, filter: _filter)
         case .symbol(let index, victim: let victim):
-            canonical   = self.uri(witness: index, victim: victim)
-            resource    = self.page(witness: index, victim: victim, filter: _filter)
+            location = self.uri(witness: index, victim: victim)
+            resource = self.page(witness: index, victim: victim, filter: _filter)
         }
-        
-        return ((uri, redirect) == (canonical, false) ? resource : nil, self.print(uri: canonical))
+        return (resource, location)
     }
     
-
-    
+    private 
+    func resolve(overload witness:Int, self victim:Int) -> Index? 
+    {
+        self.routes[.resolution(witness: witness, victim: victim)]
+    }
+    private 
+    func resolve(mythical witness:Int) -> Index?
+    {
+        self.routes[.resolution(witness: witness, victim: nil)]
+    }
+    private 
+    func resolve(path:URI.Path, overload witness:Int?) -> (index:Index, assigned:Bool)? 
+    {
+        var components:Array<[UInt8]>.Iterator  = path.stem.makeIterator()
+        guard let first:[UInt8]     = components.next()
+        else 
+        {
+            return nil
+        }
+        guard let root:UInt         = self.roots[first]
+        else 
+        {
+            if  let trunk:UInt  = self.trunks[first], 
+                let (index, assigned):(Index, assigned:Bool) = self.resolve(namespace: trunk, 
+                stem: path.stem.dropFirst(), 
+                leaf: path.leaf, 
+                overload: witness)
+            {
+                // modules names are currently unique, but only make this a permanent 
+                // redirect if it’s a standard library module
+                return (index, assigned ? self.rootless.contains(trunk) : false)
+            }
+            else 
+            {
+                return nil
+            }
+        }
+        if  let second:[UInt8]  = components.next(),
+            let trunk:UInt      = self.trunks[second]
+        {
+            return self.resolve(namespace: trunk, 
+                stem: path.stem.dropFirst(2), 
+                leaf: path.leaf, 
+                overload: witness)
+        }
+        guard   let stem:UInt   = self.greens[URI.concatenate(normalized: path.stem.dropFirst())],
+                let leaf:UInt   = self.greens[path.leaf]
+        else 
+        {
+            return nil
+        }
+        return self.routes[.package(root, stem: stem, leaf: leaf)].map { ($0, true) }
+    }
+    private 
+    func resolve(namespace:UInt, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) -> (index:Index, assigned:Bool)?
+    {
+        if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
+            let leafKey:UInt    = self.greens[leaf], 
+            let index:Index     = self.routes[.namespaced(namespace, stem: stemKey, leaf: leafKey, overload: overload)]
+        {
+            return (index, true)
+        }
+        // for backwards-compatibility, try reinterpreting the last stem 
+        // component as a leaf. only do this if we don’t already have a leaf. 
+        // since swift prohibits operators from containing a dot '.' unless 
+        // they begin with a dot, we will not miss any operator redirects.
+        //
+        // note that this is not where the range operator redirect happens; 
+        // that is handled by `normalize(path:changed:)`, since it generates an 
+        // empty stem component at the end.
+        guard leaf.isEmpty,
+            let last:[UInt8]    = stem.last,
+            let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem.dropLast())], 
+            let leafKey:UInt    = self.greens[last]
+        else 
+        {
+            return nil
+        }
+        let fallback:URI.Resolved = .namespaced(namespace, stem: stemKey, leaf: leafKey, overload: overload)
+        if  self.operators.contains(leafKey),
+            let index:Index     = self.routes[fallback]
+        {
+            // only consider this a permanent redirect if the fallback leaf is 
+            // an operator
+            return (index, true)
+        }
+        else if stem.dropFirst().isEmpty,
+            let index:Index     = self.routes[fallback]
+        {
+            // global funcs and vars. these are temporary redirects
+            return (index, false)
+        }
+        else 
+        {
+            return nil
+        }
+    }
 
     /// the `group` is the full URL path, without the query, and including 
     /// the beginning slash '/' and path prefix. 
@@ -671,128 +829,3 @@ struct Documentation:Sendable
     /// a valid disambiguation query, the URL path can be complete garbage; 
     /// Biome will respond with a 301 redirect to the correct page.
 }
-/* extension URI
-{
-    static 
-    func normalize(query:Substring) -> Biome.USR
-    {
-        let disambiguation:Biome.Symbol.ID?
-        let queryChanged:Bool  
-        query:
-        do
-        {
-            guard   let parameters:[(key:String, value:String)] =
-                    try? Grammar.parse(parameters.utf8, as: Rule<String.Index>.Query.self),
-                    case ("overload", let string)? = parameters.first,
-                    let usr:USR = try? Grammar.parse(Self.normalize(string.utf8), as: Biome.USR.Rule<Array<UInt8>.Index>.self)
-            else 
-            {
-                disambiguation = nil 
-                queryChanged = true 
-                break query
-            }
-            
-            disambiguation  = symbol 
-            queryChanged    = parameters.count > 1
-        }
-    }
-    
-    static 
-    func normalize<Group, Parameters>(_ group:Group, parameters:Parameters?) 
-        -> (group:String, changed:Bool)
-        where Group:StringProtocol, Parameters:StringProtocol
-    {
-        let disambiguation:Biome.Symbol.ID?
-        let queryChanged:Bool  
-        query:
-        do
-        {
-            guard   let parameters:Parameters = parameters
-            else 
-            {
-                disambiguation = nil 
-                queryChanged = false 
-                break query
-            }
-            guard   let parameters:[(key:String, value:String)] =
-                    try? Grammar.parse(parameters.utf8, as: Rule<String.Index>.Query.self),
-                    case ("overload", let string)? = parameters.first ,
-                    let symbol:Biome.Symbol.ID = 
-                    try? Grammar.parse(Self.normalize(string.utf8), as: Biome.USR.Rule<Array<UInt8>.Index>.self)
-            else 
-            {
-                disambiguation = nil 
-                queryChanged = true 
-                break query
-            }
-            
-            disambiguation  = symbol 
-            queryChanged    = parameters.count > 1
-        }
-        let (group, pathChanged):([UInt8], Bool) = Self.normalize(lowercasing: group.utf8)
-        let path:Self = .init(group: .init(decoding: group, as: Unicode.UTF8.self), 
-            disambiguation: disambiguation)
-        return (path, queryChanged || pathChanged)
-    }
-    
-
-    
-    private static 
-    func hex(uppercasing value:UInt8) -> UInt8
-    {
-        (value < 10 ? 0x30 : 0x37) + value 
-    }
-    private static 
-    func normalize(byte:UInt8, mask:UInt8) -> UInt8?
-    {
-        switch byte 
-        {
-        case    0x41 ... 0x5a:  // [A-Z] -> [a-z]
-            return byte | mask
-        case    0x30 ... 0x39,  // [0-9]
-                0x61 ... 0x7a,  // [a-z]
-                0x2d,           // '-'
-                0x2e,           // '.'
-                // not technically a URL character, but browsers won’t render '%3A' 
-                // in the URL bar, and ':' is so common in Swift it is not worth 
-                // percent-encoding. 
-                // the ':' character also appears in legacy USRs.
-                0x3a,           // ':' 
-                0x5f,           // '_'
-                0x7e:           // '~'
-            return byte 
-        default: 
-            return nil 
-        }
-    }
-    
-    private static 
-    func normalize<S>(lowercasing path:S) -> String 
-        where S:Sequence, S.Element:StringProtocol
-    {
-        var utf8:[UInt8] = []
-        for component:S.Element in path 
-        {
-            utf8.append(0x2f) // '/'
-            for byte:UInt8 in component.utf8 
-            {
-                if let unencoded:UInt8 = Self.normalize(byte: byte, mask: 0x20)
-                {
-                    utf8.append(unencoded)
-                }
-                else 
-                {
-                    // percent-encode
-                    utf8.append(0x25) // '%'
-                    utf8.append(Self.hex(uppercasing: byte >> 4))
-                    utf8.append(Self.hex(uppercasing: byte & 0x0f))
-                }
-            }
-        }
-        return String.init(unsafeUninitializedCapacity: utf8.count)
-        {
-            let (_, index):(Array<UInt8>.Iterator, Int) = $0.initialize(from: utf8)
-            return index - $0.startIndex 
-        }
-    }
-} */
