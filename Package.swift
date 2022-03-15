@@ -14,7 +14,7 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-structured-document",  branch: "master"),
         
         .package(url: "https://github.com/apple/swift-markdown.git",            branch: "main"),
-        .package(url: "https://github.com/kelvin13/swift-syntax.git",           branch: "kelvin13-omit-unsafe-flags"),
+        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-03-13-a"),
     ],
     targets: 
     [
