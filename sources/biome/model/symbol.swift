@@ -87,7 +87,7 @@ extension Biome
             }
             self.relationships  = relationships
             
-            if let extended:Module.ID   = vertex.extends?.module
+            if let extended:Module.ID   = vertex.extension?.extendedModule
             {
                 guard let extended:Int  = modules.index(of: extended)
                 else 
@@ -105,12 +105,12 @@ extension Biome
                     }
                 }
             }
-            self.generics               = vertex.generic?.parameters ?? []
-            self.genericConstraints     = vertex.generic?.constraints.map 
+            self.generics               = vertex.generics?.parameters ?? []
+            self.genericConstraints     = vertex.generics?.constraints.map 
             {
                 $0.map(to: indices)
             } ?? []
-            self.extensionConstraints   = vertex.extends?.where.map
+            self.extensionConstraints   = vertex.extension?.constraints.map
             {
                 $0.map(to: indices)
             } ?? []
@@ -274,7 +274,7 @@ extension Biome.Symbol
             }
         }
     }
-    enum Access:Sendable
+    enum AccessLevel:String, Sendable
     {
         case `private` 
         case `fileprivate`

@@ -89,7 +89,7 @@ extension Biome
         var source:Symbol.ID
         var target:Symbol.ID
         // if the source inherited docs 
-        var origin:(id:Symbol.ID, name:String)?
+        var origin:Symbol.ID?
         var constraints:[SwiftConstraint<Symbol.ID>]
         
         /* init(specialization source:Symbol.ID, of target:Symbol.ID)
@@ -120,7 +120,7 @@ extension Biome
             // even after inferring the existence of mythical symbols, it’s still 
             // possible for the documentation origin to be unknown to us. this 
             // is fine, as we need a copy of the inherited docs anyways.
-            if  let origin:Symbol.ID    = self.origin?.id, 
+            if  let origin:Symbol.ID    = self.origin, 
                 let origin:Int          = indices[origin]
             {
                 if let incumbent:Int = table[source].commentOrigin

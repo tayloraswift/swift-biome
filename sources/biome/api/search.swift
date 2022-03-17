@@ -10,9 +10,9 @@ extension Documentation
         let symbol:Biome.Symbol = self.biome.symbols[index]
         return .object(
         [
-            "title": .string(symbol.title), 
-            "uri":   .string(uri), 
-            "text":   .array(symbol.signature.content.compactMap
+            ("title", .string(symbol.title)), 
+            ("uri"  , .string(uri)), 
+            ("text" , .array(symbol.signature.content.compactMap
             {
                 (text:String, highlight:SwiftHighlight) in
                 switch highlight
@@ -22,7 +22,7 @@ extension Documentation
                 default: 
                     return nil
                 }
-            }),
+            })),
         ]) 
     }
     
