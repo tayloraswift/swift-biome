@@ -1,15 +1,29 @@
-import Markdown
 import StructuredDocument 
 import HTML 
 
 extension Documentation 
 {
-    enum ArticleReturnsError:Error 
+    enum ArticleError:Error 
+    {
+        case legacyAside(Comment.LegacyAsideFieldError) 
+        case parameters(Comment.ParametersFieldError)
+        case returns(Comment.ReturnsFieldError)
+        
+        case markdown(MarkdownDiagnostic)
+    }
+}
+extension Documentation.Comment 
+{
+    enum LegacyAsideFieldError:Error 
+    {
+        case unsupported(keywords:[String]) 
+    }
+    enum ReturnsFieldError:Error 
     {
         case empty 
         case duplicate(section:[HTML.Element<Never>])
     }
-    enum ArticleParametersError:Error, CustomStringConvertible
+    enum ParametersFieldError:Error, CustomStringConvertible
     {
         case empty(parameter:String?) 
         
@@ -51,19 +65,5 @@ extension Documentation
                     """
             }
         }
-    }
-    enum ArticleContentError:Error 
-    {
-        case unsupported(markup:Markdown.Markup)
-        case missingImageSource
-        case missingLinkDestination
-    }
-    enum ArticleSymbolLinkError:Error 
-    {
-        case empty
-    }
-    enum ArticleAsideError:Error 
-    {
-        case undefined(keywords:[String]) 
     }
 }

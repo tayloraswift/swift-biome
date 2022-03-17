@@ -1,4 +1,3 @@
-import Markdown
 import StructuredDocument 
 import HTML
 
@@ -28,449 +27,83 @@ extension Biome
 extension Documentation 
 {
     typealias StaticElement = HTML.Element<Never>
-        
-    private 
-    struct Comment
-    {
-        let summary:StaticElement?, 
-            parameters:[(name:String, comment:[StaticElement])],
-            returns:[StaticElement],
-            discussion:[StaticElement]
-    }
     
-    struct Article 
+    enum Comment 
     {
-        var errors:[Error]
-        private 
-        let baked:
-        (
-            summary:String?, 
-            discussion:String?
-        )
-        
-        var summary:Element?
+        enum MagicListItem 
         {
-            self.baked.summary.map(Element.text(escaped:))
-        }
-        var discussion:Element?
-        {
-            self.baked.discussion.map(Element.text(escaped:))
-        }
-        
-        var size:Int 
-        {
-            var size:Int = self.baked.summary?.utf8.count     ?? 0
-            size        += self.baked.discussion?.utf8.count  ?? 0
-            return size
-        }
-        
-        var substitutions:[Anchor: Element] 
-        {
-            var substitutions:[Anchor: Element] = [:]
-            if let summary:Element = self.summary
-            {
-                substitutions[.summary]     = summary
-            }
-            if let discussion:Element = self.discussion
-            {
-                substitutions[.discussion]  = discussion
-            }
-            return substitutions
-        }
-                
-        init() 
-        {
-            self.baked = (nil, nil)
-            self.errors = []
-        }
-        
-        init(comment:String, biome _:Biome)
-        {
-            let (comment, errors):(Comment, [Error]) = Self.render(markdown: comment)
-            
-            var discussion:[StaticElement] = []
-            if let section:StaticElement = Self.render(parameters: comment.parameters)
-            {
-                discussion.append(section)
-            }
-            if let section:StaticElement = Self.render(section: comment.returns,    heading: "Returns",  class: "returns")
-            {
-                discussion.append(section)
-            }
-            if let section:StaticElement = Self.render(section: comment.discussion, heading: "Overview", class: "discussion")
-            {
-                discussion.append(section)
-            }
-            
-            self.baked.discussion   = discussion.isEmpty ? nil : discussion.map(\.rendered).joined()
-            self.baked.summary      = comment.summary?.rendered
-            self.errors             = errors 
-        }
-        
-        private static 
-        func render(markdown string:String) -> (comment:Comment, errors:[Error])
-        {
-            if string.isEmpty 
-            {
-                return (.init(summary: nil, parameters: [], returns: [], discussion: []), [])
-            }
-            else 
-            {
-                return Self.render(markdown: Markdown.Document.init(parsing: string))
-            }
-        }
-        // expected parameters is unreliable, not available for subscripts
-        private static 
-        func render(markdown document:Markdown.Document) -> (comment:Comment, errors:[Error])
-        {
-            var errors:[Error]          = []
-            let content:[StaticElement] = document.blockChildren.map { Self.render(markup: $0, errors: &errors) }
-            let head:StaticElement?
-            let body:ArraySlice<StaticElement>
-            if  let first:StaticElement = content.first, 
-                case .container(.p, id: _, attributes: _, content: _) = first
-            {
-                head = first
-                body = content.dropFirst()
-            }
-            else 
-            {
-                head = nil 
-                body = content[...]
-            }
-            
-            var parameters:[(name:String, comment:[StaticElement])] = []
-            var returns:[StaticElement]      = []
-            var discussion:[StaticElement]   = []
-            for block:StaticElement in body 
-            {
-                // filter out top-level ‘ul’ blocks, since they may be special 
-                guard case .container(.ul, id: let id, attributes: let attributes, content: let items) = block 
-                else 
-                {
-                    discussion.append(block)
-                    continue 
-                }
-                
-                var ignored:[StaticElement] = []
-                for item:StaticElement in items
-                {
-                    guard   case .container(.li, id: _, attributes: _, content: let content) = item, 
-                            let (keywords, content):([String], [StaticElement]) = Self.keywords(prefixing: content)
-                    else 
-                    {
-                        ignored.append(item)
-                        continue 
-                    }
-                    // `keywords` always contains at least one keyword
-                    let keyword:String = keywords[0]
-                    do 
-                    {
-                        switch keyword
-                        {
-                        case "parameters": 
-                            guard keywords.count == 1 
-                            else 
-                            {
-                                throw ArticleAsideError.undefined(keywords: keywords)
-                            }
-                            parameters.append(contentsOf: try Self.parameters(in: content))
-                            
-                        case "parameter": 
-                            guard keywords.count == 2 
-                            else 
-                            {
-                                throw ArticleAsideError.undefined(keywords: keywords)
-                            }
-                            let name:String = keywords[1]
-                            if content.isEmpty
-                            {
-                                throw ArticleParametersError.empty(parameter: name)
-                            } 
-                            parameters.append((name, content))
-                        
-                        case "returns":
-                            guard keywords.count == 1 
-                            else 
-                            {
-                                throw ArticleAsideError.undefined(keywords: keywords)
-                            }
-                            if content.isEmpty
-                            {
-                                throw ArticleReturnsError.empty
-                            }
-                            if returns.isEmpty 
-                            {
-                                returns = content
-                            }
-                            else 
-                            {
-                                throw ArticleReturnsError.duplicate(section: returns)
-                            }
-                        
-                        case "tip", "note", "info", "warning", "throws", "important", "precondition", "complexity":
-                            guard keywords.count == 1 
-                            else 
-                            {
-                                throw ArticleAsideError.undefined(keywords: keywords)
-                            }
-                            discussion.append(StaticElement[.aside]
-                            {
-                                [keyword]
-                            }
-                            content:
-                            {
-                                StaticElement[.h2]
-                                {
-                                    keyword
-                                }
-                                
-                                content
-                            })
-                            
-                        default:
-                            throw ArticleAsideError.undefined(keywords: keywords)
-                            /* if case _? = comment.complexity 
-                            {
-                                print("warning: detected multiple 'complexity' sections, only the last will be used")
-                            }
-                            guard   let first:Markdown.BlockMarkup = content.first, 
-                                    let first:Markdown.Paragraph = first as? Markdown.Paragraph
-                            else 
-                            {
-                                print("warning: could not detect complexity function from section \(content)")
-                                ignored.append(item)
-                                continue 
-                            }
-                            let text:String = first.inlineChildren.map(\.plainText).joined()
-                            switch text.firstIndex(of: ")").map(text.prefix(through:))
-                            {
-                            case "O(1)"?: 
-                                comment.complexity = .constant
-                            case "O(n)"?, "O(m)"?: 
-                                comment.complexity = .linear
-                            case "O(n log n)"?: 
-                                comment.complexity = .logLinear
-                            default:
-                                print("warning: could not detect complexity function from string '\(text)'")
-                                ignored.append(item)
-                                continue 
-                            } */
-                        }
-                    }
-                    catch let error 
-                    {
-                        errors.append(error)
-                        ignored.append(item)
-                    }
-                }
-                guard ignored.isEmpty 
-                else 
-                {
-                    discussion.append(.container(.ul, id: id, attributes: attributes, content: ignored))
-                    continue 
-                }
-            }
-            
-            let comment:Comment = .init(summary: head, 
-                parameters: parameters, 
-                returns: returns, 
-                discussion: discussion)
-            return (comment, errors)
-        }
-        private static 
-        func render(markup:Markdown.Markup, errors:inout [Error]) -> StaticElement
-        {
-            let container:HTML.Container 
-            switch markup 
-            {
-            case is Markdown.LineBreak:             return StaticElement[.br]
-            case is Markdown.SoftBreak:             return StaticElement.text(escaped: " ")
-            case is Markdown.ThematicBreak:         return StaticElement[.hr]
-            case let node as Markdown.CustomInline: return StaticElement.text(escaping: node.text)
-            case let node as Markdown.Text:         return StaticElement.text(escaping: node.string)
-            case let node as Markdown.HTMLBlock:    return StaticElement.text(escaped: node.rawHTML)
-            case let node as Markdown.InlineHTML:   return StaticElement.text(escaped: node.rawHTML)
-            
-            case is Markdown.Document:          container = .main
-            case is Markdown.BlockQuote:        container = .blockquote
-            case is Markdown.Emphasis:          container = .em
-            case let node as Markdown.Heading: 
-                switch node.level 
-                {
-                case 1:                         container = .h2
-                case 2:                         container = .h3
-                case 3:                         container = .h4
-                case 4:                         container = .h5
-                default:                        container = .h6
-                }
-            case is Markdown.ListItem:          container = .li
-            case is Markdown.OrderedList:       container = .ol
-            case is Markdown.Paragraph:         container = .p
-            case is Markdown.Strikethrough:     container = .s
-            case is Markdown.Strong:            container = .strong
-            case is Markdown.Table:             container = .table
-            case is Markdown.Table.Row:         container = .tr
-            case is Markdown.Table.Head:        container = .thead
-            case is Markdown.Table.Body:        container = .tbody
-            case is Markdown.Table.Cell:        container = .td
-            case is Markdown.UnorderedList:     container = .ul
-            
-            case let node as Markdown.CodeBlock: 
-                return StaticElement[.pre]
-                {
-                    ["notebook"]
-                }
-                content:
-                {
-                    StaticElement[.code]
-                    {
-                        StaticElement.highlight("", .newlines)
-                        for (text, highlight):(String, SwiftHighlight) in SwiftHighlight.highlight(node.code)
-                        {
-                            StaticElement.highlight(text, highlight)
-                        }
-                    }
-                }
-            case let node as Markdown.InlineCode: 
-                return StaticElement[.code]
-                {
-                    node.code
-                }
-
-            case is Markdown.BlockDirective: 
-                return StaticElement[.div]
-                {
-                    "(unsupported block directive)"
-                }
-            
-            case let node as Markdown.Image: 
-                // TODO: do something with these
-                let _:String?       = node.title 
-                let _:[StaticElement]    = node.children.map 
-                {
-                    Self.render(markup: $0, errors: &errors)
-                }
-                guard let source:String = node.source
-                else 
-                {
-                    errors.append(ArticleContentError.missingImageSource)
-                    return StaticElement[.img]
-                }
-                return StaticElement[.img]
-                {
-                    (source, as: HTML.Src.self)
-                }
-            
-            case let node as Markdown.Link: 
-                let display:[StaticElement] = node.children.map 
-                {
-                    Self.render(markup: $0, errors: &errors)
-                }
-                guard let target:String = node.destination
-                else 
-                {
-                    errors.append(ArticleContentError.missingLinkDestination)
-                    return StaticElement[.span]
-                    {
-                        display
-                    }
-                }
-                return StaticElement[.a]
-                {
-                    (target, as: HTML.Href.self)
-                    HTML.Target._blank
-                    HTML.Rel.nofollow
-                }
-                content:
-                {
-                    display
-                }
-                
-            case let node as Markdown.SymbolLink: 
-                guard let path:String = node.destination
-                else 
-                {
-                    errors.append(ArticleSymbolLinkError.empty)
-                    return StaticElement[.code]
-                    {
-                        "<empty symbol path>"
-                    }
-                }
-                return StaticElement[.code]
-                {
-                    path
-                }
-                
-            case let node: 
-                errors.append(ArticleContentError.unsupported(markup: node))
-                return StaticElement[.div]
-                {
-                    "(unsupported markdown node '\(type(of: node))')"
-                }
-            }
-            return StaticElement[container]
-            {
-                markup.children.map
-                {
-                    Self.render(markup: $0, errors: &errors)
-                }
-            }
+            case parameters([(name:String, comment:[StaticElement])])
+            case returns([StaticElement])
+            case aside(StaticElement)
         }
         
         static 
-        func render(section content:[StaticElement], heading:String, class:String) -> StaticElement?
+        func magic(item:[StaticElement]) throws -> MagicListItem?
         {
-            guard !content.isEmpty 
+            guard let (keywords, content):([String], [StaticElement]) = Self.keywords(prefixing: item)
             else 
             {
                 return nil 
             }
-            return StaticElement[.section]
+            // `keywords` always contains at least one keyword
+            let keyword:String = keywords[0]
+            switch keyword
             {
-                [`class`]
-            }
-            content: 
-            {
-                StaticElement[.h2]
+            case "parameters": 
+                guard keywords.count == 1 
+                else 
                 {
-                    heading
+                    throw LegacyAsideFieldError.unsupported(keywords: keywords)
                 }
-                content
-            }
-        }
-        static 
-        func render(parameters:[(name:String, comment:[StaticElement])]) -> StaticElement?
-        {
-            guard !parameters.isEmpty 
-            else 
-            {
-                return nil 
-            }
-            return StaticElement[.section]
-            {
-                ["parameters"]
-            }
-            content: 
-            {
-                StaticElement[.h2]
+                return .parameters(try Self.parameters(in: content))
+                
+            case "parameter": 
+                guard keywords.count == 2 
+                else 
                 {
-                    "Parameters"
+                    throw LegacyAsideFieldError.unsupported(keywords: keywords)
                 }
-                StaticElement[.dl]
+                let name:String = keywords[1]
+                if content.isEmpty
                 {
-                    for (name, comment):(String, [StaticElement]) in parameters 
+                    throw ParametersFieldError.empty(parameter: name)
+                } 
+                return .parameters([(name, content)])
+            
+            case "returns":
+                guard keywords.count == 1 
+                else 
+                {
+                    throw LegacyAsideFieldError.unsupported(keywords: keywords)
+                }
+                if content.isEmpty
+                {
+                    throw ReturnsFieldError.empty
+                }
+                return .returns(content)
+            
+            case "tip", "note", "info", "warning", "throws", "important", "precondition", "complexity":
+                guard keywords.count == 1 
+                else 
+                {
+                    throw LegacyAsideFieldError.unsupported(keywords: keywords)
+                }
+                return .aside(StaticElement[.aside]
+                {
+                    [keyword]
+                }
+                content:
+                {
+                    StaticElement[.h2]
                     {
-                        StaticElement[.dt]
-                        {
-                            name
-                        }
-                        StaticElement[.dd]
-                        {
-                            comment
-                        }
+                        keyword
                     }
-                }
+                    
+                    content
+                })
+                
+            default:
+                throw LegacyAsideFieldError.unsupported(keywords: keywords)
             }
         }
         
@@ -480,17 +113,17 @@ extension Documentation
             guard let first:StaticElement = content.first 
             else 
             {
-                throw ArticleParametersError.empty(parameter: nil)
+                throw ParametersFieldError.empty(parameter: nil)
             }
             // look for a nested list 
             guard case .container(.ul, id: _, attributes: _, content: let items) = first 
             else 
             {
-                throw ArticleParametersError.invalidList(first)
+                throw ParametersFieldError.invalidList(first)
             }
             if case _? = content.dropFirst().first
             {
-                throw ArticleParametersError.multipleLists(content)
+                throw ParametersFieldError.multipleLists(content)
             }
             
             var parameters:[(name:String, comment:[StaticElement])] = []
@@ -501,7 +134,7 @@ extension Documentation
                         let name:String = keywords.first, keywords.count == 1
                 else 
                 {
-                    throw ArticleParametersError.invalidListItem(item)
+                    throw ParametersFieldError.invalidListItem(item)
                 }
                 parameters.append((name, content))
             }
@@ -605,6 +238,208 @@ extension Documentation
                 return nil 
             }
             return keywords.map { $0.lowercased() }
+        }
+    }
+    
+    struct Article 
+    {
+        var errors:[ArticleError]
+        
+        private 
+        let baked:
+        (
+            summary:String?, 
+            discussion:String?
+        )
+        
+        var summary:Element?
+        {
+            self.baked.summary.map(Element.text(escaped:))
+        }
+        var discussion:Element?
+        {
+            self.baked.discussion.map(Element.text(escaped:))
+        }
+        
+        var size:Int 
+        {
+            var size:Int = self.baked.summary?.utf8.count     ?? 0
+            size        += self.baked.discussion?.utf8.count  ?? 0
+            return size
+        }
+        
+        var substitutions:[Anchor: Element] 
+        {
+            var substitutions:[Anchor: Element] = [:]
+            if let summary:Element = self.summary
+            {
+                substitutions[.summary]     = summary
+            }
+            if let discussion:Element = self.discussion
+            {
+                substitutions[.discussion]  = discussion
+            }
+            return substitutions
+        }
+                
+        init() 
+        {
+            self.baked = (nil, nil)
+            self.errors = []
+        }
+        
+        init(summary:StaticElement?, discussion:[StaticElement], errors:[ArticleError])
+        {
+            self.baked.discussion   = discussion.isEmpty ? nil : discussion.map(\.rendered).joined()
+            self.baked.summary      = summary?.rendered
+            self.errors             = errors 
+        }
+        init(comment:String, biome:Biome)
+        {
+            let (summary, toplevel):(StaticElement?, [StaticElement]) 
+            var errors:[ArticleError]
+            do 
+            {
+                var renderer:MarkdownDiagnostic.Renderer = .init()
+                (summary, toplevel) = renderer.render(comment: comment, biome: biome)
+                errors = renderer.errors.map(ArticleError.markdown(_:))
+            }
+            
+            var parameters:[(name:String, comment:[StaticElement])] = []
+            var returns:[StaticElement]      = []
+            var discussion:[StaticElement]   = []
+            for block:StaticElement in toplevel 
+            {
+                // filter out top-level ‘ul’ blocks, since they may be special 
+                guard case .container(.ul, id: let id, attributes: let attributes, content: let items) = block 
+                else 
+                {
+                    discussion.append(block)
+                    continue 
+                }
+                
+                var ignored:[StaticElement] = []
+                listitems:
+                for item:StaticElement in items
+                {
+                    guard case .container(.li, id: _, attributes: _, content: let content) = item 
+                    else 
+                    {
+                        fatalError("unreachable")
+                    }
+                    do 
+                    {
+                        switch try Comment.magic(item: content)
+                        {
+                        case nil:
+                            ignored.append(item)
+                            continue 
+                            
+                        case .parameters(let group):
+                            parameters.append(contentsOf: group)
+                        case .returns(let section):
+                            if returns.isEmpty 
+                            {
+                                returns = section
+                            }
+                            else 
+                            {
+                                throw Comment.ReturnsFieldError.duplicate(section: section)
+                            }
+                        case .aside(let section):
+                            discussion.append(section)
+                        }
+                        
+                        continue listitems
+                    }
+                    catch let error as Comment.LegacyAsideFieldError
+                    {
+                        errors.append(.legacyAside(error))
+                    }
+                    catch let error as Comment.ParametersFieldError
+                    {
+                        errors.append(.parameters(error))
+                    }
+                    catch let error as Comment.ReturnsFieldError
+                    {
+                        errors.append(.returns(error))
+                    }
+                    catch let error 
+                    {
+                        fatalError("unreachable: \(error)")
+                    }
+                    
+                    ignored.append(item)
+                }
+                guard ignored.isEmpty 
+                else 
+                {
+                    discussion.append(.container(.ul, id: id, attributes: attributes, content: ignored))
+                    continue 
+                }
+            }
+            
+            var sections:[StaticElement] = []
+            if !parameters.isEmpty
+            {
+                sections.append(Self.render(parameters: parameters))
+            }
+            if !returns.isEmpty
+            {
+                sections.append(Self.render(section: returns, heading: "Returns",  class: "returns"))
+            }
+            if !discussion.isEmpty
+            {
+                sections.append(Self.render(section: discussion, heading: "Overview", class: "discussion"))
+            }
+            
+            self.init(summary: summary, discussion: sections, errors: errors)
+        }
+        
+        private static 
+        func render(section content:[StaticElement], heading:String, class:String) -> StaticElement
+        {
+            StaticElement[.section]
+            {
+                [`class`]
+            }
+            content: 
+            {
+                StaticElement[.h2]
+                {
+                    heading
+                }
+                content
+            }
+        }
+        private static 
+        func render(parameters:[(name:String, comment:[StaticElement])]) -> StaticElement
+        {
+            StaticElement[.section]
+            {
+                ["parameters"]
+            }
+            content: 
+            {
+                StaticElement[.h2]
+                {
+                    "Parameters"
+                }
+                StaticElement[.dl]
+                {
+                    for (name, comment):(String, [StaticElement]) in parameters 
+                    {
+                        StaticElement[.dt]
+                        {
+                            name
+                        }
+                        StaticElement[.dd]
+                        {
+                            comment
+                        }
+                    }
+                }
+            }
         }
     }
 }
