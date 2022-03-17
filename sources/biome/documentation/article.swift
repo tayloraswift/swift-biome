@@ -156,7 +156,7 @@ extension Documentation
                 for item:StaticElement in items
                 {
                     guard   case .container(.li, id: _, attributes: _, content: let content) = item, 
-                            let (keywords, content):([String], [StaticElement]) = Biome.keywords(prefixing: content)
+                            let (keywords, content):([String], [StaticElement]) = Self.keywords(prefixing: content)
                     else 
                     {
                         ignored.append(item)
@@ -497,7 +497,7 @@ extension Documentation
             for item:StaticElement in items
             {
                 guard   case .container(.li, id: _, attributes: _, content: let content) = item, 
-                        let (keywords, content):([String], [StaticElement]) = Biome.keywords(prefixing: content), 
+                        let (keywords, content):([String], [StaticElement]) = Self.keywords(prefixing: content), 
                         let name:String = keywords.first, keywords.count == 1
                 else 
                 {
@@ -506,6 +506,105 @@ extension Documentation
                 parameters.append((name, content))
             }
             return parameters
+        }
+        
+        private static
+        func keywords(prefixing content:[StaticElement]) -> (keywords:[String], trimmed:[StaticElement])?
+        {
+            //  p 
+            //  {
+            //      text 
+            //      {
+            //          " foo  bar:  "
+            //      }
+            //      ...
+            //  }
+            //  ...
+            guard   case .container(.p, id: let id, attributes: let attributes, content: var inline)? = content.first, 
+                    let first:StaticElement = inline.first 
+            else 
+            {
+                return nil
+            }
+            let keywords:Substring
+            switch first 
+            {
+            case .text(escaped: let string):
+                guard let colon:String.Index = string.firstIndex(of: ":")
+                else 
+                {
+                    return nil
+                }
+                let remaining:Substring = string[colon...].dropFirst().drop(while: \.isWhitespace)
+                if  remaining.isEmpty 
+                {
+                    inline.removeFirst()
+                }
+                else 
+                {
+                    inline[0] = .text(escaped: String.init(remaining))
+                }
+                keywords = string[..<colon]
+            
+            // failing example here: https://developer.apple.com/documentation/system/filedescriptor/duplicate(as:retryoninterrupt:)
+            // apple docs just drop the parameter
+            case .container(let type, id: _, attributes: _, content: let styled):
+                switch type 
+                {
+                case .code, .strong, .em: 
+                    break 
+                default: 
+                    return nil
+                }
+                guard   case .text(escaped: let prefix)? = styled.first, styled.count == 1,
+                        case .text(escaped: let string)? = inline.dropFirst().first, 
+                        let colon:String.Index = string.firstIndex(of: ":"), 
+                        string[..<colon].allSatisfy(\.isWhitespace)
+                else 
+                {
+                    return nil
+                }
+                let remaining:Substring = string[colon...].dropFirst().drop(while: \.isWhitespace)
+                if  remaining.isEmpty 
+                {
+                    inline.removeFirst(2)
+                }
+                else 
+                {
+                    inline.removeFirst(1)
+                    inline[0] = .text(escaped: String.init(remaining))
+                }
+                keywords = prefix[...]
+            default: 
+                return nil
+            }
+            guard let keywords:[String] = Self.keywords(parsing: keywords)
+            else 
+            {
+                return nil
+            }
+            
+            if inline.isEmpty 
+            {
+                return (keywords, [StaticElement].init(content.dropFirst()))
+            }
+            else 
+            {
+                var content:[StaticElement] = content
+                    content[0] = .container(.p, id: id, attributes: attributes, content: inline)
+                return (keywords, content)
+            }
+        }
+        private static 
+        func keywords(parsing string:Substring) -> [String]?
+        {
+            let keywords:[Substring] = string.split(whereSeparator: \.isWhitespace)
+            guard 1 ... 8 ~= keywords.count
+            else 
+            {
+                return nil 
+            }
+            return keywords.map { $0.lowercased() }
         }
     }
 }
