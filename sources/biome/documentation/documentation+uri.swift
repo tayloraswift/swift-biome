@@ -40,7 +40,7 @@ extension Documentation
     private 
     func normalize(path:Substring, changed:inout Bool) -> URI.Path
     {
-        var prefix:String.Iterator  = self.prefix.makeIterator()
+        var prefix:String.Iterator  = self.routing.prefix.makeIterator()
         var start:String.Index      = path.endIndex
         for index:String.Index in path.indices
         {

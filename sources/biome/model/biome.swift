@@ -246,11 +246,11 @@ struct Biome:Sendable
                 
                 if target.bystanders.isEmpty
                 {
-                    print("loaded module '\(target.module.string)' (from package '\(package.id.name)')")
+                    Swift.print("loaded module '\(target.module.string)' (from package '\(package.id.name)')")
                 }
                 else 
                 {
-                    print("loaded module '\(target.module.string)' (from package '\(package.id.name)', bystanders: \(target.bystanders.map{ "'\($0.string)'" }.joined(separator: ", ")))")
+                    Swift.print("loaded module '\(target.module.string)' (from package '\(package.id.name)', bystanders: \(target.bystanders.map{ "'\($0.string)'" }.joined(separator: ", ")))")
                 }
             }
             let package:Package = .init(id: package.id, modules: package.targets, hash: version)
@@ -266,7 +266,7 @@ struct Biome:Sendable
             }
             vertices.append(vertex)
             
-            print("note: inferred existence of mythical symbol '\(generic)'")
+            Swift.print("note: inferred existence of mythical symbol '\(generic)'")
         }
         
         /* if start != end 
@@ -281,7 +281,7 @@ struct Biome:Sendable
                 hash: .semantic(0, 0, 0))
         } */
         
-        print("loaded \(vertices.count) vertices and \(edges.count) edges from \(modules.count) module(s)")
+        Swift.print("loaded \(vertices.count) vertices and \(edges.count) edges from \(modules.count) module(s)")
         
         let biome:Biome = try .init(
             indices:    symbolIndices, 
@@ -297,7 +297,7 @@ struct Biome:Sendable
                 $0 + $1._size
             }
         }
-        print("initialized biome (\(_memory >> 10) KB)")
+        Swift.print("initialized biome (\(_memory >> 10) KB)")
         return (biome, vertices.map(\.comment))
     }
     
