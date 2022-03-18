@@ -28,27 +28,7 @@ struct Biome:Sendable
         modules:Storage<Module>, 
         packages:Storage<Package>
     
-    private static 
-    func flatten(_ packages:[Package.ID: [Target]]) -> 
-    (
-        packages:[(id:Package.ID, targets:Range<Int>)],
-        modules:[Target]
-    )
-    {
-        var modules:[Target] = []
-        let packages:[(Package.ID, Range<Int>)] = packages.sorted
-        {
-            $0.key < $1.key
-        }
-        .map 
-        {
-            let start:Int   = modules.endIndex 
-            modules.append(contentsOf: $0.value)
-            let end:Int     = modules.endIndex 
-            return ($0.key, start ..< end)
-        }
-        return (packages, modules)
-    }
+
     
     private static 
     func indices<Element, ID>(for elements:[Element], by id:KeyPath<Element, ID>, else error:(ID) -> Error) 
@@ -160,33 +140,39 @@ struct Biome:Sendable
         bystanders:[Module.ID],
         articles:[[String]]
     )
-    /* struct Target 
-    {
-        public
-        let id:Module.ID, 
-            bystanders:[Module.ID],
-            articles:[[String]]
-        
-        public 
-        init(id:Module.ID, bystanders:[Module.ID], articles:[[String]])
-        {
-            self.id = id
-            self.bystanders = bystanders
-            self.articles = articles
-        }
-    } */
+    typealias Product = 
+    (
+        id:Package.ID, 
+        targets:Range<Int>
+    )
     
     static 
-    func load(packages descriptors:[Package.ID: [Target]], 
+    func flatten(descriptors:[Package.ID: [Target]]) -> (products:[Product], modules:[Target])
+    {
+        var targets:[Target] = []
+        let products:[(Package.ID, Range<Int>)] = descriptors.sorted
+        {
+            $0.key < $1.key
+        }
+        .map 
+        {
+            let start:Int   = targets.endIndex 
+            targets.append(contentsOf: $0.value)
+            let end:Int     = targets.endIndex 
+            return ($0.key, start ..< end)
+        }
+        return (products, targets)
+    }
+    
+    static 
+    func load(products:[Product], targets:[Target],
         loader:(_ package:Package.ID, _ path:[String], _ type:Resource.Text) 
         async throws -> Resource) 
         async throws -> (biome:Self, comments:[String])
     {
-        let (names, targets):([(id:Package.ID, targets:Range<Int>)], [Target]) = Self.flatten(descriptors)
-        
-        let packageIndices:[Package.ID: Int]    = try Self.indices(for: names,   by: \.id, 
+        let packageIndices:[Package.ID: Int]    = try Self.indices(for: products, by: \.id, 
             else: PackageIdentifierError.duplicate(package:))
-        let moduleIndices:[Module.ID: Int]      = try Self.indices(for: targets, by: \.id, 
+        let moduleIndices:[Module.ID: Int]      = try Self.indices(for: targets,  by: \.id, 
             else: ModuleIdentifierError.duplicate(module:))
         var symbolIndices:[Symbol.ID: Int]      = [:]
         // we need the mythical dictionary in case we run into synthesized 
@@ -197,10 +183,10 @@ struct Biome:Sendable
         var edges:[Edge]        = []
         var modules:[Module]    = []
         var packages:[Package]  = []
-        for package:(id:Package.ID, targets:Range<Int>) in names 
+        for product:Product in products 
         {
             var version:Resource.Version = .semantic(0, 1, 2)
-            for target:Target in targets[package.targets]
+            for target:Target in targets[product.targets]
             {
                 let core:Range<Int>
                 do 
@@ -211,7 +197,7 @@ struct Biome:Sendable
                         vertices: &vertices, 
                         edges: &edges,
                         from: try await Self.load(
-                            package: package.id, 
+                            package: product.id, 
                             graph: target.id.graphIdentifier(bystander: nil), 
                             hashingInto: &version, 
                             with: loader), 
@@ -242,7 +228,7 @@ struct Biome:Sendable
                             vertices: &vertices, 
                             edges: &edges,
                             from: try await Self.load(
-                                package: package.id, 
+                                package: product.id, 
                                 graph: target.id.graphIdentifier(bystander: bystander), 
                                 hashingInto: &version, 
                                 with: loader), 
@@ -260,14 +246,14 @@ struct Biome:Sendable
                 
                 if target.bystanders.isEmpty
                 {
-                    Swift.print("loaded module '\(target.id.string)' (from package '\(package.id.name)')")
+                    Swift.print("loaded module '\(target.id.string)' (from package '\(product.id.name)')")
                 }
                 else 
                 {
-                    Swift.print("loaded module '\(target.id.string)' (from package '\(package.id.name)', bystanders: \(target.bystanders.map{ "'\($0.string)'" }.joined(separator: ", ")))")
+                    Swift.print("loaded module '\(target.id.string)' (from package '\(product.id.name)', bystanders: \(target.bystanders.map{ "'\($0.string)'" }.joined(separator: ", ")))")
                 }
             }
-            let package:Package = .init(id: package.id, modules: package.targets, hash: version)
+            let package:Package = .init(id: product.id, modules: product.targets, hash: version)
             packages.append(package)
         }
         // only keep mythical vertices if we don’t have the generic base available

@@ -648,17 +648,59 @@ struct Documentation:Sendable
 
     
     public 
-    init(prefix:String, packages:[Biome.Package.ID: [Biome.Target]], 
+    init(prefix:String, products descriptors:[Biome.Package.ID: [Biome.Target]], 
         loader load:(_ package:Biome.Package.ID, _ path:[String], _ type:Resource.Text) 
         async throws -> Resource) 
         async throws 
     {
-        let (biome, comments):(Biome, [String]) = try await Biome.load(packages: packages, loader: load)
-
+        let (products, targets):([Biome.Product], [Biome.Target]) = Biome.flatten(
+            descriptors: descriptors)
+        let (biome, comments):(Biome, [String]) = try await Biome.load(
+            products: products, 
+            targets: targets, 
+            loader: load)
+        
+        Swift.print("starting article loading")
+        var articles:[String] = []
+        for package:Biome.Package in biome.packages 
+        {
+            for module:Biome.Target in targets[package.modules]
+            {
+                for path:[String] in module.articles 
+                {
+                    // TODO: handle versioning
+                    switch try await load(package.id, ["\(module.id.string).docc"] + path, .plain)
+                    {
+                    case    .text   (let string, type: .plain, version: _):
+                        articles.append(string)
+                    case    .bytes  (let bytes,  type: .plain, version: _):
+                        articles.append(String.init(decoding: bytes, as: Unicode.UTF8.self))
+                    case    .text   (_, type: let type, version: _),
+                            .bytes  (_, type: let type, version: _):
+                        throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.plain.description)
+                    case    .binary (_, type: let type, version: _):
+                        throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.plain.description)
+                    }
+                }
+            }
+        }
+        Swift.print("finished article loading")
+        
         var routing:RoutingTable = .init(prefix: prefix)
             routing.populate(from: biome)
         
         // render articles 
+        for article:String in articles
+        {
+            var renderer:MarkdownDiagnostic.Renderer = .init(biome: biome, routing: routing)
+            let (summary, toplevel):(_, _) = renderer.render(comment: article)
+            Swift.print("---")
+            for error:MarkdownDiagnostic in renderer.errors 
+            {
+                Swift.print(error)
+            }
+        }
+        
         self.symbols    = zip(biome.symbols, _move(comments)).map 
         {
             if case _?  = $0.0.commentOrigin 
