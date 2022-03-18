@@ -1,29 +1,6 @@
 import StructuredDocument 
 import HTML
 
-extension Biome 
-{
-    func article(package _:Int, comment:String) -> Documentation.Article
-    {
-        .init(comment: comment, biome: self)
-    }
-    func article(module _:Int, comment:String) -> Documentation.Article
-    {
-        .init(comment: comment, biome: self)
-    }
-    func article(symbol index:Int, comment:String) -> Documentation.Article
-    {
-        if case _? = self.symbols[index].commentOrigin 
-        {
-            // don’t re-render duplicated docs 
-            return .init()
-        }
-        else 
-        {
-            return .init(comment: comment, biome: self)
-        }
-    }
-}
 extension Documentation 
 {
     typealias StaticElement = HTML.Element<Never>
@@ -281,27 +258,28 @@ extension Documentation
             }
             return substitutions
         }
-                
+        
         init() 
         {
             self.baked = (nil, nil)
             self.errors = []
         }
         
+        private 
         init(summary:StaticElement?, discussion:[StaticElement], errors:[ArticleError])
         {
             self.baked.discussion   = discussion.isEmpty ? nil : discussion.map(\.rendered).joined()
             self.baked.summary      = summary?.rendered
             self.errors             = errors 
         }
-        init(comment:String, biome:Biome)
+        init(comment:String, biome:Biome, routing:RoutingTable)
         {
             let (summary, toplevel):(StaticElement?, [StaticElement]) 
             var errors:[ArticleError]
             do 
             {
-                var renderer:MarkdownDiagnostic.Renderer = .init()
-                (summary, toplevel) = renderer.render(comment: comment, biome: biome)
+                var renderer:MarkdownDiagnostic.Renderer = .init(biome: biome, routing: routing)
+                (summary, toplevel) = renderer.render(comment: comment)
                 errors = renderer.errors.map(ArticleError.markdown(_:))
             }
             

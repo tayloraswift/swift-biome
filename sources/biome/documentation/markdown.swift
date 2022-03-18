@@ -13,15 +13,20 @@ enum MarkdownDiagnostic:Error
     {
         typealias Element = HTML.Element<Never>
         
+        let biome:Biome 
+        let routing:Documentation.RoutingTable
+        
         var errors:[MarkdownDiagnostic]
         
-        init()
+        init(biome:Biome, routing:Documentation.RoutingTable)
         {
-            self.errors = []
+            self.biome      = biome 
+            self.routing    = routing
+            self.errors     = []
         }
         
         mutating 
-        func render(comment:String, biome:Biome) -> (head:Element?, body:[Element])
+        func render(comment:String) -> (head:Element?, body:[Element])
         {
             guard !comment.isEmpty 
             else 
@@ -40,54 +45,54 @@ enum MarkdownDiagnostic:Error
             var body:[Element]
             if let paragraph:Paragraph = first as? Paragraph 
             {
-                head = self.render(span: paragraph, as: .p, biome: biome)
+                head = self.render(span: paragraph, as: .p)
                 body = []
                 body.reserveCapacity(document.childCount - 1)
             }
             else 
             {
                 head = nil 
-                body = [self.render(block: first, biome: biome, rank: 1)]
+                body = [self.render(block: first, rank: 1)]
                 body.reserveCapacity(document.childCount)
             }
             while let next:BlockMarkup = blocks.next()
             {
-                body.append(self.render(block: next, biome: biome, rank: 1))
+                body.append(self.render(block: next, rank: 1))
             }
             return (head, body)
         }
         
         // general 
         mutating 
-        func render(document:Markdown.Document, biome:Biome, rank:Int = 0) -> Element 
+        func render(document:Markdown.Document, rank:Int = 0) -> Element 
         {
             Element[.main]
             {
                 for block:any BlockMarkup in document.blockChildren 
                 {
-                    self.render(block: block, biome: biome, rank: rank)
+                    self.render(block: block, rank: rank)
                 }
             }
         }
         private mutating 
-        func render<Aside>(aside:Aside, as container:HTML.Container, biome:Biome, rank:Int) -> Element 
+        func render<Aside>(aside:Aside, as container:HTML.Container, rank:Int) -> Element 
             where Aside:BasicBlockContainer
         {
             Element[container]
             {
                 for block:any BlockMarkup in aside.blockChildren 
                 {
-                    self.render(block: block, biome: biome, rank: rank)
+                    self.render(block: block, rank: rank)
                 }
             }
         }
         private mutating 
-        func render(block:any BlockMarkup, biome:Biome, rank:Int) -> Element 
+        func render(block:any BlockMarkup, rank:Int) -> Element 
         {
             switch block 
             {
             case let aside as BlockQuote:
-                return self.render(aside: aside, as: .blockquote, biome: biome, rank: rank)
+                return self.render(aside: aside, as: .blockquote, rank: rank)
             
             case is CustomBlock:
                 return Element[.div] { "(unsupported custom block)" }
@@ -95,15 +100,15 @@ enum MarkdownDiagnostic:Error
                 return Element.text(escaped: block.rawHTML)
             
             case let directive as BlockDirective:
-                return self.render(directive: directive, biome: biome, rank: rank)
+                return self.render(directive: directive, rank: rank)
             case let item as ListItem:
-                return self.render(item: item, biome: biome, rank: rank)
+                return self.render(item: item, rank: rank)
             case let list as OrderedList:
-                return self.render(list: list, as: .ol, biome: biome, rank: rank)
+                return self.render(list: list, as: .ol, rank: rank)
             case let list as UnorderedList:
-                return self.render(list: list, as: .ul, biome: biome, rank: rank)
+                return self.render(list: list, as: .ul, rank: rank)
             case let block as CodeBlock:
-                return self.render(code: block.code, biome: biome)
+                return self.render(code: block.code)
             case let heading as Heading: 
                 let level:HTML.Container
                 switch heading.level + rank
@@ -115,11 +120,11 @@ enum MarkdownDiagnostic:Error
                 case    5:  level = .h5
                 default:    level = .h6
                 }
-                return self.render(span: heading, as: level, biome: biome)
+                return self.render(span: heading, as: level)
             case let paragraph as Paragraph:
-                return self.render(span: paragraph, as: .p, biome: biome)
+                return self.render(span: paragraph, as: .p)
             case let table as Table:
-                return self.render(table: table, biome: biome)
+                return self.render(table: table)
             case is ThematicBreak: 
                 return Element[.hr]
             case let unsupported: 
@@ -131,7 +136,7 @@ enum MarkdownDiagnostic:Error
             }
         }
         private mutating 
-        func render(code:String, biome _:Biome) -> Element 
+        func render(code:String) -> Element 
         {
             Element[.pre]
             {
@@ -150,7 +155,7 @@ enum MarkdownDiagnostic:Error
             }
         }
         private mutating 
-        func render(directive:BlockDirective, biome:Biome, rank:Int) -> Element 
+        func render(directive:BlockDirective, rank:Int) -> Element 
         {
             switch directive.name 
             {
@@ -162,52 +167,52 @@ enum MarkdownDiagnostic:Error
             }
         }
         private mutating 
-        func render(item:ListItem, biome:Biome, rank:Int) -> Element 
+        func render(item:ListItem, rank:Int) -> Element 
         {
             Element[.li]
             {
                 for block:any BlockMarkup in item.blockChildren 
                 {
-                    self.render(block: block, biome: biome, rank: rank)
+                    self.render(block: block, rank: rank)
                 }
             }
         }
         private mutating 
-        func render<List>(list:List, as container:HTML.Container, biome:Biome, rank:Int) -> Element 
+        func render<List>(list:List, as container:HTML.Container, rank:Int) -> Element 
             where List:ListItemContainer
         {
             Element[container]
             {
                 for item:ListItem in list.listItems 
                 {
-                    self.render(item: item, biome: biome, rank: rank)
+                    self.render(item: item, rank: rank)
                 }
             }
         }
         private mutating 
-        func render<Row>(row:Row, as container:HTML.Container, biome:Biome) -> Element 
+        func render<Row>(row:Row, as container:HTML.Container) -> Element 
             where Row:TableCellContainer
         {
             Element[container]
             {
                 for cell:Table.Cell in row.cells
                 {
-                    self.render(span: cell, as: .td, biome: biome)
+                    self.render(span: cell, as: .td)
                 }
             }
         }
         private mutating 
-        func render(table:Table, biome:Biome) -> Element 
+        func render(table:Table) -> Element 
         {
             Element[.table]
             {
-                self.render(row: table.head, as: .thead, biome: biome)
+                self.render(row: table.head, as: .thead)
                 
                 Element[.tbody]
                 {
                     for row:Table.Row in table.body.rows 
                     {
-                        self.render(row: row, as: .tr, biome: biome)
+                        self.render(row: row, as: .tr)
                     }
                 }
             }
@@ -215,19 +220,19 @@ enum MarkdownDiagnostic:Error
         
         // inline rendering 
         private mutating 
-        func render<Span>(span:Span, as container:HTML.Container, biome:Biome) -> Element
+        func render<Span>(span:Span, as container:HTML.Container) -> Element
             where Span:InlineContainer
         {
             Element[container]
             {
                 for span:any InlineMarkup in span.inlineChildren
                 {
-                    self.render(inline: span, biome: biome)
+                    self.render(inline: span)
                 }
             }
         }
         private mutating 
-        func render(image:Image, biome:Biome) -> Element
+        func render(image:Image) -> Element
         {        
             if case nil = image.source
             {
@@ -246,17 +251,17 @@ enum MarkdownDiagnostic:Error
                         (title, as: HTML.Alt.self)
                     }
                 }
-                self.render(span: image, as: .figcaption, biome: biome)
+                self.render(span: image, as: .figcaption)
             }
         }
         private mutating 
-        func render(link:Link, biome:Biome) -> Element
+        func render(link:Link) -> Element
         {
             guard let target:String = link.destination
             else 
             {
                 self.errors.append(.missingLinkDestination)
-                return self.render(span: link, as: .span, biome: biome)
+                return self.render(span: link, as: .span)
             }
             return Element[.a]
             {
@@ -268,12 +273,12 @@ enum MarkdownDiagnostic:Error
             {
                 for span:any InlineMarkup in link.inlineChildren
                 {
-                    self.render(inline: span, biome: biome)
+                    self.render(inline: span)
                 }
             }
         }
         private mutating 
-        func render(symbollink link:SymbolLink, biome:Biome) -> Element
+        func render(symbollink link:SymbolLink) -> Element
         {
             guard let path:String = link.destination
             else 
@@ -287,7 +292,7 @@ enum MarkdownDiagnostic:Error
             }
         }
         private mutating 
-        func render(inline:any InlineMarkup, biome:Biome) -> Element
+        func render(inline:any InlineMarkup) -> Element
         {
             switch inline
             {
@@ -305,17 +310,17 @@ enum MarkdownDiagnostic:Error
             case let span as InlineCode: 
                 return Element[.code] { span.code }
             case let span as Emphasis:
-                return self.render(span: span, as: .em, biome: biome)
+                return self.render(span: span, as: .em)
             case let span as Strikethrough:
-                return self.render(span: span, as: .s, biome: biome)
+                return self.render(span: span, as: .s)
             case let span as Strong:
-                return self.render(span: span, as: .strong, biome: biome)
+                return self.render(span: span, as: .strong)
             case let image as Image: 
-                return self.render(image: image, biome: biome)
+                return self.render(image: image)
             case let link as Link: 
-                return self.render(link: link, biome: biome)
+                return self.render(link: link)
             case let link as SymbolLink: 
-                return self.render(symbollink: link, biome: biome)
+                return self.render(symbollink: link)
                 
             case let unsupported: 
                 self.errors.append(.unsupported(markup: unsupported))

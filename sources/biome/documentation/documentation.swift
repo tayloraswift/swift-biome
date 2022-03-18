@@ -657,18 +657,20 @@ struct Documentation:Sendable
             routing.populate(from: biome)
         
         // render articles 
-        self.symbols    = zip(biome.symbols.indices, _move(comments)).map 
+        self.symbols    = zip(biome.symbols, _move(comments)).map 
         {
-            biome.article(symbol: $0.0, comment: $0.1) 
+            if case _?  = $0.0.commentOrigin 
+            {
+                // don’t re-render duplicated docs 
+                return .init()
+            }
+            else 
+            {
+                return .init(comment: $0.1, biome: biome, routing: routing)
+            }
         }
-        self.modules    = biome.modules.indices.map 
-        {
-            biome.article(module: $0, comment: "") 
-        }
-        self.packages   = biome.packages.indices.map 
-        {
-            biome.article(package: $0, comment: "")
-        }
+        self.modules    = .init(repeating: .init(), count: biome.modules.count)
+        self.packages   = .init(repeating: .init(), count: biome.packages.count)
         
         self.search     = biome.searchIndices(routing: routing)
         self.routing    = routing
