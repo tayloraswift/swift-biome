@@ -11,7 +11,7 @@ extension Biome
     public 
     struct Package:Sendable, Identifiable
     {
-        public 
+        @frozen public 
         enum ID:Hashable, Comparable, Sendable  
         {
             case swift 

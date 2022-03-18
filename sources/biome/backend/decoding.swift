@@ -5,11 +5,6 @@ infix operator ~~ :ComparisonPrecedence
 
 extension Biome 
 {
-    typealias Target = 
-    (
-        module:Module.ID, 
-        bystanders:[Module.ID]
-    )
     struct Vertex
     {
         var isCanonical:Bool

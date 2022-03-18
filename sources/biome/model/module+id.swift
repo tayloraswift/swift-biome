@@ -1,9 +1,16 @@
 extension Biome.Module 
 {
-    public
-    struct ID:Hashable, Sendable
+    @frozen public
+    struct ID:Hashable, Sendable, ExpressibleByStringLiteral
     {
+        public
         let string:String 
+        
+        @inlinable public
+        init(stringLiteral:String)
+        {
+            self.string = stringLiteral
+        }
         
         init<S>(_ string:S) where S:StringProtocol 
         {
@@ -17,7 +24,7 @@ extension Biome.Module
         
         func graphIdentifier(bystander:Self?) -> String
         {
-            bystander.map { "\(self.string)@\($0.string)" } ?? self.string
+            bystander.map { "\(self.string)@\($0.string).symbols.json" } ?? "\(self.string).symbols.json"
         }
     }
 }

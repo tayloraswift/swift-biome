@@ -29,33 +29,21 @@ struct Biome:Sendable
         packages:Storage<Package>
     
     private static 
-    func modules(_ packages:[Package.ID: [String]]) -> 
+    func flatten(_ packages:[Package.ID: [Target]]) -> 
     (
         packages:[(id:Package.ID, targets:Range<Int>)],
-        modules:[(module:Module.ID, bystanders:[Module.ID])]
+        modules:[Target]
     )
     {
-        var modules:[(Module.ID, [Module.ID])]  = []
+        var modules:[Target] = []
         let packages:[(Package.ID, Range<Int>)] = packages.sorted
         {
             $0.key < $1.key
         }
         .map 
         {
-            var targets:[Module.ID: [Module.ID]] = [:]
-            for name:String in $0.value
-            {
-                let identifiers:[Module.ID] = name.split(separator: "@").map(Module.ID.init(_:))
-                guard let module:Module.ID  = identifiers.first 
-                else 
-                {
-                    continue // name was all '@' signs
-                }
-                let bystanders:ArraySlice<Module.ID> = identifiers.dropFirst()
-                targets[module, default: []].append(contentsOf: bystanders.prefix(1))
-            }
             let start:Int   = modules.endIndex 
-            modules.append(contentsOf: targets.sorted { $0.key.string < $1.key.string })
+            modules.append(contentsOf: $0.value)
             let end:Int     = modules.endIndex 
             return ($0.key, start ..< end)
         }
@@ -140,11 +128,12 @@ struct Biome:Sendable
     
     private static
     func load(package:Package.ID, graph name:String, hashingInto version:inout Resource.Version,
-        with load:(_ package:Package.ID, _ module:String) async throws -> Resource) 
+        with load:(_ package:Package.ID, _ path:[String], _ type:Resource.Text) 
+        async throws -> Resource) 
         async throws -> JSON 
     {
         let json:JSON
-        switch try await load(package, name)
+        switch try await load(package, [name], .json)
         {
         case    .text   (let string, type: .json, version: let component?):
             json = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
@@ -163,16 +152,41 @@ struct Biome:Sendable
         }
         return json
     }
+    
+    public
+    typealias Target = 
+    (
+        id:Module.ID, 
+        bystanders:[Module.ID],
+        articles:[[String]]
+    )
+    /* struct Target 
+    {
+        public
+        let id:Module.ID, 
+            bystanders:[Module.ID],
+            articles:[[String]]
+        
+        public 
+        init(id:Module.ID, bystanders:[Module.ID], articles:[[String]])
+        {
+            self.id = id
+            self.bystanders = bystanders
+            self.articles = articles
+        }
+    } */
+    
     static 
-    func load(packages names:[Package.ID: [String]], 
-        loader:(_ package:Package.ID, _ module:String) async throws -> Resource) 
+    func load(packages descriptors:[Package.ID: [Target]], 
+        loader:(_ package:Package.ID, _ path:[String], _ type:Resource.Text) 
+        async throws -> Resource) 
         async throws -> (biome:Self, comments:[String])
     {
-        let (names, targets):([(id:Package.ID, targets:Range<Int>)], [Target]) = Self.modules(names)
+        let (names, targets):([(id:Package.ID, targets:Range<Int>)], [Target]) = Self.flatten(descriptors)
         
         let packageIndices:[Package.ID: Int]    = try Self.indices(for: names,   by: \.id, 
             else: PackageIdentifierError.duplicate(package:))
-        let moduleIndices:[Module.ID: Int]      = try Self.indices(for: targets, by: \.module, 
+        let moduleIndices:[Module.ID: Int]      = try Self.indices(for: targets, by: \.id, 
             else: ModuleIdentifierError.duplicate(module:))
         var symbolIndices:[Symbol.ID: Int]      = [:]
         // we need the mythical dictionary in case we run into synthesized 
@@ -186,7 +200,7 @@ struct Biome:Sendable
         for package:(id:Package.ID, targets:Range<Int>) in names 
         {
             var version:Resource.Version = .semantic(0, 1, 2)
-            for target:(module:Module.ID, bystanders:[Module.ID]) in targets[package.targets]
+            for target:Target in targets[package.targets]
             {
                 let core:Range<Int>
                 do 
@@ -198,14 +212,14 @@ struct Biome:Sendable
                         edges: &edges,
                         from: try await Self.load(
                             package: package.id, 
-                            graph: target.module.graphIdentifier(bystander: nil), 
+                            graph: target.id.graphIdentifier(bystander: nil), 
                             hashingInto: &version, 
                             with: loader), 
-                        module: target.module)
+                        module: target.id)
                 }
                 catch let error 
                 {
-                    throw GraphLoadingError.init(error, module: target.module, bystander: nil)
+                    throw GraphLoadingError.init(error, module: target.id, bystander: nil)
                 }
                 var extensions:[(bystander:Int, symbols:Range<Int>)] = [] 
                 for bystander:Module.ID in target.bystanders
@@ -229,28 +243,28 @@ struct Biome:Sendable
                             edges: &edges,
                             from: try await Self.load(
                                 package: package.id, 
-                                graph: target.module.graphIdentifier(bystander: bystander), 
+                                graph: target.id.graphIdentifier(bystander: bystander), 
                                 hashingInto: &version, 
                                 with: loader), 
-                            module: target.module, 
+                            module: target.id, 
                             prune: true)))
                     }
                     catch let error 
                     {
-                        throw GraphLoadingError.init(error, module: target.module, bystander: bystander)
+                        throw GraphLoadingError.init(error, module: target.id, bystander: bystander)
                     }
                 }
-                let module:Module = .init(id: target.module, package: packages.endIndex, 
+                let module:Module = .init(id: target.id, package: packages.endIndex, 
                     core: core, extensions: extensions)
                 modules.append(module)
                 
                 if target.bystanders.isEmpty
                 {
-                    Swift.print("loaded module '\(target.module.string)' (from package '\(package.id.name)')")
+                    Swift.print("loaded module '\(target.id.string)' (from package '\(package.id.name)')")
                 }
                 else 
                 {
-                    Swift.print("loaded module '\(target.module.string)' (from package '\(package.id.name)', bystanders: \(target.bystanders.map{ "'\($0.string)'" }.joined(separator: ", ")))")
+                    Swift.print("loaded module '\(target.id.string)' (from package '\(package.id.name)', bystanders: \(target.bystanders.map{ "'\($0.string)'" }.joined(separator: ", ")))")
                 }
             }
             let package:Package = .init(id: package.id, modules: package.targets, hash: version)

@@ -28,16 +28,4 @@ extension Biome
             self.toplevel   = []
         }
     }
-    
-    /* public 
-    struct Graph:Hashable, Sendable 
-    {
-        var module:Module.ID, 
-            bystander:Module.ID?
-        
-        var namespace:Module.ID 
-        {
-            self.bystander ?? self.module 
-        }
-    } */
 }

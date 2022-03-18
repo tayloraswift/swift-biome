@@ -648,8 +648,10 @@ struct Documentation:Sendable
 
     
     public 
-    init(prefix:String, packages:[Biome.Package.ID: [String]], 
-        loader load:(_ package:Biome.Package.ID, _ module:String) async throws -> Resource) async throws 
+    init(prefix:String, packages:[Biome.Package.ID: [Biome.Target]], 
+        loader load:(_ package:Biome.Package.ID, _ path:[String], _ type:Resource.Text) 
+        async throws -> Resource) 
+        async throws 
     {
         let (biome, comments):(Biome, [String]) = try await Biome.load(packages: packages, loader: load)
 
