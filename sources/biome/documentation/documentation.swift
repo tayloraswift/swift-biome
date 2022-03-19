@@ -591,7 +591,7 @@ struct Documentation:Sendable
         {
             self.routes[.resolution(witness: witness, victim: nil)]
         }
-        func resolve(path:URI.Path, overload witness:Int?) -> (index:Index, assigned:Bool)? 
+        func resolve(base:URI.Base, path:URI.Path, overload witness:Int?) -> (index:Index, assigned:Bool)? 
         {
             var components:Array<[UInt8]>.Iterator  = path.stem.makeIterator()
             guard let first:[UInt8]     = components.next()
@@ -603,10 +603,11 @@ struct Documentation:Sendable
             else 
             {
                 if  let trunk:Int       = self.trunks[first], 
-                    let (index, assigned):(Index, assigned:Bool) = self.resolve(namespace: trunk, 
-                    stem: path.stem.dropFirst(), 
-                    leaf: path.leaf, 
-                    overload: witness)
+                    let (index, assigned):(Index, assigned:Bool) = self.resolve(base: base, 
+                        namespace: trunk, 
+                        stem: path.stem.dropFirst(), 
+                        leaf: path.leaf, 
+                        overload: witness)
                 {
                     // only allow whitelisted modules to be referenced without a package prefix
                     return (index, assigned ? self.whitelist.contains(trunk) : false)
@@ -619,7 +620,8 @@ struct Documentation:Sendable
             if  let second:[UInt8]  = components.next(),
                 let trunk:Int       = self.trunks[second]
             {
-                return self.resolve(namespace: trunk, 
+                return self.resolve(base: base, 
+                    namespace: trunk, 
                     stem: path.stem.dropFirst(2), 
                     leaf: path.leaf, 
                     overload: witness)
@@ -631,6 +633,30 @@ struct Documentation:Sendable
                 return nil
             }
             return self.routes[.package(root, stem: stem, leaf: leaf)].map { ($0, true) }
+        }
+        func resolve(base:URI.Base, namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) 
+            -> (index:Index, assigned:Bool)?
+        {
+            switch (base, overload) 
+            {
+            case (.biome, _):   return self.resolve(namespace: namespace, stem: stem, leaf: leaf, overload: overload)
+            case (.learn, _?):  return nil
+            case (.learn, nil): return self.resolve(doc:       namespace, stem: stem, leaf: leaf)
+            }
+        }
+        func resolve(doc namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8]) 
+            -> (index:Index, assigned:Bool)?
+        {
+            if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
+                let leafKey:UInt    = self.greens[leaf], 
+                let index:Index     = self.routes[.article(namespace, stem: stemKey, leaf: leafKey)]
+            {
+                return (index, true)
+            }
+            else 
+            {
+                return nil
+            }
         }
         func resolve(namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) 
             -> (index:Index, assigned:Bool)?
@@ -795,7 +821,7 @@ struct Documentation:Sendable
                     case .free(title: let title): 
                         let article:Article = .init(
                             namespace: module, 
-                            path: path.dropFirst().map{ URI.encode(component: $0.utf8) }, 
+                            path: path.dropFirst(), 
                             title: title, 
                             content: discussion)
                         routing.publish(article: self.articles.endIndex, namespace: module, stem: article.path, leaf: [])
@@ -888,7 +914,8 @@ struct Documentation:Sendable
         
         (normalized, redirect.always) = self.normalize(uri: uri)
         
-        if  let query:URI.Query     = normalized.query, 
+        if  case .biome             = normalized.base, 
+            let query:URI.Query     = normalized.query, 
             let victim:Int          = query.victim, 
             let index:Index         = self.routing.resolve(overload: query.witness, self: victim)
         {
@@ -896,12 +923,16 @@ struct Documentation:Sendable
             redirect.temporarily    = false 
         }
         else if let (index, assigned):(Index, assigned:Bool) = 
-            self.routing.resolve(path: normalized.path, overload: normalized.query?.witness)
+            self.routing.resolve(
+                base: normalized.base, 
+                path: normalized.path, 
+                overload: normalized.query?.witness)
         {
             response                = self[index]
             redirect.temporarily    = !assigned
         }
-        else if let witness:Int     = normalized.query?.witness,
+        else if case .biome         = normalized.base, 
+                let witness:Int     = normalized.query?.witness,
                 let index:Index     = self.routing.resolve(mythical: witness)
         {
             response                = self[index]

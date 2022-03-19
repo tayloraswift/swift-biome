@@ -89,7 +89,7 @@ extension Documentation.ArticleRenderer
         if case "/"? = text.first
         {
             path = .normalize(joined: text.dropFirst().utf8, changed: &ignored)
-            if let (index, _):(Documentation.Index, Bool) = self.routing.resolve(path: path, overload: nil)
+            if let (index, _):(Documentation.Index, Bool) = self.routing.resolve(base: .biome, path: path, overload: nil)
             {
                 resolved = index
             }

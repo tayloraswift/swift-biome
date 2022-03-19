@@ -1,9 +1,17 @@
 import StructuredDocument 
 import HTML
 
+extension Documentation.Index:DocumentID 
+{
+    var documentId:String
+    {
+        ""
+    }
+}
+
 extension Documentation 
 {
-    typealias ArticleElement = HTML.Element<Never>
+    typealias ArticleElement = HTML.Element<Documentation.Index>
     
     struct Comment 
     {
@@ -397,6 +405,14 @@ extension Documentation
         let namespace:Int
         let path:[[UInt8]]
         let title:String
-        let content:[ArticleElement]
+        let content:[DocumentTemplate<Documentation.Index, [UInt8]>]
+        init<S>(namespace:Int, path:S, title:String, content:[ArticleElement])
+            where S:Sequence, S.Element:StringProtocol
+        {
+            self.namespace  = namespace
+            self.path       = path.map{ URI.encode(component: $0.utf8) }
+            self.title      = title
+            self.content    = content.map { $0.template(of: [UInt8].self) }
+        }
     }
 }

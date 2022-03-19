@@ -7,8 +7,6 @@ extension Documentation
     typealias ArticleRenderingContext = (tool:Tool, namespace:Int, path:Void)
     struct ArticleRenderer 
     {
-        typealias Element = HTML.Element<Never>
-        
         let biome:Biome 
         let routing:RoutingTable
         let context:ArticleRenderingContext
@@ -25,16 +23,16 @@ extension Documentation
         
         static 
         func render(article:String, biome:Biome, routing:RoutingTable, context:ArticleRenderingContext) 
-            -> (owner:ArticleOwner, body:[Element], errors:[Error])
+            -> (owner:ArticleOwner, body:[ArticleElement], errors:[Error])
         {
             var renderer:Self = self.init(biome: biome, routing: routing, context: context)
-            let (owner, body):(ArticleOwner, [Element]) = 
+            let (owner, body):(ArticleOwner, [ArticleElement]) = 
                 renderer.render(article: Self.parse(markdown: article))
             return (owner, body, renderer.errors)
         }
         static 
         func render(comment:String, biome:Biome, routing:RoutingTable, context:ArticleRenderingContext) 
-            -> (head:Element?, body:[Element], errors:[Error])
+            -> (head:ArticleElement?, body:[ArticleElement], errors:[Error])
         {
             guard !comment.isEmpty 
             else 
@@ -42,7 +40,7 @@ extension Documentation
                 return (nil, [], [])
             }
             var renderer:Self = self.init(biome: biome, routing: routing, context: context)
-            let (head, body):(Element?, [Element]) = 
+            let (head, body):(ArticleElement?, [ArticleElement]) = 
                 renderer.render(comment: Self.parse(markdown: comment), rank: 1)
             return (head, body, renderer.errors)
         }
@@ -60,7 +58,7 @@ extension Documentation
         // it will go into the body, and the summary will show 
         // “no overview available”
         private mutating 
-        func render<S>(article blocks:S) -> (owner:ArticleOwner, body:[Element])
+        func render<S>(article blocks:S) -> (owner:ArticleOwner, body:[ArticleElement])
             where S:Sequence, S.Iterator:Sequence, S.Element == BlockMarkup
         {
             var blocks:S.Iterator = blocks.makeIterator()
@@ -73,8 +71,8 @@ extension Documentation
                         heading.level == 1
             else 
             {
-                let title:String    = "(untitled)"
-                var body:[Element]  = [self.render(block: first, rank: 0)]
+                let title:String            = "(untitled)"
+                var body:[ArticleElement]   = [self.render(block: first, rank: 0)]
                 while let next:any BlockMarkup = blocks.next()
                 {
                     body.append(self.render(block: next, rank: 0))
@@ -91,8 +89,8 @@ extension Documentation
                 let owner:Documentation.Index   = try? self.resolve(link: owner)
             else 
             {
-                let title:String    = heading.plainText
-                let body:[Element]  = blocks.map 
+                let title:String            = heading.plainText
+                let body:[ArticleElement]   = blocks.map 
                 {
                     self.render(block: $0, rank: 0)
                 }
@@ -100,7 +98,7 @@ extension Documentation
             }
             // consider the remainder of the document a comment, but do not 
             // demote the header rank
-            let (head, body):(Element?, [Element]) = 
+            let (head, body):(ArticleElement?, [ArticleElement]) = 
                 self.render(comment: blocks, rank: 0)
             switch owner 
             {
@@ -113,7 +111,7 @@ extension Documentation
             }
         }
         private mutating 
-        func render<S>(comment blocks:S, rank:Int) -> (head:Element?, body:[Element])
+        func render<S>(comment blocks:S, rank:Int) -> (head:ArticleElement?, body:[ArticleElement])
             where S:Sequence, S.Element == BlockMarkup
         {
             var blocks:S.Iterator = blocks.makeIterator()
@@ -122,8 +120,8 @@ extension Documentation
             {
                 return (nil, [])
             }
-            let head:Element? 
-            var body:[Element]
+            let head:ArticleElement? 
+            var body:[ArticleElement]
             if let paragraph:Paragraph = first as? Paragraph 
             {
                 head = self.render(span: paragraph, as: .p)
@@ -142,10 +140,10 @@ extension Documentation
         }
         
         private mutating 
-        func render<Aside>(aside:Aside, as container:HTML.Container, rank:Int) -> Element 
+        func render<Aside>(aside:Aside, as container:HTML.Container, rank:Int) -> ArticleElement 
             where Aside:BasicBlockContainer
         {
-            Element[container]
+            ArticleElement[container]
             {
                 for block:any BlockMarkup in aside.blockChildren 
                 {
@@ -154,7 +152,7 @@ extension Documentation
             }
         }
         private mutating 
-        func render(block:any BlockMarkup, rank:Int) -> Element 
+        func render(block:any BlockMarkup, rank:Int) -> ArticleElement 
         {
             switch block 
             {
@@ -162,9 +160,9 @@ extension Documentation
                 return self.render(aside: aside, as: .blockquote, rank: rank)
             
             case is CustomBlock:
-                return Element[.div] { "(unsupported custom block)" }
+                return ArticleElement[.div] { "(unsupported custom block)" }
             case let block as HTMLBlock:
-                return Element.text(escaped: block.rawHTML)
+                return ArticleElement.text(escaped: block.rawHTML)
             
             case let directive as BlockDirective:
                 return self.render(directive: directive, rank: rank)
@@ -193,50 +191,50 @@ extension Documentation
             case let table as Table:
                 return self.render(table: table)
             case is ThematicBreak: 
-                return Element[.hr]
+                return ArticleElement[.hr]
             case let unsupported: 
                 self.errors.append(ArticleError.unsupportedMarkdown(unsupported.debugDescription()))
-                return Element[.div]
+                return ArticleElement[.div]
                 {
                     "(unsupported block markdown node '\(type(of: unsupported))')"
                 }
             }
         }
         private mutating 
-        func render(code:String) -> Element 
+        func render(code:String) -> ArticleElement 
         {
-            Element[.pre]
+            ArticleElement[.pre]
             {
                 ["notebook"]
             }
             content:
             {
-                Element[.code]
+                ArticleElement[.code]
                 {
-                    Element.highlight("", .newlines)
+                    ArticleElement.highlight("", .newlines)
                     for (text, highlight):(String, SwiftHighlight) in SwiftHighlight.highlight(code)
                     {
-                        Element.highlight(text, highlight)
+                        ArticleElement.highlight(text, highlight)
                     }
                 }
             }
         }
         private mutating 
-        func render(directive:BlockDirective, rank:Int) -> Element 
+        func render(directive:BlockDirective, rank:Int) -> ArticleElement 
         {
             switch directive.name 
             {
             case let undefined:
-                return Element[.div]
+                return ArticleElement[.div]
                 {
                     "(unsupported block directive of type '\(undefined)')"
                 }
             }
         }
         private mutating 
-        func render(item:ListItem, rank:Int) -> Element 
+        func render(item:ListItem, rank:Int) -> ArticleElement 
         {
-            Element[.li]
+            ArticleElement[.li]
             {
                 for block:any BlockMarkup in item.blockChildren 
                 {
@@ -245,10 +243,10 @@ extension Documentation
             }
         }
         private mutating 
-        func render<List>(list:List, as container:HTML.Container, rank:Int) -> Element 
+        func render<List>(list:List, as container:HTML.Container, rank:Int) -> ArticleElement 
             where List:ListItemContainer
         {
-            Element[container]
+            ArticleElement[container]
             {
                 for item:ListItem in list.listItems 
                 {
@@ -257,10 +255,10 @@ extension Documentation
             }
         }
         private mutating 
-        func render<Row>(row:Row, as container:HTML.Container) -> Element 
+        func render<Row>(row:Row, as container:HTML.Container) -> ArticleElement 
             where Row:TableCellContainer
         {
-            Element[container]
+            ArticleElement[container]
             {
                 for cell:Table.Cell in row.cells
                 {
@@ -269,13 +267,13 @@ extension Documentation
             }
         }
         private mutating 
-        func render(table:Table) -> Element 
+        func render(table:Table) -> ArticleElement 
         {
-            Element[.table]
+            ArticleElement[.table]
             {
                 self.render(row: table.head, as: .thead)
                 
-                Element[.tbody]
+                ArticleElement[.tbody]
                 {
                     for row:Table.Row in table.body.rows 
                     {
@@ -287,10 +285,10 @@ extension Documentation
         
         // inline rendering 
         private mutating 
-        func render<Span>(span:Span, as container:HTML.Container) -> Element
+        func render<Span>(span:Span, as container:HTML.Container) -> ArticleElement
             where Span:InlineContainer
         {
-            Element[container]
+            ArticleElement[container]
             {
                 for span:any InlineMarkup in span.inlineChildren
                 {
@@ -299,11 +297,11 @@ extension Documentation
             }
         }
         private mutating 
-        func render(image:Image) -> Element
+        func render(image:Image) -> ArticleElement
         {        
-            return Element[.figure]
+            return ArticleElement[.figure]
             {
-                Element[.img]
+                ArticleElement[.img]
                 {
                     if let source:String = image.source, !source.isEmpty
                     {
@@ -322,7 +320,7 @@ extension Documentation
             }
         }
         private mutating 
-        func render(link:Link) -> Element
+        func render(link:Link) -> ArticleElement
         {
             guard let target:String = link.destination, !target.isEmpty
             else 
@@ -330,7 +328,7 @@ extension Documentation
                 self.errors.append(ArticleError.emptyLinkDestination)
                 return self.render(span: link, as: .span)
             }
-            return Element[.a]
+            return ArticleElement[.a]
             {
                 (target, as: HTML.Href.self)
                 HTML.Target._blank
@@ -345,7 +343,7 @@ extension Documentation
             }
         }
         private mutating 
-        func render(link:SymbolLink) -> Element
+        func render(link:SymbolLink) -> ArticleElement
         {
             let components:[(text:String, uri:URI)], 
                 tail:(text:String, uri:URI)
@@ -392,18 +390,18 @@ extension Documentation
             catch let error 
             {
                 self.errors.append(error)
-                return Element[.code] { link.destination ?? "<empty symbol path>" }
+                return ArticleElement[.code] { link.destination ?? "<empty symbol path>" }
             }
-            return Element[.code]
+            return ArticleElement[.code]
             {
                 // unlike in breadcrumbs, we print the dot separators explicitly 
                 // so they look normal when highlighted and copy-pasted 
                 for (text, uri):(String, URI) in components 
                 {
-                    Element.link(text, to: self.biome.format(uri:       uri, routing: self.routing), internal: true)
-                    Element.text(escaped: ".")
+                    ArticleElement.link(text, to: self.biome.format(uri:       uri, routing: self.routing), internal: true)
+                    ArticleElement.text(escaped: ".")
                 }
-                Element.link(tail.text, to: self.biome.format(uri: tail.uri, routing: self.routing), internal: true)
+                ArticleElement.link(tail.text, to: self.biome.format(uri: tail.uri, routing: self.routing), internal: true)
             }
         }
         private 
@@ -434,23 +432,23 @@ extension Documentation
             }
         }
         private mutating 
-        func render(inline:any InlineMarkup) -> Element
+        func render(inline:any InlineMarkup) -> ArticleElement
         {
             switch inline
             {
             case is LineBreak:
-                return Element[.br]
+                return ArticleElement[.br]
             case is SoftBreak:
-                return Element.text(escaped: " ")
+                return ArticleElement.text(escaped: " ")
             
             case let span as CustomInline: 
-                return Element.text(escaping: span.text)
+                return ArticleElement.text(escaping: span.text)
             case let text as Text:
-                return Element.text(escaping: text.string)
+                return ArticleElement.text(escaping: text.string)
             case let span as InlineHTML:
-                return Element.text(escaped: span.rawHTML)
+                return ArticleElement.text(escaped: span.rawHTML)
             case let span as InlineCode: 
-                return Element[.code] { span.code }
+                return ArticleElement[.code] { span.code }
             case let span as Emphasis:
                 return self.render(span: span, as: .em)
             case let span as Strikethrough:
@@ -466,7 +464,7 @@ extension Documentation
                 
             case let unsupported: 
                 self.errors.append(ArticleError.unsupportedMarkdown(unsupported.debugDescription()))
-                return Element[.div]
+                return ArticleElement[.div]
                 {
                     "(unsupported inline markdown node '\(type(of: unsupported))')"
                 }
