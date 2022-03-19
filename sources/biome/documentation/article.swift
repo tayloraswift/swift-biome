@@ -1,14 +1,6 @@
 import StructuredDocument 
 import HTML
 
-extension Documentation.Index:DocumentID 
-{
-    var documentId:String
-    {
-        ""
-    }
-}
-
 extension Documentation 
 {
     typealias ArticleElement = HTML.Element<Documentation.Index>

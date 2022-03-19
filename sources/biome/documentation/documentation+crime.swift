@@ -6,7 +6,7 @@ extension Documentation
 {
     typealias Element = HTML.Element<Anchor>
     
-    enum Anchor:DocumentID, Hashable, Sendable
+    enum Anchor:Hashable, Sendable
     {
         case symbol(Int)
         
@@ -16,23 +16,6 @@ extension Documentation
         case platforms
         case declaration
         case discussion
-        
-        case search
-        case searchInput
-        case searchResults
-        
-        public 
-        var documentId:String 
-        {
-            switch self 
-            {
-            case .search:           return "search"
-            case .searchInput:      return "search-input"
-            case .searchResults:    return "search-results"
-            default: 
-                fatalError("unreachable")
-            }
-        }
     }
     
     func page(article index:Int) -> Resource
@@ -248,9 +231,10 @@ extension Documentation
                     } 
                     content: 
                     {
-                        Element[.form, id: .search] 
+                        Element[.form] 
                         {
                             HTML.Role.search
+                            ("search", as: HTML.ID.self)
                         }
                         content: 
                         {
@@ -270,8 +254,9 @@ extension Documentation
                                 }
                                 content: 
                                 {
-                                    Element[.input, id: .searchInput]
+                                    Element[.input]
                                     {
+                                        ("search-input", as: HTML.ID.self)
                                         HTML.InputType.search
                                         HTML.Autocomplete.off
                                         // (true, as: HTML.Autofocus.self)
@@ -283,7 +268,10 @@ extension Documentation
                                     ["bevel"]
                                 }
                             }
-                            Element[.ol, id: .searchResults]
+                            Element[.ol]
+                            {
+                                ("search-results", as: HTML.ID.self)
+                            }
                         }
                     }
                 }
