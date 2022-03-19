@@ -147,6 +147,7 @@ extension Biome
 public 
 struct Documentation:Sendable
 {
+    public 
     struct URI:Equatable, CustomStringConvertible, Sendable 
     {
         //  4 ways to access docs:
@@ -231,6 +232,7 @@ struct Documentation:Sendable
             case temporary 
             case permanent
         } */
+        public 
         enum Base:Hashable, Sendable
         {
             case biome 
@@ -344,14 +346,7 @@ struct Documentation:Sendable
             self.query = query 
         }
         
-        @available(*, deprecated)
-        init(path:Path, query:Query?)
-        {
-            self.base = .biome
-            self.path = path 
-            self.query = query 
-        }
-        
+        public 
         var description:String 
         {
             "\(self.path)\(self.query?.description ?? "")"
@@ -383,7 +378,14 @@ struct Documentation:Sendable
     
     struct RoutingTable 
     {
-        let prefix:String
+        let bases:(biome:String, learn:String)
+        
+        @available(*, deprecated)
+        var prefix:String 
+        {
+            self.bases.biome
+        }
+        
         let whitelist:Set<Int> // module indices
         private(set)
         var greenlist:Set<UInt>, // leaf keys
@@ -393,9 +395,10 @@ struct Documentation:Sendable
         let trunks:[[UInt8]: Int], 
             roots:[[UInt8]: Int]
         
-        init(prefix:String, biome:Biome) 
+        init(bases:[URI.Base: String], biome:Biome) 
         {
-            self.prefix     = prefix 
+            self.bases.biome = bases[.biome, default: "/biome"]
+            self.bases.learn = bases[.learn, default: "/learn"]
             
             var whitelist:Set<Int>      = [ ]
             var roots:[[UInt8]: Int]    = [:]
@@ -700,7 +703,7 @@ struct Documentation:Sendable
     }
     
     public 
-    init(prefix:String, products descriptors:[Biome.Package.ID: [Biome.Target]], 
+    init(directories:[URI.Base: String], products descriptors:[Biome.Package.ID: [Biome.Target]], 
         loader load:(_ package:Biome.Package.ID, _ path:[String], _ type:Resource.Text) 
         async throws -> Resource) 
         async throws 
@@ -711,7 +714,7 @@ struct Documentation:Sendable
             products: products, 
             targets: targets, 
             loader: load)
-        var routing:RoutingTable = .init(prefix: prefix, biome: biome)
+        var routing:RoutingTable = .init(bases: directories, biome: biome)
         Swift.print("initialized routing table")
         
         Swift.print("starting article loading")
