@@ -59,28 +59,31 @@ extension Biome
     fileprivate 
     func uri(packageSearchIndex package:Int) -> Documentation.URI  
     {
-        return .init(path: .init(
-            root: self.root(package: package), 
-            stem: self.stem(packageSearchIndex: package), 
-            leaf: self.leaf(packageSearchIndex: package)), 
-            query: nil)
+        return .init(
+            base: .biome,
+            path: .init(
+                root: self.root(package: package), 
+                stem: self.stem(packageSearchIndex: package), 
+                leaf: self.leaf(packageSearchIndex: package)))
     }
     func uri(package:Int) -> Documentation.URI  
     {
-        .init(path: .init(
-            root: self.root(package: package), 
-            stem: [], 
-            leaf: []), 
-            query: nil)
+        .init(
+            base: .biome,
+            path: .init(
+                root: self.root(package: package), 
+                stem: [], 
+                leaf: []))
     }
     func uri(module:Int) -> Documentation.URI 
     {
-        .init(path: .init(
-            root:  self.root(namespace:  module), 
-            trunk: self.trunk(namespace: module), 
-            stem: [], 
-            leaf: []), 
-            query: nil)
+        .init(
+            base: .biome,
+            path: .init(
+                root:  self.root(namespace:  module), 
+                trunk: self.trunk(namespace: module), 
+                stem: [], 
+                leaf: []))
     }
     func uri(witness:Int, victim:Int?, routing:Documentation.RoutingTable) -> Documentation.URI   
     {
@@ -118,7 +121,7 @@ extension Biome
                 query = .init(witness: witness, victim: victim)
             }
         }
-        return .init(path: path, query: query)
+        return .init(base: .biome, path: path, query: query)
     }
     func format(_ prefix:String, uri:Documentation.URI) -> String 
     {
@@ -334,6 +337,14 @@ struct Documentation:Sendable
         var path:Path
         var query:Query?
         
+        init(base:Base, path:Path, query:Query? = nil)
+        {
+            self.base = base
+            self.path = path 
+            self.query = query 
+        }
+        
+        @available(*, deprecated)
         init(path:Path, query:Query?)
         {
             self.base = .biome

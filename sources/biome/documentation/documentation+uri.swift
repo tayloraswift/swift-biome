@@ -33,6 +33,7 @@ extension Documentation
     {
         var changed:Bool        = false 
         let uri:URI  = .init(
+            base: .biome,
             path:  self.biome.normalize(path:  path,  changed: &changed, routing: self.routing),
             query: self.biome.normalize(query: query, changed: &changed))
         return (uri, changed)
