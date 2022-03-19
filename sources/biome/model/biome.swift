@@ -179,7 +179,6 @@ struct Biome:Sendable
         // extensions before the generic base (in which case, they would be assigned 
         // to the wrong module)
         var mythical:[Symbol.ID: Vertex]        = [:]
-        var articles:[String]   = []
         var vertices:[Vertex]   = []
         var edges:[Edge]        = []
         var modules:[Module]    = []
