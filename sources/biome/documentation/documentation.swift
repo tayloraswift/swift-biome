@@ -3,22 +3,18 @@ import JSON
 
 extension Biome 
 {
-    fileprivate 
     func stem(packageSearchIndex package:Int) -> [[UInt8]]
     {
         [[UInt8].init("search".utf8)]
     }
-    fileprivate 
     func leaf(packageSearchIndex package:Int) -> [UInt8]
     {
         [UInt8].init("json".utf8)
     }
-    fileprivate 
     func root(package:Int) -> [UInt8]
     {
         Documentation.URI.encode(component: self.packages[package].id.name.utf8)
     }
-    fileprivate 
     func root(namespace module:Int) -> [UInt8]
     {
         if case .community(let package) = self.packages[self.modules[module].package].id
@@ -30,12 +26,10 @@ extension Biome
             return []
         }
     }
-    fileprivate 
     func trunk(namespace module:Int) -> [UInt8]
     {
         Documentation.URI.encode(component: self.modules[module].id.title.utf8)
     }
-    fileprivate 
     func stem(witness:Int, victim:Int?) -> (stem:[[UInt8]], leaf:[UInt8])
     {
         var stem:[[UInt8]] = []
@@ -75,7 +69,6 @@ extension Biome
             leaf: self.leaf(packageSearchIndex: package)), 
             query: nil)
     }
-    fileprivate 
     func uri(package:Int) -> Documentation.URI  
     {
         .init(path: .init(
@@ -84,7 +77,6 @@ extension Biome
             leaf: []), 
             query: nil)
     }
-    fileprivate 
     func uri(module:Int) -> Documentation.URI 
     {
         .init(path: .init(
@@ -94,7 +86,6 @@ extension Biome
             leaf: []), 
             query: nil)
     }
-    
     func uri(witness:Int, victim:Int?, routing:Documentation.RoutingTable) -> Documentation.URI   
     {
         let path:Documentation.URI.Path, 
@@ -222,11 +213,11 @@ struct Documentation:Sendable
             // case root 
             //  '/' 'swift-standard-library'
             //  '/' 'swift-standard-library' '/search' ( '.' 'json' )
-            case package(UInt, stem:UInt, leaf:UInt)
+            case package(Int, stem:UInt, leaf:UInt)
             //  '/' 'swift'
             //  '/' 'swift-nio/niocore'
             //  '/' 'swift-nio/niocore' '/foo/bar' ( '.' 'baz(_:)' ) ( '?overload=' 's:xxx' )
-            case namespaced(UInt, stem:UInt, leaf:UInt, overload:Int?)
+            case namespaced(Int, stem:UInt, leaf:UInt, overload:Int?)
             //  '?overload=' 's:xxx' '&self=' 's:yyy'
             //  note: victim can be `nil` if the symbol is mythical, and is not synthesized
             case resolution(witness:Int, victim:Int?)
@@ -268,6 +259,52 @@ struct Documentation:Sendable
             {
                 self.stem = stem 
                 self.leaf = leaf 
+            }
+            
+            // does *not* expect a leading slash
+            static 
+            func normalize(joined path:Substring.UTF8View, changed:inout Bool) -> Self
+            {
+                let dot:String.Index            = path.firstIndex(of: 0x2e) ?? path.endIndex
+                var stem:[Substring.UTF8View]   = path[..<dot].split(separator: 0x2f, 
+                    omittingEmptySubsequences: false)
+
+                let leaf:Substring.UTF8View
+                switch stem.last?.isEmpty
+                {
+                case nil, true?: 
+                    //  if the stem ends with a slash, it will end in an empty substring. 
+                    //  in this case, preserve the leading dot, and consider it part of the 
+                    //  leaf. this allows us to redirect the range operator URI 
+                    //
+                    //      '/reference/swift/comparable/...(_:_:)'
+                    //
+                    //  to its canonical form:
+                    //
+                    //      '/reference/swift/comparable....(_:_:)'
+                    // 
+                    //  we don’t need any special logic for top-level operators that begin 
+                    //  with a dot, because we have not parsed the root or trunk segments.
+                    // 
+                    //  leaves are allowed at the top level, banning them would require 
+                    //  us to recursively check `stem.last`, since there could be multiple 
+                    //  consecutive slashes.
+                    leaf = path[dot...]
+                case false?: 
+                    leaf = path[dot...].dropFirst()
+                }
+                
+                let count:Int = stem.count
+                    stem.removeAll(where: \.isEmpty)
+                if  stem.count != count 
+                {
+                    // path contained consecutive slashes
+                    changed = true 
+                }
+                
+                return self.init(
+                    stem: URI.normalize(path:      stem, changed: &changed), 
+                    leaf: URI.normalize(component: leaf, changed: &changed))
             }
             
             var description:String 
@@ -324,76 +361,31 @@ struct Documentation:Sendable
         case ambiguous
     }
     
-    struct Table<Key> where Key:Hashable 
-    {
-        private 
-        var table:[Key: UInt]
-        
-        init() 
-        {
-            self.table = [:]
-        }
-        
-        subscript(key:Key) -> UInt? 
-        {
-            _read 
-            {
-                yield self.table[key]
-            }
-            _modify
-            {
-                yield &self.table[key]
-            }
-        }
-        
-        mutating 
-        func register(_ key:Key) -> UInt 
-        {
-            var counter:UInt = .init(self.table.count)
-            self.table.merge(CollectionOfOne<(Key, UInt)>.init((key, counter))) 
-            { 
-                (current:UInt, _:UInt) in 
-                counter = current 
-                return current 
-            }
-            return counter
-        }
-    }
     struct RoutingTable 
     {
         let prefix:String
+        let whitelist:Set<Int> // module indices
         private(set)
-        var rootless:Set<UInt>, // trunk keys
-            operators:Set<UInt>, // leaf keys
+        var greenlist:Set<UInt>, // leaf keys
             overloads:[URI.Query: URI.Overloading],
             routes:[URI.Resolved: Index],
-            greens:Table<[UInt8]>, 
-            trunks:Table<[UInt8]>, 
-            roots:Table<[UInt8]>
+            greens:[[UInt8]: UInt]
+        let trunks:[[UInt8]: Int], 
+            roots:[[UInt8]: Int]
         
-        init(prefix:String) 
+        init(prefix:String, biome:Biome) 
         {
             self.prefix     = prefix 
             
-            self.rootless   = [ ]
-            self.operators  = [ ]
-            self.overloads  = [:]
-            self.routes     = [:]
-            self.greens     = .init()
-            self.trunks     = .init()
-            self.roots      = .init()
-        }
-        
-        mutating 
-        func populate(from biome:Biome)
-        {
+            var whitelist:Set<Int>      = [ ]
+            var roots:[[UInt8]: Int]    = [:]
             for index:Int in biome.packages.indices
             {
-                self.publish(packageSearchIndex: index, from: biome)
-                self.publish(package: index, from: biome)
-                // set up redirects 
+                roots[biome.root(package: index)] = index
+                
                 if case .swift = biome.packages[index].id 
                 {
+                    // redirect standard library names 
                     for name:String in 
                     [
                         "standard-library", 
@@ -401,9 +393,27 @@ struct Documentation:Sendable
                         "stdlib"
                     ]
                     {
-                        self.publish(package: index, under: [UInt8].init(name.utf8))
+                        roots[[UInt8].init(name.utf8)] = index
                     }
+                    // whitelist standard library modules 
+                    whitelist.formUnion(biome.packages[index].modules)
                 }
+            }
+            self.roots      = roots
+            self.trunks     = .init(uniqueKeysWithValues: biome.modules.indices.map 
+            {
+                (biome.trunk(namespace: $0), $0)
+            })
+            self.greens     = [[]: 0]
+            self.routes     = [:]
+            self.overloads  = [:]
+            self.greenlist  = [ ]
+            self.whitelist  = whitelist
+            
+            for index:Int in biome.packages.indices
+            {
+                self.publish(packageSearchIndex: index, from: biome)
+                self.publish(package: index, from: biome)
             }
             for index:Int in biome.modules.indices
             {
@@ -424,42 +434,37 @@ struct Documentation:Sendable
         }
         
         private mutating 
+        func register(green key:[UInt8]) -> UInt 
+        {
+            var counter:UInt = .init(self.greens.count)
+            self.greens.merge(CollectionOfOne<([UInt8], UInt)>.init((key, counter))) 
+            { 
+                (current:UInt, _:UInt) in 
+                counter = current 
+                return current 
+            }
+            return counter
+        }
+        
+        private mutating 
         func publish(packageSearchIndex package:Int, from biome:Biome) 
         {
             self.publish(.packageSearchIndex(package), 
-                disambiguated: .package(self.roots.register(biome.root(package: package)), 
-                stem:   self.greens.register(URI.concatenate(normalized: biome.stem(packageSearchIndex: package))), 
-                leaf:   self.greens.register(biome.leaf(packageSearchIndex: package))))
+                disambiguated: .package(package, 
+                stem:   self.register(green: URI.concatenate(normalized: biome.stem(packageSearchIndex: package))), 
+                leaf:   self.register(green: biome.leaf(packageSearchIndex: package))))
         }
         private mutating 
         func publish(package:Int, from biome:Biome) 
         {
-            self.publish(package: package, under: biome.root(package: package))
-        }
-        private mutating 
-        func publish(package:Int, under name:[UInt8]) 
-        {
-            let empty:UInt = self.greens.register([])
-            self.publish(.package(package), 
-                disambiguated: .package(self.roots.register(name), 
-                stem:   empty, 
-                leaf:   empty))
+            self.publish(.package(package), disambiguated: 
+                .package(package, stem: 0, leaf: 0))
         }
         private mutating 
         func publish(module:Int, from biome:Biome) 
         {
-            let empty:UInt = self.greens.register([])
-            let trunk:UInt = self.trunks.register(biome.trunk(namespace: module))
-            self.publish(.module(module), 
-                disambiguated: .namespaced(trunk, 
-                stem:   empty, 
-                leaf:   empty, 
-                overload: nil))
-            // whitelist standard library modules 
-            if case .swift = biome.packages[biome.modules[module].package].id 
-            {
-                self.rootless.insert(trunk)
-            }
+            self.publish(.module(module), disambiguated: 
+                .namespaced(module, stem: 0, leaf: 0, overload: nil))
         }
         private mutating 
         func publish(witness:Int, victim:Int?, from biome:Biome) 
@@ -469,16 +474,15 @@ struct Documentation:Sendable
             if let namespace:Int = biome.symbols[victim ?? witness].namespace
             {
                 let normalized:(stem:[[UInt8]], leaf:[UInt8]) = biome.stem(witness: witness, victim: victim)
-                let trunk:UInt  = self.trunks.register(biome.trunk(namespace: namespace))
-                let stem:UInt   = self.greens.register(URI.concatenate(normalized: normalized.stem))
-                let leaf:UInt   = self.greens.register(normalized.leaf)
-                // whitelist operator leaves so they can recieve permanent redirects 
+                let stem:UInt   = self.register(green: URI.concatenate(normalized: normalized.stem))
+                let leaf:UInt   = self.register(green: normalized.leaf)
+                // greenlist operator leaves so they can recieve permanent redirects 
                 // instead of temporary redirects 
                 if case .operator = biome.symbols[witness].kind 
                 {
-                    self.operators.insert(leaf)
+                    self.greenlist.insert(leaf)
                 }
-                selector = .namespaced(trunk, stem: stem, leaf: leaf, overload: nil)
+                selector = .namespaced(namespace, stem: stem, leaf: leaf, overload: nil)
             }
             else 
             {
@@ -557,18 +561,17 @@ struct Documentation:Sendable
             {
                 return nil
             }
-            guard let root:UInt         = self.roots[first]
+            guard let root:Int          = self.roots[first]
             else 
             {
-                if  let trunk:UInt  = self.trunks[first], 
+                if  let trunk:Int       = self.trunks[first], 
                     let (index, assigned):(Index, assigned:Bool) = self.resolve(namespace: trunk, 
                     stem: path.stem.dropFirst(), 
                     leaf: path.leaf, 
                     overload: witness)
                 {
-                    // modules names are currently unique, but only make this a permanent 
-                    // redirect if it’s a standard library module
-                    return (index, assigned ? self.rootless.contains(trunk) : false)
+                    // only allow whitelisted modules to be referenced without a package prefix
+                    return (index, assigned ? self.whitelist.contains(trunk) : false)
                 }
                 else 
                 {
@@ -576,7 +579,7 @@ struct Documentation:Sendable
                 }
             }
             if  let second:[UInt8]  = components.next(),
-                let trunk:UInt      = self.trunks[second]
+                let trunk:Int       = self.trunks[second]
             {
                 return self.resolve(namespace: trunk, 
                     stem: path.stem.dropFirst(2), 
@@ -591,8 +594,7 @@ struct Documentation:Sendable
             }
             return self.routes[.package(root, stem: stem, leaf: leaf)].map { ($0, true) }
         }
-        private 
-        func resolve(namespace:UInt, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) -> (index:Index, assigned:Bool)?
+        func resolve(namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) -> (index:Index, assigned:Bool)?
         {
             if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
                 let leafKey:UInt    = self.greens[leaf], 
@@ -617,11 +619,11 @@ struct Documentation:Sendable
                 return nil
             }
             let fallback:URI.Resolved = .namespaced(namespace, stem: stemKey, leaf: leafKey, overload: overload)
-            if  self.operators.contains(leafKey),
+            // only allow greenlisted leaves (currently, operators) to recieve a 
+            // permanent redirect
+            if  self.greenlist.contains(leafKey),
                 let index:Index     = self.routes[fallback]
             {
-                // only consider this a permanent redirect if the fallback leaf is 
-                // an operator
                 return (index, true)
             }
             else if stem.dropFirst().isEmpty,
@@ -639,13 +641,42 @@ struct Documentation:Sendable
     
     let biome:Biome 
     let routing:RoutingTable
-    let packages:[Article], 
-        modules:[Article], 
-        symbols:[Article] 
+    private(set)
+    var modules:[Comment], 
+        symbols:[Comment] 
     
     private(set)
     var search:[Resource] 
 
+    private static
+    func load(package:Biome.Package.ID, module:Biome.Module.ID, article path:[String], // hashingInto version:inout Resource.Version,
+        with load:(_ package:Biome.Package.ID, _ path:[String], _ type:Resource.Text) 
+        async throws -> Resource) 
+        async throws -> String?
+    {
+        guard let last:String = path.last 
+        else 
+        {
+            // ignore empty path 
+            return nil
+        }
+        var filepath:[String] = ["\(module.string).docc"]
+        filepath.append(contentsOf: path.dropLast())
+        filepath.append("\(last).md")
+        // TODO: handle versioning
+        switch try await load(package, filepath, .markdown)
+        {
+        case    .text   (let string, type: .markdown, version: _):
+            return string
+        case    .bytes  (let bytes,  type: .markdown, version: _):
+            return String.init(decoding: bytes, as: Unicode.UTF8.self)
+        case    .text   (_, type: let type, version: _),
+                .bytes  (_, type: let type, version: _):
+            throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.markdown.description)
+        case    .binary (_, type: let type, version: _):
+            throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.markdown.description)
+        }
+    }
     
     public 
     init(prefix:String, products descriptors:[Biome.Package.ID: [Biome.Target]], 
@@ -653,68 +684,77 @@ struct Documentation:Sendable
         async throws -> Resource) 
         async throws 
     {
-        let (products, targets):([Biome.Product], [Biome.Target]) = Biome.flatten(
-            descriptors: descriptors)
+        let (products, targets):([Biome.Product], [Biome.Target]) = 
+            Biome.flatten(descriptors: descriptors)
         let (biome, comments):(Biome, [String]) = try await Biome.load(
             products: products, 
             targets: targets, 
             loader: load)
+        var routing:RoutingTable = .init(prefix: prefix, biome: biome)
+        Swift.print("initialized routing table")
         
         Swift.print("starting article loading")
-        var articles:[String] = []
+        
+        self.symbols = .init(repeating: .init(), count: biome.symbols.count)
+        self.modules = .init(repeating: .init(), count: biome.modules.count)
+        
+        for (symbol, comment):(Int, String) in zip(biome.symbols.indices, _move(comments)) 
+            where !comment.isEmpty
+        {
+            guard case nil = biome.symbols[symbol].commentOrigin
+            else 
+            {
+                // don’t re-render duplicated docs 
+                continue 
+            }
+            guard let namespace:Int = biome.symbols[symbol].namespace
+            else 
+            {
+                // FIXME: some mythical symbols actually do have documentation, 
+                // which is being lost 
+                continue 
+            }
+            let (summary, discussion, errors):(ArticleElement?, [ArticleElement], [Error]) = 
+                ArticleRenderer.render(comment: comment, 
+                    biome: biome, 
+                    routing: routing, 
+                    context: (namespace: namespace, path: ()))
+            self.symbols[symbol].update(summary: summary, discussion: discussion, errors: errors)
+        }
+        
         for package:Biome.Package in biome.packages 
         {
-            for module:Biome.Target in targets[package.modules]
+            for (module, target):(Int, Biome.Target) in zip(package.modules, targets[package.modules])
             {
-                for path:[String] in module.articles 
+                for path:[String] in target.articles 
                 {
-                    // TODO: handle versioning
-                    switch try await load(package.id, ["\(module.id.string).docc"] + path, .plain)
+                    guard let source:String = try await Self.load(
+                        package: package.id, module: target.id, article: path, with: load)
+                    else 
                     {
-                    case    .text   (let string, type: .plain, version: _):
-                        articles.append(string)
-                    case    .bytes  (let bytes,  type: .plain, version: _):
-                        articles.append(String.init(decoding: bytes, as: Unicode.UTF8.self))
-                    case    .text   (_, type: let type, version: _),
-                            .bytes  (_, type: let type, version: _):
-                        throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.plain.description)
-                    case    .binary (_, type: let type, version: _):
-                        throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.plain.description)
+                        continue 
+                    }
+                    let (owner, discussion, errors):(ArticleOwner, [ArticleElement], [Error]) = 
+                        ArticleRenderer.render(article: source, 
+                            biome: biome, 
+                            routing: routing, 
+                            context: (namespace: module, path: ()))
+                    switch owner
+                    {
+                    case .module(summary: let summary, index: let module):
+                        self.modules[module].update(summary: summary, discussion: discussion, errors: errors)
+                    case .symbol(summary: let summary, index: let witness):
+                        self.symbols[witness].update(summary: summary, discussion: discussion, errors: errors)
+                    
+                    case .free(title: let title): 
+                        Swift.print(title)
+                        break
                     }
                 }
             }
         }
         Swift.print("finished article loading")
         
-        var routing:RoutingTable = .init(prefix: prefix)
-            routing.populate(from: biome)
-        
-        // render articles 
-        for article:String in articles
-        {
-            var renderer:MarkdownDiagnostic.Renderer = .init(biome: biome, routing: routing)
-            let (summary, toplevel):(_, _) = renderer.render(comment: article)
-            Swift.print("---")
-            for error:MarkdownDiagnostic in renderer.errors 
-            {
-                Swift.print(error)
-            }
-        }
-        
-        self.symbols    = zip(biome.symbols, _move(comments)).map 
-        {
-            if case _?  = $0.0.commentOrigin 
-            {
-                // don’t re-render duplicated docs 
-                return .init()
-            }
-            else 
-            {
-                return .init(comment: $0.1, biome: biome, routing: routing)
-            }
-        }
-        self.modules    = .init(repeating: .init(), count: biome.modules.count)
-        self.packages   = .init(repeating: .init(), count: biome.packages.count)
         
         self.search     = biome.searchIndices(routing: routing)
         self.routing    = routing
@@ -738,33 +778,6 @@ struct Documentation:Sendable
                 }
             }
         } */
-        
-        var _memory:Int 
-        {
-            self.modules.reduce(0)
-            {
-                $0 + $1.size
-            }
-            +
-            self.symbols.reduce(0)
-            {
-                $0 + $1.size
-            }
-        }
-        Swift.print("rendered \(self.modules.count + self.symbols.count) articles (\(_memory >> 10) KB)")
-        
-        for module:Biome.Module in self.biome.modules
-        {
-            var errors:Int = 0
-            for index:Int in module.allSymbols
-            {
-                errors += self.symbols[index].errors.count
-            }
-            if errors > 0 
-            {
-                Swift.print("note: \(errors) linter warnings(s) in module '\(module.id.string)'")
-            }
-        }
     }
     
     func uri(packageSearchIndex package:Int) -> URI  

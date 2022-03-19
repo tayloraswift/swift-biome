@@ -15,10 +15,10 @@ extension Biome
         {
             .init(self.id.title)
         }
-        var allSymbols:FlattenSequence<[Range<Int>]>
+        /* var allSymbols:FlattenSequence<[Range<Int>]>
         {
             ([self.symbols.core] + self.symbols.extensions.map(\.symbols)).joined()
-        }
+        } */
         
         init(id:ID, package:Int, core:Range<Int>, extensions:[(bystander:Int, symbols:Range<Int>)])
         {

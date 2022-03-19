@@ -5,33 +5,29 @@ extension Documentation
 {
     enum ArticleError:Error 
     {
-        case legacyAside(Comment.LegacyAsideFieldError) 
-        case parameters(Comment.ParametersFieldError)
-        case returns(Comment.ReturnsFieldError)
+        case emptyImageSource
+        case emptyLinkDestination
         
-        case markdown(MarkdownDiagnostic)
+        case ambiguousSymbolLink(URI.Path, overload:Int?)
+        case undefinedSymbolLink(URI.Path, overload:Int?)
+        case unsupportedMarkdown(String)
     }
-}
-extension Documentation.Comment 
-{
-    enum LegacyAsideFieldError:Error 
+    
+    enum CommentError:Error 
     {
-        case unsupported(keywords:[String]) 
-    }
-    enum ReturnsFieldError:Error 
-    {
-        case empty 
-        case duplicate(section:[HTML.Element<Never>])
-    }
-    enum ParametersFieldError:Error, CustomStringConvertible
-    {
-        case empty(parameter:String?) 
+        case unsupportedMagicKeywords([String]) 
         
-        case invalidListItem(HTML.Element<Never>)
-        case invalidList(HTML.Element<Never>)
-        case multipleLists([HTML.Element<Never>])
+        case emptyReturnsField
+        case emptyParameterField(name:String?) 
+        case emptyParameterList
         
-        var description:String 
+        case multipleReturnsFields([HTML.Element<Never>], [HTML.Element<Never>])
+        
+        case invalidParameterListItem(HTML.Element<Never>)
+        case invalidParameterList(HTML.Element<Never>)
+        case multipleParameterLists(HTML.Element<Never>, HTML.Element<Never>)
+        
+        /* var description:String 
         {
             switch self 
             {
@@ -64,6 +60,6 @@ extension Documentation.Comment
                     '''
                     """
             }
-        }
+        } */
     }
 }

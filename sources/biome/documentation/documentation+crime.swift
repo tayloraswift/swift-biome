@@ -73,7 +73,7 @@ extension Documentation
                 }
             }
         }
-        var substitutions:[Anchor: Element] = self.packages[index].substitutions
+        var substitutions:[Anchor: Element] = [:]
             substitutions[.navigator]       = Self.navigator(for: package)
             substitutions[.introduction]    = Self.introduction(for: package)
         return Self.page(title: package.name, substitutions: substitutions, filter: filter, dynamic: dynamic)

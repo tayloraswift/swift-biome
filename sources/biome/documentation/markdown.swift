@@ -2,40 +2,117 @@ import Markdown
 import StructuredDocument 
 import HTML
 
-enum MarkdownDiagnostic:Error 
+extension Documentation
 {
-    case unsupported(markup:Markup)
-    case missingImageSource
-    case missingLinkDestination
-    case missingSymbolLinkDestination
-    
-    struct Renderer 
+    typealias ArticleRenderingContext = 
+    (
+        namespace:Int,
+        path:Void
+    )
+    struct ArticleRenderer 
     {
         typealias Element = HTML.Element<Never>
         
         let biome:Biome 
-        let routing:Documentation.RoutingTable
+        let routing:RoutingTable
+        let context:ArticleRenderingContext
         
-        var errors:[MarkdownDiagnostic]
+        var errors:[Error]
         
-        init(biome:Biome, routing:Documentation.RoutingTable)
+        static 
+        func render(article:String, biome:Biome, routing:RoutingTable, context:ArticleRenderingContext) 
+            -> (owner:ArticleOwner, body:[Element], errors:[Error])
         {
-            self.biome      = biome 
-            self.routing    = routing
-            self.errors     = []
+            var renderer:Self = self.init(biome: biome, routing: routing, context: context)
+            let (owner, body):(ArticleOwner, [Element]) = renderer.render(article: 
+                Markdown.Document.init(parsing: article).blockChildren)
+            return (owner, body, renderer.errors)
         }
-        
-        mutating 
-        func render(comment:String) -> (head:Element?, body:[Element])
+        static 
+        func render(comment:String, biome:Biome, routing:RoutingTable, context:ArticleRenderingContext) 
+            -> (head:Element?, body:[Element], errors:[Error])
         {
             guard !comment.isEmpty 
             else 
             {
-                return (nil, [])
+                return (nil, [], [])
             }
-            let document:Markdown.Document = .init(parsing: comment)
-            var blocks:LazyMapSequence<MarkupChildren, BlockMarkup>.Iterator = 
-                document.blockChildren.makeIterator()
+            var renderer:Self = self.init(biome: biome, routing: routing, context: context)
+            let (head, body):(Element?, [Element]) = renderer.render(comment: 
+                Markdown.Document.init(parsing: comment).blockChildren, rank: 1)
+            return (head, body, renderer.errors)
+        }
+
+        private 
+        init(biome:Biome, routing:RoutingTable, context:ArticleRenderingContext)
+        {
+            self.biome      = biome 
+            self.routing    = routing
+            self.context    = context
+            self.errors     = []
+        }
+        // comments can have any number of h1’s, embedded in them,
+        // which will turn into h2s. if the comment starts with an h1, 
+        // it will go into the body, and the summary will show 
+        // “no overview available”
+        private mutating 
+        func render<S>(article blocks:S) -> (owner:ArticleOwner, body:[Element])
+            where S:Sequence, S.Iterator:Sequence, S.Element == BlockMarkup
+        {
+            var blocks:S.Iterator = blocks.makeIterator()
+            guard   let first:any BlockMarkup = blocks.next()
+            else 
+            {
+                fatalError("article is completely empty")
+            }
+            guard   let heading:Heading = first as? Heading, 
+                        heading.level == 1
+            else 
+            {
+                let title:String    = "(untitled)"
+                var body:[Element]  = [self.render(block: first, rank: 0)]
+                while let next:any BlockMarkup = blocks.next()
+                {
+                    body.append(self.render(block: next, rank: 0))
+                }
+                return (.free(title: title), body)
+            }
+            // for some reason, `Heading.inlineChildren.first` appears to be broken
+            // this is probably because `any` lookup doesn’t work with `Self.first`
+            // and `Self.first(where:)` overloading...
+            let _inline:[InlineMarkup]          = .init(heading.inlineChildren)
+            guard   _inline.count <= 1,
+                let inline:InlineMarkup         = _inline.first,
+                let owner:SymbolLink            = inline as? SymbolLink,
+                let owner:Documentation.Index   = try? self.resolve(link: owner)
+            else 
+            {
+                let title:String    = heading.plainText
+                let body:[Element]  = blocks.map 
+                {
+                    self.render(block: $0, rank: 0)
+                }
+                return (.free(title: title), body)
+            }
+            // consider the remainder of the document a comment, but do not 
+            // demote the header rank
+            let (head, body):(Element?, [Element]) = 
+                self.render(comment: blocks, rank: 0)
+            switch owner 
+            {
+            case .module(let index):
+                return (.module(summary: head, index: index), body)
+            case .symbol(let witness, victim: nil):
+                return (.symbol(summary: head, index: witness), body)
+            default: 
+                fatalError("unsupported")
+            }
+        }
+        private mutating 
+        func render<S>(comment blocks:S, rank:Int) -> (head:Element?, body:[Element])
+            where S:Sequence, S.Element == BlockMarkup
+        {
+            var blocks:S.Iterator = blocks.makeIterator()
             guard let first:BlockMarkup = blocks.next()
             else 
             {
@@ -47,23 +124,21 @@ enum MarkdownDiagnostic:Error
             {
                 head = self.render(span: paragraph, as: .p)
                 body = []
-                body.reserveCapacity(document.childCount - 1)
             }
             else 
             {
                 head = nil 
-                body = [self.render(block: first, rank: 1)]
-                body.reserveCapacity(document.childCount)
+                body = [self.render(block: first, rank: rank)]
             }
             while let next:BlockMarkup = blocks.next()
             {
-                body.append(self.render(block: next, rank: 1))
+                body.append(self.render(block: next, rank: rank))
             }
             return (head, body)
         }
         
         // general 
-        mutating 
+        /* private mutating 
         func render(document:Markdown.Document, rank:Int = 0) -> Element 
         {
             Element[.main]
@@ -73,7 +148,7 @@ enum MarkdownDiagnostic:Error
                     self.render(block: block, rank: rank)
                 }
             }
-        }
+        } */
         private mutating 
         func render<Aside>(aside:Aside, as container:HTML.Container, rank:Int) -> Element 
             where Aside:BasicBlockContainer
@@ -128,7 +203,7 @@ enum MarkdownDiagnostic:Error
             case is ThematicBreak: 
                 return Element[.hr]
             case let unsupported: 
-                self.errors.append(.unsupported(markup: unsupported))
+                self.errors.append(ArticleError.unsupportedMarkdown(unsupported.debugDescription()))
                 return Element[.div]
                 {
                     "(unsupported block markdown node '\(type(of: unsupported))')"
@@ -234,17 +309,17 @@ enum MarkdownDiagnostic:Error
         private mutating 
         func render(image:Image) -> Element
         {        
-            if case nil = image.source
-            {
-                self.errors.append(.missingImageSource)
-            }
             return Element[.figure]
             {
                 Element[.img]
                 {
-                    if let source:String = image.source 
+                    if let source:String = image.source, !source.isEmpty
                     {
                         (source, as: HTML.Src.self)
+                    }
+                    else 
+                    {
+                        let _:Void = self.errors.append(ArticleError.emptyImageSource)
                     }
                     if let title:String = image.title 
                     {
@@ -257,10 +332,10 @@ enum MarkdownDiagnostic:Error
         private mutating 
         func render(link:Link) -> Element
         {
-            guard let target:String = link.destination
+            guard let target:String = link.destination, !target.isEmpty
             else 
             {
-                self.errors.append(.missingLinkDestination)
+                self.errors.append(ArticleError.emptyLinkDestination)
                 return self.render(span: link, as: .span)
             }
             return Element[.a]
@@ -278,18 +353,127 @@ enum MarkdownDiagnostic:Error
             }
         }
         private mutating 
-        func render(symbollink link:SymbolLink) -> Element
+        func render(link:SymbolLink) -> Element
         {
-            guard let path:String = link.destination
-            else 
+            let components:[(text:String, uri:URI)], 
+                tail:(text:String, uri:URI)
+            do 
             {
-                self.errors.append(.missingSymbolLinkDestination)
-                return Element[.code] { "<empty symbol path>" }
+                switch try self.resolve(link: link) 
+                {
+                case .ambiguous, .packageSearchIndex: 
+                    fatalError("unreachable")
+                case .package(let package):
+                    components  = []
+                    tail        = 
+                    (
+                        self.biome.packages[package].id.name,
+                        self.biome.uri(package: package)
+                    )
+                case .module(let module):
+                    components  = []
+                    tail        = 
+                    (
+                        self.biome.modules[module].title,
+                        self.biome.uri(module: module)
+                    )
+                case .symbol(let witness, victim: let victim):
+                    var reversed:[(text:String, uri:URI)] = []
+                    var next:Int?       = victim ?? self.biome.symbols[witness].parent
+                    while let index:Int = next
+                    {
+                        reversed.append(
+                            (
+                                self.biome.symbols[index].title, 
+                                self.biome.uri(witness: index, victim: nil, routing: self.routing)
+                            ))
+                        next    = self.biome.symbols[index].parent
+                    }
+                    components  = reversed.reversed()
+                    tail        = 
+                    (
+                        self.biome.symbols[witness].title, 
+                        self.biome.uri(witness: witness, victim: victim, routing: self.routing)
+                    )
+                }
+            }
+            catch let error 
+            {
+                self.errors.append(error)
+                return Element[.code] { link.destination ?? "<empty symbol path>" }
             }
             return Element[.code]
             {
-                path
+                // unlike in breadcrumbs, we print the dot separators explicitly 
+                // so they look normal when highlighted and copy-pasted 
+                for (text, uri):(String, URI) in components 
+                {
+                    Element.link(text, to: self.biome.print(prefix: self.routing.prefix, uri: uri), internal: true)
+                    Element.text(escaped: ".")
+                }
+                Element.link(tail.text, to: self.biome.print(prefix: self.routing.prefix, uri: tail.uri), internal: true)
             }
+        }
+        private 
+        func resolve(link:SymbolLink) throws -> Documentation.Index 
+        {
+            guard   let destination:String  = link.destination, 
+                    let first:Character     = destination.first
+            else 
+            {
+                throw ArticleError.undefinedSymbolLink(.init(stem: [], leaf: []), overload: nil)
+            }
+            
+            Swift.print("resolving symbol link ``\(destination)``")
+            
+            //  ``relativename`` -> ['package-name/relativename', 'package-name/modulename/relativename']
+            //  ``/absolutename`` -> ['absolutename']
+            let path:URI.Path
+            let resolved:Documentation.Index
+            var ignored:Bool    = false 
+            if first == "/"
+            {
+                path = .normalize(joined: destination.dropFirst().utf8[...], changed: &ignored)
+                if let (index, _):(Documentation.Index, Bool) = self.routing.resolve(path: path, overload: nil)
+                {
+                    resolved = index
+                }
+                else 
+                {
+                    throw ArticleError.undefinedSymbolLink(path, overload: nil)
+                }
+            }
+            else 
+            {
+                path = .normalize(joined: destination.utf8[...], changed: &ignored)
+                if      let first:[UInt8] = path.stem.first, 
+                            first == self.biome.trunk(namespace: self.context.namespace),
+                        let (index, _):(Documentation.Index, Bool) = self.routing.resolve(
+                            namespace: self.context.namespace, 
+                            stem: path.stem.dropFirst(1), 
+                            leaf: path.leaf, 
+                            overload: nil)
+                {
+                    resolved = index 
+                }
+                else if let (index, _):(Documentation.Index, Bool) = self.routing.resolve(
+                            namespace: self.context.namespace, 
+                            stem: path.stem[...], 
+                            leaf: path.leaf, 
+                            overload: nil)
+                {
+                    resolved = index 
+                }
+                else 
+                {
+                    throw ArticleError.undefinedSymbolLink(path, overload: nil)
+                }
+            }
+            if case .ambiguous = resolved 
+            {
+                throw ArticleError.ambiguousSymbolLink(path, overload: nil)
+            }
+            return resolved
         }
         private mutating 
         func render(inline:any InlineMarkup) -> Element
@@ -320,10 +504,10 @@ enum MarkdownDiagnostic:Error
             case let link as Link: 
                 return self.render(link: link)
             case let link as SymbolLink: 
-                return self.render(symbollink: link)
+                return self.render(link: link)
                 
             case let unsupported: 
-                self.errors.append(.unsupported(markup: unsupported))
+                self.errors.append(ArticleError.unsupportedMarkdown(unsupported.debugDescription()))
                 return Element[.div]
                 {
                     "(unsupported inline markdown node '\(type(of: unsupported))')"

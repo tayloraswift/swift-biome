@@ -60,61 +60,20 @@ extension Documentation
                 return .init(stem: [], leaf: [])
             }
         }
-        var path:Substring.UTF8View = path[start...].utf8
+        let path:Substring.UTF8View = path[start...].utf8
         switch path.first 
         {
         case 0x2f?: 
-            break 
+            return .normalize(joined: path.dropFirst(), changed: &changed)
+        
         case _?: // does not start with a '/'
             changed = true 
-            fallthrough 
+            return .init(stem: [], leaf: [])
+        
         case nil: 
             // is completely empty (except for the prefix)
             return .init(stem: [], leaf: [])
         }
-        
-        path = path.dropFirst()
-        
-        let dot:String.Index            = path.firstIndex(of: 0x2e) ?? path.endIndex
-        var stem:[Substring.UTF8View]   = path[..<dot].split(separator: 0x2f, 
-            omittingEmptySubsequences: false)
-
-        let leaf:Substring.UTF8View
-        switch stem.last?.isEmpty
-        {
-        case nil, true?: 
-            //  if the stem ends with a slash, it will end in an empty substring. 
-            //  in this case, preserve the leading dot, and consider it part of the 
-            //  leaf. this allows us to redirect the range operator URI 
-            //
-            //      '/reference/swift/comparable/...(_:_:)'
-            //
-            //  to its canonical form:
-            //
-            //      '/reference/swift/comparable....(_:_:)'
-            // 
-            //  we don’t need any special logic for top-level operators that begin 
-            //  with a dot, because we have not parsed the root or trunk segments.
-            // 
-            //  leaves are allowed at the top level, banning them would require 
-            //  us to recursively check `stem.last`, since there could be multiple 
-            //  consecutive slashes.
-            leaf = path[dot...]
-        case false?: 
-            leaf = path[dot...].dropFirst()
-        }
-        
-        let count:Int = stem.count
-            stem.removeAll(where: \.isEmpty)
-        if  stem.count != count 
-        {
-            // path contained consecutive slashes
-            changed = true 
-        }
-        
-        return .init(
-            stem: URI.normalize(path:      stem, changed: &changed), 
-            leaf: URI.normalize(component: leaf, changed: &changed))
     }
     private  
     func normalize(query:Substring?, changed:inout Bool) -> URI.Query?
