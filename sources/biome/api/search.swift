@@ -6,8 +6,8 @@ extension Biome
     private 
     func searchEntry(_ index:Int, routing:Documentation.RoutingTable) -> JSON 
     {
-        let uri:String = self.format(routing.prefix, 
-            uri: self.uri(witness: index, victim: nil, routing: routing))
+        let uri:String = self.format(uri: self.uri(witness: index, victim: nil, routing: routing), 
+            routing: routing)
         let symbol:Symbol = self.symbols[index]
         return .object(
         [

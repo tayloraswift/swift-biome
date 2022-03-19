@@ -123,7 +123,7 @@ extension Biome
         }
         return .init(base: .biome, path: path, query: query)
     }
-    func format(_ prefix:String, uri:Documentation.URI) -> String 
+    func format(uri:Documentation.URI, routing:Documentation.RoutingTable) -> String 
     {
         var utf8:[UInt8] = Documentation.URI.concatenate(normalized: uri.path.stem)
         if !uri.path.leaf.isEmpty
@@ -132,7 +132,7 @@ extension Biome
             utf8.append(contentsOf: uri.path.leaf)
         }
         
-        var string:String = "\(prefix)\(String.init(decoding: utf8, as: Unicode.UTF8.self))"
+        var string:String = "\(routing[keyPath: uri.base.offset])\(String.init(decoding: utf8, as: Unicode.UTF8.self))"
         if let query:Documentation.URI.Query = uri.query 
         {
             string += "?overload=\(self.symbols[query.witness].id.string)"
@@ -237,6 +237,15 @@ struct Documentation:Sendable
         {
             case biome 
             case learn 
+            
+            var offset:KeyPath<RoutingTable, String> 
+            {
+                switch self 
+                {
+                case .biome:    return \.base.biome
+                case .learn:    return \.base.learn
+                }
+            }
         }
         struct Path:Equatable, CustomStringConvertible, Sendable 
         {
@@ -378,12 +387,12 @@ struct Documentation:Sendable
     
     struct RoutingTable 
     {
-        let bases:(biome:String, learn:String)
+        let base:(biome:String, learn:String)
         
         @available(*, deprecated)
         var prefix:String 
         {
-            self.bases.biome
+            self.base.biome
         }
         
         let whitelist:Set<Int> // module indices
@@ -397,8 +406,8 @@ struct Documentation:Sendable
         
         init(bases:[URI.Base: String], biome:Biome) 
         {
-            self.bases.biome = bases[.biome, default: "/biome"]
-            self.bases.learn = bases[.learn, default: "/learn"]
+            self.base.biome = bases[.biome, default: "/biome"]
+            self.base.learn = bases[.learn, default: "/learn"]
             
             var whitelist:Set<Int>      = [ ]
             var roots:[[UInt8]: Int]    = [:]
@@ -823,7 +832,7 @@ struct Documentation:Sendable
     
     func print(uri:URI) -> String 
     {
-        self.biome.format(self.routing.prefix, uri: uri)
+        self.biome.format(uri: uri, routing: self.routing)
     }
     
     private 
