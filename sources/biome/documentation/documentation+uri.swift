@@ -4,6 +4,13 @@ extension Documentation
 {    
     func normalize(uri:String) -> (uri:URI, changed:Bool)
     {
+        var changed:Bool = false 
+        let uri:URI = self.normalize(uri: uri, changed: &changed)
+        return (uri, changed)
+    }
+    private 
+    func normalize(uri:String, changed:inout Bool) -> URI
+    {
         let path:Substring, 
             query:Substring?
         switch (question: uri.firstIndex(of: "?"), hash: uri.firstIndex(of: "#"))
@@ -26,42 +33,49 @@ extension Documentation
             path    = uri[...]
             query   = nil
         }
-        return self.normalize(path: path, query: query)
+        
+        let parameters:URI.Query? = self.biome.normalize(query: query, changed: &changed)
+        // linear search will probably be faster than anything else 
+        for base:URI.Base in [.biome, .learn]
+        {
+            // not currently needed, since self.normalize(base:path:changed:)
+            // only writes to `changed` on success
+            var changedThisAttempt:Bool = false
+            guard let path:URI.Path = self.normalize(base: base, path: path, changed: &changedThisAttempt)
+            else 
+            {
+                continue 
+            }
+            changed = changed || changedThisAttempt
+            
+            return .init(base: base, path: path, query: parameters)
+        }
+        
+        // bogus path prefix. this usually happens when the surrounding 
+        // server performs some kind of path normalization that doesn’t 
+        // agree with the `bases` it initialized these docs with.
+        changed = true 
+        return .init(base: .biome, path: .init(stem: [], leaf: []), query: parameters)
     }
     private 
-    func normalize(path:Substring, query:Substring?) -> (uri:URI, changed:Bool)
+    func normalize(base:URI.Base, path:Substring, changed:inout Bool) -> URI.Path?
     {
-        var changed:Bool        = false 
-        let uri:URI  = .init(
-            base: .biome,
-            path:  self.biome.normalize(path:  path,  changed: &changed, routing: self.routing),
-            query: self.biome.normalize(query: query, changed: &changed))
-        return (uri, changed)
-    }
-}
-extension Biome 
-{
-    func normalize(path:Substring, changed:inout Bool, routing:Documentation.RoutingTable) 
-        -> Documentation.URI.Path
-    {
-        var prefix:String.Iterator  = routing.prefix.makeIterator()
-        var start:String.Index      = path.endIndex
+        let prefix:String = self.routing[keyPath: base.offset]
+        var characters:String.Iterator  = prefix.makeIterator()
+        
+        var start:String.Index = path.endIndex
         for index:String.Index in path.indices
         {
-            guard let expected:Character = prefix.next() 
+            guard let expected:Character = characters.next() 
             else 
             {
                 start = index 
-                break 
+                break
             }
             guard path[index] == expected 
             else 
             {
-                // bogus path prefix. this usually happens when the surrounding 
-                // server performs some kind of path normalization that doesn’t 
-                // agree with the `prefix` it initialized these docs with.
-                changed = true 
-                return .init(stem: [], leaf: [])
+                return nil
             }
         }
         let path:Substring.UTF8View = path[start...].utf8
@@ -72,13 +86,16 @@ extension Biome
         
         case _?: // does not start with a '/'
             changed = true 
-            return .init(stem: [], leaf: [])
+            fallthrough
         
         case nil: 
             // is completely empty (except for the prefix)
             return .init(stem: [], leaf: [])
         }
     }
+}
+extension Biome 
+{
     func normalize(query:Substring?, changed:inout Bool) -> Documentation.URI.Query?
     {
         guard let query:Substring = query

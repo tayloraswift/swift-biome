@@ -389,12 +389,6 @@ struct Documentation:Sendable
     {
         let base:(biome:String, learn:String)
         
-        @available(*, deprecated)
-        var prefix:String 
-        {
-            self.base.biome
-        }
-        
         let whitelist:Set<Int> // module indices
         private(set)
         var greenlist:Set<UInt>, // leaf keys
