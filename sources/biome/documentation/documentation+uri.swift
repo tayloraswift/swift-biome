@@ -33,14 +33,17 @@ extension Documentation
     {
         var changed:Bool        = false 
         let uri:URI  = .init(
-            path:  self.normalize(path:  path,  changed: &changed),
-            query: self.normalize(query: query, changed: &changed))
+            path:  self.biome.normalize(path:  path,  changed: &changed, routing: self.routing),
+            query: self.biome.normalize(query: query, changed: &changed))
         return (uri, changed)
     }
-    private 
-    func normalize(path:Substring, changed:inout Bool) -> URI.Path
+}
+extension Biome 
+{
+    func normalize(path:Substring, changed:inout Bool, routing:Documentation.RoutingTable) 
+        -> Documentation.URI.Path
     {
-        var prefix:String.Iterator  = self.routing.prefix.makeIterator()
+        var prefix:String.Iterator  = routing.prefix.makeIterator()
         var start:String.Index      = path.endIndex
         for index:String.Index in path.indices
         {
@@ -75,8 +78,7 @@ extension Documentation
             return .init(stem: [], leaf: [])
         }
     }
-    private  
-    func normalize(query:Substring?, changed:inout Bool) -> URI.Query?
+    func normalize(query:Substring?, changed:inout Bool) -> Documentation.URI.Query?
     {
         guard let query:Substring = query
         else 
@@ -86,7 +88,7 @@ extension Documentation
         // accept empty query, as this models the lone '?' suffix, which is distinct 
         // from `nil` query
         guard let query:[(key:[UInt8], value:[UInt8])] = 
-            try? Grammar.parse(query.utf8, as: URI.Rule<String.Index>.Query.self)
+            try? Grammar.parse(query.utf8, as: Documentation.URI.Rule<String.Index>.Query.self)
         else 
         {
             changed = true 
@@ -100,12 +102,12 @@ extension Documentation
         
         for (key, value):([UInt8], [UInt8]) in query 
         {
-            let id:(witness:Biome.Symbol.ID?, victim:Biome.Symbol.ID?)
+            let id:(witness:Symbol.ID?, victim:Symbol.ID?)
             parameter:
             switch String.init(decoding: key, as: Unicode.UTF8.self)
             {
             case "self": 
-                if let victim:Biome.Symbol.ID = try? Grammar.parse(value, as: Biome.USR.Rule<Array<UInt8>.Index>.MangledName.self)
+                if let victim:Symbol.ID = try? Grammar.parse(value, as: USR.Rule<Array<UInt8>.Index>.MangledName.self)
                 {
                     // if the mangled name contained a colon ('SymbolGraphGen style')
                     // get rid of it 
@@ -119,7 +121,7 @@ extension Documentation
                 }
             
             case "overload": 
-                switch try? Grammar.parse(value, as: Biome.USR.Rule<Array<UInt8>.Index>.self) 
+                switch try? Grammar.parse(value, as: USR.Rule<Array<UInt8>.Index>.self) 
                 {
                 case nil: 
                     changed = true 
@@ -142,7 +144,7 @@ extension Documentation
                 continue  
             }
             
-            if  let index:Int = id.witness.flatMap(self.biome.symbols.index(of:))
+            if  let index:Int = id.witness.flatMap(self.symbols.index(of:))
             {
                 if case nil = witness
                 {
@@ -153,7 +155,7 @@ extension Documentation
                     changed = true 
                 }
             }
-            if  let index:Int = id.victim.flatMap(self.biome.symbols.index(of:))
+            if  let index:Int = id.victim.flatMap(self.symbols.index(of:))
             {
                 if case nil = victim
                 {

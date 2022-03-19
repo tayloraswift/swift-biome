@@ -400,10 +400,10 @@ extension Documentation
                 // so they look normal when highlighted and copy-pasted 
                 for (text, uri):(String, URI) in components 
                 {
-                    Element.link(text, to: self.biome.print(prefix: self.routing.prefix, uri: uri), internal: true)
+                    Element.link(text, to: self.biome.format(self.routing.prefix, uri: uri), internal: true)
                     Element.text(escaped: ".")
                 }
-                Element.link(tail.text, to: self.biome.print(prefix: self.routing.prefix, uri: tail.uri), internal: true)
+                Element.link(tail.text, to: self.biome.format(self.routing.prefix, uri: tail.uri), internal: true)
             }
         }
         private 

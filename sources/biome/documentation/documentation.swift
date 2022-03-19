@@ -120,7 +120,7 @@ extension Biome
         }
         return .init(path: path, query: query)
     }
-    func print(prefix:String, uri:Documentation.URI) -> String 
+    func format(_ prefix:String, uri:Documentation.URI) -> String 
     {
         var utf8:[UInt8] = Documentation.URI.concatenate(normalized: uri.path.stem)
         if !uri.path.leaf.isEmpty
@@ -223,10 +223,15 @@ struct Documentation:Sendable
             case witness   
             case crime
         }
-        enum Redirect
+        /* enum Redirect
         {
             case temporary 
             case permanent
+        } */
+        enum Base:Hashable, Sendable
+        {
+            case biome 
+            case learn 
         }
         struct Path:Equatable, CustomStringConvertible, Sendable 
         {
@@ -325,8 +330,16 @@ struct Documentation:Sendable
             }
         }
         
+        var base:Base
         var path:Path
         var query:Query?
+        
+        init(path:Path, query:Query?)
+        {
+            self.base = .biome
+            self.path = path 
+            self.query = query 
+        }
         
         var description:String 
         {
@@ -796,7 +809,7 @@ struct Documentation:Sendable
     
     func print(uri:URI) -> String 
     {
-        self.biome.print(prefix: self.routing.prefix, uri: uri)
+        self.biome.format(self.routing.prefix, uri: uri)
     }
     
     private 
