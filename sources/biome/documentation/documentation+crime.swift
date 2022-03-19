@@ -35,6 +35,10 @@ extension Documentation
         }
     }
     
+    func page(article index:Int) -> Resource
+    {
+        fatalError("unimplemented")
+    }
     func page(package index:Int, filter:[Biome.Package.ID]) -> Resource
     {
         let package:Biome.Package   = self.biome.packages[index]

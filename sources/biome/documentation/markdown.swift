@@ -353,7 +353,7 @@ extension Documentation
             {
                 switch try self.resolve(link: link) 
                 {
-                case .ambiguous, .packageSearchIndex: 
+                case .ambiguous, .article, .packageSearchIndex: 
                     fatalError("unreachable")
                 case .package(let package):
                     components  = []

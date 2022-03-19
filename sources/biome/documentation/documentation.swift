@@ -209,6 +209,7 @@ struct Documentation:Sendable
         //
         enum Resolved:Hashable, Sendable
         {
+            case article(Int, stem:UInt, leaf:UInt)
             //  '/'
             // case root 
             //  '/' 'swift-standard-library'
@@ -377,6 +378,8 @@ struct Documentation:Sendable
     }
     enum Index:Hashable, Sendable 
     {
+        case article(Int)
+        
         case packageSearchIndex(Int)
         case package(Int)
         case module(Int)
@@ -470,6 +473,15 @@ struct Documentation:Sendable
                 return current 
             }
             return counter
+        }
+        
+        mutating 
+        func publish(article:Int, namespace:Int, stem:[[UInt8]], leaf:[UInt8])
+        {
+            self.publish(.article(article), 
+                disambiguated: .article(namespace, 
+                    stem: self.register(green: URI.concatenate(normalized: stem)),
+                    leaf: self.register(green: leaf)))
         }
         
         private mutating 
@@ -669,6 +681,8 @@ struct Documentation:Sendable
     let biome:Biome 
     let routing:RoutingTable
     private(set)
+    var articles:[Article]
+    private(set)
     var modules:[Comment], 
         symbols:[Comment] 
     
@@ -717,6 +731,10 @@ struct Documentation:Sendable
             products: products, 
             targets: targets, 
             loader: load)
+        // this needs to be mutable, because we don’t know if articles are free 
+        // or owned until after we’ve built the initial routing table from the biome 
+        // (which is a `let`). the uri of an article depends on whether it has 
+        // an owner, so we need to register the free articles in a second pass.
         var routing:RoutingTable = .init(bases: directories, biome: biome)
         Swift.print("initialized routing table")
         
@@ -749,6 +767,7 @@ struct Documentation:Sendable
             self.symbols[symbol].update(summary: summary, discussion: discussion, errors: errors)
         }
         
+        self.articles = []
         for package:Biome.Package in biome.packages 
         {
             for (module, target):(Int, Biome.Target) in zip(package.modules, targets[package.modules])
@@ -774,8 +793,13 @@ struct Documentation:Sendable
                         self.symbols[witness].update(summary: summary, discussion: discussion, errors: errors)
                     
                     case .free(title: let title): 
-                        Swift.print(title)
-                        break
+                        let article:Article = .init(
+                            namespace: module, 
+                            path: path.dropFirst().map{ URI.encode(component: $0.utf8) }, 
+                            title: title, 
+                            content: discussion)
+                        routing.publish(article: self.articles.endIndex, namespace: module, stem: article.path, leaf: [])
+                        self.articles.append(article)
                     }
                 }
             }
@@ -807,6 +831,17 @@ struct Documentation:Sendable
         } */
     }
     
+    func uri(article:Int) -> URI  
+    {
+        let namespace:Int = self.articles[article].namespace
+        return .init(
+            base: .biome,
+            path: .init(
+                root:  self.biome.root(namespace:  namespace), 
+                trunk: self.biome.trunk(namespace: namespace), 
+                stem:  self.articles[article].path, 
+                leaf:  []))
+    }
     func uri(packageSearchIndex package:Int) -> URI  
     {
         self.biome.uri(packageSearchIndex: package)
@@ -913,6 +948,11 @@ struct Documentation:Sendable
         {
         case .ambiguous: 
             return nil
+        
+        case .article(let index):
+            location = self.uri(article: index)
+            resource = self.page(article: index)
+        
         case .packageSearchIndex(let index):
             location = self.uri(packageSearchIndex: index)
             resource = self.search[index]

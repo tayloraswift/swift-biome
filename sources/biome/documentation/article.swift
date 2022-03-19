@@ -392,7 +392,11 @@ extension Documentation
         case module(summary:ArticleElement?, index:Int)
         case symbol(summary:ArticleElement?, index:Int) 
     }
-    enum Article 
+    struct Article 
     {
+        let namespace:Int
+        let path:[[UInt8]]
+        let title:String
+        let content:[ArticleElement]
     }
 }
