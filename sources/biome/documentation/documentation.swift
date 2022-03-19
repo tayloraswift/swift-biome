@@ -43,17 +43,13 @@ extension Biome
         }
         
         let title:String = self.symbols[witness].title
-        switch self.symbols[witness].kind 
+        if self.symbols[witness].kind.capitalized
         {
-        case    .associatedtype, .typealias, .enum, .struct, .class, .actor, .protocol:
             stem.append(Documentation.URI.encode(component: title.utf8))
             return (stem: stem, leaf: [])
-        
-        case    .case, .initializer, .deinitializer, 
-                .typeSubscript, .instanceSubscript, 
-                .typeProperty, .instanceProperty, 
-                .typeMethod, .instanceMethod, 
-                .var, .func, .operator:
+        }
+        else 
+        {
             return (stem: stem, leaf: Documentation.URI.encode(component: title.utf8))
         }
     }
@@ -594,7 +590,8 @@ struct Documentation:Sendable
             }
             return self.routes[.package(root, stem: stem, leaf: leaf)].map { ($0, true) }
         }
-        func resolve(namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) -> (index:Index, assigned:Bool)?
+        func resolve(namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) 
+            -> (index:Index, assigned:Bool)?
         {
             if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
                 let leafKey:UInt    = self.greens[leaf], 
@@ -718,7 +715,7 @@ struct Documentation:Sendable
                 ArticleRenderer.render(comment: comment, 
                     biome: biome, 
                     routing: routing, 
-                    context: (namespace: namespace, path: ()))
+                    context: (tool: .docc, namespace: namespace, path: ()))
             self.symbols[symbol].update(summary: summary, discussion: discussion, errors: errors)
         }
         
@@ -738,7 +735,7 @@ struct Documentation:Sendable
                         ArticleRenderer.render(article: source, 
                             biome: biome, 
                             routing: routing, 
-                            context: (namespace: module, path: ()))
+                            context: (tool: .docc, namespace: module, path: ()))
                     switch owner
                     {
                     case .module(summary: let summary, index: let module):

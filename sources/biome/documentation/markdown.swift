@@ -4,11 +4,7 @@ import HTML
 
 extension Documentation
 {
-    typealias ArticleRenderingContext = 
-    (
-        namespace:Int,
-        path:Void
-    )
+    typealias ArticleRenderingContext = (tool:Tool, namespace:Int, path:Void)
     struct ArticleRenderer 
     {
         typealias Element = HTML.Element<Never>
@@ -19,13 +15,21 @@ extension Documentation
         
         var errors:[Error]
         
+        private static 
+        func parse(markdown string:String) -> LazyMapSequence<MarkupChildren, BlockMarkup> 
+        {
+            let document:Markdown.Document = .init(parsing: string, 
+                options: [ .parseBlockDirectives, .parseSymbolLinks ])
+            return document.blockChildren
+        }
+        
         static 
         func render(article:String, biome:Biome, routing:RoutingTable, context:ArticleRenderingContext) 
             -> (owner:ArticleOwner, body:[Element], errors:[Error])
         {
             var renderer:Self = self.init(biome: biome, routing: routing, context: context)
-            let (owner, body):(ArticleOwner, [Element]) = renderer.render(article: 
-                Markdown.Document.init(parsing: article).blockChildren)
+            let (owner, body):(ArticleOwner, [Element]) = 
+                renderer.render(article: Self.parse(markdown: article))
             return (owner, body, renderer.errors)
         }
         static 
@@ -38,8 +42,8 @@ extension Documentation
                 return (nil, [], [])
             }
             var renderer:Self = self.init(biome: biome, routing: routing, context: context)
-            let (head, body):(Element?, [Element]) = renderer.render(comment: 
-                Markdown.Document.init(parsing: comment).blockChildren, rank: 1)
+            let (head, body):(Element?, [Element]) = 
+                renderer.render(comment: Self.parse(markdown: comment), rank: 1)
             return (head, body, renderer.errors)
         }
 
@@ -137,18 +141,6 @@ extension Documentation
             return (head, body)
         }
         
-        // general 
-        /* private mutating 
-        func render(document:Markdown.Document, rank:Int = 0) -> Element 
-        {
-            Element[.main]
-            {
-                for block:any BlockMarkup in document.blockChildren 
-                {
-                    self.render(block: block, rank: rank)
-                }
-            }
-        } */
         private mutating 
         func render<Aside>(aside:Aside, as container:HTML.Container, rank:Int) -> Element 
             where Aside:BasicBlockContainer
@@ -417,63 +409,29 @@ extension Documentation
         private 
         func resolve(link:SymbolLink) throws -> Documentation.Index 
         {
-            guard   let destination:String  = link.destination, 
-                    let first:Character     = destination.first
+            guard let destination:String  = link.destination
             else 
             {
                 throw ArticleError.undefinedSymbolLink(.init(stem: [], leaf: []), overload: nil)
             }
             
-            Swift.print("resolving symbol link ``\(destination)``")
-            
-            //  ``relativename`` -> ['package-name/relativename', 'package-name/modulename/relativename']
-            //  ``/absolutename`` -> ['absolutename']
-            let path:URI.Path
-            let resolved:Documentation.Index
-            var ignored:Bool    = false 
-            if first == "/"
+            do 
             {
-                path = .normalize(joined: destination.dropFirst().utf8[...], changed: &ignored)
-                if let (index, _):(Documentation.Index, Bool) = self.routing.resolve(path: path, overload: nil)
+                switch self.context.tool 
                 {
-                    resolved = index
-                }
-                else 
-                {
-                    throw ArticleError.undefinedSymbolLink(path, overload: nil)
+                // “entrapta”-style symbol links
+                case .entrapta: 
+                    return try self.resolve(entrapta: destination)
+                // “docc”-style symbol links
+                case .docc:
+                    return try self.resolve(docc: destination)
                 }
             }
-            else 
+            catch let error 
             {
-                path = .normalize(joined: destination.utf8[...], changed: &ignored)
-                if      let first:[UInt8] = path.stem.first, 
-                            first == self.biome.trunk(namespace: self.context.namespace),
-                        let (index, _):(Documentation.Index, Bool) = self.routing.resolve(
-                            namespace: self.context.namespace, 
-                            stem: path.stem.dropFirst(1), 
-                            leaf: path.leaf, 
-                            overload: nil)
-                {
-                    resolved = index 
-                }
-                else if let (index, _):(Documentation.Index, Bool) = self.routing.resolve(
-                            namespace: self.context.namespace, 
-                            stem: path.stem[...], 
-                            leaf: path.leaf, 
-                            overload: nil)
-                {
-                    resolved = index 
-                }
-                else 
-                {
-                    throw ArticleError.undefinedSymbolLink(path, overload: nil)
-                }
+                Swift.print("failed to resolve symbol link '\(destination)'")
+                throw error 
             }
-            if case .ambiguous = resolved 
-            {
-                throw ArticleError.ambiguousSymbolLink(path, overload: nil)
-            }
-            return resolved
         }
         private mutating 
         func render(inline:any InlineMarkup) -> Element

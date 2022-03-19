@@ -11,6 +11,8 @@ extension Documentation
         case ambiguousSymbolLink(URI.Path, overload:Int?)
         case undefinedSymbolLink(URI.Path, overload:Int?)
         case unsupportedMarkdown(String)
+        
+        case invalidDocCSymbolLinkSuffix(String)
     }
     
     enum CommentError:Error 

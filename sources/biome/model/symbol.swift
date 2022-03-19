@@ -221,6 +221,21 @@ extension Biome.Symbol
         case  actor             = "swift.actor"
         case `protocol`         = "swift.protocol"
         
+        var capitalized:Bool 
+        {
+            switch self
+            {
+            case    .associatedtype, .typealias, .enum, .struct, .class, .actor, .protocol:
+                return true
+            case    .case, .initializer, .deinitializer, 
+                    .typeSubscript, .instanceSubscript, 
+                    .typeProperty, .instanceProperty, 
+                    .typeMethod, .instanceMethod, 
+                    .var, .func, .operator:
+                return false
+            }
+        }
+        
         public 
         var topic:Documentation.Topic.Automatic
         {
