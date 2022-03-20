@@ -561,10 +561,6 @@ extension Documentation
         }
         content:
         {
-            Element[.h2]
-            {
-                "Declaration"
-            }
             Element[.pre]
             {
                 Element[.code] 
@@ -589,10 +585,6 @@ extension Documentation
         }
         content:
         {
-            Element[.h2]
-            {
-                "Declaration"
-            }
             Element[.pre]
             {
                 Element[.code] 
