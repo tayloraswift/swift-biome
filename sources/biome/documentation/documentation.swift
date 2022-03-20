@@ -1,3 +1,4 @@
+import StructuredDocument
 import Resource
 import JSON
 
@@ -706,6 +707,8 @@ struct Documentation:Sendable
     
     let biome:Biome 
     let routing:RoutingTable
+    
+    let template:DocumentTemplate<Anchor, [UInt8]>
     private(set)
     var articles:[Article]
     private(set)
@@ -747,6 +750,7 @@ struct Documentation:Sendable
     
     public 
     init(directories:[URI.Base: String], products descriptors:[Biome.Package.ID: [Biome.Target]], 
+        template:DocumentTemplate<Anchor, [UInt8]>, 
         loader load:(_ package:Biome.Package.ID, _ path:[String], _ type:Resource.Text) 
         async throws -> Resource) 
         async throws 
@@ -832,7 +836,7 @@ struct Documentation:Sendable
         }
         Swift.print("finished article loading")
         
-        
+        self.template   = template
         self.search     = biome.searchIndices(routing: routing)
         self.routing    = routing
         self.biome      = _move(biome)

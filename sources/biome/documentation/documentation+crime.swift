@@ -6,9 +6,13 @@ extension Documentation
 {
     typealias Element = HTML.Element<Anchor>
     
+    @frozen public 
     enum Anchor:Hashable, Sendable
     {
         case symbol(Int)
+        
+        case title 
+        case constants 
         
         case navigator
         case introduction
@@ -16,6 +20,44 @@ extension Documentation
         case platforms
         case declaration
         case discussion
+        
+        case dynamic
+    }
+    
+    private 
+    func substitutions<S>(title:String, comment:Comment, summaries:S, filter:[Biome.Package.ID]) -> [Anchor: Element] 
+        where S:Sequence, S.Element == Int
+    {
+        var substitutions:[Anchor: Element] = 
+        [
+            .title:     Element[.title] 
+            {
+                title
+            },
+            .constants: Element[.script]
+            {
+                // package name is alphanumeric, we should enforce this in 
+                // `Package.ID`, otherwise this could be a security hole
+                let source:String = 
+                """
+                includedPackages = [\(filter.map { "'\($0.name)'" }.joined(separator: ","))];
+                """
+                Element.text(escaped: source)
+            }
+        ]
+        if let summary:Element = comment.summary
+        {
+            substitutions[.summary] = summary
+        }
+        if let discussion:Element = comment.discussion
+        {
+            substitutions[.discussion] = discussion
+        }
+        for origin:Int in summaries 
+        {
+            substitutions[.symbol(origin)] = self.symbols[origin].summary
+        }
+        return substitutions
     }
     
     func page(article index:Int) -> Resource
@@ -24,8 +66,16 @@ extension Documentation
     }
     func page(package index:Int, filter:[Biome.Package.ID]) -> Resource
     {
-        let package:Biome.Package   = self.biome.packages[index]
-        let dynamic:Element         = Element[.div]
+        let package:Biome.Package = self.biome.packages[index]
+        var substitutions:[Anchor: Element] = self.substitutions(
+            title: package.name, 
+            comment: .init(), 
+            summaries: [], 
+            filter: filter)
+        
+        substitutions[.navigator]       = Self.navigator(for: package)
+        substitutions[.introduction]    = Self.introduction(for: package)
+        substitutions[.dynamic]         = Element[.div]
         {
             ["lower-container"]
         }
@@ -60,10 +110,7 @@ extension Documentation
                 }
             }
         }
-        var substitutions:[Anchor: Element] = [:]
-            substitutions[.navigator]       = Self.navigator(for: package)
-            substitutions[.introduction]    = Self.introduction(for: package)
-        return Self.page(title: package.name, substitutions: substitutions, filter: filter, dynamic: dynamic)
+        return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     func page(module index:Int, filter:[Biome.Package.ID]) -> Resource
     {
@@ -72,7 +119,16 @@ extension Documentation
         let groups:[Bool: [Int]]    = self.biome.partition(symbols: module.toplevel)
         let comments:Set<Int>       = .init(self.biome.comments(backing: module.toplevel))
         
-        let dynamic:Element = Element[.div]
+        var substitutions:[Anchor: Element] = self.substitutions(
+            title: module.title, 
+            comment: self.modules[index], 
+            summaries: comments, 
+            filter: filter)
+        
+        substitutions[.navigator]       = Self.navigator(for: module)
+        substitutions[.introduction]    = self.introduction(for: module)
+        substitutions[.declaration]     = Self.declaration(for: module)
+        substitutions[.dynamic]         = Element[.div]
         {
             ["lower-container"]
         }
@@ -81,15 +137,8 @@ extension Documentation
             self.topics(self.biome.organize(symbols: groups[false, default: []], in: nil), heading: "Members")
             self.topics(self.biome.organize(symbols: groups[true,  default: []], in: nil), heading: "Removed Members")
         }
-        var substitutions:[Anchor: Element] = self.modules[index].substitutions
-            substitutions[.navigator]       = Self.navigator(for: module)
-            substitutions[.introduction]    = self.introduction(for: module)
-            substitutions[.declaration]     = Self.declaration(for: module)
-        for origin:Int in comments 
-        {
-            substitutions[.symbol(origin)]  = self.symbols[origin].summary
-        }
-        return Self.page(title: module.title, substitutions: substitutions, filter: filter, dynamic: dynamic)
+            
+        return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     func page(witness:Int, victim:Int?, filter:[Biome.Package.ID]) -> Resource
     {
@@ -128,192 +177,29 @@ extension Documentation
             }
             self.topics(self.biome.organize(symbols: groups[true, default: []], in: witness), heading: "Removed Members")
         }
-        var substitutions:[Anchor: Element] = self.symbols[witness].substitutions
-            substitutions[.navigator]       = self.navigator(for: symbol, in: victim)
-            substitutions[.introduction]    = self.introduction(for: symbol, witnessing: victim)
-            substitutions[.declaration]     = self.declaration(for: symbol)
-            substitutions[.platforms]       = Self.platforms(availability: symbol.platforms)
+        var substitutions:[Anchor: Element] = self.substitutions(
+            title: symbol.title, 
+            comment: self.symbols[witness], 
+            summaries: comments, 
+            filter: filter)
+        substitutions[.navigator]       = self.navigator(for: symbol, in: victim)
+        substitutions[.introduction]    = self.introduction(for: symbol, witnessing: victim)
+        substitutions[.declaration]     = self.declaration(for: symbol)
+        substitutions[.platforms]       = Self.platforms(availability: symbol.platforms)
         if  let origin:Int = symbol.commentOrigin
         {
-            substitutions[.summary]         = self.symbols[origin].summary
-            substitutions[.discussion]      = self.symbols[origin].discussion
+            substitutions[.summary]     = self.symbols[origin].summary
+            substitutions[.discussion]  = self.symbols[origin].discussion
         }
         if case nil = substitutions.index(forKey: .summary)
         {
-            substitutions[.summary]         = Element[.p]
+            substitutions[.summary]     = Element[.p]
             {
                 "No overview available."
             }
         }
-        for origin:Int in comments 
-        {
-            substitutions[.symbol(origin)]  = self.symbols[origin].summary
-        }
-        return Self.page(title: symbol.title, substitutions: substitutions, filter: filter, dynamic: dynamic)
-    }
-    private static 
-    func page(title:String, substitutions:[Anchor: Element], filter:[Biome.Package.ID], dynamic:Element) -> Resource
-    {
-        let document:DocumentRoot<HTML, Anchor> = .init 
-        {
-            HTML.Lang.en
-        }
-        content:
-        {
-            Element[.head]
-            {
-                Element[.title] 
-                {
-                    title
-                }
-                Element.metadata(charset: Unicode.UTF8.self)
-                Element.metadata 
-                {
-                    ("viewport", "width=device-width, initial-scale=1")
-                }
-                
-                Element[.script]
-                {
-                    ("/lunr.js", as: HTML.Src.self)
-                    (true, as: HTML.Defer.self)
-                }
-                Element[.script]
-                {
-                    ("/search.js", as: HTML.Src.self)
-                    (true, as: HTML.Defer.self)
-                }
-                Element[.script]
-                {
-                    // package name is alphanumeric, we should enforce this in 
-                    // `Package.ID`, otherwise this could be a security hole
-                    let source:String = 
-                    """
-                    includedPackages = [\(filter.map { "'\($0.name)'" }.joined(separator: ","))];
-                    """
-                    Element.text(escaped: source)
-                }
-                Element[.link]
-                {
-                    ("/biome.css", as: HTML.Href.self)
-                    HTML.Rel.stylesheet
-                }
-                Element[.link]
-                {
-                    ("/favicon.png", as: HTML.Href.self)
-                    HTML.Rel.icon
-                }
-                Element[.link]
-                {
-                    ("/favicon.ico", as: HTML.Href.self)
-                    HTML.Rel.icon
-                    Resource.Binary.icon
-                }
-            }
-            Element[.body]
-            {
-                ["documentation"]
-            }
-            content: 
-            {
-                Element[.nav]
-                {
-                    Element[.div]
-                    {
-                        ["breadcrumbs"]
-                    } 
-                    content: 
-                    {
-                        Element.anchor(id: .navigator)
-                    }
-                    Element[.div]
-                    {
-                        ["search-bar"]
-                    } 
-                    content: 
-                    {
-                        Element[.form] 
-                        {
-                            HTML.Role.search
-                            ("search", as: HTML.ID.self)
-                        }
-                        content: 
-                        {
-                            Element[.div]
-                            {
-                                ["input-container"]
-                            }
-                            content: 
-                            {
-                                Element[.div]
-                                {
-                                    ["bevel"]
-                                }
-                                Element[.div]
-                                {
-                                    ["rectangle"]
-                                }
-                                content: 
-                                {
-                                    Element[.input]
-                                    {
-                                        ("search-input", as: HTML.ID.self)
-                                        HTML.InputType.search
-                                        HTML.Autocomplete.off
-                                        // (true, as: HTML.Autofocus.self)
-                                        ("search symbols", as: HTML.Placeholder.self)
-                                    }
-                                }
-                                Element[.div]
-                                {
-                                    ["bevel"]
-                                }
-                            }
-                            Element[.ol]
-                            {
-                                ("search-results", as: HTML.ID.self)
-                            }
-                        }
-                    }
-                }
-                Element[.main]
-                {
-                    Element[.div]
-                    {
-                        ["upper"]
-                    }
-                    content: 
-                    {
-                        Element[.div]
-                        {
-                            ["upper-container"]
-                        }
-                        content: 
-                        {
-                            Element[.article]
-                            {
-                                ["upper-container-left"]
-                            }
-                            content: 
-                            {
-                                Element.anchor(id: .introduction)
-                                Element.anchor(id: .platforms)
-                                Element.anchor(id: .declaration)
-                                Element.anchor(id: .discussion)
-                            }
-                        }
-                    }
-                    Element[.div]
-                    {
-                        ["lower"]
-                    }
-                    content: 
-                    {
-                        dynamic
-                    }
-                }
-            }
-        }
-        return .html(utf8: document.template(of: [UInt8].self).apply(substitutions).joined(), version: nil)
+        substitutions[.dynamic]         = dynamic
+        return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     
     private static 

@@ -37,19 +37,6 @@ extension Documentation
         {
             self.baked.discussion.map(Element.text(escaped:))
         }
-        var substitutions:[Anchor: Element] 
-        {
-            var substitutions:[Anchor: Element] = [:]
-            if let summary:Element = self.summary
-            {
-                substitutions[.summary]     = summary
-            }
-            if let discussion:Element = self.discussion
-            {
-                substitutions[.discussion]  = discussion
-            }
-            return substitutions
-        }
         
         mutating 
         func update(summary:ArticleElement?, discussion toplevel:[ArticleElement], errors:[Error])
