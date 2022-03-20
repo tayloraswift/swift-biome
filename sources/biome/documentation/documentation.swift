@@ -360,7 +360,7 @@ struct Documentation:Sendable
         public 
         var description:String 
         {
-            "\(self.path)\(self.query?.description ?? "")"
+            "\(self.base):\(self.path)\(self.query?.description ?? "")"
         }
         
         static 
@@ -865,7 +865,7 @@ struct Documentation:Sendable
     {
         let namespace:Int = self.articles[article].namespace
         return .init(
-            base: .biome,
+            base: .learn,
             path: .init(
                 root:  self.biome.root(namespace:  namespace), 
                 trunk: self.biome.trunk(namespace: namespace), 
@@ -986,7 +986,7 @@ struct Documentation:Sendable
         
         case .article(let index):
             location = self.uri(article: index)
-            resource = self.page(article: index)
+            resource = self.page(article: index, filter: _filter)
         
         case .packageSearchIndex(let index):
             location = self.uri(packageSearchIndex: index)

@@ -50,7 +50,7 @@ extension Documentation
             for block:ArticleElement in toplevel 
             {
                 // filter out top-level ‘ul’ blocks, since they may be special 
-                guard case .container(.ul, id: let id, attributes: let attributes, content: let items) = block 
+                guard case .container(.ul, attributes: let attributes, content: let items) = block 
                 else 
                 {
                     discussion.append(block)
@@ -61,7 +61,7 @@ extension Documentation
                 listitems:
                 for item:ArticleElement in items
                 {
-                    guard case .container(.li, id: _, attributes: _, content: let content) = item 
+                    guard case .container(.li, attributes: _, content: let content) = item 
                     else 
                     {
                         fatalError("unreachable")
@@ -101,7 +101,7 @@ extension Documentation
                 guard ignored.isEmpty 
                 else 
                 {
-                    discussion.append(.container(.ul, id: id, attributes: attributes, content: ignored))
+                    discussion.append(.container(.ul, attributes: attributes, content: ignored))
                     continue 
                 }
             }
@@ -248,7 +248,7 @@ extension Documentation
                 throw CommentError.emptyParameterList
             }
             // look for a nested list 
-            guard case .container(.ul, id: _, attributes: _, content: let items) = first 
+            guard case .container(.ul, attributes: _, content: let items) = first 
             else 
             {
                 throw CommentError.invalidParameterList(first)
@@ -261,7 +261,7 @@ extension Documentation
             var parameters:[(name:String, comment:[ArticleElement])] = []
             for item:ArticleElement in items
             {
-                guard   case .container(.li, id: _, attributes: _, content: let content) = item, 
+                guard   case .container(.li, attributes: _, content: let content) = item, 
                         let (keywords, content):([String], [ArticleElement]) = Self.keywords(prefixing: content), 
                         let name:String = keywords.first, keywords.count == 1
                 else 
@@ -285,7 +285,7 @@ extension Documentation
             //      ...
             //  }
             //  ...
-            guard   case .container(.p, id: let id, attributes: let attributes, content: var inline)? = content.first, 
+            guard   case .container(.p, attributes: let attributes, content: var inline)? = content.first, 
                     let first:ArticleElement = inline.first 
             else 
             {
@@ -313,7 +313,7 @@ extension Documentation
             
             // failing example here: https://developer.apple.com/documentation/system/filedescriptor/duplicate(as:retryoninterrupt:)
             // apple docs just drop the parameter
-            case .container(let type, id: _, attributes: _, content: let styled):
+            case .container(let type, attributes: _, content: let styled):
                 switch type 
                 {
                 case .code, .strong, .em: 
@@ -356,7 +356,7 @@ extension Documentation
             else 
             {
                 var content:[ArticleElement] = content
-                    content[0] = .container(.p, id: id, attributes: attributes, content: inline)
+                    content[0] = .container(.p, attributes: attributes, content: inline)
                 return (keywords, content)
             }
         }
@@ -384,14 +384,14 @@ extension Documentation
         let namespace:Int
         let path:[[UInt8]]
         let title:String
-        let content:[DocumentTemplate<Documentation.Index, [UInt8]>]
+        let content:DocumentTemplate<Documentation.Index, [UInt8]>
         init<S>(namespace:Int, path:S, title:String, content:[ArticleElement])
             where S:Sequence, S.Element:StringProtocol
         {
             self.namespace  = namespace
             self.path       = path.map{ URI.encode(component: $0.utf8) }
             self.title      = title
-            self.content    = content.map { $0.template(of: [UInt8].self) }
+            self.content    = .init(freezing: content)
         }
     }
 }

@@ -25,10 +25,8 @@ extension Documentation
     }
     
     private 
-    func substitutions<S>(title:String, comment:Comment, summaries:S, filter:[Biome.Package.ID]) -> [Anchor: Element] 
-        where S:Sequence, S.Element == Int
+    func substitutions(title:String, filter:[Biome.Package.ID]) -> [Anchor: Element] 
     {
-        var substitutions:[Anchor: Element] = 
         [
             .title:     Element[.title] 
             {
@@ -45,6 +43,12 @@ extension Documentation
                 Element.text(escaped: source)
             }
         ]
+    }
+    private 
+    func substitutions<S>(title:String, comment:Comment, summaries:S, filter:[Biome.Package.ID]) -> [Anchor: Element] 
+        where S:Sequence, S.Element == Int
+    {
+        var substitutions:[Anchor: Element] = self.substitutions(title: title, filter: filter)
         if let summary:Element = comment.summary
         {
             substitutions[.summary] = summary
@@ -60,9 +64,12 @@ extension Documentation
         return substitutions
     }
     
-    func page(article index:Int) -> Resource
+    func page(article index:Int, filter:[Biome.Package.ID]) -> Resource
     {
-        fatalError("unimplemented")
+        let article:Article = self.articles[index]
+        var substitutions:[Anchor: Element] = self.substitutions(title: article.title, filter: filter)
+        substitutions[.discussion] = Element.bytes(utf8: [UInt8].init(article.content.apply([:] as [Documentation.Index: ArticleElement]).joined()))
+        return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     func page(package index:Int, filter:[Biome.Package.ID]) -> Resource
     {
