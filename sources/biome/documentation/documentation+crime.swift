@@ -83,9 +83,11 @@ extension Documentation
     
     func page(article index:Int, filter:[Biome.Package.ID]) -> Resource
     {
-        let article:Article = self.articles[index]
+        let article:Article<ResolvedLink> = self.articles[index]
         var substitutions:[Anchor: Element] = self.substitutions(title: article.title, filter: filter)
-            substitutions[.discussion] = self.fill(template: article.content)
+            substitutions[.navigator]       = self.navigator(for: article)
+            substitutions[.introduction]    = self.introduction(for: article)
+            substitutions[.discussion]      = self.fill(template: article.content)
         return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     func page(package index:Int, filter:[Biome.Package.ID]) -> Resource
@@ -226,6 +228,22 @@ extension Documentation
         return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     
+    private 
+    func navigator(for article:Article<ResolvedLink>) -> Element
+    {
+        Element[.ol] 
+        {
+            ["breadcrumbs-container"]
+        }
+        content:
+        {
+            Element[.li] 
+            { 
+                Element.link(self.biome.modules[article.namespace].title, 
+                    to: self.print(uri: self.uri(module: article.namespace)), internal: true)
+            }
+        }
+    }
     private static 
     func navigator(for package:Biome.Package) -> Element
     {
@@ -279,6 +297,22 @@ extension Documentation
         }
     }
     
+    private  
+    func introduction(for article:Article<ResolvedLink>) -> Element
+    {
+        return Element[.section]
+        {
+            ["introduction"]
+        }
+        content:
+        {
+            self.eyebrows(for: article)
+            Element[.h1]
+            {
+                article.title
+            }
+        }
+    }
     private static 
     func introduction(for package:Biome.Package) -> Element
     {
@@ -388,6 +422,29 @@ extension Documentation
         }
     }
     
+    private 
+    func eyebrows(for article:Article<ResolvedLink>) -> Element
+    {
+        Element[.div]
+        {
+            ["eyebrows"]
+        }
+        content:
+        {
+            Element.span("Article")
+            {
+                ["kind"]
+            }
+            Element[.span]
+            {
+                ["package"]
+            }
+            content:
+            {
+                self.link(package: self.biome.modules[article.namespace].package)
+            }
+        }
+    }
     private static 
     func eyebrows(for package:Biome.Package) -> Element
     {
