@@ -12,6 +12,26 @@ extension Documentation
         case article(Int)
     }
 
+    enum Format 
+    {
+        /// entrapta format 
+        case entrapta
+        
+        /// lorentey’s `swift-collections` format
+        // case collections
+        
+        /// nate cook’s `swift-algorithms` format
+        // case algorithms 
+        
+        /// apple’s DocC format
+        case docc
+    }
+    struct ArticleRenderingContext 
+    {
+        let format:Format
+        let namespace:Int 
+        let scope:[[UInt8]]
+    }
     enum ArticleOwner 
     {
         case free(title:String)

@@ -790,28 +790,51 @@ struct Documentation:Sendable
         var symbols:[Comment<UnresolvedLink>] = .init(repeating: .init(), count: biome.symbols.count)
         var modules:[Comment<UnresolvedLink>] = .init(repeating: .init(), count: biome.modules.count)
         
-        for (symbol, comment):(Int, String) in zip(biome.symbols.indices, _move(comments)) 
+        for (index, comment):(Int, String) in zip(biome.symbols.indices, _move(comments)) 
             where !comment.isEmpty
         {
-            guard case nil = biome.symbols[symbol].commentOrigin
+            let symbol:Biome.Symbol = biome.symbols[index]
+            
+            guard case nil = symbol.commentOrigin
             else 
             {
                 // don’t re-render duplicated docs 
                 continue 
             }
-            guard let namespace:Int = biome.symbols[symbol].namespace
+            guard let namespace:Int = symbol.namespace
             else 
             {
                 // FIXME: some mythical symbols actually do have documentation, 
                 // which is being lost 
                 continue 
             }
+            var scope:[[UInt8]] = symbol.scope.map { URI.encode(component: $0.utf8) }
+            switch symbol.kind
+            {
+            case    .enum, .struct, .class, .actor, .protocol:
+                // these create scopes, so resolve symbol links against them.
+                scope.append(URI.encode(component: symbol.title.utf8))
+            
+            case    .associatedtype, .typealias:
+                // these are traditionally uppercased, but do not create scopes, 
+                // so resolve symbol links against their *parents*.
+                break
+            case    .case, .initializer, .deinitializer, 
+                    .typeSubscript, .instanceSubscript, 
+                    .typeProperty, .instanceProperty, 
+                    .typeMethod, .instanceMethod, 
+                    .var, .func, .operator:
+                break
+            }
+            let context:ArticleRenderingContext = .init(format: .docc, 
+                namespace: namespace, 
+                scope: scope)
             let (summary, discussion, errors):(Article<UnresolvedLink>.Element?, [Article<UnresolvedLink>.Element], [Error]) = 
                 ArticleRenderer.render(comment: comment, 
                     biome: biome, 
                     routing: routing, 
-                    context: (tool: .docc, namespace: namespace, path: ()))
-            symbols[symbol].update(summary: summary, discussion: discussion, errors: errors)
+                    context: context)
+            symbols[index].update(summary: summary, discussion: discussion, errors: errors)
         }
         
         var articles:[Article<UnresolvedLink>] = []
@@ -828,10 +851,9 @@ struct Documentation:Sendable
                         continue 
                     }
                     let (owner, discussion, errors):(ArticleOwner, [Article<UnresolvedLink>.Element], [Error]) = 
-                        ArticleRenderer.render(article: source, 
+                        ArticleRenderer.render(.docc, article: source, namespace: module,
                             biome: biome, 
-                            routing: routing, 
-                            context: (tool: .docc, namespace: module, path: ()))
+                            routing: routing)
                     switch owner
                     {
                     case .module(summary: let summary, index: let module):

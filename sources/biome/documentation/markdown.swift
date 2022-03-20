@@ -4,30 +4,23 @@ import HTML
 
 extension Documentation
 {
-    typealias ArticleRenderingContext = (tool:Tool, namespace:Int, path:Void)
     struct ArticleRenderer 
     {
         typealias Element = Article<UnresolvedLink>.Element 
         
         let biome:Biome 
         let routing:RoutingTable
-        let context:ArticleRenderingContext
+        private(set)
+        var context:ArticleRenderingContext
         
         var errors:[Error]
         
-        private static 
-        func parse(markdown string:String) -> LazyMapSequence<MarkupChildren, BlockMarkup> 
-        {
-            let document:Markdown.Document = .init(parsing: string, 
-                options: [ .parseBlockDirectives, .parseSymbolLinks ])
-            return document.blockChildren
-        }
-        
         static 
-        func render(article:String, biome:Biome, routing:RoutingTable, context:ArticleRenderingContext) 
+        func render(_ format:Format, article:String, namespace:Int, biome:Biome, routing:RoutingTable) 
             -> (owner:ArticleOwner, body:[Element], errors:[Error])
         {
-            var renderer:Self = self.init(biome: biome, routing: routing, context: context)
+            var renderer:Self = self.init(biome: biome, routing: routing, 
+                context: .init(format: format, namespace: namespace, scope: []))
             let (owner, body):(ArticleOwner, [Element]) = 
                 renderer.render(article: Self.parse(markdown: article))
             return (owner, body, renderer.errors)
@@ -46,7 +39,8 @@ extension Documentation
                 renderer.render(comment: Self.parse(markdown: comment), rank: 1)
             return (head, body, renderer.errors)
         }
-
+        
+        
         private 
         init(biome:Biome, routing:RoutingTable, context:ArticleRenderingContext)
         {
@@ -55,6 +49,15 @@ extension Documentation
             self.context    = context
             self.errors     = []
         }
+        
+        private static 
+        func parse(markdown string:String) -> LazyMapSequence<MarkupChildren, BlockMarkup> 
+        {
+            let document:Markdown.Document = .init(parsing: string, 
+                options: [ .parseBlockDirectives, .parseSymbolLinks ])
+            return document.blockChildren
+        }
+
         // comments can have any number of h1’s, embedded in them,
         // which will turn into h2s. if the comment starts with an h1, 
         // it will go into the body, and the summary will show 
@@ -330,7 +333,7 @@ extension Documentation
                 return self.render(span: link, as: .span)
             }
             
-            if  case .docc = self.context.tool,
+            if  case .docc = self.context.format,
                 let colon:String.Index = target.firstIndex(of: ":"), 
                 target.prefix(upTo: colon) == "doc"
             {
@@ -449,7 +452,7 @@ extension Documentation
         {
             do 
             {
-                switch self.context.tool 
+                switch self.context.format 
                 {
                 // “entrapta”-style symbol links
                 case .entrapta: 

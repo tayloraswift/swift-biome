@@ -1,11 +1,3 @@
-extension Documentation
-{
-    enum Tool 
-    {
-        case entrapta
-        case docc
-    }
-}
 extension Documentation.ArticleRenderer 
 {
     func resolve<S>(docc text:S) throws -> Documentation.Index
