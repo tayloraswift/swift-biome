@@ -1,10 +1,6 @@
 import SwiftSyntax
 import SwiftSyntaxParser
 
-@available(*, deprecated)
-public 
-typealias Language = SwiftLanguage
-
 enum SwiftConstraintError:Error 
 {
     case undefined(kind:String)

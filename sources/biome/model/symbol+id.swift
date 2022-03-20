@@ -47,18 +47,6 @@ extension Biome
         case natural(Symbol.ID)
         case synthesized(from:Symbol.ID, for:Symbol.ID)
         
-        @available(*, unavailable)
-        var description:String 
-        {
-            switch self 
-            {
-            case .natural(let id): 
-                return id.string 
-            case .synthesized(from: let generic, for: let scope): 
-                return "\(generic.string)::SYNTHESIZED::\(scope.string)"
-            }
-        }
-        
         enum Rule<Location> 
         {
             typealias ASCII = Grammar.Encoding<Location, UInt8>.ASCII
