@@ -23,11 +23,11 @@ extension Documentation
         case emptyParameterField(name:String?) 
         case emptyParameterList
         
-        case multipleReturnsFields([ArticleElement], [ArticleElement])
+        case multipleReturnsFields([Article<UnresolvedLink>.Element], [Article<UnresolvedLink>.Element])
         
-        case invalidParameterListItem(ArticleElement)
-        case invalidParameterList(ArticleElement)
-        case multipleParameterLists(ArticleElement, ArticleElement)
+        case invalidParameterListItem(Article<UnresolvedLink>.Element)
+        case invalidParameterList(Article<UnresolvedLink>.Element)
+        case multipleParameterLists(Article<UnresolvedLink>.Element, Article<UnresolvedLink>.Element)
         
         /* var description:String 
         {

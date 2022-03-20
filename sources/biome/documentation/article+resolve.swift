@@ -8,7 +8,8 @@ extension Documentation
 }
 extension Documentation.ArticleRenderer 
 {
-    func resolve(docc text:String) throws -> Documentation.Index
+    func resolve<S>(docc text:S) throws -> Documentation.Index
+        where S:StringProtocol, S.SubSequence == Substring
     {
         let hyphen:String.Index?    = text.firstIndex(of: "-") 
         let capitalized:Bool?       = try hyphen.map 

@@ -642,17 +642,16 @@ struct Documentation:Sendable
             {
             case (.biome, _):   return self.resolve(namespace: namespace, stem: stem, leaf: leaf, overload: overload)
             case (.learn, _?):  return nil
-            case (.learn, nil): return self.resolve(doc:       namespace, stem: stem, leaf: leaf)
+            case (.learn, nil): return self.resolve(doc:       namespace, stem: stem, leaf: leaf).map { ($0, true) }
             }
         }
-        func resolve(doc namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8]) 
-            -> (index:Index, assigned:Bool)?
+        func resolve(doc namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8]) -> Index?
         {
             if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
                 let leafKey:UInt    = self.greens[leaf], 
                 let index:Index     = self.routes[.article(namespace, stem: stemKey, leaf: leafKey)]
             {
-                return (index, true)
+                return index
             }
             else 
             {
@@ -703,6 +702,24 @@ struct Documentation:Sendable
                 return nil
             }
         }
+        
+        // helper 
+        func resolve(doc link:UnresolvedLink) -> ResolvedLink? 
+        {
+            switch link
+            {
+            case .doc(namespace: let namespace, stem: let stem, leaf: let leaf):
+                switch self.resolve(doc: namespace, stem: stem[...], leaf: leaf)
+                {
+                case .article(let index)?: 
+                    return .article(index)
+                case nil: 
+                    Swift.print("failed to resolve DocC link '\(link)'")
+                    return nil
+                default: fatalError("UNIMPLEMENTED")
+                }
+            }
+        }
     }
     
     let biome:Biome 
@@ -710,10 +727,10 @@ struct Documentation:Sendable
     
     let template:DocumentTemplate<Anchor, [UInt8]>
     private(set)
-    var articles:[Article]
+    var articles:[Article<ResolvedLink>]
     private(set)
-    var modules:[Comment], 
-        symbols:[Comment] 
+    var modules:[Comment<ResolvedLink>], 
+        symbols:[Comment<ResolvedLink>] 
     
     private(set)
     var search:[Resource] 
@@ -770,8 +787,8 @@ struct Documentation:Sendable
         
         Swift.print("starting article loading")
         
-        self.symbols = .init(repeating: .init(), count: biome.symbols.count)
-        self.modules = .init(repeating: .init(), count: biome.modules.count)
+        var symbols:[Comment<UnresolvedLink>] = .init(repeating: .init(), count: biome.symbols.count)
+        var modules:[Comment<UnresolvedLink>] = .init(repeating: .init(), count: biome.modules.count)
         
         for (symbol, comment):(Int, String) in zip(biome.symbols.indices, _move(comments)) 
             where !comment.isEmpty
@@ -789,15 +806,15 @@ struct Documentation:Sendable
                 // which is being lost 
                 continue 
             }
-            let (summary, discussion, errors):(ArticleElement?, [ArticleElement], [Error]) = 
+            let (summary, discussion, errors):(Article<UnresolvedLink>.Element?, [Article<UnresolvedLink>.Element], [Error]) = 
                 ArticleRenderer.render(comment: comment, 
                     biome: biome, 
                     routing: routing, 
                     context: (tool: .docc, namespace: namespace, path: ()))
-            self.symbols[symbol].update(summary: summary, discussion: discussion, errors: errors)
+            symbols[symbol].update(summary: summary, discussion: discussion, errors: errors)
         }
         
-        self.articles = []
+        var articles:[Article<UnresolvedLink>] = []
         for package:Biome.Package in biome.packages 
         {
             for (module, target):(Int, Biome.Target) in zip(package.modules, targets[package.modules])
@@ -810,7 +827,7 @@ struct Documentation:Sendable
                     {
                         continue 
                     }
-                    let (owner, discussion, errors):(ArticleOwner, [ArticleElement], [Error]) = 
+                    let (owner, discussion, errors):(ArticleOwner, [Article<UnresolvedLink>.Element], [Error]) = 
                         ArticleRenderer.render(article: source, 
                             biome: biome, 
                             routing: routing, 
@@ -818,23 +835,27 @@ struct Documentation:Sendable
                     switch owner
                     {
                     case .module(summary: let summary, index: let module):
-                        self.modules[module].update(summary: summary, discussion: discussion, errors: errors)
+                        modules[module].update(summary: summary, discussion: discussion, errors: errors)
                     case .symbol(summary: let summary, index: let witness):
-                        self.symbols[witness].update(summary: summary, discussion: discussion, errors: errors)
+                        symbols[witness].update(summary: summary, discussion: discussion, errors: errors)
                     
                     case .free(title: let title): 
-                        let article:Article = .init(
+                        let article:Article<UnresolvedLink> = .init(
                             namespace: module, 
                             path: path.dropFirst(), 
                             title: title, 
                             content: discussion)
-                        routing.publish(article: self.articles.endIndex, namespace: module, stem: article.path, leaf: [])
-                        self.articles.append(article)
+                        routing.publish(article: articles.endIndex, namespace: module, stem: article.path, leaf: [])
+                        articles.append(article)
                     }
                 }
             }
         }
         Swift.print("finished article loading")
+        
+        self.articles   = articles.map { $0.compactMapAnchors(routing.resolve(doc:)) }
+        self.symbols    = symbols.map { $0.compactMapAnchors(routing.resolve(doc:)) }
+        self.modules    = modules.map { $0.compactMapAnchors(routing.resolve(doc:)) }
         
         self.template   = template
         self.search     = biome.searchIndices(routing: routing)

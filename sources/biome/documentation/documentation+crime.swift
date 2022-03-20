@@ -25,6 +25,23 @@ extension Documentation
     }
     
     private 
+    func fill(template:DocumentTemplate<ResolvedLink, [UInt8]>) -> Element 
+    {
+        let filled:[ArraySlice<UInt8>] = template.apply 
+        {
+            (resolved:ResolvedLink) -> HTML.Element<Never>? in 
+            
+            switch resolved 
+            {
+            case .article(let article): 
+                return HTML.Element<Never>.link(self.articles[article].title, 
+                    to: self.print(uri: self.uri(article: article)), 
+                    internal: true)
+            }
+        }
+        return .bytes(utf8: [UInt8].init(filled.joined()))
+    }
+    private 
     func substitutions(title:String, filter:[Biome.Package.ID]) -> [Anchor: Element] 
     {
         [
@@ -45,21 +62,21 @@ extension Documentation
         ]
     }
     private 
-    func substitutions<S>(title:String, comment:Comment, summaries:S, filter:[Biome.Package.ID]) -> [Anchor: Element] 
+    func substitutions<S>(title:String, comment:Comment<ResolvedLink>, summaries:S, filter:[Biome.Package.ID]) -> [Anchor: Element] 
         where S:Sequence, S.Element == Int
     {
         var substitutions:[Anchor: Element] = self.substitutions(title: title, filter: filter)
-        if let summary:Element = comment.summary
+        if let summary:Element = comment.summary.map(self.fill(template:))
         {
             substitutions[.summary] = summary
         }
-        if let discussion:Element = comment.discussion
+        if let discussion:Element = comment.discussion.map(self.fill(template:))
         {
             substitutions[.discussion] = discussion
         }
         for origin:Int in summaries 
         {
-            substitutions[.symbol(origin)] = self.symbols[origin].summary
+            substitutions[.symbol(origin)] = self.symbols[origin].summary.map(self.fill(template:))
         }
         return substitutions
     }
@@ -68,7 +85,7 @@ extension Documentation
     {
         let article:Article = self.articles[index]
         var substitutions:[Anchor: Element] = self.substitutions(title: article.title, filter: filter)
-        substitutions[.discussion] = Element.bytes(utf8: [UInt8].init(article.content.apply([:] as [Documentation.Index: ArticleElement]).joined()))
+            substitutions[.discussion] = self.fill(template: article.content)
         return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     func page(package index:Int, filter:[Biome.Package.ID]) -> Resource
@@ -195,8 +212,8 @@ extension Documentation
         substitutions[.platforms]       = Self.platforms(availability: symbol.platforms)
         if  let origin:Int = symbol.commentOrigin
         {
-            substitutions[.summary]     = self.symbols[origin].summary
-            substitutions[.discussion]  = self.symbols[origin].discussion
+            substitutions[.summary]     = self.symbols[origin].summary.map(self.fill(template:))
+            substitutions[.discussion]  = self.symbols[origin].discussion.map(self.fill(template:))
         }
         if case nil = substitutions.index(forKey: .summary)
         {
