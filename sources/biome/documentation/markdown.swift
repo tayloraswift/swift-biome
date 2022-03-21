@@ -4,6 +4,11 @@ import HTML
 
 extension Documentation
 {
+    enum CodeBlockLanguage 
+    {
+        case swift 
+        case plain
+    }
     struct ArticleRenderer 
     {
         typealias Element = Article<UnresolvedLink>.Element 
@@ -191,7 +196,8 @@ extension Documentation
             case let list as UnorderedList:
                 return self.render(list: list, as: .ul, rank: rank)
             case let block as CodeBlock:
-                return self.render(code: block.code)
+                return self.render(code: block.code, 
+                    as: block.language.map { $0.lowercased() == "swift" ? .swift : .plain } ?? .swift)
             case let heading as Heading: 
                 let level:HTML.Container
                 switch heading.level + rank
@@ -219,9 +225,34 @@ extension Documentation
             }
         }
         private mutating 
-        func render(code:String) -> Element 
+        func render(code:String, as language:CodeBlockLanguage) -> Element 
         {
-            Element[.pre]
+            var fragments:[Element] = [Element.highlight("", .newlines)]
+            switch language 
+            {
+            case .plain: 
+                var lines:[Substring] = code.split(separator: "\n", omittingEmptySubsequences: false)
+                while case true? = lines.last?.isEmpty 
+                {
+                    lines.removeLast()
+                }
+                if let first:Substring = lines.first 
+                {
+                    fragments.append(.text(escaping: first))
+                }
+                for next:Substring in lines.dropFirst()
+                {
+                    fragments.append(.highlight("\n", .newlines))
+                    fragments.append(.text(escaping: next))
+                }
+            case .swift:
+                for (text, highlight):(String, SwiftHighlight) in SwiftHighlight.highlight(code)
+                {
+                    fragments.append(.highlight(text, highlight))
+                }
+            }
+            
+            return Element[.pre]
             {
                 ["notebook"]
             }
@@ -229,11 +260,7 @@ extension Documentation
             {
                 Element[.code]
                 {
-                    Element.highlight("", .newlines)
-                    for (text, highlight):(String, SwiftHighlight) in SwiftHighlight.highlight(code)
-                    {
-                        Element.highlight(text, highlight)
-                    }
+                    fragments
                 }
             }
         }
@@ -428,62 +455,6 @@ extension Documentation
                 content
             } 
         }
-        /* private  
-        func present(reference resolved:ResolvedLink) -> Element
-        {
-            let components:[(text:String, uri:URI)], 
-                tail:(text:String, uri:URI)
-            
-            switch resolved
-            {
-            /* case .ambiguous, .article, .packageSearchIndex: 
-                fatalError("unreachable")
-            
-            case .package(let package):
-                components  = []
-                tail        = 
-                (
-                    self.biome.packages[package].id.name,
-                    self.biome.uri(package: package)
-                ) */
-            case .module(let module):
-                components  = []
-                tail        = 
-                (
-                    self.biome.modules[module].title,
-                    self.biome.uri(module: module)
-                )
-            case .symbol(let witness, victim: let victim):
-                var reversed:[(text:String, uri:URI)] = []
-                var next:Int?       = victim ?? self.biome.symbols[witness].parent
-                while let index:Int = next
-                {
-                    reversed.append(
-                        (
-                            self.biome.symbols[index].title, 
-                            self.biome.uri(witness: index, victim: nil, routing: self.routing)
-                        ))
-                    next    = self.biome.symbols[index].parent
-                }
-                components  = reversed.reversed()
-                tail        = 
-                (
-                    self.biome.symbols[witness].title, 
-                    self.biome.uri(witness: witness, victim: victim, routing: self.routing)
-                )
-            }
-            return Element[.code]
-            {
-                // unlike in breadcrumbs, we print the dot separators explicitly 
-                // so they look normal when highlighted and copy-pasted 
-                for (text, uri):(String, URI) in components 
-                {
-                    Element.link(text, to: self.biome.format(uri:       uri, routing: self.routing), internal: true)
-                    Element.text(escaped: ".")
-                }
-                Element.link(tail.text, to: self.biome.format(uri: tail.uri, routing: self.routing), internal: true)
-            }
-        } */
         
         private mutating 
         func render(inline:any InlineMarkup) -> Element
