@@ -3,13 +3,72 @@ import HTML
 
 extension Documentation 
 {
-    enum UnresolvedLink:Hashable, Sendable
+    enum UnresolvedLink:Hashable, CustomStringConvertible, Sendable
     {
-        case doc(namespace:Int, stem:[[UInt8]], leaf:[UInt8])
+        enum Disambiguator 
+        {
+            enum DocC:Hashable, CustomStringConvertible 
+            {
+                case kind(Biome.Symbol.Kind)
+                case hash(String)
+                
+                init(_ string:String)
+                {
+                    self = Biome.Symbol.Kind.init(rawValue: string).map(Self.kind(_:)) ?? .hash(string)
+                }
+                
+                var description:String 
+                {
+                    switch self 
+                    {
+                    case .kind(let kind):   return "(\(kind.rawValue))"
+                    case .hash(let hash):   return "(hash: \(hash))"
+                    }
+                }
+            }
+        }
+        
+        case preresolved(ResolvedLink)
+        case docc(doc:[[UInt8]], Disambiguator.DocC?)
+
+        static 
+        func docc<S>(normalizing string:S) -> Self 
+            where S:StringProtocol, S.SubSequence == Substring
+        {
+            let path:Substring, 
+                suffix:Disambiguator.DocC?
+            if let hyphen:String.Index = string.firstIndex(of: "-") 
+            {
+                path    = string[..<hyphen]
+                suffix  = .init(String.init(string[string.index(after: hyphen)...]))
+            }
+            else 
+            {
+                path    = string[...]
+                suffix  = nil
+            }
+            // split on slashes
+            return .docc(doc: URI.normalize(path: path.utf8.split(separator: 0x2f)), suffix)
+        }
+        
+        var description:String 
+        {
+            switch self 
+            {
+            case .preresolved(let resolved):
+                return "preresolved (\(resolved))"
+            case .docc(doc: let path, let suffix?):
+                return "\(String.init(decoding: URI.concatenate(normalized: path), as: Unicode.UTF8.self)) \(suffix)"
+            case .docc(doc: let path, nil):
+                return    String.init(decoding: URI.concatenate(normalized: path), as: Unicode.UTF8.self)
+            }
+        }
     }
     enum ResolvedLink:Hashable, Sendable
     {
         case article(Int)
+        case module(Int)
+        case symbol(Int, victim:Int?)
     }
 
     enum Format 
@@ -26,11 +85,10 @@ extension Documentation
         /// apple’s DocC format
         case docc
     }
-    struct ArticleRenderingContext 
+    struct UnresolvedLinkContext 
     {
-        let format:Format
         let namespace:Int 
-        let scope:[[UInt8]]
+        var scope:[[UInt8]]
     }
     enum ArticleOwner 
     {

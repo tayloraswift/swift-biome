@@ -7,23 +7,17 @@ extension Documentation
     {
         typealias Element = HTML.Element<Anchor>
         
-        enum MagicListItem 
-        {
-            case parameters([(name:String, comment:[Element])])
-            case returns([Element])
-            case aside(Element)
-        }
-        
         var errors:[Error]
         var summary:DocumentTemplate<Anchor, [UInt8]>?, 
             discussion:DocumentTemplate<Anchor, [UInt8]>?
         
-        init() 
+        static 
+        var empty:Self 
         {
-            self.errors = []
-            self.summary = nil 
-            self.discussion = nil
+            .init(errors: [], summary: nil, discussion: nil)
         }
+        
+        private
         init(errors:[Error], 
             summary:DocumentTemplate<Anchor, [UInt8]>?, 
             discussion:DocumentTemplate<Anchor, [UInt8]>?) 
@@ -32,24 +26,41 @@ extension Documentation
             self.summary = summary
             self.discussion = discussion
         }
-        
-        func compactMapAnchors<T>(_ transform:(Anchor) throws -> T?) rethrows -> Comment<T> 
-            where T:Hashable
-        {
-            .init(errors: self.errors, 
-                summary: try self.summary?.compactMap(transform), 
-                discussion: try self.discussion?.compactMap(transform))
-        }
+
     }
 }
-extension Documentation.Comment where Anchor == Documentation.UnresolvedLink 
+extension Documentation.Comment 
 {
-    mutating 
-    func update(summary:Element?, discussion toplevel:[Element], errors:[Error])
+    // we really need to start using `mapAnchors` instead
+    func compactMapAnchors<T>(_ transform:(Anchor) throws -> T?) rethrows -> Documentation.Comment<T> 
+        where T:Hashable
     {
-        self.errors     = errors
-        self.summary    = summary.map(DocumentTemplate<Anchor, [UInt8]>.init(freezing:)) 
-        
+        .init(errors: self.errors, 
+            summary: try self.summary?.compactMap(transform), 
+            discussion: try self.discussion?.compactMap(transform))
+    }
+}
+// need the constraint or it won’t work with error reporting
+extension Documentation.Comment where Anchor == Documentation.UnresolvedLink
+{    
+    init(errors:[Error], summary:Element?, discussion:[Element]) 
+    {
+        self.errors = errors
+        self.summary = summary.map(DocumentTemplate<Anchor, [UInt8]>.init(freezing:))
+        self.discussion = discussion.isEmpty ? nil : .init(freezing: Self._sift(discussion, errors: &self.errors))
+    }
+    
+    private 
+    enum MagicListItem 
+    {
+        case parameters([(name:String, comment:[Element])])
+        case returns([Element])
+        case aside(Element)
+    }
+    
+    private static 
+    func _sift(_ toplevel:[Element], errors:inout [Error]) -> [Element]
+    {
         var parameters:[(name:String, comment:[Element])] = []
         var returns:[Element]      = []
         var discussion:[Element]   = []
@@ -99,7 +110,7 @@ extension Documentation.Comment where Anchor == Documentation.UnresolvedLink
                 }
                 catch let error 
                 {
-                    self.errors.append(error)
+                    errors.append(error)
                 }
                 
                 ignored.append(item)
@@ -126,7 +137,7 @@ extension Documentation.Comment where Anchor == Documentation.UnresolvedLink
             sections.append(Self.section(discussion, heading: "Overview", class: "discussion"))
         }
         
-        self.discussion = sections.isEmpty ? nil : .init(freezing: sections)
+        return sections
     }
     
     private static 

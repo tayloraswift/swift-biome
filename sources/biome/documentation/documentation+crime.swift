@@ -5,6 +5,7 @@ import HTML
 extension Documentation 
 {
     typealias Element = HTML.Element<Anchor>
+    typealias StaticElement = HTML.Element<Never>
     
     @frozen public 
     enum Anchor:Hashable, Sendable
@@ -25,21 +26,67 @@ extension Documentation
     }
     
     private 
+    func present(reference resolved:ResolvedLink) -> StaticElement
+    {
+        let components:[(text:String, uri:URI)], 
+            tail:(text:String, uri:URI)
+
+        switch resolved
+        {
+        case .article(let article): 
+            return StaticElement.link(self.articles[article].title, 
+                to: self.print(uri: self.uri(article: article)), 
+                internal: true)
+        
+        case .module(let module):
+            components  = []
+            tail        = 
+            (
+                self.biome.modules[module].title,
+                self.biome.uri(module: module)
+            )
+        case .symbol(let witness, victim: let victim):
+            var reversed:[(text:String, uri:URI)] = []
+            var next:Int?       = victim ?? self.biome.symbols[witness].parent
+            while let index:Int = next
+            {
+                reversed.append(
+                    (
+                        self.biome.symbols[index].title, 
+                        self.biome.uri(witness: index, victim: nil, routing: self.routing)
+                    ))
+                next    = self.biome.symbols[index].parent
+            }
+            components  = reversed.reversed()
+            tail        = 
+            (
+                self.biome.symbols[witness].title, 
+                self.biome.uri(witness: witness, victim: victim, routing: self.routing)
+            )
+        }
+        return StaticElement[.code]
+        {
+            // unlike in breadcrumbs, we print the dot separators explicitly 
+            // so they look normal when highlighted and copy-pasted 
+            for (text, uri):(String, URI) in components 
+            {
+                StaticElement.link(text, to: self.biome.format(uri:       uri, routing: self.routing), internal: true)
+                StaticElement.text(escaped: ".")
+            }
+            StaticElement.link(tail.text, to: self.biome.format(uri: tail.uri, routing: self.routing), internal: true)
+        }
+    }
+    
+    private 
     func fill(template:DocumentTemplate<ResolvedLink, [UInt8]>) -> Element 
     {
-        let filled:[ArraySlice<UInt8>] = template.apply 
+        let presented:[ResolvedLink: StaticElement] = .init(uniqueKeysWithValues: 
+            Set.init(template.anchors.map(\.id)).map 
         {
-            (resolved:ResolvedLink) -> HTML.Element<Never>? in 
-            
-            switch resolved 
-            {
-            case .article(let article): 
-                return HTML.Element<Never>.link(self.articles[article].title, 
-                    to: self.print(uri: self.uri(article: article)), 
-                    internal: true)
-            }
-        }
-        return .bytes(utf8: [UInt8].init(filled.joined()))
+            ($0, self.present(reference: $0))
+        })
+        let fragments:[ArraySlice<UInt8>] = template.apply(presented)
+        return .bytes(utf8: [UInt8].init(fragments.joined()))
     }
     private 
     func substitutions(title:String, filter:[Biome.Package.ID]) -> [Anchor: Element] 
@@ -83,7 +130,7 @@ extension Documentation
     
     func page(article index:Int, filter:[Biome.Package.ID]) -> Resource
     {
-        let article:Article<ResolvedLink> = self.articles[index]
+        let article:Article<ResolvedLink>   = self.articles[index]
         var substitutions:[Anchor: Element] = self.substitutions(title: article.title, filter: filter)
             substitutions[.navigator]       = self.navigator(for: article)
             substitutions[.introduction]    = self.introduction(for: article)
@@ -95,8 +142,6 @@ extension Documentation
         let package:Biome.Package = self.biome.packages[index]
         var substitutions:[Anchor: Element] = self.substitutions(
             title: package.name, 
-            comment: .init(), 
-            summaries: [], 
             filter: filter)
         
         substitutions[.navigator]       = Self.navigator(for: package)

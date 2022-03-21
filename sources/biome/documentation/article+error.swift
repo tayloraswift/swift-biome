@@ -8,11 +8,12 @@ extension Documentation
         case emptyImageSource
         case emptyLinkDestination
         
-        case ambiguousSymbolLink(URI.Path, overload:Int?)
-        case undefinedSymbolLink(URI.Path, overload:Int?)
+        case ambiguousSymbolReference(UnresolvedLink)
+        case undefinedSymbolReference(UnresolvedLink)
+        
         case unsupportedMarkdown(String)
         
-        case invalidDocCSymbolLinkSuffix(String)
+        //case invalidDocCSymbolLinkSuffix(String)
     }
     
     enum CommentError:Error 

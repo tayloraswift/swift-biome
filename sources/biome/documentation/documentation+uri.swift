@@ -215,6 +215,13 @@ extension Documentation.URI
     }
     
     static 
+    func normalize<Path>(path:Path) -> [[UInt8]]
+        where Path:Sequence, Path.Element:Sequence, Path.Element.Element == UInt8
+    {
+        var whatever:Bool = true 
+        return self.normalize(path: path, changed: &whatever)
+    }
+    static 
     func normalize<Path>(path:Path, changed:inout Bool) -> [[UInt8]]
         where Path:Sequence, Path.Element:Sequence, Path.Element.Element == UInt8
     {

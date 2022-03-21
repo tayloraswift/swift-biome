@@ -31,19 +31,11 @@ extension Biome
     {
         Documentation.URI.encode(component: self.modules[module].id.title.utf8)
     }
+
     func stem(witness:Int, victim:Int?) -> (stem:[[UInt8]], leaf:[UInt8])
     {
-        var stem:[[UInt8]] = []
-        for component:String in self.symbols[victim ?? witness].scope
-        {
-            stem.append(Documentation.URI.encode(component: component.utf8))
-        }
-        if let victim:Int = victim 
-        {
-            stem.append(Documentation.URI.encode(component: self.symbols[victim].title.utf8))
-        }
-        
-        let title:String = self.symbols[witness].title
+        var stem:[[UInt8]]  = self.scope(witness: witness, victim: victim)
+        let title:String    = self.symbols[witness].title
         if self.symbols[witness].kind.capitalized
         {
             stem.append(Documentation.URI.encode(component: title.utf8))
@@ -54,6 +46,46 @@ extension Biome
             return (stem: stem, leaf: Documentation.URI.encode(component: title.utf8))
         }
     }
+    // this is *different* from `stem(witness:victim:)`
+    func context(witness:Int, victim:Int?) -> [[UInt8]]
+    {
+        var context:[[UInt8]] = self.symbols[victim ?? witness].scope.map 
+        { 
+            Documentation.URI.encode(component: $0.utf8) 
+        }
+        switch self.symbols[witness].kind
+        {
+        case    .enum, .struct, .class, .actor, .protocol:
+            // these create scopes, so resolve symbol links against them.
+            context.append(Documentation.URI.encode(component: self.symbols[witness].title.utf8))
+        
+        case    .associatedtype, .typealias:
+            // these are traditionally uppercased, but do not create scopes, 
+            // so resolve symbol links against their *parents*.
+            break
+        case    .case, .initializer, .deinitializer, 
+                .typeSubscript, .instanceSubscript, 
+                .typeProperty, .instanceProperty, 
+                .typeMethod, .instanceMethod, 
+                .var, .func, .operator:
+            break
+        }
+        return context
+    }
+    private 
+    func scope(witness:Int, victim:Int?) -> [[UInt8]]
+    {
+        var stem:[[UInt8]] = self.symbols[victim ?? witness].scope.map 
+        { 
+            Documentation.URI.encode(component: $0.utf8) 
+        }
+        if let victim:Int = victim 
+        {
+            stem.append(Documentation.URI.encode(component: self.symbols[victim].title.utf8))
+        }
+        return stem 
+    }
+    
     
     
     // uris 
@@ -278,6 +310,12 @@ struct Documentation:Sendable
                 self.leaf = leaf 
             }
             
+            /* static 
+            func normalize(joined path:Substring.UTF8View) -> Self
+            {
+                var whatever:Bool = true 
+                return .normalize(joined: path, changed: &whatever)
+            } */
             // does *not* expect a leading slash
             static 
             func normalize(joined path:Substring.UTF8View, changed:inout Bool) -> Self
@@ -640,84 +678,207 @@ struct Documentation:Sendable
         {
             switch (base, overload) 
             {
-            case (.biome, _):   return self.resolve(namespace: namespace, stem: stem, leaf: leaf, overload: overload)
-            case (.learn, _?):  return nil
-            case (.learn, nil): return self.resolve(doc:       namespace, stem: stem, leaf: leaf).map { ($0, true) }
-            }
-        }
-        func resolve(doc namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8]) -> Index?
-        {
-            if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
-                let leafKey:UInt    = self.greens[leaf], 
-                let index:Index     = self.routes[.article(namespace, stem: stemKey, leaf: leafKey)]
-            {
-                return index
-            }
-            else 
-            {
+            case (.biome, _):   
+                if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
+                    let leafKey:UInt    = self.greens[leaf], 
+                    let index:Index     = self.routes[.namespaced(namespace, stem: stemKey, leaf: leafKey, overload: overload)]
+                {
+                    return (index, true)
+                }
+                // for backwards-compatibility, try reinterpreting the last stem 
+                // component as a leaf. only do this if we don’t already have a leaf. 
+                // since swift prohibits operators from containing a dot '.' unless 
+                // they begin with a dot, we will not miss any operator redirects.
+                //
+                // note that this is not where the range operator redirect happens; 
+                // that is handled by `normalize(path:changed:)`, since it generates an 
+                // empty stem component at the end.
+                guard leaf.isEmpty,
+                    let last:[UInt8]    = stem.last,
+                    let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem.dropLast())], 
+                    let leafKey:UInt    = self.greens[last]
+                else 
+                {
+                    return nil
+                }
+                let fallback:URI.Resolved = .namespaced(namespace, stem: stemKey, leaf: leafKey, overload: overload)
+                // only allow greenlisted leaves (currently, operators) to recieve a 
+                // permanent redirect
+                if  self.greenlist.contains(leafKey),
+                    let index:Index     = self.routes[fallback]
+                {
+                    return (index, true)
+                }
+                else if stem.dropFirst().isEmpty,
+                    let index:Index     = self.routes[fallback]
+                {
+                    // global funcs and vars. these are temporary redirects
+                    return (index, false)
+                }
+                else 
+                {
+                    return nil
+                }
+            case (.learn, _?):  
                 return nil
-            }
-        }
-        func resolve(namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) 
-            -> (index:Index, assigned:Bool)?
-        {
-            if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
-                let leafKey:UInt    = self.greens[leaf], 
-                let index:Index     = self.routes[.namespaced(namespace, stem: stemKey, leaf: leafKey, overload: overload)]
-            {
-                return (index, true)
-            }
-            // for backwards-compatibility, try reinterpreting the last stem 
-            // component as a leaf. only do this if we don’t already have a leaf. 
-            // since swift prohibits operators from containing a dot '.' unless 
-            // they begin with a dot, we will not miss any operator redirects.
-            //
-            // note that this is not where the range operator redirect happens; 
-            // that is handled by `normalize(path:changed:)`, since it generates an 
-            // empty stem component at the end.
-            guard leaf.isEmpty,
-                let last:[UInt8]    = stem.last,
-                let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem.dropLast())], 
-                let leafKey:UInt    = self.greens[last]
-            else 
-            {
-                return nil
-            }
-            let fallback:URI.Resolved = .namespaced(namespace, stem: stemKey, leaf: leafKey, overload: overload)
-            // only allow greenlisted leaves (currently, operators) to recieve a 
-            // permanent redirect
-            if  self.greenlist.contains(leafKey),
-                let index:Index     = self.routes[fallback]
-            {
-                return (index, true)
-            }
-            else if stem.dropFirst().isEmpty,
-                let index:Index     = self.routes[fallback]
-            {
-                // global funcs and vars. these are temporary redirects
-                return (index, false)
-            }
-            else 
-            {
-                return nil
+            case (.learn, nil):  
+                if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
+                    let leafKey:UInt    = self.greens[leaf], 
+                    let index:Index     = self.routes[.article(namespace, stem: stemKey, leaf: leafKey)]
+                {
+                    return (index, true)
+                }
+                else 
+                {
+                    return nil
+                }
             }
         }
         
-        // helper 
-        func resolve(doc link:UnresolvedLink) -> ResolvedLink? 
+        // helpers
+        // FIXME: these are dropping the links if resolution fails!!!
+        // we should show a reasonable fallback instead...
+        func resolve(article:Article<UnresolvedLink>, context:UnresolvedLinkContext) -> Article<ResolvedLink> 
         {
+            article.compactMapAnchors
+            {
+                // since symbols can always be referenced with a symbol link, 
+                // prefer article resolutions over symbol resolutions
+                (try? self.resolve(base: .learn, link: $0, context: context)) ??
+                (try? self.resolve(base: .biome, link: $0, context: context))
+            }
+        }
+        func resolve(comment:Comment<UnresolvedLink>, context:UnresolvedLinkContext) -> Comment<ResolvedLink> 
+        {
+            comment.compactMapAnchors
+            {
+                // since symbols can always be referenced with a symbol link, 
+                // prefer article resolutions over symbol resolutions
+                (try? self.resolve(base: .learn, link: $0, context: context)) ??
+                (try? self.resolve(base: .biome, link: $0, context: context))
+            }
+        }
+        func resolve(base:URI.Base, link:UnresolvedLink, context:UnresolvedLinkContext) throws -> ResolvedLink 
+        {
+            let index:Index?
             switch link
             {
-            case .doc(namespace: let namespace, stem: let stem, leaf: let leaf):
-                switch self.resolve(doc: namespace, stem: stem[...], leaf: leaf)
+            case .preresolved(let resolved): 
+                return resolved
+            case .docc(doc: let stem, let suffix):
+                index = self.resolveDocC(base: base, stem: stem, suffix: suffix, context: context)
+            }
+            switch index 
+            {
+            case nil, .package?, .packageSearchIndex?: 
+                throw Documentation.ArticleError.undefinedSymbolReference(link)
+            case .ambiguous?:
+                throw Documentation.ArticleError.ambiguousSymbolReference(link)
+            case .article(let index)?: 
+                return .article(index)
+            case .module(let index)?: 
+                return .module(index)
+            case .symbol(let witness, victim: let victim)?: 
+                return .symbol(witness, victim: victim)
+            }
+        }
+        private 
+        func resolveDocC(base:URI.Base, stem:[[UInt8]], suffix:UnresolvedLink.Disambiguator.DocC?, 
+            context:UnresolvedLinkContext) 
+            -> Index?
+        {
+            let capitalized:Bool
+            let lowercased:Bool
+            if case .learn = base 
+            {
+                // never do leaf transformations for article URIs
+                capitalized = true
+                lowercased = false
+            }
+            else if case .kind(let kind)? = suffix 
+            {
+                capitalized = kind.capitalized
+                lowercased = !kind.capitalized
+            }
+            else 
+            {
+                // we don’t know if this docc link is capitalized or not
+                capitalized = true
+                lowercased  = true
+            }
+            //  assume link is *absolute*, contains module prefix. 
+            //  check this *first*, so that we can reference a module like 
+            //  `JSON` as `JSON`, and its type of the same name as `JSON.JSON`.
+            if  case context.namespace??    = stem.first.map({ self.trunks[$0] })
+            {
+                let stem:ArraySlice<[UInt8]> = stem.dropFirst()
+                if  capitalized, 
+                    case (let index, _)? = self.resolve(base: base, 
+                        namespace: context.namespace, 
+                        stem: stem, 
+                        leaf: [], 
+                        overload: nil)
                 {
-                case .article(let index)?: 
-                    return .article(index)
-                case nil: 
-                    Swift.print("failed to resolve DocC link '\(link)'")
-                    return nil
-                default: fatalError("UNIMPLEMENTED")
+                    return index
                 }
+                if  lowercased, let leaf:[UInt8] = stem.last,
+                    case (let index, _)? = self.resolve(base: base, 
+                        namespace: context.namespace, 
+                        stem: stem.dropFirst(), 
+                        leaf: leaf, 
+                        overload: nil)
+                {
+                    return index 
+                }
+            }
+            //  assume link is *absolute*, does *not* contain module prefix
+            if  capitalized, 
+                case (let index, _)? = self.resolve(base: base, 
+                    namespace: context.namespace, 
+                    stem: stem[...], 
+                    leaf: [], 
+                    overload: nil)
+            {
+                return index
+            }
+            if  lowercased, let leaf:[UInt8] = stem.last,
+                case (let index, _)? = self.resolve(base: base, 
+                    namespace: context.namespace, 
+                    stem: stem.dropFirst(), 
+                    leaf: leaf, 
+                    overload: nil)
+            {
+                return index
+            }
+            //  assume link is *relative*
+            guard !context.scope.isEmpty 
+            else 
+            {
+                return nil
+            }
+            let concatenated:[[UInt8]] = context.scope + stem
+            if  capitalized, 
+                case (let index, _)? = self.resolve(base: base, 
+                    namespace: context.namespace, 
+                    stem: concatenated[...], 
+                    leaf: [], 
+                    overload: nil)
+            {
+                return index
+            }
+            if  lowercased, let leaf:[UInt8] = concatenated.last,
+                case (let index, _)? = self.resolve(base: base, 
+                    namespace: context.namespace, 
+                    stem: concatenated.dropFirst(), 
+                    leaf: leaf, 
+                    overload: nil)
+            {
+                return index
+            }
+            // failure 
+            else 
+            {
+                return nil
             }
         }
     }
@@ -785,58 +946,10 @@ struct Documentation:Sendable
         var routing:RoutingTable = .init(bases: directories, biome: biome)
         Swift.print("initialized routing table")
         
+        var symbols:[Int: Comment<UnresolvedLink>] = [:]
+        var modules:[Int: Comment<UnresolvedLink>] = [:]
+        
         Swift.print("starting article loading")
-        
-        var symbols:[Comment<UnresolvedLink>] = .init(repeating: .init(), count: biome.symbols.count)
-        var modules:[Comment<UnresolvedLink>] = .init(repeating: .init(), count: biome.modules.count)
-        
-        for (index, comment):(Int, String) in zip(biome.symbols.indices, _move(comments)) 
-            where !comment.isEmpty
-        {
-            let symbol:Biome.Symbol = biome.symbols[index]
-            
-            guard case nil = symbol.commentOrigin
-            else 
-            {
-                // don’t re-render duplicated docs 
-                continue 
-            }
-            guard let namespace:Int = symbol.namespace
-            else 
-            {
-                // FIXME: some mythical symbols actually do have documentation, 
-                // which is being lost 
-                continue 
-            }
-            var scope:[[UInt8]] = symbol.scope.map { URI.encode(component: $0.utf8) }
-            switch symbol.kind
-            {
-            case    .enum, .struct, .class, .actor, .protocol:
-                // these create scopes, so resolve symbol links against them.
-                scope.append(URI.encode(component: symbol.title.utf8))
-            
-            case    .associatedtype, .typealias:
-                // these are traditionally uppercased, but do not create scopes, 
-                // so resolve symbol links against their *parents*.
-                break
-            case    .case, .initializer, .deinitializer, 
-                    .typeSubscript, .instanceSubscript, 
-                    .typeProperty, .instanceProperty, 
-                    .typeMethod, .instanceMethod, 
-                    .var, .func, .operator:
-                break
-            }
-            let context:ArticleRenderingContext = .init(format: .docc, 
-                namespace: namespace, 
-                scope: scope)
-            let (summary, discussion, errors):(Article<UnresolvedLink>.Element?, [Article<UnresolvedLink>.Element], [Error]) = 
-                ArticleRenderer.render(comment: comment, 
-                    biome: biome, 
-                    routing: routing, 
-                    context: context)
-            symbols[index].update(summary: summary, discussion: discussion, errors: errors)
-        }
-        
         var articles:[Article<UnresolvedLink>] = []
         for package:Biome.Package in biome.packages 
         {
@@ -851,15 +964,18 @@ struct Documentation:Sendable
                         continue 
                     }
                     let (owner, discussion, errors):(ArticleOwner, [Article<UnresolvedLink>.Element], [Error]) = 
-                        ArticleRenderer.render(.docc, article: source, namespace: module,
+                        ArticleRenderer.render(.docc, article: source, 
                             biome: biome, 
-                            routing: routing)
+                            routing: routing, 
+                            namespace: module)
                     switch owner
                     {
                     case .module(summary: let summary, index: let module):
-                        modules[module].update(summary: summary, discussion: discussion, errors: errors)
+                        modules[module] = .init(errors: errors, summary: summary, discussion: discussion)
                     case .symbol(summary: let summary, index: let witness):
-                        symbols[witness].update(summary: summary, discussion: discussion, errors: errors)
+                        // FIXME: this can’t handle articles that are owned by 
+                        // criminal symbols
+                        symbols[witness] = .init(errors: errors, summary: summary, discussion: discussion)
                     
                     case .free(title: let title): 
                         let article:Article<UnresolvedLink> = .init(
@@ -873,11 +989,68 @@ struct Documentation:Sendable
                 }
             }
         }
+        // everything that will ever be registered has been registered at this point
+        self.articles = articles.map 
+        { 
+            routing.resolve(article: $0, context: .init(namespace: $0.namespace, scope: []))
+        }
         Swift.print("finished article loading")
+        // the only way modules can get documentation is by owning an article
+        self.modules = biome.modules.indices.map 
+        {
+            (module:Int) in modules.removeValue(forKey: module).map
+            {
+                routing.resolve(comment: $0, context: .init(namespace: module, scope: []))
+            } ?? .empty
+        }
+        self.symbols = zip(biome.symbols.indices, _move(comments)).map 
+        {
+            (symbol:(index:Int, comment:String)) in 
+            
+            // FIXME: some mythical symbols actually do have documentation, 
+            // which is being lost. since we cannot resolve links without 
+            // a namespace, we can’t render any articles they own either.
+            if let namespace:Int = biome.symbols[symbol.index].namespace
+            {
+                let comment:String?
+                // don’t re-render duplicated docs 
+                if !symbol.comment.isEmpty, 
+                    case nil = biome.symbols[symbol.index].commentOrigin
+                {
+                    comment = symbol.comment
+                }
+                else 
+                {
+                    comment = nil
+                }
+                
+                let context:UnresolvedLinkContext = .init(
+                    namespace: namespace, 
+                    scope: biome.context(witness: symbol.index, victim: nil))
+                switch (comment, symbols.removeValue(forKey: symbol.index))
+                {
+                // FIXME: handle conflicting doccomments and articles 
+                case (_, let comment?):
+                    return routing.resolve(comment: comment, context: context)
+                case (let string?, nil):
+                    let (summary, discussion, errors):(Article<UnresolvedLink>.Element?, [Article<UnresolvedLink>.Element], [Error]) = 
+                        ArticleRenderer.render(.docc, 
+                            comment: string, 
+                            biome: biome, 
+                            routing: routing, 
+                            context: context)
+                    let comment:Comment<UnresolvedLink> = 
+                        .init(errors: errors, summary: summary, discussion: discussion)
+                    return routing.resolve(comment: comment, context: context)
+                case (nil, nil): 
+                    // undocumented 
+                    break 
+                }
+            }
+            
+            return .empty
+        }
         
-        self.articles   = articles.map { $0.compactMapAnchors(routing.resolve(doc:)) }
-        self.symbols    = symbols.map { $0.compactMapAnchors(routing.resolve(doc:)) }
-        self.modules    = modules.map { $0.compactMapAnchors(routing.resolve(doc:)) }
         
         self.template   = template
         self.search     = biome.searchIndices(routing: routing)
