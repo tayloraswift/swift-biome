@@ -22,6 +22,17 @@ extension Documentation
         var errors:[Error]
         
         static 
+        func render(_article:String, biome:Biome, routing:RoutingTable) 
+            -> (head:Element?, body:[Element], context:UnresolvedLinkContext, errors:[Error])
+        {
+            var renderer:Self = self.init(format: .docc, biome: biome, routing: routing,
+                context: .init(namespace: 0, scope: []))
+            let (head, body):(Element?, [Element]) = 
+                renderer.render(comment: Self.parse(markdown: _article), rank: 0)
+            return (head, body, renderer.context, renderer.errors)
+        }
+        
+        static 
         func render(_ format:Format, article:String, biome:Biome, routing:RoutingTable, namespace:Int) 
             -> (owner:ArticleOwner, body:[Element], errors:[Error])
         {

@@ -25,7 +25,7 @@ extension Documentation
         case dynamic
     }
     
-    private 
+    //private 
     func present(reference resolved:ResolvedLink) -> StaticElement
     {
         let components:[(text:String, uri:URI)], 
