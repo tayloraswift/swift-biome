@@ -25,7 +25,7 @@ extension Documentation
         case dynamic
     }
     
-    //private 
+    private 
     func present(reference resolved:ResolvedLink) -> StaticElement
     {
         let components:[(text:String, uri:URI)], 
@@ -76,9 +76,8 @@ extension Documentation
             StaticElement.link(tail.text, to: self.biome.format(uri: tail.uri, routing: self.routing), internal: true)
         }
     }
-    
     private 
-    func fill(template:DocumentTemplate<ResolvedLink, [UInt8]>) -> Element 
+    func fill(template:DocumentTemplate<ResolvedLink, [UInt8]>) -> [UInt8] 
     {
         let presented:[ResolvedLink: StaticElement] = .init(uniqueKeysWithValues: 
             Set.init(template.anchors.map(\.id)).map 
@@ -86,38 +85,44 @@ extension Documentation
             ($0, self.present(reference: $0))
         })
         let fragments:[ArraySlice<UInt8>] = template.apply(presented)
-        return .bytes(utf8: [UInt8].init(fragments.joined()))
+        return [UInt8].init(fragments.joined())
+    }
+    
+    func substitutions(title:String, filter:[Biome.Package.ID]) 
+        -> [Anchor: [UInt8]] 
+    {
+        let title:StaticElement     = StaticElement[.title] { title }
+        let constants:StaticElement = StaticElement[.script]
+        {
+            // package name is alphanumeric, we should enforce this in 
+            // `Package.ID`, otherwise this could be a security hole
+            let source:String = 
+            """
+            includedPackages = [\(filter.map { "'\($0.name)'" }.joined(separator: ","))];
+            """
+            StaticElement.text(escaped: source)
+        }
+        return 
+            [
+                .title: title.render(as: [UInt8].self),
+                .constants: constants.render(as: [UInt8].self),
+            ]
+    }
+    func substitutions(title:String, content:ArticleContent<ResolvedLink>, filter:[Biome.Package.ID]) 
+        -> [Anchor: [UInt8]] 
+    {
+        self.substitutions(title: title, content: content, summaries: [], filter: filter)
     }
     private 
-    func substitutions(title:String, filter:[Biome.Package.ID]) -> [Anchor: Element] 
+    func substitutions(title:String, content:ArticleContent<ResolvedLink>, summaries:Set<Int>, filter:[Biome.Package.ID]) 
+        -> [Anchor: [UInt8]] 
     {
-        [
-            .title:     Element[.title] 
-            {
-                title
-            },
-            .constants: Element[.script]
-            {
-                // package name is alphanumeric, we should enforce this in 
-                // `Package.ID`, otherwise this could be a security hole
-                let source:String = 
-                """
-                includedPackages = [\(filter.map { "'\($0.name)'" }.joined(separator: ","))];
-                """
-                Element.text(escaped: source)
-            }
-        ]
-    }
-    private 
-    func substitutions<S>(title:String, comment:Comment<ResolvedLink>, summaries:S, filter:[Biome.Package.ID]) -> [Anchor: Element] 
-        where S:Sequence, S.Element == Int
-    {
-        var substitutions:[Anchor: Element] = self.substitutions(title: title, filter: filter)
-        if let summary:Element = comment.summary.map(self.fill(template:))
+        var substitutions:[Anchor: [UInt8]] = self.substitutions(title: title, filter: filter)
+        if let summary:[UInt8] = content.summary.map(self.fill(template:))
         {
             substitutions[.summary] = summary
         }
-        if let discussion:Element = comment.discussion.map(self.fill(template:))
+        if let discussion:[UInt8] = content.discussion.map(self.fill(template:))
         {
             substitutions[.discussion] = discussion
         }
@@ -131,19 +136,21 @@ extension Documentation
     func page(article index:Int, filter:[Biome.Package.ID]) -> Resource
     {
         let article:Article<ResolvedLink>   = self.articles[index]
-        var substitutions:[Anchor: Element] = self.substitutions(title: article.title, filter: filter)
+        var substitutions:[Anchor: Element] = self.substitutions(
+            title: article.title, 
+            content: article.content, 
+            filter: filter)
+            .mapValues(Element.bytes(utf8:))
+        
             substitutions[.navigator]       = self.navigator(for: article)
             substitutions[.introduction]    = self.introduction(for: article)
-            substitutions[.summary]         = article.content.summary.map(self.fill(template:))
-            substitutions[.discussion]      = article.content.discussion.map(self.fill(template:))
         return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     func page(package index:Int, filter:[Biome.Package.ID]) -> Resource
     {
         let package:Biome.Package = self.biome.packages[index]
-        var substitutions:[Anchor: Element] = self.substitutions(
-            title: package.name, 
-            filter: filter)
+        var substitutions:[Anchor: Element] = self.substitutions(title: package.name, filter: filter)
+            .mapValues(Element.bytes(utf8:))
         
         substitutions[.navigator]       = Self.navigator(for: package)
         substitutions[.introduction]    = Self.introduction(for: package)
@@ -193,9 +200,10 @@ extension Documentation
         
         var substitutions:[Anchor: Element] = self.substitutions(
             title: module.title, 
-            comment: self.modules[index], 
+            content: self.modules[index], 
             summaries: comments, 
             filter: filter)
+            .mapValues(Element.bytes(utf8:))
         
         substitutions[.navigator]       = Self.navigator(for: module)
         substitutions[.introduction]    = self.introduction(for: module)
@@ -251,17 +259,18 @@ extension Documentation
         }
         var substitutions:[Anchor: Element] = self.substitutions(
             title: symbol.title, 
-            comment: self.symbols[witness], 
+            content: self.symbols[witness], 
             summaries: comments, 
             filter: filter)
+            .mapValues(Element.bytes(utf8:))
         substitutions[.navigator]       = self.navigator(for: symbol, in: victim)
         substitutions[.introduction]    = self.introduction(for: symbol, witnessing: victim)
         substitutions[.declaration]     = self.declaration(for: symbol)
         substitutions[.platforms]       = Self.platforms(availability: symbol.platforms)
         if  let origin:Int = symbol.commentOrigin
         {
-            substitutions[.summary]     = self.symbols[origin].summary.map(self.fill(template:))
-            substitutions[.discussion]  = self.symbols[origin].discussion.map(self.fill(template:))
+            substitutions[.summary]     = self.symbols[origin].summary.map    { .bytes(utf8: self.fill(template: $0)) }
+            substitutions[.discussion]  = self.symbols[origin].discussion.map { .bytes(utf8: self.fill(template: $0)) }
         }
         if case nil = substitutions.index(forKey: .summary)
         {

@@ -10,11 +10,55 @@ extension Documentation
         case plain
     }
     
-    private 
+    struct ArticleSurvey 
+    {
+        let directives:[BlockDirective]
+        let heading:ArticleHeading
+        let nodes:[ArticleNode]
+    }
+    enum ArticleHeading 
+    {
+        case implicit
+        case explicit(Heading)
+        
+        var level:Int 
+        {
+            switch self 
+            {
+            case .implicit:                 return 1 
+            case .explicit(let heading):    return heading.level
+            }
+        }
+        
+        func owner(assuming format:Format) -> UnresolvedLink?
+        {
+            guard case .explicit(let heading) = self 
+            else 
+            {
+                return nil 
+            }
+            var spans:LazyMapSequence<MarkupChildren, InlineMarkup>.Iterator = 
+                heading.inlineChildren.makeIterator()
+            guard   let owner:any InlineMarkup  = spans.next(), 
+                    case nil                    = spans.next(), 
+                let owner:SymbolLink    = owner as? SymbolLink,
+                let owner:String        = owner.destination, !owner.isEmpty
+            else 
+            {
+                return nil
+            }
+            switch format 
+            {
+            // FIXME
+            case .entrapta, .docc:
+                return .docc(normalizing: owner)
+            }
+        }
+    }
     enum ArticleNode 
     {
+        case section(Heading, [Self])
         case block(any BlockMarkup)
-        case section(heading:[any InlineMarkup], [Self])
     }
     
     struct ArticleRenderer 
@@ -29,136 +73,19 @@ extension Documentation
         
         var errors:[Error]
         
-        private mutating 
-        func render(_node node:ArticleNode, level:Int = 2, into elements:inout [Element])
-        {
-            switch node 
-            {
-            case .block(let block): 
-                // rank should not matter
-                elements.append(self.render(block: block, rank: 0))
-            case .section(heading: let heading, let children):
-                let h:HTML.Container
-                switch level
-                {
-                case ...1:  h = .h1
-                case    2:  h = .h2
-                case    3:  h = .h3
-                case    4:  h = .h4
-                case    5:  h = .h5
-                default:    h = .h6
-                }
-                elements.append(Element[h]
-                {
-                    for span:any InlineMarkup in heading
-                    {
-                        self.render(inline: span)
-                    }
-                })
-                for node:ArticleNode in children 
-                {
-                    self.render(_node: node, level: level + 1, into: &elements)
-                }
-            }
-        }
-        private mutating 
-        func render(_root root:Markdown.Document) -> (title:ArticleTitle, summary:Element?, discussion:[Element])
-        {
-            let (directives, inline, nodes):([BlockDirective], [any InlineMarkup], [ArticleNode]) = 
-                Self.survey(root: root)
-            
-            let summary:Element?, 
-                remaining:ArraySlice<ArticleNode>,
-                title:ArticleTitle
-            if case .block(let paragraph as Paragraph)? = nodes.first
-            {
-                summary = self.render(span: paragraph, as: .p)
-                remaining = nodes.dropFirst()
-            }
-            else 
-            {
-                summary = nil 
-                remaining = nodes[...]
-            }
-            if  let inline:InlineMarkup = inline.first,
-                let owner:SymbolLink    = inline as? SymbolLink,
-                let owner:String        = owner.destination, !owner.isEmpty,
-                let owner:ResolvedLink  = self.resolve(symbol: owner)
-            {
-                // the article has an owner. update the scope accordingly 
-                // (namespace is never allowed to change)
-                if case .symbol(let witness, let victim) = owner 
-                {
-                    self.context.scope = self.biome.context(witness: witness, victim: victim)
-                }
-                title = .owned(by: owner)
-            }
-            else 
-            {
-                // the h1 heading must never contain links 
-                title = .free(title: inline.map(\.plainText).joined())
-            }
-            var discussion:[Element] = []
-            for node:ArticleNode in remaining 
-            {
-                self.render(_node: node, level: 2, into: &discussion)
-            }
-            return (title, summary, discussion)
-        }
+        // `level` may skip levels
+        private 
+        typealias StackFrame = (heading:ArticleHeading, nodes:[ArticleNode])
         
         static 
-        func render(_ format:Format, article:String, biome:Biome, routing:RoutingTable, namespace:Int) 
-            -> (title:ArticleTitle, summary:Element?, discussion:[Element], context:UnresolvedLinkContext, errors:[Error])
+        func survey(markdown string:String) -> ArticleSurvey
         {
-            let root:Markdown.Document = .init(parsing: article, 
+            let root:Markdown.Document = .init(parsing: string, 
                 options: [ .parseBlockDirectives, .parseSymbolLinks ])
-            var renderer:Self = .init(format: format, biome: biome, routing: routing,
-                context: .init(namespace: namespace, scope: []))
-            
-            let (title, summary, discussion):(ArticleTitle, Element?, [Element]) = 
-                renderer.render(_root: root)
-            
-            return (title, summary, discussion, renderer.context, renderer.errors)
+            return Self.survey(root: root)
         }
-        static 
-        func render(_ format:Format, comment:String, biome:Biome, routing:RoutingTable, context:UnresolvedLinkContext) 
-            -> (head:Element?, body:[Element], errors:[Error])
-        {
-            guard !comment.isEmpty 
-            else 
-            {
-                return (nil, [], [])
-            }
-            var renderer:Self = self.init(format: format, biome: biome, routing: routing, context: context)
-            let (head, body):(Element?, [Element]) = 
-                renderer.render(comment: Self.parse(markdown: comment), rank: 1)
-            return (head, body, renderer.errors)
-        }
-        
-        
-        private 
-        init(format:Format, biome:Biome, routing:RoutingTable, context:UnresolvedLinkContext)
-        {
-            self.format     = format
-            self.biome      = biome 
-            self.routing    = routing
-            self.context    = context
-            self.errors     = []
-        }
-        
         private static 
-        func parse(markdown string:String) -> LazyMapSequence<MarkupChildren, BlockMarkup> 
-        {
-            let document:Markdown.Document = .init(parsing: string, 
-                options: [ .parseBlockDirectives, .parseSymbolLinks ])
-            return document.blockChildren
-        }
-
-        private 
-        typealias StackFrame = (heading:[any InlineMarkup], nodes:[ArticleNode])
-        
-        private static 
-        func survey(root:Markdown.Document) -> (directives:[BlockDirective], heading:[any InlineMarkup], nodes:[ArticleNode])
+        func survey(root:Markdown.Document) -> ArticleSurvey
         {
             // partition the top level blocks by heading, and whether they are 
             // a block directive 
@@ -177,12 +104,12 @@ extension Documentation
                     var next:(any BlockMarkup)?
                     if let heading:Heading = block as? Heading, heading.level <= 1
                     {
-                        stack.top.heading = .init(heading.inlineChildren)
+                        stack.top.heading = .explicit(heading)
                         next = blocks.next() 
                     }
                     else 
                     {
-                        stack.top.heading = []
+                        stack.top.heading = .implicit
                         next = block 
                     }
                     
@@ -196,151 +123,138 @@ extension Documentation
                             stack.top.nodes.append(.block(current))
                             continue 
                         }
-                        guard heading.level > 1 
-                        else 
+                        // for example, an `h3` will own everything until the next `h3`.
+                        while case .explicit(let authority) = stack.top.heading,
+                                heading.level <= authority.level, 
+                            // it’s possible for this to return nil, if the article had 
+                            // an explicit title, and there is another `h1` somewhere inside 
+                            // it. in this case, the root will behave like an ‘h0’ and 
+                            // the `h1`s will become children.
+                            var top:StackFrame = stack.base.popLast()
                         {
-                            fatalError("multiple h1 headings")
-                        }
-                        while heading.level < stack.base.count
-                        {
-                            var top:StackFrame = stack.base.removeLast()
-                            top.nodes.append(.section(heading: stack.top.heading, stack.top.nodes))
+                            top.nodes.append(.section(authority, stack.top.nodes))
                             stack.top = top
                         }
+                        // push the new heading onto the stack, which makes it the 
+                        // current authority. the level of the new heading is not necessarily 
+                        // the level of the previous authority incremented by 1.
+                        // it can skip levels, and it can also have the same level, 
+                        // if the document contains multiple `h1`s.
                         stack.base.append(stack.top)
-                        stack.top.heading   = [any InlineMarkup].init(heading.inlineChildren)
+                        stack.top.heading   = .explicit(heading)
                         stack.top.nodes     = []
                     }
-                    
-                    while var top:StackFrame = stack.base.popLast()
+                    // conclude the survey by pretending the document ends with 
+                    // an imaginary `h0` footer.
+                    while case .explicit(let authority) = stack.top.heading,
+                        var top:StackFrame = stack.base.popLast()
                     {
-                        top.nodes.append(.section(heading: stack.top.heading, stack.top.nodes))
+                        top.nodes.append(.section(authority, stack.top.nodes))
                         stack.top = top
                     }
-                    return (directives, stack.top.heading, stack.top.nodes)
+                    // `case implicit` can only appear in the first element of the stack 
+                    // base, so `stack.base` is guaranteed to be empty at this point
+                    assert(stack.base.isEmpty)
+                    
+                    return .init(directives: directives, heading: stack.top.heading, nodes: stack.top.nodes)
                 }
                 directives.append(directive)
             }
             
-            return (directives, [], [])
+            return .init(directives: directives, heading: .implicit, nodes: [])
         }
         
-        // comments can have any number of h1’s, embedded in them,
-        // which will turn into h2s. if the comment starts with an h1, 
-        // it will go into the body, and the summary will show 
-        // “no overview available”
-        /* private mutating 
-        func render<S>(article blocks:S) -> (owner:ArticleOwner, body:[Element])
-            where S:Sequence, S.Iterator:Sequence, S.Element == BlockMarkup
+        static 
+        func render(_ survey:ArticleSurvey, as format:Format, 
+            biome:Biome, 
+            routing:RoutingTable, 
+            context:UnresolvedLinkContext) 
+            -> ArticleContent<UnresolvedLink>
         {
-            var blocks:S.Iterator = blocks.makeIterator()
-            guard   let first:any BlockMarkup = blocks.next()
+            var renderer:Self = .init(format: format, biome: biome, routing: routing,
+                context: context)
+            // note: we *never* render the top-level heading. this will either be 
+            // auto-generated (for owned symbols), or stored as plain text by the 
+            // caller of this function.
+            let summary:Element?, 
+                remaining:ArraySlice<ArticleNode>
+            if case .block(let paragraph as Paragraph)? = survey.nodes.first
+            {
+                summary = renderer.render(span: paragraph, as: .p)
+                remaining = survey.nodes.dropFirst()
+            }
             else 
             {
-                fatalError("article is completely empty")
+                summary = nil 
+                remaining = survey.nodes[...]
             }
-            guard   let heading:Heading = first as? Heading, 
-                        heading.level == 1
-            else 
+            let rank:Int
+            switch survey.heading 
             {
-                let title:String    = "(untitled)"
-                var body:[Element]  = [self.render(block: first, rank: 0)]
-                while let next:any BlockMarkup = blocks.next()
-                {
-                    body.append(self.render(block: next, rank: 0))
-                }
-                return (.free(title: title), body)
+            case .implicit: rank = 1
+            case .explicit: rank = 0
             }
-            // for some reason, `Heading.inlineChildren.first` appears to be broken
-            // this is probably because `any` lookup doesn’t work with `Self.first`
-            // and `Self.first(where:)` overloading...
-            let _inline:[InlineMarkup]  = .init(heading.inlineChildren)
-            guard   _inline.count <= 1,
-                let inline:InlineMarkup = _inline.first,
-                let owner:SymbolLink    = inline as? SymbolLink,
-                let owner:String        = owner.destination, !owner.isEmpty,
-                let owner:ResolvedLink  = self.resolve(symbol: owner)
-            else 
+            var discussion:[Element] = []
+            for node:ArticleNode in remaining 
             {
-                let title:String    = heading.plainText
-                let body:[Element]  = blocks.map 
-                {
-                    self.render(block: $0, rank: 0)
-                }
-                return (.free(title: title), body)
+                renderer.render(node: node, demotedBy: rank, into: &discussion)
             }
-            // the article has an owner. update the scope accordingly 
-            // (namespace is never allowed to change)
-            if case .symbol(let witness, let victim) = owner 
-            {
-                self.context.scope = self.biome.context(witness: witness, victim: victim)
-            }
-            // consider the remainder of the document a comment, but do not 
-            // demote the header rank
-            let (head, body):(Element?, [Element]) = self.render(comment: blocks, rank: 0)
-            switch owner 
-            {
-            case .article:
-                // a symbol link (self.resolve(symbol:)) can never refer to 
-                // an article!
-                fatalError("unreachable")
             
-            case .module(let index):
-                return (.module(summary: head, index: index), body)
-            case .symbol(let witness, victim: nil):
-                return (.symbol(summary: head, index: witness), body)
-            case .symbol(_, victim: _?):
-                fatalError("UNIMPLEMENTED")
+            if case .implicit = survey.heading 
+            {
+                // this would be better done at the markup level, but swift-markdown 
+                // has a terrible block parsing API :/
+                discussion = self._sift(discussion, errors: &renderer.errors)
             }
-        } */
+            return .init(errors: renderer.errors, summary: summary, discussion: discussion)
+        }
         private mutating 
-        func render<S>(comment blocks:S, rank:Int) -> (head:Element?, body:[Element])
-            where S:Sequence, S.Element == BlockMarkup
+        func render(node:ArticleNode, demotedBy rank:Int, into elements:inout [Element])
         {
-            var blocks:S.Iterator = blocks.makeIterator()
-            guard let first:BlockMarkup = blocks.next()
-            else 
+            let container:HTML.Container
+            switch node 
             {
-                return (nil, [])
+            case .block(let block): 
+                // rank should not matter
+                elements.append(self.render(block: block, demotedBy: rank))
+            case .section(let heading, let children):
+                elements.append(self.render(heading: heading, demotedBy: rank))
+                for node:ArticleNode in children 
+                {
+                    self.render(node: node, demotedBy: rank, into: &elements)
+                }
             }
-            let head:Element? 
-            var body:[Element]
-            if let paragraph:Paragraph = first as? Paragraph 
-            {
-                head = self.render(span: paragraph, as: .p)
-                body = []
-            }
-            else 
-            {
-                head = nil 
-                body = [self.render(block: first, rank: rank)]
-            }
-            while let next:BlockMarkup = blocks.next()
-            {
-                body.append(self.render(block: next, rank: rank))
-            }
-            return (head, body)
         }
         
+        private 
+        init(format:Format, biome:Biome, routing:RoutingTable, context:UnresolvedLinkContext)
+        {
+            self.format     = format
+            self.biome      = biome 
+            self.routing    = routing
+            self.context    = context
+            self.errors     = []
+        }
+
         private mutating 
-        func render<Aside>(aside:Aside, as container:HTML.Container, rank:Int) -> Element 
+        func render<Aside>(aside:Aside, as container:HTML.Container, demotedBy rank:Int) -> Element 
             where Aside:BasicBlockContainer
         {
             Element[container]
             {
                 for block:any BlockMarkup in aside.blockChildren 
                 {
-                    self.render(block: block, rank: rank)
+                    self.render(block: block, demotedBy: rank)
                 }
             }
         }
         private mutating 
-        func render(block:any BlockMarkup, rank:Int) -> Element 
+        func render(block:any BlockMarkup, demotedBy rank:Int) -> Element 
         {
             switch block 
             {
             case let aside as BlockQuote:
-                return self.render(aside: aside, as: .blockquote, rank: rank)
+                return self.render(aside: aside, as: .blockquote, demotedBy: rank)
             
             case is CustomBlock:
                 return Element[.div] { "(unsupported custom block)" }
@@ -348,28 +262,18 @@ extension Documentation
                 return Element.text(escaped: block.rawHTML)
             
             case let directive as BlockDirective:
-                return self.render(directive: directive, rank: rank)
+                return self.render(directive: directive, demotedBy: rank)
             case let item as ListItem:
-                return self.render(item: item, rank: rank)
+                return self.render(item: item, demotedBy: rank)
             case let list as OrderedList:
-                return self.render(list: list, as: .ol, rank: rank)
+                return self.render(list: list, as: .ol, demotedBy: rank)
             case let list as UnorderedList:
-                return self.render(list: list, as: .ul, rank: rank)
+                return self.render(list: list, as: .ul, demotedBy: rank)
             case let block as CodeBlock:
                 return self.render(code: block.code, 
                     as: block.language.map { $0.lowercased() == "swift" ? .swift : .plain } ?? .swift)
             case let heading as Heading: 
-                let level:HTML.Container
-                switch heading.level + rank
-                {
-                case ...1:  level = .h1
-                case    2:  level = .h2
-                case    3:  level = .h3
-                case    4:  level = .h4
-                case    5:  level = .h5
-                default:    level = .h6
-                }
-                return self.render(span: heading, as: level)
+                return self.render(heading: heading, demotedBy: rank)
             case let paragraph as Paragraph:
                 return self.render(span: paragraph, as: .p)
             case let table as Table:
@@ -385,6 +289,21 @@ extension Documentation
             }
         }
         private mutating 
+        func render(heading:Heading, demotedBy rank:Int) -> Element 
+        {
+            let level:HTML.Container
+            switch heading.level + rank
+            {
+            case ...1:  level = .h1
+            case    2:  level = .h2
+            case    3:  level = .h3
+            case    4:  level = .h4
+            case    5:  level = .h5
+            default:    level = .h6
+            }
+            return self.render(span: heading, as: level)
+        }
+        private  
         func render(code:String, as language:CodeBlockLanguage) -> Element 
         {
             var fragments:[Element] = [Element.highlight("", .newlines)]
@@ -425,7 +344,7 @@ extension Documentation
             }
         }
         private mutating 
-        func render(directive:BlockDirective, rank:Int) -> Element 
+        func render(directive:BlockDirective, demotedBy rank:Int) -> Element 
         {
             switch directive.name 
             {
@@ -437,25 +356,25 @@ extension Documentation
             }
         }
         private mutating 
-        func render(item:ListItem, rank:Int) -> Element 
+        func render(item:ListItem, demotedBy rank:Int) -> Element 
         {
             Element[.li]
             {
                 for block:any BlockMarkup in item.blockChildren 
                 {
-                    self.render(block: block, rank: rank)
+                    self.render(block: block, demotedBy: rank)
                 }
             }
         }
         private mutating 
-        func render<List>(list:List, as container:HTML.Container, rank:Int) -> Element 
+        func render<List>(list:List, as container:HTML.Container, demotedBy rank:Int) -> Element 
             where List:ListItemContainer
         {
             Element[container]
             {
                 for item:ListItem in list.listItems 
                 {
-                    self.render(item: item, rank: rank)
+                    self.render(item: item, demotedBy: rank)
                 }
             }
         }
@@ -654,6 +573,349 @@ extension Documentation
                     "(unsupported inline markdown node '\(type(of: unsupported))')"
                 }
             }
+        }
+        
+        // no good place to put these:
+        private 
+        enum MagicListItem 
+        {
+            case parameters([(name:String, comment:[Element])])
+            case returns([Element])
+            case aside(Element)
+        }
+        
+        private static 
+        func _sift(_ toplevel:[Element], errors:inout [Error]) -> [Element]
+        {
+            var parameters:[(name:String, comment:[Element])] = []
+            var returns:[Element]      = []
+            var discussion:[Element]   = []
+            for block:Element in toplevel 
+            {
+                // filter out top-level ‘ul’ blocks, since they may be special 
+                guard case .container(.ul, attributes: let attributes, content: let items) = block 
+                else 
+                {
+                    discussion.append(block)
+                    continue 
+                }
+                
+                var ignored:[Element] = []
+                listitems:
+                for item:Element in items
+                {
+                    guard case .container(.li, attributes: _, content: let content) = item 
+                    else 
+                    {
+                        fatalError("unreachable")
+                    }
+                    do 
+                    {
+                        switch try Self.magic(item: content)
+                        {
+                        case nil:
+                            ignored.append(item)
+                            continue 
+                            
+                        case .parameters(let group):
+                            parameters.append(contentsOf: group)
+                        case .returns(let section):
+                            if returns.isEmpty 
+                            {
+                                returns = section
+                            }
+                            else 
+                            {
+                                throw Documentation.CommentError.multipleReturnsFields(returns, section)
+                            }
+                        case .aside(let section):
+                            discussion.append(section)
+                        }
+                        
+                        continue listitems
+                    }
+                    catch let error 
+                    {
+                        errors.append(error)
+                    }
+                    
+                    ignored.append(item)
+                }
+                guard ignored.isEmpty 
+                else 
+                {
+                    discussion.append(.container(.ul, attributes: attributes, content: ignored))
+                    continue 
+                }
+            }
+            
+            var sections:[Element] = []
+            if !parameters.isEmpty
+            {
+                sections.append(Self.section(parameters: parameters))
+            }
+            if !returns.isEmpty
+            {
+                sections.append(Self.section(returns, heading: "Returns",  class: "returns"))
+            }
+            if !discussion.isEmpty
+            {
+                sections.append(Self.section(discussion, heading: "Overview", class: "discussion"))
+            }
+            
+            return sections
+        }
+        
+        private static 
+        func section(_ content:[Element], heading:String, class:String) -> Element
+        {
+            Element[.section]
+            {
+                [`class`]
+            }
+            content: 
+            {
+                Element[.h2]
+                {
+                    heading
+                }
+                content
+            }
+        }
+        private static 
+        func section(parameters:[(name:String, comment:[Element])]) -> Element
+        {
+            Element[.section]
+            {
+                ["parameters"]
+            }
+            content: 
+            {
+                Element[.h2]
+                {
+                    "Parameters"
+                }
+                Element[.dl]
+                {
+                    parameters.flatMap 
+                    {
+                        (parameter:(name:String, comment:[Element])) in 
+                        [
+                            Element[.dt]
+                            {
+                                parameter.name
+                            },
+                            Element[.dd]
+                            {
+                                parameter.comment
+                            },
+                        ]
+                    }
+                }
+            }
+        }
+        
+        private static 
+        func magic(item:[Element]) throws -> MagicListItem?
+        {
+            guard let (keywords, content):([String], [Element]) = Self.keywords(prefixing: item)
+            else 
+            {
+                return nil 
+            }
+            // `keywords` always contains at least one keyword
+            let keyword:String = keywords[0]
+            switch keyword
+            {
+            case "parameters": 
+                guard keywords.count == 1 
+                else 
+                {
+                    throw Documentation.CommentError.unsupportedMagicKeywords(keywords)
+                }
+                return .parameters(try Self.parameters(in: content))
+                
+            case "parameter": 
+                guard keywords.count == 2 
+                else 
+                {
+                    throw Documentation.CommentError.unsupportedMagicKeywords(keywords)
+                }
+                let name:String = keywords[1]
+                if content.isEmpty
+                {
+                    throw Documentation.CommentError.emptyParameterField(name: name)
+                } 
+                return .parameters([(name, content)])
+            
+            case "returns":
+                guard keywords.count == 1 
+                else 
+                {
+                    throw Documentation.CommentError.unsupportedMagicKeywords(keywords)
+                }
+                if content.isEmpty
+                {
+                    throw Documentation.CommentError.emptyReturnsField
+                }
+                return .returns(content)
+            
+            case "tip", "note", "info", "warning", "throws", "important", "precondition", "complexity":
+                guard keywords.count == 1 
+                else 
+                {
+                    throw Documentation.CommentError.unsupportedMagicKeywords(keywords)
+                }
+                return .aside(Element[.aside]
+                {
+                    [keyword]
+                }
+                content:
+                {
+                    Element[.h2]
+                    {
+                        keyword
+                    }
+                    
+                    content
+                })
+                
+            default:
+                throw Documentation.CommentError.unsupportedMagicKeywords(keywords)
+            }
+        }
+        
+        private static
+        func parameters(in content:[Element]) throws -> [(name:String, comment:[Element])]
+        {
+            guard let first:Element = content.first 
+            else 
+            {
+                throw Documentation.CommentError.emptyParameterList
+            }
+            // look for a nested list 
+            guard case .container(.ul, attributes: _, content: let items) = first 
+            else 
+            {
+                throw Documentation.CommentError.invalidParameterList(first)
+            }
+            if let second:Element = content.dropFirst().first
+            {
+                throw Documentation.CommentError.multipleParameterLists(first, second)
+            }
+            
+            var parameters:[(name:String, comment:[Element])] = []
+            for item:Element in items
+            {
+                guard   case .container(.li, attributes: _, content: let content) = item, 
+                        let (keywords, content):([String], [Element]) = Self.keywords(prefixing: content), 
+                        let name:String = keywords.first, keywords.count == 1
+                else 
+                {
+                    throw Documentation.CommentError.invalidParameterListItem(item)
+                }
+                parameters.append((name, content))
+            }
+            return parameters
+        }
+        
+        private static
+        func keywords(prefixing content:[Element]) -> (keywords:[String], trimmed:[Element])?
+        {
+            //  p 
+            //  {
+            //      text 
+            //      {
+            //          " foo  bar:  "
+            //      }
+            //      ...
+            //  }
+            //  ...
+            guard   case .container(.p, attributes: let attributes, content: var inline)? = content.first, 
+                    let first:Element = inline.first 
+            else 
+            {
+                return nil
+            }
+            let keywords:Substring
+            switch first 
+            {
+            case .text(escaped: let string):
+                guard let colon:String.Index = string.firstIndex(of: ":")
+                else 
+                {
+                    return nil
+                }
+                let remaining:Substring = string[colon...].dropFirst().drop(while: \.isWhitespace)
+                if  remaining.isEmpty 
+                {
+                    inline.removeFirst()
+                }
+                else 
+                {
+                    inline[0] = .text(escaped: String.init(remaining))
+                }
+                keywords = string[..<colon]
+            
+            // failing example here: https://developer.apple.com/documentation/system/filedescriptor/duplicate(as:retryoninterrupt:)
+            // apple docs just drop the parameter
+            case .container(let type, attributes: _, content: let styled):
+                switch type 
+                {
+                case .code, .strong, .em: 
+                    break 
+                default: 
+                    return nil
+                }
+                guard   case .text(escaped: let prefix)? = styled.first, styled.count == 1,
+                        case .text(escaped: let string)? = inline.dropFirst().first, 
+                        let colon:String.Index = string.firstIndex(of: ":"), 
+                        string[..<colon].allSatisfy(\.isWhitespace)
+                else 
+                {
+                    return nil
+                }
+                let remaining:Substring = string[colon...].dropFirst().drop(while: \.isWhitespace)
+                if  remaining.isEmpty 
+                {
+                    inline.removeFirst(2)
+                }
+                else 
+                {
+                    inline.removeFirst(1)
+                    inline[0] = .text(escaped: String.init(remaining))
+                }
+                keywords = prefix[...]
+            default: 
+                return nil
+            }
+            guard let keywords:[String] = Self.keywords(parsing: keywords)
+            else 
+            {
+                return nil
+            }
+            
+            if inline.isEmpty 
+            {
+                return (keywords, [Element].init(content.dropFirst()))
+            }
+            else 
+            {
+                var content:[Element] = content
+                    content[0] = .container(.p, attributes: attributes, content: inline)
+                return (keywords, content)
+            }
+        }
+        private static 
+        func keywords(parsing string:Substring) -> [String]?
+        {
+            let keywords:[Substring] = string.split(whereSeparator: \.isWhitespace)
+            guard 1 ... 8 ~= keywords.count
+            else 
+            {
+                return nil 
+            }
+            return keywords.map { $0.lowercased() }
         }
     }
 }

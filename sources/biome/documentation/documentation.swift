@@ -748,16 +748,7 @@ struct Documentation:Sendable
                 (try? self.resolve(base: .biome, link: $0, context: context))
             }
         }
-        func resolve(comment:Comment<UnresolvedLink>, context:UnresolvedLinkContext) -> Comment<ResolvedLink> 
-        {
-            comment.compactMapAnchors
-            {
-                // since symbols can always be referenced with a symbol link, 
-                // prefer article resolutions over symbol resolutions
-                (try? self.resolve(base: .learn, link: $0, context: context)) ??
-                (try? self.resolve(base: .biome, link: $0, context: context))
-            }
-        }
+        
         func resolve(base:URI.Base, link:UnresolvedLink, context:UnresolvedLinkContext) throws -> ResolvedLink 
         {
             let index:Index?
@@ -890,8 +881,8 @@ struct Documentation:Sendable
     private(set)
     var articles:[Article<ResolvedLink>]
     private(set)
-    var modules:[Comment<ResolvedLink>], 
-        symbols:[Comment<ResolvedLink>] 
+    var modules:[ArticleContent<ResolvedLink>], 
+        symbols:[ArticleContent<ResolvedLink>] 
     
     private(set)
     var search:[Resource] 
@@ -946,8 +937,8 @@ struct Documentation:Sendable
         var routing:RoutingTable = .init(bases: directories, biome: biome)
         Swift.print("initialized routing table")
         
-        var symbols:[Int: Comment<UnresolvedLink>] = [:]
-        var modules:[Int: Comment<UnresolvedLink>] = [:]
+        var symbols:[Int: ArticleContent<UnresolvedLink>] = [:]
+        var modules:[Int: ArticleContent<UnresolvedLink>] = [:]
         
         Swift.print("starting article loading")
         var articles:[Article<UnresolvedLink>] = []
@@ -963,41 +954,54 @@ struct Documentation:Sendable
                     {
                         continue 
                     }
-                    let (title, summary, discussion, context, errors):
-                    (
-                        ArticleTitle, 
-                        Article<UnresolvedLink>.Element?, 
-                        [Article<UnresolvedLink>.Element], 
-                        UnresolvedLinkContext, 
-                        [Error]
-                    ) 
-                    = 
-                    ArticleRenderer.render(.docc, article: source, 
-                        biome: biome, 
-                        routing: routing, 
-                        namespace: module)
-                    switch title
-                    {
-                    case .owned(by: .article): fatalError("unreachable")
-                    case .owned(by: .module(let module)):
-                        modules[module] = .init(errors: errors, summary: summary, discussion: discussion)
-                    case .owned(by: .symbol(let witness, victim: _)):
-                        // FIXME: this can’t handle articles that are owned by 
-                        // criminal symbols
-                        symbols[witness] = .init(errors: errors, summary: summary, discussion: discussion)
                     
-                    case .free(title: let title): 
+                    let survey:ArticleSurvey    = ArticleRenderer.survey(markdown: source)
+                    if let owner:UnresolvedLink = survey.heading.owner(assuming: .docc)
+                    {
+                        // TODO: handle this error
+                        let resolved:ResolvedLink = try routing.resolve(
+                            base: .biome, // do not allow articles to be resolved
+                            link: owner, 
+                            context: .init(namespace: module, scope: []))
+                        switch resolved 
+                        {
+                        case .article:
+                            fatalError("unreachable")
+                        case .module(let reassignment):
+                            modules[reassignment] = ArticleRenderer.render(survey, as: .docc, 
+                                biome: biome, 
+                                routing: routing,
+                                context: .init(namespace: reassignment, scope: []))
+                        case .symbol(let witness, victim: _):
+                            // FIXME: this can’t handle articles that are owned by 
+                            // criminal symbols
+                            guard let reassignment:Int = biome.symbols[witness].namespace
+                            else 
+                            {
+                                fatalError("cannot override documentation for mythical symbols")
+                            }
+                            symbols[witness] = ArticleRenderer.render(survey, as: .docc, 
+                                biome: biome, 
+                                routing: routing, 
+                                context: .init(namespace: reassignment, 
+                                    scope: biome.context(witness: witness, victim: nil)))
+                        }
+                    }
+                    else if case .explicit(let heading) = survey.heading 
+                    {
+                        let context:UnresolvedLinkContext = .init(namespace: module, scope: [])
                         let stem:[[UInt8]] = path.dropFirst().map{ URI.encode(component: $0.utf8) }
                         let article:Article<UnresolvedLink> = .init(
-                            title: title, 
+                            title: heading.plainText, 
                             stem: stem, 
-                            content: .init(
-                                errors: errors, 
-                                summary: summary, 
-                                discussion: discussion), 
+                            content: ArticleRenderer.render(survey, as: .docc, biome: biome, routing: routing, context: context),
                             context: context)
                         routing.publish(article: articles.endIndex, namespace: module, stem: stem, leaf: [])
                         articles.append(article)
+                    }
+                    else 
+                    {
+                        fatalError("articles require a title")
                     }
                 }
             }
@@ -1014,7 +1018,7 @@ struct Documentation:Sendable
         {
             (module:Int) in modules.removeValue(forKey: module).map
             {
-                routing.resolve(comment: $0, context: .init(namespace: module, scope: []))
+                routing.resolve(article: $0, context: .init(namespace: module, scope: []))
             } ?? .empty
         }
         self.symbols = zip(biome.symbols.indices, _move(comments)).map 
@@ -1044,18 +1048,19 @@ struct Documentation:Sendable
                 switch (comment, symbols.removeValue(forKey: symbol.index))
                 {
                 // FIXME: handle conflicting doccomments and articles 
-                case (_, let comment?):
-                    return routing.resolve(comment: comment, context: context)
+                case (_, let overridden?):
+                    return routing.resolve(article: overridden, context: context)
                 case (let string?, nil):
-                    let (summary, discussion, errors):(Article<UnresolvedLink>.Element?, [Article<UnresolvedLink>.Element], [Error]) = 
-                        ArticleRenderer.render(.docc, 
-                            comment: string, 
-                            biome: biome, 
-                            routing: routing, 
-                            context: context)
-                    let comment:Comment<UnresolvedLink> = 
-                        .init(errors: errors, summary: summary, discussion: discussion)
-                    return routing.resolve(comment: comment, context: context)
+                    let survey:ArticleSurvey = ArticleRenderer.survey(markdown: string)
+                    guard case .implicit = survey.heading 
+                    else 
+                    {
+                        fatalError("documentation comment cannot begin with an `h1`")
+                    }
+                    let content:ArticleContent<UnresolvedLink> = 
+                        ArticleRenderer.render(survey, 
+                            as: .docc, biome: biome, routing: routing, context: context)
+                    return routing.resolve(article: content, context: context)
                 case (nil, nil): 
                     // undocumented 
                     break 
@@ -1064,7 +1069,6 @@ struct Documentation:Sendable
             
             return .empty
         }
-        
         
         self.template   = template
         self.search     = biome.searchIndices(routing: routing)
