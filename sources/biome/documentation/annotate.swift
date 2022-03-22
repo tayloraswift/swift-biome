@@ -22,28 +22,41 @@ extension Documentation
     public 
     func annotate<T>(markdown:Resource, for _:T.Type = T.self) -> [Anchor: [UInt8]]
     {
-        let article:(head:Article<UnresolvedLink>.Element?, body:[Article<UnresolvedLink>.Element], context:UnresolvedLinkContext, errors:[Error])
+        let (title, summary, discussion, context, errors):
+        (
+            ArticleTitle, 
+            Article<UnresolvedLink>.Element?, 
+            [Article<UnresolvedLink>.Element], 
+            UnresolvedLinkContext, 
+            [Error]
+        ) 
         switch markdown 
         {
         case .text(let string, type: .markdown, version: let version):
-            article = ArticleRenderer.render(_article: string, 
-                biome: self.biome, 
-                routing: self.routing)
+            (title, summary, discussion, context, errors) = 
+                ArticleRenderer.render(.docc, 
+                    article: string, 
+                    biome: self.biome, 
+                    routing: self.routing, 
+                    namespace: 0)
         case .bytes(let bytes, type: .markdown, version: let version):
-            article = ArticleRenderer.render(_article: String.init(decoding: bytes, as: Unicode.UTF8.self), 
-                biome: self.biome, 
-                routing: self.routing)
+            (title, summary, discussion, context, errors) = 
+                ArticleRenderer.render(.docc,
+                    article: String.init(decoding: bytes, as: Unicode.UTF8.self), 
+                    biome: self.biome, 
+                    routing: self.routing, 
+                    namespace: 0)
         default: 
             fatalError("Unsupported")
         }
-        Swift.print("\(article.errors.count) errors")
-        for error:Error in article.errors
+        Swift.print("\(errors.count) errors")
+        for error:Error in errors
         {
             Swift.print(error)
         }
         
-        let _comment:Comment<UnresolvedLink> = .init(errors: article.errors, summary: article.head, discussion: article.body)
-        let resolved:Comment<ResolvedLink> = self.routing.resolve(comment: _comment, context: article.context)
+        let unresolved:ArticleContent<UnresolvedLink> = .init(errors: errors, summary: summary, discussion: discussion)
+        let resolved:ArticleContent<ResolvedLink> = self.routing.resolve(article: unresolved, context: context)
         
         var anchors:Set<ResolvedLink> = []
         if let template:DocumentTemplate<ResolvedLink, [UInt8]> = resolved.summary 

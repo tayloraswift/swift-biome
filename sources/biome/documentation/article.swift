@@ -90,21 +90,48 @@ extension Documentation
         let namespace:Int 
         var scope:[[UInt8]]
     }
-    enum ArticleOwner 
+    enum ArticleTitle
+    {
+        case free(title:String)
+        case owned(by:ResolvedLink)
+    }
+    struct ArticleContent<Anchor> where Anchor:Hashable 
+    {
+        typealias Element = HTML.Element<Anchor> 
+        
+        let errors:[Error]
+        let summary:DocumentTemplate<Anchor, [UInt8]>?
+        let discussion:DocumentTemplate<Anchor, [UInt8]>?
+        
+        static 
+        var empty:Self 
+        {
+            .init(errors: [], summary: nil, discussion: nil)
+        }
+        
+        func compactMapAnchors<T>(_ transform:(Anchor) throws -> T?) rethrows -> ArticleContent<T> 
+            where T:Hashable
+        {
+            .init(errors:   self.errors, 
+                summary:    try self.summary?.compactMap(transform), 
+                discussion: try self.discussion?.compactMap(transform))
+        }
+    }
+    /* enum ArticleOwner 
     {
         case free(title:String)
         case module(summary:Article<UnresolvedLink>.Element?, index:Int)
         case symbol(summary:Article<UnresolvedLink>.Element?, index:Int) 
-    }
+    } */
     struct Article<Anchor> where Anchor:Hashable
     {
         typealias Element = HTML.Element<Anchor> 
         
-        let namespace:Int
-        let path:[[UInt8]]
         let title:String
-        let content:DocumentTemplate<Anchor, [UInt8]>
-        
+        let stem:[[UInt8]]
+        let content:ArticleContent<Anchor>
+        let context:UnresolvedLinkContext
+        /* 
         init(namespace:Int, path:[[UInt8]], title:String, content:DocumentTemplate<Anchor, [UInt8]>)
         {
             self.namespace = namespace
@@ -119,13 +146,16 @@ extension Documentation
             self.path       = path.map{ URI.encode(component: $0.utf8) }
             self.title      = title
             self.content    = .init(freezing: content)
-        }
-        
-        func compactMapAnchors<T>(_ transform:(Anchor) throws -> T?) rethrows -> Article<T> 
-            where T:Hashable
-        {
-            .init(namespace: self.namespace, path: self.path, title: self.title, 
-                content: try self.content.compactMap(transform))
-        }
+        } */
+
+    }
+}
+extension Documentation.ArticleContent where Anchor == Documentation.UnresolvedLink
+{    
+    init(errors:[Error], summary:Element?, discussion:[Element]) 
+    {
+        self.errors = errors
+        self.summary = summary.map(DocumentTemplate<Anchor, [UInt8]>.init(freezing:))
+        self.discussion = discussion.isEmpty ? nil : .init(freezing: discussion)
     }
 }

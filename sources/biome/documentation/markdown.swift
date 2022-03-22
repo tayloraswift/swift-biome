@@ -9,6 +9,14 @@ extension Documentation
         case swift 
         case plain
     }
+    
+    private 
+    enum ArticleNode 
+    {
+        case block(any BlockMarkup)
+        case section(heading:[any InlineMarkup], [Self])
+    }
+    
     struct ArticleRenderer 
     {
         typealias Element = Article<UnresolvedLink>.Element 
@@ -21,26 +29,96 @@ extension Documentation
         
         var errors:[Error]
         
-        static 
-        func render(_article:String, biome:Biome, routing:RoutingTable) 
-            -> (head:Element?, body:[Element], context:UnresolvedLinkContext, errors:[Error])
+        private mutating 
+        func render(_node node:ArticleNode, level:Int = 2, into elements:inout [Element])
         {
-            var renderer:Self = self.init(format: .docc, biome: biome, routing: routing,
-                context: .init(namespace: 0, scope: []))
-            let (head, body):(Element?, [Element]) = 
-                renderer.render(comment: Self.parse(markdown: _article), rank: 0)
-            return (head, body, renderer.context, renderer.errors)
+            switch node 
+            {
+            case .block(let block): 
+                // rank should not matter
+                elements.append(self.render(block: block, rank: 0))
+            case .section(heading: let heading, let children):
+                let h:HTML.Container
+                switch level
+                {
+                case ...1:  h = .h1
+                case    2:  h = .h2
+                case    3:  h = .h3
+                case    4:  h = .h4
+                case    5:  h = .h5
+                default:    h = .h6
+                }
+                elements.append(Element[h]
+                {
+                    for span:any InlineMarkup in heading
+                    {
+                        self.render(inline: span)
+                    }
+                })
+                for node:ArticleNode in children 
+                {
+                    self.render(_node: node, level: level + 1, into: &elements)
+                }
+            }
+        }
+        private mutating 
+        func render(_root root:Markdown.Document) -> (title:ArticleTitle, summary:Element?, discussion:[Element])
+        {
+            let (directives, inline, nodes):([BlockDirective], [any InlineMarkup], [ArticleNode]) = 
+                Self.survey(root: root)
+            
+            let summary:Element?, 
+                remaining:ArraySlice<ArticleNode>,
+                title:ArticleTitle
+            if case .block(let paragraph as Paragraph)? = nodes.first
+            {
+                summary = self.render(span: paragraph, as: .p)
+                remaining = nodes.dropFirst()
+            }
+            else 
+            {
+                summary = nil 
+                remaining = nodes[...]
+            }
+            if  let inline:InlineMarkup = inline.first,
+                let owner:SymbolLink    = inline as? SymbolLink,
+                let owner:String        = owner.destination, !owner.isEmpty,
+                let owner:ResolvedLink  = self.resolve(symbol: owner)
+            {
+                // the article has an owner. update the scope accordingly 
+                // (namespace is never allowed to change)
+                if case .symbol(let witness, let victim) = owner 
+                {
+                    self.context.scope = self.biome.context(witness: witness, victim: victim)
+                }
+                title = .owned(by: owner)
+            }
+            else 
+            {
+                // the h1 heading must never contain links 
+                title = .free(title: inline.map(\.plainText).joined())
+            }
+            var discussion:[Element] = []
+            for node:ArticleNode in remaining 
+            {
+                self.render(_node: node, level: 2, into: &discussion)
+            }
+            return (title, summary, discussion)
         }
         
         static 
         func render(_ format:Format, article:String, biome:Biome, routing:RoutingTable, namespace:Int) 
-            -> (owner:ArticleOwner, body:[Element], errors:[Error])
+            -> (title:ArticleTitle, summary:Element?, discussion:[Element], context:UnresolvedLinkContext, errors:[Error])
         {
-            var renderer:Self = self.init(format: format, biome: biome, routing: routing,
+            let root:Markdown.Document = .init(parsing: article, 
+                options: [ .parseBlockDirectives, .parseSymbolLinks ])
+            var renderer:Self = .init(format: format, biome: biome, routing: routing,
                 context: .init(namespace: namespace, scope: []))
-            let (owner, body):(ArticleOwner, [Element]) = 
-                renderer.render(article: Self.parse(markdown: article))
-            return (owner, body, renderer.errors)
+            
+            let (title, summary, discussion):(ArticleTitle, Element?, [Element]) = 
+                renderer.render(_root: root)
+            
+            return (title, summary, discussion, renderer.context, renderer.errors)
         }
         static 
         func render(_ format:Format, comment:String, biome:Biome, routing:RoutingTable, context:UnresolvedLinkContext) 
@@ -76,11 +154,82 @@ extension Documentation
             return document.blockChildren
         }
 
+        private 
+        typealias StackFrame = (heading:[any InlineMarkup], nodes:[ArticleNode])
+        
+        private static 
+        func survey(root:Markdown.Document) -> (directives:[BlockDirective], heading:[any InlineMarkup], nodes:[ArticleNode])
+        {
+            // partition the top level blocks by heading, and whether they are 
+            // a block directive 
+            var directives:[BlockDirective] = []
+            var blocks:LazyMapSequence<MarkupChildren, BlockMarkup>.Iterator = 
+                root.blockChildren.makeIterator()
+            
+            while let block:any BlockMarkup = blocks.next()
+            {
+                guard let directive:BlockDirective = block as? BlockDirective
+                else 
+                {
+                    var stack:(base:[StackFrame], top:StackFrame) 
+                    stack.top.nodes = []
+                    stack.base      = []
+                    var next:(any BlockMarkup)?
+                    if let heading:Heading = block as? Heading, heading.level <= 1
+                    {
+                        stack.top.heading = .init(heading.inlineChildren)
+                        next = blocks.next() 
+                    }
+                    else 
+                    {
+                        stack.top.heading = []
+                        next = block 
+                    }
+                    
+                    while let current:any BlockMarkup = next 
+                    {
+                        next = blocks.next()
+                        
+                        guard let heading:Heading = current as? Heading 
+                        else 
+                        {
+                            stack.top.nodes.append(.block(current))
+                            continue 
+                        }
+                        guard heading.level > 1 
+                        else 
+                        {
+                            fatalError("multiple h1 headings")
+                        }
+                        while heading.level < stack.base.count
+                        {
+                            var top:StackFrame = stack.base.removeLast()
+                            top.nodes.append(.section(heading: stack.top.heading, stack.top.nodes))
+                            stack.top = top
+                        }
+                        stack.base.append(stack.top)
+                        stack.top.heading   = [any InlineMarkup].init(heading.inlineChildren)
+                        stack.top.nodes     = []
+                    }
+                    
+                    while var top:StackFrame = stack.base.popLast()
+                    {
+                        top.nodes.append(.section(heading: stack.top.heading, stack.top.nodes))
+                        stack.top = top
+                    }
+                    return (directives, stack.top.heading, stack.top.nodes)
+                }
+                directives.append(directive)
+            }
+            
+            return (directives, [], [])
+        }
+        
         // comments can have any number of h1’s, embedded in them,
         // which will turn into h2s. if the comment starts with an h1, 
         // it will go into the body, and the summary will show 
         // “no overview available”
-        private mutating 
+        /* private mutating 
         func render<S>(article blocks:S) -> (owner:ArticleOwner, body:[Element])
             where S:Sequence, S.Iterator:Sequence, S.Element == BlockMarkup
         {
@@ -143,7 +292,7 @@ extension Documentation
             case .symbol(_, victim: _?):
                 fatalError("UNIMPLEMENTED")
             }
-        }
+        } */
         private mutating 
         func render<S>(comment blocks:S, rank:Int) -> (head:Element?, body:[Element])
             where S:Sequence, S.Element == BlockMarkup

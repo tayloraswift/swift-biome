@@ -738,7 +738,7 @@ struct Documentation:Sendable
         // helpers
         // FIXME: these are dropping the links if resolution fails!!!
         // we should show a reasonable fallback instead...
-        func resolve(article:Article<UnresolvedLink>, context:UnresolvedLinkContext) -> Article<ResolvedLink> 
+        func resolve(article:ArticleContent<UnresolvedLink>, context:UnresolvedLinkContext) -> ArticleContent<ResolvedLink> 
         {
             article.compactMapAnchors
             {
@@ -963,27 +963,40 @@ struct Documentation:Sendable
                     {
                         continue 
                     }
-                    let (owner, discussion, errors):(ArticleOwner, [Article<UnresolvedLink>.Element], [Error]) = 
-                        ArticleRenderer.render(.docc, article: source, 
-                            biome: biome, 
-                            routing: routing, 
-                            namespace: module)
-                    switch owner
+                    let (title, summary, discussion, context, errors):
+                    (
+                        ArticleTitle, 
+                        Article<UnresolvedLink>.Element?, 
+                        [Article<UnresolvedLink>.Element], 
+                        UnresolvedLinkContext, 
+                        [Error]
+                    ) 
+                    = 
+                    ArticleRenderer.render(.docc, article: source, 
+                        biome: biome, 
+                        routing: routing, 
+                        namespace: module)
+                    switch title
                     {
-                    case .module(summary: let summary, index: let module):
+                    case .owned(by: .article): fatalError("unreachable")
+                    case .owned(by: .module(let module)):
                         modules[module] = .init(errors: errors, summary: summary, discussion: discussion)
-                    case .symbol(summary: let summary, index: let witness):
+                    case .owned(by: .symbol(let witness, victim: _)):
                         // FIXME: this can’t handle articles that are owned by 
                         // criminal symbols
                         symbols[witness] = .init(errors: errors, summary: summary, discussion: discussion)
                     
                     case .free(title: let title): 
+                        let stem:[[UInt8]] = path.dropFirst().map{ URI.encode(component: $0.utf8) }
                         let article:Article<UnresolvedLink> = .init(
-                            namespace: module, 
-                            path: path.dropFirst(), 
                             title: title, 
-                            content: discussion)
-                        routing.publish(article: articles.endIndex, namespace: module, stem: article.path, leaf: [])
+                            stem: stem, 
+                            content: .init(
+                                errors: errors, 
+                                summary: summary, 
+                                discussion: discussion), 
+                            context: context)
+                        routing.publish(article: articles.endIndex, namespace: module, stem: stem, leaf: [])
                         articles.append(article)
                     }
                 }
@@ -992,7 +1005,8 @@ struct Documentation:Sendable
         // everything that will ever be registered has been registered at this point
         self.articles = articles.map 
         { 
-            routing.resolve(article: $0, context: .init(namespace: $0.namespace, scope: []))
+            .init(title: $0.title, stem: $0.stem, content: routing.resolve(article: $0.content, context: $0.context), 
+                context: $0.context)
         }
         Swift.print("finished article loading")
         // the only way modules can get documentation is by owning an article
@@ -1079,13 +1093,13 @@ struct Documentation:Sendable
     
     func uri(article:Int) -> URI  
     {
-        let namespace:Int = self.articles[article].namespace
+        let namespace:Int = self.articles[article].context.namespace
         return .init(
             base: .learn,
             path: .init(
                 root:  self.biome.root(namespace:  namespace), 
                 trunk: self.biome.trunk(namespace: namespace), 
-                stem:  self.articles[article].path, 
+                stem:  self.articles[article].stem, 
                 leaf:  []))
     }
     func uri(packageSearchIndex package:Int) -> URI  

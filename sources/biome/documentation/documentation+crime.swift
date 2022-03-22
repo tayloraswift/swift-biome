@@ -134,7 +134,8 @@ extension Documentation
         var substitutions:[Anchor: Element] = self.substitutions(title: article.title, filter: filter)
             substitutions[.navigator]       = self.navigator(for: article)
             substitutions[.introduction]    = self.introduction(for: article)
-            substitutions[.discussion]      = self.fill(template: article.content)
+            substitutions[.summary]         = article.content.summary.map(self.fill(template:))
+            substitutions[.discussion]      = article.content.discussion.map(self.fill(template:))
         return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     func page(package index:Int, filter:[Biome.Package.ID]) -> Resource
@@ -284,8 +285,8 @@ extension Documentation
         {
             Element[.li] 
             { 
-                Element.link(self.biome.modules[article.namespace].title, 
-                    to: self.print(uri: self.uri(module: article.namespace)), internal: true)
+                Element.link(self.biome.modules[article.context.namespace].title, 
+                    to: self.print(uri: self.uri(module: article.context.namespace)), internal: true)
             }
         }
     }
@@ -486,7 +487,7 @@ extension Documentation
             }
             content:
             {
-                self.link(package: self.biome.modules[article.namespace].package)
+                self.link(package: self.biome.modules[article.context.namespace].package)
             }
         }
     }
