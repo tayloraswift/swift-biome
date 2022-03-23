@@ -211,7 +211,6 @@ extension Documentation
         private mutating 
         func render(node:ArticleNode, demotedBy rank:Int, into elements:inout [Element])
         {
-            let container:HTML.Container
             switch node 
             {
             case .block(let block): 

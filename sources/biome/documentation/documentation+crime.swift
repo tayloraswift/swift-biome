@@ -16,10 +16,17 @@ extension Documentation
         case constants 
         
         case navigator
-        case introduction
+        case kind
+        case metropole 
+        case colony 
         case summary
+        case relationships 
+        case availability 
+        
         case platforms
         case declaration
+        
+        case _introduction
         case discussion
         
         case dynamic
@@ -87,74 +94,245 @@ extension Documentation
         let fragments:[ArraySlice<UInt8>] = template.apply(presented)
         return [UInt8].init(fragments.joined())
     }
-    
-    func substitutions(title:String, filter:[Biome.Package.ID]) 
-        -> [Anchor: [UInt8]] 
+    private 
+    func fill(template:DocumentTemplate<ResolvedLink, [UInt8]>) -> Element
     {
-        let title:StaticElement     = StaticElement[.title] { title }
-        let constants:StaticElement = StaticElement[.script]
-        {
-            // package name is alphanumeric, we should enforce this in 
-            // `Package.ID`, otherwise this could be a security hole
-            let source:String = 
-            """
-            includedPackages = [\(filter.map { "'\($0.name)'" }.joined(separator: ","))];
-            """
-            StaticElement.text(escaped: source)
-        }
-        return 
-            [
-                .title: title.render(as: [UInt8].self),
-                .constants: constants.render(as: [UInt8].self),
-            ]
+        .bytes(utf8: self.fill(template: template))
     }
-    func substitutions(title:String, content:ArticleContent<ResolvedLink>, filter:[Biome.Package.ID]) 
+    
+    private static 
+    func constants(filter:[Biome.Package.ID]) -> String
+    {
+        // package name is alphanumeric, we should enforce this in 
+        // `Package.ID`, otherwise this could be a security hole
+        """
+        includedPackages = [\(filter.map { "'\($0.name)'" }.joined(separator: ","))];
+        """
+    }
+
+    func substitutions(title:String, content:ArticleContent<ResolvedLink>) 
         -> [Anchor: [UInt8]] 
     {
-        self.substitutions(title: title, content: content, summaries: [], filter: filter)
+        var substitutions:[Anchor: [UInt8]] = 
+        [
+            .title: [UInt8].init(title.utf8)
+        ]
+        substitutions[._introduction]   = content.summary.map(self.fill(template:))
+        substitutions[.discussion]      = content.discussion.map(self.fill(template:))
+        return substitutions
+    } 
+    func substitutions(for article:Article<ResolvedLink>, filter:[Biome.Package.ID]) 
+        -> [Anchor: Element] 
+    {
+        var substitutions:[Anchor: Element] = 
+        [
+            .title:     .text(escaping: article.title), 
+            .constants: .text(escaped: Self.constants(filter: filter)),
+            .navigator:  self.navigator(for: article),
+            
+            .kind:      .text(escaped: "Module"),
+            .metropole:  self.link(package: self.biome.modules[article.context.namespace].package),
+        ]
+        substitutions[._introduction]   = article.content.summary.map(self.fill(template:))
+        substitutions[.discussion]      = article.content.discussion.map(self.fill(template:))
+        return substitutions
+    } 
+    
+    private 
+    func substitutions(for package:Biome.Package, dynamic:Element, filter:[Biome.Package.ID]) 
+        -> [Anchor: Element] 
+    {
+        var substitutions:[Anchor: Element] = 
+        [
+            .title:     .text(escaping: package.name), 
+            .constants: .text(escaped: Self.constants(filter: filter))
+        ]
+        
+        substitutions[.navigator] = Self.navigator(for: package)
+        
+        if case .swift = package.id 
+        {
+            substitutions[.kind] = .text(escaped: "Standard Library")
+        }
+        else 
+        {
+            substitutions[.kind] = .text(escaped: "Package")
+        }
+        substitutions[.dynamic] = dynamic
+        return substitutions
     }
     private 
-    func substitutions(title:String, content:ArticleContent<ResolvedLink>, summaries:Set<Int>, filter:[Biome.Package.ID]) 
-        -> [Anchor: [UInt8]] 
+    func substitutions(for module:Biome.Module, 
+        article:ArticleContent<ResolvedLink>, 
+        dynamic:Element, 
+        cards:Set<Int>, 
+        filter:[Biome.Package.ID]) 
+        -> [Anchor: Element] 
     {
-        var substitutions:[Anchor: [UInt8]] = self.substitutions(title: title, filter: filter)
-        if let summary:[UInt8] = content.summary.map(self.fill(template:))
-        {
-            substitutions[.summary] = summary
-        }
-        if let discussion:[UInt8] = content.discussion.map(self.fill(template:))
-        {
-            substitutions[.discussion] = discussion
-        }
-        for origin:Int in summaries 
+        var substitutions:[Anchor: Element] = 
+        [
+            .title:        .text(escaping: module.title), 
+            .constants:    .text(escaped: Self.constants(filter: filter)),
+            
+            .navigator:     Self.navigator(for: module),
+            
+            .kind:         .text(escaped: "Module"),
+            .metropole:     self.link(package: module.package),
+            .declaration:   Self.declaration(for: module),
+            .dynamic:       dynamic,
+        ]
+        
+        substitutions[.summary]     = article.summary.map(self.fill(template:))
+        substitutions[.discussion]  = article.discussion.map(self.fill(template:))
+        
+        for origin:Int in cards 
         {
             substitutions[.symbol(origin)] = self.symbols[origin].summary.map(self.fill(template:))
         }
+        
+        return substitutions
+    }
+    private 
+    func substitutions(for symbol:Biome.Symbol, witnessing victim:Int?, 
+        article:ArticleContent<ResolvedLink>, 
+        dynamic:Element, 
+        cards:Set<Int>, 
+        filter:[Biome.Package.ID]) 
+        -> [Anchor: Element] 
+    {
+        var substitutions:[Anchor: Element] = 
+        [
+            .title:        .text(escaping: symbol.title), 
+            .constants:    .text(escaped: Self.constants(filter: filter)),
+            
+            .navigator:     self.navigator(for: symbol, in: victim),
+            
+            .kind:         .text(escaping: symbol.kind.title),
+            .declaration:   self.declaration(for: symbol),
+            .dynamic:       dynamic,
+        ]
+        
+        substitutions[.platforms]   = Self.platforms(availability: symbol.platforms)
+        substitutions[.summary]     = article.summary.map(self.fill(template:))
+        substitutions[.discussion]  = article.discussion.map(self.fill(template:))
+        
+        if case nil = substitutions.index(forKey: .summary)
+        {
+            substitutions[.summary]     = Element[.p]
+            {
+                "No overview available."
+            }
+        }
+        for origin:Int in cards 
+        {
+            substitutions[.symbol(origin)] = self.symbols[origin].summary.map(self.fill(template:))
+        }
+        
+        let metropole:Element?
+        if let module:Int   = symbol.module
+        {
+            if      let victim:Int      = victim, 
+                    let namespace:Int   = self.biome.symbols[victim].namespace, namespace != module
+            {
+                metropole   = self.link(module: namespace)
+            }
+            else if let namespace:Int   =                     symbol.namespace, namespace != module 
+            {
+                metropole   = self.link(module: namespace)
+            }
+            else 
+            {
+                metropole   = nil
+            }
+            substitutions[.colony] = self.link(module: module)
+        }
+        else 
+        {
+            metropole = nil
+            substitutions[.colony] = Element.span("(Mythical)") 
+        }
+        if let metropole:Element = metropole  
+        {
+            substitutions[.metropole] = Element[.span]
+            {
+                ["metropole"]
+            }
+            content:
+            {
+                metropole
+            }
+        }
+        
+        var relationships:[Element] 
+        if case _? = symbol.relationships.requirementOf
+        {
+            relationships = 
+            [
+                Element[.li] 
+                {
+                    Element[.p]
+                    {
+                        ["required"]
+                    }
+                    content:
+                    {
+                        "Required."
+                    }
+                }
+            ]
+        }
+        else 
+        {
+            relationships = []
+        }
+        
+        if !symbol.extensionConstraints.isEmpty
+        {
+            relationships.append(Element[.li] 
+            {
+                Element[.p]
+                {
+                    "Available when "
+                    self.constraints(symbol.extensionConstraints)
+                }
+            })
+        }
+        let availability:[Element] = Self.availability(symbol.availability)
+        
+        if !relationships.isEmpty 
+        {
+            substitutions[.relationships] = Element[.ul]
+            {
+                ["relationships-list"]
+            }
+            content: 
+            {
+                relationships
+            }
+        }
+        if !availability.isEmpty 
+        {
+            substitutions[.availability] = Element[.ul]
+            {
+                ["availability-list"]
+            }
+            content: 
+            {
+                availability
+            }
+        }
+        
         return substitutions
     }
     
     func page(article index:Int, filter:[Biome.Package.ID]) -> Resource
     {
-        let article:Article<ResolvedLink>   = self.articles[index]
-        var substitutions:[Anchor: Element] = self.substitutions(
-            title: article.title, 
-            content: article.content, 
-            filter: filter)
-            .mapValues(Element.bytes(utf8:))
-        
-            substitutions[.navigator]       = self.navigator(for: article)
-            substitutions[.introduction]    = self.introduction(for: article)
+        let substitutions:[Anchor: Element] = self.substitutions(for: self.articles[index], filter: filter)
         return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     func page(package index:Int, filter:[Biome.Package.ID]) -> Resource
     {
-        let package:Biome.Package = self.biome.packages[index]
-        var substitutions:[Anchor: Element] = self.substitutions(title: package.name, filter: filter)
-            .mapValues(Element.bytes(utf8:))
-        
-        substitutions[.navigator]       = Self.navigator(for: package)
-        substitutions[.introduction]    = Self.introduction(for: package)
-        substitutions[.dynamic]         = Element[.div]
+        let dynamic:Element = Element[.div]
         {
             ["lower-container"]
         }
@@ -172,7 +350,7 @@ extension Documentation
                 }
                 Element[.ul]
                 {
-                    for module:Int in package.modules
+                    for module:Int in self.biome.packages[index].modules
                     {
                         Element[.li]
                         {
@@ -189,26 +367,16 @@ extension Documentation
                 }
             }
         }
+        let substitutions:[Anchor: Element] = self.substitutions(for: self.biome.packages[index], dynamic: dynamic, filter: filter)
         return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     func page(module index:Int, filter:[Biome.Package.ID]) -> Resource
     {
-        let module:Biome.Module     = self.biome.modules[index]
+        let module:Biome.Module = self.biome.modules[index]
         
         let groups:[Bool: [Int]]    = self.biome.partition(symbols: module.toplevel)
-        let comments:Set<Int>       = .init(self.biome.comments(backing: module.toplevel))
-        
-        var substitutions:[Anchor: Element] = self.substitutions(
-            title: module.title, 
-            content: self.modules[index], 
-            summaries: comments, 
-            filter: filter)
-            .mapValues(Element.bytes(utf8:))
-        
-        substitutions[.navigator]       = Self.navigator(for: module)
-        substitutions[.introduction]    = self.introduction(for: module)
-        substitutions[.declaration]     = Self.declaration(for: module)
-        substitutions[.dynamic]         = Element[.div]
+        let cards:Set<Int>          = .init(self.biome.comments(backing: module.toplevel))
+        let dynamic:Element         = Element[.div]
         {
             ["lower-container"]
         }
@@ -217,6 +385,12 @@ extension Documentation
             self.topics(self.biome.organize(symbols: groups[false, default: []], in: nil), heading: "Members")
             self.topics(self.biome.organize(symbols: groups[true,  default: []], in: nil), heading: "Removed Members")
         }
+        
+        let substitutions:[Anchor: Element] = self.substitutions(for: module, 
+            article: self.modules[index], 
+            dynamic: dynamic, 
+            cards:   cards,
+            filter:  filter)
             
         return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
@@ -225,7 +399,7 @@ extension Documentation
         let symbol:Biome.Symbol     = self.biome.symbols[witness]
         
         let groups:[Bool: [Int]]    = symbol.relationships.members.map(self.biome.partition(symbols:)) ?? [:]
-        var comments:Set<Int>       = symbol.relationships.members.map(self.biome.comments(backing:)).map(Set.init(_:)) ?? []
+        var cards:Set<Int>          = symbol.relationships.members.map(self.biome.comments(backing:)).map(Set.init(_:)) ?? []
         let dynamic:Element         = Element[.div]
         {
             ["lower-container"]
@@ -237,7 +411,7 @@ extension Documentation
                 self.list(types: abstract.downstream.map { ($0, []) }, heading: "Refinements")
                 
                 self.topics(self.biome.organize(symbols: abstract.requirements, in: witness), heading: "Requirements")
-                let _:Void = comments.formUnion(self.biome.comments(backing: abstract.requirements))
+                let _:Void = cards.formUnion(self.biome.comments(backing: abstract.requirements))
             }
             
             self.topics(self.biome.organize(symbols: groups[false, default: []], in: witness), heading: "Members")
@@ -257,29 +431,13 @@ extension Documentation
             }
             self.topics(self.biome.organize(symbols: groups[true, default: []], in: witness), heading: "Removed Members")
         }
-        var substitutions:[Anchor: Element] = self.substitutions(
-            title: symbol.title, 
-            content: self.symbols[witness], 
-            summaries: comments, 
-            filter: filter)
-            .mapValues(Element.bytes(utf8:))
-        substitutions[.navigator]       = self.navigator(for: symbol, in: victim)
-        substitutions[.introduction]    = self.introduction(for: symbol, witnessing: victim)
-        substitutions[.declaration]     = self.declaration(for: symbol)
-        substitutions[.platforms]       = Self.platforms(availability: symbol.platforms)
-        if  let origin:Int = symbol.commentOrigin
-        {
-            substitutions[.summary]     = self.symbols[origin].summary.map    { .bytes(utf8: self.fill(template: $0)) }
-            substitutions[.discussion]  = self.symbols[origin].discussion.map { .bytes(utf8: self.fill(template: $0)) }
-        }
-        if case nil = substitutions.index(forKey: .summary)
-        {
-            substitutions[.summary]     = Element[.p]
-            {
-                "No overview available."
-            }
-        }
-        substitutions[.dynamic]         = dynamic
+        
+        let substitutions:[Anchor: Element] = self.substitutions(for: symbol, witnessing: victim,
+            article: self.symbols[symbol.commentOrigin ?? witness], 
+            dynamic: dynamic, 
+            cards:   cards,
+            filter:  filter)
+        
         return .html(utf8: self.template.apply(substitutions).joined(), version: nil)
     }
     
@@ -349,261 +507,6 @@ extension Documentation
         content:
         {
             breadcrumbs.reversed()
-        }
-    }
-    
-    private  
-    func introduction(for article:Article<ResolvedLink>) -> Element
-    {
-        return Element[.section]
-        {
-            ["introduction"]
-        }
-        content:
-        {
-            self.eyebrows(for: article)
-            Element[.h1]
-            {
-                article.title
-            }
-        }
-    }
-    private static 
-    func introduction(for package:Biome.Package) -> Element
-    {
-        return Element[.section]
-        {
-            ["introduction"]
-        }
-        content:
-        {
-            Self.eyebrows(for: package)
-            Element[.h1]
-            {
-                package.name
-            }
-            Element.anchor(id: .summary)
-        }
-    }
-    private 
-    func introduction(for module:Biome.Module) -> Element
-    {
-        Element[.section]
-        {
-            ["introduction"]
-        }
-        content:
-        {
-            self.eyebrows(for: module)
-            Element[.h1]
-            {
-                module.title
-            }
-            Element.anchor(id: .summary)
-        }
-    }
-    private 
-    func introduction(for symbol:Biome.Symbol, witnessing victim:Int?) -> Element
-    {
-        var relationships:[Element] 
-        if case _? = symbol.relationships.requirementOf
-        {
-            relationships = 
-            [
-                Element[.li] 
-                {
-                    Element[.p]
-                    {
-                        ["required"]
-                    }
-                    content:
-                    {
-                        "Required."
-                    }
-                }
-            ]
-        }
-        else 
-        {
-            relationships = []
-        }
-        
-        if !symbol.extensionConstraints.isEmpty
-        {
-            relationships.append(Element[.li] 
-            {
-                Element[.p]
-                {
-                    "Available when "
-                    self.constraints(symbol.extensionConstraints)
-                }
-            })
-        }
-        let availability:[Element] = Self.availability(symbol.availability)
-        return Element[.section]
-        {
-            ["introduction"]
-        }
-        content:
-        {
-            self.eyebrows(for: symbol, witnessing: victim)
-            Element[.h1]
-            {
-                symbol.title
-            }
-            Element.anchor(id: .summary)
-            if !relationships.isEmpty 
-            {
-                Element[.ul]
-                {
-                    ["relationships-list"]
-                }
-                content: 
-                {
-                    relationships
-                }
-            }
-            if !availability.isEmpty 
-            {
-                Element[.ul]
-                {
-                    ["availability-list"]
-                }
-                content: 
-                {
-                    availability
-                }
-            }
-        }
-    }
-    
-    private 
-    func eyebrows(for article:Article<ResolvedLink>) -> Element
-    {
-        Element[.div]
-        {
-            ["eyebrows"]
-        }
-        content:
-        {
-            Element.span("Article")
-            {
-                ["kind"]
-            }
-            Element[.span]
-            {
-                ["package"]
-            }
-            content:
-            {
-                self.link(package: self.biome.modules[article.context.namespace].package)
-            }
-        }
-    }
-    private static 
-    func eyebrows(for package:Biome.Package) -> Element
-    {
-        Element[.div]
-        {
-            ["eyebrows"]
-        }
-        content:
-        {
-            if case .swift = package.id 
-            {
-                Element.span("Standard Library")
-                {
-                    ["kind"]
-                }
-            }
-            else 
-            {
-                Element.span("Package")
-                {
-                    ["kind"]
-                }
-            }
-        }
-    }
-    private 
-    func eyebrows(for module:Biome.Module) -> Element
-    {
-        Element[.div]
-        {
-            ["eyebrows"]
-        }
-        content:
-        {
-            Element.span("Module")
-            {
-                ["kind"]
-            }
-            Element[.span]
-            {
-                ["package"]
-            }
-            content:
-            {
-                self.link(package: module.package)
-            }
-        }
-    }
-    private 
-    func eyebrows(for symbol:Biome.Symbol, witnessing victim:Int?) -> Element
-    {
-        let electorate:Element?, 
-            colony:Element
-        if let module:Int   = symbol.module
-        {
-            colony          = self.link(module: module)
-            if      let victim:Int      = victim, 
-                    let namespace:Int   = self.biome.symbols[victim].namespace, namespace != module
-            {
-                electorate  = self.link(module: namespace)
-            }
-            else if let namespace:Int   =                     symbol.namespace, namespace != module 
-            {
-                electorate  = self.link(module: namespace)
-            }
-            else 
-            {
-                electorate  = nil
-            }
-        }
-        else 
-        {
-            colony          = Element.span("(Mythical)") 
-            electorate      = nil
-        }
-        return Element[.div]
-        {
-            ["eyebrows"]
-        }
-        content:
-        {
-            Element.span(symbol.kind.title)
-            {
-                ["kind"]
-            }
-            Element[.span]
-            {
-                ["module"]
-            }
-            content: 
-            {
-                if let electorate:Element = electorate
-                {
-                    Element[.span]
-                    {
-                        ["electorate"]
-                    }
-                    content:
-                    {
-                        electorate
-                    }
-                }
-                colony 
-            }
         }
     }
     

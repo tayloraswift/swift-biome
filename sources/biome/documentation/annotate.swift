@@ -25,6 +25,18 @@ extension Documentation
             fatalError("cannot annotate article without a title")
         }
         
+        for node in survey.nodes
+        {
+            switch node 
+            {
+            case .block(let block):
+                Swift.print(block.debugDescription())
+            case .section(let heading, let children):
+                Swift.print(heading.debugDescription())
+                Swift.print("(\(children.count) children)")
+            }
+        }
+        
         let context:UnresolvedLinkContext = .init(namespace: 0, scope: [])
         let unresolved:ArticleContent<UnresolvedLink> = ArticleRenderer.render(survey, 
             as: .docc,
@@ -41,6 +53,6 @@ extension Documentation
         let resolved:ArticleContent<ResolvedLink> = 
             self.routing.resolve(article: _move(unresolved), context: context)
         
-        return self.substitutions(title: title.plainText, content: resolved, filter: [])
+        return self.substitutions(title: title.plainText, content: resolved)
     }
 }
