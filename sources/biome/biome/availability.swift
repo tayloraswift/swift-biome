@@ -1,5 +1,23 @@
 extension Biome 
 {
+    public 
+    struct Version:CustomStringConvertible, Sendable
+    {
+        var major:Int 
+        var minor:Int?
+        var patch:Int?
+        
+        public 
+        var description:String 
+        {
+            switch (self.minor, self.patch)
+            {
+            case (nil       , nil):         return "\(self.major)"
+            case (let minor?, nil):         return "\(self.major).\(minor)"
+            case (let minor , let patch?):  return "\(self.major).\(minor ?? 0).\(patch)"
+            }
+        }
+    }
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/AvailabilityMixin.cpp
     enum Domain:String, Sendable, Hashable  
     {

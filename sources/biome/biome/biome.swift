@@ -5,30 +5,39 @@ public
 struct Biome:Sendable 
 {
     public 
-    struct Version:CustomStringConvertible, Sendable
+    enum ResourceVersionError:Error 
     {
-        var major:Int 
-        var minor:Int?
-        var patch:Int?
-        
-        public 
-        var description:String 
+        case missing
+    }
+    public 
+    struct ResourceTypeError:Error 
+    {
+        let expected:String, 
+            encountered:String 
+        init(_ encountered:String, expected:String)
         {
-            switch (self.minor, self.patch)
-            {
-            case (nil       , nil):         return "\(self.major)"
-            case (let minor?, nil):         return "\(self.major).\(minor)"
-            case (let minor , let patch?):  return "\(self.major).\(minor ?? 0).\(patch)"
-            }
+            self.expected       = expected
+            self.encountered    = encountered
         }
     }
+    
+    public
+    typealias Target = 
+    (
+        id:Module.ID, 
+        bystanders:[Module.ID],
+        articles:[[String]]
+    )
+    typealias Product = 
+    (
+        id:Package.ID, 
+        targets:Range<Int>
+    )
     
     private(set)
     var symbols:Storage<Symbol>,
         modules:Storage<Module>, 
         packages:Storage<Package>
-    
-
     
     private static 
     func indices<Element, ID>(for elements:[Element], by id:KeyPath<Element, ID>, else error:(ID) -> Error) 
@@ -50,35 +59,31 @@ struct Biome:Sendable
     private static
     func populate(
         symbolIndices:inout [Symbol.ID: Int],
-        mythical:inout [Symbol.ID: Vertex],
-        vertices:inout [Vertex], 
-        edges:inout [Edge],
+        mythical:inout [Symbol.ID: Graph.Vertex],
+        vertices:inout [Graph.Vertex], 
+        edges:inout [Graph.Edge],
         from json:JSON, 
         module:Module.ID, 
         prune:Bool = false) 
         throws -> Range<Int>
     {
-        let descriptor:(module:Module.ID, vertices:[Vertex], edges:[Edge]) = try Self.decode(module: json)
+        let descriptor:(module:Module.ID, vertices:[Graph.Vertex], edges:[Graph.Edge]) = 
+            try Graph.decode(module: json)
         guard descriptor.module == module 
         else 
         {
-            throw ModuleIdentifierError.mismatch(decoded: descriptor.module)
+            throw Graph.ModuleIdentifierError.mismatched(id: descriptor.module)
         }
         edges.append(contentsOf: descriptor.edges)
         
         let start:Int = vertices.endIndex
-        //var _count:Int = 0
-        for vertex:Vertex in descriptor.vertices 
+        for vertex:Graph.Vertex in descriptor.vertices 
         {
-            //defer 
-            //{
-            //    _count += 1
-            //}
             if vertex.isCanonical
             {
                 if case _? = symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
                 {
-                    throw SymbolIdentifierError.duplicate(symbol: vertex.id) 
+                    throw Graph.SymbolIdentifierError.duplicate(id: vertex.id) 
                 }
                 vertices.append(vertex)
                 mythical.removeValue(forKey: vertex.id)
@@ -88,17 +93,17 @@ struct Biome:Sendable
                 guard vertex ~~ vertices[duplicate]
                 else 
                 {
-                    throw SymbolIdentifierError.duplicate(symbol: vertex.id) 
+                    throw Graph.SymbolIdentifierError.duplicate(id: vertex.id) 
                 }
             }
-            else if let duplicate:Vertex = mythical.updateValue(vertex, forKey: vertex.id)
+            else if let duplicate:Graph.Vertex = mythical.updateValue(vertex, forKey: vertex.id)
             {
                 // only add the vertex to the mythical list if we don’t already 
                 // have it in the normal list 
                 guard vertex ~~ duplicate 
                 else 
                 {
-                    throw SymbolIdentifierError.duplicate(symbol: vertex.id) 
+                    throw Graph.SymbolIdentifierError.duplicate(id: vertex.id) 
                 }
             }
         }
@@ -133,19 +138,6 @@ struct Biome:Sendable
         return json
     }
     
-    public
-    typealias Target = 
-    (
-        id:Module.ID, 
-        bystanders:[Module.ID],
-        articles:[[String]]
-    )
-    typealias Product = 
-    (
-        id:Package.ID, 
-        targets:Range<Int>
-    )
-    
     static 
     func flatten(descriptors:[Package.ID: [Target]]) -> (products:[Product], modules:[Target])
     {
@@ -171,16 +163,16 @@ struct Biome:Sendable
         async throws -> (biome:Self, comments:[String])
     {
         let packageIndices:[Package.ID: Int]    = try Self.indices(for: products, by: \.id, 
-            else: PackageIdentifierError.duplicate(package:))
+            else: Graph.PackageIdentifierError.duplicate(id:))
         let moduleIndices:[Module.ID: Int]      = try Self.indices(for: targets,  by: \.id, 
-            else: ModuleIdentifierError.duplicate(module:))
+            else: Graph.ModuleIdentifierError.duplicate(id:))
         var symbolIndices:[Symbol.ID: Int]      = [:]
         // we need the mythical dictionary in case we run into synthesized 
         // extensions before the generic base (in which case, they would be assigned 
         // to the wrong module)
-        var mythical:[Symbol.ID: Vertex]        = [:]
-        var vertices:[Vertex]   = []
-        var edges:[Edge]        = []
+        var mythical:[Symbol.ID: Graph.Vertex]  = [:]
+        var vertices:[Graph.Vertex]   = []
+        var edges:[Graph.Edge]        = []
         var modules:[Module]    = []
         var packages:[Package]  = []
         for product:Product in products 
@@ -205,7 +197,7 @@ struct Biome:Sendable
                 }
                 catch let error 
                 {
-                    throw GraphLoadingError.init(error, module: target.id, bystander: nil)
+                    throw Graph.LoadingError.init(error, module: target.id, bystander: nil)
                 }
                 var extensions:[(bystander:Int, symbols:Range<Int>)] = [] 
                 for bystander:Module.ID in target.bystanders
@@ -216,7 +208,7 @@ struct Biome:Sendable
                     {
                         // a module extends a bystander module we do not have the 
                         // primary symbolgraph for
-                        throw ModuleIdentifierError.undefined(module: bystander)
+                        throw Graph.ModuleIdentifierError.undefined(id: bystander)
                         //print("warning: ignored module extensions '\(name)'")
                         //continue 
                     }
@@ -237,7 +229,7 @@ struct Biome:Sendable
                     }
                     catch let error 
                     {
-                        throw GraphLoadingError.init(error, module: target.id, bystander: bystander)
+                        throw Graph.LoadingError.init(error, module: target.id, bystander: bystander)
                     }
                 }
                 let module:Module = .init(id: target.id, package: packages.endIndex, 
@@ -257,7 +249,7 @@ struct Biome:Sendable
             packages.append(package)
         }
         // only keep mythical vertices if we don’t have the generic base available
-        for (generic, vertex):(Symbol.ID, Vertex) in mythical 
+        for (generic, vertex):(Symbol.ID, Graph.Vertex) in mythical 
         {
             guard case nil = symbolIndices.updateValue(vertices.endIndex, forKey: generic)
             else 
@@ -324,7 +316,7 @@ struct Biome:Sendable
         }
     }
     private static 
-    func lineages(vertices:[Vertex], modules:Storage<Module>, packages:Storage<Package>) -> [(module:Int, lineage:Lineage)]
+    func lineages(vertices:[Graph.Vertex], modules:Storage<Module>, packages:Storage<Package>) -> [(module:Int, lineage:Lineage)]
     {
         modules.indices.flatMap
         {
@@ -345,8 +337,8 @@ struct Biome:Sendable
         }
     }
     private static 
-    func parents(vertices:[Vertex], modules:Storage<Module>, packages:Storage<Package>) 
-        throws -> [Edge.References]
+    func parents(vertices:[Graph.Vertex], modules:Storage<Module>, packages:Storage<Package>) 
+        throws -> [Graph.Edge.References]
     {
         // lineages. these only form a *subsequence* of all the vertices; mythical 
         // symbols do not have lineages
@@ -365,7 +357,7 @@ struct Biome:Sendable
                 return nil 
             }
         }
-        let references:[Edge.References] = try lineages.indices.map
+        let references:[Graph.Edge.References] = try lineages.indices.map
         {
             let (module, lineage):(Int, Lineage) = lineages[$0]
             let bystander:Int? = module == lineage.namespace ? nil : lineage.namespace
@@ -381,21 +373,21 @@ struct Biome:Sendable
             }
             else 
             {
-                throw LinkingError.orphaned(symbol: $0)
+                throw SymbolLinkingError.orphaned(symbol: $0)
             }
         }
         return references + repeatElement(.init(parent: nil, module: nil, bystander: nil), 
             count: vertices.count - references.count)
     }
     private 
-    init(indices:[Symbol.ID: Int], vertices:[Vertex], edges:[Edge], 
+    init(indices:[Symbol.ID: Int], vertices:[Graph.Vertex], edges:[Graph.Edge], 
         modules:Storage<Module>, packages:Storage<Package>)
         throws
     {
-        var references:[Edge.References] = try Self.parents(vertices: vertices, 
+        var references:[Graph.Edge.References] = try Self.parents(vertices: vertices, 
             modules: modules, packages: packages)
         //  link 
-        for edge:Edge in _move(edges)
+        for edge:Graph.Edge in _move(edges)
         {
             try edge.link(&references, indices: indices)
         }

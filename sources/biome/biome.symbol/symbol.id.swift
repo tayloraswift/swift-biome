@@ -101,7 +101,7 @@ extension Biome.USR.Rule:ParsingRule
             guard let language:UInt8    = input.next()
             else 
             {
-                throw Biome.SymbolIdentifierError.empty 
+                throw Graph.SymbolIdentifierError.empty 
             }
                 input.parse(as: ASCII.Colon?.self)
             let start:Location          = input.index 
@@ -116,7 +116,7 @@ extension Biome.USR.Rule:ParsingRule
             case 0x63: // 'c'
                 return .c(utf8)
             case let code: 
-                throw Biome.SymbolIdentifierError.unsupportedLanguage(code: code)
+                throw Graph.SymbolIdentifierError.unsupportedLanguage(code: code)
             }
         }
     }

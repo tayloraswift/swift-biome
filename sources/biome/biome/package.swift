@@ -3,12 +3,6 @@ import Resource
 extension Biome 
 {
     public 
-    enum PackageIdentifierError:Error 
-    {
-        case duplicate(package:Package.ID)
-    }
-    
-    public 
     struct Package:Sendable, Identifiable
     {
         @frozen public 

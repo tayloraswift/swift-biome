@@ -1,3 +1,6 @@
+import Grammar 
+import JSON
+
 extension SwiftConstraint where Link == Biome.Symbol.ID
 {
     func map<T>(to transform:[Biome.Symbol.ID: T]) -> SwiftConstraint<T>
@@ -13,14 +16,19 @@ extension SwiftConstraint where Link == Biome.Symbol.ID
             else 
             {
                 return nil
-                // throw Biome.SymbolIdentifierError.undefined(symbol: $0)
+                // throw Biome.SymbolIdentifierError.undefined(id: $0)
             }
         }
     }
 }
-
-extension Biome 
+extension Graph 
 {
+    enum EdgeError:Error 
+    {
+        case constraints(on:Int, is:Edge.Kind, of:Int)
+        case duplicate(Int, have:Int, is:Edge.Kind, of:Int)
+    }
+    
     struct Edge 
     {
         struct References 
@@ -86,13 +94,13 @@ extension Biome
         }
         // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.cpp
         var kind:Kind 
-        var source:Symbol.ID
-        var target:Symbol.ID
+        var source:Biome.Symbol.ID
+        var target:Biome.Symbol.ID
         // if the source inherited docs 
-        var origin:Symbol.ID?
-        var constraints:[SwiftConstraint<Symbol.ID>]
+        var origin:Biome.Symbol.ID?
+        var constraints:[SwiftConstraint<Biome.Symbol.ID>]
         
-        /* init(specialization source:Symbol.ID, of target:Symbol.ID)
+        /* init(specialization source:Biome.Symbol.ID, of target:Biome.Symbol.ID)
         {
             self.kind = .specialization 
             self.source = source 
@@ -101,17 +109,17 @@ extension Biome
             self.constraints = []
         } */
         
-        func link(_ table:inout [References], indices:[Symbol.ID: Int]) throws 
+        func link(_ table:inout [References], indices:[Biome.Symbol.ID: Int]) throws 
         {
             guard let source:Int = indices[self.source]
             else 
             {
-                throw SymbolIdentifierError.undefined(symbol: self.source)
+                throw SymbolIdentifierError.undefined(id: self.source)
             } 
             guard let target:Int = indices[self.target]
             else 
             {
-                throw SymbolIdentifierError.undefined(symbol: self.target)
+                throw SymbolIdentifierError.undefined(id: self.target)
             } 
             let constraints:[SwiftConstraint<Int>] = self.constraints.map 
             {
@@ -120,8 +128,8 @@ extension Biome
             // even after inferring the existence of mythical symbols, it’s still 
             // possible for the documentation origin to be unknown to us. this 
             // is fine, as we need a copy of the inherited docs anyways.
-            if  let origin:Symbol.ID    = self.origin, 
-                let origin:Int          = indices[origin]
+            if  let origin:Biome.Symbol.ID  = self.origin, 
+                let origin:Int              = indices[origin]
             {
                 if let incumbent:Int = table[source].commentOrigin
                 {
@@ -157,7 +165,7 @@ extension Biome
                 guard case .conformer = self.kind 
                 else 
                 {
-                    throw LinkingError.constraints(on: source, is: self.kind, of: target)
+                    throw EdgeError.constraints(on: source, is: self.kind, of: target)
                 }
                 table[source].upstream.append((target, constraints))
                 table[target].downstream.append((source, constraints))
@@ -185,7 +193,7 @@ extension Biome
             case .subclass:
                 if let incumbent:Int = table[source].superclass
                 {
-                    throw LinkingError.duplicate(source, have: incumbent, is: self.kind, of: target)
+                    throw EdgeError.duplicate(source, have: incumbent, is: self.kind, of: target)
                 }
                 table[source].superclass = target
                 table[target].subclasses.append(source)
@@ -193,7 +201,7 @@ extension Biome
             case .optionalRequirement, .requirement:
                 if let incumbent:Int = table[source].requirementOf
                 {
-                    throw LinkingError.duplicate(source, have: incumbent, is: self.kind, of: target)
+                    throw EdgeError.duplicate(source, have: incumbent, is: self.kind, of: target)
                 }
                 table[source].requirementOf = target
                 table[target].requirements.append(source)
@@ -201,7 +209,7 @@ extension Biome
             case .override:
                 if let incumbent:Int = table[source].overrideOf
                 {
-                    throw LinkingError.duplicate(source, have: incumbent, is: self.kind, of: target)
+                    throw EdgeError.duplicate(source, have: incumbent, is: self.kind, of: target)
                 }
                 table[source].overrideOf = target 
                 table[target].overrides.append(source)
@@ -209,21 +217,45 @@ extension Biome
             case .defaultImplementation:
                 table[source].defaultImplementationOf.append(target)
                 table[target].defaultImplementations.append(source)
-            
-            // inferred edges 
-            /* case .specialization:
-                guard self.constraints.isEmpty 
-                else 
-                {
-                    fatalError("unreachable")
-                }
-                if let incumbent:Int = table[source].specializationOf
-                {
-                    throw LinkingError.duplicate(source, have: incumbent, is: self.kind, of: target)
-                }
-                table[source].specializationOf = target
-                table[target].specializations.append(source) */
             }
+        }
+    }
+    static 
+    func decode(edge json:JSON) throws -> Edge
+    {
+        try json.lint(["targetFallback"])
+        {
+            var kind:Edge.Kind = try $0.remove("kind") { try $0.case(of: Edge.Kind.self) }
+            let target:Biome.Symbol.ID = try $0.remove("target", Self.decode(id:))
+            let origin:Biome.Symbol.ID? = try $0.pop("sourceOrigin")
+            {
+                try $0.lint(["displayName"])
+                {
+                    try $0.remove("identifier", Self.decode(id:))
+                }
+            }
+            let usr:Biome.USR = try $0.remove("source")
+            {
+                let text:String = try $0.as(String.self)
+                return try Grammar.parse(text.utf8, as: Biome.USR.Rule<String.Index>.self)
+            }
+            let source:Biome.Symbol.ID
+            switch (kind, usr)
+            {
+            case (_,       .natural(let natural)): 
+                source  = natural 
+            // synthesized symbols can only be members of the type in their id
+            case (.member, .synthesized(from: let generic, for: target)):
+                source  = generic 
+                kind    = .crime 
+            case (_, let invalid):
+                throw SymbolIdentifierError.synthetic(resolution: invalid)
+            }
+            return .init(kind: kind, source: source, target: target, origin: origin, 
+                constraints: try $0.pop("swiftConstraints", as: [JSON]?.self) 
+                { 
+                    try $0.map(Self.decode(constraint:)) 
+                } ?? [])
         }
     }
 }
