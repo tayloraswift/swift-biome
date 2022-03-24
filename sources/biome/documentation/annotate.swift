@@ -7,17 +7,18 @@ extension Documentation
     public 
     func annotate<T>(markdown:Resource, for _:T.Type = T.self) -> [Anchor: [UInt8]]
     {
-        let surveyed:Surveyed
+        let source:String
         switch markdown 
         {
         case .text(let string, type: .markdown, version: let version):
-            surveyed = .init(markdown: string)
+            source = string
         case .bytes(let bytes, type: .markdown, version: let version):
-            surveyed = .init(markdown: String.init(decoding: bytes, as: Unicode.UTF8.self))
+            source = String.init(decoding: bytes, as: Unicode.UTF8.self)
                 
         default: 
             fatalError("Unsupported")
         }
+        let surveyed:Surveyed = .init(markdown: _move(source), format: .entrapta)
         
         guard case .explicit(let title) = surveyed.heading 
         else 
@@ -37,18 +38,17 @@ extension Documentation
             }
         }
         
-        let context:UnresolvedLinkContext = .init(namespace: 0, scope: [])
-        let unresolved:Article<UnresolvedLink>.Content = 
-            surveyed.rendered(as: .docc, biome: self.biome, routing: self.routing, context: context)
+        let (content, context):(Article<UnresolvedLink>.Content, UnresolvedLinkContext) = 
+            surveyed.rendered(biome: self.biome, routing: self.routing, greenzone: nil)
         
-        Swift.print("\(unresolved.errors.count) errors")
-        for error:Error in unresolved.errors
+        Swift.print("\(content.errors.count) errors")
+        for error:Error in content.errors
         {
             Swift.print(error)
         }
         
         let resolved:Article<ResolvedLink>.Content = 
-            self.routing.resolve(article: _move(unresolved), context: context)
+            self.routing.resolve(article: _move(content), context: context)
         
         return self.substitutions(title: title.plainText, content: resolved)
     }

@@ -2,6 +2,80 @@ import Markdown
 
 extension Documentation 
 {
+    enum EntraptaDirectiveError:Error
+    {
+        case emptyPathArgument
+        case unexpectedPathArgument
+    }
+    enum Format 
+    {
+        /// entrapta format 
+        case entrapta
+        
+        /// lorentey’s `swift-collections` format
+        // case collections
+        
+        /// nate cook’s `swift-algorithms` format
+        // case algorithms 
+        
+        /// apple’s DocC format
+        case docc
+    }
+    struct Metadata 
+    {
+        var stem:[[UInt8]]?
+        {
+            self.path.isEmpty ? nil : self.path.map { URI.encode(component: $0.utf8) }
+        }
+        
+        var errors:[DirectiveArgumentText.ParseError]
+        var path:[String]
+        var format:Format
+        var imports:Set<Biome.Module.ID> 
+        
+        init(format:Format, directives:[BlockDirective])
+        {
+            self.errors = []
+            self.path = []
+            self.format = format 
+            self.imports = []
+            
+            let directives:[String: [BlockDirective]] = .init(grouping: directives, by: \.name)
+            //let parameters:[String: [[DirectiveArgument]]] = directives.mapValues 
+            //{
+            //    $0.
+            //}
+            switch format 
+            {
+            case .entrapta: 
+                // @import(_:)
+                if  let matches:[BlockDirective] = directives["depends"]
+                {
+                    for invocation:BlockDirective in matches 
+                    {
+                        guard let imported:Substring = invocation.argumentText.segments.first?.trimmedText
+                        else 
+                        {
+                            continue 
+                        }
+                        self.imports.insert(Biome.Module.ID.init(imported))
+                    }
+                }
+                // @path(_:)
+                if  let matches:[BlockDirective] = directives["path"],
+                    let match:BlockDirective = matches.last
+                {
+                    self.path = match.argumentText.segments
+                        .map(\.trimmedText)
+                        .joined()
+                        .split(separator: "/")
+                        .map(String.init(_:))
+                }
+            case .docc: 
+                break 
+            }
+        }
+    }
     enum SurveyedNode 
     {
         case section(Heading, [Self])
@@ -20,35 +94,13 @@ extension Documentation
             case .explicit(let heading):    return heading.level
             }
         }
-        
-        func owner(assuming format:Format) -> UnresolvedLink?
-        {
-            guard case .explicit(let heading) = self 
-            else 
-            {
-                return nil 
-            }
-            var spans:LazyMapSequence<MarkupChildren, InlineMarkup>.Iterator = 
-                heading.inlineChildren.makeIterator()
-            guard   let owner:any InlineMarkup  = spans.next(), 
-                    case nil                    = spans.next(), 
-                let owner:SymbolLink    = owner as? SymbolLink,
-                let owner:String        = owner.destination, !owner.isEmpty
-            else 
-            {
-                return nil
-            }
-            switch format 
-            {
-            // FIXME
-            case .entrapta, .docc:
-                return .docc(normalizing: owner)
-            }
-        }
     }
     struct Surveyed 
     {
-        let directives:[BlockDirective]
+        // private 
+        // let directives:[BlockDirective]
+        let metadata:Metadata
+        
         let heading:SurveyedHeading
         let nodes:[SurveyedNode]
         
@@ -56,14 +108,14 @@ extension Documentation
         private 
         typealias StackFrame = (heading:SurveyedHeading, nodes:[SurveyedNode])
         
-        init(markdown string:String)
+        init(markdown string:String, format:Format)
         {
             let root:Markdown.Document = .init(parsing: string, 
                 options: [ .parseBlockDirectives, .parseSymbolLinks ])
-            self.init(root: root)
+            self.init(root: root, format: format)
         }
         private  
-        init(root:Markdown.Document) 
+        init(root:Markdown.Document, format:Format)
         {
             // partition the top level blocks by heading, and whether they are 
             // a block directive 
@@ -134,26 +186,54 @@ extension Documentation
                     // base, so `stack.base` is guaranteed to be empty at this point
                     assert(stack.base.isEmpty)
                     
-                    self.directives = directives
-                    self.heading = stack.top.heading
-                    self.nodes = stack.top.nodes
+                    self.init(format: format, directives: directives, 
+                        heading: stack.top.heading, nodes: stack.top.nodes)
                     return
                 }
                 directives.append(directive)
             }
-            
-            self.directives = directives
-            self.heading = .implicit
-            self.nodes = []
+            self.init(format: format, directives: directives, heading: .implicit, nodes: [])
+        }
+        private 
+        init(format:Format, directives:[BlockDirective], 
+            heading:SurveyedHeading, nodes:[SurveyedNode])
+        {
+            self.metadata = .init(format: format, directives: directives)
+            self.heading = heading
+            self.nodes = nodes
         }
         
-        func rendered(as format:Format, 
-            biome:Biome, 
-            routing:RoutingTable, 
-            context:UnresolvedLinkContext) 
-            -> Article<UnresolvedLink>.Content
+        var master:UnresolvedLink?
         {
-            var renderer:Renderer = .init(format: format, biome: biome, routing: routing,
+            guard case .explicit(let heading) = self.heading 
+            else 
+            {
+                return nil 
+            }
+            var spans:LazyMapSequence<MarkupChildren, InlineMarkup>.Iterator = 
+                heading.inlineChildren.makeIterator()
+            guard   let owner:any InlineMarkup  = spans.next(), 
+                    case nil                    = spans.next(), 
+                let owner:SymbolLink    = owner as? SymbolLink,
+                let owner:String        = owner.destination, !owner.isEmpty
+            else 
+            {
+                return nil
+            }
+            switch self.metadata.format 
+            {
+            // FIXME
+            case .entrapta, .docc:
+                return .docc(normalizing: owner)
+            }
+        }
+        
+        func rendered(biome:Biome, routing:RoutingTable, greenzone:(namespace:Int, scope:[[UInt8]])?) 
+            -> (Article<UnresolvedLink>.Content, UnresolvedLinkContext)
+        {
+            let context:UnresolvedLinkContext = routing.context(imports: self.metadata.imports, greenzone: greenzone)
+            
+            var renderer:Renderer = .init(format: self.metadata.format, biome: biome, routing: routing,
                 context: context)
             // note: we *never* render the top-level heading. this will either be 
             // auto-generated (for owned symbols), or stored as plain text by the 
@@ -188,7 +268,9 @@ extension Documentation
                 // has a terrible block parsing API :/
                 discussion = Renderer._sift(discussion, errors: &renderer.errors)
             }
-            return .init(errors: renderer.errors, summary: summary, discussion: discussion)
+            let content:Article<UnresolvedLink>.Content = 
+                .init(errors: renderer.errors, summary: summary, discussion: discussion)
+            return (content, context)
         }
     }
 }

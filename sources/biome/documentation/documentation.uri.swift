@@ -240,12 +240,12 @@ extension Documentation
     
     func uri(article:Int) -> URI  
     {
-        let namespace:Int = self.articles[article].context.namespace
+        let namespace:Int = self.articles[article].trunk
         return .init(
             base: .learn,
             path: .init(
-                root:  self.biome.root(namespace:  namespace), 
-                trunk: self.biome.trunk(namespace: namespace), 
+                root:  self.biome.root(namespace: namespace), 
+                trunk: self.biome.modules[namespace].id.trunk, 
                 stem:  self.articles[article].stem, 
                 leaf:  []))
     }
@@ -279,7 +279,7 @@ extension Biome
         return .init(
             base: .biome,
             path: .init(
-                root: self.root(package: package), 
+                root: self.packages[package].id.root, 
                 stem: self.stem(packageSearchIndex: package), 
                 leaf: self.leaf(packageSearchIndex: package)))
     }
@@ -288,7 +288,7 @@ extension Biome
         .init(
             base: .biome,
             path: .init(
-                root: self.root(package: package), 
+                root: self.packages[package].id.root, 
                 stem: [], 
                 leaf: []))
     }
@@ -297,8 +297,8 @@ extension Biome
         .init(
             base: .biome,
             path: .init(
-                root:  self.root(namespace:  module), 
-                trunk: self.trunk(namespace: module), 
+                root:  self.root(namespace: module), 
+                trunk: self.modules[module].id.trunk, 
                 stem: [], 
                 leaf: []))
     }
@@ -311,7 +311,7 @@ extension Biome
             let (stem, leaf):([[UInt8]], [UInt8]) = self.stem(witness: witness, victim: victim)
             path = .init(
                 root:  self.root(namespace:  namespace), 
-                trunk: self.trunk(namespace: namespace), 
+                trunk: self.modules[namespace].id.trunk, 
                 stem: stem, 
                 leaf: leaf)
             switch routing.overloads[.init(witness: witness, victim: victim)]

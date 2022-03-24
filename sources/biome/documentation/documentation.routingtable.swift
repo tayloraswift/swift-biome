@@ -20,11 +20,11 @@ extension Documentation
             
             var whitelist:Set<Int>      = [ ]
             var roots:[[UInt8]: Int]    = [:]
-            for index:Int in biome.packages.indices
+            for (index, package):(Int, Biome.Package) in zip(biome.packages.indices, biome.packages)
             {
-                roots[biome.root(package: index)] = index
+                roots[package.id.root] = index
                 
-                if case .swift = biome.packages[index].id 
+                if case .swift = package.id 
                 {
                     // redirect standard library names 
                     for name:String in 
@@ -37,14 +37,12 @@ extension Documentation
                         roots[[UInt8].init(name.utf8)] = index
                     }
                     // whitelist standard library modules 
-                    whitelist.formUnion(biome.packages[index].modules)
+                    whitelist.formUnion(package.modules)
                 }
             }
             self.roots      = roots
-            self.trunks     = .init(uniqueKeysWithValues: biome.modules.indices.map 
-            {
-                (biome.trunk(namespace: $0), $0)
-            })
+            self.trunks     = .init(uniqueKeysWithValues: 
+                zip(biome.modules.indices, biome.modules).map { ($0.1.id.trunk, $0.0) })
             self.greens     = [[]: 0]
             self.routes     = [:]
             self.overloads  = [:]
@@ -72,6 +70,28 @@ extension Documentation
                     }
                 }
             }
+        }
+        
+        private 
+        func whitelist(imports:Set<Biome.Module.ID>, greenzone:Int?) -> Set<Int>
+        {
+            var whitelist:Set<Int> = self.whitelist
+            for imported:Biome.Module.ID in imports
+            {
+                if let module:Int = self.trunks[imported.trunk]
+                {
+                    whitelist.insert(module)
+                }
+                else 
+                {
+                    Swift.print("warning: unknown module '\(imported)'")
+                }
+            }
+            if let namespace:Int = greenzone
+            {
+                whitelist.insert(namespace)
+            }
+            return whitelist
         }
         
         private mutating 
@@ -309,6 +329,11 @@ extension Documentation
         }
         
         // helpers
+        func context(imports:Set<Biome.Module.ID>, greenzone:(namespace:Int, scope:[[UInt8]])?)
+            -> UnresolvedLinkContext
+        {
+            .init(whitelist: self.whitelist(imports: imports, greenzone: greenzone?.namespace), greenzone: greenzone)
+        }
         // FIXME: these are dropping the links if resolution fails!!!
         // we should show a reasonable fallback instead...
         func resolve(article:Article<UnresolvedLink>.Content, context:UnresolvedLinkContext) -> Article<ResolvedLink>.Content 
@@ -321,7 +346,6 @@ extension Documentation
                 (try? self.resolve(base: .biome, link: $0, context: context))
             }
         }
-        
         func resolve(base:URI.Base, link:UnresolvedLink, context:UnresolvedLinkContext) throws -> ResolvedLink 
         {
             let index:Index?
@@ -370,76 +394,69 @@ extension Documentation
                 capitalized = true
                 lowercased  = true
             }
+            var candidates:[Index] = []
             //  assume link is *absolute*, contains module prefix. 
             //  check this *first*, so that we can reference a module like 
             //  `JSON` as `JSON`, and its type of the same name as `JSON.JSON`.
-            if  case context.namespace??    = stem.first.map({ self.trunks[$0] })
+            if  let namespace:Int = stem.first.map({ self.trunks[$0] }) ?? nil, 
+                context.whitelist.contains(namespace)
             {
                 let stem:ArraySlice<[UInt8]> = stem.dropFirst()
-                if  capitalized, 
-                    case (let index, _)? = self.resolve(base: base, 
-                        namespace: context.namespace, 
-                        stem: stem, 
-                        leaf: [], 
-                        overload: nil)
+                if  capitalized, case (let index, _)? = 
+                    self.resolve(base: base, namespace: namespace, stem: stem, leaf: [], overload: nil)
                 {
-                    return index
+                    candidates.append(index)
                 }
-                if  lowercased, let leaf:[UInt8] = stem.last,
-                    case (let index, _)? = self.resolve(base: base, 
-                        namespace: context.namespace, 
-                        stem: stem.dropFirst(), 
-                        leaf: leaf, 
-                        overload: nil)
+                if  lowercased, let leaf:[UInt8] = stem.last, case (let index, _)? = 
+                    self.resolve(base: base, namespace: namespace, stem: stem.dropFirst(), leaf: leaf, overload: nil)
                 {
-                    return index 
+                    candidates.append(index)
                 }
             }
-            //  assume link is *absolute*, does *not* contain module prefix
-            if  capitalized, 
-                case (let index, _)? = self.resolve(base: base, 
-                    namespace: context.namespace, 
-                    stem: stem[...], 
-                    leaf: [], 
-                    overload: nil)
+            // FIXME: we should be diagnosing ambiguous references
+            if let index:Index = candidates.first 
             {
-                return index
-            }
-            if  lowercased, let leaf:[UInt8] = stem.last,
-                case (let index, _)? = self.resolve(base: base, 
-                    namespace: context.namespace, 
-                    stem: stem.dropFirst(), 
-                    leaf: leaf, 
-                    overload: nil)
-            {
-                return index
+                return index 
             }
             //  assume link is *relative*
-            guard !context.scope.isEmpty 
-            else 
+            if case (let namespace, let scope)? = context.greenzone, !scope.isEmpty
             {
-                return nil
+                let concatenated:[[UInt8]] = scope + stem
+                if  capitalized, case (let index, _)? = 
+                    self.resolve(base: base, namespace: namespace, stem: concatenated[...], leaf: [], overload: nil)
+                {
+                    candidates.append(index)
+                }
+                if  lowercased, let leaf:[UInt8] = concatenated.last, case (let index, _)? = 
+                    self.resolve(base: base, namespace: namespace, stem: concatenated.dropFirst(), leaf: leaf, overload: nil)
+                {
+                    candidates.append(index)
+                }
             }
-            let concatenated:[[UInt8]] = context.scope + stem
-            if  capitalized, 
-                case (let index, _)? = self.resolve(base: base, 
-                    namespace: context.namespace, 
-                    stem: concatenated[...], 
-                    leaf: [], 
-                    overload: nil)
+            // FIXME: we should be diagnosing ambiguous references
+            if let index:Index = candidates.first 
             {
-                return index
+                return index 
             }
-            if  lowercased, let leaf:[UInt8] = concatenated.last,
-                case (let index, _)? = self.resolve(base: base, 
-                    namespace: context.namespace, 
-                    stem: concatenated.dropFirst(), 
-                    leaf: leaf, 
-                    overload: nil)
+            //  assume link is *absolute*
+            for namespace:Int in context.whitelist 
             {
-                return index
+                if  capitalized, case (let index, _)? = 
+                    self.resolve(base: base, namespace: namespace, stem: stem[...], leaf: [], overload: nil)
+                {
+                    candidates.append(index)
+                }
+                if  lowercased, let leaf:[UInt8] = stem.last, case (let index, _)? = 
+                    self.resolve(base: base, namespace: namespace, stem: stem.dropFirst(), leaf: leaf, overload: nil)
+                {
+                    candidates.append(index)
+                }
             }
-            // failure 
+            // FIXME: we should be diagnosing ambiguous references
+            if let index:Index = candidates.first 
+            {
+                return index 
+            }
             else 
             {
                 return nil
@@ -457,10 +474,7 @@ extension Biome
     {
         [UInt8].init("json".utf8)
     }
-    func root(package:Int) -> [UInt8]
-    {
-        Documentation.URI.encode(component: self.packages[package].id.name.utf8)
-    }
+
     func root(namespace module:Int) -> [UInt8]
     {
         if case .community(let package) = self.packages[self.modules[module].package].id
@@ -472,14 +486,17 @@ extension Biome
             return []
         }
     }
-    func trunk(namespace module:Int) -> [UInt8]
-    {
-        Documentation.URI.encode(component: self.modules[module].id.title.utf8)
-    }
 
     func stem(witness:Int, victim:Int?) -> (stem:[[UInt8]], leaf:[UInt8])
     {
-        var stem:[[UInt8]]  = self.scope(witness: witness, victim: victim)
+        var stem:[[UInt8]] = self.symbols[victim ?? witness].scope.map 
+        { 
+            Documentation.URI.encode(component: $0.utf8) 
+        }
+        if let victim:Int = victim 
+        {
+            stem.append(Documentation.URI.encode(component: self.symbols[victim].title.utf8))
+        }
         let title:String    = self.symbols[witness].title
         if self.symbols[witness].kind.capitalized
         {
@@ -492,8 +509,13 @@ extension Biome
         }
     }
     // this is *different* from `stem(witness:victim:)`
-    func context(witness:Int, victim:Int?) -> [[UInt8]]
+    func greenzone(witness:Int, victim:Int?) -> (namespace:Int, scope:[[UInt8]])?
     {
+        guard let namespace:Int = self.symbols[witness].namespace
+        else 
+        {
+            return nil
+        }
         var context:[[UInt8]] = self.symbols[victim ?? witness].scope.map 
         { 
             Documentation.URI.encode(component: $0.utf8) 
@@ -515,19 +537,6 @@ extension Biome
                 .var, .func, .operator:
             break
         }
-        return context
-    }
-    private 
-    func scope(witness:Int, victim:Int?) -> [[UInt8]]
-    {
-        var stem:[[UInt8]] = self.symbols[victim ?? witness].scope.map 
-        { 
-            Documentation.URI.encode(component: $0.utf8) 
-        }
-        if let victim:Int = victim 
-        {
-            stem.append(Documentation.URI.encode(component: self.symbols[victim].title.utf8))
-        }
-        return stem 
+        return (namespace, context)
     }
 }

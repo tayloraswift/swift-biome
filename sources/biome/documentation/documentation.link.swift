@@ -6,7 +6,6 @@ extension Documentation
         case module(Int)
         case symbol(Int, victim:Int?)
     }
-
     enum UnresolvedLink:Hashable, CustomStringConvertible, Sendable
     {
         enum Disambiguator 
@@ -23,8 +22,8 @@ extension Documentation
     }
     struct UnresolvedLinkContext 
     {
-        let namespace:Int 
-        var scope:[[UInt8]]
+        let whitelist:Set<Int>
+        let greenzone:(namespace:Int, scope:[[UInt8]])?
     }
 }
 extension Documentation.UnresolvedLink 

@@ -3,20 +3,6 @@ import HTML
 
 extension Documentation 
 {
-    enum Format 
-    {
-        /// entrapta format 
-        case entrapta
-        
-        /// lorentey’s `swift-collections` format
-        // case collections
-        
-        /// nate cook’s `swift-algorithms` format
-        // case algorithms 
-        
-        /// apple’s DocC format
-        case docc
-    }
     enum ArticleError:Error 
     {
         case emptyImageSource
@@ -106,9 +92,17 @@ extension Documentation
         }
         
         let title:String
-        let stem:[[UInt8]]
         let content:Content
-        let context:UnresolvedLinkContext
+        
+        let whitelist:Set<Int>
+        let trunk:Int
+        let stem:[[UInt8]]
+        
+        var context:UnresolvedLinkContext
+        {
+            // *not* `self.stem`!
+            .init(whitelist: self.whitelist, greenzone: (self.trunk, []))
+        }
     }
     
 }

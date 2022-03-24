@@ -11,6 +11,11 @@ extension Biome
             case swift 
             case community(String)
             
+            var root:[UInt8]
+            {
+                Documentation.URI.encode(component: self.name.utf8)
+            }
+            
             public 
             var name:String 
             {

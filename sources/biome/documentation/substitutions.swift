@@ -123,17 +123,28 @@ extension Documentation
     func substitutions(article index:Int, filter:[Biome.Package.ID]) -> [Anchor: Element] 
     {
         let article:Article<ResolvedLink> = self.articles[index]
+        let module:Biome.Module = self.biome.modules[article.trunk]
         var substitutions:[Anchor: Element] = 
         [
             .title:     .text(escaping: article.title), 
             .constants: .text(escaped: Self.constants(filter: filter)),
-            .navigator:  self.navigator(for: article),
-            
-            .kind:      .text(escaped: "Module"),
-            .metropole:  self.link(package: self.biome.modules[article.context.namespace].package),
+            .kind:      .text(escaped: "Article"),
+            .metropole:  self.link(package: module.package),
+            .navigator:  Element[.ol] 
+            {
+                ["breadcrumbs-container"]
+            }
+            content:
+            {
+                Element[.li] 
+                { 
+                    Element.link(module.title, to: self.print(uri: self.uri(module: article.trunk)), 
+                        internal: true)
+                }
+            }, 
         ]
-        substitutions[._introduction]   = article.content.summary.map(self.fill(template:))
-        substitutions[.discussion]      = article.content.discussion.map(self.fill(template:))
+        substitutions[._introduction]   =  article.content.summary.map(self.fill(template:))
+        substitutions[.discussion]      =  article.content.discussion.map(self.fill(template:))
         return substitutions
     } 
     func substitutions(package index:Int, filter:[Biome.Package.ID]) -> [Anchor: Element] 
@@ -143,6 +154,17 @@ extension Documentation
         [
             .title:     .text(escaping: package.name), 
             .constants: .text(escaped: Self.constants(filter: filter)), 
+            .navigator: Element[.ol] 
+            {
+                ["breadcrumbs-container"]
+            }
+            content:
+            {
+                Element[.li] 
+                { 
+                    package.name 
+                }
+            }, 
             .dynamic:   Element[.div]
             {
                 ["lower-container"]
@@ -152,8 +174,6 @@ extension Documentation
                 self.dynamicContent(package: index)
             },
         ]
-        
-        substitutions[.navigator] = Self.navigator(for: package)
         
         if case .swift = package.id 
         {
@@ -173,9 +193,17 @@ extension Documentation
         [
             .title:        .text(escaping: module.title), 
             .constants:    .text(escaped: Self.constants(filter: filter)),
-            
-            .navigator:     Self.navigator(for: module),
-            
+            .navigator:    Element[.ol] 
+            {
+                ["breadcrumbs-container"]
+            }
+            content:
+            {
+                Element[.li] 
+                { 
+                    module.title 
+                }
+            },
             .kind:         .text(escaped: "Module"),
             .metropole:     self.link(package: module.package),
             .declaration:   Self.declaration(for: module),
@@ -339,52 +367,6 @@ extension Documentation
         return substitutions
     }
     
-    private 
-    func navigator(for article:Article<ResolvedLink>) -> Element
-    {
-        Element[.ol] 
-        {
-            ["breadcrumbs-container"]
-        }
-        content:
-        {
-            Element[.li] 
-            { 
-                Element.link(self.biome.modules[article.context.namespace].title, 
-                    to: self.print(uri: self.uri(module: article.context.namespace)), internal: true)
-            }
-        }
-    }
-    private static 
-    func navigator(for package:Biome.Package) -> Element
-    {
-        Element[.ol] 
-        {
-            ["breadcrumbs-container"]
-        }
-        content:
-        {
-            Element[.li] 
-            { 
-                package.name 
-            }
-        }
-    }
-    private static 
-    func navigator(for module:Biome.Module) -> Element
-    {
-        Element[.ol] 
-        {
-            ["breadcrumbs-container"]
-        }
-        content:
-        {
-            Element[.li] 
-            { 
-                module.title 
-            }
-        }
-    }
     private 
     func navigator(for symbol:Biome.Symbol, in scope:Int?) -> Element
     {

@@ -80,8 +80,8 @@ struct Documentation:Sendable
         var routing:RoutingTable = .init(bases: directories, biome: biome)
         Swift.print("initialized routing table")
         
-        var symbols:[Int: Article<UnresolvedLink>.Content] = [:]
-        var modules:[Int: Article<UnresolvedLink>.Content] = [:]
+        var symbols:[Int: (content:Article<UnresolvedLink>.Content, context:UnresolvedLinkContext)] = [:]
+        var modules:[Int: (content:Article<UnresolvedLink>.Content, context:UnresolvedLinkContext)] = [:]
         
         Swift.print("starting article loading")
         var articles:[Article<UnresolvedLink>] = []
@@ -89,57 +89,55 @@ struct Documentation:Sendable
         {
             for (module, target):(Int, Biome.Target) in zip(package.modules, targets[package.modules])
             {
-                for path:[String] in target.articles 
+                for filepath:[String] in target.articles 
                 {
                     guard let source:String = try await Self.load(
-                        package: package.id, module: target.id, article: path, with: load)
+                        package: package.id, module: target.id, article: filepath, with: load)
                     else 
                     {
                         continue 
                     }
-                    
-                    let surveyed:Surveyed = .init(markdown: source)
-                    if let owner:UnresolvedLink = surveyed.heading.owner(assuming: .docc)
+                    // default to DocC mode for now
+                    let surveyed:Surveyed = .init(markdown: source, format: .docc)
+                    if let master:UnresolvedLink = surveyed.master
                     {
                         // TODO: handle this error
-                        let resolved:ResolvedLink = try routing.resolve(
-                            base: .biome, // do not allow articles to be resolved
-                            link: owner, 
-                            context: .init(namespace: module, scope: []))
-                        switch resolved 
+                        switch try routing.resolve(base: .biome, link: master, context: 
+                            routing.context(imports: surveyed.metadata.imports, 
+                                greenzone: (module, [])))
                         {
-                        case .article:
+                        case .article: 
+                            // biome base never hosts articles
                             fatalError("unreachable")
-                        case .module(let reassignment):
-                            modules[reassignment] = surveyed.rendered(as: .docc, 
-                                biome: biome, 
-                                routing: routing,
-                                context: .init(namespace: reassignment, scope: []))
-                        case .symbol(let witness, victim: _):
-                            // FIXME: this can’t handle articles that are owned by 
-                            // criminal symbols
-                            guard let reassignment:Int = biome.symbols[witness].namespace
-                            else 
-                            {
-                                fatalError("cannot override documentation for mythical symbols")
-                            }
-                            symbols[witness] = surveyed.rendered(as: .docc, 
-                                biome: biome, 
-                                routing: routing, 
-                                context: .init(namespace: reassignment, 
-                                    scope: biome.context(witness: witness, victim: nil)))
+                        
+                        case .module(let namespace):
+                            modules[namespace] = surveyed.rendered(biome: biome, routing: routing, 
+                                greenzone: (namespace, []))
+                        
+                        case .symbol(let witness, victim: nil):
+                            // guard let reassignment:Int = biome.symbols[witness].namespace
+                            // else 
+                            // {
+                            //     fatalError("cannot override documentation for mythical symbols")
+                            // }
+                            symbols[witness] = surveyed.rendered(biome: biome, routing: routing, 
+                                greenzone: biome.greenzone(witness: witness, victim: nil))
+                        
+                        case .symbol(_, victim: _?):
+                            fatalError("UNIMPLEMENTED")
                         }
                     }
                     else if case .explicit(let heading) = surveyed.heading 
                     {
-                        let context:UnresolvedLinkContext = .init(namespace: module, scope: [])
-                        let stem:[[UInt8]] = path.dropFirst().map{ URI.encode(component: $0.utf8) }
-                        let article:Article<UnresolvedLink> = .init(
-                            title: heading.plainText, 
-                            stem: stem, 
-                            content: surveyed.rendered(as: .docc, biome: biome, routing: routing, context: context),
-                            context: context)
-                        routing.publish(article: articles.endIndex, namespace: module, stem: stem, leaf: [])
+                        let stem:[[UInt8]] = surveyed.metadata.stem ?? 
+                            filepath.dropFirst().map { URI.encode(component: $0.utf8) }
+                        let (content, context):(Article<UnresolvedLink>.Content, UnresolvedLinkContext) = 
+                            surveyed.rendered(biome: biome, routing: routing, greenzone: (module, []))
+                        let article:Article<UnresolvedLink> = .init(title: heading.plainText, content: content, 
+                            whitelist: context.whitelist,
+                            trunk: module, 
+                            stem: stem)
+                        routing.publish(article: articles.endIndex, namespace: article.trunk, stem: article.stem, leaf: [])
                         articles.append(article)
                     }
                     else 
@@ -152,8 +150,11 @@ struct Documentation:Sendable
         // everything that will ever be registered has been registered at this point
         self.articles = articles.map 
         { 
-            .init(title: $0.title, stem: $0.stem, content: routing.resolve(article: $0.content, context: $0.context), 
-                context: $0.context)
+            .init(title: $0.title, 
+                content: routing.resolve(article: $0.content, context: $0.context), 
+                whitelist: $0.whitelist,
+                trunk: $0.trunk,
+                stem: $0.stem)
         }
         Swift.print("finished article loading")
         // the only way modules can get documentation is by owning an article
@@ -161,52 +162,44 @@ struct Documentation:Sendable
         {
             (module:Int) in modules.removeValue(forKey: module).map
             {
-                routing.resolve(article: $0, context: .init(namespace: module, scope: []))
+                routing.resolve(article: $0.content, context: $0.context)
             } ?? .empty
         }
         self.symbols = zip(biome.symbols.indices, _move(comments)).map 
         {
             (symbol:(index:Int, comment:String)) in 
             
-            // FIXME: some mythical symbols actually do have documentation, 
-            // which is being lost. since we cannot resolve links without 
-            // a namespace, we can’t render any articles they own either.
-            if let namespace:Int = biome.symbols[symbol.index].namespace
+            let comment:String?
+            // don’t re-render duplicated docs 
+            if !symbol.comment.isEmpty, 
+                case nil = biome.symbols[symbol.index].commentOrigin
             {
-                let comment:String?
-                // don’t re-render duplicated docs 
-                if !symbol.comment.isEmpty, 
-                    case nil = biome.symbols[symbol.index].commentOrigin
-                {
-                    comment = symbol.comment
-                }
+                comment = symbol.comment
+            }
+            else 
+            {
+                comment = nil
+            }
+            
+            switch (comment, symbols.removeValue(forKey: symbol.index))
+            {
+            // FIXME: handle conflicting doccomments and articles 
+            case (_, let overriding?):
+                return routing.resolve(article: overriding.content, context: overriding.context)
+            case (let string?, nil):
+                let surveyed:Surveyed = .init(markdown: string, format: .docc)
+                guard case .implicit = surveyed.heading 
                 else 
                 {
-                    comment = nil
+                    fatalError("documentation comment cannot begin with an `h1`")
                 }
-                
-                let context:UnresolvedLinkContext = .init(
-                    namespace: namespace, 
-                    scope: biome.context(witness: symbol.index, victim: nil))
-                switch (comment, symbols.removeValue(forKey: symbol.index))
-                {
-                // FIXME: handle conflicting doccomments and articles 
-                case (_, let overridden?):
-                    return routing.resolve(article: overridden, context: context)
-                case (let string?, nil):
-                    let surveyed:Surveyed = .init(markdown: string)
-                    guard case .implicit = surveyed.heading 
-                    else 
-                    {
-                        fatalError("documentation comment cannot begin with an `h1`")
-                    }
-                    let content:Article<UnresolvedLink>.Content = 
-                        surveyed.rendered(as: .docc, biome: biome, routing: routing, context: context)
-                    return routing.resolve(article: content, context: context)
-                case (nil, nil): 
-                    // undocumented 
-                    break 
-                }
+                let (content, context):(Article<UnresolvedLink>.Content, UnresolvedLinkContext) = 
+                    surveyed.rendered(biome: biome, routing: routing, 
+                        greenzone: biome.greenzone(witness: symbol.index, victim: nil))
+                return routing.resolve(article: content, context: context)
+            case (nil, nil): 
+                // undocumented 
+                break 
             }
             
             return .empty

@@ -9,6 +9,11 @@ extension Biome
             public
             let string:String 
             
+            var trunk:[UInt8]
+            {
+                Documentation.URI.encode(component: self.title.utf8)
+            }
+            
             @inlinable public
             init(stringLiteral:String)
             {
