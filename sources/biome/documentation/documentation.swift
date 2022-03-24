@@ -24,8 +24,8 @@ struct Documentation:Sendable
     private(set)
     var articles:[Article<ResolvedLink>]
     private(set)
-    var modules:[ArticleContent<ResolvedLink>], 
-        symbols:[ArticleContent<ResolvedLink>] 
+    var modules:[Article<ResolvedLink>.Content], 
+        symbols:[Article<ResolvedLink>.Content] 
     
     private(set)
     var search:[Resource] 
@@ -80,8 +80,8 @@ struct Documentation:Sendable
         var routing:RoutingTable = .init(bases: directories, biome: biome)
         Swift.print("initialized routing table")
         
-        var symbols:[Int: ArticleContent<UnresolvedLink>] = [:]
-        var modules:[Int: ArticleContent<UnresolvedLink>] = [:]
+        var symbols:[Int: Article<UnresolvedLink>.Content] = [:]
+        var modules:[Int: Article<UnresolvedLink>.Content] = [:]
         
         Swift.print("starting article loading")
         var articles:[Article<UnresolvedLink>] = []
@@ -98,8 +98,8 @@ struct Documentation:Sendable
                         continue 
                     }
                     
-                    let survey:ArticleSurvey    = ArticleRenderer.survey(markdown: source)
-                    if let owner:UnresolvedLink = survey.heading.owner(assuming: .docc)
+                    let surveyed:Surveyed = .init(markdown: source)
+                    if let owner:UnresolvedLink = surveyed.heading.owner(assuming: .docc)
                     {
                         // TODO: handle this error
                         let resolved:ResolvedLink = try routing.resolve(
@@ -111,7 +111,7 @@ struct Documentation:Sendable
                         case .article:
                             fatalError("unreachable")
                         case .module(let reassignment):
-                            modules[reassignment] = ArticleRenderer.render(survey, as: .docc, 
+                            modules[reassignment] = surveyed.rendered(as: .docc, 
                                 biome: biome, 
                                 routing: routing,
                                 context: .init(namespace: reassignment, scope: []))
@@ -123,21 +123,21 @@ struct Documentation:Sendable
                             {
                                 fatalError("cannot override documentation for mythical symbols")
                             }
-                            symbols[witness] = ArticleRenderer.render(survey, as: .docc, 
+                            symbols[witness] = surveyed.rendered(as: .docc, 
                                 biome: biome, 
                                 routing: routing, 
                                 context: .init(namespace: reassignment, 
                                     scope: biome.context(witness: witness, victim: nil)))
                         }
                     }
-                    else if case .explicit(let heading) = survey.heading 
+                    else if case .explicit(let heading) = surveyed.heading 
                     {
                         let context:UnresolvedLinkContext = .init(namespace: module, scope: [])
                         let stem:[[UInt8]] = path.dropFirst().map{ URI.encode(component: $0.utf8) }
                         let article:Article<UnresolvedLink> = .init(
                             title: heading.plainText, 
                             stem: stem, 
-                            content: ArticleRenderer.render(survey, as: .docc, biome: biome, routing: routing, context: context),
+                            content: surveyed.rendered(as: .docc, biome: biome, routing: routing, context: context),
                             context: context)
                         routing.publish(article: articles.endIndex, namespace: module, stem: stem, leaf: [])
                         articles.append(article)
@@ -194,15 +194,14 @@ struct Documentation:Sendable
                 case (_, let overridden?):
                     return routing.resolve(article: overridden, context: context)
                 case (let string?, nil):
-                    let survey:ArticleSurvey = ArticleRenderer.survey(markdown: string)
-                    guard case .implicit = survey.heading 
+                    let surveyed:Surveyed = .init(markdown: string)
+                    guard case .implicit = surveyed.heading 
                     else 
                     {
                         fatalError("documentation comment cannot begin with an `h1`")
                     }
-                    let content:ArticleContent<UnresolvedLink> = 
-                        ArticleRenderer.render(survey, 
-                            as: .docc, biome: biome, routing: routing, context: context)
+                    let content:Article<UnresolvedLink>.Content = 
+                        surveyed.rendered(as: .docc, biome: biome, routing: routing, context: context)
                     return routing.resolve(article: content, context: context)
                 case (nil, nil): 
                     // undocumented 

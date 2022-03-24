@@ -311,7 +311,7 @@ extension Documentation
         // helpers
         // FIXME: these are dropping the links if resolution fails!!!
         // we should show a reasonable fallback instead...
-        func resolve(article:ArticleContent<UnresolvedLink>, context:UnresolvedLinkContext) -> ArticleContent<ResolvedLink> 
+        func resolve(article:Article<UnresolvedLink>.Content, context:UnresolvedLinkContext) -> Article<ResolvedLink>.Content 
         {
             article.compactMapAnchors
             {

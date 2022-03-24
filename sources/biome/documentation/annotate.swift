@@ -7,25 +7,25 @@ extension Documentation
     public 
     func annotate<T>(markdown:Resource, for _:T.Type = T.self) -> [Anchor: [UInt8]]
     {
-        let survey:ArticleSurvey
+        let surveyed:Surveyed
         switch markdown 
         {
         case .text(let string, type: .markdown, version: let version):
-            survey = ArticleRenderer.survey(markdown: string)
+            surveyed = .init(markdown: string)
         case .bytes(let bytes, type: .markdown, version: let version):
-            survey = ArticleRenderer.survey(markdown: String.init(decoding: bytes, as: Unicode.UTF8.self))
+            surveyed = .init(markdown: String.init(decoding: bytes, as: Unicode.UTF8.self))
                 
         default: 
             fatalError("Unsupported")
         }
         
-        guard case .explicit(let title) = survey.heading 
+        guard case .explicit(let title) = surveyed.heading 
         else 
         {
             fatalError("cannot annotate article without a title")
         }
         
-        for node in survey.nodes
+        for node in surveyed.nodes
         {
             switch node 
             {
@@ -38,11 +38,8 @@ extension Documentation
         }
         
         let context:UnresolvedLinkContext = .init(namespace: 0, scope: [])
-        let unresolved:ArticleContent<UnresolvedLink> = ArticleRenderer.render(survey, 
-            as: .docc,
-            biome: self.biome, 
-            routing: self.routing, 
-            context: context)
+        let unresolved:Article<UnresolvedLink>.Content = 
+            surveyed.rendered(as: .docc, biome: self.biome, routing: self.routing, context: context)
         
         Swift.print("\(unresolved.errors.count) errors")
         for error:Error in unresolved.errors
@@ -50,7 +47,7 @@ extension Documentation
             Swift.print(error)
         }
         
-        let resolved:ArticleContent<ResolvedLink> = 
+        let resolved:Article<ResolvedLink>.Content = 
             self.routing.resolve(article: _move(unresolved), context: context)
         
         return self.substitutions(title: title.plainText, content: resolved)

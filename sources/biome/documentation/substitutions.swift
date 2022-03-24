@@ -109,7 +109,7 @@ extension Documentation
         """
     }
 
-    func substitutions(title:String, content:ArticleContent<ResolvedLink>) 
+    func substitutions(title:String, content:Article<ResolvedLink>.Content) 
         -> [Anchor: [UInt8]] 
     {
         var substitutions:[Anchor: [UInt8]] = 
@@ -189,7 +189,7 @@ extension Documentation
             },
         ]
         
-        let article:ArticleContent<ResolvedLink> = self.modules[index]
+        let article:Article<ResolvedLink>.Content = self.modules[index]
         substitutions[.summary]     = article.summary.map(self.fill(template:))
         substitutions[.discussion]  = article.discussion.map(self.fill(template:))
         
@@ -332,7 +332,7 @@ extension Documentation
             }
         }
         
-        let article:ArticleContent<ResolvedLink> = self.symbols[symbol.commentOrigin ?? witness]
+        let article:Article<ResolvedLink>.Content = self.symbols[symbol.commentOrigin ?? witness]
         substitutions[.summary]     = article.summary.map(self.fill(template:))
         substitutions[.discussion]  = article.discussion.map(self.fill(template:))
         
