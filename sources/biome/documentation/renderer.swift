@@ -82,7 +82,7 @@ extension Documentation
             case let list as UnorderedList:
                 return self.render(list: list, as: .ul, demotedBy: rank)
             case let block as CodeBlock:
-                return self.render(code: block.code, 
+                return self.highlight(block: block.code, 
                     as: block.language.map { $0.lowercased() == "swift" ? .swift : .plain } ?? .swift)
             case let heading as Heading: 
                 return self.render(heading: heading, demotedBy: rank)
@@ -116,7 +116,7 @@ extension Documentation
             return self.render(span: heading, as: level)
         }
         private  
-        func render(code:String, as language:CodeBlockLanguage) -> Element 
+        func highlight(block code:String, as language:CodeBlockLanguage) -> Element 
         {
             var fragments:[Element] = [Element.highlight("", .newlines)]
             switch language 
@@ -155,6 +155,41 @@ extension Documentation
                 }
             }
         }
+        private  
+        func highlight(inline code:String, as language:CodeBlockLanguage) -> Element 
+        {
+            switch language 
+            {
+            case .plain: 
+                return Element[.code] { code }
+            case .swift:
+                return Element[.code] 
+                {
+                    for (text, highlight):(String, SwiftHighlight) in SwiftHighlight.highlight(code)
+                    {
+                        Element.highlight(text, highlight)
+                    }
+                }
+            }
+        }
+        private  
+        func highlight(inline link:Link) -> Element?
+        {
+            guard case .entrapta = self.format
+            else 
+            {
+                return nil 
+            }
+            let spans:[any InlineMarkup] = .init(link.inlineChildren)
+            guard   let span:any InlineMarkup = spans.first, spans.count == 1,
+                    let span:InlineCode = span as? InlineCode 
+            else 
+            {
+                return nil 
+            }
+            return self.highlight(inline: span.code, as: .swift)
+        }
+        
         private mutating 
         func render(directive:BlockDirective, demotedBy rank:Int) -> Element 
         {
@@ -262,8 +297,15 @@ extension Documentation
             guard let string:String = link.destination, !string.isEmpty
             else 
             {
-                self.errors.append(ArticleError.emptyLinkDestination)
-                return self.render(span: link, as: .span)
+                if  let code:Element = self.highlight(inline: link)
+                {
+                    return code
+                }
+                else 
+                {
+                    self.errors.append(ArticleError.emptyLinkDestination)
+                    return self.render(span: link, as: .span)
+                }
             }
             parsing:
             if let colon:String.Index = string.firstIndex(of: ":"), string[..<colon] == "doc"
