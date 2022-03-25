@@ -26,26 +26,8 @@ extension Documentation
             fatalError("cannot annotate article without a title")
         }
         
-        for node in surveyed.nodes
-        {
-            switch node 
-            {
-            case .block(let block):
-                Swift.print(block.debugDescription())
-            case .section(let heading, let children):
-                Swift.print(heading.debugDescription())
-                Swift.print("(\(children.count) children)")
-            }
-        }
-        
         let (content, context):(Article<UnresolvedLink>.Content, UnresolvedLinkContext) = 
             surveyed.rendered(biome: self.biome, routing: self.routing, greenzone: nil)
-        
-        Swift.print("\(content.errors.count) errors")
-        for error:Error in content.errors
-        {
-            Swift.print(error)
-        }
         
         let resolved:Article<ResolvedLink>.Content = 
             self.routing.resolve(article: _move(content), context: context)

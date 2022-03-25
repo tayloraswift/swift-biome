@@ -151,6 +151,10 @@ extension Documentation
             {
                 Element[.code]
                 {
+                    ["\(language)"]
+                }
+                content:
+                {
                     fragments
                 }
             }
@@ -161,9 +165,9 @@ extension Documentation
             switch language 
             {
             case .plain: 
-                return Element[.code] { code }
+                return Element[.code] { ["plain"] } content: { code }
             case .swift:
-                return Element[.code] 
+                return Element[.code] { ["swift"] } content:
                 {
                     for (text, highlight):(String, SwiftHighlight) in SwiftHighlight.highlight(code)
                     {
