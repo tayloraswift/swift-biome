@@ -353,7 +353,9 @@ extension Documentation
             {
             case .preresolved(let resolved): 
                 return resolved
-            case .docc(doc: let stem, let suffix):
+            case .entrapta(let path, let absolute):
+                index = self.resolveEntrapta(base: base, path: path, absolute: absolute, context: context)
+            case .docc(let stem, let suffix):
                 index = self.resolveDocC(base: base, stem: stem, suffix: suffix, context: context)
             }
             switch index 
@@ -368,6 +370,67 @@ extension Documentation
                 return .module(index)
             case .symbol(let witness, victim: let victim)?: 
                 return .symbol(witness, victim: victim)
+            }
+        }
+        private 
+        func resolveEntrapta(base:URI.Base, path:URI.Path, absolute:Bool, 
+            context:UnresolvedLinkContext) 
+            -> Index?
+        {
+            if absolute
+            {
+                return self.resolve(base: base, path: path, overload: nil)?.index
+            }
+            var candidates:[Index] = []
+            //  assume link is *module-absolute*, contains module prefix. 
+            //  check this *first*, so that we can reference a module like 
+            //  `JSON` as `JSON`, and its type of the same name as `JSON.JSON`.
+            if  let trunk:Int = path.stem.first.map({ self.trunks[$0] }) ?? nil, 
+                context.whitelist.contains(trunk)
+            {
+                if  case (let index, _)? = 
+                    self.resolve(base: base, namespace: trunk, stem: path.stem.dropFirst(), leaf: path.leaf, overload: nil)
+                {
+                    candidates.append(index)
+                }
+            }
+            // FIXME: we should be diagnosing ambiguous references
+            if let index:Index = candidates.first 
+            {
+                return index 
+            }
+            //  assume link is *relative*
+            if case (let trunk, let scope)? = context.greenzone, !scope.isEmpty
+            {
+                let stem:[[UInt8]] = scope + path.stem
+                if  case (let index, _)? = 
+                    self.resolve(base: base, namespace: trunk, stem: stem[...], leaf: path.leaf, overload: nil)
+                {
+                    candidates.append(index)
+                }
+            }
+            // FIXME: we should be diagnosing ambiguous references
+            if let index:Index = candidates.first 
+            {
+                return index 
+            }
+            //  assume link is *module-absolute*
+            for trunk:Int in context.whitelist 
+            {
+                if  case (let index, _)? = 
+                    self.resolve(base: base, namespace: trunk, stem: path.stem[...], leaf: path.leaf, overload: nil)
+                {
+                    candidates.append(index)
+                }
+            }
+            // FIXME: we should be diagnosing ambiguous references
+            if let index:Index = candidates.first 
+            {
+                return index 
+            }
+            else 
+            {
+                return nil
             }
         }
         private 

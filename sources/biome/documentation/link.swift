@@ -18,7 +18,8 @@ extension Documentation
         }
         
         case preresolved(ResolvedLink)
-        case docc(doc:[[UInt8]], Disambiguator.DocC?)
+        case entrapta(URI.Path, absolute:Bool)
+        case docc([[UInt8]], Disambiguator.DocC?)
     }
     struct UnresolvedLinkContext 
     {
@@ -45,60 +46,22 @@ extension Documentation.UnresolvedLink
             suffix  = nil
         }
         // split on slashes
-        return .docc(doc: Documentation.URI.normalize(path: path.utf8.split(separator: 0x2f)), suffix)
+        return .docc(Documentation.URI.normalize(path: path.utf8.split(separator: 0x2f)), suffix)
     }
-    
-    /* static func entrapta(normalizing text:String) Self
+    static 
+    func entrapta<S>(normalizing string:S) -> Self 
+        where S:StringProtocol, S.UTF8View.SubSequence == Substring.UTF8View
     {
-        //  ``relativename`` -> ['package-name/relativename', 'package-name/modulename/relativename']
-        //  ``/absolutename`` -> ['absolutename']
-        let path:Documentation.URI.Path
-        let resolved:Documentation.Index
-        var ignored:Bool    = false 
-        if case "/"? = text.first
+        var ignored:Bool = true 
+        if case 0x2f? = string.utf8.first
         {
-            path = .normalize(joined: text.dropFirst().utf8, changed: &ignored)
-            if let (index, _):(Documentation.Index, Bool) = self.routing.resolve(base: .biome, path: path, overload: nil)
-            {
-                resolved = index
-            }
-            else 
-            {
-                throw Documentation.ArticleError.undefinedSymbolLink(path, overload: nil)
-            }
+            return .entrapta(.normalize(joined: string.utf8.dropFirst(), changed: &ignored), absolute: true)
         }
         else 
         {
-            path = .normalize(joined: text[...].utf8, changed: &ignored)
-            if      let first:[UInt8] = path.stem.first, 
-                        first == self.biome.trunk(namespace: self.context.namespace),
-                    let (index, _):(Documentation.Index, Bool) = self.routing.resolve(
-                        namespace: self.context.namespace, 
-                        stem: path.stem.dropFirst(1), 
-                        leaf: path.leaf, 
-                        overload: nil)
-            {
-                resolved = index 
-            }
-            else if let (index, _):(Documentation.Index, Bool) = self.routing.resolve(
-                        namespace: self.context.namespace, 
-                        stem: path.stem[...], 
-                        leaf: path.leaf, 
-                        overload: nil)
-            {
-                resolved = index 
-            }
-            else 
-            {
-                throw Documentation.ArticleError.undefinedSymbolLink(path, overload: nil)
-            }
+            return .entrapta(.normalize(joined: string.utf8[...],        changed: &ignored), absolute: false)
         }
-        if case .ambiguous = resolved 
-        {
-            throw Documentation.ArticleError.ambiguousSymbolLink(path, overload: nil)
-        }
-        return resolved
-    } */
+    }
     
     var description:String 
     {
@@ -106,9 +69,11 @@ extension Documentation.UnresolvedLink
         {
         case .preresolved(let resolved):
             return "preresolved (\(resolved))"
-        case .docc(doc: let path, let suffix?):
+        case .entrapta(let path, absolute: _):
+            return path.description
+        case .docc(let path, let suffix?):
             return "\(String.init(decoding: Documentation.URI.concatenate(normalized: path), as: Unicode.UTF8.self)) \(suffix)"
-        case .docc(doc: let path, nil):
+        case .docc(let path, nil):
             return    String.init(decoding: Documentation.URI.concatenate(normalized: path), as: Unicode.UTF8.self)
         }
     }

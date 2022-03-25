@@ -265,18 +265,25 @@ extension Documentation
                 self.errors.append(ArticleError.emptyLinkDestination)
                 return self.render(span: link, as: .span)
             }
+            parsing:
             if let colon:String.Index = string.firstIndex(of: ":"), string[..<colon] == "doc"
             {
                 let start:String.Index = string.index(after: colon)
-                if !string[start...].starts(with: "//")
+                if  string[start...].starts(with: "//")
                 {
-                    let unresolved:UnresolvedLink = .docc(normalizing: string[start...])
-                    // Swift.print("deferred resolving DocC link: \(unresolved)")
-                    return .anchor(id: unresolved)
+                    Swift.print("skipped resolving invalid documentation link '\(string)'")
+                    break parsing 
                 }
+                
+                let unresolved:UnresolvedLink
+                switch self.format 
+                {
+                case .entrapta: unresolved = .entrapta(normalizing: string[start...])
+                case .docc:     unresolved =     .docc(normalizing: string[start...])
+                }
+                return .anchor(id: unresolved)
             }
             
-            Swift.print("skipped resolving non-docc link '\(string)'")
             return self.present(externalLink: link.inlineChildren.map
             {
                 self.render(inline: $0)
@@ -306,29 +313,24 @@ extension Documentation
         private mutating 
         func resolve(symbol string:String) -> ResolvedLink?
         {
+            let unresolved:UnresolvedLink
             switch self.format 
             {
             // “entrapta”-style symbol links
-            case .entrapta: 
-                fatalError("UNIMPLEMENTED")
+            case .entrapta: unresolved = .entrapta(normalizing: string)
             // “docc”-style symbol links
-            case .docc:
-                let unresolved:UnresolvedLink = .docc(normalizing: string)
-                do 
-                {
-                    let resolved:ResolvedLink = try self.routing.resolve(
-                        base: .biome, // do not allow articles to be resolved
-                        link: unresolved, 
-                        context: self.context)
-                    //Swift.print("resolved symbollink '\(string)' -> \(resolved)")
-                    return resolved
-                }
-                catch let error 
-                {
-                    self.errors.append(error)
-                    Swift.print("failed to resolve symbollink '\(string)'")
-                    return nil
-                }
+            case .docc:     unresolved =     .docc(normalizing: string)
+            }
+            do 
+            {
+                // do not allow articles to be resolved
+                return try self.routing.resolve(base: .biome, link: unresolved, context: self.context)
+            }
+            catch let error 
+            {
+                self.errors.append(error)
+                Swift.print("failed to resolve symbollink '\(string)'")
+                return nil
             }
         }
         

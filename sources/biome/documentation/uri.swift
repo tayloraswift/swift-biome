@@ -103,7 +103,7 @@ extension Documentation
                 }
             }
         }
-        struct Path:Equatable, CustomStringConvertible, Sendable 
+        struct Path:Hashable, CustomStringConvertible, Sendable 
         {
             var stem:[[UInt8]], 
                 leaf:[UInt8]
