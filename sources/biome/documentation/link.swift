@@ -1,5 +1,6 @@
 extension Documentation 
 {
+    @frozen public 
     enum ResolvedLink:Hashable, Sendable
     {
         case article(Int)

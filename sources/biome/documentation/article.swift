@@ -64,7 +64,8 @@ extension Documentation
             }
         } */
     }
-    struct Article<Anchor> where Anchor:Hashable
+    public
+    struct Article<Anchor>:GreenAlien where Anchor:Hashable
     {
         typealias Element = HTML.Element<Anchor> 
         
@@ -72,7 +73,7 @@ extension Documentation
         {
             typealias Element = HTML.Element<Anchor> 
             
-            let errors:[Error]
+            var errors:[Error]
             let summary:DocumentTemplate<Anchor, [UInt8]>?
             let discussion:DocumentTemplate<Anchor, [UInt8]>?
             
@@ -91,20 +92,23 @@ extension Documentation
             }
         }
         
-        let title:String
-        let content:Content
+        public
+        let title:String, 
+            path:[String]
+        public 
+        let snippet:String
+        let headline:Documentation.Element?
+        var content:Content
         
-        let whitelist:Set<Int>
-        let trunk:Int
-        let stem:[[UInt8]]
-        
-        var context:UnresolvedLinkContext
+        var stem:[[UInt8]]
         {
-            // *not* `self.stem`!
-            .init(whitelist: self.whitelist, greenzone: (self.trunk, []))
+            self.path.map { URI.encode(component: $0.utf8) }
+        }
+        var leaf:[UInt8]
+        {
+            []
         }
     }
-    
 }
 extension Documentation.Article.Content where Anchor == Documentation.UnresolvedLink
 {    

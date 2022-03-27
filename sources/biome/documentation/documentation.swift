@@ -22,7 +22,7 @@ struct Documentation:Sendable
     
     let template:DocumentTemplate<Anchor, [UInt8]>
     private(set)
-    var articles:[Article<ResolvedLink>]
+    var articles:[Expatriate<Article<ResolvedLink>>]
     private(set)
     var modules:[Article<ResolvedLink>.Content], 
         symbols:[Article<ResolvedLink>.Content] 
@@ -84,7 +84,7 @@ struct Documentation:Sendable
         var modules:[Int: (content:Article<UnresolvedLink>.Content, context:UnresolvedLinkContext)] = [:]
         
         Swift.print("starting article loading")
-        var articles:[Article<UnresolvedLink>] = []
+        var articles:[Expatriate<Article<UnresolvedLink>>] = []
         for package:Biome.Package in biome.packages 
         {
             for (module, target):(Int, Biome.Target) in zip(package.modules, targets[package.modules])
@@ -127,18 +127,24 @@ struct Documentation:Sendable
                             fatalError("UNIMPLEMENTED")
                         }
                     }
-                    else if case .explicit(let heading) = surveyed.heading 
+                    else if case .explicit(let heading) = surveyed.headline 
                     {
-                        let stem:[[UInt8]] = surveyed.metadata.stem ?? 
-                            filepath.dropFirst().map { URI.encode(component: $0.utf8) }
-                        let (content, context):(Article<UnresolvedLink>.Content, UnresolvedLinkContext) = 
-                            surveyed.rendered(biome: biome, routing: routing, greenzone: (module, []))
-                        let article:Article<UnresolvedLink> = .init(title: heading.plainText, content: content, 
-                            whitelist: context.whitelist,
-                            trunk: module, 
-                            stem: stem)
-                        routing.publish(article: articles.endIndex, namespace: article.trunk, stem: article.stem, leaf: [])
-                        articles.append(article)
+                        let context:UnresolvedLinkContext
+                        var content:Article<UnresolvedLink>.Content
+                        
+                        (content, context) = surveyed.rendered(biome: biome, routing: routing, greenzone: (module, []))
+                        
+                        let headline:Element? = surveyed.headline.rendered()
+                        let article:Article<UnresolvedLink> = .init(title: heading.plainText, 
+                            path:   surveyed.metadata.path.isEmpty ? [String].init(filepath.dropFirst()) : 
+                                    surveyed.metadata.path, 
+                            snippet: surveyed.snippet,
+                            headline: headline, 
+                            content: content)
+                        let expatriate:Expatriate<Article<UnresolvedLink>> = .init(conquistador: article, 
+                            marque: .init(trunk: module, whitelist: context.whitelist))
+                        routing.publish(expatriate: expatriate, under: .article(articles.endIndex))
+                        articles.append(expatriate)
                     }
                     else 
                     {
@@ -150,11 +156,11 @@ struct Documentation:Sendable
         // everything that will ever be registered has been registered at this point
         self.articles = articles.map 
         { 
-            .init(title: $0.title, 
-                content: routing.resolve(article: $0.content, context: $0.context), 
-                whitelist: $0.whitelist,
-                trunk: $0.trunk,
-                stem: $0.stem)
+            $0.map 
+            {
+                .init(title: $0.title, path: $0.path, snippet: $0.snippet, headline: $0.headline, 
+                    content: routing.resolve(article: $0.content, context: $1))
+            }
         }
         Swift.print("finished article loading")
         // the only way modules can get documentation is by owning an article
@@ -170,14 +176,13 @@ struct Documentation:Sendable
             (symbol:(index:Int, comment:String)) in 
             
             let comment:String?
-            // don’t re-render duplicated docs 
-            if !symbol.comment.isEmpty, 
-                case nil = biome.symbols[symbol.index].commentOrigin
+            if case nil = biome.symbols[symbol.index].sponsor, !symbol.comment.isEmpty
             {
                 comment = symbol.comment
             }
             else 
             {
+                // don’t re-render duplicated docs 
                 comment = nil
             }
             
@@ -188,7 +193,7 @@ struct Documentation:Sendable
                 return routing.resolve(article: overriding.content, context: overriding.context)
             case (let string?, nil):
                 let surveyed:Surveyed = .init(markdown: string, format: .docc)
-                guard case .implicit = surveyed.heading 
+                guard case .implicit = surveyed.headline 
                 else 
                 {
                     fatalError("documentation comment cannot begin with an `h1`")

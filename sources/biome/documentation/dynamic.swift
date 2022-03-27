@@ -195,7 +195,7 @@ extension Documentation
                 }
             }
             
-            Element.anchor(id: .symbol(symbol.commentOrigin ?? witness))
+            Element.anchor(id: .reference(.symbol(symbol.sponsor ?? witness, victim: nil)))
             
             if !relationships.isEmpty 
             {

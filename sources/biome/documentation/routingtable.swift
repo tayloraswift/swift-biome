@@ -108,12 +108,14 @@ extension Documentation
         }
         
         mutating 
-        func publish(article:Int, namespace:Int, stem:[[UInt8]], leaf:[UInt8])
+        func publish<Alien>(expatriate:Expatriate<Alien>, under index:Index) 
+            where Alien:GreenAlien
         {
-            self.publish(.article(article), 
-                disambiguated: .article(namespace, 
-                    stem: self.register(green: URI.concatenate(normalized: stem)),
-                    leaf: self.register(green: leaf)))
+            // TODO: decouple this from .article
+            self.publish(index, 
+                disambiguated: .article(expatriate.trunk, 
+                    stem: self.register(green: URI.concatenate(normalized: expatriate.stem)),
+                    leaf: self.register(green:                             expatriate.leaf)))
         }
         
         private mutating 

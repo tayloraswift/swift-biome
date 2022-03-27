@@ -32,7 +32,7 @@ extension Documentation
             self.errors     = []
         }
         mutating 
-        func render(node:SurveyedNode, demotedBy rank:Int, into elements:inout [Element])
+        func render(node:Surveyed.Node, demotedBy rank:Int, into elements:inout [Element])
         {
             switch node 
             {
@@ -41,7 +41,7 @@ extension Documentation
                 elements.append(self.render(block: block, demotedBy: rank))
             case .section(let heading, let children):
                 elements.append(self.render(heading: heading, demotedBy: rank))
-                for node:SurveyedNode in children 
+                for node:Surveyed.Node in children 
                 {
                     self.render(node: node, demotedBy: rank, into: &elements)
                 }
@@ -82,7 +82,7 @@ extension Documentation
             case let list as UnorderedList:
                 return self.render(list: list, as: .ul, demotedBy: rank)
             case let block as CodeBlock:
-                return self.highlight(block: block.code, 
+                return Self.highlight(block: block.code, 
                     as: block.language.map { $0.lowercased() == "swift" ? .swift : .plain } ?? .swift)
             case let heading as Heading: 
                 return self.render(heading: heading, demotedBy: rank)
@@ -113,9 +113,25 @@ extension Documentation
             case    5:  level = .h5
             default:    level = .h6
             }
+            /* return Element[.h2]
+            {
+                ("subsection-\(index)", as: HTML.ID.self)
+            }
+            content: 
+            {
+                Element[.span] 
+                {
+                    ["subsection-anchor"]
+                } 
+                content: 
+                {
+                    Element.link("\(index)", to: "#subsection-\(index)")
+                }
+                headings().joined() as FlattenSequence<[[Element]]>
+            } */
             return self.render(span: heading, as: level)
         }
-        private  
+        private static
         func highlight(block code:String, as language:CodeBlockLanguage) -> Element 
         {
             var fragments:[Element] = [Element.highlight("", .newlines)]
@@ -159,7 +175,7 @@ extension Documentation
                 }
             }
         }
-        private  
+        private static
         func highlight(inline code:String, as language:CodeBlockLanguage) -> Element 
         {
             switch language 
@@ -176,7 +192,7 @@ extension Documentation
                 }
             }
         }
-        private  
+        private 
         func highlight(inline link:Link) -> Element?
         {
             guard case .entrapta = self.format
@@ -191,7 +207,7 @@ extension Documentation
             {
                 return nil 
             }
-            return self.highlight(inline: span.code, as: .swift)
+            return Self.highlight(inline: span.code, as: .swift)
         }
         
         private mutating 
@@ -344,7 +360,15 @@ extension Documentation
                 self.errors.append(ArticleError.emptyLinkDestination)
                 return Element[.code] { "<empty symbol path>" }
             }
-            guard let resolved:ResolvedLink = self.resolve(symbol: string)
+            let unresolved:UnresolvedLink
+            switch self.format 
+            {
+            // “entrapta”-style symbol links
+            case .entrapta: unresolved = .entrapta(normalizing: string)
+            // “docc”-style symbol links
+            case .docc:     unresolved =     .docc(normalizing: string)
+            }
+            guard let resolved:ResolvedLink = self.resolve(unresolved)
             else 
             {
                 return Element[.code] { string }
@@ -357,16 +381,8 @@ extension Documentation
         }
 
         private mutating 
-        func resolve(symbol string:String) -> ResolvedLink?
+        func resolve(_ unresolved:UnresolvedLink) -> ResolvedLink?
         {
-            let unresolved:UnresolvedLink
-            switch self.format 
-            {
-            // “entrapta”-style symbol links
-            case .entrapta: unresolved = .entrapta(normalizing: string)
-            // “docc”-style symbol links
-            case .docc:     unresolved =     .docc(normalizing: string)
-            }
             do 
             {
                 // do not allow articles to be resolved
@@ -375,11 +391,63 @@ extension Documentation
             catch let error 
             {
                 self.errors.append(error)
-                Swift.print("failed to resolve symbollink '\(string)'")
+                Swift.print("failed to resolve symbollink '\(unresolved)'")
                 return nil
             }
         }
         
+        /* static 
+        func fallback(for unresolved:UnresolvedLink) -> Element
+        {
+            switch unresolved 
+            {
+            case .preresolved: fatalError("unreachable")
+            case .entrapta(let path, absolute: _): 
+                return Element[.code] 
+                { 
+                    if let first:[UInt8] = path.stem.first 
+                    {
+                        Element[.span] 
+                        {
+                            ["syntax-type"]
+                        }
+                        content: 
+                        {
+                            Element.bytes(utf8: first) 
+                        }
+                    }
+                    for next:[UInt8] in path.stem.dropFirst() 
+                    {
+                        Element.bytes(utf8: [0x2e]) 
+                        Element[.span] 
+                        {
+                            ["syntax-type"]
+                        }
+                        content: 
+                        {
+                            Element.bytes(utf8: next) 
+                        }
+                    }
+                    if !path.leaf.isEmpty
+                    {
+                        Element.bytes(utf8: [0x2e]) 
+                        Element[.span] 
+                        {
+                            ["syntax-identifier"]
+                        }
+                        content: 
+                        {
+                            Element.bytes(utf8: path.leaf) 
+                        }
+                    }
+                }
+            case .docc(let path, _):
+                return Element[.code] 
+                { 
+                    Element.bytes(utf8: [UInt8].init(path.joined(separator: CollectionOfOne<UInt8>.init(0x2e)))) 
+                }
+            }
+        } */
         private  
         func present(externalLink content:[Element], to destination:String) -> Element
         {

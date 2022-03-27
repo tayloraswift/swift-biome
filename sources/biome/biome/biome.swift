@@ -448,7 +448,7 @@ struct Biome:Sendable
     {
         symbols.map 
         {
-            self.symbols[$0].commentOrigin ?? $0
+            self.symbols[$0].sponsor ?? $0
         }
     }
     func partition(symbols:[Int]) -> [Bool: [Int]]

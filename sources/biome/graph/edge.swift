@@ -46,7 +46,7 @@ extension Graph
                 overrideOf:Int?,
                 overrides:[Int],
                 
-                commentOrigin:Int?,
+                sponsor:Int?,
                 //specializationOf:Int?,
                 //specializations:[Int],
                 
@@ -69,7 +69,7 @@ extension Graph
                 self.defaultImplementations     = []
                 self.overrideOf                 = nil
                 self.overrides                  = []
-                self.commentOrigin              = nil
+                self.sponsor                    = nil
                 // self.specializationOf           = nil
                 // self.specializations            = []
                 self.requirementOf              = nil
@@ -131,7 +131,7 @@ extension Graph
             if  let origin:Biome.Symbol.ID  = self.origin, 
                 let origin:Int              = indices[origin]
             {
-                if let incumbent:Int = table[source].commentOrigin
+                if let incumbent:Int = table[source].sponsor
                 {
                     // origin is allowed to duplicate, as long as the index is the same 
                     guard incumbent == origin
@@ -142,7 +142,7 @@ extension Graph
                 }
                 else if origin != source 
                 {
-                    table[source].commentOrigin = origin
+                    table[source].sponsor = origin
                 }
                 // `vertices[source].id` is not necessarily synthesized, 
                 // because it could be an inherited `associatedtype`, which does 

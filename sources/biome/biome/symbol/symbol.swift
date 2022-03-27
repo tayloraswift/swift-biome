@@ -56,7 +56,7 @@ extension Biome
         /// This symbol’s canonical parent. If the symbol is a protocol extension 
         /// member, this points to the protocol.
         let parent:Int?
-        let commentOrigin:Int?
+        let sponsor:Int?
         let relationships:Relationships
         /// The original scope this symbol was defined in. 
         let scope:[String]
@@ -118,7 +118,7 @@ extension Biome
             self.title          = scope.removeLast()
             self.scope          = scope 
             self.parent         = edges.parent
-            self.commentOrigin  = edges.commentOrigin
+            self.sponsor        = edges.sponsor
             
             self.signature      = vertex.signature
             self.declaration    = vertex.declaration.compactMapLinks 

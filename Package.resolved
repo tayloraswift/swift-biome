@@ -19,6 +19,15 @@
       }
     },
     {
+      "identity" : "swift-highlight",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kelvin13/swift-highlight",
+      "state" : {
+        "revision" : "918f5e9eb0d6296e99cf171e1cea8d4bd650fa3c",
+        "version" : "0.1.0"
+      }
+    },
+    {
       "identity" : "swift-json",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-json",
@@ -57,10 +66,10 @@
     {
       "identity" : "swift-syntax",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kelvin13/swift-syntax.git",
+      "location" : "https://github.com/apple/swift-syntax.git",
       "state" : {
-        "branch" : "kelvin13-omit-unsafe-flags",
-        "revision" : "3882170d768f3e817f11eb615a8299a4b8f09109"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-03-13-a",
+        "revision" : "e22754fbe767bfb290199573309689acb24297ef"
       }
     },
     {

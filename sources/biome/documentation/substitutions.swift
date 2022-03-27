@@ -3,13 +3,15 @@ import HTML
 
 extension Documentation 
 {
+    public 
     typealias Element = HTML.Element<Anchor>
+    public 
     typealias StaticElement = HTML.Element<Never>
     
     @frozen public 
     enum Anchor:Hashable, Sendable
     {
-        case symbol(Int)
+        case reference(ResolvedLink)
         
         case title 
         case constants 
@@ -25,12 +27,13 @@ extension Documentation
         case platforms
         case declaration
         
+        case headline
         case _introduction
         case discussion
         
         case dynamic
     }
-    
+
     private 
     func present(reference resolved:ResolvedLink) -> StaticElement
     {
@@ -40,7 +43,7 @@ extension Documentation
         switch resolved
         {
         case .article(let article): 
-            return StaticElement.link(self.articles[article].title, 
+            return StaticElement.link(self.articles[article].conquistador.title, 
                 to: self.print(uri: self.uri(article: article)), 
                 internal: true)
         
@@ -109,21 +112,23 @@ extension Documentation
         """
     }
 
-    func substitutions(title:String, content:Article<ResolvedLink>.Content) 
-        -> [Anchor: [UInt8]] 
+    public 
+    func substitutions(for article:Article<ResolvedLink>) -> [Anchor: Element] 
     {
-        var substitutions:[Anchor: [UInt8]] = 
+        var substitutions:[Anchor: Element] = 
         [
-            .title: [UInt8].init(title.utf8)
+            .title: .text(escaping: article.title), 
         ]
-        substitutions[._introduction]   = content.summary.map(self.fill(template:))
-        substitutions[.discussion]      = content.discussion.map(self.fill(template:))
+        substitutions[.headline]        = article.headline
+        substitutions[._introduction]   = article.content.summary.map(self.fill(template:))
+        substitutions[.discussion]      = article.content.discussion.map(self.fill(template:))
         return substitutions
     } 
     func substitutions(article index:Int, filter:[Biome.Package.ID]) -> [Anchor: Element] 
     {
-        let article:Article<ResolvedLink> = self.articles[index]
-        let module:Biome.Module = self.biome.modules[article.trunk]
+        let expatriate:Expatriate<Article<ResolvedLink>> = self.articles[index]
+        let article:Article<ResolvedLink> = expatriate.conquistador
+        let module:Biome.Module = self.biome.modules[expatriate.trunk]
         var substitutions:[Anchor: Element] = 
         [
             .title:     .text(escaping: article.title), 
@@ -138,13 +143,14 @@ extension Documentation
             {
                 Element[.li] 
                 { 
-                    Element.link(module.title, to: self.print(uri: self.uri(module: article.trunk)), 
+                    Element.link(module.title, to: self.print(uri: self.uri(module: expatriate.trunk)), 
                         internal: true)
                 }
             }, 
         ]
-        substitutions[._introduction]   =  article.content.summary.map(self.fill(template:))
-        substitutions[.discussion]      =  article.content.discussion.map(self.fill(template:))
+        substitutions[.headline]        = article.headline
+        substitutions[._introduction]   = article.content.summary.map(self.fill(template:))
+        substitutions[.discussion]      = article.content.discussion.map(self.fill(template:))
         return substitutions
     } 
     func substitutions(package index:Int, filter:[Biome.Package.ID]) -> [Anchor: Element] 
@@ -153,6 +159,7 @@ extension Documentation
         var substitutions:[Anchor: Element] = 
         [
             .title:     .text(escaping: package.name), 
+            .headline:  Element[.h1] { package.name }, 
             .constants: .text(escaped: Self.constants(filter: filter)), 
             .navigator: Element[.ol] 
             {
@@ -192,6 +199,7 @@ extension Documentation
         var substitutions:[Anchor: Element] = 
         [
             .title:        .text(escaping: module.title), 
+            .headline:     Element[.h1] { module.title }, 
             .constants:    .text(escaped: Self.constants(filter: filter)),
             .navigator:    Element[.ol] 
             {
@@ -223,7 +231,8 @@ extension Documentation
         
         for origin:Int in dynamic.cards 
         {
-            substitutions[.symbol(origin)] = self.symbols[origin].summary.map(self.fill(template:))
+            substitutions[.reference(.symbol(origin, victim: nil))] = 
+                self.symbols[origin].summary.map(self.fill(template:))
         }
         
         return substitutions
@@ -236,6 +245,7 @@ extension Documentation
         var substitutions:[Anchor: Element] = 
         [
             .title:        .text(escaping: symbol.title), 
+            .headline:     Element[.h1] { symbol.title }, 
             .constants:    .text(escaped: Self.constants(filter: filter)),
             
             .navigator:     self.navigator(for: symbol, in: victim),
@@ -263,7 +273,7 @@ extension Documentation
         }
         for origin:Int in dynamic.cards 
         {
-            substitutions[.symbol(origin)] = self.symbols[origin].summary.map(self.fill(template:))
+            substitutions[.reference(.symbol(origin, victim: nil))] = self.symbols[origin].summary.map(self.fill(template:))
         }
         
         let metropole:Element?
@@ -360,7 +370,7 @@ extension Documentation
             }
         }
         
-        let article:Article<ResolvedLink>.Content = self.symbols[symbol.commentOrigin ?? witness]
+        let article:Article<ResolvedLink>.Content = self.symbols[symbol.sponsor ?? witness]
         substitutions[.summary]     = article.summary.map(self.fill(template:))
         substitutions[.discussion]  = article.discussion.map(self.fill(template:))
         

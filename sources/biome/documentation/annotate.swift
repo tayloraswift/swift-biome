@@ -5,7 +5,7 @@ import HTML
 extension Documentation 
 {
     public 
-    func annotate<T>(markdown:Resource, for _:T.Type = T.self) -> [Anchor: [UInt8]]
+    func annotate(markdown:Resource) -> Article<ResolvedLink>
     {
         let source:String
         switch markdown 
@@ -20,18 +20,26 @@ extension Documentation
         }
         let surveyed:Surveyed = .init(markdown: _move(source), format: .entrapta)
         
-        guard case .explicit(let title) = surveyed.heading 
+        guard case .explicit(let title) = surveyed.headline 
         else 
         {
             fatalError("cannot annotate article without a title")
         }
         
-        let (content, context):(Article<UnresolvedLink>.Content, UnresolvedLinkContext) = 
-            surveyed.rendered(biome: self.biome, routing: self.routing, greenzone: nil)
+        let context:UnresolvedLinkContext
+        var content:Article<UnresolvedLink>.Content
         
+        (content, context) = surveyed.rendered(biome: self.biome, routing: self.routing, greenzone: nil)
+        
+        let headline:Element? = surveyed.metadata.noTitle ? nil : surveyed.headline.rendered()
         let resolved:Article<ResolvedLink>.Content = 
-            self.routing.resolve(article: _move(content), context: context)
-        
-        return self.substitutions(title: title.plainText, content: resolved)
+            self.routing.resolve(article: content, context: context)
+        let article:Article<ResolvedLink> = .init(
+            title: title.plainText, 
+            path: surveyed.metadata.path, 
+            snippet: surveyed.snippet, 
+            headline: headline, 
+            content: resolved)
+        return article
     }
 }
