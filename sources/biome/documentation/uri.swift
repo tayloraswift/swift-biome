@@ -266,7 +266,7 @@ extension Documentation
         self.biome.uri(witness: witness, victim: victim, routing: self.routing)
     }
     
-    func print(uri:URI) -> String 
+    func format(uri:URI) -> String 
     {
         self.biome.format(uri: uri, routing: self.routing)
     }

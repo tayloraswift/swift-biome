@@ -118,7 +118,7 @@ extension Documentation
     {
         return Element[.a]
         {
-            (self.print(uri: self.uri(module: module)), as: HTML.Href.self)
+            (self.format(uri: self.uri(module: module)), as: HTML.Href.self)
         }
         content: 
         {
@@ -135,7 +135,7 @@ extension Documentation
     {
         return Element[.a]
         {
-            (self.print(uri: self.uri(witness: symbol, victim: nil)), as: HTML.Href.self)
+            (self.format(uri: self.uri(witness: symbol, victim: nil)), as: HTML.Href.self)
         }
         content: 
         {
@@ -187,7 +187,7 @@ extension Documentation
             {
                 Element[.a]
                 {
-                    (self.print(uri: self.uri(witness: witness, victim: victim)), as: HTML.Href.self)
+                    (self.format(uri: self.uri(witness: witness, victim: victim)), as: HTML.Href.self)
                 }
                 content: 
                 {

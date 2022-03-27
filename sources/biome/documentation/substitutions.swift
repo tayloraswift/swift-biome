@@ -44,7 +44,7 @@ extension Documentation
         {
         case .article(let article): 
             return StaticElement.link(self.articles[article].conquistador.title, 
-                to: self.print(uri: self.uri(article: article)), 
+                to: self.format(uri: self.uri(article: article)), 
                 internal: true)
         
         case .module(let module):
@@ -143,7 +143,7 @@ extension Documentation
             {
                 Element[.li] 
                 { 
-                    Element.link(module.title, to: self.print(uri: self.uri(module: expatriate.trunk)), 
+                    Element.link(module.title, to: self.format(uri: self.uri(module: expatriate.trunk)), 
                         internal: true)
                 }
             }, 
@@ -386,7 +386,7 @@ extension Documentation
         {
             breadcrumbs.append(Element[.li]
             {
-                Element.link(self.biome.symbols[index].title, to: self.print(uri: self.uri(witness: index, victim: nil)), internal: true)
+                Element.link(self.biome.symbols[index].title, to: self.format(uri: self.uri(witness: index, victim: nil)), internal: true)
             })
             next = self.biome.symbols[index].parent
         }
@@ -514,12 +514,12 @@ extension Documentation
     private 
     func link(package:Int) -> Element
     {
-        .link(self.biome.packages[package].name, to: self.print(uri: self.uri(package: package)), internal: true)
+        .link(self.biome.packages[package].name, to: self.format(uri: self.uri(package: package)), internal: true)
     }
     private 
     func link(module:Int) -> Element
     {
-        .link(self.biome.modules[module].title, to: self.print(uri: self.uri(module: module)), internal: true)
+        .link(self.biome.modules[module].title, to: self.format(uri: self.uri(module: module)), internal: true)
     }
     
     static 
@@ -642,7 +642,7 @@ extension Documentation
     private 
     func highlight(_ text:String, _ highlight:SwiftHighlight, link index:Int) -> Element
     {
-        .link(text, to: self.print(uri: self.uri(witness: index, victim: nil)), internal: true)
+        .link(text, to: self.format(uri: self.uri(witness: index, victim: nil)), internal: true)
         {
             ["syntax-type"] 
         }

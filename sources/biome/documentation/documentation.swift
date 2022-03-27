@@ -238,7 +238,7 @@ struct Documentation:Sendable
     private 
     func validate(uri:URI) 
     {
-        let uri:String = self.print(uri: uri)
+        let uri:String = self.format(uri: uri)
         switch self[uri]
         {
         case nil, .none?: 
@@ -294,7 +294,7 @@ struct Documentation:Sendable
             return nil
         }
         
-        let location:String     = self.print(uri: response.location)
+        let location:String     = self.format(uri: response.location)
         // TODO: fixme
         let canonical:String    = location 
         
