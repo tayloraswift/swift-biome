@@ -316,7 +316,7 @@ struct Biome:Sendable
         }
     }
     private static 
-    func lineages(vertices:[Graph.Vertex], modules:Storage<Module>, packages:Storage<Package>) -> [(module:Int, lineage:Lineage)]
+    func lineages(vertices:[Graph.Vertex], modules:Storage<Module>) -> [(module:Int, lineage:Lineage)]
     {
         modules.indices.flatMap
         {
@@ -337,12 +337,12 @@ struct Biome:Sendable
         }
     }
     private static 
-    func parents(vertices:[Graph.Vertex], modules:Storage<Module>, packages:Storage<Package>) 
+    func parents(vertices:[Graph.Vertex], modules:Storage<Module>) 
         throws -> [Graph.Edge.References]
     {
         // lineages. these only form a *subsequence* of all the vertices; mythical 
         // symbols do not have lineages
-        let lineages:[(module:Int, lineage:Lineage)] = Self.lineages(vertices: vertices, modules: modules, packages: packages)
+        let lineages:[(module:Int, lineage:Lineage)] = Self.lineages(vertices: vertices, modules: modules)
         let parents:[Lineage: Int] = [Lineage: [Int]].init(grouping: lineages.indices)
         {
             lineages[$0].lineage
@@ -384,8 +384,7 @@ struct Biome:Sendable
         modules:Storage<Module>, packages:Storage<Package>)
         throws
     {
-        var references:[Graph.Edge.References] = try Self.parents(vertices: vertices, 
-            modules: modules, packages: packages)
+        var references:[Graph.Edge.References] = try Self.parents(vertices: vertices, modules: modules)
         //  link 
         for edge:Graph.Edge in _move(edges)
         {
@@ -508,7 +507,7 @@ struct Biome:Sendable
     }
     
     /// returns a package index.
-    private 
+    /* private 
     func packageCitizenship(symbol:Int) -> Int? 
     {
         guard let module:Int = self.symbols[symbol].module
@@ -540,5 +539,5 @@ struct Biome:Sendable
         {
             return nil 
         }
-    }
+    } */
 }
