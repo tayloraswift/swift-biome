@@ -540,6 +540,7 @@ extension Biome
         [UInt8].init("json".utf8)
     }
 
+    // we want to transition towards handling roots at the `Documentation` level :(
     func root(namespace module:Int) -> [UInt8]
     {
         if case .community(let package) = self.packages[self.modules[module].package].id

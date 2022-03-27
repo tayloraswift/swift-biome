@@ -214,40 +214,43 @@ struct Documentation:Sendable
         self.search     = biome.searchIndices(routing: routing)
         self.routing    = routing
         self.biome      = _move(biome)
-        
-        // verify that every crime is reachable without redirects 
-        /* if  true 
+    }
+    public 
+    func sitemap(for package:Biome.Package.ID) -> (uris:[String], hash:Resource.Version)
+    {
+        guard let index:Int = self.biome.packages.index(of: package)
+        else 
         {
-            for index:Int in self.biome.symbols.indices
+            fatalError("unknown package '\(package)'")
+        }
+        let package:Biome.Package = self.biome.packages[index]
+        
+        var sitemap:[String] = []
+        for index:Int in self.articles.indices where package.modules ~= self.articles[index].trunk
+        {
+            sitemap.append(self.format(uri: self.uri(article: index)))
+        }
+        
+        sitemap.append(self.format(uri: self.uri(package: index)))
+        for index:Int in package.modules
+        {
+            sitemap.append(self.format(uri: self.uri(module: index)))
+            
+            for index:Int in self.biome.modules[index].allSymbols
             {
-                Swift.print("testing \((witness: index, victim: Optional<Int>.none))")
-                self.validate(uri: self.uri(witness: index, victim: nil))
+                sitemap.append(self.format(uri: self.uri(witness: index, victim: nil)))
                 for member:Int in self.biome.symbols[index].relationships.members ?? []
                 {
                     if  let interface:Int = self.biome.symbols[member].parent, 
                             interface != index 
                     {
-                        Swift.print("testing \((witness: member, victim: index))")
-                        self.validate(uri: self.uri(witness: member, victim: index))
+                        sitemap.append(self.format(uri: self.uri(witness: member, victim: index)))
                     }
                 }
-            }
-        } */
-    }
-    
-    private 
-    func validate(uri:URI) 
-    {
-        let uri:String = self.format(uri: uri)
-        switch self[uri]
-        {
-        case nil, .none?: 
-            fatalError("uri '\(uri)' can never be accessed")
-        case .maybe(canonical: _, at: let location), .found(canonical: _, at: let location): 
-            fatalError("uri '\(uri)' always redirects to '\(location)'")
-        case .matched:
-            break 
+            } 
         }
+        
+        return (sitemap, package.hash)
     }
 
     public 
