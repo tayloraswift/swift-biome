@@ -1,6 +1,7 @@
 import ArgumentParser
 import SystemPackage
 import Backtrace
+import Bureaucrat
 import Resource
 import NIO
 
@@ -18,8 +19,12 @@ struct Main:AsyncParsableCommand
     @Option(name: [.customLong("host")], help: "host address")
     var host:String = "127.0.0.1" 
     
-    @Option(name: [.customShort("x"), .customLong("index")], help: "documentation index")
+    @Option(name: [.customShort("g"), .customLong("git")], help: "path to `git`, if different from '/usr/bin/git'")
+    var git:String = "/usr/bin/git"
+    @Option(name: [.customShort("x"), .customLong("index")], help: "path to documentation index file")
     var index:String 
+    @Option(name: [.customShort("b"), .customLong("resources")], help: "path to a copy of the 'swift-biome-resources' repository")
+    var resources:String 
     
     static 
     func main() async 
@@ -39,6 +44,22 @@ struct Main:AsyncParsableCommand
     {
         Backtrace.install()
         
+        let bureaucrat:Bureaucrat = .init(git: .init(self.git), repository: .init(self.resources))
+        let resources:[String: Resource] = 
+        [
+            "/biome.css"        : try await bureaucrat.read(concatenating: "default-dark/biome.css", "default-dark/common.css", type: .css), 
+            "/search.js"        : try await bureaucrat.read(concatenating: "search.js", "lunr.js", type: .javascript), 
+            
+            "/text-45.ttf"      : try await bureaucrat.read(from: "fonts/literata/Literata-Regular.ttf",          type: .ttf), 
+            "/text-47.ttf"      : try await bureaucrat.read(from: "fonts/literata/Literata-RegularItalic.ttf",    type: .ttf), 
+            "/text-65.ttf"      : try await bureaucrat.read(from: "fonts/literata/Literata-SemiBold.ttf",         type: .ttf), 
+            "/text-67.ttf"      : try await bureaucrat.read(from: "fonts/literata/Literata-SemiBoldItalic.ttf",   type: .ttf), 
+            
+            "/text-45.woff2"    : try await bureaucrat.read(from: "fonts/literata/Literata-Regular.woff2",        type: .woff2), 
+            "/text-47.woff2"    : try await bureaucrat.read(from: "fonts/literata/Literata-RegularItalic.woff2",  type: .woff2), 
+            "/text-65.woff2"    : try await bureaucrat.read(from: "fonts/literata/Literata-SemiBold.woff2",       type: .woff2), 
+            "/text-67.woff2"    : try await bureaucrat.read(from: "fonts/literata/Literata-SemiBoldItalic.woff2", type: .woff2), 
+        ]
         let documentation:Documentation = try await .init(serving: 
             [
                 .biome: "/reference",
@@ -48,7 +69,7 @@ struct Main:AsyncParsableCommand
             indexfile: FilePath.init(self.index))
         
         let host:String = self.host 
-        let preview:Preview = try .init(host: host, documentation: _move(documentation))
+        let preview:Preview = .init(documentation: _move(documentation), resources: _move(resources))
         
         let group:MultiThreadedEventLoopGroup   = .init(numberOfThreads: 4)
         let bootstrap:ServerBootstrap           = .init(group: group)
@@ -77,11 +98,13 @@ struct Preview:ServiceBackend
 {
     typealias Continuation = EventLoopPromise<StaticResponse>
     
+    let resources:[String: Resource]
     let documentation:Documentation
     
-    init(host _:String, documentation:Documentation) 
+    init(documentation:Documentation, resources:[String: Resource]) 
     {
         self.documentation = documentation
+        self.resources = resources
     }
     
     func request(_:Never, continuation _:EventLoopPromise<StaticResponse>) 
@@ -89,6 +112,18 @@ struct Preview:ServiceBackend
     }
     func request(_ uri:String) -> DynamicResponse<Never> 
     {
-        .immediate(self.documentation[uri, referrer: nil] ?? .none(.text("page not found")))
+        if let resource:Resource = self.resources[uri]
+        {
+            return .immediate(.matched(canonical: uri, resource))
+        }
+        else if let response:StaticResponse = self.documentation[uri, referrer: nil]
+        {
+            
+            return .immediate(response)
+        }
+        else 
+        {
+            return .immediate(.none(.text("page not found")))
+        }
     }
 }

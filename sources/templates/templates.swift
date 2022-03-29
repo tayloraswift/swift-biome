@@ -35,20 +35,10 @@ enum DefaultTemplates
                 }
                 Element[.script]
                 {
-                    ("/lunr.js", as: HTML.Src.self)
-                    (true, as: HTML.Defer.self)
-                }
-                Element[.script]
-                {
                     ("/search.js", as: HTML.Src.self)
                     (true, as: HTML.Defer.self)
                 }
                 
-                Element[.link]
-                {
-                    ("/common.css", as: HTML.Href.self)
-                    HTML.Rel.stylesheet
-                }
                 Element[.link]
                 {
                     ("/biome.css", as: HTML.Href.self)
