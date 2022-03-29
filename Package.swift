@@ -12,7 +12,7 @@ let package = Package(
     [
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-highlight",            from:   "0.1.0"),
-        .package(url: "https://github.com/kelvin13/swift-resource",             from:   "0.1.5"),
+        .package(url: "https://github.com/kelvin13/swift-resource",             branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-structured-document",  branch: "master"),
         
         .package(url: "https://github.com/apple/swift-markdown.git",            branch: "main"),
