@@ -1,2 +1,4 @@
 .build/
 *.symbols.json
+test-preview.json
+_documentation/

@@ -21,7 +21,7 @@ struct Biome:Sendable
         }
     }
     
-    public
+    /* public
     typealias Target = 
     (
         id:Module.ID, 
@@ -32,7 +32,7 @@ struct Biome:Sendable
     (
         id:Package.ID, 
         targets:Range<Int>
-    )
+    ) */
     
     private(set)
     var symbols:Storage<Symbol>,
@@ -40,12 +40,12 @@ struct Biome:Sendable
         packages:Storage<Package>
     
     private static 
-    func indices<Element, ID>(for elements:[Element], by id:KeyPath<Element, ID>, else error:(ID) -> Error) 
+    func indices<S, ID>(for elements:S, by id:KeyPath<S.Element, ID>, else error:(ID) -> Error) 
         throws -> [ID: Int]
-        where ID:Hashable
+        where S:Sequence, ID:Hashable
     {
         var indices:[ID: Int] = [:]
-        for (index, element):(Int, Element) in elements.enumerated()
+        for (index, element):(Int, S.Element) in elements.enumerated()
         {
             guard case nil = indices.updateValue(index, forKey: element[keyPath: id])
             else
@@ -112,13 +112,12 @@ struct Biome:Sendable
     }
     
     private static
-    func load(package:Package.ID, graph name:String, hashingInto version:inout Resource.Version,
-        with load:(_ package:Package.ID, _ path:[String], _ type:Resource.Text) 
-        async throws -> Resource) 
+    func load<Location>(_ location:Location, hashingInto version:inout Resource.Version,
+        with load:(Location, Resource.Text) async throws -> Resource) 
         async throws -> JSON 
     {
         let json:JSON
-        switch try await load(package, [name], .json)
+        switch try await load(location, .json)
         {
         case    .text   (let string, type: .json, version: let component?):
             json = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
@@ -138,7 +137,7 @@ struct Biome:Sendable
         return json
     }
     
-    static 
+    /* static 
     func flatten(descriptors:[Package.ID: [Target]]) -> (products:[Product], modules:[Target])
     {
         var targets:[Target] = []
@@ -154,17 +153,16 @@ struct Biome:Sendable
             return ($0.key, start ..< end)
         }
         return (products, targets)
-    }
+    } */
     
     static 
-    func load(products:[Product], targets:[Target],
-        loader:(_ package:Package.ID, _ path:[String], _ type:Resource.Text) 
-        async throws -> Resource) 
+    func load<Location>(catalogs:[Documentation.Catalog<Location>], 
+        with loader:(Location, Resource.Text) async throws -> Resource) 
         async throws -> (biome:Self, comments:[String])
     {
-        let packageIndices:[Package.ID: Int]    = try Self.indices(for: products, by: \.id, 
+        let packageIndices:[Package.ID: Int]    = try Self.indices(for: catalogs, by: \.id, 
             else: Graph.PackageIdentifierError.duplicate(id:))
-        let moduleIndices:[Module.ID: Int]      = try Self.indices(for: targets,  by: \.id, 
+        let moduleIndices:[Module.ID: Int]      = try Self.indices(for: catalogs.map(\.modules).joined(), by: \.core.id, 
             else: Graph.ModuleIdentifierError.duplicate(id:))
         var symbolIndices:[Symbol.ID: Int]      = [:]
         // we need the mythical dictionary in case we run into synthesized 
@@ -175,10 +173,11 @@ struct Biome:Sendable
         var edges:[Graph.Edge]        = []
         var modules:[Module]    = []
         var packages:[Package]  = []
-        for product:Product in products 
+        for catalog:Documentation.Catalog<Location> in catalogs 
         {
             var version:Resource.Version = .semantic(0, 1, 2)
-            for target:Target in targets[product.targets]
+            let start:Int = modules.endIndex
+            for entry:Documentation.Catalog<Location>.Module in catalog.modules
             {
                 let core:Range<Int>
                 do 
@@ -188,27 +187,22 @@ struct Biome:Sendable
                         mythical: &mythical,
                         vertices: &vertices, 
                         edges: &edges,
-                        from: try await Self.load(
-                            package: product.id, 
-                            graph: target.id.graphIdentifier(bystander: nil), 
-                            hashingInto: &version, 
-                            with: loader), 
-                        module: target.id)
+                        from: try await Self.load(entry.core.location, hashingInto: &version, with: loader), 
+                        module: entry.core.id)
                 }
                 catch let error 
                 {
-                    throw Graph.LoadingError.init(error, module: target.id, bystander: nil)
+                    throw Graph.LoadingError.init(error, module: entry.core.id, bystander: nil)
                 }
                 var extensions:[(bystander:Int, symbols:Range<Int>)] = [] 
-                for bystander:Module.ID in target.bystanders
+                for bystander:Documentation.Catalog<Location>.Graph in entry.bystanders
                 {
-                    // reconstruct the name
-                    guard let index:Int = moduleIndices[bystander]
+                    guard let index:Int = moduleIndices[bystander.id]
                     else 
                     {
                         // a module extends a bystander module we do not have the 
                         // primary symbolgraph for
-                        throw Graph.ModuleIdentifierError.undefined(id: bystander)
+                        throw Graph.ModuleIdentifierError.undefined(id: bystander.id)
                         //print("warning: ignored module extensions '\(name)'")
                         //continue 
                     }
@@ -219,33 +213,30 @@ struct Biome:Sendable
                             mythical: &mythical,
                             vertices: &vertices, 
                             edges: &edges,
-                            from: try await Self.load(
-                                package: product.id, 
-                                graph: target.id.graphIdentifier(bystander: bystander), 
-                                hashingInto: &version, 
-                                with: loader), 
-                            module: target.id, 
+                            from: try await Self.load(bystander.location, hashingInto: &version, with: loader), 
+                            module: entry.core.id, 
                             prune: true)))
                     }
                     catch let error 
                     {
-                        throw Graph.LoadingError.init(error, module: target.id, bystander: bystander)
+                        throw Graph.LoadingError.init(error, module: entry.core.id, bystander: bystander.id)
                     }
                 }
-                let module:Module = .init(id: target.id, package: packages.endIndex, 
+                let module:Module = .init(id: entry.core.id, package: packages.endIndex, 
                     core: core, extensions: extensions)
                 modules.append(module)
                 
-                if target.bystanders.isEmpty
+                if entry.bystanders.isEmpty
                 {
-                    Swift.print("loaded module '\(target.id.string)' (from package '\(product.id.name)')")
+                    Swift.print("loaded module '\(entry.core.id.string)' (from package '\(catalog.id.name)')")
                 }
                 else 
                 {
-                    Swift.print("loaded module '\(target.id.string)' (from package '\(product.id.name)', bystanders: \(target.bystanders.map{ "'\($0.string)'" }.joined(separator: ", ")))")
+                    Swift.print("loaded module '\(entry.core.id.string)' (from package '\(catalog.id.name)', bystanders: \(entry.bystanders.map{ "'\($0.id.string)'" }.joined(separator: ", ")))")
                 }
             }
-            let package:Package = .init(id: product.id, modules: product.targets, hash: version)
+            let end:Int = modules.endIndex
+            let package:Package = .init(id: catalog.id, modules: start ..< end, hash: version)
             packages.append(package)
         }
         // only keep mythical vertices if we don’t have the generic base available

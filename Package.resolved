@@ -1,6 +1,24 @@
 {
   "pins" : [
     {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser.git",
+      "state" : {
+        "revision" : "82905286cc3f0fa8adc4674bf49437cab65a8373",
+        "version" : "1.1.1"
+      }
+    },
+    {
+      "identity" : "swift-backtrace",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swift-server/swift-backtrace.git",
+      "state" : {
+        "revision" : "d3e04a9d4b3833363fb6192065b763310b156d54",
+        "version" : "1.3.1"
+      }
+    },
+    {
       "identity" : "swift-cmark",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-cmark.git",
@@ -14,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-grammar",
       "state" : {
-        "revision" : "e5fa764ce53bf77d78a85f371d7c067e55f44985",
-        "version" : "0.1.1"
+        "revision" : "26fb76035920c8071f3d0df54b23d71e429422b3",
+        "version" : "0.1.2"
       }
     },
     {
@@ -32,8 +50,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-json",
       "state" : {
-        "revision" : "bf789b21060b70e384a29e8639cab19e7945cac9",
-        "version" : "0.1.6"
+        "branch" : "master",
+        "revision" : "f86b8fa96c7f7f9aeb928e2493ae7ad114469a45"
       }
     },
     {
@@ -46,12 +64,21 @@
       }
     },
     {
+      "identity" : "swift-nio",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-nio.git",
+      "state" : {
+        "revision" : "d6e3762e0a5f7ede652559f53623baf11006e17c",
+        "version" : "2.39.0"
+      }
+    },
+    {
       "identity" : "swift-resource",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-resource.git",
       "state" : {
-        "branch" : "master",
-        "revision" : "503c8303e5d8e4f51f389c4d5d33c79df554a60a"
+        "revision" : "b218dbea9c8ecbae48a71fa0d93ebe8062692d35",
+        "version" : "0.1.2"
       }
     },
     {
@@ -59,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-structured-document",
       "state" : {
-        "branch" : "master",
-        "revision" : "e63a1f48a5eb52d6714babcdcb55c39e2fe9e5b9"
+        "revision" : "bfb541a44f2fbacd7ef5646237513a58e30fbe32",
+        "version" : "0.2.1"
       }
     },
     {
@@ -77,8 +104,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-system.git",
       "state" : {
-        "revision" : "836bc4557b74fe6d2660218d56e3ce96aff76574",
-        "version" : "1.1.1"
+        "branch" : "main",
+        "revision" : "1d5e35a460ebef822d61181b42a7354abaeb80c3"
+      }
+    },
+    {
+      "identity" : "swiftshell",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kareman/SwiftShell",
+      "state" : {
+        "revision" : "99680b2efc7c7dbcace1da0b3979d266f02e213c",
+        "version" : "5.1.0"
       }
     }
   ],

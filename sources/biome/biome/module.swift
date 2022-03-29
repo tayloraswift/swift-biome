@@ -19,6 +19,7 @@ extension Biome
             {
                 self.string = stringLiteral
             }
+            @inlinable public
             init<S>(_ string:S) where S:StringProtocol 
             {
                 self.string = .init(string)
@@ -27,10 +28,10 @@ extension Biome
             {
                 self.string.drop { $0 == "_" } 
             }
-            func graphIdentifier(bystander:Self?) -> String
+            /* func graphIdentifier(bystander:Self?) -> String
             {
                 bystander.map { "\(self.string)@\($0.string).symbols.json" } ?? "\(self.string).symbols.json"
-            }
+            } */
         }
         
         public 

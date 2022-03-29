@@ -29,50 +29,79 @@ struct Documentation:Sendable
     
     private(set)
     var search:[Resource] 
-
-    private static
-    func load(package:Biome.Package.ID, module:Biome.Module.ID, article path:[String], // hashingInto version:inout Resource.Version,
-        with load:(_ package:Biome.Package.ID, _ path:[String], _ type:Resource.Text) 
-        async throws -> Resource) 
-        async throws -> String?
+    
+    @frozen public 
+    struct Catalog<Location>
     {
-        guard let last:String = path.last 
-        else 
+        @frozen public 
+        struct Article 
         {
-            // ignore empty path 
-            return nil
+            public 
+            let path:[String]
+            public 
+            let location:Location
+            
+            @inlinable public
+            init(path:[String], location:Location)
+            {
+                self.path = path 
+                self.location = location
+            }
         }
-        var filepath:[String] = ["\(module.string).docc"]
-        filepath.append(contentsOf: path.dropLast())
-        filepath.append("\(last).md")
-        // TODO: handle versioning
-        switch try await load(package, filepath, .markdown)
+        @frozen public 
+        struct Module 
         {
-        case    .text   (let string, type: .markdown, version: _):
-            return string
-        case    .bytes  (let bytes,  type: .markdown, version: _):
-            return String.init(decoding: bytes, as: Unicode.UTF8.self)
-        case    .text   (_, type: let type, version: _),
-                .bytes  (_, type: let type, version: _):
-            throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.markdown.description)
-        case    .binary (_, type: let type, version: _):
-            throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.markdown.description)
+            public 
+            let core:Graph
+            public 
+            let bystanders:[Graph]
+            
+            @inlinable public
+            init(core:Graph, bystanders:[Graph])
+            {
+                self.core = core 
+                self.bystanders = bystanders
+            }
+        }
+        @frozen public 
+        struct Graph 
+        {
+            public 
+            let id:Biome.Module.ID
+            public 
+            let location:Location
+            
+            @inlinable public
+            init(id:Biome.Module.ID, location:Location)
+            {
+                self.id = id 
+                self.location = location
+            }
+        }
+        
+        public
+        let id:Biome.Package.ID
+        public 
+        let modules:[Module],
+            articles:[Article]
+        
+        @inlinable public
+        init(id:Biome.Package.ID, articles:[Article], modules:[Module])
+        {
+            self.id = id 
+            self.modules = modules 
+            self.articles = articles
         }
     }
     
     public 
-    init(directories:[URI.Base: String], products descriptors:[Biome.Package.ID: [Biome.Target]], 
+    init<Location>(_ catalogs:[Catalog<Location>], 
+        directories:[URI.Base: String], 
         template:DocumentTemplate<Anchor, [UInt8]>, 
-        loader load:(_ package:Biome.Package.ID, _ path:[String], _ type:Resource.Text) 
-        async throws -> Resource) 
+        loader load:(_ location:Location, _ type:Resource.Text) async throws -> Resource) 
         async throws 
     {
-        let (products, targets):([Biome.Product], [Biome.Target]) = 
-            Biome.flatten(descriptors: descriptors)
-        let (biome, comments):(Biome, [String]) = try await Biome.load(
-            products: products, 
-            targets: targets, 
-            loader: load)
+        let (biome, comments):(Biome, [String]) = try await Biome.load(catalogs: catalogs, with: load)
         // this needs to be mutable, because we don’t know if articles are free 
         // or owned until after we’ve built the initial routing table from the biome 
         // (which is a `let`). the uri of an article depends on whether it has 
@@ -85,71 +114,83 @@ struct Documentation:Sendable
         
         Swift.print("starting article loading")
         var articles:[Expatriate<Article<UnresolvedLink>>] = []
-        for package:Biome.Package in biome.packages 
+        for (package, catalog):(Biome.Package, Catalog<Location>) in zip(biome.packages, catalogs)
         {
-            for (module, target):(Int, Biome.Target) in zip(package.modules, targets[package.modules])
+            for entry:Catalog<Location>.Article in catalog.articles 
             {
-                for filepath:[String] in target.articles 
+                // for now, we require every article path to begin with a module name
+                guard   let module:Biome.Module.ID = entry.path.first.map(Biome.Module.ID.init(_:)), 
+                        let module:Int = routing.trunks[module.trunk], package.modules ~= module 
+                else 
                 {
-                    guard let source:String = try await Self.load(
-                        package: package.id, module: target.id, article: filepath, with: load)
-                    else 
+                    fatalError("unimplemented")
+                }
+                let source:String 
+                // TODO: handle versioning
+                switch try await load(entry.location, .markdown)
+                {
+                case    .text   (let text,  type: .markdown, version: _):
+                    source = text
+                case    .bytes  (let bytes, type: .markdown, version: _):
+                    source = String.init(decoding: bytes, as: Unicode.UTF8.self)
+                case    .text   (_, type: let type, version: _),
+                        .bytes  (_, type: let type, version: _):
+                    throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.markdown.description)
+                case    .binary (_, type: let type, version: _):
+                    throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.markdown.description)
+                }
+                
+                // default to DocC mode for now
+                let surveyed:Surveyed = .init(markdown: source, format: .docc)
+                if let master:UnresolvedLink = surveyed.master
+                {
+                    // TODO: handle this error
+                    switch try routing.resolve(base: .biome, link: master, context: 
+                        routing.context(imports: surveyed.metadata.imports, 
+                            greenzone: (module, [])))
                     {
-                        continue 
+                    case .article: 
+                        // biome base never hosts articles
+                        fatalError("unreachable")
+                    
+                    case .module(let namespace):
+                        modules[namespace] = surveyed.rendered(biome: biome, routing: routing, 
+                            greenzone: (namespace, []))
+                    
+                    case .symbol(let witness, victim: nil):
+                        // guard let reassignment:Int = biome.symbols[witness].namespace
+                        // else 
+                        // {
+                        //     fatalError("cannot override documentation for mythical symbols")
+                        // }
+                        symbols[witness] = surveyed.rendered(biome: biome, routing: routing, 
+                            greenzone: biome.greenzone(witness: witness, victim: nil))
+                    
+                    case .symbol(_, victim: _?):
+                        fatalError("UNIMPLEMENTED")
                     }
-                    // default to DocC mode for now
-                    let surveyed:Surveyed = .init(markdown: source, format: .docc)
-                    if let master:UnresolvedLink = surveyed.master
-                    {
-                        // TODO: handle this error
-                        switch try routing.resolve(base: .biome, link: master, context: 
-                            routing.context(imports: surveyed.metadata.imports, 
-                                greenzone: (module, [])))
-                        {
-                        case .article: 
-                            // biome base never hosts articles
-                            fatalError("unreachable")
-                        
-                        case .module(let namespace):
-                            modules[namespace] = surveyed.rendered(biome: biome, routing: routing, 
-                                greenzone: (namespace, []))
-                        
-                        case .symbol(let witness, victim: nil):
-                            // guard let reassignment:Int = biome.symbols[witness].namespace
-                            // else 
-                            // {
-                            //     fatalError("cannot override documentation for mythical symbols")
-                            // }
-                            symbols[witness] = surveyed.rendered(biome: biome, routing: routing, 
-                                greenzone: biome.greenzone(witness: witness, victim: nil))
-                        
-                        case .symbol(_, victim: _?):
-                            fatalError("UNIMPLEMENTED")
-                        }
-                    }
-                    else if case .explicit(let heading) = surveyed.headline 
-                    {
-                        let context:UnresolvedLinkContext
-                        var content:Article<UnresolvedLink>.Content
-                        
-                        (content, context) = surveyed.rendered(biome: biome, routing: routing, greenzone: (module, []))
-                        
-                        let headline:Element? = surveyed.headline.rendered()
-                        let article:Article<UnresolvedLink> = .init(title: heading.plainText, 
-                            path:   surveyed.metadata.path.isEmpty ? [String].init(filepath.dropFirst()) : 
-                                    surveyed.metadata.path, 
-                            snippet: surveyed.snippet,
-                            headline: headline, 
-                            content: content)
-                        let expatriate:Expatriate<Article<UnresolvedLink>> = .init(conquistador: article, 
-                            marque: .init(trunk: module, whitelist: context.whitelist))
-                        routing.publish(expatriate: expatriate, under: .article(articles.endIndex))
-                        articles.append(expatriate)
-                    }
-                    else 
-                    {
-                        fatalError("articles require a title")
-                    }
+                }
+                else if case .explicit(let heading) = surveyed.headline 
+                {
+                    let context:UnresolvedLinkContext
+                    var content:Article<UnresolvedLink>.Content
+                    
+                    (content, context) = surveyed.rendered(biome: biome, routing: routing, greenzone: (module, []))
+                    
+                    let headline:Element? = surveyed.headline.rendered()
+                    let article:Article<UnresolvedLink> = .init(title: heading.plainText, 
+                        path: surveyed.metadata.path.isEmpty ? entry.path : surveyed.metadata.path, 
+                        snippet: surveyed.snippet,
+                        headline: headline, 
+                        content: content)
+                    let expatriate:Expatriate<Article<UnresolvedLink>> = .init(conquistador: article, 
+                        marque: .init(trunk: module, whitelist: context.whitelist))
+                    routing.publish(expatriate: expatriate, under: .article(articles.endIndex))
+                    articles.append(expatriate)
+                }
+                else 
+                {
+                    fatalError("articles require a title")
                 }
             }
         }
