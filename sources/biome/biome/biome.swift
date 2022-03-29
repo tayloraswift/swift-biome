@@ -4,36 +4,6 @@ import Resource
 public 
 struct Biome:Sendable 
 {
-    public 
-    enum ResourceVersionError:Error 
-    {
-        case missing
-    }
-    public 
-    struct ResourceTypeError:Error 
-    {
-        let expected:String, 
-            encountered:String 
-        init(_ encountered:String, expected:String)
-        {
-            self.expected       = expected
-            self.encountered    = encountered
-        }
-    }
-    
-    /* public
-    typealias Target = 
-    (
-        id:Module.ID, 
-        bystanders:[Module.ID],
-        articles:[[String]]
-    )
-    typealias Product = 
-    (
-        id:Package.ID, 
-        targets:Range<Int>
-    ) */
-    
     private(set)
     var symbols:Storage<Symbol>,
         modules:Storage<Module>, 
@@ -56,139 +26,37 @@ struct Biome:Sendable
         return indices
     }
     
-    private static
-    func populate(
-        symbolIndices:inout [Symbol.ID: Int],
-        mythical:inout [Symbol.ID: Graph.Vertex],
-        vertices:inout [Graph.Vertex], 
-        edges:inout [Graph.Edge],
-        from json:JSON, 
-        module:Module.ID, 
-        prune:Bool = false) 
-        throws -> Range<Int>
-    {
-        let descriptor:(module:Module.ID, vertices:[Graph.Vertex], edges:[Graph.Edge]) = 
-            try Graph.decode(module: json)
-        guard descriptor.module == module 
-        else 
-        {
-            throw Graph.ModuleIdentifierError.mismatched(id: descriptor.module)
-        }
-        edges.append(contentsOf: descriptor.edges)
-        
-        let start:Int = vertices.endIndex
-        for vertex:Graph.Vertex in descriptor.vertices 
-        {
-            if vertex.isCanonical
-            {
-                if case _? = symbolIndices.updateValue(vertices.endIndex, forKey: vertex.id)
-                {
-                    throw Graph.SymbolIdentifierError.duplicate(id: vertex.id) 
-                }
-                vertices.append(vertex)
-                mythical.removeValue(forKey: vertex.id)
-            }
-            else if let duplicate:Int = symbolIndices[vertex.id]
-            {
-                guard vertex ~~ vertices[duplicate]
-                else 
-                {
-                    throw Graph.SymbolIdentifierError.duplicate(id: vertex.id) 
-                }
-            }
-            else if let duplicate:Graph.Vertex = mythical.updateValue(vertex, forKey: vertex.id)
-            {
-                // only add the vertex to the mythical list if we don’t already 
-                // have it in the normal list 
-                guard vertex ~~ duplicate 
-                else 
-                {
-                    throw Graph.SymbolIdentifierError.duplicate(id: vertex.id) 
-                }
-            }
-        }
-        let end:Int = vertices.endIndex
-        return start ..< end
-    }
-    
-    private static
-    func load<Location>(_ location:Location, hashingInto version:inout Resource.Version,
-        with load:(Location, Resource.Text) async throws -> Resource) 
-        async throws -> JSON 
-    {
-        let json:JSON
-        switch try await load(location, .json)
-        {
-        case    .text   (let string, type: .json, version: let component?):
-            json = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
-            version *= component
-        case    .bytes  (let bytes, type: .json, version: let component?):
-            json = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
-            version *= component
-        case    .text   (_, type: .json, version: nil),
-                .bytes  (_, type: .json, version: nil):
-            throw ResourceVersionError.missing
-        case    .text   (_, type: let type, version: _),
-                .bytes  (_, type: let type, version: _):
-            throw ResourceTypeError.init(type.description, expected: Resource.Text.json.description)
-        case    .binary (_, type: let type, version: _):
-            throw ResourceTypeError.init(type.description, expected: Resource.Text.json.description)
-        }
-        return json
-    }
-    
-    /* static 
-    func flatten(descriptors:[Package.ID: [Target]]) -> (products:[Product], modules:[Target])
-    {
-        var targets:[Target] = []
-        let products:[(Package.ID, Range<Int>)] = descriptors.sorted
-        {
-            $0.key < $1.key
-        }
-        .map 
-        {
-            let start:Int   = targets.endIndex 
-            targets.append(contentsOf: $0.value)
-            let end:Int     = targets.endIndex 
-            return ($0.key, start ..< end)
-        }
-        return (products, targets)
-    } */
-    
     static 
     func load<Location>(catalogs:[Documentation.Catalog<Location>], 
         with loader:(Location, Resource.Text) async throws -> Resource) 
         async throws -> (biome:Self, comments:[String])
     {
         let packageIndices:[Package.ID: Int]    = try Self.indices(for: catalogs, by: \.id, 
-            else: Graph.PackageIdentifierError.duplicate(id:))
+            else: Graph.PackageError.duplicate(id:))
         let moduleIndices:[Module.ID: Int]      = try Self.indices(for: catalogs.map(\.modules).joined(), by: \.core.id, 
-            else: Graph.ModuleIdentifierError.duplicate(id:))
+            else: Graph.ModuleError.duplicate(id:))
         var symbolIndices:[Symbol.ID: Int]      = [:]
         // we need the mythical dictionary in case we run into synthesized 
         // extensions before the generic base (in which case, they would be assigned 
         // to the wrong module)
         var mythical:[Symbol.ID: Graph.Vertex]  = [:]
-        var vertices:[Graph.Vertex]   = []
-        var edges:[Graph.Edge]        = []
+        var vertices:[Graph.Vertex] = []
+        var edges:Set<Graph.Edge> = []
         var modules:[Module]    = []
         var packages:[Package]  = []
         for catalog:Documentation.Catalog<Location> in catalogs 
         {
-            var version:Resource.Version = .semantic(0, 1, 2)
+            var hash:Resource.Version? = .semantic(0, 1, 2)
             let start:Int = modules.endIndex
             for entry:Documentation.Catalog<Location>.Module in catalog.modules
             {
                 let core:Range<Int>
                 do 
                 {
-                    core = try Self.populate(
-                        symbolIndices: &symbolIndices,
-                        mythical: &mythical,
-                        vertices: &vertices, 
-                        edges: &edges,
-                        from: try await Self.load(entry.core.location, hashingInto: &version, with: loader), 
-                        module: entry.core.id)
+                    let graph:Graph = try await .init(loading: entry.core.location, of: entry.core.id, with: loader)
+                    try graph.populate(&edges)
+                    core  = try graph.populate(&vertices, mythical: &mythical, indices: &symbolIndices)
+                    hash *=     graph.version
                 }
                 catch let error 
                 {
@@ -200,22 +68,15 @@ struct Biome:Sendable
                     guard let index:Int = moduleIndices[bystander.id]
                     else 
                     {
-                        // a module extends a bystander module we do not have the 
-                        // primary symbolgraph for
-                        throw Graph.ModuleIdentifierError.undefined(id: bystander.id)
-                        //print("warning: ignored module extensions '\(name)'")
-                        //continue 
+                        // a module extends a bystander module we do not have the primary symbolgraph for
+                        throw Graph.ModuleError.undefined(id: bystander.id)
                     }
                     do 
                     {
-                        extensions.append((index, try Self.populate(
-                            symbolIndices: &symbolIndices,
-                            mythical: &mythical,
-                            vertices: &vertices, 
-                            edges: &edges,
-                            from: try await Self.load(bystander.location, hashingInto: &version, with: loader), 
-                            module: entry.core.id, 
-                            prune: true)))
+                        let graph:Graph = try await .init(loading: bystander.location, of: entry.core.id, with: loader)
+                        try graph.populate(&edges)
+                        extensions.append((index, try graph.populate(&vertices, mythical: &mythical, indices: &symbolIndices)))
+                        hash *= graph.version
                     }
                     catch let error 
                     {
@@ -224,6 +85,12 @@ struct Biome:Sendable
                 }
                 let module:Module = .init(id: entry.core.id, package: packages.endIndex, 
                     core: core, extensions: extensions)
+                // sanity check 
+                guard case modules.endIndex? = moduleIndices[entry.core.id]
+                else 
+                {
+                    fatalError("unreachable")
+                }
                 modules.append(module)
                 
                 if entry.bystanders.isEmpty
@@ -236,7 +103,11 @@ struct Biome:Sendable
                 }
             }
             let end:Int = modules.endIndex
-            let package:Package = .init(id: catalog.id, modules: start ..< end, hash: version)
+            if case nil = hash 
+            {
+                print("warning: package '\(catalog.id)' is unversioned. this will degrade network performance.")
+            }
+            let package:Package = .init(id: catalog.id, modules: start ..< end, hash: hash)
             packages.append(package)
         }
         // only keep mythical vertices if we don’t have the generic base available
@@ -371,7 +242,7 @@ struct Biome:Sendable
             count: vertices.count - references.count)
     }
     private 
-    init(indices:[Symbol.ID: Int], vertices:[Graph.Vertex], edges:[Graph.Edge], 
+    init(indices:[Symbol.ID: Int], vertices:[Graph.Vertex], edges:Set<Graph.Edge>, 
         modules:Storage<Module>, packages:Storage<Package>)
         throws
     {

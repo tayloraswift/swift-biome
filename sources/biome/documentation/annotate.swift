@@ -10,13 +10,10 @@ extension Documentation
         let source:String
         switch markdown 
         {
-        case .text(let string, type: .markdown, version: let version):
+        case .text  (let string, type: _, version: let version):
             source = string
-        case .bytes(let bytes, type: .markdown, version: let version):
+        case .binary(let bytes,  type: _, version: let version):
             source = String.init(decoding: bytes, as: Unicode.UTF8.self)
-                
-        default: 
-            fatalError("Unsupported")
         }
         let surveyed:Surveyed = .init(markdown: _move(source), format: .entrapta)
         

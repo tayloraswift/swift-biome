@@ -30,75 +30,11 @@ struct Documentation:Sendable
     private(set)
     var search:[Resource] 
     
-    @frozen public 
-    struct Catalog<Location>
-    {
-        @frozen public 
-        struct Article 
-        {
-            public 
-            let path:[String]
-            public 
-            let location:Location
-            
-            @inlinable public
-            init(path:[String], location:Location)
-            {
-                self.path = path 
-                self.location = location
-            }
-        }
-        @frozen public 
-        struct Module 
-        {
-            public 
-            let core:Graph
-            public 
-            let bystanders:[Graph]
-            
-            @inlinable public
-            init(core:Graph, bystanders:[Graph])
-            {
-                self.core = core 
-                self.bystanders = bystanders
-            }
-        }
-        @frozen public 
-        struct Graph 
-        {
-            public 
-            let id:Biome.Module.ID
-            public 
-            let location:Location
-            
-            @inlinable public
-            init(id:Biome.Module.ID, location:Location)
-            {
-                self.id = id 
-                self.location = location
-            }
-        }
-        
-        public
-        let id:Biome.Package.ID
-        public 
-        let modules:[Module],
-            articles:[Article]
-        
-        @inlinable public
-        init(id:Biome.Package.ID, articles:[Article], modules:[Module])
-        {
-            self.id = id 
-            self.modules = modules 
-            self.articles = articles
-        }
-    }
-    
     public 
-    init<Location>(_ catalogs:[Catalog<Location>], 
-        directories:[URI.Base: String], 
-        template:DocumentTemplate<Anchor, [UInt8]>, 
-        loader load:(_ location:Location, _ type:Resource.Text) async throws -> Resource) 
+    init<Location>(serving bases:[URI.Base: String], 
+        template:DocumentTemplate<Anchor, [UInt8]>,
+        loading catalogs:[Catalog<Location>], 
+        with load:(_ location:Location, _ type:Resource.Text) async throws -> Resource) 
         async throws 
     {
         let (biome, comments):(Biome, [String]) = try await Biome.load(catalogs: catalogs, with: load)
@@ -106,7 +42,7 @@ struct Documentation:Sendable
         // or owned until after we’ve built the initial routing table from the biome 
         // (which is a `let`). the uri of an article depends on whether it has 
         // an owner, so we need to register the free articles in a second pass.
-        var routing:RoutingTable = .init(bases: directories, biome: biome)
+        var routing:RoutingTable = .init(bases: bases, biome: biome)
         Swift.print("initialized routing table")
         
         var symbols:[Int: (content:Article<UnresolvedLink>.Content, context:UnresolvedLinkContext)] = [:]
@@ -129,15 +65,10 @@ struct Documentation:Sendable
                 // TODO: handle versioning
                 switch try await load(entry.location, .markdown)
                 {
-                case    .text   (let text,  type: .markdown, version: _):
+                case    .text   (let text,  type: _, version: _):
                     source = text
-                case    .bytes  (let bytes, type: .markdown, version: _):
+                case    .binary (let bytes, type: _, version: _):
                     source = String.init(decoding: bytes, as: Unicode.UTF8.self)
-                case    .text   (_, type: let type, version: _),
-                        .bytes  (_, type: let type, version: _):
-                    throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.markdown.description)
-                case    .binary (_, type: let type, version: _):
-                    throw Biome.ResourceTypeError.init(type.description, expected: Resource.Text.markdown.description)
                 }
                 
                 // default to DocC mode for now
@@ -257,7 +188,7 @@ struct Documentation:Sendable
         self.biome      = _move(biome)
     }
     public 
-    func sitemap(for package:Biome.Package.ID) -> (uris:[String], hash:Resource.Version)
+    func sitemap(for package:Biome.Package.ID) -> (uris:[String], hash:Resource.Version?)
     {
         guard let index:Int = self.biome.packages.index(of: package)
         else 

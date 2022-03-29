@@ -16,7 +16,7 @@ extension SwiftConstraint where Link == Biome.Symbol.ID
             else 
             {
                 return nil
-                // throw Biome.SymbolIdentifierError.undefined(id: $0)
+                // throw Biome.SymbolError.undefined(id: $0)
             }
         }
     }
@@ -26,10 +26,11 @@ extension Graph
     enum EdgeError:Error 
     {
         case constraints(on:Int, is:Edge.Kind, of:Int)
-        case duplicate(Int, have:Int, is:Edge.Kind, of:Int)
+        case polygamous(Int, is:Edge.Kind, of:Int, Int)
+        case disputed(Edge, Edge)
     }
     
-    struct Edge 
+    struct Edge:Hashable 
     {
         struct References 
         {
@@ -100,26 +101,32 @@ extension Graph
         var origin:Biome.Symbol.ID?
         var constraints:[SwiftConstraint<Biome.Symbol.ID>]
         
-        /* init(specialization source:Biome.Symbol.ID, of target:Biome.Symbol.ID)
+        // only hash (source, kind, target)
+        static 
+        func == (lhs:Self, rhs:Self) -> Bool 
         {
-            self.kind = .specialization 
-            self.source = source 
-            self.target = target 
-            self.origin = nil 
-            self.constraints = []
-        } */
+            lhs.source == rhs.source && 
+            lhs.kind   == rhs.kind && 
+            lhs.target == rhs.target
+        }
+        func hash(into hasher:inout Hasher) 
+        {
+            self.source.hash(into: &hasher)
+            self.kind.hash(into: &hasher)
+            self.target.hash(into: &hasher)
+        }
         
         func link(_ table:inout [References], indices:[Biome.Symbol.ID: Int]) throws 
         {
             guard let source:Int = indices[self.source]
             else 
             {
-                throw SymbolIdentifierError.undefined(id: self.source)
+                throw SymbolError.undefined(id: self.source)
             } 
             guard let target:Int = indices[self.target]
             else 
             {
-                throw SymbolIdentifierError.undefined(id: self.target)
+                throw SymbolError.undefined(id: self.target)
             } 
             let constraints:[SwiftConstraint<Int>] = self.constraints.map 
             {
@@ -193,7 +200,7 @@ extension Graph
             case .subclass:
                 if let incumbent:Int = table[source].superclass
                 {
-                    throw EdgeError.duplicate(source, have: incumbent, is: self.kind, of: target)
+                    throw EdgeError.polygamous(source, is: self.kind, of: incumbent, target)
                 }
                 table[source].superclass = target
                 table[target].subclasses.append(source)
@@ -201,7 +208,7 @@ extension Graph
             case .optionalRequirement, .requirement:
                 if let incumbent:Int = table[source].requirementOf
                 {
-                    throw EdgeError.duplicate(source, have: incumbent, is: self.kind, of: target)
+                    throw EdgeError.polygamous(source, is: self.kind, of: incumbent, target)
                 }
                 table[source].requirementOf = target
                 table[target].requirements.append(source)
@@ -209,7 +216,7 @@ extension Graph
             case .override:
                 if let incumbent:Int = table[source].overrideOf
                 {
-                    throw EdgeError.duplicate(source, have: incumbent, is: self.kind, of: target)
+                    throw EdgeError.polygamous(source, is: self.kind, of: incumbent, target)
                 }
                 table[source].overrideOf = target 
                 table[target].overrides.append(source)
@@ -249,7 +256,7 @@ extension Graph
                 source  = generic 
                 kind    = .crime 
             case (_, let invalid):
-                throw SymbolIdentifierError.synthetic(resolution: invalid)
+                throw SymbolError.synthetic(resolution: invalid)
             }
             return .init(kind: kind, source: source, target: target, origin: origin, 
                 constraints: try $0.pop("swiftConstraints", as: [JSON]?.self) 

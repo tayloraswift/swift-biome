@@ -48,7 +48,7 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
                 fatalError("unreachable")
             }
         default: 
-            self.respond(with: self.response(canonical: nil, containing: .bytes([], type: .plain, version: nil), 
+            self.respond(with: self.response(canonical: nil, containing: .utf8(encoded: []), 
                     allocator: context.channel.allocator),
                 status: .methodNotAllowed, 
                 through: context)
@@ -112,14 +112,9 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
             content.type    = "\(type.description); charset=utf-8"
             version         = current
             buffer          = cached ? nil : allocator.buffer(string: string)
-        case .bytes (let bytes,  type: let type, version: let current):
-            content.length  = "\(bytes.count)"
-            content.type    = "\(type.description); charset=utf-8"
-            version         = current
-            buffer          = cached ? nil : allocator.buffer(bytes: bytes)
         case .binary(let bytes,  type: let type, version: let current):
             content.length  = "\(bytes.count)"
-            content.type    =  type.description
+            content.type    = type.description // includes charset if applicable
             version         = current
             buffer          = cached ? nil : allocator.buffer(bytes: bytes)
         }

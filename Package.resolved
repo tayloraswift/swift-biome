@@ -77,8 +77,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-resource.git",
       "state" : {
-        "revision" : "b218dbea9c8ecbae48a71fa0d93ebe8062692d35",
-        "version" : "0.1.2"
+        "revision" : "3f54330c45617780b6e4140bcd26d45d1b1fe366",
+        "version" : "0.1.5"
       }
     },
     {
@@ -86,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-structured-document",
       "state" : {
-        "revision" : "bfb541a44f2fbacd7ef5646237513a58e30fbe32",
-        "version" : "0.2.1"
+        "branch" : "master",
+        "revision" : "ff56780790c064f4a508f7115962177c81302fe7"
       }
     },
     {

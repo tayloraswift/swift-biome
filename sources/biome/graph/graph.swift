@@ -1,7 +1,8 @@
 import Highlight
+import Resource
 import JSON 
 
-enum Graph 
+struct Graph 
 {
     struct LoadingError:Error 
     {
@@ -20,35 +21,66 @@ enum Graph
     {
         case duplicate(domain:Biome.Domain, in:Biome.Symbol.ID)
     }
-    enum PackageIdentifierError:Error 
+    enum PackageError:Error 
     {
         case duplicate(id:Biome.Package.ID)
     }
-    enum ModuleIdentifierError:Error 
+    enum ModuleError:Error 
     {
         case mismatchedExtension(id:Biome.Module.ID, expected:Biome.Module.ID, in:Biome.Symbol.ID)
         case mismatched(id:Biome.Module.ID)
         case duplicate(id:Biome.Module.ID)
         case undefined(id:Biome.Module.ID)
     }
-    enum SymbolIdentifierError:Error 
+    enum SymbolError:Error 
     {
         // global errors 
-        case duplicate(id:Biome.Symbol.ID)
+        case disputed(Vertex, Vertex)
         case undefined(id:Biome.Symbol.ID)
         
         // local errors
         case synthetic(resolution:Biome.USR)
         /// unique id is completely empty
-        case empty
+        case unidentified
         /// unique id does not start with a supported language prefix (‘c’ or ‘s’)
         case unsupportedLanguage(code:UInt8)
     }
     
-    static 
-    func decode(module json:JSON) throws -> (module:Biome.Module.ID, vertices:[Vertex], edges:[Edge])
+    private 
+    let perpetrator:Biome.Module.ID
+    private 
+    let vertices:[Vertex]
+    private 
+    let edges:[Edge]
+    
+    let version:Resource.Version?
+    
+    @inlinable public 
+    init<Location>(loading location:Location, of perpetrator:Biome.Module.ID, 
+        with load:(Location, Resource.Text) async throws -> Resource) 
+        async throws 
     {
-        try json.lint(["metadata"]) 
+        switch try await load(location, .json)
+        {
+        case    .text   (let string, type: _, version: let version):
+            let json:JSON = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
+            try self.init(from: json, version: version)
+        
+        case    .binary (let bytes, type: _, version: let version):
+            let json:JSON = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
+            try self.init(from: json, version: version)
+        }
+        guard self.perpetrator == perpetrator
+        else 
+        {
+            throw Graph.ModuleError.mismatched(id: self.perpetrator)
+        }
+    }
+    @usableFromInline
+    init(from json:JSON, version:Resource.Version?) throws 
+    {
+        self.version = version
+        (self.perpetrator, self.vertices, self.edges) = try json.lint(["metadata"]) 
         {
             let edges:[Edge]            = try $0.remove("relationships") { try $0.map(Self.decode(edge:)) }
             let vertices:[Vertex]       = try $0.remove("symbols")       { try $0.map(Self.decode(vertex:)) }
@@ -63,6 +95,64 @@ enum Graph
         }
     }
     
+    func populate(_ edges:inout Set<Edge>) throws
+    {
+        for edge:Edge in self.edges 
+        {
+            guard let incumbent:Edge = edges.update(with: edge)
+            else 
+            {
+                continue 
+            }
+            guard   incumbent.origin      == edge.origin, 
+                    incumbent.constraints == edge.constraints 
+            else 
+            {
+                throw EdgeError.disputed(incumbent, edge)
+            }
+        }
+    }
+    func populate(_ vertices:inout [Vertex], 
+        mythical:inout [Biome.Symbol.ID: Vertex],
+        indices:inout [Biome.Symbol.ID: Int]) 
+        throws -> Range<Int>
+    {
+        let start:Int = vertices.endIndex
+        for vertex:Vertex in self.vertices 
+        {
+            // all vertices can have duplicates, even canonical ones, due to 
+            // the behavior of `@_exported import`.
+            if let duplicate:Int = indices[vertex.id]
+            {
+                guard vertex ~~ vertices[duplicate]
+                else 
+                {
+                    throw SymbolError.disputed(vertex, vertices[duplicate]) 
+                }
+            }
+            else if vertex.isCanonical 
+            {
+                indices.updateValue(vertices.endIndex, forKey: vertex.id)
+                vertices.append(vertex)
+                mythical.removeValue(forKey: vertex.id)
+            }
+            else if let duplicate:Vertex = mythical.updateValue(vertex, forKey: vertex.id)
+            {
+                // only add the vertex to the mythical list if we don’t already 
+                // have it in the normal list 
+                guard vertex ~~ duplicate 
+                else 
+                {
+                    throw SymbolError.disputed(vertex, duplicate) 
+                }
+            }
+        }
+        let end:Int = vertices.endIndex
+        return start ..< end
+    }
+}
+extension Graph 
+{
     static 
     func decode(constraint json:JSON) throws -> SwiftConstraint<Biome.Symbol.ID> 
     {
@@ -98,7 +188,7 @@ enum Graph
         case .natural(let natural): 
             return natural 
         case let synthesized: 
-            throw SymbolIdentifierError.synthetic(resolution: synthesized)
+            throw SymbolError.synthetic(resolution: synthesized)
         }
     }
 }

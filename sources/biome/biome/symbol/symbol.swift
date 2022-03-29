@@ -133,7 +133,7 @@ extension Biome
                 guard let extended:Int  = modules.index(of: extended)
                 else 
                 {
-                    throw Graph.ModuleIdentifierError.undefined(id: extended)
+                    throw Graph.ModuleError.undefined(id: extended)
                 }
                 if  extended != self.module
                 {
@@ -142,7 +142,7 @@ extension Biome
                     case nil, extended?: 
                         break 
                     case let bystander?:
-                        throw Graph.ModuleIdentifierError.mismatchedExtension(
+                        throw Graph.ModuleError.mismatchedExtension(
                             id: modules[extended].id, expected: modules[bystander].id, 
                             in: self.id)
                     }

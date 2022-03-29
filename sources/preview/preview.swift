@@ -5,6 +5,7 @@ import Resource
 import NIO
 
 import BiomeIndex
+import BiomeTemplates
 
 @main 
 struct Main:AsyncParsableCommand 
@@ -38,10 +39,16 @@ struct Main:AsyncParsableCommand
     {
         Backtrace.install()
         
-        try Documentation.loadFromIndexFile(at: FilePath.init(self.index))
+        let documentation:Documentation = try await .init(serving: 
+            [
+                .biome: "/reference",
+                .learn: "/learn",
+            ], 
+            template: .init(freezing: DefaultTemplates.documentation), 
+            indexfile: FilePath.init(self.index))
         
         let host:String = self.host 
-        let preview:Preview = try await .init(host: host)
+        let preview:Preview = try .init(host: host, documentation: _move(documentation))
         
         let group:MultiThreadedEventLoopGroup   = .init(numberOfThreads: 4)
         let bootstrap:ServerBootstrap           = .init(group: group)
@@ -70,8 +77,11 @@ struct Preview:ServiceBackend
 {
     typealias Continuation = EventLoopPromise<StaticResponse>
     
-    init(host _:String) async
+    let documentation:Documentation
+    
+    init(host _:String, documentation:Documentation) 
     {
+        self.documentation = documentation
     }
     
     func request(_:Never, continuation _:EventLoopPromise<StaticResponse>) 
@@ -79,6 +89,6 @@ struct Preview:ServiceBackend
     }
     func request(_ uri:String) -> DynamicResponse<Never> 
     {
-        fatalError("unimplemented")
+        .immediate(self.documentation[uri, referrer: nil] ?? .none(.text("page not found")))
     }
 }

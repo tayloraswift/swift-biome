@@ -30,7 +30,7 @@ extension Biome
         public 
         let id:ID
         let modules:Range<Int>, 
-            hash:Resource.Version
+            hash:Resource.Version?
         
         var name:String 
         {
