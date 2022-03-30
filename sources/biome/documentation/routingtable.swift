@@ -371,7 +371,7 @@ extension Documentation
             case .module(let index)?: 
                 return .module(index)
             case .symbol(let witness, victim: let victim)?: 
-                return .symbol(witness, victim: victim)
+                return .symbol(witness, victim: victim, components: link.components)
             }
         }
         private 
@@ -493,7 +493,7 @@ extension Documentation
                     candidates.append(index)
                 }
                 if  lowercased, let leaf:[UInt8] = concatenated.last, case (let index, _)? = 
-                    self.resolve(base: base, namespace: namespace, stem: concatenated.dropFirst(), leaf: leaf, overload: nil)
+                    self.resolve(base: base, namespace: namespace, stem: concatenated.dropLast(), leaf: leaf, overload: nil)
                 {
                     candidates.append(index)
                 }
@@ -585,6 +585,10 @@ extension Biome
         var context:[[UInt8]] = self.symbols[victim ?? witness].scope.map 
         { 
             Documentation.URI.encode(component: $0.utf8) 
+        }
+        if let victim:Int = victim 
+        {
+            context.append(Documentation.URI.encode(component: self.symbols[victim].title.utf8))
         }
         switch self.symbols[witness].kind
         {

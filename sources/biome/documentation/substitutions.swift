@@ -54,10 +54,10 @@ extension Documentation
                 self.biome.modules[module].title,
                 self.biome.uri(module: module)
             )
-        case .symbol(let witness, victim: let victim):
+        case .symbol(let witness, victim: let victim, components: let limit):
             var reversed:[(text:String, uri:URI)] = []
             var next:Int?       = victim ?? self.biome.symbols[witness].parent
-            while let index:Int = next
+            while let index:Int = next, reversed.count < limit - 1
             {
                 reversed.append(
                     (

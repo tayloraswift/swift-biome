@@ -88,7 +88,7 @@ struct Documentation:Sendable
                         modules[namespace] = surveyed.rendered(biome: biome, routing: routing, 
                             greenzone: (namespace, []))
                     
-                    case .symbol(let witness, victim: nil):
+                    case .symbol(let witness, victim: nil, components: _):
                         // guard let reassignment:Int = biome.symbols[witness].namespace
                         // else 
                         // {
@@ -97,7 +97,7 @@ struct Documentation:Sendable
                         symbols[witness] = surveyed.rendered(biome: biome, routing: routing, 
                             greenzone: biome.greenzone(witness: witness, victim: nil))
                     
-                    case .symbol(_, victim: _?):
+                    case .symbol(_, victim: _?, components: _):
                         fatalError("UNIMPLEMENTED")
                     }
                 }

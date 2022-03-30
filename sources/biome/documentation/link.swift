@@ -5,7 +5,7 @@ extension Documentation
     {
         case article(Int)
         case module(Int)
-        case symbol(Int, victim:Int?)
+        case symbol(Int, victim:Int?, components:Int = .max)
     }
     enum UnresolvedLink:Hashable, CustomStringConvertible, Sendable
     {
@@ -21,6 +21,21 @@ extension Documentation
         case preresolved(ResolvedLink)
         case entrapta(URI.Path, absolute:Bool)
         case docc([[UInt8]], Disambiguator.DocC?)
+        
+        var components:Int 
+        {
+            switch self 
+            {
+            case .preresolved(.symbol(_, victim: _, components: let components)): 
+                return components 
+            case .entrapta(let path, absolute: false): 
+                return path.stem.count + (path.leaf.isEmpty ? 0 : 1)
+            case .docc(let path, _): 
+                return path.count 
+            default: 
+                return .max
+            }
+        }
     }
     struct UnresolvedLinkContext 
     {
