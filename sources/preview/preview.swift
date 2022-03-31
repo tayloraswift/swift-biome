@@ -47,8 +47,8 @@ struct Main:AsyncParsableCommand
         let bureaucrat:Bureaucrat = .init(git: .init(self.git), repository: .init(self.resources))
         let resources:[String: Resource] = 
         [
-            "/biome.css"        : try await bureaucrat.read(concatenating: "default-dark/biome.css", "default-dark/common.css", type: .css), 
-            "/search.js"        : try await bureaucrat.read(concatenating: "search.js", "lunr.js", type: .javascript), 
+            "/biome.css"        : try await bureaucrat.read(concatenating: "default-dark/common.css", "default-dark/biome.css", type: .css), 
+            "/search.js"        : try await bureaucrat.read(concatenating: "lunr.js", "search.js", type: .javascript), 
             
             "/text-45.ttf"      : try await bureaucrat.read(from: "fonts/literata/Literata-Regular.ttf",          type: .ttf), 
             "/text-47.ttf"      : try await bureaucrat.read(from: "fonts/literata/Literata-RegularItalic.ttf",    type: .ttf), 
@@ -66,7 +66,7 @@ struct Main:AsyncParsableCommand
                 .learn: "/learn",
             ], 
             template: .init(freezing: DefaultTemplates.documentation), 
-            indexfile: FilePath.init(self.index))
+            loading: FilePath.init(self.index))
         
         let host:String = self.host 
         let preview:Preview = .init(documentation: _move(documentation), resources: _move(resources))
