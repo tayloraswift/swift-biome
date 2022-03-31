@@ -17,6 +17,7 @@ struct Documentation:Sendable
         case ambiguous
     }
     
+    public
     let biome:Biome 
     let routing:RoutingTable
     
@@ -26,6 +27,12 @@ struct Documentation:Sendable
     private(set)
     var modules:[Article<ResolvedLink>.Content], 
         symbols:[Article<ResolvedLink>.Content] 
+    
+    public 
+    var _packages:[Biome.Package.ID] 
+    {
+        self.biome.packages.map(\.id)
+    }
     
     private(set)
     var search:[Resource] 
