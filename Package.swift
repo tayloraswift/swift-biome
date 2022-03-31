@@ -6,6 +6,9 @@ let package = Package(
     products: 
     [
         .library(name: "Biome", targets: ["Biome"]),
+        .library(name: "BiomeIndex", targets: ["BiomeIndex"]),
+        .library(name: "BiomeTemplates", targets: ["BiomeTemplates"]),
+        
         .executable(name: "preview", targets: ["Preview"]),
     ],
     dependencies: 
