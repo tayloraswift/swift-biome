@@ -21,7 +21,7 @@ extension Documentation.Catalog where Location == FilePath
         var graphs:[Substring: [Graph]] = [:]
         for include:FilePath in descriptor.include.map(FilePath.init(_:))
         {
-            repository.appending(include.components).walk
+            (include.isAbsolute ? include : repository.appending(include.components)).walk
             {
                 (path:FilePath) in 
                 
@@ -61,7 +61,7 @@ extension Documentation.Catalog where Location == FilePath
                 }
             }
         }
-        let modules:[Module] = descriptor.targets.compactMap 
+        let modules:[Module] = descriptor.modules.compactMap 
         {
             let id:Biome.Module.ID = .init($0)
             
@@ -101,7 +101,7 @@ extension Documentation
     {
         let package:String
         let include:[String]
-        let targets:[String]
+        let modules:[String]
     }
     
     static 
@@ -119,9 +119,18 @@ extension Documentation
         template:DocumentTemplate<Anchor, [UInt8]>, 
         loading path:FilePath) async throws
     {
-        let catalogs:[Catalog<FilePath>] = try Self.catalogs(
-            parsing: try Bureaucrat.read(from: path), 
-            repository: .init(root: nil))
+        try await self.init(serving: bases, template: template, loading: CollectionOfOne<FilePath>.init(path))
+    }
+    public 
+    init<Indices>(serving bases:[URI.Base: String], 
+        template:DocumentTemplate<Anchor, [UInt8]>, 
+        loading paths:Indices) async throws
+        where Indices:Sequence, Indices.Element == FilePath
+    {
+        let catalogs:[Catalog<FilePath>] = try paths.flatMap 
+        {
+            try Self.catalogs(parsing: try Bureaucrat.read(from: $0), repository: .init(root: nil))
+        }
         try await self.init(serving: bases, template: template, loading: catalogs)
         {
             .utf8(encoded: try Bureaucrat.read(from: $0), type: $1, version: nil)
@@ -133,9 +142,20 @@ extension Documentation
         loading path:FilePath, 
         with loader:Bureaucrat) async throws
     {
-        let catalogs:[Catalog<FilePath>] = try Self.catalogs(
-            parsing: try Bureaucrat.read(from: loader.repository.appending(path.components)), 
-            repository: loader.repository)
+        try await self.init(serving: bases, template: template, loading: CollectionOfOne<FilePath>.init(path), with: loader)
+    }
+    public 
+    init<Indices>(serving bases:[URI.Base: String], 
+        template:DocumentTemplate<Anchor, [UInt8]>, 
+        loading paths:Indices, 
+        with loader:Bureaucrat) async throws
+        where Indices:Sequence, Indices.Element == FilePath
+    {
+        let catalogs:[Catalog<FilePath>] = try paths.flatMap 
+        { 
+            try Self.catalogs(parsing: try Bureaucrat.read(from: loader.repository.appending($0.components)), 
+                repository: loader.repository)
+        }
         try await self.init(serving: bases, template: template, loading: catalogs, with: loader.read(from:type:))
     }
 }

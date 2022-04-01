@@ -73,15 +73,6 @@
       }
     },
     {
-      "identity" : "swift-resource",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kelvin13/swift-resource",
-      "state" : {
-        "branch" : "master",
-        "revision" : "57555b9ac4bc166ef2aaab620f50d6bcb9c0aa63"
-      }
-    },
-    {
       "identity" : "swift-structured-document",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-structured-document",

@@ -8,9 +8,6 @@ let package = Package(
         .library(name: "Biome", targets: ["Biome"]),
         .library(name: "BiomeIndex", targets: ["BiomeIndex"]),
         .library(name: "BiomeTemplates", targets: ["BiomeTemplates"]),
-        
-        .plugin(name: "swift-biome-plugin", targets: ["BiomePlugin"]),
-        
         .executable(name: "preview", targets: ["Preview"]),
     ],
     dependencies: 
@@ -61,13 +58,6 @@ let package = Package(
                 .product(name: "StructuredDocument",    package: "swift-structured-document"),
             ], 
             path: "sources/templates"),
-            
-        .plugin(
-            name: "BiomePlugin",
-            capability: .command(intent: .documentationGeneration()),
-            dependencies: [],
-            path: "sources/plugin",
-            exclude: []),
         
         .executableTarget(name: "Preview", 
             dependencies: 

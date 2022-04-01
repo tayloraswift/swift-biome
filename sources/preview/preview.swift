@@ -21,10 +21,11 @@ struct Main:AsyncParsableCommand
     
     @Option(name: [.customShort("g"), .customLong("git")], help: "path to `git`, if different from '/usr/bin/git'")
     var git:String = "/usr/bin/git"
-    @Option(name: [.customShort("x"), .customLong("index")], help: "path to documentation index file")
-    var index:String 
     @Option(name: [.customShort("b"), .customLong("resources")], help: "path to a copy of the 'swift-biome-resources' repository")
-    var resources:String 
+    var resources:String = ".biome/resources"
+    
+    @Argument(help: "path(s) to documentation index file")
+    var indices:[String] 
     
     static 
     func main() async 
@@ -66,7 +67,7 @@ struct Main:AsyncParsableCommand
                 .learn: "/learn",
             ], 
             template: .init(freezing: DefaultTemplates.documentation), 
-            loading: FilePath.init(self.index))
+            loading: self.indices.map(FilePath.init(_:)))
         
         let host:String = self.host 
         let preview:Preview = .init(documentation: _move(documentation), resources: _move(resources))
