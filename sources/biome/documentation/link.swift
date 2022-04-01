@@ -4,6 +4,7 @@ extension Documentation
     enum ResolvedLink:Hashable, Sendable
     {
         case article(Int)
+        case package(Int)
         case module(Int)
         case symbol(Int, victim:Int?, components:Int = .max)
     }

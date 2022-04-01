@@ -47,6 +47,14 @@ extension Documentation
                 to: self.format(uri: self.uri(article: article)), 
                 internal: true)
         
+        case .package(let package):
+            components  = []
+            tail        = 
+            (
+                self.biome.packages[package].name,
+                self.biome.uri(package: package)
+            )
+        
         case .module(let module):
             components  = []
             tail        = 

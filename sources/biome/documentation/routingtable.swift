@@ -362,12 +362,14 @@ extension Documentation
             }
             switch index 
             {
-            case nil, .package?, .packageSearchIndex?: 
+            case nil, .packageSearchIndex?: 
                 throw Documentation.ArticleError.undefinedSymbolReference(link)
             case .ambiguous?:
                 throw Documentation.ArticleError.ambiguousSymbolReference(link)
             case .article(let index)?: 
                 return .article(index)
+            case .package(let index)?: 
+                return .package(index)
             case .module(let index)?: 
                 return .module(index)
             case .symbol(let witness, victim: let victim)?: 

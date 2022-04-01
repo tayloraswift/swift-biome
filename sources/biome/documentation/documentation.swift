@@ -90,6 +90,9 @@ struct Documentation:Sendable
                         // biome base never hosts articles
                         fatalError("unreachable")
                     
+                    case .package: 
+                        fatalError("UNSUPPORTED")
+                    
                     case .module(let namespace):
                         modules[namespace] = surveyed.rendered(biome: biome, routing: routing, 
                             greenzone: (namespace, []))
