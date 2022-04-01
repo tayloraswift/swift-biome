@@ -386,7 +386,7 @@ extension Documentation
             var candidates:[Index] = []
             //  assume link is *module-absolute*, contains module prefix. 
             //  check this *first*, so that we can reference a module like 
-            //  `JSON` as `JSON`, and its type of the same name as `JSON.JSON`.
+            //  `JSON` as `JSON`, and its type of the same name as `JSON/JSON`.
             if  let trunk:Int = path.stem.first.map({ self.trunks[$0] }) ?? nil, 
                 context.whitelist.contains(trunk)
             {
@@ -410,6 +410,13 @@ extension Documentation
                 {
                     candidates.append(index)
                 }
+                else if path.leaf.isEmpty, path.stem.count == 1, 
+                    case (let index, _)? = 
+                    self.resolve(base: base, namespace: trunk, stem: stem.dropLast(), leaf: path.stem[0], overload: nil)
+                {
+                    // for single-component relative member references 
+                    candidates.append(index)
+                }
             }
             // FIXME: we should be diagnosing ambiguous references
             if let index:Index = candidates.first 
@@ -422,6 +429,13 @@ extension Documentation
                 if  case (let index, _)? = 
                     self.resolve(base: base, namespace: trunk, stem: path.stem[...], leaf: path.leaf, overload: nil)
                 {
+                    candidates.append(index)
+                }
+                else if path.leaf.isEmpty, path.stem.count == 1, 
+                    case (let index, _)? = 
+                    self.resolve(base: base, namespace: trunk, stem: [], leaf: path.stem[0], overload: nil)
+                {
+                    // for single-component relative member references 
                     candidates.append(index)
                 }
             }
