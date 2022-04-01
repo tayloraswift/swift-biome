@@ -9,7 +9,8 @@ extension Documentation
         case emptyPathArgument
         case unexpectedPathArgument
     }
-    enum Format 
+    public
+    enum Format:String, Decodable
     {
         /// entrapta format 
         case entrapta
@@ -55,7 +56,7 @@ extension Documentation
                     self.noTitle = true
                 }
                 // @import(_:)
-                if  let matches:[BlockDirective] = directives["depends"]
+                if  let matches:[BlockDirective] = directives["import"]
                 {
                     for invocation:BlockDirective in matches 
                     {

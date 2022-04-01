@@ -78,8 +78,7 @@ struct Documentation:Sendable
                     source = String.init(decoding: bytes, as: Unicode.UTF8.self)
                 }
                 
-                // default to DocC mode for now
-                let surveyed:Surveyed = .init(markdown: source, format: .docc)
+                let surveyed:Surveyed = .init(markdown: source, format: catalog.format)
                 if let master:UnresolvedLink = surveyed.master
                 {
                     // TODO: handle this error
@@ -171,7 +170,11 @@ struct Documentation:Sendable
             case (_, let overriding?):
                 return routing.resolve(article: overriding.content, context: overriding.context)
             case (let string?, nil):
-                let surveyed:Surveyed = .init(markdown: string, format: .docc)
+                let format:Format = biome.symbols[symbol.index].module.map 
+                {
+                    catalogs[biome.modules[$0].package].format
+                } ?? .docc
+                let surveyed:Surveyed = .init(markdown: string, format: format)
                 guard case .implicit = surveyed.headline 
                 else 
                 {

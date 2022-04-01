@@ -21,6 +21,22 @@ extension Documentation
         @frozen public 
         struct Module 
         {
+            @frozen public 
+            struct Graph 
+            {
+                public 
+                let namespace:Biome.Module.ID
+                public 
+                let location:Location
+                
+                @inlinable public
+                init(namespace:Biome.Module.ID, location:Location)
+                {
+                    self.namespace = namespace 
+                    self.location = location
+                }
+            }
+            
             public 
             let core:Graph
             public 
@@ -33,32 +49,20 @@ extension Documentation
                 self.bystanders = bystanders
             }
         }
-        @frozen public 
-        struct Graph 
-        {
-            public 
-            let id:Biome.Module.ID
-            public 
-            let location:Location
-            
-            @inlinable public
-            init(id:Biome.Module.ID, location:Location)
-            {
-                self.id = id 
-                self.location = location
-            }
-        }
         
+        public 
+        let format:Format
         public
-        let id:Biome.Package.ID
+        let package:Biome.Package.ID
         public 
         let modules:[Module],
             articles:[Article]
         
         @inlinable public
-        init(id:Biome.Package.ID, articles:[Article], modules:[Module])
+        init(format:Format, package:Biome.Package.ID, articles:[Article], modules:[Module])
         {
-            self.id = id 
+            self.format = format
+            self.package = package 
             self.modules = modules 
             self.articles = articles
         }

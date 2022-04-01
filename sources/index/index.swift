@@ -7,21 +7,21 @@ extension Documentation.Catalog where Location == FilePath
 {
     init(loading descriptor:Documentation.CatalogDescriptor, repository:FilePath)
     {
-        let id:Biome.Package.ID
+        let package:Biome.Package.ID
         switch descriptor.package 
         {
         case "swift-standard-library", "swift-stdlib", "swift", 
                    "standard-library",       "stdlib",      "":
-            id = .swift 
-        case let package:
-            id = .community(package)
+            package = .swift 
+        case let name:
+            package = .community(name)
         }
-        
         var articles:[Article] = []
-        var graphs:[Substring: [Graph]] = [:]
+        var graphs:[Substring: [Module.Graph]] = [:]
         for include:FilePath in descriptor.include.map(FilePath.init(_:))
         {
-            (include.isAbsolute ? include : repository.appending(include.components)).walk
+            let root:FilePath = include.isAbsolute ? include : repository.appending(include.components)
+            root.walk
             {
                 (path:FilePath) in 
                 
@@ -54,7 +54,7 @@ extension Documentation.Catalog where Location == FilePath
                         break 
                     }
                     graphs[first, default: []]
-                        .append(.init(id: Biome.Module.ID.init(last), location: location))
+                        .append(.init(namespace: Biome.Module.ID.init(last), location: location))
                     
                 default: 
                     break
@@ -63,13 +63,13 @@ extension Documentation.Catalog where Location == FilePath
         }
         let modules:[Module] = descriptor.modules.compactMap 
         {
-            let id:Biome.Module.ID = .init($0)
+            let module:Biome.Module.ID = .init($0)
             
-            var core:Graph? = nil 
-            var bystanders:[Graph] = []
-            for graph:Graph in graphs[$0[...], default: []]
+            var core:Module.Graph? = nil 
+            var bystanders:[Module.Graph] = []
+            for graph:Module.Graph in graphs[$0[...], default: []]
             {
-                guard graph.id != id 
+                guard graph.namespace != module 
                 else 
                 {
                     if case nil = core
@@ -78,27 +78,28 @@ extension Documentation.Catalog where Location == FilePath
                     }
                     else 
                     {
-                        print("warning: ignored duplicate symbolgraph '\(graph.id.string)'")
+                        print("warning: ignored duplicate symbolgraph '\(graph.namespace.string)'")
                     }
                     continue 
                 }
                 bystanders.append(graph)
             }
-            guard let core:Graph = core 
+            guard let core:Module.Graph = core 
             else 
             {
-                print("warning: skipped module '\(id.string)' because its core symbolgraph is missing")
+                print("warning: skipped module '\(module.string)' because its core symbolgraph is missing")
                 return nil
             }
-            return .init(core: core, bystanders: bystanders.sorted { $0.id.string < $1.id.string })
+            return .init(core: core, bystanders: bystanders.sorted { $0.namespace.string < $1.namespace.string })
         }
-        self.init(id: id, articles: articles, modules: modules)
+        self.init(format: descriptor.format, package: package, articles: articles, modules: modules)
     }
 }
 extension Documentation 
 {
     struct CatalogDescriptor:Decodable 
     {
+        let format:Format
         let package:String
         let include:[String]
         let modules:[String]

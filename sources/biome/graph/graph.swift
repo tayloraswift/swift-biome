@@ -2,6 +2,37 @@ import Highlight
 import Resource
 import JSON 
 
+extension Documentation.Catalog 
+{
+    func load(core descriptor:Module.Graph, 
+        with load:(Location, Resource.Text) async throws -> Resource) 
+        async throws -> Graph
+    {
+        try await self.load(graph: descriptor, of: descriptor.namespace, with: load)
+    }
+    func load(graph descriptor:Module.Graph, of perpetrator:Biome.Module.ID, 
+        with load:(Location, Resource.Text) async throws -> Resource) 
+        async throws -> Graph
+    {
+        let graph:Graph 
+        switch try await load(descriptor.location, .json)
+        {
+        case    .text   (let string, type: _, version: let version):
+            let json:JSON = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
+            graph = try .init(from: json, version: version)
+        
+        case    .binary (let bytes, type: _, version: let version):
+            let json:JSON = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
+            graph = try .init(from: json, version: version)
+        }
+        guard graph.perpetrator == perpetrator
+        else 
+        {
+            throw Graph.ModuleError.mismatched(id: graph.perpetrator)
+        }
+        return graph
+    }
+}
 struct Graph 
 {
     struct LoadingError:Error 
@@ -46,7 +77,6 @@ struct Graph
         case unsupportedLanguage(code:UInt8)
     }
     
-    private 
     let perpetrator:Biome.Module.ID
     private 
     let vertices:[Vertex]
@@ -55,27 +85,6 @@ struct Graph
     
     let version:Resource.Version?
     
-    @inlinable public 
-    init<Location>(loading location:Location, of perpetrator:Biome.Module.ID, 
-        with load:(Location, Resource.Text) async throws -> Resource) 
-        async throws 
-    {
-        switch try await load(location, .json)
-        {
-        case    .text   (let string, type: _, version: let version):
-            let json:JSON = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
-            try self.init(from: json, version: version)
-        
-        case    .binary (let bytes, type: _, version: let version):
-            let json:JSON = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
-            try self.init(from: json, version: version)
-        }
-        guard self.perpetrator == perpetrator
-        else 
-        {
-            throw Graph.ModuleError.mismatched(id: self.perpetrator)
-        }
-    }
     @usableFromInline
     init(from json:JSON, version:Resource.Version?) throws 
     {

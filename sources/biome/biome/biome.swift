@@ -31,9 +31,9 @@ struct Biome:Sendable
         with loader:(Location, Resource.Text) async throws -> Resource) 
         async throws -> (biome:Self, comments:[String])
     {
-        let packageIndices:[Package.ID: Int]    = try Self.indices(for: catalogs, by: \.id, 
+        let packageIndices:[Package.ID: Int]    = try Self.indices(for: catalogs, by: \.package, 
             else: Graph.PackageError.duplicate(id:))
-        let moduleIndices:[Module.ID: Int]      = try Self.indices(for: catalogs.map(\.modules).joined(), by: \.core.id, 
+        let moduleIndices:[Module.ID: Int]      = try Self.indices(for: catalogs.map(\.modules).joined(), by: \.core.namespace, 
             else: Graph.ModuleError.duplicate(id:))
         var symbolIndices:[Symbol.ID: Int]      = [:]
         // we need the mythical dictionary in case we run into synthesized 
@@ -53,40 +53,40 @@ struct Biome:Sendable
                 let core:Range<Int>
                 do 
                 {
-                    let graph:Graph = try await .init(loading: entry.core.location, of: entry.core.id, with: loader)
+                    let graph:Graph = try await catalog.load(core: entry.core, with: loader)
                     try graph.populate(&edges)
                     core  = try graph.populate(&vertices, mythical: &mythical, indices: &symbolIndices)
                     hash *=     graph.version
                 }
                 catch let error 
                 {
-                    throw Graph.LoadingError.init(error, module: entry.core.id, bystander: nil)
+                    throw Graph.LoadingError.init(error, module: entry.core.namespace, bystander: nil)
                 }
                 var extensions:[(bystander:Int, symbols:Range<Int>)] = [] 
-                for bystander:Documentation.Catalog<Location>.Graph in entry.bystanders
+                for bystander:Documentation.Catalog<Location>.Module.Graph in entry.bystanders
                 {
-                    guard let index:Int = moduleIndices[bystander.id]
+                    guard let index:Int = moduleIndices[bystander.namespace]
                     else 
                     {
                         // a module extends a bystander module we do not have the primary symbolgraph for
-                        throw Graph.ModuleError.undefined(id: bystander.id)
+                        throw Graph.ModuleError.undefined(id: bystander.namespace)
                     }
                     do 
                     {
-                        let graph:Graph = try await .init(loading: bystander.location, of: entry.core.id, with: loader)
+                        let graph:Graph = try await catalog.load(graph: bystander, of: entry.core.namespace, with: loader)
                         try graph.populate(&edges)
                         extensions.append((index, try graph.populate(&vertices, mythical: &mythical, indices: &symbolIndices)))
                         hash *= graph.version
                     }
                     catch let error 
                     {
-                        throw Graph.LoadingError.init(error, module: entry.core.id, bystander: bystander.id)
+                        throw Graph.LoadingError.init(error, module: entry.core.namespace, bystander: bystander.namespace)
                     }
                 }
-                let module:Module = .init(id: entry.core.id, package: packages.endIndex, 
+                let module:Module = .init(id: entry.core.namespace, package: packages.endIndex, 
                     core: core, extensions: extensions)
                 // sanity check 
-                guard case modules.endIndex? = moduleIndices[entry.core.id]
+                guard case modules.endIndex? = moduleIndices[entry.core.namespace]
                 else 
                 {
                     fatalError("unreachable")
@@ -95,19 +95,19 @@ struct Biome:Sendable
                 
                 if entry.bystanders.isEmpty
                 {
-                    Swift.print("loaded module '\(entry.core.id.string)' (from package '\(catalog.id.name)')")
+                    Swift.print("loaded module '\(entry.core.namespace.string)' (from package '\(catalog.package.name)')")
                 }
                 else 
                 {
-                    Swift.print("loaded module '\(entry.core.id.string)' (from package '\(catalog.id.name)', bystanders: \(entry.bystanders.map{ "'\($0.id.string)'" }.joined(separator: ", ")))")
+                    Swift.print("loaded module '\(entry.core.namespace.string)' (from package '\(catalog.package.name)', bystanders: \(entry.bystanders.map{ "'\($0.namespace.string)'" }.joined(separator: ", ")))")
                 }
             }
             let end:Int = modules.endIndex
             if case nil = hash 
             {
-                print("warning: package '\(catalog.id)' is unversioned. this will degrade network performance.")
+                print("warning: package '\(catalog.package)' is unversioned. this will degrade network performance.")
             }
-            let package:Package = .init(id: catalog.id, modules: start ..< end, hash: hash)
+            let package:Package = .init(id: catalog.package, modules: start ..< end, hash: hash)
             packages.append(package)
         }
         // only keep mythical vertices if we don’t have the generic base available
