@@ -49,12 +49,44 @@ extension Documentation
         }
 
         private mutating 
-        func render<Aside>(aside:Aside, as container:HTML.Container, demotedBy rank:Int) -> Element 
-            where Aside:BasicBlockContainer
+        func render(aside:Aside, demotedBy rank:Int) -> Element 
         {
-            Element[container]
+            Element[.aside]
             {
-                for block:any BlockMarkup in aside.blockChildren 
+                [aside.kind.rawValue.lowercased()]
+            }
+            content:
+            {
+                Element[.h3]
+                {
+                    switch aside.kind 
+                    {
+                    case .note:                 "Note"
+                    case .tip:                  "Tip"
+                    case .important:            "Important"
+                    case .experiment:           "Experiment"
+                    case .warning:              "Warning"
+                    case .attention:            "Attention"
+                    case .author:               "Author"
+                    case .authors:              "Authors"
+                    case .bug:                  "Bug"
+                    case .complexity:           "Complexity"
+                    case .copyright:            "Copyright"
+                    case .date:                 "Date"
+                    case .invariant:            "Invariant"
+                    case .mutatingVariant:      "Mutating variant"
+                    case .nonMutatingVariant:   "Non-mutating variant"
+                    case .postcondition:        "Postcondition"
+                    case .precondition:         "Precondition"
+                    case .remark:               "Remark"
+                    case .requires:             "Requires"
+                    case .since:                "Since"
+                    case .todo:                 "To-do"
+                    case .version:              "Version"
+                    case .`throws`:             "Throws"
+                    }
+                }
+                for block:any BlockMarkup in aside.content 
                 {
                     self.render(block: block, demotedBy: rank)
                 }
@@ -66,7 +98,7 @@ extension Documentation
             switch block 
             {
             case let aside as BlockQuote:
-                return self.render(aside: aside, as: .blockquote, demotedBy: rank)
+                return self.render(aside: Aside.init(aside), demotedBy: rank)
             
             case is CustomBlock:
                 return Element[.div] { "(unsupported custom block)" }
