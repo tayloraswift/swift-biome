@@ -132,20 +132,13 @@ extension Documentation
                 self.leaf = leaf 
             }
             
-            /* static 
-            func normalize(joined path:Substring.UTF8View) -> Self
-            {
-                var whatever:Bool = true 
-                return .normalize(joined: path, changed: &whatever)
-            } */
             // does *not* expect a leading slash
             static 
-            func normalize(joined path:Substring.UTF8View, changed:inout Bool) -> Self
+            func split(joined path:Substring.UTF8View) -> ([Substring.UTF8View], Substring.UTF8View)
             {
                 let dot:String.Index            = path.firstIndex(of: 0x2e) ?? path.endIndex
-                var stem:[Substring.UTF8View]   = path[..<dot].split(separator: 0x2f, 
+                let stem:[Substring.UTF8View]   = path[..<dot].split(separator: 0x2f, 
                     omittingEmptySubsequences: false)
-
                 let leaf:Substring.UTF8View
                 switch stem.last?.isEmpty
                 {
@@ -170,6 +163,16 @@ extension Documentation
                 case false?: 
                     leaf = path[dot...].dropFirst()
                 }
+                return (stem, leaf)
+            }
+            // does *not* expect a leading slash
+            static 
+            func normalize(joined path:Substring.UTF8View, changed:inout Bool) -> Self
+            {
+                var stem:[Substring.UTF8View]
+                let leaf:Substring.UTF8View
+                
+                (stem, leaf) = Self.split(joined: path)
                 
                 let count:Int = stem.count
                     stem.removeAll(where: \.isEmpty)

@@ -355,7 +355,7 @@ extension Documentation
             {
             case .preresolved(let resolved): 
                 return resolved
-            case .entrapta(let path, let absolute):
+            case .entrapta(absolute: let absolute, let path, count: _):
                 index = self.resolveEntrapta(base: base, path: path, absolute: absolute, context: context)
             case .docc(let stem, let suffix):
                 index = self.resolveDocC(base: base, stem: stem, suffix: suffix, context: context)

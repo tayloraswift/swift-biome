@@ -20,7 +20,7 @@ extension Documentation
         }
         
         case preresolved(ResolvedLink)
-        case entrapta(URI.Path, absolute:Bool)
+        case entrapta(absolute:Bool, URI.Path, count:Int)
         case docc([[UInt8]], Disambiguator.DocC?)
         
         var components:Int 
@@ -29,8 +29,8 @@ extension Documentation
             {
             case .preresolved(.symbol(_, victim: _, components: let components)): 
                 return components 
-            case .entrapta(let path, absolute: false): 
-                return path.stem.count + (path.leaf.isEmpty ? 0 : 1)
+            case .entrapta(absolute: false, let path, count: let count): 
+                return count + (path.leaf.isEmpty ? 0 : 1)
             case .docc(let path, _): 
                 return path.count 
             default: 
@@ -69,15 +69,37 @@ extension Documentation.UnresolvedLink
     func entrapta<S>(normalizing string:S) -> Self 
         where S:StringProtocol, S.UTF8View.SubSequence == Substring.UTF8View
     {
-        var ignored:Bool = true 
+        var whatever:Bool = true 
+        let absolute:Bool 
+        let path:(stem:[Substring.UTF8View], leaf:Substring.UTF8View)
         if case 0x2f? = string.utf8.first
         {
-            return .entrapta(.normalize(joined: string.utf8.dropFirst(), changed: &ignored), absolute: true)
+            absolute = true 
+            path = Documentation.URI.Path.split(joined: string.utf8.dropFirst())
         }
         else 
         {
-            return .entrapta(.normalize(joined: string.utf8[...],        changed: &ignored), absolute: false)
+            absolute = false
+            path = Documentation.URI.Path.split(joined: string.utf8[...])
         }
+        var stem:[[UInt8]] = []
+        var count:Int = 0 
+        for component:Substring.UTF8View in path.stem 
+        {
+            if component.isEmpty 
+            {
+                count = 0 
+            }
+            else 
+            {
+                stem.append(Documentation.URI.normalize(component: component, changed: &whatever))
+                count += 1
+            }
+        }
+        return .entrapta(absolute: absolute, 
+            Documentation.URI.Path.init(stem: stem, 
+                leaf: Documentation.URI.normalize(component: path.leaf, changed: &whatever)), 
+            count: count)
     }
     
     var description:String 
@@ -86,7 +108,7 @@ extension Documentation.UnresolvedLink
         {
         case .preresolved(let resolved):
             return "preresolved (\(resolved))"
-        case .entrapta(let path, absolute: _):
+        case .entrapta(absolute: _, let path, count: _):
             return path.description
         case .docc(let path, let suffix?):
             return "\(String.init(decoding: Documentation.URI.concatenate(normalized: path), as: Unicode.UTF8.self)) \(suffix)"
