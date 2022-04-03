@@ -252,6 +252,17 @@ struct Biome:Sendable
         {
             try edge.link(&references, indices: indices)
         }
+        // sometimes symbols get marked as sponsored even if they have 
+        // docs of their own. only keep this flag is the docs are truly duplicated
+        for index:Int in references.indices
+        {
+            if  let      sponsor:Int =     references[index].sponsor, 
+                                            !vertices[index].comment.isEmpty, 
+                vertices[sponsor].comment != vertices[index].comment
+            {
+                references[index].sponsor = nil
+            }
+        }
         // validate 
         let colors:[Symbol.Kind] = vertices.map(\.kind)
         var relationships:[Symbol.Relationships] = try zip(colors.indices, references).map 
