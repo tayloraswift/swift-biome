@@ -274,7 +274,7 @@ struct Biome:Sendable
         {
             relationships[index].sort
             {
-                (vertices[$0].path.last ?? "") < (vertices[$1].path.last ?? "")
+                vertices[$0].path.lexicographicallyPrecedes(vertices[$1].path)
             }
         }
         
