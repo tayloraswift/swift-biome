@@ -156,9 +156,17 @@ extension Documentation
                     //  we don’t need any special logic for top-level operators that begin 
                     //  with a dot, because we have not parsed the root or trunk segments.
                     // 
+                    /// *only* do this for operators that start with a dot, so as 
+                    /// to not conflict with the ``FooType/.barMember`` abbreviated syntax.
+                    // 
                     //  leaves are allowed at the top level, banning them would require 
                     //  us to recursively check `stem.last`, since there could be multiple 
                     //  consecutive slashes.
+                    guard case 0x2e? = path[dot...].dropFirst().first 
+                    else 
+                    {
+                        fallthrough
+                    }
                     leaf = path[dot...]
                 case false?: 
                     leaf = path[dot...].dropFirst()
