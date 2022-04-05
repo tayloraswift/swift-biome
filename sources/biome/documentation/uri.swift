@@ -156,14 +156,22 @@ extension Documentation
                     //  we don’t need any special logic for top-level operators that begin 
                     //  with a dot, because we have not parsed the root or trunk segments.
                     // 
-                    /// *only* do this for operators that start with a dot, so as 
-                    /// to not conflict with the ``FooType/.barMember`` abbreviated syntax.
+                    // // *only* do this for operators that start with a dot, so as 
+                    // // to not conflict with the ``FooType/.barMember`` abbreviated syntax.
+                    // NOTE: can’t do this currently, since we don’t have a reliable 
+                    // way of determining if a leaf is an operator or an identifier, 
+                    // due to percent-encoding. 
+                    // so instead, we only stip leading dots if the following character 
+                    // is an ASCII letter, or an underscore.
                     // 
                     //  leaves are allowed at the top level, banning them would require 
                     //  us to recursively check `stem.last`, since there could be multiple 
                     //  consecutive slashes.
-                    guard case 0x2e? = path[dot...].dropFirst().first 
-                    else 
+                    if  let second:UInt8 = path[dot...].dropFirst().first, 
+                        0x30 ... 0x39 ~= second || 
+                        0x41 ... 0x5a ~= second ||
+                        0x61 ... 0x7a ~= second || 
+                        0x5f == second 
                     {
                         fallthrough
                     }
