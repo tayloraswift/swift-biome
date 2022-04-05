@@ -456,7 +456,7 @@ extension Documentation.URI
                     utf8.append(head)
                     break looping
                 }
-                guard let high:UInt8    = Grammar.Digit<Never, UInt8, UInt8>.ASCII.Hex.Anycase.parse(terminal: first)
+                guard let high:UInt8    = Grammar.HexDigit<Never, UInt8, UInt8>.parse(terminal: first)
                 else 
                 {
                     // not a hex digit 
@@ -472,7 +472,7 @@ extension Documentation.URI
                     byte = high 
                     break decoding 
                 }
-                guard let low:UInt8     = Grammar.Digit<Never, UInt8, UInt8>.ASCII.Hex.Anycase.parse(terminal: second)
+                guard let low:UInt8     = Grammar.HexDigit<Never, UInt8, UInt8>.parse(terminal: second)
                 else 
                 {
                     // not a hex digit
@@ -539,14 +539,14 @@ extension Documentation.URI
     
     enum Rule<Location> 
     {
-        typealias ASCII = Grammar.Encoding<Location, UInt8>.ASCII
+        typealias ASCII = Grammar.Encoding<Location, UInt8>
     }
 }
 extension Documentation.URI.Rule 
 {
     enum Query:ParsingRule 
     {
-        enum Separator:Grammar.TerminalClass 
+        enum Separator:TerminalRule 
         {
             typealias Terminal      = UInt8
             typealias Construction  = Void 
@@ -565,7 +565,7 @@ extension Documentation.URI.Rule
         }
         enum Item:ParsingRule 
         {
-            enum CodeUnit:Grammar.TerminalClass 
+            enum CodeUnit:TerminalRule 
             {
                 typealias Terminal      = UInt8
                 typealias Construction  = Void 

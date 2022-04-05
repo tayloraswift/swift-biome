@@ -49,13 +49,13 @@ extension Biome
         
         enum Rule<Location> 
         {
-            typealias ASCII = Grammar.Encoding<Location, UInt8>.ASCII
+            typealias ASCII = Grammar.Encoding<Location, UInt8>
         }
     }
 }
 extension Biome.USR.Rule:ParsingRule
 {
-    enum Synthesized:Grammar.TerminalSequence 
+    enum Synthesized:LiteralRule 
     {
         typealias Terminal = UInt8
         static 
@@ -72,7 +72,7 @@ extension Biome.USR.Rule:ParsingRule
     enum MangledName:ParsingRule 
     {
         // all name elements can contain a number, including the first
-        enum Element:Grammar.TerminalClass  
+        enum Element:TerminalRule  
         {
             typealias Terminal      = UInt8
             typealias Construction  = Void
