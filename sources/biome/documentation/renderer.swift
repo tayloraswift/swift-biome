@@ -732,7 +732,7 @@ extension Documentation
                 }
                 content:
                 {
-                    Element[.h2]
+                    Element[.h3]
                     {
                         keyword
                     }

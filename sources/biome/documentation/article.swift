@@ -102,7 +102,8 @@ extension Documentation
         
         var stem:[[UInt8]]
         {
-            self.path.map { URI.encode(component: $0.utf8) }
+            //self.path.map { URI.encode(component: $0.utf8) }
+            self.path.suffix(1).map { URI.encode(component: $0.utf8) }
         }
         var leaf:[UInt8]
         {
