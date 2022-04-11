@@ -28,30 +28,12 @@
       }
     },
     {
-      "identity" : "swift-grammar",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kelvin13/swift-grammar",
-      "state" : {
-        "revision" : "26fb76035920c8071f3d0df54b23d71e429422b3",
-        "version" : "0.1.2"
-      }
-    },
-    {
       "identity" : "swift-highlight",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-highlight",
       "state" : {
         "revision" : "918f5e9eb0d6296e99cf171e1cea8d4bd650fa3c",
         "version" : "0.1.0"
-      }
-    },
-    {
-      "identity" : "swift-json",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kelvin13/swift-json",
-      "state" : {
-        "branch" : "master",
-        "revision" : "f86b8fa96c7f7f9aeb928e2493ae7ad114469a45"
       }
     },
     {
@@ -73,6 +55,15 @@
       }
     },
     {
+      "identity" : "swift-resource",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kelvin13/swift-resource",
+      "state" : {
+        "branch" : "master",
+        "revision" : "f745cc708eeb6b0b4029865702d57539ea9da1ff"
+      }
+    },
+    {
       "identity" : "swift-structured-document",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-structured-document",
@@ -86,8 +77,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-syntax.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-03-13-a",
-        "revision" : "e22754fbe767bfb290199573309689acb24297ef"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-04-04-a",
+        "revision" : "0423e4d4a896c69b3ddecf74cdfba1c334ac929c"
       }
     },
     {
