@@ -48,7 +48,7 @@ struct Biome:Sendable
         {
             var hash:Resource.Version? = .semantic(0, 1, 2)
             let start:Int = modules.endIndex
-            for entry:Documentation.Catalog<Location>.Module in catalog.modules
+            for entry:Documentation.Catalog<Location>.ModuleDescriptor in catalog.modules
             {
                 let core:Range<Int>
                 do 
@@ -63,7 +63,7 @@ struct Biome:Sendable
                     throw Graph.LoadingError.init(error, module: entry.core.namespace, bystander: nil)
                 }
                 var extensions:[(bystander:Int, symbols:Range<Int>)] = [] 
-                for bystander:Documentation.Catalog<Location>.Module.Graph in entry.bystanders
+                for bystander:Documentation.Catalog<Location>.GraphDescriptor in entry.bystanders
                 {
                     guard let index:Int = moduleIndices[bystander.namespace]
                     else 
@@ -235,7 +235,7 @@ struct Biome:Sendable
             }
             else 
             {
-                throw SymbolLinkingError.orphaned(symbol: $0)
+                throw Symbol.LinkingError.orphaned(symbol: $0)
             }
         }
         return references + repeatElement(.init(parent: nil, module: nil, bystander: nil), 
@@ -327,14 +327,14 @@ struct Biome:Sendable
     {
         .init(grouping: symbols)
         {
-            if let availability:UnconditionalAvailability = self.symbols[$0].availability.unconditional
+            if let availability:Symbol.UnconditionalAvailability = self.symbols[$0].availability.unconditional
             {
                 if availability.unavailable || availability.deprecated
                 {
                     return true 
                 }
             }
-            if let availability:SwiftAvailability = self.symbols[$0].availability.swift
+            if let availability:Symbol.SwiftAvailability = self.symbols[$0].availability.swift
             {
                 if case _? = availability.deprecated
                 {

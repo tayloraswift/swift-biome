@@ -1,9 +1,9 @@
 import Grammar 
 import JSON
 
-extension SwiftConstraint where Link == Biome.Symbol.ID
+extension SwiftConstraint where Link == Symbol.ID
 {
-    func map<T>(to transform:[Biome.Symbol.ID: T]) -> SwiftConstraint<T>
+    func map<T>(to transform:[Symbol.ID: T]) -> SwiftConstraint<T>
     {
         // TODO: turn this back into a `map` when we can enforce this again 
         //try self.map 
@@ -95,11 +95,11 @@ extension Graph
         }
         // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.cpp
         var kind:Kind 
-        var source:Biome.Symbol.ID
-        var target:Biome.Symbol.ID
+        var source:Symbol.ID
+        var target:Symbol.ID
         // if the source inherited docs 
-        var origin:Biome.Symbol.ID?
-        var constraints:[SwiftConstraint<Biome.Symbol.ID>]
+        var origin:Symbol.ID?
+        var constraints:[SwiftConstraint<Symbol.ID>]
         
         // only hash (source, kind, target)
         static 
@@ -116,7 +116,7 @@ extension Graph
             self.target.hash(into: &hasher)
         }
         
-        func link(_ table:inout [References], indices:[Biome.Symbol.ID: Int]) throws 
+        func link(_ table:inout [References], indices:[Symbol.ID: Int]) throws 
         {
             guard let source:Int = indices[self.source]
             else 
@@ -135,8 +135,8 @@ extension Graph
             // even after inferring the existence of mythical symbols, it’s still 
             // possible for the documentation origin to be unknown to us. this 
             // is fine, as we need a copy of the inherited docs anyways.
-            if  let origin:Biome.Symbol.ID  = self.origin, 
-                let origin:Int              = indices[origin]
+            if  let origin:Symbol.ID = self.origin, 
+                let origin:Int = indices[origin]
             {
                 if let incumbent:Int = table[source].sponsor
                 {
@@ -233,20 +233,20 @@ extension Graph
         try json.lint(["targetFallback"])
         {
             var kind:Edge.Kind = try $0.remove("kind") { try $0.case(of: Edge.Kind.self) }
-            let target:Biome.Symbol.ID = try $0.remove("target", Self.decode(id:))
-            let origin:Biome.Symbol.ID? = try $0.pop("sourceOrigin")
+            let target:Symbol.ID = try $0.remove("target", Self.decode(id:))
+            let origin:Symbol.ID? = try $0.pop("sourceOrigin")
             {
                 try $0.lint(["displayName"])
                 {
                     try $0.remove("identifier", Self.decode(id:))
                 }
             }
-            let usr:Biome.USR = try $0.remove("source")
+            let usr:Symbol.USR = try $0.remove("source")
             {
                 let text:String = try $0.as(String.self)
-                return try Grammar.parse(text.utf8, as: Biome.USR.Rule<String.Index>.self)
+                return try Grammar.parse(text.utf8, as: URI.Rule<String.Index, UInt8>.USR.self)
             }
-            let source:Biome.Symbol.ID
+            let source:Symbol.ID
             switch (kind, usr)
             {
             case (_,       .natural(let natural)): 

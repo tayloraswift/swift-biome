@@ -20,7 +20,7 @@ extension Documentation
             
             var whitelist:Set<Int>      = [ ]
             var roots:[[UInt8]: Int]    = [:]
-            for (index, package):(Int, Biome.Package) in zip(biome.packages.indices, biome.packages)
+            for (index, package):(Int, Package) in zip(biome.packages.indices, biome.packages)
             {
                 roots[package.id.root] = index
                 
@@ -73,10 +73,10 @@ extension Documentation
         }
         
         private 
-        func whitelist(imports:Set<Biome.Module.ID>, greenzone:Int?) -> Set<Int>
+        func whitelist(imports:Set<Module.ID>, greenzone:Int?) -> Set<Int>
         {
             var whitelist:Set<Int> = self.whitelist
-            for imported:Biome.Module.ID in imports
+            for imported:Module.ID in imports
             {
                 if let module:Int = self.trunks[imported.trunk]
                 {
@@ -331,7 +331,7 @@ extension Documentation
         }
         
         // helpers
-        func context(imports:Set<Biome.Module.ID>, greenzone:(namespace:Int, scope:[[UInt8]])?)
+        func context(imports:Set<Module.ID>, greenzone:(namespace:Int, scope:[[UInt8]])?)
             -> UnresolvedLinkContext
         {
             .init(whitelist: self.whitelist(imports: imports, greenzone: greenzone?.namespace), greenzone: greenzone)
@@ -363,9 +363,9 @@ extension Documentation
             switch index 
             {
             case nil, .packageSearchIndex?: 
-                throw Documentation.ArticleError.undefinedSymbolReference(link)
+                throw ArticleError.undefinedSymbolReference(link)
             case .ambiguous?:
-                throw Documentation.ArticleError.ambiguousSymbolReference(link)
+                throw ArticleError.ambiguousSymbolReference(link)
             case .article(let index)?: 
                 return .article(index)
             case .package(let index)?: 

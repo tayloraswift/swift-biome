@@ -29,7 +29,7 @@ extension Documentation
         var errors:[DirectiveArgumentText.ParseError]
         var path:[String]
         var format:Format
-        var imports:Set<Biome.Module.ID> 
+        var imports:Set<Module.ID> 
         
         var noTitle:Bool
         
@@ -65,7 +65,7 @@ extension Documentation
                         {
                             continue 
                         }
-                        self.imports.insert(Biome.Module.ID.init(imported))
+                        self.imports.insert(Module.ID.init(imported))
                     }
                 }
                 // @path(_:)

@@ -4,7 +4,37 @@ extension Documentation
     struct Catalog<Location>
     {
         @frozen public 
-        struct Article 
+        struct ModuleDescriptor 
+        {
+            public 
+            let core:GraphDescriptor
+            public 
+            let bystanders:[GraphDescriptor]
+            
+            @inlinable public
+            init(core:GraphDescriptor, bystanders:[GraphDescriptor])
+            {
+                self.core = core 
+                self.bystanders = bystanders
+            }
+        }
+        @frozen public 
+        struct GraphDescriptor 
+        {
+            public 
+            let namespace:Module.ID
+            public 
+            let location:Location
+            
+            @inlinable public
+            init(namespace:Module.ID, location:Location)
+            {
+                self.namespace = namespace 
+                self.location = location
+            }
+        }
+        @frozen public 
+        struct ArticleDescriptor 
         {
             public 
             let path:[String]
@@ -18,48 +48,17 @@ extension Documentation
                 self.location = location
             }
         }
-        @frozen public 
-        struct Module 
-        {
-            @frozen public 
-            struct Graph 
-            {
-                public 
-                let namespace:Biome.Module.ID
-                public 
-                let location:Location
-                
-                @inlinable public
-                init(namespace:Biome.Module.ID, location:Location)
-                {
-                    self.namespace = namespace 
-                    self.location = location
-                }
-            }
-            
-            public 
-            let core:Graph
-            public 
-            let bystanders:[Graph]
-            
-            @inlinable public
-            init(core:Graph, bystanders:[Graph])
-            {
-                self.core = core 
-                self.bystanders = bystanders
-            }
-        }
         
         public 
         let format:Format
         public
-        let package:Biome.Package.ID
+        let package:Package.ID
         public 
-        let modules:[Module],
-            articles:[Article]
+        let modules:[ModuleDescriptor],
+            articles:[ArticleDescriptor]
         
         @inlinable public
-        init(format:Format, package:Biome.Package.ID, articles:[Article], modules:[Module])
+        init(format:Format, package:Package.ID, modules:[ModuleDescriptor],articles:[ArticleDescriptor])
         {
             self.format = format
             self.package = package 

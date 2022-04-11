@@ -4,13 +4,13 @@ import JSON
 
 extension Documentation.Catalog 
 {
-    func load(core descriptor:Module.Graph, 
+    func load(core descriptor:GraphDescriptor, 
         with load:(Location, Resource.Text) async throws -> Resource) 
         async throws -> Graph
     {
         try await self.load(graph: descriptor, of: descriptor.namespace, with: load)
     }
-    func load(graph descriptor:Module.Graph, of perpetrator:Biome.Module.ID, 
+    func load(graph descriptor:GraphDescriptor, of perpetrator:Module.ID, 
         with load:(Location, Resource.Text) async throws -> Resource) 
         async throws -> Graph
     {
@@ -33,15 +33,16 @@ extension Documentation.Catalog
         return graph
     }
 }
+public 
 struct Graph 
 {
     struct LoadingError:Error 
     {
         let underlying:Error
-        let module:Biome.Module.ID, 
-            bystander:Biome.Module.ID?
+        let module:Module.ID, 
+            bystander:Module.ID?
         
-        init(_ underlying:Error, module:Biome.Module.ID, bystander:Biome.Module.ID?)
+        init(_ underlying:Error, module:Module.ID, bystander:Module.ID?)
         {
             self.underlying = underlying
             self.module     = module
@@ -50,34 +51,34 @@ struct Graph
     }
     enum AvailabilityError:Error 
     {
-        case duplicate(domain:Biome.Domain, in:Biome.Symbol.ID)
+        case duplicate(domain:Biome.Domain, in:Symbol.ID)
     }
     enum PackageError:Error 
     {
-        case duplicate(id:Biome.Package.ID)
+        case duplicate(id:Package.ID)
     }
     enum ModuleError:Error 
     {
-        case mismatchedExtension(id:Biome.Module.ID, expected:Biome.Module.ID, in:Biome.Symbol.ID)
-        case mismatched(id:Biome.Module.ID)
-        case duplicate(id:Biome.Module.ID)
-        case undefined(id:Biome.Module.ID)
+        case mismatchedExtension(id:Module.ID, expected:Module.ID, in:Symbol.ID)
+        case mismatched(id:Module.ID)
+        case duplicate(id:Module.ID)
+        case undefined(id:Module.ID)
     }
     enum SymbolError:Error 
     {
         // global errors 
         case disputed(Vertex, Vertex)
-        case undefined(id:Biome.Symbol.ID)
+        case undefined(id:Symbol.ID)
         
         // local errors
-        case synthetic(resolution:Biome.USR)
+        case synthetic(resolution:Symbol.USR)
         /// unique id is completely empty
         case unidentified
         /// unique id does not start with a supported language prefix (‘c’ or ‘s’)
         case unsupportedLanguage(code:UInt8)
     }
     
-    let perpetrator:Biome.Module.ID
+    let perpetrator:Module.ID
     private 
     let vertices:[Vertex]
     private 
@@ -91,13 +92,13 @@ struct Graph
         self.version = version
         (self.perpetrator, self.vertices, self.edges) = try json.lint(["metadata"]) 
         {
-            let edges:[Edge]            = try $0.remove("relationships") { try $0.map(Self.decode(edge:)) }
-            let vertices:[Vertex]       = try $0.remove("symbols")       { try $0.map(Self.decode(vertex:)) }
-            let module:Biome.Module.ID  = try $0.remove("module")
+            let edges:[Edge]      = try $0.remove("relationships") { try $0.map(Self.decode(edge:)) }
+            let vertices:[Vertex] = try $0.remove("symbols")       { try $0.map(Self.decode(vertex:)) }
+            let module:Module.ID  = try $0.remove("module")
             {
                 try $0.lint(["platform"]) 
                 {
-                    Biome.Module.ID.init(try $0.remove("name", as: String.self))
+                    Module.ID.init(try $0.remove("name", as: String.self))
                 }
             }
             return (module, vertices, edges)
@@ -122,8 +123,8 @@ struct Graph
         }
     }
     func populate(_ vertices:inout [Vertex], 
-        mythical:inout [Biome.Symbol.ID: Vertex],
-        indices:inout [Biome.Symbol.ID: Int]) 
+        mythical:inout [Symbol.ID: Vertex],
+        indices:inout [Symbol.ID: Int]) 
         throws -> Range<Int>
     {
         let start:Int = vertices.endIndex
@@ -163,7 +164,7 @@ struct Graph
 extension Graph 
 {
     static 
-    func decode(constraint json:JSON) throws -> SwiftConstraint<Biome.Symbol.ID> 
+    func decode(constraint json:JSON) throws -> SwiftConstraint<Symbol.ID> 
     {
         try json.lint 
         {
@@ -189,10 +190,10 @@ extension Graph
     }
 
     static 
-    func decode(id json:JSON) throws -> Biome.Symbol.ID
+    func decode(id json:JSON) throws -> Symbol.ID
     {
         let string:String = try json.as(String.self)
-        switch try Grammar.parse(string.utf8, as: Biome.USR.Rule<String.Index>.self)
+        switch try Grammar.parse(string.utf8, as: URI.Rule<String.Index, UInt8>.USR.self)
         {
         case .natural(let natural): 
             return natural 

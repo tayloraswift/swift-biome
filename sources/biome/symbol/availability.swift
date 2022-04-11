@@ -1,23 +1,5 @@
 extension Biome 
 {
-    public 
-    struct Version:CustomStringConvertible, Sendable
-    {
-        var major:Int 
-        var minor:Int?
-        var patch:Int?
-        
-        public 
-        var description:String 
-        {
-            switch (self.minor, self.patch)
-            {
-            case (nil       , nil):         return "\(self.major)"
-            case (let minor?, nil):         return "\(self.major).\(minor)"
-            case (let minor , let patch?):  return "\(self.major).\(minor ?? 0).\(patch)"
-            }
-        }
-    }
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/AvailabilityMixin.cpp
     enum Domain:String, Sendable, Hashable  
     {
@@ -53,6 +35,10 @@ extension Biome
             ]
         }
     }
+}
+
+extension Symbol 
+{
     struct UnconditionalAvailability:Sendable
     {
         var unavailable:Bool 
@@ -63,9 +49,9 @@ extension Biome
     struct SwiftAvailability:Sendable
     {
         // unconditionals not allowed 
-        var deprecated:Biome.Version?
-        var introduced:Biome.Version?
-        var obsoleted:Biome.Version?
+        var deprecated:Package.Version?
+        var introduced:Package.Version?
+        var obsoleted:Package.Version?
         var renamed:String?
         var message:String?
     }
@@ -73,9 +59,9 @@ extension Biome
     {
         var unavailable:Bool 
         // .some(nil) represents unconditional deprecation
-        var deprecated:Biome.Version??
-        var introduced:Biome.Version?
-        var obsoleted:Biome.Version?
+        var deprecated:Package.Version??
+        var introduced:Package.Version?
+        var obsoleted:Package.Version?
         var renamed:String?
         var message:String?
     }

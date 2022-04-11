@@ -1,4 +1,4 @@
-extension Biome.Symbol 
+extension Symbol 
 {
     enum Callable:Sendable 
     {
@@ -276,7 +276,7 @@ extension Biome.Symbol
                 guard let interface:Int = references.requirementOf 
                 else 
                 {
-                    throw Biome.SymbolLinkingError.island(associatedtype: index)
+                    throw Symbol.LinkingError.island(associatedtype: index)
                 }
                 self = .associatedtype(.init(
                     requirementOf: interface, 
@@ -317,7 +317,7 @@ extension Biome.Symbol
                 guard references.crimes.isEmpty 
                 else 
                 {
-                    throw Biome.SymbolLinkingError.crimes(references.crimes, in: kind, index) 
+                    throw Symbol.LinkingError.crimes(references.crimes, in: kind, index) 
                 }
             }
             // abstract and concrete types can have members 
@@ -330,12 +330,12 @@ extension Biome.Symbol
                 guard references.members.isEmpty 
                 else 
                 {
-                    throw Biome.SymbolLinkingError.members(references.members, in: kind, index) 
+                    throw Symbol.LinkingError.members(references.members, in: kind, index) 
                 }
                 guard references.upstream.isEmpty
                 else 
                 {
-                    throw Biome.SymbolLinkingError.conformances(references.upstream, in: kind, index) 
+                    throw Symbol.LinkingError.conformances(references.upstream, in: kind, index) 
                 }
             }
             // protocols can have conformers
@@ -348,12 +348,12 @@ extension Biome.Symbol
                 guard references.downstream.isEmpty
                 else
                 {
-                    throw Biome.SymbolLinkingError.conformers(references.downstream, in: kind, index) 
+                    throw Symbol.LinkingError.conformers(references.downstream, in: kind, index) 
                 }
                 guard references.requirements.isEmpty
                 else
                 {
-                    throw Biome.SymbolLinkingError.requirements(references.requirements, in: kind, index) 
+                    throw Symbol.LinkingError.requirements(references.requirements, in: kind, index) 
                 }
             }
             // classes can subclass things
@@ -366,11 +366,11 @@ extension Biome.Symbol
                 guard references.subclasses.isEmpty
                 else
                 {
-                    throw Biome.SymbolLinkingError.subclasses(references.subclasses, in: kind, index) 
+                    throw Symbol.LinkingError.subclasses(references.subclasses, in: kind, index) 
                 }
                 if let superclass:Int = references.superclass
                 {
-                    throw Biome.SymbolLinkingError.superclass(superclass, in: kind, index) 
+                    throw Symbol.LinkingError.superclass(superclass, in: kind, index) 
                 }
             }
             // callables and associatedtypes can be requirements 
@@ -386,12 +386,12 @@ extension Biome.Symbol
             default:
                 if let interface:Int = references.requirementOf
                 {
-                    throw Biome.SymbolLinkingError.requirementOf(interface, kind, index) 
+                    throw Symbol.LinkingError.requirementOf(interface, kind, index) 
                 }
                 // overrides are reciprocal 
                 if let overridden:Int = references.overrideOf
                 {
-                    throw Biome.SymbolLinkingError.overrideOf(overridden, kind, index) 
+                    throw Symbol.LinkingError.overrideOf(overridden, kind, index) 
                 }
             }
             // callables can be default implementations
@@ -409,7 +409,7 @@ extension Biome.Symbol
                 guard references.defaultImplementationOf.isEmpty 
                 else 
                 {
-                    throw Biome.SymbolLinkingError.defaultImplementationOf(references.defaultImplementationOf, kind, index) 
+                    throw Symbol.LinkingError.defaultImplementationOf(references.defaultImplementationOf, kind, index) 
                 }
             }
         }

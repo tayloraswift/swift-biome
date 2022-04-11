@@ -38,7 +38,7 @@ extension Documentation
     }
     func dynamicContent(module index:Int) -> (sections:[Element], cards:Set<Int>)
     {
-        let module:Biome.Module = self.biome.modules[index]
+        let module:Module = self.biome.modules[index]
         let groups:[Bool: [Int]] = self.biome.partition(symbols: module.toplevel)
         var sections:[Element] = []
         self.topics(self.biome.organize(symbols: groups[false, default: []], in: nil), heading: "Members").map 
@@ -53,7 +53,7 @@ extension Documentation
     }
     func dynamicContent(witness:Int) -> (sections:[Element], cards:Set<Int>)
     {
-        let symbol:Biome.Symbol     = self.biome.symbols[witness]
+        let symbol:Symbol     = self.biome.symbols[witness]
         
         let groups:[Bool: [Int]] = symbol.relationships.members.map(self.biome.partition(symbols:)) ?? [:]
         var cards:Set<Int> = symbol.relationships.members.map(self.biome.comments(backing:)).map(Set.init(_:)) ?? []
@@ -151,7 +151,7 @@ extension Documentation
     private 
     func card(witness:Int, victim:Int?) -> Element
     {
-        let symbol:Biome.Symbol     = self.biome.symbols[witness]
+        let symbol:Symbol = self.biome.symbols[witness]
         let availability:[Element]  = Self.availability(symbol.availability)
         var relationships:[Element] = []
         if  case nil = victim, 

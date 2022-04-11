@@ -586,7 +586,7 @@ extension Documentation
                             }
                             else 
                             {
-                                throw Documentation.CommentError.multipleReturnsFields(returns, section)
+                                throw ArticleError.multipleReturnsFields(returns, section)
                             }
                         case .aside(let section):
                             discussion.append(section)
@@ -691,7 +691,7 @@ extension Documentation
                 guard keywords.count == 1 
                 else 
                 {
-                    throw Documentation.CommentError.unsupportedMagicKeywords(keywords)
+                    throw ArticleError.unsupportedMagicKeywords(keywords)
                 }
                 return .parameters(try Self.parameters(in: content))
                 
@@ -699,12 +699,12 @@ extension Documentation
                 guard keywords.count == 2 
                 else 
                 {
-                    throw Documentation.CommentError.unsupportedMagicKeywords(keywords)
+                    throw ArticleError.unsupportedMagicKeywords(keywords)
                 }
                 let name:String = keywords[1]
                 if content.isEmpty
                 {
-                    throw Documentation.CommentError.emptyParameterField(name: name)
+                    throw ArticleError.emptyParameterField(name: name)
                 } 
                 return .parameters([(name, content)])
             
@@ -712,11 +712,11 @@ extension Documentation
                 guard keywords.count == 1 
                 else 
                 {
-                    throw Documentation.CommentError.unsupportedMagicKeywords(keywords)
+                    throw ArticleError.unsupportedMagicKeywords(keywords)
                 }
                 if content.isEmpty
                 {
-                    throw Documentation.CommentError.emptyReturnsField
+                    throw ArticleError.emptyReturnsField
                 }
                 return .returns(content)
             
@@ -724,7 +724,7 @@ extension Documentation
                 guard keywords.count == 1 
                 else 
                 {
-                    throw Documentation.CommentError.unsupportedMagicKeywords(keywords)
+                    throw ArticleError.unsupportedMagicKeywords(keywords)
                 }
                 return .aside(Element[.aside]
                 {
@@ -741,7 +741,7 @@ extension Documentation
                 })
                 
             default:
-                throw Documentation.CommentError.unsupportedMagicKeywords(keywords)
+                throw ArticleError.unsupportedMagicKeywords(keywords)
             }
         }
         
@@ -751,17 +751,17 @@ extension Documentation
             guard let first:Element = content.first 
             else 
             {
-                throw Documentation.CommentError.emptyParameterList
+                throw ArticleError.emptyParameterList
             }
             // look for a nested list 
             guard case .container(.ul, attributes: _, content: let items) = first 
             else 
             {
-                throw Documentation.CommentError.invalidParameterList(first)
+                throw ArticleError.invalidParameterList(first)
             }
             if let second:Element = content.dropFirst().first
             {
-                throw Documentation.CommentError.multipleParameterLists(first, second)
+                throw ArticleError.multipleParameterLists(first, second)
             }
             
             var parameters:[(name:String, comment:[Element])] = []
@@ -772,7 +772,7 @@ extension Documentation
                         let name:String = keywords.first, keywords.count == 1
                 else 
                 {
-                    throw Documentation.CommentError.invalidParameterListItem(item)
+                    throw ArticleError.invalidParameterListItem(item)
                 }
                 parameters.append((name, content))
             }

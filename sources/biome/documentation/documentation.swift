@@ -29,7 +29,7 @@ struct Documentation:Sendable
         symbols:[Article<ResolvedLink>.Content] 
     
     public 
-    var _packages:[Biome.Package.ID] 
+    var _packages:[Package.ID] 
     {
         self.biome.packages.map(\.id)
     }
@@ -57,12 +57,12 @@ struct Documentation:Sendable
         
         Swift.print("starting article loading")
         var articles:[Expatriate<Article<UnresolvedLink>>] = []
-        for (package, catalog):(Biome.Package, Catalog<Location>) in zip(biome.packages, catalogs)
+        for (package, catalog):(Package, Catalog<Location>) in zip(biome.packages, catalogs)
         {
-            for entry:Catalog<Location>.Article in catalog.articles 
+            for entry:Catalog<Location>.ArticleDescriptor in catalog.articles 
             {
                 // for now, we require every article path to begin with a module name
-                guard   let module:Biome.Module.ID = entry.path.first.map(Biome.Module.ID.init(_:)), 
+                guard   let module:Module.ID = entry.path.first.map(Module.ID.init(_:)), 
                         let module:Int = routing.trunks[module.trunk], package.modules ~= module 
                 else 
                 {
@@ -201,14 +201,14 @@ struct Documentation:Sendable
         self.biome      = _move(biome)
     }
     public 
-    func sitemap(for package:Biome.Package.ID) -> (uris:[String], hash:Resource.Version?)
+    func sitemap(for package:Package.ID) -> (uris:[String], hash:Resource.Version?)
     {
         guard let index:Int = self.biome.packages.index(of: package)
         else 
         {
             fatalError("unknown package '\(package)'")
         }
-        let package:Biome.Package = self.biome.packages[index]
+        let package:Package = self.biome.packages[index]
         
         var sitemap:[String] = []
         for index:Int in self.articles.indices where package.modules ~= self.articles[index].trunk
@@ -302,7 +302,7 @@ struct Documentation:Sendable
     // TODO: implement disambiguation pages so this can become non-optional
     subscript(index:Index) -> (payload:Resource, location:URI)?
     {
-        var _filter:[Biome.Package.ID] 
+        var _filter:[Package.ID] 
         {
             self.biome.packages.map(\.id)
         }

@@ -14,7 +14,7 @@ extension Documentation
         {
             enum DocC:Hashable, CustomStringConvertible 
             {
-                case kind(Biome.Symbol.Kind)
+                case kind(Symbol.Kind)
                 case hash(String)
             }
         }
@@ -121,7 +121,7 @@ extension Documentation.UnresolvedLink.Disambiguator.DocC
 {
     init(_ string:String)
     {
-        self = Biome.Symbol.Kind.init(rawValue: string).map(Self.kind(_:)) ?? .hash(string)
+        self = Symbol.Kind.init(rawValue: string).map(Self.kind(_:)) ?? .hash(string)
     }
     
     var description:String 

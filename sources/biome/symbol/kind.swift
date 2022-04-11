@@ -1,4 +1,4 @@
-extension Biome.Symbol 
+extension Symbol 
 {
     enum Kind:String, Sendable, Hashable
     {

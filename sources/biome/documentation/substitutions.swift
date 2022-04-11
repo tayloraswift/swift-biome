@@ -111,7 +111,7 @@ extension Documentation
     }
     
     private static 
-    func constants(filter:[Biome.Package.ID]) -> String
+    func constants(filter:[Package.ID]) -> String
     {
         // package name is alphanumeric, we should enforce this in 
         // `Package.ID`, otherwise this could be a security hole
@@ -132,11 +132,11 @@ extension Documentation
         substitutions[.discussion]      = article.content.discussion.map(self.fill(template:))
         return substitutions
     } 
-    func substitutions(article index:Int, filter:[Biome.Package.ID]) -> [Anchor: Element] 
+    func substitutions(article index:Int, filter:[Package.ID]) -> [Anchor: Element] 
     {
         let expatriate:Expatriate<Article<ResolvedLink>> = self.articles[index]
         let article:Article<ResolvedLink> = expatriate.conquistador
-        let module:Biome.Module = self.biome.modules[expatriate.trunk]
+        let module:Module = self.biome.modules[expatriate.trunk]
         var substitutions:[Anchor: Element] = 
         [
             .title:     .text(escaping: article.title), 
@@ -161,9 +161,9 @@ extension Documentation
         substitutions[.discussion]      = article.content.discussion.map(self.fill(template:))
         return substitutions
     } 
-    func substitutions(package index:Int, filter:[Biome.Package.ID]) -> [Anchor: Element] 
+    func substitutions(package index:Int, filter:[Package.ID]) -> [Anchor: Element] 
     {
-        let package:Biome.Package = self.biome.packages[index]
+        let package:Package = self.biome.packages[index]
         var substitutions:[Anchor: Element] = 
         [
             .title:     .text(escaping: package.name), 
@@ -200,9 +200,9 @@ extension Documentation
         }
         return substitutions
     }
-    func substitutions(module index:Int, filter:[Biome.Package.ID]) -> [Anchor: Element] 
+    func substitutions(module index:Int, filter:[Package.ID]) -> [Anchor: Element] 
     {
-        let module:Biome.Module = self.biome.modules[index]
+        let module:Module = self.biome.modules[index]
         let dynamic:(sections:[Element], cards:Set<Int>) = self.dynamicContent(module: index)
         var substitutions:[Anchor: Element] = 
         [
@@ -245,9 +245,9 @@ extension Documentation
         
         return substitutions
     }
-    func substitutions(witness:Int, victim:Int?, filter:[Biome.Package.ID]) -> [Anchor: Element] 
+    func substitutions(witness:Int, victim:Int?, filter:[Package.ID]) -> [Anchor: Element] 
     {
-        let symbol:Biome.Symbol = self.biome.symbols[witness]
+        let symbol:Symbol = self.biome.symbols[witness]
         let dynamic:(sections:[Element], cards:Set<Int>) = self.dynamicContent(witness: witness)
         
         var substitutions:[Anchor: Element] = 
@@ -386,7 +386,7 @@ extension Documentation
     }
     
     private 
-    func navigator(for symbol:Biome.Symbol, in scope:Int?) -> Element
+    func navigator(for symbol:Symbol, in scope:Int?) -> Element
     {
         var breadcrumbs:[Element]   = [ Element[.li] { symbol.title } ]
         var next:Int?               = scope ?? symbol.parent
@@ -409,7 +409,7 @@ extension Documentation
     }
     
     private static 
-    func declaration(for module:Biome.Module) -> Element
+    func declaration(for module:Module) -> Element
     {
         Element[.section]
         {
@@ -433,7 +433,7 @@ extension Documentation
         }
     }
     private 
-    func declaration(for symbol:Biome.Symbol) -> Element
+    func declaration(for symbol:Symbol) -> Element
     {
         Element[.section]
         {
@@ -456,12 +456,12 @@ extension Documentation
     }
     
     private static
-    func platforms(availability:[Biome.Domain: Biome.Availability]) -> Element?
+    func platforms(availability:[Biome.Domain: Symbol.Availability]) -> Element?
     {
         var platforms:[Element] = []
         for platform:Biome.Domain in Biome.Domain.platforms 
         {
-            if let availability:Biome.Availability = availability[platform]
+            if let availability:Symbol.Availability = availability[platform]
             {
                 if availability.unavailable 
                 {
@@ -488,7 +488,7 @@ extension Documentation
                         }
                     })
                 }
-                else if let version:Biome.Version = availability.introduced 
+                else if let version:Package.Version = availability.introduced 
                 {
                     platforms.append(Element[.li]
                     {
@@ -531,10 +531,10 @@ extension Documentation
     }
     
     static 
-    func availability(_ availability:(unconditional:Biome.UnconditionalAvailability?, swift:Biome.SwiftAvailability?)) -> [Element]
+    func availability(_ availability:(unconditional:Symbol.UnconditionalAvailability?, swift:Symbol.SwiftAvailability?)) -> [Element]
     {
         var availabilities:[Element] = []
-        if let availability:Biome.UnconditionalAvailability = availability.unconditional
+        if let availability:Symbol.UnconditionalAvailability = availability.unconditional
         {
             if availability.unavailable 
             {
@@ -545,17 +545,17 @@ extension Documentation
                 availabilities.append(Self.availability("Deprecated"))
             }
         }
-        if let availability:Biome.SwiftAvailability = availability.swift
+        if let availability:Symbol.SwiftAvailability = availability.swift
         {
-            if let version:Biome.Version = availability.obsoleted 
+            if let version:Package.Version = availability.obsoleted 
             {
                 availabilities.append(Self.availability("Obsolete", since: ("Swift", version)))
             } 
-            else if let version:Biome.Version = availability.deprecated 
+            else if let version:Package.Version = availability.deprecated 
             {
                 availabilities.append(Self.availability("Deprecated", since: ("Swift", version)))
             }
-            else if let version:Biome.Version = availability.introduced
+            else if let version:Package.Version = availability.introduced
             {
                 availabilities.append(Self.availability("Available", since: ("Swift", version)))
             }
@@ -563,7 +563,7 @@ extension Documentation
         return availabilities
     }
     private static 
-    func availability(_ adjective:String, since:(domain:String, version:Biome.Version)? = nil) -> Element
+    func availability(_ adjective:String, since:(domain:String, version:Package.Version)? = nil) -> Element
     {
         return Element[.li]
         {
@@ -573,7 +573,7 @@ extension Documentation
                 {
                     adjective
                 }
-                if let (domain, version):(String, Biome.Version) = since 
+                if let (domain, version):(String, Package.Version) = since 
                 {
                     " since \(domain) "
                     Element.span(version.description)

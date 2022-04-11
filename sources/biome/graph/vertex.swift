@@ -8,14 +8,14 @@ extension Graph
     struct Vertex
     {
         var isCanonical:Bool
-        var id:Biome.Symbol.ID,
-            kind:Biome.Symbol.Kind, 
+        var id:Symbol.ID,
+            kind:Symbol.Kind, 
             path:[String], 
             signature:Notebook<SwiftHighlight, Never>, 
-            declaration:Notebook<SwiftHighlight, Biome.Symbol.ID>, 
-            `extension`:(extendedModule:Biome.Module.ID, constraints:[SwiftConstraint<Biome.Symbol.ID>])?,
-            generics:(parameters:[Biome.Symbol.Generic], constraints:[SwiftConstraint<Biome.Symbol.ID>])?,
-            availability:[(key:Biome.Domain, value:Biome.Availability)],
+            declaration:Notebook<SwiftHighlight, Symbol.ID>, 
+            `extension`:(extendedModule:Module.ID, constraints:[SwiftConstraint<Symbol.ID>])?,
+            generics:(parameters:[Symbol.Generic], constraints:[SwiftConstraint<Symbol.ID>])?,
+            availability:[(key:Biome.Domain, value:Symbol.Availability)],
             comment:String
         
         static 
@@ -43,13 +43,13 @@ extension Graph
     {
         try json.lint 
         {
-            let (id, isCanonical):(Biome.Symbol.ID, Bool) = try $0.remove("identifier")
+            let (id, isCanonical):(Symbol.ID, Bool) = try $0.remove("identifier")
             {
                 let string:String = try $0.lint(["interfaceLanguage"])
                 {
                     try $0.remove("precise", as: String.self)
                 }
-                switch try Grammar.parse(string.utf8, as: Biome.USR.Rule<String.Index>.self)
+                switch try Grammar.parse(string.utf8, as: URI.Rule<String.Index, UInt8>.USR.self)
                 {
                 case .natural(let id): 
                     return (id, true)
@@ -57,19 +57,19 @@ extension Graph
                     return (id, false)
                 }
             }
-            let kind:Biome.Symbol.Kind = try $0.remove("kind")
+            let kind:Symbol.Kind = try $0.remove("kind")
             {
                 try $0.lint(["displayName"])
                 {
-                    try $0.remove("identifier") { try $0.case(of: Biome.Symbol.Kind.self) }
+                    try $0.remove("identifier") { try $0.case(of: Symbol.Kind.self) }
                 }
             }
             let path:[String] = try $0.remove("pathComponents") { try $0.map { try $0.as(String.self) } }
-            let _:Biome.Symbol.AccessLevel = try $0.remove("accessLevel") { try $0.case(of: Biome.Symbol.AccessLevel.self) }
+            let _:Symbol.AccessLevel = try $0.remove("accessLevel") { try $0.case(of: Symbol.AccessLevel.self) }
             
-            typealias SwiftFragment = (text:String, highlight:SwiftHighlight, link:Biome.Symbol.ID?)
+            typealias SwiftFragment = (text:String, highlight:SwiftHighlight, link:Symbol.ID?)
             
-            let declaration:Notebook<SwiftHighlight, Biome.Symbol.ID> = .init(
+            let declaration:Notebook<SwiftHighlight, Symbol.ID> = .init(
                 try $0.remove("declarationFragments") { try $0.map(Self.decode(fragment:)) })
             let signature:Notebook<SwiftHighlight, Never> = try $0.remove("names")
             {
@@ -77,7 +77,7 @@ extension Graph
                 {
                     try $0.remove("subHeading") { try $0.map(Self.decode(fragment:)) }
                 }
-                return Notebook<SwiftHighlight, Biome.Symbol.ID>.init(signature).compactMapLinks 
+                return Notebook<SwiftHighlight, Symbol.ID>.init(signature).compactMapLinks 
                 {
                     _ in Never?.none
                 }
@@ -104,10 +104,10 @@ extension Graph
             {
                 _ in ()
             }
-            let `extension`:(extendedModule:Biome.Module.ID, constraints:[SwiftConstraint<Biome.Symbol.ID>])? = 
+            let `extension`:(extendedModule:Module.ID, constraints:[SwiftConstraint<Symbol.ID>])? = 
                 try $0.pop("swiftExtension")
             {
-                let (module, constraints):(String, [SwiftConstraint<Biome.Symbol.ID>]) = try $0.lint
+                let (module, constraints):(String, [SwiftConstraint<Symbol.ID>]) = try $0.lint
                 {
                     (
                         try $0.remove("extendedModule", as: String.self),
@@ -116,7 +116,7 @@ extension Graph
                 }
                 return (.init(module), constraints)
             }
-            let generics:(parameters:[Biome.Symbol.Generic], constraints:[SwiftConstraint<Biome.Symbol.ID>])? = 
+            let generics:(parameters:[Symbol.Generic], constraints:[SwiftConstraint<Symbol.ID>])? = 
                 try $0.pop("swiftGenerics")
             {
                 try $0.lint 
@@ -127,22 +127,22 @@ extension Graph
                     )
                 }
             }
-            let availability:[(key:Biome.Domain, value:Biome.Availability)]? = 
+            let availability:[(key:Biome.Domain, value:Symbol.Availability)]? = 
                 try $0.pop("availability", as: [JSON]?.self)
             {
                 try $0.map 
                 {
                     try $0.lint
                     {
-                        let deprecated:Biome.Version?? = try
+                        let deprecated:Package.Version?? = try
                             $0.pop("deprecated", Self.decode(version:)) ?? 
                             $0.pop("isUnconditionallyDeprecated", as: Bool?.self).flatMap 
                         {
-                            (flag:Bool) -> Biome.Version?? in 
+                            (flag:Bool) -> Package.Version?? in 
                             flag ? .some(nil) : nil
                         } 
                         // possible be both unconditionally unavailable and unconditionally deprecated
-                        let availability:Biome.Availability = .init(
+                        let availability:Symbol.Availability = .init(
                             unavailable: try $0.pop("isUnconditionallyUnavailable", as: Bool?.self) ?? false,
                             deprecated: deprecated,
                             introduced: try $0.pop("introduced", Self.decode(version:)),
@@ -184,7 +184,7 @@ extension Graph
         }
     }
     private static 
-    func decode(version json:JSON) throws -> Biome.Version
+    func decode(version json:JSON) throws -> Package.Version
     {
         try json.lint 
         {
@@ -195,7 +195,7 @@ extension Graph
         }
     }
     private static 
-    func decode(generic json:JSON) throws -> Biome.Symbol.Generic
+    func decode(generic json:JSON) throws -> Symbol.Generic
     {
         try json.lint 
         {
@@ -210,14 +210,14 @@ extension Graph
     (
         text:String, 
         highlight:SwiftHighlight, 
-        link:Biome.Symbol.ID?
+        link:Symbol.ID?
     )
     {
         try json.lint 
         {
-            let text:String                 = try $0.remove("spelling", as: String.self)
-            let link:Biome.Symbol.ID?       = try $0.pop("preciseIdentifier", Self.decode(id:))
-            let highlight:SwiftHighlight    = try $0.remove("kind")
+            let text:String = try $0.remove("spelling", as: String.self)
+            let link:Symbol.ID? = try $0.pop("preciseIdentifier", Self.decode(id:))
+            let highlight:SwiftHighlight = try $0.remove("kind")
             {
                 // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/DeclarationFragmentPrinter.cpp
                 switch try $0.as(String.self) as String
