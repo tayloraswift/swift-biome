@@ -1,547 +1,547 @@
-extension Documentation 
+struct RoutingTable 
 {
-    struct RoutingTable 
+    typealias URI = Documentation.URI 
+    typealias Index = Documentation.Index
+    
+    let base:(biome:String, learn:String)
+    
+    let whitelist:Set<Int> // module indices
+    private(set)
+    var greenlist:Set<UInt>, // leaf keys
+        overloads:[URI.Query: URI.Overloading],
+        routes:[URI.Resolved: Index],
+        greens:[[UInt8]: UInt]
+    let trunks:[[UInt8]: Int], 
+        roots:[[UInt8]: Int]
+    
+    init(bases:[URI.Base: String], biome:Biome) 
     {
-        let base:(biome:String, learn:String)
+        self.base.biome = bases[.biome, default: "/biome"]
+        self.base.learn = bases[.learn, default: "/learn"]
         
-        let whitelist:Set<Int> // module indices
-        private(set)
-        var greenlist:Set<UInt>, // leaf keys
-            overloads:[URI.Query: URI.Overloading],
-            routes:[URI.Resolved: Index],
-            greens:[[UInt8]: UInt]
-        let trunks:[[UInt8]: Int], 
-            roots:[[UInt8]: Int]
-        
-        init(bases:[URI.Base: String], biome:Biome) 
+        var whitelist:Set<Int>      = [ ]
+        var roots:[[UInt8]: Int]    = [:]
+        for (index, package):(Int, Package) in zip(biome.packages.indices, biome.packages)
         {
-            self.base.biome = bases[.biome, default: "/biome"]
-            self.base.learn = bases[.learn, default: "/learn"]
+            roots[package.id.root] = index
             
-            var whitelist:Set<Int>      = [ ]
-            var roots:[[UInt8]: Int]    = [:]
-            for (index, package):(Int, Package) in zip(biome.packages.indices, biome.packages)
+            if case .swift = package.id 
             {
-                roots[package.id.root] = index
-                
-                if case .swift = package.id 
+                // redirect standard library names 
+                for name:String in 
+                [
+                    "standard-library", 
+                    "swift-stdlib", 
+                    "stdlib"
+                ]
                 {
-                    // redirect standard library names 
-                    for name:String in 
-                    [
-                        "standard-library", 
-                        "swift-stdlib", 
-                        "stdlib"
-                    ]
-                    {
-                        roots[[UInt8].init(name.utf8)] = index
-                    }
-                    // whitelist standard library modules 
-                    whitelist.formUnion(package.modules)
+                    roots[[UInt8].init(name.utf8)] = index
                 }
-            }
-            self.roots      = roots
-            self.trunks     = .init(uniqueKeysWithValues: 
-                zip(biome.modules.indices, biome.modules).map { ($0.1.id.trunk, $0.0) })
-            self.greens     = [[]: 0]
-            self.routes     = [:]
-            self.overloads  = [:]
-            self.greenlist  = [ ]
-            self.whitelist  = whitelist
-            
-            for index:Int in biome.packages.indices
-            {
-                self.publish(packageSearchIndex: index, from: biome)
-                self.publish(package: index, from: biome)
-            }
-            for index:Int in biome.modules.indices
-            {
-                self.publish(module: index, from: biome)
-            }
-            for index:Int in biome.symbols.indices
-            {
-                self.publish(witness: index, victim: nil, from: biome)
-                for member:Int in biome.symbols[index].relationships.members ?? []
-                {
-                    if  let interface:Int = biome.symbols[member].parent, 
-                            interface != index 
-                    {
-                        self.publish(witness: member, victim: index, from: biome)
-                    }
-                }
+                // whitelist standard library modules 
+                whitelist.formUnion(package.modules)
             }
         }
+        self.roots      = roots
+        self.trunks     = .init(uniqueKeysWithValues: 
+            zip(biome.modules.indices, biome.modules).map { ($0.1.id.trunk, $0.0) })
+        self.greens     = [[]: 0]
+        self.routes     = [:]
+        self.overloads  = [:]
+        self.greenlist  = [ ]
+        self.whitelist  = whitelist
         
-        private 
-        func whitelist(imports:Set<Module.ID>, greenzone:Int?) -> Set<Int>
+        for index:Int in biome.packages.indices
         {
-            var whitelist:Set<Int> = self.whitelist
-            for imported:Module.ID in imports
+            self.publish(packageSearchIndex: index, from: biome)
+            self.publish(package: index, from: biome)
+        }
+        for index:Int in biome.modules.indices
+        {
+            self.publish(module: index, from: biome)
+        }
+        for index:Int in biome.symbols.indices
+        {
+            self.publish(witness: index, victim: nil, from: biome)
+            for member:Int in biome.symbols[index].relationships.members ?? []
             {
-                if let module:Int = self.trunks[imported.trunk]
+                if  let interface:Int = biome.symbols[member].parent, 
+                        interface != index 
                 {
-                    whitelist.insert(module)
-                }
-                else 
-                {
-                    Swift.print("warning: unknown module '\(imported)'")
+                    self.publish(witness: member, victim: index, from: biome)
                 }
             }
-            if let namespace:Int = greenzone
+        }
+    }
+    
+    private 
+    func whitelist(imports:Set<Module.ID>, greenzone:Int?) -> Set<Int>
+    {
+        var whitelist:Set<Int> = self.whitelist
+        for imported:Module.ID in imports
+        {
+            if let module:Int = self.trunks[imported.trunk]
             {
-                whitelist.insert(namespace)
-            }
-            return whitelist
-        }
-        
-        private mutating 
-        func register(green key:[UInt8]) -> UInt 
-        {
-            var counter:UInt = .init(self.greens.count)
-            self.greens.merge(CollectionOfOne<([UInt8], UInt)>.init((key, counter))) 
-            { 
-                (current:UInt, _:UInt) in 
-                counter = current 
-                return current 
-            }
-            return counter
-        }
-        
-        mutating 
-        func publish<Alien>(expatriate:Expatriate<Alien>, under index:Index) 
-            where Alien:GreenAlien
-        {
-            // TODO: decouple this from .article
-            self.publish(index, 
-                disambiguated: .article(expatriate.trunk, 
-                    stem: self.register(green: URI.concatenate(normalized: expatriate.stem)),
-                    leaf: self.register(green:                             expatriate.leaf)))
-        }
-        
-        private mutating 
-        func publish(packageSearchIndex package:Int, from biome:Biome) 
-        {
-            self.publish(.packageSearchIndex(package), 
-                disambiguated: .package(package, 
-                stem:   self.register(green: URI.concatenate(normalized: biome.stem(packageSearchIndex: package))), 
-                leaf:   self.register(green: biome.leaf(packageSearchIndex: package))))
-        }
-        private mutating 
-        func publish(package:Int, from biome:Biome) 
-        {
-            self.publish(.package(package), disambiguated: 
-                .package(package, stem: 0, leaf: 0))
-        }
-        private mutating 
-        func publish(module:Int, from biome:Biome) 
-        {
-            self.publish(.module(module), disambiguated: 
-                .namespaced(module, stem: 0, leaf: 0, overload: nil))
-        }
-        private mutating 
-        func publish(witness:Int, victim:Int?, from biome:Biome) 
-        {
-            var selector:URI.Resolved, 
-                amount:URI.Overloading? = nil
-            if let namespace:Int = biome.symbols[victim ?? witness].namespace
-            {
-                let normalized:(stem:[[UInt8]], leaf:[UInt8]) = biome.stem(witness: witness, victim: victim)
-                let stem:UInt   = self.register(green: URI.concatenate(normalized: normalized.stem))
-                let leaf:UInt   = self.register(green: normalized.leaf)
-                // greenlist operator leaves so they can recieve permanent redirects 
-                // instead of temporary redirects 
-                if case .operator = biome.symbols[witness].kind 
-                {
-                    self.greenlist.insert(leaf)
-                }
-                selector = .namespaced(namespace, stem: stem, leaf: leaf, overload: nil)
+                whitelist.insert(module)
             }
             else 
             {
-                // mythical 
-                selector = .resolution(witness: witness, victim: nil)
+                Swift.print("warning: unknown module '\(imported)'")
             }
-            while let index:Dictionary<URI.Resolved, Index>.Index = self.routes.index(forKey: selector)
+        }
+        if let namespace:Int = greenzone
+        {
+            whitelist.insert(namespace)
+        }
+        return whitelist
+    }
+    
+    private mutating 
+    func register(green key:[UInt8]) -> UInt 
+    {
+        var counter:UInt = .init(self.greens.count)
+        self.greens.merge(CollectionOfOne<([UInt8], UInt)>.init((key, counter))) 
+        { 
+            (current:UInt, _:UInt) in 
+            counter = current 
+            return current 
+        }
+        return counter
+    }
+    
+    mutating 
+    func publish<Alien>(expatriate:Expatriate<Alien>, under index:Index) 
+        where Alien:GreenAlien
+    {
+        // TODO: decouple this from .article
+        self.publish(index, 
+            disambiguated: .article(expatriate.trunk, 
+                stem: self.register(green: URI.concatenate(normalized: expatriate.stem)),
+                leaf: self.register(green:                             expatriate.leaf)))
+    }
+    
+    private mutating 
+    func publish(packageSearchIndex package:Int, from biome:Biome) 
+    {
+        self.publish(.packageSearchIndex(package), 
+            disambiguated: .package(package, 
+            stem:   self.register(green: URI.concatenate(normalized: biome.stem(packageSearchIndex: package))), 
+            leaf:   self.register(green: biome.leaf(packageSearchIndex: package))))
+    }
+    private mutating 
+    func publish(package:Int, from biome:Biome) 
+    {
+        self.publish(.package(package), disambiguated: 
+            .package(package, stem: 0, leaf: 0))
+    }
+    private mutating 
+    func publish(module:Int, from biome:Biome) 
+    {
+        self.publish(.module(module), disambiguated: 
+            .namespaced(module, stem: 0, leaf: 0, overload: nil))
+    }
+    private mutating 
+    func publish(witness:Int, victim:Int?, from biome:Biome) 
+    {
+        var selector:URI.Resolved, 
+            amount:URI.Overloading? = nil
+        if let namespace:Int = biome.symbols[victim ?? witness].namespace
+        {
+            let normalized:(stem:[[UInt8]], leaf:[UInt8]) = biome.stem(witness: witness, victim: victim)
+            let stem:UInt   = self.register(green: URI.concatenate(normalized: normalized.stem))
+            let leaf:UInt   = self.register(green: normalized.leaf)
+            // greenlist operator leaves so they can recieve permanent redirects 
+            // instead of temporary redirects 
+            if case .operator = biome.symbols[witness].kind 
             {
-                switch self.routes.values[index] 
-                {
-                case .symbol(let witness, victim: let victim):
-                    // prevents us from accidentally filling in the ambiguous slot in 
-                    // a subsequent call
-                    self.routes.values[index]   = .ambiguous 
-                    // this will never crash unless `self.disambiguate(_:with:victim)`
-                    // does, because it always adds a parameter on its non-trapping paths 
-                    var location:URI.Resolved   = self.routes.keys[index]
-                    let amount:URI.Overloading  = self.disambiguate(&location, with: witness, victim: victim)
-                    self.overloads.updateValue(amount, forKey: .init(witness: witness, victim: victim))
-                    self.publish(.symbol(witness, victim: victim), disambiguated: location)
-                    fallthrough
-                
-                case .ambiguous:
-                    amount = self.disambiguate(&selector, with: witness, victim: victim)
-                    
-                default: 
-                    fatalError("unreachable")
-                }
+                self.greenlist.insert(leaf)
             }
-            if let amount:URI.Overloading  = amount
+            selector = .namespaced(namespace, stem: stem, leaf: leaf, overload: nil)
+        }
+        else 
+        {
+            // mythical 
+            selector = .resolution(witness: witness, victim: nil)
+        }
+        while let index:Dictionary<URI.Resolved, Index>.Index = self.routes.index(forKey: selector)
+        {
+            switch self.routes.values[index] 
             {
+            case .symbol(let witness, victim: let victim):
+                // prevents us from accidentally filling in the ambiguous slot in 
+                // a subsequent call
+                self.routes.values[index]   = .ambiguous 
+                // this will never crash unless `self.disambiguate(_:with:victim)`
+                // does, because it always adds a parameter on its non-trapping paths 
+                var location:URI.Resolved   = self.routes.keys[index]
+                let amount:URI.Overloading  = self.disambiguate(&location, with: witness, victim: victim)
                 self.overloads.updateValue(amount, forKey: .init(witness: witness, victim: victim))
-            }
-            self.publish(.symbol(witness, victim: victim), disambiguated: selector)
-        }
-        private mutating 
-        func publish(_ index:Index, disambiguated key:URI.Resolved)
-        {
-            if let colliding:Index = self.routes.updateValue(index, forKey: key)
-            {
-                fatalError("colliding paths \(key) -> (\(index), \(colliding))")
-            }
-        }
-        private mutating 
-        func disambiguate(_ selector:inout URI.Resolved, with witness:Int, victim:Int?) -> URI.Overloading
-        {
-            switch (selector, victim) 
-            {
-            // things we can disambiguate
-            case    (                                  .resolution(witness: witness, victim: nil), let victim?),
-                    (.namespaced(_,             stem: _, leaf: _, overload: witness),              let victim?):
-                selector =                             .resolution(witness: witness,           victim: victim)
-                return .crime 
-            case    (.namespaced(let namespace, stem: let stem, leaf: let leaf, overload: nil),    _):
-                selector = .namespaced(namespace, stem:   stem, leaf:     leaf, overload: witness)
-                return .witness 
+                self.publish(.symbol(witness, victim: victim), disambiguated: location)
+                fallthrough
+            
+            case .ambiguous:
+                amount = self.disambiguate(&selector, with: witness, victim: victim)
+                
             default: 
                 fatalError("unreachable")
             }
         }
-        
-        // uri resolution 
-        func resolve(overload witness:Int, self victim:Int) -> Index? 
+        if let amount:URI.Overloading  = amount
         {
-            self.routes[.resolution(witness: witness, victim: victim)]
+            self.overloads.updateValue(amount, forKey: .init(witness: witness, victim: victim))
         }
-        func resolve(mythical witness:Int) -> Index?
+        self.publish(.symbol(witness, victim: victim), disambiguated: selector)
+    }
+    private mutating 
+    func publish(_ index:Index, disambiguated key:URI.Resolved)
+    {
+        if let colliding:Index = self.routes.updateValue(index, forKey: key)
         {
-            self.routes[.resolution(witness: witness, victim: nil)]
+            fatalError("colliding paths \(key) -> (\(index), \(colliding))")
         }
-        func resolve(base:URI.Base, path:URI.Path, overload witness:Int?) -> (index:Index, assigned:Bool)? 
+    }
+    private mutating 
+    func disambiguate(_ selector:inout URI.Resolved, with witness:Int, victim:Int?) -> URI.Overloading
+    {
+        switch (selector, victim) 
         {
-            var components:Array<[UInt8]>.Iterator  = path.stem.makeIterator()
-            guard let first:[UInt8]     = components.next()
-            else 
-            {
-                return nil
-            }
-            guard let root:Int          = self.roots[first]
-            else 
-            {
-                if  let trunk:Int       = self.trunks[first], 
-                    let (index, assigned):(Index, assigned:Bool) = self.resolve(base: base, 
-                        namespace: trunk, 
-                        stem: path.stem.dropFirst(), 
-                        leaf: path.leaf, 
-                        overload: witness)
-                {
-                    // only allow whitelisted modules to be referenced without a package prefix
-                    return (index, assigned ? self.whitelist.contains(trunk) : false)
-                }
-                else 
-                {
-                    return nil
-                }
-            }
-            if  let second:[UInt8]  = components.next(),
-                let trunk:Int       = self.trunks[second]
-            {
-                return self.resolve(base: base, 
+        // things we can disambiguate
+        case    (                                  .resolution(witness: witness, victim: nil), let victim?),
+                (.namespaced(_,             stem: _, leaf: _, overload: witness),              let victim?):
+            selector =                             .resolution(witness: witness,           victim: victim)
+            return .crime 
+        case    (.namespaced(let namespace, stem: let stem, leaf: let leaf, overload: nil),    _):
+            selector = .namespaced(namespace, stem:   stem, leaf:     leaf, overload: witness)
+            return .witness 
+        default: 
+            fatalError("unreachable")
+        }
+    }
+    
+    // uri resolution 
+    func resolve(overload witness:Int, self victim:Int) -> Index? 
+    {
+        self.routes[.resolution(witness: witness, victim: victim)]
+    }
+    func resolve(mythical witness:Int) -> Index?
+    {
+        self.routes[.resolution(witness: witness, victim: nil)]
+    }
+    func resolve(base:URI.Base, path:URI.Path, overload witness:Int?) -> (index:Index, assigned:Bool)? 
+    {
+        var components:Array<[UInt8]>.Iterator  = path.stem.makeIterator()
+        guard let first:[UInt8]     = components.next()
+        else 
+        {
+            return nil
+        }
+        guard let root:Int          = self.roots[first]
+        else 
+        {
+            if  let trunk:Int       = self.trunks[first], 
+                let (index, assigned):(Index, assigned:Bool) = self.resolve(base: base, 
                     namespace: trunk, 
-                    stem: path.stem.dropFirst(2), 
+                    stem: path.stem.dropFirst(), 
                     leaf: path.leaf, 
                     overload: witness)
-            }
-            guard   let stem:UInt   = self.greens[URI.concatenate(normalized: path.stem.dropFirst())],
-                    let leaf:UInt   = self.greens[path.leaf]
-            else 
             {
-                return nil
-            }
-            return self.routes[.package(root, stem: stem, leaf: leaf)].map { ($0, true) }
-        }
-        func resolve(base:URI.Base, namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) 
-            -> (index:Index, assigned:Bool)?
-        {
-            switch (base, overload) 
-            {
-            case (.biome, _):   
-                if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
-                    let leafKey:UInt    = self.greens[leaf], 
-                    let index:Index     = self.routes[.namespaced(namespace, stem: stemKey, leaf: leafKey, overload: overload)]
-                {
-                    return (index, true)
-                }
-                // for backwards-compatibility, try reinterpreting the last stem 
-                // component as a leaf. only do this if we don’t already have a leaf. 
-                // since swift prohibits operators from containing a dot '.' unless 
-                // they begin with a dot, we will not miss any operator redirects.
-                //
-                // note that this is not where the range operator redirect happens; 
-                // that is handled by `normalize(path:changed:)`, since it generates an 
-                // empty stem component at the end.
-                guard leaf.isEmpty,
-                    let last:[UInt8]    = stem.last,
-                    let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem.dropLast())], 
-                    let leafKey:UInt    = self.greens[last]
-                else 
-                {
-                    return nil
-                }
-                let fallback:URI.Resolved = .namespaced(namespace, stem: stemKey, leaf: leafKey, overload: overload)
-                // only allow greenlisted leaves (currently, operators) to recieve a 
-                // permanent redirect
-                if  self.greenlist.contains(leafKey),
-                    let index:Index     = self.routes[fallback]
-                {
-                    return (index, true)
-                }
-                else if stem.dropFirst().isEmpty,
-                    let index:Index     = self.routes[fallback]
-                {
-                    // global funcs and vars. these are temporary redirects
-                    return (index, false)
-                }
-                else 
-                {
-                    return nil
-                }
-            case (.learn, _?):  
-                return nil
-            case (.learn, nil):  
-                if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
-                    let leafKey:UInt    = self.greens[leaf], 
-                    let index:Index     = self.routes[.article(namespace, stem: stemKey, leaf: leafKey)]
-                {
-                    return (index, true)
-                }
-                else 
-                {
-                    return nil
-                }
-            }
-        }
-        
-        // helpers
-        func context(imports:Set<Module.ID>, greenzone:(namespace:Int, scope:[[UInt8]])?)
-            -> UnresolvedLinkContext
-        {
-            .init(whitelist: self.whitelist(imports: imports, greenzone: greenzone?.namespace), greenzone: greenzone)
-        }
-        // FIXME: these are dropping the links if resolution fails!!!
-        // we should show a reasonable fallback instead...
-        func resolve(article:Article<UnresolvedLink>.Content, context:UnresolvedLinkContext) -> Article<ResolvedLink>.Content 
-        {
-            article.compactMapAnchors
-            {
-                // since symbols can always be referenced with a symbol link, 
-                // prefer article resolutions over symbol resolutions
-                (try? self.resolve(base: .learn, link: $0, context: context)) ??
-                (try? self.resolve(base: .biome, link: $0, context: context))
-            }
-        }
-        func resolve(base:URI.Base, link:UnresolvedLink, context:UnresolvedLinkContext) throws -> ResolvedLink 
-        {
-            let index:Index?
-            switch link
-            {
-            case .preresolved(let resolved): 
-                return resolved
-            case .entrapta(absolute: let absolute, let path, count: _):
-                index = self.resolveEntrapta(base: base, path: path, absolute: absolute, context: context)
-            case .docc(let stem, let suffix):
-                index = self.resolveDocC(base: base, stem: stem, suffix: suffix, context: context)
-            }
-            switch index 
-            {
-            case nil, .packageSearchIndex?: 
-                throw ArticleError.undefinedSymbolReference(link)
-            case .ambiguous?:
-                throw ArticleError.ambiguousSymbolReference(link)
-            case .article(let index)?: 
-                return .article(index)
-            case .package(let index)?: 
-                return .package(index)
-            case .module(let index)?: 
-                return .module(index)
-            case .symbol(let witness, victim: let victim)?: 
-                return .symbol(witness, victim: victim, components: link.components)
-            }
-        }
-        private 
-        func resolveEntrapta(base:URI.Base, path:URI.Path, absolute:Bool, 
-            context:UnresolvedLinkContext) 
-            -> Index?
-        {
-            if absolute
-            {
-                return self.resolve(base: base, path: path, overload: nil)?.index
-            }
-            var candidates:[Index] = []
-            //  assume link is *module-absolute*, contains module prefix. 
-            //  check this *first*, so that we can reference a module like 
-            //  `JSON` as `JSON`, and its type of the same name as `JSON/JSON`.
-            if  let trunk:Int = path.stem.first.map({ self.trunks[$0] }) ?? nil, 
-                context.whitelist.contains(trunk)
-            {
-                if  case (let index, _)? = 
-                    self.resolve(base: base, namespace: trunk, stem: path.stem.dropFirst(), leaf: path.leaf, overload: nil)
-                {
-                    candidates.append(index)
-                }
-            }
-            // FIXME: we should be diagnosing ambiguous references
-            if let index:Index = candidates.first 
-            {
-                return index 
-            }
-            //  assume link is *relative*
-            if case (let trunk, let scope)? = context.greenzone, !scope.isEmpty
-            {
-                let stem:[[UInt8]] = scope + path.stem
-                if  case (let index, _)? = 
-                    self.resolve(base: base, namespace: trunk, stem: stem[...], leaf: path.leaf, overload: nil)
-                {
-                    candidates.append(index)
-                }
-                else if path.leaf.isEmpty, path.stem.count == 1, 
-                    case (let index, _)? = 
-                    self.resolve(base: base, namespace: trunk, stem: stem.dropLast(), leaf: path.stem[0], overload: nil)
-                {
-                    // for single-component relative member references 
-                    candidates.append(index)
-                }
-            }
-            // FIXME: we should be diagnosing ambiguous references
-            if let index:Index = candidates.first 
-            {
-                return index 
-            }
-            //  assume link is *module-absolute*
-            for trunk:Int in context.whitelist 
-            {
-                if  case (let index, _)? = 
-                    self.resolve(base: base, namespace: trunk, stem: path.stem[...], leaf: path.leaf, overload: nil)
-                {
-                    candidates.append(index)
-                }
-                else if path.leaf.isEmpty, path.stem.count == 1, 
-                    case (let index, _)? = 
-                    self.resolve(base: base, namespace: trunk, stem: [], leaf: path.stem[0], overload: nil)
-                {
-                    // for single-component relative member references 
-                    candidates.append(index)
-                }
-            }
-            // FIXME: we should be diagnosing ambiguous references
-            if let index:Index = candidates.first 
-            {
-                return index 
+                // only allow whitelisted modules to be referenced without a package prefix
+                return (index, assigned ? self.whitelist.contains(trunk) : false)
             }
             else 
             {
                 return nil
             }
         }
-        private 
-        func resolveDocC(base:URI.Base, stem:[[UInt8]], suffix:UnresolvedLink.Disambiguator.DocC?, 
-            context:UnresolvedLinkContext) 
-            -> Index?
+        if  let second:[UInt8]  = components.next(),
+            let trunk:Int       = self.trunks[second]
         {
-            let capitalized:Bool
-            let lowercased:Bool
-            if case .learn = base 
+            return self.resolve(base: base, 
+                namespace: trunk, 
+                stem: path.stem.dropFirst(2), 
+                leaf: path.leaf, 
+                overload: witness)
+        }
+        guard   let stem:UInt   = self.greens[URI.concatenate(normalized: path.stem.dropFirst())],
+                let leaf:UInt   = self.greens[path.leaf]
+        else 
+        {
+            return nil
+        }
+        return self.routes[.package(root, stem: stem, leaf: leaf)].map { ($0, true) }
+    }
+    func resolve(base:URI.Base, namespace:Int, stem:ArraySlice<[UInt8]>, leaf:[UInt8], overload:Int?) 
+        -> (index:Index, assigned:Bool)?
+    {
+        switch (base, overload) 
+        {
+        case (.biome, _):   
+            if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
+                let leafKey:UInt    = self.greens[leaf], 
+                let index:Index     = self.routes[.namespaced(namespace, stem: stemKey, leaf: leafKey, overload: overload)]
             {
-                // never do leaf transformations for article URIs
-                capitalized = true
-                lowercased = false
+                return (index, true)
             }
-            else if case .kind(let kind)? = suffix 
-            {
-                capitalized = kind.capitalized
-                lowercased = !kind.capitalized
-            }
+            // for backwards-compatibility, try reinterpreting the last stem 
+            // component as a leaf. only do this if we don’t already have a leaf. 
+            // since swift prohibits operators from containing a dot '.' unless 
+            // they begin with a dot, we will not miss any operator redirects.
+            //
+            // note that this is not where the range operator redirect happens; 
+            // that is handled by `normalize(path:changed:)`, since it generates an 
+            // empty stem component at the end.
+            guard leaf.isEmpty,
+                let last:[UInt8]    = stem.last,
+                let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem.dropLast())], 
+                let leafKey:UInt    = self.greens[last]
             else 
             {
-                // we don’t know if this docc link is capitalized or not
-                capitalized = true
-                lowercased  = true
+                return nil
             }
-            var candidates:[Index] = []
-            //  assume link is *absolute*, contains module prefix. 
-            //  check this *first*, so that we can reference a module like 
-            //  `JSON` as `JSON`, and its type of the same name as `JSON.JSON`.
-            if  let namespace:Int = stem.first.map({ self.trunks[$0] }) ?? nil, 
-                context.whitelist.contains(namespace)
+            let fallback:URI.Resolved = .namespaced(namespace, stem: stemKey, leaf: leafKey, overload: overload)
+            // only allow greenlisted leaves (currently, operators) to recieve a 
+            // permanent redirect
+            if  self.greenlist.contains(leafKey),
+                let index:Index     = self.routes[fallback]
             {
-                let stem:ArraySlice<[UInt8]> = stem.dropFirst()
-                if  capitalized, case (let index, _)? = 
-                    self.resolve(base: base, namespace: namespace, stem: stem, leaf: [], overload: nil)
-                {
-                    candidates.append(index)
-                }
-                if  lowercased, let leaf:[UInt8] = stem.last, case (let index, _)? = 
-                    self.resolve(base: base, namespace: namespace, stem: stem.dropFirst(), leaf: leaf, overload: nil)
-                {
-                    candidates.append(index)
-                }
+                return (index, true)
             }
-            // FIXME: we should be diagnosing ambiguous references
-            if let index:Index = candidates.first 
+            else if stem.dropFirst().isEmpty,
+                let index:Index     = self.routes[fallback]
             {
-                return index 
-            }
-            //  assume link is *relative*
-            if case (let namespace, let scope)? = context.greenzone, !scope.isEmpty
-            {
-                let concatenated:[[UInt8]] = scope + stem
-                if  capitalized, case (let index, _)? = 
-                    self.resolve(base: base, namespace: namespace, stem: concatenated[...], leaf: [], overload: nil)
-                {
-                    candidates.append(index)
-                }
-                if  lowercased, let leaf:[UInt8] = concatenated.last, case (let index, _)? = 
-                    self.resolve(base: base, namespace: namespace, stem: concatenated.dropLast(), leaf: leaf, overload: nil)
-                {
-                    candidates.append(index)
-                }
-            }
-            // FIXME: we should be diagnosing ambiguous references
-            if let index:Index = candidates.first 
-            {
-                return index 
-            }
-            //  assume link is *absolute*
-            for namespace:Int in context.whitelist 
-            {
-                if  capitalized, case (let index, _)? = 
-                    self.resolve(base: base, namespace: namespace, stem: stem[...], leaf: [], overload: nil)
-                {
-                    candidates.append(index)
-                }
-                if  lowercased, let leaf:[UInt8] = stem.last, case (let index, _)? = 
-                    self.resolve(base: base, namespace: namespace, stem: stem.dropFirst(), leaf: leaf, overload: nil)
-                {
-                    candidates.append(index)
-                }
-            }
-            // FIXME: we should be diagnosing ambiguous references
-            if let index:Index = candidates.first 
-            {
-                return index 
+                // global funcs and vars. these are temporary redirects
+                return (index, false)
             }
             else 
             {
                 return nil
             }
+        case (.learn, _?):  
+            return nil
+        case (.learn, nil):  
+            if  let stemKey:UInt    = self.greens[URI.concatenate(normalized: stem)],
+                let leafKey:UInt    = self.greens[leaf], 
+                let index:Index     = self.routes[.article(namespace, stem: stemKey, leaf: leafKey)]
+            {
+                return (index, true)
+            }
+            else 
+            {
+                return nil
+            }
+        }
+    }
+    
+    // helpers
+    func context(imports:Set<Module.ID>, greenzone:(namespace:Int, scope:[[UInt8]])?)
+        -> UnresolvedLink.Context
+    {
+        .init(whitelist: self.whitelist(imports: imports, greenzone: greenzone?.namespace), greenzone: greenzone)
+    }
+    // FIXME: these are dropping the links if resolution fails!!!
+    // we should show a reasonable fallback instead...
+    func resolve(article:Article.Rendered<UnresolvedLink>.Content, context:UnresolvedLink.Context) -> Article.Rendered<ResolvedLink>.Content 
+    {
+        article.compactMapAnchors
+        {
+            // since symbols can always be referenced with a symbol link, 
+            // prefer article resolutions over symbol resolutions
+            (try? self.resolve(base: .learn, link: $0, context: context)) ??
+            (try? self.resolve(base: .biome, link: $0, context: context))
+        }
+    }
+    func resolve(base:URI.Base, link:UnresolvedLink, context:UnresolvedLink.Context) throws -> ResolvedLink 
+    {
+        let index:Index?
+        switch link
+        {
+        case .preresolved(let resolved): 
+            return resolved
+        case .entrapta(absolute: let absolute, let path, count: _):
+            index = self.resolveEntrapta(base: base, path: path, absolute: absolute, context: context)
+        case .docc(let stem, let suffix):
+            index = self.resolveDocC(base: base, stem: stem, suffix: suffix, context: context)
+        }
+        switch index 
+        {
+        case nil, .packageSearchIndex?: 
+            throw Article.LinkResolutionError.undefined(link)
+        case .ambiguous?:
+            throw Article.LinkResolutionError.ambiguous(link)
+        case .article(let index)?: 
+            return .article(index)
+        case .package(let index)?: 
+            return .package(index)
+        case .module(let index)?: 
+            return .module(index)
+        case .symbol(let witness, victim: let victim)?: 
+            return .symbol(witness, victim: victim, components: link.components)
+        }
+    }
+    private 
+    func resolveEntrapta(base:URI.Base, path:URI.Path, absolute:Bool, 
+        context:UnresolvedLink.Context) 
+        -> Index?
+    {
+        if absolute
+        {
+            return self.resolve(base: base, path: path, overload: nil)?.index
+        }
+        var candidates:[Index] = []
+        //  assume link is *module-absolute*, contains module prefix. 
+        //  check this *first*, so that we can reference a module like 
+        //  `JSON` as `JSON`, and its type of the same name as `JSON/JSON`.
+        if  let trunk:Int = path.stem.first.map({ self.trunks[$0] }) ?? nil, 
+            context.whitelist.contains(trunk)
+        {
+            if  case (let index, _)? = 
+                self.resolve(base: base, namespace: trunk, stem: path.stem.dropFirst(), leaf: path.leaf, overload: nil)
+            {
+                candidates.append(index)
+            }
+        }
+        // FIXME: we should be diagnosing ambiguous references
+        if let index:Index = candidates.first 
+        {
+            return index 
+        }
+        //  assume link is *relative*
+        if case (let trunk, let scope)? = context.greenzone, !scope.isEmpty
+        {
+            let stem:[[UInt8]] = scope + path.stem
+            if  case (let index, _)? = 
+                self.resolve(base: base, namespace: trunk, stem: stem[...], leaf: path.leaf, overload: nil)
+            {
+                candidates.append(index)
+            }
+            else if path.leaf.isEmpty, path.stem.count == 1, 
+                case (let index, _)? = 
+                self.resolve(base: base, namespace: trunk, stem: stem.dropLast(), leaf: path.stem[0], overload: nil)
+            {
+                // for single-component relative member references 
+                candidates.append(index)
+            }
+        }
+        // FIXME: we should be diagnosing ambiguous references
+        if let index:Index = candidates.first 
+        {
+            return index 
+        }
+        //  assume link is *module-absolute*
+        for trunk:Int in context.whitelist 
+        {
+            if  case (let index, _)? = 
+                self.resolve(base: base, namespace: trunk, stem: path.stem[...], leaf: path.leaf, overload: nil)
+            {
+                candidates.append(index)
+            }
+            else if path.leaf.isEmpty, path.stem.count == 1, 
+                case (let index, _)? = 
+                self.resolve(base: base, namespace: trunk, stem: [], leaf: path.stem[0], overload: nil)
+            {
+                // for single-component relative member references 
+                candidates.append(index)
+            }
+        }
+        // FIXME: we should be diagnosing ambiguous references
+        if let index:Index = candidates.first 
+        {
+            return index 
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    private 
+    func resolveDocC(base:URI.Base, stem:[[UInt8]], suffix:UnresolvedLink.Disambiguator.DocC?, 
+        context:UnresolvedLink.Context) 
+        -> Index?
+    {
+        let capitalized:Bool
+        let lowercased:Bool
+        if case .learn = base 
+        {
+            // never do leaf transformations for article URIs
+            capitalized = true
+            lowercased = false
+        }
+        else if case .kind(let kind)? = suffix 
+        {
+            capitalized = kind.capitalized
+            lowercased = !kind.capitalized
+        }
+        else 
+        {
+            // we don’t know if this docc link is capitalized or not
+            capitalized = true
+            lowercased  = true
+        }
+        var candidates:[Index] = []
+        //  assume link is *absolute*, contains module prefix. 
+        //  check this *first*, so that we can reference a module like 
+        //  `JSON` as `JSON`, and its type of the same name as `JSON.JSON`.
+        if  let namespace:Int = stem.first.map({ self.trunks[$0] }) ?? nil, 
+            context.whitelist.contains(namespace)
+        {
+            let stem:ArraySlice<[UInt8]> = stem.dropFirst()
+            if  capitalized, case (let index, _)? = 
+                self.resolve(base: base, namespace: namespace, stem: stem, leaf: [], overload: nil)
+            {
+                candidates.append(index)
+            }
+            if  lowercased, let leaf:[UInt8] = stem.last, case (let index, _)? = 
+                self.resolve(base: base, namespace: namespace, stem: stem.dropFirst(), leaf: leaf, overload: nil)
+            {
+                candidates.append(index)
+            }
+        }
+        // FIXME: we should be diagnosing ambiguous references
+        if let index:Index = candidates.first 
+        {
+            return index 
+        }
+        //  assume link is *relative*
+        if case (let namespace, let scope)? = context.greenzone, !scope.isEmpty
+        {
+            let concatenated:[[UInt8]] = scope + stem
+            if  capitalized, case (let index, _)? = 
+                self.resolve(base: base, namespace: namespace, stem: concatenated[...], leaf: [], overload: nil)
+            {
+                candidates.append(index)
+            }
+            if  lowercased, let leaf:[UInt8] = concatenated.last, case (let index, _)? = 
+                self.resolve(base: base, namespace: namespace, stem: concatenated.dropLast(), leaf: leaf, overload: nil)
+            {
+                candidates.append(index)
+            }
+        }
+        // FIXME: we should be diagnosing ambiguous references
+        if let index:Index = candidates.first 
+        {
+            return index 
+        }
+        //  assume link is *absolute*
+        for namespace:Int in context.whitelist 
+        {
+            if  capitalized, case (let index, _)? = 
+                self.resolve(base: base, namespace: namespace, stem: stem[...], leaf: [], overload: nil)
+            {
+                candidates.append(index)
+            }
+            if  lowercased, let leaf:[UInt8] = stem.last, case (let index, _)? = 
+                self.resolve(base: base, namespace: namespace, stem: stem.dropFirst(), leaf: leaf, overload: nil)
+            {
+                candidates.append(index)
+            }
+        }
+        // FIXME: we should be diagnosing ambiguous references
+        if let index:Index = candidates.first 
+        {
+            return index 
+        }
+        else 
+        {
+            return nil
         }
     }
 }

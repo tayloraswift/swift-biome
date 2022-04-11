@@ -1,50 +1,47 @@
-extension Documentation 
+@frozen public 
+enum ResolvedLink:Hashable, Sendable
 {
-    @frozen public 
-    enum ResolvedLink:Hashable, Sendable
-    {
-        case article(Int)
-        case package(Int)
-        case module(Int)
-        case symbol(Int, victim:Int?, components:Int = .max)
-    }
-    enum UnresolvedLink:Hashable, CustomStringConvertible, Sendable
-    {
-        enum Disambiguator 
-        {
-            enum DocC:Hashable, CustomStringConvertible 
-            {
-                case kind(Symbol.Kind)
-                case hash(String)
-            }
-        }
-        
-        case preresolved(ResolvedLink)
-        case entrapta(absolute:Bool, URI.Path, count:Int)
-        case docc([[UInt8]], Disambiguator.DocC?)
-        
-        var components:Int 
-        {
-            switch self 
-            {
-            case .preresolved(.symbol(_, victim: _, components: let components)): 
-                return components 
-            case .entrapta(absolute: false, let path, count: let count): 
-                return count + (path.leaf.isEmpty ? 0 : 1)
-            case .docc(let path, _): 
-                return path.count 
-            default: 
-                return .max
-            }
-        }
-    }
-    struct UnresolvedLinkContext 
+    case article(Int)
+    case package(Int)
+    case module(Int)
+    case symbol(Int, victim:Int?, components:Int = .max)
+}
+enum UnresolvedLink:Hashable, CustomStringConvertible, Sendable
+{
+    struct Context
     {
         let whitelist:Set<Int>
         let greenzone:(namespace:Int, scope:[[UInt8]])?
     }
+    enum Disambiguator 
+    {
+        enum DocC:Hashable, CustomStringConvertible 
+        {
+            case kind(Symbol.Kind)
+            case hash(String)
+        }
+    }
+    
+    case preresolved(ResolvedLink)
+    case entrapta(absolute:Bool, Documentation.URI.Path, count:Int)
+    case docc([[UInt8]], Disambiguator.DocC?)
+    
+    var components:Int 
+    {
+        switch self 
+        {
+        case .preresolved(.symbol(_, victim: _, components: let components)): 
+            return components 
+        case .entrapta(absolute: false, let path, count: let count): 
+            return count + (path.leaf.isEmpty ? 0 : 1)
+        case .docc(let path, _): 
+            return path.count 
+        default: 
+            return .max
+        }
+    }
 }
-extension Documentation.UnresolvedLink 
+extension UnresolvedLink 
 {
     static 
     func docc<S>(normalizing string:S) -> Self 
@@ -117,7 +114,7 @@ extension Documentation.UnresolvedLink
         }
     }
 }
-extension Documentation.UnresolvedLink.Disambiguator.DocC
+extension UnresolvedLink.Disambiguator.DocC
 {
     init(_ string:String)
     {

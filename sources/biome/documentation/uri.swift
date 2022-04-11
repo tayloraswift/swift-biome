@@ -321,7 +321,7 @@ extension Biome
                 stem: [], 
                 leaf: []))
     }
-    func uri(witness:Int, victim:Int?, routing:Documentation.RoutingTable) -> Documentation.URI   
+    func uri(witness:Int, victim:Int?, routing:RoutingTable) -> Documentation.URI   
     {
         let path:Documentation.URI.Path, 
             query:Documentation.URI.Query?
@@ -359,7 +359,7 @@ extension Biome
         }
         return .init(base: .biome, path: path, query: query)
     }
-    func format(uri:Documentation.URI, routing:Documentation.RoutingTable) -> String 
+    func format(uri:Documentation.URI, routing:RoutingTable) -> String 
     {
         var utf8:[UInt8] = Documentation.URI.concatenate(normalized: uri.path.stem)
         if !uri.path.leaf.isEmpty

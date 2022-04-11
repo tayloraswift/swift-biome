@@ -2,11 +2,71 @@ import Markdown
 import StructuredDocument 
 import HTML
 
-extension Documentation
+extension Article
 {
+    enum LinkResolutionError:Error 
+    {
+        case ambiguous(UnresolvedLink)
+        case undefined(UnresolvedLink)
+    }
+    enum RenderingError:Error 
+    {
+        case emptyImageSource
+        case emptyLinkDestination
+        
+        case unsupportedMarkdown(String)
+        
+        // TODO: rework these
+        case unsupportedMagicKeywords([String]) 
+        
+        case emptyReturnsField
+        case emptyParameterField(name:String?) 
+        case emptyParameterList
+        
+        case multipleReturnsFields([Rendered<UnresolvedLink>.Element], [Rendered<UnresolvedLink>.Element])
+        
+        case invalidParameterListItem(Rendered<UnresolvedLink>.Element)
+        case invalidParameterList(Rendered<UnresolvedLink>.Element)
+        case multipleParameterLists(Rendered<UnresolvedLink>.Element, Rendered<UnresolvedLink>.Element)
+        
+        /* var description:String 
+        {
+            switch self 
+            {
+            case .empty(parameter: nil):
+                return "comment 'parameters' is completely empty"
+            case .empty(parameter: let name?):
+                return "comment 'parameter \(name)' is completely empty"
+            case .invalidListItem(let item):
+                return 
+                    """
+                    comment 'parameters' contains invalid list item:
+                    '''
+                    \(item.rendered)
+                    '''
+                    """
+            case .invalidList(let block):
+                return 
+                    """
+                    comment 'parameters' must contain a list, encountered:
+                    '''
+                    \(block.rendered)
+                    '''
+                    """
+            case .multipleLists(let blocks):
+                return 
+                    """
+                    comment 'parameters' must contain exactly one list, encountered:
+                    '''
+                    \(blocks.map(\.rendered).joined(separator: "\n"))
+                    '''
+                    """
+            }
+        } */
+    }
     struct Renderer 
     {
-        typealias Element = Article<UnresolvedLink>.Element 
+        typealias Element = Rendered<UnresolvedLink>.Element 
         
         private 
         enum CodeBlockLanguage 
@@ -19,11 +79,11 @@ extension Documentation
         let biome:Biome 
         let routing:RoutingTable
         private
-        var context:UnresolvedLinkContext
+        var context:UnresolvedLink.Context
         
         var errors:[Error]
         
-        init(format:Format, biome:Biome, routing:RoutingTable, context:UnresolvedLinkContext)
+        init(format:Format, biome:Biome, routing:RoutingTable, context:UnresolvedLink.Context)
         {
             self.format     = format
             self.biome      = biome 
@@ -125,7 +185,7 @@ extension Documentation
             case is ThematicBreak: 
                 return Element[.hr]
             case let unsupported: 
-                self.errors.append(ArticleError.unsupportedMarkdown(unsupported.debugDescription()))
+                self.errors.append(RenderingError.unsupportedMarkdown(unsupported.debugDescription()))
                 return Element[.div]
                 {
                     "(unsupported block markdown node '\(type(of: unsupported))')"
@@ -332,7 +392,7 @@ extension Documentation
                     }
                     else 
                     {
-                        let _:Void = self.errors.append(ArticleError.emptyImageSource)
+                        let _:Void = self.errors.append(RenderingError.emptyImageSource)
                     }
                     if let title:String = image.title 
                     {
@@ -355,7 +415,7 @@ extension Documentation
                 }
                 else 
                 {
-                    self.errors.append(ArticleError.emptyLinkDestination)
+                    self.errors.append(RenderingError.emptyLinkDestination)
                     return self.render(span: link, as: .span)
                 }
             }
@@ -389,7 +449,7 @@ extension Documentation
             guard let string:String = link.destination
             else 
             {
-                self.errors.append(ArticleError.emptyLinkDestination)
+                self.errors.append(RenderingError.emptyLinkDestination)
                 return Element[.code] { "<empty symbol path>" }
             }
             let unresolved:UnresolvedLink
@@ -527,7 +587,7 @@ extension Documentation
                 return self.render(link: link)
                 
             case let unsupported: 
-                self.errors.append(ArticleError.unsupportedMarkdown(unsupported.debugDescription()))
+                self.errors.append(RenderingError.unsupportedMarkdown(unsupported.debugDescription()))
                 return Element[.div]
                 {
                     "(unsupported inline markdown node '\(type(of: unsupported))')"
@@ -586,7 +646,7 @@ extension Documentation
                             }
                             else 
                             {
-                                throw ArticleError.multipleReturnsFields(returns, section)
+                                throw RenderingError.multipleReturnsFields(returns, section)
                             }
                         case .aside(let section):
                             discussion.append(section)
@@ -691,7 +751,7 @@ extension Documentation
                 guard keywords.count == 1 
                 else 
                 {
-                    throw ArticleError.unsupportedMagicKeywords(keywords)
+                    throw RenderingError.unsupportedMagicKeywords(keywords)
                 }
                 return .parameters(try Self.parameters(in: content))
                 
@@ -699,12 +759,12 @@ extension Documentation
                 guard keywords.count == 2 
                 else 
                 {
-                    throw ArticleError.unsupportedMagicKeywords(keywords)
+                    throw RenderingError.unsupportedMagicKeywords(keywords)
                 }
                 let name:String = keywords[1]
                 if content.isEmpty
                 {
-                    throw ArticleError.emptyParameterField(name: name)
+                    throw RenderingError.emptyParameterField(name: name)
                 } 
                 return .parameters([(name, content)])
             
@@ -712,11 +772,11 @@ extension Documentation
                 guard keywords.count == 1 
                 else 
                 {
-                    throw ArticleError.unsupportedMagicKeywords(keywords)
+                    throw RenderingError.unsupportedMagicKeywords(keywords)
                 }
                 if content.isEmpty
                 {
-                    throw ArticleError.emptyReturnsField
+                    throw RenderingError.emptyReturnsField
                 }
                 return .returns(content)
             
@@ -724,7 +784,7 @@ extension Documentation
                 guard keywords.count == 1 
                 else 
                 {
-                    throw ArticleError.unsupportedMagicKeywords(keywords)
+                    throw RenderingError.unsupportedMagicKeywords(keywords)
                 }
                 return .aside(Element[.aside]
                 {
@@ -741,7 +801,7 @@ extension Documentation
                 })
                 
             default:
-                throw ArticleError.unsupportedMagicKeywords(keywords)
+                throw RenderingError.unsupportedMagicKeywords(keywords)
             }
         }
         
@@ -751,17 +811,17 @@ extension Documentation
             guard let first:Element = content.first 
             else 
             {
-                throw ArticleError.emptyParameterList
+                throw RenderingError.emptyParameterList
             }
             // look for a nested list 
             guard case .container(.ul, attributes: _, content: let items) = first 
             else 
             {
-                throw ArticleError.invalidParameterList(first)
+                throw RenderingError.invalidParameterList(first)
             }
             if let second:Element = content.dropFirst().first
             {
-                throw ArticleError.multipleParameterLists(first, second)
+                throw RenderingError.multipleParameterLists(first, second)
             }
             
             var parameters:[(name:String, comment:[Element])] = []
@@ -772,7 +832,7 @@ extension Documentation
                         let name:String = keywords.first, keywords.count == 1
                 else 
                 {
-                    throw ArticleError.invalidParameterListItem(item)
+                    throw RenderingError.invalidParameterListItem(item)
                 }
                 parameters.append((name, content))
             }

@@ -50,7 +50,7 @@ extension Documentation
         }
         
         public 
-        let format:Format
+        let format:Article.Format
         public
         let package:Package.ID
         public 
@@ -58,7 +58,7 @@ extension Documentation
             articles:[ArticleDescriptor]
         
         @inlinable public
-        init(format:Format, package:Package.ID, modules:[ModuleDescriptor],articles:[ArticleDescriptor])
+        init(format:Article.Format, package:Package.ID, modules:[ModuleDescriptor],articles:[ArticleDescriptor])
         {
             self.format = format
             self.package = package 

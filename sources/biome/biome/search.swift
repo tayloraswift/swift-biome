@@ -4,7 +4,7 @@ import Resource
 extension Biome 
 {
     private 
-    func searchEntry(_ index:Int, routing:Documentation.RoutingTable) -> JSON 
+    func searchEntry(_ index:Int, routing:RoutingTable) -> JSON 
     {
         let uri:String = self.format(uri: self.uri(witness: index, victim: nil, routing: routing), 
             routing: routing)
@@ -27,7 +27,7 @@ extension Biome
         ]) 
     }
     private 
-    func searchIndex(for package:Package, routing:Documentation.RoutingTable) -> Resource
+    func searchIndex(for package:Package, routing:RoutingTable) -> Resource
     {
         let json:JSON = .array(package.modules.flatMap 
         { 
@@ -49,7 +49,7 @@ extension Biome
         let serialization:String = _move(json).description
         return .text(serialization, type: .json, version: package.hash)
     }
-    func searchIndices(routing:Documentation.RoutingTable) -> [Resource]
+    func searchIndices(routing:RoutingTable) -> [Resource]
     {
         self.packages.map { self.searchIndex(for: $0, routing: routing) }
     }

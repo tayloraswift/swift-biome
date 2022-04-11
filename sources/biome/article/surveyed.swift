@@ -2,7 +2,7 @@ import Markdown
 import StructuredDocument
 import HTML
 
-extension Documentation 
+extension Article 
 {
     enum EntraptaDirectiveError:Error
     {
@@ -84,9 +84,10 @@ extension Documentation
         }
     }
 
-
     struct Surveyed 
     {
+        typealias StaticElement = HTML.Element<Never>
+        
         enum Node 
         {
             case section(Heading, [Self])
@@ -106,7 +107,7 @@ extension Documentation
                 }
             }
             
-            func rendered() -> Element? 
+            func rendered() -> Documentation.Element? 
             {
                 guard case .explicit(let headline) = self
                 else 
@@ -267,16 +268,16 @@ extension Documentation
         }
         
         func rendered(biome:Biome, routing:RoutingTable, greenzone:(namespace:Int, scope:[[UInt8]])?) 
-            -> (Article<UnresolvedLink>.Content, UnresolvedLinkContext)
+            -> (Rendered<UnresolvedLink>.Content, UnresolvedLink.Context)
         {
-            let context:UnresolvedLinkContext = routing.context(imports: self.metadata.imports, greenzone: greenzone)
+            let context:UnresolvedLink.Context = routing.context(imports: self.metadata.imports, greenzone: greenzone)
             
             var renderer:Renderer = .init(format: self.metadata.format, biome: biome, routing: routing,
                 context: context)
             // note: we *never* render the top-level heading. this will either be 
             // auto-generated (for owned symbols), or stored as plain text by the 
             // caller of this function.
-            let summary:Article<UnresolvedLink>.Element?, 
+            let summary:Article.Rendered<UnresolvedLink>.Element?, 
                 remaining:ArraySlice<Node>
             if let paragraph:Paragraph = self.summary
             {
@@ -294,7 +295,7 @@ extension Documentation
             case .implicit: rank = 1
             case .explicit: rank = 0
             }
-            var discussion:[Article<UnresolvedLink>.Element] = []
+            var discussion:[Rendered<UnresolvedLink>.Element] = []
             for node:Node in remaining 
             {
                 renderer.render(node: node, demotedBy: rank, into: &discussion)
@@ -306,7 +307,7 @@ extension Documentation
                 // has a terrible block parsing API :/
                 discussion = Renderer._sift(discussion, errors: &renderer.errors)
             }
-            let content:Article<UnresolvedLink>.Content = 
+            let content:Rendered<UnresolvedLink>.Content = 
                 .init(errors: renderer.errors, summary: summary, discussion: discussion)
             return (content, context)
         }

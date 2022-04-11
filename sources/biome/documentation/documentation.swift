@@ -23,10 +23,10 @@ struct Documentation:Sendable
     
     let template:DocumentTemplate<Anchor, [UInt8]>
     private(set)
-    var articles:[Expatriate<Article<ResolvedLink>>]
+    var articles:[Expatriate<Article.Rendered<ResolvedLink>>]
     private(set)
-    var modules:[Article<ResolvedLink>.Content], 
-        symbols:[Article<ResolvedLink>.Content] 
+    var modules:[Article.Rendered<ResolvedLink>.Content], 
+        symbols:[Article.Rendered<ResolvedLink>.Content] 
     
     public 
     var _packages:[Package.ID] 
@@ -52,11 +52,11 @@ struct Documentation:Sendable
         var routing:RoutingTable = .init(bases: bases, biome: biome)
         Swift.print("initialized routing table")
         
-        var symbols:[Int: (content:Article<UnresolvedLink>.Content, context:UnresolvedLinkContext)] = [:]
-        var modules:[Int: (content:Article<UnresolvedLink>.Content, context:UnresolvedLinkContext)] = [:]
+        var symbols:[Int: (content:Article.Rendered<UnresolvedLink>.Content, context:UnresolvedLink.Context)] = [:]
+        var modules:[Int: (content:Article.Rendered<UnresolvedLink>.Content, context:UnresolvedLink.Context)] = [:]
         
         Swift.print("starting article loading")
-        var articles:[Expatriate<Article<UnresolvedLink>>] = []
+        var articles:[Expatriate<Article.Rendered<UnresolvedLink>>] = []
         for (package, catalog):(Package, Catalog<Location>) in zip(biome.packages, catalogs)
         {
             for entry:Catalog<Location>.ArticleDescriptor in catalog.articles 
@@ -78,7 +78,7 @@ struct Documentation:Sendable
                     source = String.init(decoding: bytes, as: Unicode.UTF8.self)
                 }
                 
-                let surveyed:Surveyed = .init(markdown: source, format: catalog.format)
+                let surveyed:Article.Surveyed = .init(markdown: source, format: catalog.format)
                 if let master:UnresolvedLink = surveyed.master
                 {
                     // TODO: handle this error
@@ -112,18 +112,18 @@ struct Documentation:Sendable
                 }
                 else if case .explicit(let heading) = surveyed.headline 
                 {
-                    let context:UnresolvedLinkContext
-                    var content:Article<UnresolvedLink>.Content
+                    let context:UnresolvedLink.Context
+                    var content:Article.Rendered<UnresolvedLink>.Content
                     
                     (content, context) = surveyed.rendered(biome: biome, routing: routing, greenzone: (module, []))
                     
                     let headline:Element? = surveyed.headline.rendered()
-                    let article:Article<UnresolvedLink> = .init(title: heading.plainText, 
+                    let article:Article.Rendered<UnresolvedLink> = .init(title: heading.plainText, 
                         path: surveyed.metadata.path.isEmpty ? entry.path : surveyed.metadata.path, 
                         snippet: surveyed.snippet,
                         headline: headline, 
                         content: content)
-                    let expatriate:Expatriate<Article<UnresolvedLink>> = .init(conquistador: article, 
+                    let expatriate:Expatriate<Article.Rendered<UnresolvedLink>> = .init(conquistador: article, 
                         marque: .init(trunk: module, whitelist: context.whitelist))
                     routing.publish(expatriate: expatriate, under: .article(articles.endIndex))
                     articles.append(expatriate)
@@ -173,17 +173,17 @@ struct Documentation:Sendable
             case (_, let overriding?):
                 return routing.resolve(article: overriding.content, context: overriding.context)
             case (let string?, nil):
-                let format:Format = biome.symbols[symbol.index].module.map 
+                let format:Article.Format = biome.symbols[symbol.index].module.map 
                 {
                     catalogs[biome.modules[$0].package].format
                 } ?? .docc
-                let surveyed:Surveyed = .init(markdown: string, format: format)
+                let surveyed:Article.Surveyed = .init(markdown: string, format: format)
                 guard case .implicit = surveyed.headline 
                 else 
                 {
                     fatalError("documentation comment cannot begin with an `h1`")
                 }
-                let (content, context):(Article<UnresolvedLink>.Content, UnresolvedLinkContext) = 
+                let (content, context):(Article.Rendered<UnresolvedLink>.Content, UnresolvedLink.Context) = 
                     surveyed.rendered(biome: biome, routing: routing, 
                         greenzone: biome.greenzone(witness: symbol.index, victim: nil))
                 return routing.resolve(article: content, context: context)

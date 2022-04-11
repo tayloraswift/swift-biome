@@ -99,7 +99,7 @@ extension Documentation
 {
     struct CatalogDescriptor:Decodable 
     {
-        let format:Format
+        let format:Article.Format
         let package:String
         let include:[String]
         let modules:[String]

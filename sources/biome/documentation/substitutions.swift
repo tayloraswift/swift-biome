@@ -121,7 +121,7 @@ extension Documentation
     }
 
     public 
-    func substitutions(for article:Article<ResolvedLink>) -> [Anchor: Element] 
+    func substitutions(for article:Article.Rendered<ResolvedLink>) -> [Anchor: Element] 
     {
         var substitutions:[Anchor: Element] = 
         [
@@ -134,8 +134,8 @@ extension Documentation
     } 
     func substitutions(article index:Int, filter:[Package.ID]) -> [Anchor: Element] 
     {
-        let expatriate:Expatriate<Article<ResolvedLink>> = self.articles[index]
-        let article:Article<ResolvedLink> = expatriate.conquistador
+        let expatriate:Expatriate<Article.Rendered<ResolvedLink>> = self.articles[index]
+        let article:Article.Rendered<ResolvedLink> = expatriate.conquistador
         let module:Module = self.biome.modules[expatriate.trunk]
         var substitutions:[Anchor: Element] = 
         [
@@ -233,7 +233,7 @@ extension Documentation
             },
         ]
         
-        let article:Article<ResolvedLink>.Content = self.modules[index]
+        let article:Article.Rendered<ResolvedLink>.Content = self.modules[index]
         substitutions[.summary]     = article.summary.map(self.fill(template:))
         substitutions[.discussion]  = article.discussion.map(self.fill(template:))
         
@@ -378,7 +378,7 @@ extension Documentation
             }
         }
         
-        let article:Article<ResolvedLink>.Content = self.symbols[symbol.sponsor ?? witness]
+        let article:Article.Rendered<ResolvedLink>.Content = self.symbols[symbol.sponsor ?? witness]
         substitutions[.summary]     = article.summary.map(self.fill(template:))
         substitutions[.discussion]  = article.discussion.map(self.fill(template:))
         
