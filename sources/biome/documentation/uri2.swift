@@ -1,90 +1,190 @@
 import Grammar
 
-enum URI 
+struct URI 
 {
-    enum VectorComponent
-    {
-        /// '..'
-        case pop 
-        /// A regular path component. This can be '.' or '..' if at least one 
-        /// of the dots was percent-encoded.
-        case push(String)
-    }
-    enum LexicalComponent<Location> where Location:Comparable
-    {
-        case big       (Range<Location>)
-        case little                            (Range<Location>)
-        case reveal(big:Range<Location>, little:Range<Location>)
-        
-        case date(year:Int, month:Int, day:Int)
-        case tag(Int, (Int, (Int, Int?)?)?)
-    }
+    var path:[LexicalPath.Vector?]
+    var query:[(key:String, value:String)]
+    
     struct LexicalPath 
     {
-        var components:[String]
-        var visible:Int 
-        // ii. lexical normalization 
-        //
-        // ['', 'foo', 'bar', < nil >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', ''] becomes 
-        // [    'foo', 'bar',                                   'baz.bar', '.Foo', '..']
-        //                                                      ^~~~~~~~~~~~~~~~~~~~~~~
-        //                                                      (visible = 3)
-        //  if `Self` components would erase past the beginning of the components list, 
-        //  the extra `Self` components are ignored.
-        //  redirects generated from this step are PERMANENT. 
-        //  paths containing `nil` and empty components always generate redirects.
-        //  however, the presence and location of an empty component can be meaningful 
-        //  in a symbollink.    
-        init(normalizing vectors:[VectorComponent?])
+        enum Vector
         {
-            self.visible = 0
-            self.components = []
-            self.components.reserveCapacity(vectors.count)
-            for vector:VectorComponent? in vectors
+            /// '..'
+            case pop 
+            /// A regular path component. This can be '.' or '..' if at least one 
+            /// of the dots was percent-encoded.
+            case push(String)
+        }
+        enum Segmentation<Location> where Location:Comparable
+        {
+            case opaque(Location) // end index
+            case version(Package.Version)
+            case big
+            case little(Location) // start index 
+            case reveal(big:Location, little:Location) // end index, start index
+        }
+        enum Component 
+        {
+            case identifiers(String, hyphen:String.Index)
+            case identifier(String)
+            case version(Package.Version)
+        }
+        enum Orientation:Unicode.Scalar
+        {
+            case gay        = "."
+            case straight   = "/"
+        }
+        
+        var orientation:Orientation
+        var components:[Component]
+        var visible:Int 
+        
+        init<S>(normalizing string:S) throws where S:StringProtocol 
+        {
+            //  i. lexical segmentation and percent-decoding 
+            //
+            //  '//foo/bar/.\bax.qux/..//baz./.Foo/%2E%2E//' becomes 
+            // ['', 'foo', 'bar', < None >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', '']
+            // 
+            //  the first slash '/' does not generate an empty component.
+            //  this is the uri we percieve as the uri entered by the user, even 
+            //  if their slash ('/' vs '\') or percent-encoding scheme is different.
+            try self.init(normalizing: 
+                try Grammar.parse(string.utf8, as: [Rule<String.Index, UInt8>.Vector].self))
+        }
+        init(normalizing vectors:[Vector?]) throws
+        {
+            // ii. lexical normalization 
+            //
+            // ['', 'foo', 'bar', < nil >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', ''] becomes 
+            // [    'foo', 'bar',                                   'baz.bar', '.Foo', '..']
+            //                                                      ^~~~~~~~~~~~~~~~~~~~~~~
+            //                                                      (visible = 3)
+            //  if `Self` components would erase past the beginning of the components list, 
+            //  the extra `Self` components are ignored.
+            //  redirects generated from this step are PERMANENT. 
+            //  paths containing `nil` and empty components always generate redirects.
+            //  however, the presence and location of an empty component can be meaningful 
+            //  in a symbollink.    
+            var components:[String] = []
+                components.reserveCapacity(vectors.count)
+            var fold:Int = components.endIndex
+            for vector:Vector? in vectors
             {
                 switch vector 
                 {
                 case .pop?:
-                    let _:String? = self.components.popLast()
+                    let _:String? = components.popLast()
                     fallthrough
                 case nil: 
-                    self.visible  = 0 
+                    fold = components.endIndex
                 case .push(let component): 
-                    self.components.append(component)
-                    self.visible += 1
+                    components.append(component)
+                }
+            }
+            // iii. semantic segmentation 
+            //
+            // [     'foo',       'bar',       'baz.bar',                     '.Foo',          '..'] becomes
+            // [.big("foo"), .big("bar"), .big("baz"), .little("bar"), .little("Foo"), .little("..")] 
+            //                                                                         ^~~~~~~~~~~~~~~
+            //                                                                          (visible = 1)
+            
+            // the empty path ('/') is straight
+            self.orientation = .straight 
+            self.components = []
+            self.visible = 0
+            for (index, component):(Int, String) in zip(components.indices, components)
+            {
+                let appended:Int 
+                switch try Grammar.parse(component.unicodeScalars, 
+                    as: Rule<String.Index, Unicode.Scalar>.LexicalPathComponents.self)
+                {
+                case .opaque(let hyphen): 
+                    self.components.append(.identifiers(component, hyphen: hyphen))
+                    self.orientation = .straight 
+                    appended = 1
+                case .big:
+                    self.components.append(.identifier(component))
+                    self.orientation = .straight 
+                    appended = 1
+                
+                case .little                      (let start):
+                    // an isolated little-component implies an empty big-predecessor, 
+                    // and therefore resets the visibility counter
+                    self.visible = 0
+                    self.components.append(.identifier(String.init(component[start...])))
+                    self.orientation = .gay 
+                    appended = 1
+                
+                case .reveal(big: let end, little: let start):
+                    self.components.append(.identifier(String.init(component[..<end])))
+                    self.components.append(.identifier(String.init(component[start...])))
+                    self.orientation = .gay 
+                    appended = 2
+                    
+                case .version(let version):
+                    self.components.append(.version(version))
+                    self.orientation = .straight 
+                    appended = 1
+                }
+                if fold <= index 
+                {
+                    self.visible += appended
                 }
             }
         }
     }
-    struct SemanticPath 
-    {
-    }
-    
-    static 
-    func _parse(uri:String) throws
-    {
-        //  i. lexical segmentation and percent-decoding 
-        //
-        //  '//foo/bar/.\bax.qux/..//baz./.Foo/%2E%2E//' becomes 
-        // ['', 'foo', 'bar', < None >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', '']
-        // 
-        //  the first slash '/' does not generate an empty component.
-        //  this is the uri we percieve as the uri entered by the user, even 
-        //  if their slash ('/' vs '\') or percent-encoding scheme is different.
-        let uri:[VectorComponent?] = try Grammar.parse(uri.utf8, 
-            as: [URI.Rule<String.Index, UInt8>.VectorComponent].self)
 
-    }
-    
     enum Rule<Location, Terminal>
     {
         typealias Encoding = Grammar.Encoding<Location, Terminal>
     }
+    enum EncodedByte<Location>:ParsingRule
+    {
+        typealias Terminal = UInt8
+        static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> UInt8
+            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        {
+            try input.parse(as: Grammar.Encoding<Location, Terminal>.Percent.self)
+            let high:UInt8  = try input.parse(as: Grammar.HexDigit<Location, Terminal, UInt8>.self)
+            let low:UInt8   = try input.parse(as: Grammar.HexDigit<Location, Terminal, UInt8>.self)
+            return high << 4 | low
+        }
+    } 
+    enum EncodedString<UnencodedByte>:ParsingRule 
+    where   UnencodedByte:ParsingRule, 
+            UnencodedByte.Terminal == UInt8,
+            UnencodedByte.Construction == Void
+    {
+        typealias Location = UnencodedByte.Location
+        typealias Terminal = UInt8
+        
+        static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> (string:String, unencoded:Bool)
+            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        {
+            let start:Location      = input.index 
+            input.parse(as: UnencodedByte.self, in: Void.self)
+            let end:Location        = input.index 
+            var string:String       = .init(decoding: input[start ..< end], as: Unicode.UTF8.self)
+            
+            while let utf8:[UInt8]  = input.parse(as: Grammar.Reduce<EncodedByte<Location>, [UInt8]>?.self)
+            {
+                string             += .init(decoding: utf8,                 as: Unicode.UTF8.self)
+                let start:Location  = input.index 
+                input.parse(as: UnencodedByte.self, in: Void.self)
+                let end:Location    = input.index 
+                string             += .init(decoding: input[start ..< end], as: Unicode.UTF8.self)
+            }
+            return (string, end == input.index)
+        }
+    } 
 }
 extension URI.Rule where Terminal == UInt8
 {
-    // can only be defined for UInt8 because we are decoding UTF-8 to a String
-    enum VectorComponent:ParsingRule 
+    // `Vector` and `Query` can only be defined for UInt8 because we are decoding UTF-8 to a String
+    enum Vector:ParsingRule 
     {
         enum Separator:TerminalRule
         {
@@ -94,15 +194,16 @@ extension URI.Rule where Terminal == UInt8
             {
                 switch terminal 
                 {
+                //    '/'   '\'
                 case 0x2f, 0x5c: return ()
                 default: return nil
                 }
             }
         }
         /// Matches a UTF-8 code unit that is allowed to appear inline in URL path component. 
-        enum CodeUnit:TerminalRule
+        enum UnencodedByte:TerminalRule
         {
-            typealias Construction  = Void 
+            typealias Construction = Void 
             static 
             func parse(terminal:UInt8) -> Void? 
             {
@@ -116,40 +217,14 @@ extension URI.Rule where Terminal == UInt8
                 }
             }
         } 
-        enum EscapeUnit:ParsingRule
-        {
-            static 
-            func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> UInt8
-                where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
-            {
-                try input.parse(as: Encoding.Percent.self)
-                let high:UInt8  = try input.parse(as: Grammar.HexDigit<Location, Terminal, UInt8>.self)
-                let low:UInt8   = try input.parse(as: Grammar.HexDigit<Location, Terminal, UInt8>.self)
-                return high << 4 | low
-            }
-        } 
 
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.VectorComponent?
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.LexicalPath.Vector?
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
             try input.parse(as: Separator.self)
-            
-            let start:Location      = input.index 
-            input.parse(as: CodeUnit.self, in: Void.self)
-            let end:Location        = input.index 
-            var string:String       = .init(decoding: input[start ..< end], as: Unicode.UTF8.self)
-            
-            while let utf8:[UInt8]  = input.parse(as: Grammar.Reduce<EscapeUnit, [UInt8]>?.self)
-            {
-                string             += .init(decoding: utf8,                 as: Unicode.UTF8.self)
-                let start:Location  = input.index 
-                input.parse(as: CodeUnit.self, in: Void.self)
-                let end:Location    = input.index 
-                string             += .init(decoding: input[start ..< end], as: Unicode.UTF8.self)
-            }
-            
-            guard end == input.index 
+            let (string, unencoded):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
+            guard unencoded
             else 
             {
                 // component contained at least one percent-encoded character
@@ -161,6 +236,62 @@ extension URI.Rule where Terminal == UInt8
             case    "..":   return .pop
             case let next:  return .push(next)
             }
+        }
+    }
+    enum Query:ParsingRule 
+    {
+        enum Separator:TerminalRule 
+        {
+            typealias Construction  = Void 
+            static 
+            func parse(terminal:UInt8) -> Void?
+            {
+                switch terminal
+                {
+                //    '&'   ';' 
+                case 0x26, 0x3b: 
+                    return ()
+                default:
+                    return nil
+                }
+            }
+        }
+        enum UnencodedByte:TerminalRule 
+        {
+            typealias Construction  = Void 
+            static 
+            func parse(terminal:UInt8) -> Void?
+            {
+                switch terminal
+                {
+                //    '&'   ';'   '='   '#'
+                case 0x26, 0x3b, 0x3d, 0x23:
+                    return nil 
+                default:
+                    return ()
+                }
+            }
+        }
+        enum Item:ParsingRule 
+        {
+            static 
+            func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
+                throws -> (key:String, value:String)
+                where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+            {
+                let (key, _):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
+                try input.parse(as: Encoding.Equals.self)
+                let (value, _):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
+                return (key, value)
+            }
+        }
+        
+        static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
+            throws -> [(key:String, value:String)]
+            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        {
+            try input.parse(as: Grammar.Join<Item, Separator, [(key:String, value:String)]>.self) 
         }
     }
 }
@@ -380,17 +511,17 @@ extension URI.Rule where Terminal == Unicode.Scalar
     }
     //  LexicalComponent  ::= IdentifierBase   '.' Leaf 
     //                      | IdentifierBase Arguments
-    //                      | IdentifierBase ( '-' IdentifierBase ) *
+    //                      | IdentifierBase ( '-' . * ) ?
     //                      |   '.' IdentifierLeaf
     //                      | ( '.' DottedOperatorNext + Arguments )
     //                      | DotlessOperatorLeaf
     //                      | UInt   '-' UInt   '-' UInt
     //                      | UInt ( '.' UInt ( '.' UInt ( '.' UInt ) ? ) ? ) ?
-    enum LexicalComponent:ParsingRule
+    enum LexicalPathComponents:ParsingRule
     {
         static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
-            throws -> URI.LexicalComponent<Location>
+            throws -> URI.LexicalPath.Segmentation<Location>
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
         {
             let start:Location = input.index 
@@ -407,9 +538,8 @@ extension URI.Rule where Terminal == Unicode.Scalar
                     //  note: the leading dot is *not* part of the operator.
                     let next:Location = input.index 
                     try input.parse(as: Leaf.self)
-                    return .reveal(big: start ..< end, little: next ..< input.index)
+                    return .reveal(big: end, little: next)
                 }
-                // note: we need to parse this *before* the hyphen-based suffixes, 
                 // since the hyphen-based suffix can be empty (and therefore always succeeds)
                 else if let _:Void = input.parse(as: Arguments?.self)
                 {
@@ -417,19 +547,20 @@ extension URI.Rule where Terminal == Unicode.Scalar
                     //  the identifier with a '.', and therefore implies an empty 
                     //  semantic component right before it.
                     //  /bar(baz:) -> ['', 'bar(baz:)']
-                    return .little(start ..< input.index)
+                    return .little(start)
+                }
+                else if let _:Void = input.parse(as: Encoding.Hyphen?.self)
+                {
+                    //  a package name, like '/swift-grammar', or a docc disambiguator
+                    //  like '/indices-ckjvzkc' or '/indices-swift.var'.
+                    //  after encountering a hyphen, there are no restrictions 
+                    //  on what characters can appear through the end of the component.
+                    input.parse(as: Terminal.self, in: Void.self)
+                    return .opaque(end)
                 }
                 else 
                 {
-                    //  a package name, like '/swift-grammar'
-                    //  check for the hyphen to avoid calling `IdentifierBase`
-                    //  twice on termination.
-                    while   let _:(Void, Void) = try? 
-                            input.parse(as: (Encoding.Hyphen, Grammar.Discard<Encoding.Hyphen>).self), 
-                            let _:Void = input.parse(as: IdentifierBase?.self)
-                    {
-                    }
-                    return .big(start ..< input.index)
+                    return .big
                 }
             }
             guard case nil = input.parse(as: Encoding.Period?.self)
@@ -440,7 +571,7 @@ extension URI.Rule where Terminal == Unicode.Scalar
                 {
                     //  /.bar       -> ['', 'bar']
                     //  /.bar(baz:) -> ['', 'bar(baz:)']
-                    return .little(next ..< input.index)
+                    return .little(next)
                 }
                 else 
                 {
@@ -450,14 +581,14 @@ extension URI.Rule where Terminal == Unicode.Scalar
                     try input.parse(as: DottedOperatorNext.self)
                         input.parse(as: DottedOperatorNext.self, in: Void.self)
                     try input.parse(as: Arguments.self)
-                    return .little(start ..< input.index)
+                    return .little(start)
                 }
             }
             guard case nil = input.parse(as: DotlessOperatorLeaf?.self)
             else 
             {
                 //  /<(_:_:)  -> ['', '<(_:_:)']
-                return .little(start ..< input.index)
+                return .little(start)
             }
             
             let first:Int = try input.parse(as: Integer.self)
@@ -468,32 +599,107 @@ extension URI.Rule where Terminal == Unicode.Scalar
                 let month:Int = try input.parse(as: Integer.self)
                 try input.parse(as: Encoding.Hyphen.self)
                 let day:Int = try input.parse(as: Integer.self)
-                return .date(year: first, month: month, day: day)
+                return .version(.date(year: first, month: month, day: day))
             }
             // parse a x.y.z.w semantic version. the w component is 
             // a documentation version, which is a sub-patch increment
             guard let minor:Int = input.parse(as: Integer?.self)
             else 
             {
-                return .tag(first, nil)
+                return .version(.tag(major: first, nil))
             }
             guard let patch:Int = input.parse(as: Integer?.self)
             else 
             {
-                return .tag(first, (minor, nil))
+                return .version(.tag(major: first, (minor, nil)))
             }
             guard let edition:Int = input.parse(as: Integer?.self)
             else 
             {
-                return .tag(first, (minor, (patch, nil)))
+                return .version(.tag(major: first, (minor, (patch, nil))))
             }
-            return .tag(first, (minor, (patch, edition)))
+            return .version(.tag(major: first, (minor, (patch, edition))))
         }
     }
 }
-// iii. semantic segmentation 
-//
-// [     'foo',       'bar',       'baz.bar',                     '.Foo',            '..'] becomes
-// [.big("foo"), .big("bar"), .big("baz"), .little("bar"), .little("Foo"), .operator("..")] 
-//                                                                         ^~~~~~~~~~~~~~~
-//                                                                          (visible = 1)
+// it would be really nice if this were generic over ``ASCIITerminal``
+extension URI.Rule where Terminal == UInt8
+{
+    enum USR:ParsingRule
+    {
+        enum Synthesized:LiteralRule 
+        {
+            static 
+            var literal:[UInt8] 
+            {
+                // '::SYNTHESIZED::'
+                [
+                    0x3a, 0x3a, 
+                    0x53, 0x59, 0x4e, 0x54, 0x48, 0x45, 0x53, 0x49, 0x5a, 0x45, 0x44, 
+                    0x3a, 0x3a
+                ]
+            }
+        }
+        // all name elements can contain a number, including the first
+        enum MangledNameElement:TerminalRule  
+        {
+            typealias Construction  = Void
+            static 
+            func parse(terminal:UInt8) -> Void?
+            {
+                switch terminal 
+                {
+                //    '_'   'A' ... 'Z'    'a' ... 'z'    '0' ... '9',   '@'
+                case 0x5f, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x30 ... 0x39, 0x40:
+                    return ()
+                default: 
+                    return nil
+                }
+            }
+        }
+        enum MangledName:ParsingRule 
+        {
+            // Mangled Identifier ::= <Language> ':' ? <Mangled Identifier Head> <Mangled Identifier Next> *
+            static 
+            func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> Symbol.ID
+                where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+            {
+                guard let language:UInt8    = input.next()
+                else 
+                {
+                    throw Graph.SymbolError.unidentified 
+                }
+                    input.parse(as: Encoding.Colon?.self)
+                let start:Location          = input.index 
+                try input.parse(as: MangledNameElement.self)
+                    input.parse(as: MangledNameElement.self, in: Void.self)
+                let end:Location    = input.index 
+                let utf8:[UInt8]    = [UInt8].init(input[start ..< end])
+                switch language 
+                {
+                case 0x73: // 's'
+                    return .swift(utf8)
+                case 0x63: // 'c'
+                    return .c(utf8)
+                case let code: 
+                    throw Graph.SymbolError.unsupportedLanguage(code: code)
+                }
+            }
+        }
+        
+        // USR  ::= <Mangled Name> ( '::SYNTHESIZED::' <Mangled Name> ) ?
+        static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> Symbol.USR
+            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        {
+            let first:Symbol.ID = try input.parse(as: MangledName.self)
+            guard let _:Void = input.parse(as: Synthesized?.self)
+            else 
+            {
+                return .natural(first)
+            }
+            let second:Symbol.ID = try input.parse(as: MangledName.self)
+            return .synthesized(from: first, for: second)
+        }
+    }
+}

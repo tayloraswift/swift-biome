@@ -188,10 +188,18 @@ extension Graph
     {
         try json.lint 
         {
-            .init(
-                major: try $0.remove("major", as: Int.self),
-                minor: try    $0.pop("minor", as: Int.self),
-                patch: try    $0.pop("patch", as: Int.self))
+            let major:Int = try $0.remove("major", as: Int.self)
+            guard let minor:Int = try $0.pop("minor", as: Int.self)
+            else 
+            {
+                return .tag(major: major, nil)
+            }
+            guard let patch:Int = try $0.pop("patch", as: Int.self)
+            else 
+            {
+                return .tag(major: major, (minor, nil))
+            }
+            return .tag(major: major, (minor, (patch, nil)))
         }
     }
     private static 

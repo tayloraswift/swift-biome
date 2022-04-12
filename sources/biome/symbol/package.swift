@@ -26,20 +26,28 @@ struct Package:Sendable, Identifiable
     }
     
     public 
-    struct Version:CustomStringConvertible, Sendable
+    enum Version:CustomStringConvertible, Sendable
     {
-        var major:Int 
-        var minor:Int?
-        var patch:Int?
+        case date(year:Int, month:Int, day:Int)
+        case tag(major:Int, (minor:Int, (patch:Int, edition:Int?)?)?)
         
         public 
         var description:String 
         {
-            switch (self.minor, self.patch)
+            switch self
             {
-            case (nil       , nil):         return "\(self.major)"
-            case (let minor?, nil):         return "\(self.major).\(minor)"
-            case (let minor , let patch?):  return "\(self.major).\(minor ?? 0).\(patch)"
+            case .date(year: let year, month: let month, day: let day):
+                // not zero-padded, and probably unsuitable for generating 
+                // links to toolchains.
+                return "\(year)-\(month)-\(day)"
+            case .tag(major: let major, nil):
+                return "\(major)"
+            case .tag(major: let major, (minor: let minor, nil)?):
+                return "\(major).\(minor)"
+            case .tag(major: let major, (minor: let minor, (patch: let patch, edition: nil)?)?):
+                return "\(major).\(minor).\(patch)"
+            case .tag(major: let major, (minor: let minor, (patch: let patch, edition: let edition?)?)?):
+                return "\(major).\(minor).\(patch).\(edition)"
             }
         }
     }
