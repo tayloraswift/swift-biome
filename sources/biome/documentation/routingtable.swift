@@ -25,7 +25,7 @@ struct RoutingTable
         {
             roots[package.id.root] = index
             
-            if case .swift = package.id 
+            if case .swift = package.id.kind 
             {
                 // redirect standard library names 
                 for name:String in 
@@ -559,7 +559,7 @@ extension Biome
     // we want to transition towards handling roots at the `Documentation` level :(
     func root(namespace module:Int) -> [UInt8]
     {
-        if case .community(let package) = self.packages[self.modules[module].package].id
+        if case .community(let package) = self.packages[self.modules[module].package].id.kind
         {
             return Documentation.URI.encode(component: package.utf8)
         }

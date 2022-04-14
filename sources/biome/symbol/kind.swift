@@ -24,6 +24,7 @@ extension Symbol
         case  actor             = "swift.actor"
         case `protocol`         = "swift.protocol"
         
+        @available(*, deprecated)
         var capitalized:Bool 
         {
             switch self

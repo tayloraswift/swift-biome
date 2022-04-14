@@ -58,6 +58,7 @@ extension Biome
             self.elements = elements 
         }
         
+        @available(*, deprecated)
         func index(of id:Element.ID) -> Int?
         {
             guard let index:Int = self.lookup[id]

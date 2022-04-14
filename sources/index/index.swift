@@ -7,15 +7,7 @@ extension Documentation.Catalog where Location == FilePath
 {
     init(loading descriptor:Documentation.CatalogDescriptor, repository:FilePath)
     {
-        let package:Package.ID
-        switch descriptor.package 
-        {
-        case "swift-standard-library", "swift-stdlib", "swift", 
-                   "standard-library",       "stdlib",      "":
-            package = .swift 
-        case let name:
-            package = .community(name)
-        }
+        let package:Package.ID = .init(descriptor.package)
         var articles:[ArticleDescriptor] = []
         var graphs:[Substring: [GraphDescriptor]] = [:]
         for include:FilePath in descriptor.include.map(FilePath.init(_:))

@@ -1,21 +1,38 @@
 public 
 struct Module:Identifiable, Sendable
 {
-    @frozen public
+    public
     struct ID:Hashable, Sendable, ExpressibleByStringLiteral
     {
         public
         let string:String 
+        // lowercased. it is possible for lhs == rhs even if lhs.string != rhs.string
+        var value:String 
+        {
+            self.title.lowercased()
+        }
         
+        public static 
+        func == (lhs:Self, rhs:Self) -> Bool 
+        {
+            lhs.value == rhs.value
+        }
+        public 
+        func hash(into hasher:inout Hasher) 
+        {
+            self.value.hash(into: &hasher)
+        }
+        
+        @available(*, deprecated, renamed: "value")
         var trunk:[UInt8]
         {
             Documentation.URI.encode(component: self.title.utf8)
         }
         
-        @inlinable public
+        public
         init(stringLiteral:String)
         {
-            self.string = stringLiteral
+            self.init(stringLiteral)
         }
         @inlinable public
         init<S>(_ string:S) where S:StringProtocol 
@@ -26,10 +43,6 @@ struct Module:Identifiable, Sendable
         {
             self.string.drop { $0 == "_" } 
         }
-        /* func graphIdentifier(bystander:Self?) -> String
-        {
-            bystander.map { "\(self.string)@\($0.string).symbols.json" } ?? "\(self.string).symbols.json"
-        } */
     }
     
     public 

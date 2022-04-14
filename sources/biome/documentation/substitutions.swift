@@ -190,7 +190,7 @@ extension Documentation
             },
         ]
         
-        if case .swift = package.id 
+        if case .swift = package.id.kind 
         {
             substitutions[.kind] = .text(escaped: "Standard Library")
         }
