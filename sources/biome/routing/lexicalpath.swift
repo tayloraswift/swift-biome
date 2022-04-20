@@ -5,7 +5,7 @@ struct URI
     var path:[LexicalPath.Vector?]
     var query:[(key:String, value:String)]
         
-    struct LexicalPath:RandomAccessCollection 
+    struct LexicalPath 
     {
         enum Vector
         {
@@ -37,22 +37,6 @@ struct URI
         var orientation:Orientation
         var components:[Component]
         var visible:Int 
-        
-        var startIndex:Int 
-        {
-            self.components.startIndex
-        }
-        var endIndex:Int 
-        {
-            self.components.endIndex
-        }
-        subscript(index:Int) -> Component
-        {
-            _read 
-            {
-                yield self.components[index]
-            }
-        }
         
         init<S>(normalizing string:S) throws where S:StringProtocol 
         {
