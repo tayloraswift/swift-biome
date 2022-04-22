@@ -4,7 +4,94 @@ struct URI
 {
     var path:[LexicalPath.Vector?]
     var query:[(key:String, value:String)]
-        
+    
+    static 
+    func normalize(vectors:[LexicalPath.Vector?]) throws -> (path:LexicalPath, visible:Int)
+    {
+        // ii. lexical normalization 
+        //
+        // ['', 'foo', 'bar', < nil >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', ''] becomes 
+        // [    'foo', 'bar',                                   'baz.bar', '.Foo', '..']
+        //                                                      ^~~~~~~~~~~~~~~~~~~~~~~
+        //                                                      (visible = 3)
+        //  if `Self` components would erase past the beginning of the components list, 
+        //  the extra `Self` components are ignored.
+        //  redirects generated from this step are PERMANENT. 
+        //  paths containing `nil` and empty components always generate redirects.
+        //  however, the presence and location of an empty component can be meaningful 
+        //  in a symbollink.    
+        var components:[String] = []
+            components.reserveCapacity(vectors.count)
+        var fold:Int = components.endIndex
+        for vector:LexicalPath.Vector? in vectors
+        {
+            switch vector 
+            {
+            case .pop?:
+                let _:String? = components.popLast()
+                fallthrough
+            case nil: 
+                fold = components.endIndex
+            case .push(let component): 
+                components.append(component)
+            }
+        }
+        // iii. semantic segmentation 
+        //
+        // [     'foo',       'bar',       'baz.bar',                     '.Foo',          '..'] becomes
+        // [.big("foo"), .big("bar"), .big("baz"), .little("bar"), .little("Foo"), .little("..")] 
+        //                                                                         ^~~~~~~~~~~~~~~
+        //                                                                          (visible = 1)
+        var path:LexicalPath = .init()
+        var visible:Int = 0
+        for (index, component):(Int, String) in zip(components.indices, components)
+        {
+            let appended:Int 
+            switch try Grammar.parse(component.unicodeScalars, 
+                as: Rule<String.Index, Unicode.Scalar>.LexicalPathComponents.self)
+            {
+            case .opaque(let hyphen): 
+                path.components.append(.identifier(component, hyphen: hyphen))
+                path.orientation = .straight 
+                appended = 1
+            case .big:
+                path.components.append(.identifier(component))
+                path.orientation = .straight 
+                appended = 1
+            
+            case .little                      (let start):
+                // an isolated little-component implies an empty big-predecessor, 
+                // and therefore resets the visibility counter
+                visible = 0
+                path.components.append(.identifier(String.init(component[start...])))
+                path.orientation = .gay 
+                appended = 1
+            
+            case .reveal(big: let end, little: let start):
+                path.components.append(.identifier(String.init(component[..<end])))
+                path.components.append(.identifier(String.init(component[start...])))
+                path.orientation = .gay 
+                appended = 2
+                
+            case .version(let version):
+                path.components.append(.version(version))
+                path.orientation = .straight 
+                appended = 1
+            }
+            if fold <= index 
+            {
+                visible += appended
+            }
+        }
+        return (path, visible)
+    }
+    
+    struct LexicalPathFragment
+    {
+        let absolute:Bool?
+        let visible:Int
+        let path:LexicalPath 
+    }
     struct LexicalPath 
     {
         enum Vector
@@ -73,7 +160,6 @@ struct URI
         
         var orientation:Orientation
         var components:[Component]
-        var visible:Int 
         
         init<S>(normalizing string:S) throws where S:StringProtocol 
         {
@@ -90,84 +176,13 @@ struct URI
         }
         init(normalizing vectors:[Vector?]) throws
         {
-            // ii. lexical normalization 
-            //
-            // ['', 'foo', 'bar', < nil >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', ''] becomes 
-            // [    'foo', 'bar',                                   'baz.bar', '.Foo', '..']
-            //                                                      ^~~~~~~~~~~~~~~~~~~~~~~
-            //                                                      (visible = 3)
-            //  if `Self` components would erase past the beginning of the components list, 
-            //  the extra `Self` components are ignored.
-            //  redirects generated from this step are PERMANENT. 
-            //  paths containing `nil` and empty components always generate redirects.
-            //  however, the presence and location of an empty component can be meaningful 
-            //  in a symbollink.    
-            var components:[String] = []
-                components.reserveCapacity(vectors.count)
-            var fold:Int = components.endIndex
-            for vector:Vector? in vectors
-            {
-                switch vector 
-                {
-                case .pop?:
-                    let _:String? = components.popLast()
-                    fallthrough
-                case nil: 
-                    fold = components.endIndex
-                case .push(let component): 
-                    components.append(component)
-                }
-            }
-            // iii. semantic segmentation 
-            //
-            // [     'foo',       'bar',       'baz.bar',                     '.Foo',          '..'] becomes
-            // [.big("foo"), .big("bar"), .big("baz"), .little("bar"), .little("Foo"), .little("..")] 
-            //                                                                         ^~~~~~~~~~~~~~~
-            //                                                                          (visible = 1)
-            
+            (self, _) = try URI.normalize(vectors: vectors)
+        }
+        init()
+        {
             // the empty path ('/') is straight
             self.orientation = .straight 
             self.components = []
-            self.visible = 0
-            for (index, component):(Int, String) in zip(components.indices, components)
-            {
-                let appended:Int 
-                switch try Grammar.parse(component.unicodeScalars, 
-                    as: Rule<String.Index, Unicode.Scalar>.LexicalPathComponents.self)
-                {
-                case .opaque(let hyphen): 
-                    self.components.append(.identifier(component, hyphen: hyphen))
-                    self.orientation = .straight 
-                    appended = 1
-                case .big:
-                    self.components.append(.identifier(component))
-                    self.orientation = .straight 
-                    appended = 1
-                
-                case .little                      (let start):
-                    // an isolated little-component implies an empty big-predecessor, 
-                    // and therefore resets the visibility counter
-                    self.visible = 0
-                    self.components.append(.identifier(String.init(component[start...])))
-                    self.orientation = .gay 
-                    appended = 1
-                
-                case .reveal(big: let end, little: let start):
-                    self.components.append(.identifier(String.init(component[..<end])))
-                    self.components.append(.identifier(String.init(component[start...])))
-                    self.orientation = .gay 
-                    appended = 2
-                    
-                case .version(let version):
-                    self.components.append(.version(version))
-                    self.orientation = .straight 
-                    appended = 1
-                }
-                if fold <= index 
-                {
-                    self.visible += appended
-                }
-            }
         }
     }
     
