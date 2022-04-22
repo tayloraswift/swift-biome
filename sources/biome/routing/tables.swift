@@ -19,17 +19,17 @@ extension URI
     }
     
     private
-    struct LocalPath
+    struct LocalSelector
     {
         let stem:UInt32, 
             leaf:UInt32, 
             suffix:LexicalPath.Suffix?
     }
     private 
-    enum NationalPath
+    enum NationalSelector
     {
         case opaque (Opaque)
-        case symbol (module:Int, LocalPath?)
+        case symbol (module:Int, LocalSelector?)
         case article(module:Int, UInt32)
         
         var module:Int? 
@@ -45,13 +45,13 @@ extension URI
         }
     }
     private 
-    struct GlobalPath 
+    struct GlobalSelector 
     {
         // guaranteed to be valid
         let package:Int
         // *not* guaranteed to be valid!
         let version:Package.Version?
-        let national:NationalPath? 
+        let national:NationalSelector? 
     }
     
     struct GlobalContext
@@ -201,7 +201,7 @@ extension URI
         }
         
         private
-        func classify(absolute path:LexicalPath) -> GlobalPath?
+        func classify(absolute path:LexicalPath) -> GlobalSelector?
         {
             //  '/base' '/swift' '' '/big'
             //  '/base' '/swift' '' '.little'
@@ -226,7 +226,7 @@ extension URI
             return self.classify(base: base, path.components.dropFirst())
         }
         private
-        func classify<Path>(base:Base, _ path:Path) -> GlobalPath?
+        func classify<Path>(base:Base, _ path:Path) -> GlobalSelector?
             where   Path:Collection, Path.Element == LexicalPath.Component,
                     Path.SubSequence:BidirectionalCollection
         {
@@ -287,7 +287,7 @@ extension URI
         }
         // note: this will return `.some(nil)` if the path is empty
         private
-        func classify<Path>(base:Base, package _:Int, _ path:Path) -> NationalPath??
+        func classify<Path>(base:Base, package _:Int, _ path:Path) -> NationalSelector??
             where   Path:BidirectionalCollection, Path.Element == LexicalPath.Component,
                     Path.SubSequence == Path
         {
@@ -349,7 +349,7 @@ extension URI
                 {
                     return .symbol(module: module, nil)
                 }
-                guard   let path:LocalPath = self.paths[stem: path, last]
+                guard   let path:LocalSelector = self.paths[stem: path, last]
                 else 
                 {
                     return nil
@@ -373,7 +373,7 @@ extension URI
         
         /* func find(absolute path:LexicalPath) -> ResolutionCandidates?
         {
-            guard let global:GlobalPath = self.classify(absolute: path)
+            guard let global:GlobalSelector = self.classify(absolute: path)
             else 
             {
                 return nil
@@ -406,7 +406,7 @@ extension URI
             where   Path:BidirectionalCollection, Path.Element == LexicalPath.Component
         {
             guard   let last:LexicalPath.Component = path.last, 
-                    let path:LocalPath = self.paths[stem: path.dropLast(), last]
+                    let path:LocalSelector = self.paths[stem: path.dropLast(), last]
             else 
             {
                 return nil 
@@ -457,7 +457,7 @@ extension URI
                 let path:[LexicalPath.Component] = scope + path 
                 
                 if  let last:LexicalPath.Component = path.last, 
-                    let path:LocalPath = self.paths[stem: path.dropLast(), last],
+                    let path:LocalSelector = self.paths[stem: path.dropLast(), last],
                     let group:Symbol.Group = self._packages[0][module: local.module, symbol: path]
                 {
                     return .init(package: local.package, national: .group(group, path.suffix))
@@ -545,7 +545,7 @@ extension URI
             self.symbols[key]?.depth(of: symbol)
         }
         
-        subscript(module module:Int, symbol path:LocalPath) -> Symbol.Group?
+        subscript(module module:Int, symbol path:LocalSelector) -> Symbol.Group?
         {
             self.symbols    [Key.init(module: module, stem: path.stem, leaf: path.leaf)]
         }
@@ -553,7 +553,7 @@ extension URI
         {
             self.articles   [Key.init(module: module,                  leaf:      leaf)]
         }
-        subscript(path:NationalPath) -> NationalResolution?
+        subscript(path:NationalSelector) -> NationalResolution?
         {
             switch path 
             {
@@ -668,7 +668,7 @@ extension URI
             }
             return self.table[Self.subpath(stem)]
         }
-        subscript<Path>(stem stem:Path, last:LexicalPath.Component) -> LocalPath?
+        subscript<Path>(stem stem:Path, last:LexicalPath.Component) -> LocalSelector?
             where Path:Sequence, Path.Element == LexicalPath.Component
         {
             if case let (leaf, suffix)? = last.leaf, 
