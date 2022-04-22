@@ -27,6 +27,43 @@ struct URI
         {
             case identifier(String, hyphen:String.Index? = nil)
             case version(Package.Version)
+            
+            var leaf:(prefix:Substring, suffix:Suffix?)?
+            {
+                switch self 
+                {
+                case .identifier(let string, hyphen: nil):
+                    return (string[...], nil)
+                case .identifier(let string, hyphen: let hyphen?):
+                    return (string[..<hyphen], .init(string[hyphen...].dropFirst()))
+                case .version(_): 
+                    return nil
+                }
+            }
+        }
+        enum Suffix 
+        {
+            case kind(Symbol.Kind)
+            case fnv(hash:UInt32)
+            
+            init?<S>(_ string:S) where S:StringProtocol 
+            {
+                // will never collide with symbol kinds, since they always contain 
+                // a period ('.')
+                // https://github.com/apple/swift-docc/blob/d94139a5e64e9ecf158214b1cded2a2880fc1b02/Sources/SwiftDocC/Utility/FoundationExtensions/String%2BHashing.swift
+                if let hash:UInt32 = .init(string, radix: 36)
+                {
+                    self = .fnv(hash: hash)
+                }
+                else if let kind:Symbol.Kind = .init(rawValue: String.init(string))
+                {
+                    self = .kind(kind)
+                }
+                else 
+                {
+                    return nil
+                }
+            }
         }
         enum Orientation:Unicode.Scalar
         {
@@ -185,6 +222,26 @@ struct URI
 extension URI.Rule where Terminal == UInt8
 {
     // `Vector` and `Query` can only be defined for UInt8 because we are decoding UTF-8 to a String
+    
+    // note: these expect at least one component 
+    fileprivate
+    typealias AbsoluteVectors = Grammar.Reduce<Vector, [URI.LexicalPath.Vector?]>
+    fileprivate
+    enum RelativeVectors:ParsingRule 
+    {
+        static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> [URI.LexicalPath.Vector?]
+            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        {
+            var vectors:[URI.LexicalPath.Vector?] = [try input.parse(as: Vector.Component.self)]
+            while let next:URI.LexicalPath.Vector? = input.parse(as: Vector?.self)
+            {
+                vectors.append(next)
+            }
+            return vectors
+        }
+    }
+    
     fileprivate
     enum Vector:ParsingRule 
     {
@@ -219,25 +276,35 @@ extension URI.Rule where Terminal == UInt8
                 }
             }
         } 
+        
+        enum Component:ParsingRule 
+        {
+            static 
+            func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.LexicalPath.Vector?
+                where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+            {
+                let (string, unencoded):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
+                guard unencoded
+                else 
+                {
+                    // component contained at least one percent-encoded character
+                    return string.isEmpty ? nil : .push(string)
+                }
+                switch string 
+                {
+                case "", ".":   return  nil
+                case    "..":   return .pop
+                case let next:  return .push(next)
+                }
+            }
+        }
 
         static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.LexicalPath.Vector?
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
             try input.parse(as: Separator.self)
-            let (string, unencoded):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
-            guard unencoded
-            else 
-            {
-                // component contained at least one percent-encoded character
-                return string.isEmpty ? nil : .push(string)
-            }
-            switch string 
-            {
-            case "", ".":   return  nil
-            case    "..":   return .pop
-            case let next:  return .push(next)
-            }
+            return try input.parse(as: Component.self)
         }
     }
     fileprivate
