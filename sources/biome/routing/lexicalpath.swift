@@ -5,7 +5,7 @@ struct URI
     var path:[LexicalPath.Vector?]
     var query:[(key:String, value:String)]
     
-    static 
+    fileprivate static 
     func normalize(vectors:[LexicalPath.Vector?]) throws -> (path:LexicalPath, visible:Int)
     {
         // ii. lexical normalization 
@@ -91,6 +91,23 @@ struct URI
         let absolute:Bool?
         let visible:Int
         let path:LexicalPath 
+        
+        init<S>(normalizing string:S) throws where S:StringProtocol 
+        {
+            let vectors:[LexicalPath.Vector?]
+            if  let  relative:[LexicalPath.Vector?] = 
+                try? Grammar.parse(string.utf8, as: Rule<String.Index, UInt8>.RelativeVectors.self)
+            {
+                vectors = relative 
+                self.absolute = false 
+            }
+            else 
+            {
+                vectors = try Grammar.parse(string.utf8, as: [Rule<String.Index, UInt8>.Vector].self)
+                self.absolute = true
+            }
+            (self.path, self.visible) = try URI.normalize(vectors: vectors)
+        }
     }
     struct LexicalPath 
     {
@@ -237,10 +254,6 @@ struct URI
 extension URI.Rule where Terminal == UInt8
 {
     // `Vector` and `Query` can only be defined for UInt8 because we are decoding UTF-8 to a String
-    
-    // note: these expect at least one component 
-    fileprivate
-    typealias AbsoluteVectors = Grammar.Reduce<Vector, [URI.LexicalPath.Vector?]>
     fileprivate
     enum RelativeVectors:ParsingRule 
     {

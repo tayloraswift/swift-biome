@@ -480,17 +480,6 @@ extension URI
         /* private 
         func resolve(symbol string:String, given context:GlobalContext) 
         {
-            let path:LexicalPath
-            if      let relative:[LexicalPath.Vector?] = 
-                try? Grammar.parse(string, as: Rule<String.Index, UInt8>.RelativeVectors.self)
-            {
-                path = .init(normalizing: relative)
-            }
-            else if let absolute:[LexicalPath.Vector?] = 
-                try? Grammar.parse(string, as: Rule<String.Index, UInt8>.AbsoluteVectors.self)
-            {
-                path = .init(normalizing: absolute)
-            }
         } */
     }
     
