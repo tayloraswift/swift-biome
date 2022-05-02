@@ -33,16 +33,17 @@ enum Demangle
         return unsafeBitCast(symbol, to: Function.self)
     }()
     
+    // argument should include 's' prefix, but not the '$' prefix
     static 
-    subscript(mangled:[UInt8]) -> String
+    subscript(mangled:String) -> String
     {
         // '$s' 
-        let prefixed:[UInt8] = [0x24, 0x73] + mangled
-        guard let string:UnsafeMutablePointer<Int8> = self.function(prefixed, prefixed.count, nil, nil, 0)
+        let prefixed:String = "$\(mangled)"
+        guard let string:UnsafeMutablePointer<Int8> = self.function(prefixed.utf8, prefixed.utf8.count, nil, nil, 0)
         else 
         {
-            print("warning: could not demangle symbol '\(String.init(decoding: mangled, as: Unicode.UTF8.self))'")
-            return String.init(decoding: mangled, as: Unicode.UTF8.self) 
+            print("warning: could not demangle symbol '\(mangled)'")
+            return mangled
         }
         defer 
         {

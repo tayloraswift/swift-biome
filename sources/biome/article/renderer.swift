@@ -75,21 +75,11 @@ extension Article
             case plain
         }
         
-        let format:Format
-        let biome:Biome 
-        let routing:RoutingTable
-        private
-        var context:UnresolvedLink.Context
-        
         var errors:[Error]
         
-        init(format:Format, biome:Biome, routing:RoutingTable, context:UnresolvedLink.Context)
+        init()
         {
-            self.format     = format
-            self.biome      = biome 
-            self.routing    = routing
-            self.context    = context
-            self.errors     = []
+            self.errors = []
         }
         mutating 
         func render(node:Surveyed.Node, demotedBy rank:Int, into elements:inout [Element])
@@ -287,11 +277,6 @@ extension Article
         private 
         func highlight(inline link:Link) -> Element?
         {
-            guard case .entrapta = self.format
-            else 
-            {
-                return nil 
-            }
             let spans:[any InlineMarkup] = .init(link.inlineChildren)
             guard   let span:any InlineMarkup = spans.first, spans.count == 1,
                     let span:InlineCode = span as? InlineCode 
@@ -428,14 +413,7 @@ extension Article
                     Swift.print("skipped resolving invalid documentation link '\(string)'")
                     break parsing 
                 }
-                
-                let unresolved:UnresolvedLink
-                switch self.format 
-                {
-                case .entrapta: unresolved = .entrapta(normalizing: string[start...])
-                case .docc:     unresolved =     .docc(normalizing: string[start...])
-                }
-                return .anchor(id: unresolved)
+                return .anchor(id: .doc(String.init(string[start...])))
             }
             
             return self.present(externalLink: link.inlineChildren.map
@@ -446,100 +424,17 @@ extension Article
         private mutating 
         func render(link:SymbolLink) -> Element
         {
-            guard let string:String = link.destination
+            if let string:String = link.destination
+            {
+                return .anchor(id: .fenced(string))
+            }
             else 
             {
                 self.errors.append(RenderingError.emptyLinkDestination)
                 return Element[.code] { "<empty symbol path>" }
             }
-            let unresolved:UnresolvedLink
-            switch self.format 
-            {
-            // “entrapta”-style symbol links
-            case .entrapta: unresolved = .entrapta(normalizing: string)
-            // “docc”-style symbol links
-            case .docc:     unresolved =     .docc(normalizing: string)
-            }
-            guard let resolved:ResolvedLink = self.resolve(unresolved)
-            else 
-            {
-                return Element[.code] { string }
-            }
-            // it’s too difficult to render symbol links eagerly :( 
-            // so just kick this into the final-pass substitutions. 
-            // if the URIs are very long, this can also save some memory.
-            return .anchor(id: .preresolved(resolved))
-            // return self.present(reference: resolved)
-        }
-
-        private mutating 
-        func resolve(_ unresolved:UnresolvedLink) -> ResolvedLink?
-        {
-            do 
-            {
-                // do not allow articles to be resolved
-                return try self.routing.resolve(base: .biome, link: unresolved, context: self.context)
-            }
-            catch let error 
-            {
-                self.errors.append(error)
-                Swift.print("failed to resolve symbollink '\(unresolved)'")
-                return nil
-            }
         }
         
-        /* static 
-        func fallback(for unresolved:UnresolvedLink) -> Element
-        {
-            switch unresolved 
-            {
-            case .preresolved: fatalError("unreachable")
-            case .entrapta(let path, absolute: _): 
-                return Element[.code] 
-                { 
-                    if let first:[UInt8] = path.stem.first 
-                    {
-                        Element[.span] 
-                        {
-                            ["syntax-type"]
-                        }
-                        content: 
-                        {
-                            Element.bytes(utf8: first) 
-                        }
-                    }
-                    for next:[UInt8] in path.stem.dropFirst() 
-                    {
-                        Element.bytes(utf8: [0x2e]) 
-                        Element[.span] 
-                        {
-                            ["syntax-type"]
-                        }
-                        content: 
-                        {
-                            Element.bytes(utf8: next) 
-                        }
-                    }
-                    if !path.leaf.isEmpty
-                    {
-                        Element.bytes(utf8: [0x2e]) 
-                        Element[.span] 
-                        {
-                            ["syntax-identifier"]
-                        }
-                        content: 
-                        {
-                            Element.bytes(utf8: path.leaf) 
-                        }
-                    }
-                }
-            case .docc(let path, _):
-                return Element[.code] 
-                { 
-                    Element.bytes(utf8: [UInt8].init(path.joined(separator: CollectionOfOne<UInt8>.init(0x2e)))) 
-                }
-            }
-        } */
         private  
         func present(externalLink content:[Element], to destination:String) -> Element
         {

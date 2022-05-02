@@ -3,13 +3,36 @@ import StructuredDocument
 import Bureaucrat
 import JSON
 
-extension Documentation.Catalog where Location == FilePath 
+struct ModuleDescriptor:Decodable 
 {
-    init(loading descriptor:Documentation.CatalogDescriptor, repository:FilePath)
+    let id:Module.ID
+    let include:[String] 
+    let dependencies:[_Graph.Dependency]
+}
+struct PackageDescriptor:Decodable 
+{
+    let package:Package.ID
+    let toolsVersion:Int
+    let modules:[ModuleDescriptor]
+    
+    enum CodingKeys:String, CodingKey 
     {
-        let package:Package.ID = .init(descriptor.package)
-        var articles:[ArticleDescriptor] = []
-        var graphs:[Substring: [GraphDescriptor]] = [:]
+        case package 
+        case modules
+        case toolsVersion = "catalog_tools_version"
+    }
+}
+
+extension Module.Catalog where Location == FilePath 
+{
+    init?(loading descriptor:ModuleDescriptor, repository:FilePath)
+    {
+        self.id = descriptor.id
+        self.dependencies = descriptor.dependencies
+        
+        var articles:[(name:String, source:FilePath)] = []
+        var bystanders:[(namespace:Module.ID, graph:FilePath)] = []
+        var core:FilePath? = nil
         for include:FilePath in descriptor.include.map(FilePath.init(_:))
         {
             let root:FilePath = include.isAbsolute ? include : repository.appending(include.components)
@@ -26,11 +49,9 @@ extension Documentation.Catalog where Location == FilePath
                 switch file.extension
                 {
                 case "md"?:
-                    var path:[String] = path.components.dropLast().map(\.string)
-                        path.append(file.stem)
-                    articles.append(.init(path: path, location: location))
+                    articles.append((file.stem, location))
+                
                 case "json"?:
-                    
                     guard   let reduced:FilePath.Component = .init(file.stem),
                             case "symbols"? = reduced.extension
                     else 
@@ -38,65 +59,52 @@ extension Documentation.Catalog where Location == FilePath
                         break 
                     }
                     let identifiers:[Substring] = reduced.stem.split(separator: "@", omittingEmptySubsequences: false)
-                    guard   let first:Substring = identifiers.first, 
-                            let last:Substring  = identifiers.last, identifiers.count <= 2 
+                    guard case self.id? = identifiers.first.map(Module.ID.init(_:))
                     else 
                     {
                         print("warning: ignored symbolgraph with invalid name '\(reduced.stem)'")
                         break 
                     }
-                    graphs[first, default: []]
-                        .append(.init(namespace: Module.ID.init(last), location: location))
+                    switch (identifiers.count, core)
+                    {
+                    case (1, nil): 
+                        core = location
+                    case (1, _?):
+                        print("warning: ignored duplicate symbolgraph '\(reduced.stem)'")
+                    case (2, _):
+                        bystanders.append((Module.ID.init(identifiers[1]), location))
+                    }
                     
                 default: 
                     break
                 }
             }
         }
-        let modules:[ModuleDescriptor] = descriptor.modules.compactMap 
+        guard let core:FilePath = core 
+        else 
         {
-            let module:Module.ID = .init($0)
-            
-            var core:GraphDescriptor? = nil 
-            var bystanders:[GraphDescriptor] = []
-            for graph:GraphDescriptor in graphs[$0[...], default: []]
-            {
-                guard graph.namespace != module 
-                else 
-                {
-                    if case nil = core
-                    {
-                        core = graph
-                    }
-                    else 
-                    {
-                        print("warning: ignored duplicate symbolgraph '\(graph.namespace.string)'")
-                    }
-                    continue 
-                }
-                bystanders.append(graph)
-            }
-            guard let core:GraphDescriptor = core 
-            else 
-            {
-                print("warning: skipped module '\(module.string)' because its core symbolgraph is missing")
-                return nil
-            }
-            return .init(core: core, bystanders: bystanders.sorted { $0.namespace.string < $1.namespace.string })
+            print("warning: skipped module '\(self.id)' because its core symbolgraph is missing")
+            return nil 
         }
-        self.init(format: descriptor.format, package: package, modules: modules, articles: articles)
+        self.graphs = (core, bystanders) 
+        self.articles = articles 
     }
 }
-extension Documentation 
+extension Package.Catalog where Location == FilePath 
 {
-    struct CatalogDescriptor:Decodable 
+    init(loading descriptor:PackageDescriptor, repository:FilePath)
     {
-        let format:Article.Format
-        let package:String
-        let include:[String]
-        let modules:[String]
+        guard descriptor.toolsVersion == 2
+        else 
+        {
+            fatalError("version mismatch")
+        }
+        self.id = descriptor.id
+        self.modules = descriptor.modules.compactMap { .init(loading: $0, repository: repository) }
     }
-    
+}
+extension Package 
+{
     static 
     func catalogs(parsing file:[UInt8], repository:FilePath) throws -> [Catalog<FilePath>]
     {
@@ -106,7 +114,9 @@ extension Documentation
             Catalog<FilePath>.init(loading: try CatalogDescriptor.init(from: $0), repository: repository)
         }
     }
-    
+}
+extension Documentation
+{
     public 
     init(serving bases:[URI.Base: String], 
         template:DocumentTemplate<Anchor, [UInt8]>, 
@@ -122,7 +132,7 @@ extension Documentation
     {
         let catalogs:[Catalog<FilePath>] = try paths.flatMap 
         {
-            try Self.catalogs(parsing: try Bureaucrat.read(from: $0), repository: .init(root: nil))
+            try Package.catalogs(parsing: try Bureaucrat.read(from: $0), repository: .init(root: nil))
         }
         try await self.init(serving: bases, template: template, loading: catalogs)
         {
@@ -146,7 +156,7 @@ extension Documentation
     {
         let catalogs:[Catalog<FilePath>] = try paths.flatMap 
         { 
-            try Self.catalogs(parsing: try Bureaucrat.read(from: loader.repository.appending($0.components)), 
+            try Package.catalogs(parsing: try Bureaucrat.read(from: loader.repository.appending($0.components)), 
                 repository: loader.repository)
         }
         try await self.init(serving: bases, template: template, loading: catalogs, with: loader.read(from:type:))

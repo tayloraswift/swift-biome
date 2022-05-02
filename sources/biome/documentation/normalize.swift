@@ -125,7 +125,7 @@ extension Biome
             switch String.init(decoding: key, as: Unicode.UTF8.self)
             {
             case "self": 
-                if let victim:Symbol.ID = try? Grammar.parse(value, as: URI.Rule<Array<UInt8>.Index, UInt8>.USR.MangledName.self)
+                if let victim:Symbol.ID = try? Grammar.parse(value, as: URI.Rule<Array<UInt8>.Index, UInt8>.USR.OpaqueName.self)
                 {
                     // if the mangled name contained a colon ('SymbolGraphGen style')
                     // get rid of it 

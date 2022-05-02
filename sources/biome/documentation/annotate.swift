@@ -26,7 +26,7 @@ extension Documentation
         let context:UnresolvedLink.Context
         var content:Article.Rendered<UnresolvedLink>.Content
         
-        (content, context) = surveyed.rendered(biome: self.biome, routing: self.routing, greenzone: nil)
+        (content, context) = surveyed.rendered()
         
         let headline:Element? = surveyed.metadata.noTitle ? nil : surveyed.headline.rendered()
         let resolved:Article.Rendered<ResolvedLink>.Content = 

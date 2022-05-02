@@ -1,10 +1,26 @@
 import Resource
 
+
 public 
 struct Package:Sendable, Identifiable
 {
+    /// A globally-unique index referencing a package. 
+    struct Index 
+    {
+        let bits:UInt16
+        
+        var offset:Int 
+        {
+            .init(self.bits)
+        }
+        init(offset:Int)
+        {
+            self.bits = .init(offset)
+        }
+    }
+    
     public 
-    struct ID:Hashable, Comparable, Sendable, ExpressibleByStringLiteral
+    struct ID:Hashable, Comparable, Sendable, Decodable, ExpressibleByStringLiteral, CustomStringConvertible
     {
         public 
         enum Kind:Hashable, Comparable, Sendable 
@@ -34,7 +50,21 @@ struct Package:Sendable, Identifiable
             case .community(let name):  return name 
             }
         }
+        public 
+        var description:String 
+        {
+            switch self.kind
+            {
+            case .swift:                return "(swift)"
+            case .community(let name):  return name 
+            }
+        }
         
+        @inlinable public 
+        init(from decoder:any Decoder) throws 
+        {
+            self.init(try decoder.decode(String.self))
+        }
         public 
         init(stringLiteral:String)
         {
@@ -74,6 +104,14 @@ struct Package:Sendable, Identifiable
             self.string 
         }
     }
+    public 
+    struct Catalog<Location>
+    {
+        public 
+        let id:ID 
+        public 
+        let modules:[Module.Catalog<Location>]
+    }
     
     public 
     enum Version:CustomStringConvertible, Sendable
@@ -102,13 +140,37 @@ struct Package:Sendable, Identifiable
         }
     }
     
+    /* struct Dependency
+    {
+        let package:Int 
+        let imports:[Int]
+    }  */
+    
     public 
     let id:ID
-    let modules:Range<Int>, 
-        hash:Resource.Version?
+    private 
+    var hash:Resource.Version?
+    private(set)
+    var modules:[Module], 
+        symbols:[Symbol]
+    
+    private(set)
+    var indices:
+    (
+        modules:[Module.ID: Module.Index],
+        symbols:[Symbol.ID: Symbol.Index]
+    )
     
     var name:String 
     {
         self.id.name
+    }
+    
+    init(id:ID, graphs:[_Graph], at index:Int, in table:URI.GlobalTable) throws 
+    {
+        self.id = id
+        self.hash = graphs.reduce(.semantic(0, 1, 2)) { $0 * $1.hash }
+        self.modules = []
+        
     }
 }

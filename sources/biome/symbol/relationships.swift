@@ -1,4 +1,4 @@
-extension Symbol 
+/* extension Symbol 
 {
     enum Callable:Sendable 
     {
@@ -414,4 +414,4 @@ extension Symbol
             }
         }
     }
-}
+} */

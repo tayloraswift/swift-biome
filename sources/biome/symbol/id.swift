@@ -1,3 +1,5 @@
+import Grammar
+
 extension Symbol 
 {
     enum USR:Hashable, Sendable 
@@ -5,35 +7,52 @@ extension Symbol
         case natural(ID)
         case synthesized(from:ID, for:ID)
     }
-    enum ID:Hashable, CustomStringConvertible, Sendable 
+    enum Language:Unicode.Scalar, Hashable, Sendable 
     {
-        case swift([UInt8])
-        case c([UInt8])
+        case c      = "c"
+        case swift  = "s"
+    }
+    struct ID:Hashable, CustomStringConvertible, Sendable 
+    {
+        let string:String 
         
-        var string:String 
+        init<ASCII>(_ language:Language, _ mangled:ASCII) where ASCII:Sequence, ASCII.Element == UInt8 
         {
-            switch self 
+            self.string = "\(language.rawValue)\(String.init(decoding: mangled, as: Unicode.ASCII.self))"
+        }
+        
+        var language:Language 
+        {
+            guard let language:Language = self.string.unicodeScalars.first.flatMap(Language.init(rawValue:))
+            else 
             {
-            case .swift(let utf8): 
-                return "s\(String.init(decoding: utf8, as: Unicode.UTF8.self))"
-            case .c(let utf8):
-                return "c\(String.init(decoding: utf8, as: Unicode.UTF8.self))"
+                // should always be round-trippable
+                fatalError("unreachable")
             }
+            return language 
         }
-        /* 
-        init(_ string:String)
-        {
-            self.string = string 
-        }
-         */
+        
         var description:String
         {
-            switch self 
+            Demangle[self.string]
+        }
+        
+        func isUnderscoredProtocolExtensionMember(from module:Module.ID) -> Bool 
+        {
+            // if a vertex is non-canonical, the symbol id of its generic base 
+            // always starts with a mangled protocol name. 
+            // note that our demangling implementation cannot handle “known” 
+            // protocols like 'Swift.Equatable'. but this is fine because we 
+            // are only using this to detect symbols that are defined in extensions 
+            // on underscored protocols.
+            var input:ParsingInput<Grammar.NoDiagnostics> = .init(self.string.utf8)
+            switch input.parse(as: URI.Rule<String.Index, UInt8>.USR.MangledProtocolName?.self)
             {
-            case .swift(let utf8):
-                return Demangle[utf8]
-            case .c(let utf8): 
-                return "c-language symbol '\(String.init(decoding: utf8, as: Unicode.UTF8.self))'"
+            case    (perpetrator: module?, namespace: _,      let name)?, 
+                    (perpetrator: nil,     namespace: module, let name)?:
+                return name.starts(with: "_") 
+            default: 
+                return false 
             }
         }
     }

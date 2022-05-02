@@ -242,7 +242,7 @@ extension Article
             self.nodes = nodes
         }
         
-        var master:UnresolvedLink?
+        var binding:UnresolvedLink?
         {
             guard case .explicit(let headline) = self.headline 
             else 
@@ -251,29 +251,21 @@ extension Article
             }
             var spans:LazyMapSequence<MarkupChildren, InlineMarkup>.Iterator = 
                 headline.inlineChildren.makeIterator()
-            guard   let owner:any InlineMarkup  = spans.next(), 
-                    case nil                    = spans.next(), 
+            if  let owner:any InlineMarkup  = spans.next(), 
+                case nil                    = spans.next(), 
                 let owner:SymbolLink    = owner as? SymbolLink,
                 let owner:String        = owner.destination, !owner.isEmpty
+            {
+                return .fenced(owner)
+            }
             else 
             {
                 return nil
             }
-            switch self.metadata.format 
-            {
-            // FIXME
-            case .entrapta, .docc:
-                return .docc(normalizing: owner)
-            }
         }
-        
-        func rendered(biome:Biome, routing:RoutingTable, greenzone:(namespace:Int, scope:[[UInt8]])?) 
-            -> (Rendered<UnresolvedLink>.Content, UnresolvedLink.Context)
+        var content:Rendered<UnresolvedLink>.Content
         {
-            let context:UnresolvedLink.Context = routing.context(imports: self.metadata.imports, greenzone: greenzone)
-            
-            var renderer:Renderer = .init(format: self.metadata.format, biome: biome, routing: routing,
-                context: context)
+            var renderer:Renderer = .init()
             // note: we *never* render the top-level heading. this will either be 
             // auto-generated (for owned symbols), or stored as plain text by the 
             // caller of this function.
@@ -309,10 +301,10 @@ extension Article
             }
             let content:Rendered<UnresolvedLink>.Content = 
                 .init(errors: renderer.errors, summary: summary, discussion: discussion)
-            return (content, context)
+            return content
         }
         // `RecurringInlineMarkup` is not a useful abstraction
-        static 
+        private static 
         func render(recurring inline:any InlineMarkup) -> StaticElement
         {
             switch inline

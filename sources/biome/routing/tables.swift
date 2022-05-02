@@ -56,19 +56,36 @@ extension URI
     
     struct GlobalContext
     {
-        let nationalities:[NationalContext]
-        let locality:LocalContext?
+        let dependencies:[Module.Dependency]
+        let locality:LocalContext
+        
+        var nationalities:[NationalContext]
+        {
+            if let locality:LocalContext = self.locality 
+            {
+                return self.dependencies + CollectionOfOne<NationalContext>.init(locality.nationality)
+            }
+            else 
+            {
+                return self.dependencies 
+            }
+        }
     }
-    struct NationalContext 
+    /* struct NationalContext 
     {
         let package:Int 
         let imports:[Int]
-    } 
+    }  */
     struct LocalContext 
     {
         let package:Int 
         let module:Int 
         let scope:[String]
+        
+        var nationality:NationalContext 
+        {
+            .init(package: locality.package, imports: [locality.module])
+        }
     }
     
     enum NationalResolution 
@@ -113,10 +130,8 @@ extension URI
         
         private
         var _packages:[NationalTable]
-        private 
-        let pairings:[Symbol.Pairing: Symbol.Depth]
         
-        init(bases:[Base: String], biome:Biome) 
+        init(bases:[Base: String] = [:], biome:Biome) 
         {
             self.roots = .init(uniqueKeysWithValues: zip(biome.packages.map(\.id), biome.packages.indices))
             self.paths = .init()
@@ -476,114 +491,9 @@ extension URI
             self.find(relative: path, given: context) ??
             self.find(local:    path, given: context)
         }
-        
-        /* private 
-        func resolve(symbol string:String, given context:GlobalContext) 
-        {
-        } */
     }
     
-    private 
-    struct NationalTable
-    {
-        // 16B stride. no space savings from omitting `self.stem`
-        struct Key:Hashable 
-        {
-            let module:Int 
-            let stem:UInt32 
-            let leaf:UInt32 
-            
-            init(module:Int, leaf:UInt32)
-            {
-                self.init(module: module, stem: .max, leaf: leaf)
-            }
-            init(module:Int, stem:UInt32, leaf:UInt32)
-            {
-                self.module = module
-                self.stem = stem
-                self.leaf = leaf
-            }
-        }
-        
-        private 
-        let trunks:[Module.ID: Int]
-        private
-        var symbols:[Key: Symbol.Group], 
-            articles:[Key: Int]
-        
-        init(trunks:[Module.ID: Int])
-        {
-            self.trunks = trunks 
-            self.symbols = [:]
-            self.articles = [:]
-        }
-        
-        func resolve(module component:LexicalPath.Component) -> Int?
-        {
-            if case .identifier(let string, hyphen: nil) = component
-            {
-                return self.trunks[Module.ID.init(string)]
-            }
-            else 
-            {
-                return nil
-            }
-        }
-        func depth(of symbol:(orientation:LexicalPath.Orientation, index:Int), in key:Key) -> Symbol.Depth?
-        {
-            self.symbols[key]?.depth(of: symbol)
-        }
-        
-        subscript(module module:Int, symbol path:LocalSelector) -> Symbol.Group?
-        {
-            self.symbols    [Key.init(module: module, stem: path.stem, leaf: path.leaf)]
-        }
-        subscript(module module:Int, article leaf:UInt32) -> Int?
-        {
-            self.articles   [Key.init(module: module,                  leaf:      leaf)]
-        }
-        subscript(path:NationalSelector) -> NationalResolution?
-        {
-            switch path 
-            {
-            case .opaque(let opaque):
-                // no additional lookups necessary
-                return .opaque(opaque)
-            
-            case .symbol(module: let module, nil): 
-                // no additional lookups necessary
-                return .module(module)
-    
-            case .symbol(module: let module, let path?): 
-                return self[module: module, symbol: path].map { NationalResolution.group($0, path.suffix) }
-            
-            case .article(module: let module, let leaf): 
-                return self[module: module, article: leaf].map( NationalResolution.article(_:) )
-            }
-        }
-        
-        mutating 
-        func insert(_ pairing:Symbol.Pairing, _ orientation:LexicalPath.Orientation, into key:Key)
-        {
-            switch orientation 
-            {
-            case .straight: self.insert(.big(pairing), into: key)
-            case .gay:   self.insert(.little(pairing), into: key)
-            }
-        }
-        private mutating 
-        func insert(_ entry:Symbol.Group, into key:Key)
-        {
-            if let index:Dictionary<Key, Symbol.Group>.Index = self.symbols.index(forKey: key)
-            {
-                self.symbols.values[index].merge(entry)
-            }
-            else 
-            {
-                self.symbols.updateValue(entry, forKey: key)
-            }
-        }
-    }
+
 
     private 
     struct PathTable 

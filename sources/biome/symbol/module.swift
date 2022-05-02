@@ -1,11 +1,39 @@
 public 
 struct Module:Identifiable, Sendable
 {
+    /// A globally-unique index referencing a module. 
+    struct Index 
+    {
+        let package:Package.Index 
+        let bits:UInt16
+        
+        var offset:Int 
+        {
+            .init(self.bits)
+        }
+        init(package:Int, offset:Int)
+        {
+            self.init(Package.Index.init(offset: package), offset: offset)
+        }
+        init(_ package:Package.Index, offset:Int)
+        {
+            self.package = package 
+            self.bits = .init(offset)
+        }
+    }
+    
     public
-    struct ID:Hashable, Sendable, ExpressibleByStringLiteral
+    struct ID:Hashable, Sendable, Decodable, ExpressibleByStringLiteral, CustomStringConvertible
     {
         public
         let string:String 
+        
+        public 
+        var description:String 
+        {
+            self.string 
+        }
+        
         // lowercased. it is possible for lhs == rhs even if lhs.string != rhs.string
         var value:String 
         {
@@ -29,10 +57,15 @@ struct Module:Identifiable, Sendable
             Documentation.URI.encode(component: self.title.utf8)
         }
         
+        @inlinable public 
+        init(from decoder:any Decoder) throws 
+        {
+            self.init(try decoder.decode(String.self))
+        }
         public
         init(stringLiteral:String)
         {
-            self.init(stringLiteral)
+            self.string = stringLiteral
         }
         @inlinable public
         init<S>(_ string:S) where S:StringProtocol 
@@ -44,28 +77,59 @@ struct Module:Identifiable, Sendable
             self.string.drop { $0 == "_" } 
         }
     }
+    public 
+    struct Catalog<Location>
+    {
+        public 
+        let id:ID, 
+            dependencies:[_Graph.Dependency]
+        public 
+        var graphs:(core:Location, bystanders:[(namespace:ID, graph:Location)])
+        public 
+        var articles:[(name:String, source:Location)]
+    }
     
+    typealias Colony = (module:Index, symbols:Range<Int>)
+        
     public 
     let id:ID
-    let package:Int
     
-    let symbols:(core:Range<Int>, extensions:[(bystander:Int, symbols:Range<Int>)])
-    var toplevel:[Int]
+    /// the list of modules this module depends on, grouped by package. 
+    let dependencies:[[Module.Index]]
     
-    var title:String 
+    /// the symbols scoped to this module’s top-level namespace. every index in 
+    /// this array falls within the range of ``core``, since it is not possible 
+    /// to extend the top-level namespace of a module.
+    let toplevel:[Int]
+    /// the complete list of symbols vended by this module. the ranges are *contiguous*.
+    /// ``core`` contains the symbols with the lowest addresses.
+    let core:Range<Int>
+    let colonies:[Colony]
+    
+    var symbols:Range<Int>
     {
-        .init(self.id.title)
+        self.core.lowerBound ..< self.extensions.last?.symbols.upperBound ?? self.core.upperBound
     }
-    var allSymbols:FlattenSequence<[Range<Int>]>
+    /// this module’s exact identifier string, e.g. '_Concurrency'
+    var name:String 
     {
-        ([self.symbols.core] + self.symbols.extensions.map(\.symbols)).joined()
+        self.id.string 
+    }
+    /// this module’s identifier string with leading underscores removed, e.g. 'Concurrency'
+    var title:Substring 
+    {
+        self.id.title
     }
     
-    init(id:ID, package:Int, core:Range<Int>, extensions:[(bystander:Int, symbols:Range<Int>)])
+    init(id:ID, dependencies:[[Module.Index]], core:Range<Int>, colonies:[Colony], 
+        _ isToplevel:(Int) throws -> Bool) rethrows
     {
-        self.id         = id 
-        self.package    = package
-        self.symbols    = (core, extensions)
-        self.toplevel   = []
+        self.id = id 
+        self.core = core 
+        self.colonies = colonies 
+        // only the core subgraph can contain top-level symbols.
+        self.toplevel = self.core.filter(isToplevel)
+        
+        self.dependencies = dependencies
     }
 }

@@ -153,7 +153,7 @@ extension SwiftHighlight
     }
 }
 
-public 
+/* public 
 enum SwiftLanguage 
 {
     public 
@@ -171,4 +171,4 @@ enum SwiftLanguage
         var object:String
     }
 }
-extension SwiftLanguage.Constraint:Sendable where Link:Sendable {}
+extension SwiftLanguage.Constraint:Sendable where Link:Sendable {} */

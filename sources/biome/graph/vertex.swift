@@ -3,44 +3,57 @@ import Highlight
 
 infix operator ~~ :ComparisonPrecedence
 
-extension Graph 
+struct Vertex
 {
-    struct Vertex
+    var isCanonical:Bool
+    var id:Symbol.ID,
+        color:Symbol.Color, 
+        path:[String], 
+        availability:Symbol.Availability,
+        signature:Notebook<SwiftHighlight, Never>, 
+        declaration:Notebook<SwiftHighlight, Symbol.ID>, 
+        generics:[Symbol.Generic], 
+        genericConstraints:[SwiftConstraint<Symbol.ID>],
+        extensionConstraints:[SwiftConstraint<Symbol.ID>],
+        extendedModule:Module.ID?, 
+        comment:String
+    
+    static 
+    func ~~ (lhs:Self, rhs:Self) -> Bool 
     {
-        var isCanonical:Bool
-        var id:Symbol.ID,
-            kind:Symbol.Kind, 
-            path:[String], 
-            signature:Notebook<SwiftHighlight, Never>, 
-            declaration:Notebook<SwiftHighlight, Symbol.ID>, 
-            `extension`:(extendedModule:Module.ID, constraints:[SwiftConstraint<Symbol.ID>])?,
-            generics:(parameters:[Symbol.Generic], constraints:[SwiftConstraint<Symbol.ID>])?,
-            availability:[(key:Biome.Domain, value:Symbol.Availability)],
-            comment:String
-        
-        static 
-        func ~~ (lhs:Self, rhs:Self) -> Bool 
+        if  lhs.id                          == rhs.id,
+            lhs.color                       == rhs.color, 
+            lhs.extension?.extendedModule   == rhs.extension?.extendedModule,
+            lhs.extension?.constraints      == rhs.extension?.constraints,
+            lhs.generics?.parameters        == rhs.generics?.parameters,
+            lhs.generics?.constraints       == rhs.generics?.constraints,
+            lhs.comment                     == rhs.comment
         {
-            if  lhs.id                          == rhs.id,
-                lhs.kind                        == rhs.kind, 
-                lhs.extension?.extendedModule   == rhs.extension?.extendedModule,
-                lhs.extension?.constraints      == rhs.extension?.constraints,
-                lhs.generics?.parameters        == rhs.generics?.parameters,
-                lhs.generics?.constraints       == rhs.generics?.constraints,
-                lhs.comment                     == rhs.comment
-            {
-                return true 
-            }
-            else 
-            {
-                return false
-            }
+            return true 
+        }
+        else 
+        {
+            return false
         }
     }
     
-    static 
-    func decode(vertex json:JSON) throws -> Vertex
+    init(from json:JSON) throws 
     {
+        (
+            self.isCanonical,
+            self.id,
+            self.color,
+            self.path,
+            self.availability,
+            self.signature,
+            self.declaration,
+            self.generics,
+            self.genericConstraints,
+            self.extensionConstraints,
+            self.extendedModule,
+            self.comment
+        )
+        =
         try json.lint 
         {
             let (id, isCanonical):(Symbol.ID, Bool) = try $0.remove("identifier")
@@ -57,11 +70,11 @@ extension Graph
                     return (id, false)
                 }
             }
-            let kind:Symbol.Kind = try $0.remove("kind")
+            let color:Symbol.Color = try $0.remove("kind")
             {
                 try $0.lint(["displayName"])
                 {
-                    try $0.remove("identifier") { try $0.case(of: Symbol.Kind.self) }
+                    try $0.remove("identifier") { try $0.case(of: Symbol.Color.self) }
                 }
             }
             let path:[String] = try $0.remove("pathComponents") { try $0.map { try $0.as(String.self) } }
@@ -70,12 +83,12 @@ extension Graph
             typealias SwiftFragment = (text:String, highlight:SwiftHighlight, link:Symbol.ID?)
             
             let declaration:Notebook<SwiftHighlight, Symbol.ID> = .init(
-                try $0.remove("declarationFragments") { try $0.map(Self.decode(fragment:)) })
+                try $0.remove("declarationFragments") { try $0.map(Self.fragment(from:)) })
             let signature:Notebook<SwiftHighlight, Never> = try $0.remove("names")
             {
                 let signature:[SwiftFragment] = try $0.lint(["title", "navigator"])
                 {
-                    try $0.remove("subHeading") { try $0.map(Self.decode(fragment:)) }
+                    try $0.remove("subHeading") { try $0.map(Self.fragment(from:)) }
                 }
                 return Notebook<SwiftHighlight, Symbol.ID>.init(signature).compactMapLinks 
                 {
@@ -111,7 +124,7 @@ extension Graph
                 {
                     (
                         try $0.remove("extendedModule", as: String.self),
-                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(Self.decode(constraint:)) } ?? []
+                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(SwiftConstraint.init(from:)) } ?? []
                     )
                 }
                 return (.init(module), constraints)
@@ -122,37 +135,42 @@ extension Graph
                 try $0.lint 
                 {
                     (
-                        try $0.pop("parameters",  as: [JSON]?.self) { try $0.map(Self.decode(generic:)) }    ?? [],
-                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(Self.decode(constraint:)) } ?? []
+                        try $0.pop("parameters",  as: [JSON]?.self) { try $0.map( Symbol.Generic.init(from:)) } ?? [],
+                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(SwiftConstraint.init(from:)) } ?? []
                     )
                 }
             }
-            let availability:[(key:Biome.Domain, value:Symbol.Availability)]? = 
+            let availability:Symbol.Availability? = 
                 try $0.pop("availability", as: [JSON]?.self)
             {
+                let availability:[(key:Symbol.AvailabilityDomain, value:Symbol.VersionedAvailability)] = 
                 try $0.map 
                 {
                     try $0.lint
                     {
                         let deprecated:Package.Version?? = try
-                            $0.pop("deprecated", Self.decode(version:)) ?? 
+                            $0.pop("deprecated", Package.Version.init(from:)) ?? 
                             $0.pop("isUnconditionallyDeprecated", as: Bool?.self).flatMap 
                         {
                             (flag:Bool) -> Package.Version?? in 
                             flag ? .some(nil) : nil
                         } 
                         // possible be both unconditionally unavailable and unconditionally deprecated
-                        let availability:Symbol.Availability = .init(
+                        let availability:Symbol.VersionedAvailability = .init(
                             unavailable: try $0.pop("isUnconditionallyUnavailable", as: Bool?.self) ?? false,
                             deprecated: deprecated,
-                            introduced: try $0.pop("introduced", Self.decode(version:)),
-                            obsoleted: try $0.pop("obsoleted", Self.decode(version:)), 
+                            introduced: try $0.pop("introduced", Package.Version.init(from:)),
+                            obsoleted: try $0.pop("obsoleted", Package.Version.init(from:)), 
                             renamed: try $0.pop("renamed", as: String?.self),
                             message: try $0.pop("message", as: String?.self))
-                        let domain:Biome.Domain = try $0.remove("domain") { try $0.case(of: Biome.Domain.self) }
+                        let domain:Symbol.AvailabilityDomain = try $0.remove("domain") 
+                        { 
+                            try $0.case(of: Symbol.AvailabilityDomain.self) 
+                        }
                         return (key: domain, value: availability)
                     }
                 }
+                return .init(availability)
             }
             let comment:String? = try $0.pop("docComment")
             {
@@ -170,51 +188,26 @@ extension Graph
                     }
                 }
             }
-            return .init(
-                isCanonical:    isCanonical, 
-                id:             id,
-                kind:           kind, 
-                path:           path,
-                signature:      signature, 
-                declaration:    declaration, 
-                extension:      `extension`, 
-                generics:       generics, 
-                availability:   availability ?? [], 
-                comment:        comment ?? "")
+            return 
+                (
+                isCanonical:            isCanonical, 
+                id:                     id,
+                color:                  color, 
+                path:                   path,
+                availability:           availability ?? .init(), 
+                signature:              signature, 
+                declaration:            declaration, 
+                generics:               generics?.parameters ?? [], 
+                genericConstraints:     generics?.constraints ?? [], 
+                extensionConstraints:  `extension`?.constraints ?? [], 
+                extendedModule:        `extension`?.extendedModule,
+                comment:                comment ?? ""
+                )
         }
     }
+
     private static 
-    func decode(version json:JSON) throws -> Package.Version
-    {
-        try json.lint 
-        {
-            let major:Int = try $0.remove("major", as: Int.self)
-            guard let minor:Int = try $0.pop("minor", as: Int.self)
-            else 
-            {
-                return .tag(major: major, nil)
-            }
-            guard let patch:Int = try $0.pop("patch", as: Int.self)
-            else 
-            {
-                return .tag(major: major, (minor, nil))
-            }
-            return .tag(major: major, (minor, (patch, nil)))
-        }
-    }
-    private static 
-    func decode(generic json:JSON) throws -> Symbol.Generic
-    {
-        try json.lint 
-        {
-            .init(
-                name:  try $0.remove("name", as: String.self),
-                index: try $0.remove("index", as: Int.self),
-                depth: try $0.remove("depth", as: Int.self))
-        }
-    }
-    private static 
-    func decode(fragment json:JSON) throws -> 
+    func fragment(from json:JSON) throws -> 
     (
         text:String, 
         highlight:SwiftHighlight, 
@@ -224,7 +217,7 @@ extension Graph
         try json.lint 
         {
             let text:String = try $0.remove("spelling", as: String.self)
-            let link:Symbol.ID? = try $0.pop("preciseIdentifier", Self.decode(id:))
+            let link:Symbol.ID? = try $0.pop("preciseIdentifier", Symbol.ID.init(from:))
             let highlight:SwiftHighlight = try $0.remove("kind")
             {
                 // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/DeclarationFragmentPrinter.cpp
@@ -251,6 +244,43 @@ extension Graph
                 }
             }
             return (text, highlight, link)
+        }
+    }
+}
+extension Symbol.Generic 
+{
+    fileprivate
+    init(from json:JSON) throws 
+    {
+        (self.name, self.index, self.depth) = try json.lint 
+        {
+            (
+                name:  try $0.remove("name", as: String.self),
+                index: try $0.remove("index", as: Int.self),
+                depth: try $0.remove("depth", as: Int.self)
+            )
+        }
+    }
+}
+extension Package.Version 
+{
+    fileprivate 
+    init(from json:JSON) throws 
+    {
+        self = try json.lint 
+        {
+            let major:Int = try $0.remove("major", as: Int.self)
+            guard let minor:Int = try $0.pop("minor", as: Int.self)
+            else 
+            {
+                return .tag(major: major, nil)
+            }
+            guard let patch:Int = try $0.pop("patch", as: Int.self)
+            else 
+            {
+                return .tag(major: major, (minor, nil))
+            }
+            return .tag(major: major, (minor, (patch, nil)))
         }
     }
 }

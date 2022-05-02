@@ -6,14 +6,17 @@ enum ResolvedLink:Hashable, Sendable
     case module(Int)
     case symbol(Int, victim:Int?, components:Int = .max)
 }
-enum UnresolvedLink:Hashable, CustomStringConvertible, Sendable
+enum UnresolvedLink:Hashable, Sendable
 {
+    case fenced(String)
+    case doc(String)
+    
     struct Context
     {
         let whitelist:Set<Int>
         let greenzone:(namespace:Int, scope:[[UInt8]])?
     }
-    enum Disambiguator 
+    /* enum Disambiguator 
     {
         enum DocC:Hashable, CustomStringConvertible 
         {
@@ -39,9 +42,9 @@ enum UnresolvedLink:Hashable, CustomStringConvertible, Sendable
         default: 
             return .max
         }
-    }
+    } */
 }
-extension UnresolvedLink 
+/* extension UnresolvedLink 
 {
     static 
     func docc<S>(normalizing string:S) -> Self 
@@ -113,8 +116,8 @@ extension UnresolvedLink
             return    String.init(decoding: Documentation.URI.concatenate(normalized: path), as: Unicode.UTF8.self)
         }
     }
-}
-extension UnresolvedLink.Disambiguator.DocC
+} */
+/* extension UnresolvedLink.Disambiguator.DocC
 {
     init(_ string:String)
     {
@@ -129,4 +132,4 @@ extension UnresolvedLink.Disambiguator.DocC
         case .hash(let hash):   return "(hash: \(hash))"
         }
     }
-}
+} */

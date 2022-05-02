@@ -17,6 +17,8 @@ struct Documentation:Sendable
         case ambiguous
     }
     
+    var _table:_URI.GlobalTable
+    
     public
     let biome:Biome 
     let routing:RoutingTable
@@ -38,9 +40,9 @@ struct Documentation:Sendable
     var search:[Resource] 
     
     public 
-    init<Location>(serving bases:[URI.Base: String], 
+    init<Location>(serving _bases:[URI.Base: String], 
         template:DocumentTemplate<Anchor, [UInt8]>,
-        loading catalogs:[Catalog<Location>], 
+        loading catalogs:[Package.Catalog<Location>], 
         with load:(_ location:Location, _ type:Resource.Text) async throws -> Resource) 
         async throws 
     {
@@ -49,7 +51,10 @@ struct Documentation:Sendable
         // or owned until after we’ve built the initial routing table from the biome 
         // (which is a `let`). the uri of an article depends on whether it has 
         // an owner, so we need to register the free articles in a second pass.
-        var routing:RoutingTable = .init(bases: bases, biome: biome)
+        var routing:RoutingTable = .init(bases: _bases, biome: biome)
+        
+        self._table = .init(bases: [:], biome: biome)
+        
         Swift.print("initialized routing table")
         
         var symbols:[Int: (content:Article.Rendered<UnresolvedLink>.Content, context:UnresolvedLink.Context)] = [:]
@@ -57,8 +62,10 @@ struct Documentation:Sendable
         
         Swift.print("starting article loading")
         var articles:[Expatriate<Article.Rendered<UnresolvedLink>>] = []
-        for (package, catalog):(Package, Catalog<Location>) in zip(biome.packages, catalogs)
+        for (index, catalog):(Int, Catalog<Location>) in zip(biome.packages.indices, catalogs)
         {
+            let package:Package = biome.packages[index]
+            
             for entry:Catalog<Location>.ArticleDescriptor in catalog.articles 
             {
                 // for now, we require every article path to begin with a module name
@@ -79,10 +86,16 @@ struct Documentation:Sendable
                 }
                 
                 let surveyed:Article.Surveyed = .init(markdown: source, format: catalog.format)
-                if let master:UnresolvedLink = surveyed.master
+                
+                let context:_URI.GlobalContext  = table.context(package: index, module: module, 
+                    imports: surveyed.metadata.imports)
+                if  let binding:UnresolvedLink  = surveyed.binding, 
+                    let binding:ResolvedLink    = _table.resolve(binding)
                 {
+                    let context:_URI.GlobalContext = context.localized
+                    
                     // TODO: handle this error
-                    switch try routing.resolve(base: .biome, link: master, context: 
+                    switch try self._table.resolve(master, given: 
                         routing.context(imports: surveyed.metadata.imports, 
                             greenzone: (module, [])))
                     {
@@ -94,8 +107,7 @@ struct Documentation:Sendable
                         fatalError("UNSUPPORTED")
                     
                     case .module(let namespace):
-                        modules[namespace] = surveyed.rendered(biome: biome, routing: routing, 
-                            greenzone: (namespace, []))
+                        modules[namespace] = surveyed.rendered()
                     
                     case .symbol(let witness, victim: nil, components: _):
                         // guard let reassignment:Int = biome.symbols[witness].namespace
@@ -103,8 +115,7 @@ struct Documentation:Sendable
                         // {
                         //     fatalError("cannot override documentation for mythical symbols")
                         // }
-                        symbols[witness] = surveyed.rendered(biome: biome, routing: routing, 
-                            greenzone: biome.greenzone(witness: witness, victim: nil))
+                        symbols[witness] = surveyed.rendered()
                     
                     case .symbol(_, victim: _?, components: _):
                         fatalError("UNIMPLEMENTED")

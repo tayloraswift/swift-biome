@@ -1,7 +1,240 @@
-import JSON 
-import Resource
+// import JSON 
+// import Resource
 
-public 
+enum _PackageError:Error 
+{
+    case duplicate(id:Package.ID)
+}
+enum _ModuleError:Error 
+{
+    case mismatchedExtension(id:Module.ID, expected:Module.ID, in:Symbol.ID)
+    case mismatched(id:Module.ID)
+    case duplicate(id:Module.ID)
+    case undefined(id:Module.ID)
+}
+
+struct Biome 
+{
+    private 
+    var indices:[Package.ID: Package.Index]
+    private 
+    var nations:[Nation]
+    
+    init() 
+    {
+        self.indices = []
+        self.nations = []
+    }
+    subscript(package:Package.ID) -> Package?
+    {
+        self.indices[package].map(self.subscript(_:))
+    } 
+    subscript(package:Package.Index) -> Package
+    {
+        _read 
+        {
+            yield self.nations[package.offset].package
+        }
+        _modify 
+        {
+            yield &self.nations[package.offset].package
+        }
+    } 
+    subscript(module:Module.Index) -> Module
+    {
+        _read 
+        {
+            yield self.nations[module.package.offset].package.modules[module.offset]
+        }
+        _modify 
+        {
+            yield &self.nations[module.package.offset].package.modules[module.offset]
+        }
+    } 
+    subscript(symbol:Symbol.Index) -> Symbol
+    {
+        _read 
+        {
+            yield self.nations[symbol.module.package.offset].package.symbols[symbols.offset]
+        }
+        _modify 
+        {
+            yield &self.nations[symbol.module.package.offset].package.symbols[symbols.offset]
+        }
+    } 
+    
+    mutating 
+    func append(_ package:Package.ID, graphs:[_Graph]) throws 
+    {
+        var supergraph:Supergraph = .init(package: (package, .init(offset: self.nations.endIndex)))
+        try supergraph.linearize(graphs, given: biome)
+    }
+}
+extension Module 
+{
+    struct Scope 
+    {
+        //  the endpoints of a graph edge can reference symbols in either this 
+        //  package or one of its dependencies. since imports are module-wise, and 
+        //  not package-wise, it’s possible for multiple index dictionaries to 
+        //  return matches, as long as only one of them belongs to an depended-upon module.
+        //  
+        //  it’s also possible to prefer a dictionary result in a foreign package over 
+        //  a dictionary result in the local package, if the foreign package contains 
+        //  a module that shadows one of the modules in the local package (as long 
+        //  as the target itself does not also depend upon the shadowed local module.)
+        private 
+        let filter:Set<Module.Index>
+        private 
+        let layers:[[Symbol.ID: Symbol.Index]]
+        
+        init(filter:Set<Module.Index>, layers:[[Symbol.ID: Symbol.Index]])
+        {
+            self.filter = filter 
+            self.layers = layers 
+        }
+        
+        func index(of symbol:Symbol.ID) throws -> Symbol.Index 
+        {
+            if let index:Symbol.Index = self[symbol]
+            {
+                return index 
+            }
+            else 
+            {
+                throw SymbolError.undefined(id: symbol)
+            } 
+        }
+        private 
+        subscript(symbol:Symbol.ID) -> Symbol.Index?
+        {
+            for layer:Int in self.layers.indices
+            {
+                guard let index:Symbol.Index = self.layers[layer][symbol], 
+                    self.filter.contains(index.module)
+                else 
+                {
+                    continue 
+                }
+                // sanity check: ensure none of the remaining layers contains 
+                // a colliding symbol 
+                for layer:[Symbol.ID: Symbol.Index] in self.layers[layer...].dropFirst()
+                {
+                    if case _? = layer[symbol], self.filter.contains(index.module)
+                    {
+                        fatalError("colliding symbol identifiers in search space")
+                    }
+                }
+                return index
+            }
+        }
+    }
+}
+struct Nation
+{
+    // 10B size, 12B stride. 
+    struct Key:Hashable 
+    {
+        let leaf:UInt32 
+        let stem:UInt32 
+        let trunk:UInt16
+        
+        init(trunk:UInt16, leaf:UInt32)
+        {
+            self.init(trunk: trunk, stem: .max, leaf: leaf)
+        }
+        init(trunk:UInt16, stem:UInt32, leaf:UInt32)
+        {
+            self.trunk = trunk
+            self.stem = stem
+            self.leaf = leaf
+        }
+    }
+    
+    var package:Package 
+    
+    private
+    var symbols:[Key: Symbol.Group], 
+        articles:[Key: Int]
+    private 
+    let pairings:[Symbol.Pairing: Symbol.Depth]
+    
+    init(_ package:Package)
+    {
+        self.package = package 
+        self.symbols = [:]
+        self.articles = [:]
+        self.pairings = [:]
+    }
+    
+    func resolve(module component:LexicalPath.Component) -> Int?
+    {
+        if case .identifier(let string, hyphen: nil) = component
+        {
+            return self.trunks[Module.ID.init(string)]
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    func depth(of symbol:(orientation:LexicalPath.Orientation, index:Int), in key:Key) -> Symbol.Depth?
+    {
+        self.symbols[key]?.depth(of: symbol)
+    }
+    
+    subscript(module module:Int, symbol path:LocalSelector) -> Symbol.Group?
+    {
+        self.symbols    [Key.init(module: module, stem: path.stem, leaf: path.leaf)]
+    }
+    subscript(module module:Int, article leaf:UInt32) -> Int?
+    {
+        self.articles   [Key.init(module: module,                  leaf:      leaf)]
+    }
+    subscript(path:NationalSelector) -> NationalResolution?
+    {
+        switch path 
+        {
+        case .opaque(let opaque):
+            // no additional lookups necessary
+            return .opaque(opaque)
+        
+        case .symbol(module: let module, nil): 
+            // no additional lookups necessary
+            return .module(module)
+
+        case .symbol(module: let module, let path?): 
+            return self[module: module, symbol: path].map { NationalResolution.group($0, path.suffix) }
+        
+        case .article(module: let module, let leaf): 
+            return self[module: module, article: leaf].map( NationalResolution.article(_:) )
+        }
+    }
+    
+    mutating 
+    func insert(_ pairing:Symbol.Pairing, _ orientation:LexicalPath.Orientation, into key:Key)
+    {
+        switch orientation 
+        {
+        case .straight: self.insert(.big(pairing), into: key)
+        case .gay:   self.insert(.little(pairing), into: key)
+        }
+    }
+    private mutating 
+    func insert(_ entry:Symbol.Group, into key:Key)
+    {
+        if let index:Dictionary<Key, Symbol.Group>.Index = self.symbols.index(forKey: key)
+        {
+            self.symbols.values[index].merge(entry)
+        }
+        else 
+        {
+            self.symbols.updateValue(entry, forKey: key)
+        }
+    }
+}
+
+/* public 
 struct Biome:Sendable 
 {
     private(set)
@@ -27,22 +260,27 @@ struct Biome:Sendable
     }
     
     static 
-    func load<Location>(catalogs:[Documentation.Catalog<Location>], 
+    func load<Location>(catalogs:[Catalog<Location>], 
         with loader:(Location, Resource.Text) async throws -> Resource) 
         async throws -> (biome:Self, comments:[String])
     {
-        let packageIndices:[Package.ID: Int]    = try Self.indices(for: catalogs, by: \.package, 
-            else: Graph.PackageError.duplicate(id:))
-        let moduleIndices:[Module.ID: Int]      = try Self.indices(for: catalogs.map(\.modules).joined(), by: \.core.namespace, 
-            else: Graph.ModuleError.duplicate(id:))
-        var symbolIndices:[Symbol.ID: Int]      = [:]
-        // we need the mythical dictionary in case we run into synthesized 
-        // extensions before the generic base (in which case, they would be assigned 
-        // to the wrong module)
-        var mythical:[Symbol.ID: Graph.Vertex]  = [:]
-        var vertices:[Graph.Vertex] = []
-        var edges:Set<Graph.Edge> = []
-        var modules:[Module]    = []
+        let roots:[Package.ID: Int] = try Self.indices(for: catalogs, by: \.package, 
+            else: _PackageError.duplicate(id:))
+        var tables:[NationalTable] = try catalogs.map 
+        {
+            let trunks:[Module.ID: Int] = try Self.indices(for: $0.targets, by: \.core.namespace, 
+                else: _ModuleError.duplicate(id:))
+            let dependencies:[Int] = $0.dependencies.compactMap { roots[$0] }
+            return .init(dependencies: dependencies, trunks: trunks)
+        }
+        for (package, catalog):(Int, Catalog<Location>) in zip(tables.indices, catalogs)
+        {
+            var hash:Resource.Version? = .semantic(0, 1, 2)
+
+            
+            
+            
+        }
         var packages:[Package]  = []
         for catalog:Documentation.Catalog<Location> in catalogs 
         {
@@ -69,7 +307,7 @@ struct Biome:Sendable
                     else 
                     {
                         // a module extends a bystander module we do not have the primary symbolgraph for
-                        throw Graph.ModuleError.undefined(id: bystander.namespace)
+                        throw _ModuleError.undefined(id: bystander.namespace)
                     }
                     do 
                     {
@@ -413,4 +651,4 @@ struct Biome:Sendable
             return nil 
         }
     } */
-}
+} */
