@@ -1,21 +1,6 @@
 import JSON 
-import Highlight
+import Notebook
 
-// infix operator ~~ :ComparisonPrecedence
-
-struct Node 
-{
-    var vertex:Vertex.Content
-    var legality:Symbol.Legality
-    var relationships:[Symbol.Relationship]
-    
-    init(_ vertex:Vertex)
-    {
-        self.vertex = vertex.content 
-        self.legality = .documented(comment: vertex.comment)
-        self.relationships = []
-    }
-}
 struct Vertex
 {
     struct Content
@@ -24,36 +9,17 @@ struct Vertex
         var path:[String] 
         var color:Symbol.Color 
         var availability:Symbol.Availability 
-        var signature:Notebook<SwiftHighlight, Never> 
-        var declaration:Notebook<SwiftHighlight, Symbol.ID> 
-        var generics:[Symbol.Generic] 
-        var genericConstraints:[SwiftConstraint<Symbol.ID>] 
-        var extensionConstraints:[SwiftConstraint<Symbol.ID>] 
+        var signature:Notebook<Fragment.Color, Never> 
+        var declaration:Notebook<Fragment.Color, Symbol.ID> 
+        var generics:[Generic] 
+        var genericConstraints:[Generic.Constraint<Symbol.ID>] 
+        var extensionConstraints:[Generic.Constraint<Symbol.ID>] 
         var extendedModule:Module.ID?
     }
     
     var content:Content
     var comment:String
     var isCanonical:Bool
-    
-    /* static 
-    func ~~ (lhs:Self, rhs:Self) -> Bool 
-    {
-        if  lhs.id                          == rhs.id,
-            lhs.color                       == rhs.color, 
-            lhs.extension?.extendedModule   == rhs.extension?.extendedModule,
-            lhs.extension?.constraints      == rhs.extension?.constraints,
-            lhs.generics?.parameters        == rhs.generics?.parameters,
-            lhs.generics?.constraints       == rhs.generics?.constraints,
-            lhs.comment                     == rhs.comment
-        {
-            return true 
-        }
-        else 
-        {
-            return false
-        }
-    } */
     
     init(from json:JSON) throws 
     {
@@ -83,21 +49,16 @@ struct Vertex
             let path:[String] = try $0.remove("pathComponents") { try $0.map { try $0.as(String.self) } }
             let _:Symbol.AccessLevel = try $0.remove("accessLevel") { try $0.case(of: Symbol.AccessLevel.self) }
             
-            typealias SwiftFragment = (text:String, highlight:SwiftHighlight, link:Symbol.ID?)
-            
-            let declaration:Notebook<SwiftHighlight, Symbol.ID> = .init(
-                try $0.remove("declarationFragments") { try $0.map(Self.fragment(from:)) })
-            let signature:Notebook<SwiftHighlight, Never> = try $0.remove("names")
+            let declaration:Notebook<Fragment.Color, Symbol.ID> = .init(
+                try $0.remove("declarationFragments") { try $0.map(Fragment.init(from:)) })
+            let signature:Notebook<Fragment.Color, Never> = .init(
+                try $0.remove("names")
             {
-                let signature:[SwiftFragment] = try $0.lint(["title", "navigator"])
+                try $0.lint(["title", "navigator"])
                 {
-                    try $0.remove("subHeading") { try $0.map(Self.fragment(from:)) }
+                    try $0.remove("subHeading") { try $0.map(Fragment.init(from:)) }
                 }
-                return Notebook<SwiftHighlight, Symbol.ID>.init(signature).compactMapLinks 
-                {
-                    _ in Never?.none
-                }
-            }
+            })
             let _:(String, Int, Int)? = try $0.pop("location")
             {
                 try $0.lint 
@@ -120,26 +81,26 @@ struct Vertex
             {
                 _ in ()
             }
-            let `extension`:(extendedModule:Module.ID, constraints:[SwiftConstraint<Symbol.ID>])? = 
+            let `extension`:(extendedModule:Module.ID, constraints:[Generic.Constraint<Symbol.ID>])? = 
                 try $0.pop("swiftExtension")
             {
-                let (module, constraints):(String, [SwiftConstraint<Symbol.ID>]) = try $0.lint
+                let (module, constraints):(String, [Generic.Constraint<Symbol.ID>]) = try $0.lint
                 {
                     (
                         try $0.remove("extendedModule", as: String.self),
-                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(SwiftConstraint.init(from:)) } ?? []
+                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(Generic.Constraint.init(from:)) } ?? []
                     )
                 }
                 return (.init(module), constraints)
             }
-            let generics:(parameters:[Symbol.Generic], constraints:[SwiftConstraint<Symbol.ID>])? = 
+            let generics:(parameters:[Generic], constraints:[Generic.Constraint<Symbol.ID>])? = 
                 try $0.pop("swiftGenerics")
             {
                 try $0.lint 
                 {
                     (
-                        try $0.pop("parameters",  as: [JSON]?.self) { try $0.map( Symbol.Generic.init(from:)) } ?? [],
-                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(SwiftConstraint.init(from:)) } ?? []
+                        try $0.pop("parameters",  as: [JSON]?.self) { try $0.map(Generic.init(from:)) } ?? [],
+                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(Generic.Constraint.init(from:)) } ?? []
                     )
                 }
             }
@@ -203,84 +164,6 @@ struct Vertex
                 extensionConstraints:  `extension`?.constraints ?? [], 
                 extendedModule:        `extension`?.extendedModule)
             return (content, comment ?? "", isCanonical)
-        }
-    }
-
-    private static 
-    func fragment(from json:JSON) throws -> 
-    (
-        text:String, 
-        highlight:SwiftHighlight, 
-        link:Symbol.ID?
-    )
-    {
-        try json.lint 
-        {
-            let text:String = try $0.remove("spelling", as: String.self)
-            let link:Symbol.ID? = try $0.pop("preciseIdentifier", Symbol.ID.init(from:))
-            let highlight:SwiftHighlight = try $0.remove("kind")
-            {
-                // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/DeclarationFragmentPrinter.cpp
-                switch try $0.as(String.self) as String
-                {
-                case "keyword":
-                    switch text 
-                    {
-                    case "init", "deinit", "subscript":
-                                            return .keywordIdentifier
-                    default:                return .keywordText
-                    }
-                case "attribute":           return .attribute
-                case "number":              return .number
-                case "string":              return .string
-                case "identifier":          return .identifier
-                case "typeIdentifier":      return .type
-                case "genericParameter":    return .generic
-                case "internalParam":       return .parameter
-                case "externalParam":       return .argument
-                case "text":                return .text
-                case let kind:
-                    throw SwiftFragmentError.undefined(kind: kind)
-                }
-            }
-            return (text, highlight, link)
-        }
-    }
-}
-extension Symbol.Generic 
-{
-    fileprivate
-    init(from json:JSON) throws 
-    {
-        (self.name, self.index, self.depth) = try json.lint 
-        {
-            (
-                name:  try $0.remove("name", as: String.self),
-                index: try $0.remove("index", as: Int.self),
-                depth: try $0.remove("depth", as: Int.self)
-            )
-        }
-    }
-}
-extension Package.Version 
-{
-    fileprivate 
-    init(from json:JSON) throws 
-    {
-        self = try json.lint 
-        {
-            let major:Int = try $0.remove("major", as: Int.self)
-            guard let minor:Int = try $0.pop("minor", as: Int.self)
-            else 
-            {
-                return .tag(major: major, nil)
-            }
-            guard let patch:Int = try $0.pop("patch", as: Int.self)
-            else 
-            {
-                return .tag(major: major, (minor, nil))
-            }
-            return .tag(major: major, (minor, (patch, nil)))
         }
     }
 }

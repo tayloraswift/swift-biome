@@ -77,17 +77,6 @@ struct Module:Identifiable, Sendable
             self.string.drop { $0 == "_" } 
         }
     }
-    public 
-    struct Catalog<Location>
-    {
-        public 
-        let id:ID, 
-            dependencies:[_Graph.Dependency]
-        public 
-        var graphs:(core:Location, bystanders:[(namespace:ID, graph:Location)])
-        public 
-        var articles:[(name:String, source:Location)]
-    }
     
     typealias Colony = (module:Index, symbols:Symbol.IndexRange)
         

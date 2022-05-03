@@ -126,12 +126,7 @@ struct Symbol:Sendable, Identifiable
         var name:String?
         // var fragment:[SwiftLanguage.Lexeme<ID>]
     } */
-    struct Generic:Hashable, Sendable
-    {
-        var name:String 
-        var index:Int 
-        var depth:Int 
-    }
+
     enum Legality:Sendable 
     {
         // we must store the comment, otherwise packages that depend on the package 

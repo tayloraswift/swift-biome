@@ -1,4 +1,5 @@
 import Grammar
+import JSON
 
 extension Symbol 
 {
@@ -55,5 +56,13 @@ extension Symbol
                 return false 
             }
         }
+    }
+}
+extension Symbol.ID 
+{
+    init(from json:JSON) throws 
+    {
+        let string:String = try json.as(String.self)
+        self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index, UInt8>.USR.OpaqueName.self)
     }
 }

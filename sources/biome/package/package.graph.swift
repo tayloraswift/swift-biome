@@ -1,59 +1,71 @@
-import Highlight
 import Resource
-import JSON 
 
-extension Package.Catalog
+extension Package 
 {
-    func load(with loader:(Location, Resource.Text) async throws -> Resource) async throws -> [_Graph]
+    public 
+    struct Catalog<Location>
     {
-        var graphs:[_Graph] = []
-        for module:Module.Catalog<Location> in package.modules 
-        {
-            graphs.append(try await .init(loading: module, with: loader))
-        }
-        return graphs
-    }
-}
-extension Module.Catalog 
-{
-    func load(with loader:(Location, Resource.Text) async throws -> Resource) async throws -> _Graph
-    {
-        let core:Subgraph = try await .init(loading: self.id, from: self.graphs.core, with: loader)
-        var extensions:[Subgraph] = []
-        for (namespace, location):(Module.ID, Location) in self.extensions 
-        {
-            extensions.append(try await .init(loading: self.id, extending: namespace, from: location, with: loader))
-        }
-        return .init(core: core, extensions: extensions, dependencies: self.dependencies)
-    }
-}
-struct Supergraph 
-{
-    let package:(id:Package.ID, index:Package.Index)
-    
-    private(set)
-    var opinions:[(symbol:Symbol.Index, has:Symbol.ExtrinsicRelationship)]
-    private 
-    var nodes:[Node]
-    private
-    var indices:
-    (
-        modules:[Module.ID: Module.Index],
-        symbols:[Symbol.ID: Symbol.Index]
-    )
-    
-    init(package:(id:Package.ID, index:Package.Index)) 
-    {
-        self.nodes = []
-        self.indices = ([:], [:])
-        self.package = package 
-        self.opinions = []
-    }
+        public 
+        let id:ID 
+        public 
+        let modules:[Module.Catalog<Location>]
         
+        func load(with loader:(Location, Resource.Text) async throws -> Resource) 
+            async throws -> [Module.Graph]
+        {
+            var graphs:[Module.Graph] = []
+            for module:Module.Catalog<Location> in package.modules 
+            {
+                graphs.append(try await .init(loading: module, with: loader))
+            }
+            return graphs
+        }
+    }
+    
+    struct Graph 
+    {
+        let package:(id:ID, index:Index)
+        
+        private(set)
+        var opinions:[(symbol:Symbol.Index, has:Symbol.ExtrinsicRelationship)]
+        private 
+        var nodes:[Node]
+        private
+        var indices:
+        (
+            modules:[Module.ID: Module.Index],
+            symbols:[Symbol.ID: Symbol.Index]
+        )
+        
+        init(package:(id:ID, index:Index)) 
+        {
+            self.nodes = []
+            self.indices = ([:], [:])
+            self.package = package 
+            self.opinions = []
+        }
+    }
+}
+extension Package.Graph 
+{
+    struct Node 
+    {
+        var vertex:Vertex.Content
+        var legality:Symbol.Legality
+        var relationships:[Symbol.Relationship]
+        
+        init(_ vertex:Vertex)
+        {
+            self.vertex = vertex.content 
+            self.legality = .documented(comment: vertex.comment)
+            self.relationships = []
+        }
+    }
+    
     // for now, we can only call this *once*!
     // TODO: implement progressive supergraph updates 
     mutating 
-    func linearize(_ graphs:[_Graph], given biome:Biome) throws -> Package 
+    func linearize(_ graphs:[Module.Graph], given biome:Biome) throws -> Package 
     {
         self.indices.modules = .init(uniqueKeysWithValues: graphs.enumerated().map 
         {
@@ -87,18 +99,18 @@ struct Supergraph
     }
 
     private mutating 
-    func populate(from graphs:[_Graph], given biome:Biome) throws -> [Module]
+    func populate(from graphs:[Module.Graph], given biome:Biome) throws -> [Module]
     {
         try graphs.indices.map
         {
             (offset:Int) in 
             
             let module:Module.Index = .init(self.package.index, offset: offset), 
-                graph:_Graph = graphs[offset]
+                graph:Module.Graph = graphs[offset]
             
             let dependencies:[[(key:Module.ID, value:Module.Index)]] = try graph.dependencies.map 
             {
-                (dependency:_Graph.Dependency) in 
+                (dependency:Module.Graph.Dependency) in 
                 
                 guard let local:[Module.ID: Module.Index] = dependency.package == self.package.id ? 
                     self.indices.modules : biome[dependency.package]?.trunks 
@@ -149,7 +161,7 @@ struct Supergraph
         }
     }
     private mutating 
-    func populate(_ perpetrator:(id:Module.ID, index:Module.Index), from subgraph:Subgraph) 
+    func populate(_ perpetrator:(id:Module.ID, index:Module.Index), from subgraph:Module.Subgraph) 
         throws -> Symbol.IndexRange
     {
         // about half of the symbols in a typical symbol graph are non-canonical. 
@@ -201,11 +213,11 @@ struct Supergraph
     }
     
     private mutating 
-    func link(_ modules:[Module], from graphs:[_Graph], given biome:Biome) throws -> [Module.Scope]
+    func link(_ modules:[Module], from graphs:[Module.Graph], given biome:Biome) throws -> [Module.Scope]
     {
         zip(modules, graphs).map
         {
-            let (module, graph):(Module, _Graph) = $0
+            let (module, graph):(Module, Module.Graph) = $0
             
             // compute scope 
             let filter:Set<Module.Index> = [module.index].union(module.dependencies.joined())
@@ -312,137 +324,5 @@ struct Supergraph
             // and should not be deported. 
             print("warning: recovered documentation for symbol \(self.nodes[symbol.offset].vertex.path)")
         }
-    }
-}
-struct _Graph 
-{
-    struct Dependency:Decodable
-    {
-        let package:Package.ID
-        let modules:[Module.ID]
-    }
-    
-    private(set)
-    var core:Subgraph,
-        extensions:[Subgraph],
-        dependencies:[Dependency]
-    
-    var hash:Resource.Version? 
-    {
-        self.extensions.reduce(self.core.hash) 
-        {
-            $0 * $1.hash
-        }
-    }
-    
-    var edges:[[Edge]] 
-    {
-        [self.core.edges] + self.extensions.map(\.edges)
-    }
-}
-struct Subgraph 
-{
-    /* struct LoadingError:Error 
-    {
-        let underlying:Error
-        let module:Module.ID, 
-            bystander:Module.ID?
-        
-        init(_ underlying:Error, module:Module.ID, bystander:Module.ID?)
-        {
-            self.underlying = underlying
-            self.module     = module
-            self.bystander  = bystander
-        }
-    } */
-
-    /* enum SymbolError:Error 
-    {
-        // global errors 
-        case disputed(Vertex, Vertex)
-        case undefined(id:Symbol.ID)
-    } */
-    
-    let vertices:[Vertex]
-    let edges:[Edge]
-    let hash:Resource.Version?
-    let namespace:Module.ID
-    
-    init<Location>(loading perpetrator:Module.ID, extending namespace:Module.ID? = nil, 
-        from location:Location, 
-        with load:(Location, Resource.Text) async throws -> Resource) async throws 
-    {
-        let loaded:(json:JSON, hash:Resource.Version?)
-        switch try await load(location, .json)
-        {
-        case    .text   (let string, type: _, version: let version):
-            loaded.json = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
-            loaded.hash = version
-        
-        case    .binary (let bytes, type: _, version: let version):
-            json = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
-            loaded.hash = version
-        }
-        try self.init(loading: perpetrator, extending: namespace, from: loaded)
-    }
-    private 
-    init(loading perpetrator:Module.ID, extending namespace:Module.ID? = nil, 
-        from loaded:(json:JSON, hash:Resource.Version?)) throws 
-    {
-        self.hash = loaded.hash 
-        self.namespace = namespace ?? perpetrator
-        (self.vertices, self.edges) = try loaded.json.lint(["metadata"]) 
-        {
-            let edges:[Edge]      = try $0.remove("relationships") { try $0.map(  Edge.init(from:)) }
-            let vertices:[Vertex] = try $0.remove("symbols")       { try $0.map(Vertex.init(from:)) }
-            let module:Module.ID  = try $0.remove("module")
-            {
-                try $0.lint(["platform"]) 
-                {
-                    Module.ID.init(try $0.remove("name", as: String.self))
-                }
-            }
-            guard module == perpetrator
-            else 
-            {
-                throw _ModuleError.mismatched(id: module)
-            }
-            return (vertices, edges)
-        }
-    }
-}
-extension SwiftConstraint where Link == Symbol.ID 
-{
-    init(from json:JSON) throws
-    {
-        self = try json.lint 
-        {
-            let verb:SwiftConstraintVerb = try $0.remove("kind") 
-            {
-                switch try $0.as(String.self) as String
-                {
-                case "superclass":
-                    return .subclasses
-                case "conformance":
-                    return .implements
-                case "sameType":
-                    return .is
-                case let kind:
-                    throw SwiftConstraintError.undefined(kind: kind)
-                }
-            }
-            return .init(
-                try    $0.remove("lhs", as: String.self), verb, 
-                try    $0.remove("rhs", as: String.self), 
-                link: try $0.pop("rhsPrecise", Symbol.ID.init(from:)))
-        }
-    }
-}
-extension Symbol.ID 
-{
-    init(from json:JSON) throws 
-    {
-        let string:String = try json.as(String.self)
-        self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index, UInt8>.USR.OpaqueName.self)
     }
 }
