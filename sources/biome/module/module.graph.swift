@@ -9,22 +9,30 @@ extension Module
         let id:ID, 
             dependencies:[Graph.Dependency]
         public 
-        var graphs:(core:Location, bystanders:[(namespace:ID, graph:Location)])
+        var graphs:(core:Location, colonies:[(namespace:ID, graph:Location)])
         public 
         var articles:[(name:String, source:Location)]
         
         func load(with loader:(Location, Resource.Text) async throws -> Resource) 
             async throws -> Graph
         {
-            let core:Subgraph = try await .init(
-                loading: self.id, from: self.graphs.core, with: loader)
-            var extensions:[Subgraph] = []
-            for (namespace, location):(Module.ID, Location) in self.extensions 
+            let core:Subgraph = try await 
+                .init(loading: (self.id, nil), from: self.graphs.core, with: loader)
+            var colonies:[Subgraph] = []
+                colonies.reserveCapacity(self.graphs.colonies.count)
+            for (namespace, location):(Module.ID, Location) in self.graphs.colonies 
             {
-                extensions.append(try await .init(
-                    loading: self.id, extending: namespace, from: location, with: loader))
+                colonies.append(try await 
+                    .init(loading: (self.id, namespace), from: location, with: loader))
             }
-            return .init(core: core, extensions: extensions, 
+            var articles:[Extension] = []
+                articles.reserveCapacity(self.articles.count)
+            for (name, location):(String, Location) in self.articles 
+            {
+                articles.append(try await 
+                    .init(loading: name, from: location, with: loader))
+            }
+            return .init(core: core, colonies: colonies, articles: articles,
                 dependencies: self.dependencies)
         }
     }
@@ -37,14 +45,15 @@ extension Module
             let modules:[Module.ID]
         }
         
-        private(set)
-        var core:Subgraph,
-            extensions:[Subgraph],
-            dependencies:[Dependency]
+        let core:Subgraph,
+            colonies:[Subgraph], 
+            articles:[Extension]
+        
+        let dependencies:[Dependency]
         
         var hash:Resource.Version? 
         {
-            self.extensions.reduce(self.core.hash) 
+            self.colonies.reduce(self.core.hash) 
             {
                 $0 * $1.hash
             }
@@ -52,7 +61,7 @@ extension Module
         
         var edges:[[Edge]] 
         {
-            [self.core.edges] + self.extensions.map(\.edges)
+            [self.core.edges] + self.colonies.map(\.edges)
         }
     }
 }

@@ -3,6 +3,11 @@ import Notebook
 
 struct Vertex
 {
+    enum Kind 
+    {
+        case natural 
+        case synthesized
+    }
     struct Content
     {
         var id:Symbol.ID 
@@ -17,15 +22,17 @@ struct Vertex
         var extendedModule:Module.ID?
     }
     
+    var kind:Kind
     var content:Content
     var comment:String
-    var isCanonical:Bool
-    
+}
+extension Vertex 
+{
     init(from json:JSON) throws 
     {
-        (self.content, self.comment, self.isCanonical) = try json.lint 
+        (self.kind, self.content, self.comment) = try json.lint 
         {
-            let (id, isCanonical):(Symbol.ID, Bool) = try $0.remove("identifier")
+            let (kind, id):(Kind, Symbol.ID) = try $0.remove("identifier")
             {
                 let string:String = try $0.lint(["interfaceLanguage"])
                 {
@@ -34,9 +41,9 @@ struct Vertex
                 switch try Grammar.parse(string.utf8, as: URI.Rule<String.Index, UInt8>.USR.self)
                 {
                 case .natural(let id): 
-                    return (id, true)
+                    return (id, .natural)
                 case .synthesized(from: let id, for: _): 
-                    return (id, false)
+                    return (id, .synthesized)
                 }
             }
             let color:Symbol.Color = try $0.remove("kind")
@@ -163,7 +170,7 @@ struct Vertex
                 genericConstraints:     generics?.constraints ?? [], 
                 extensionConstraints:  `extension`?.constraints ?? [], 
                 extendedModule:        `extension`?.extendedModule)
-            return (content, comment ?? "", isCanonical)
+            return (kind, content, comment ?? "")
         }
     }
 }

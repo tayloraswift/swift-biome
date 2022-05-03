@@ -184,7 +184,7 @@ extension Package.Graph
             let symbol:Symbol.Index = .init(perpetrator.index, offset: self.nodes.endIndex)
             // FIXME: all vertices can have duplicates, even canonical ones, due to 
             // the behavior of `@_exported import`.
-            if  vertex.isCanonical 
+            if case .natural = vertex.kind 
             {
                 if let _:Symbol.Index = self.indices.updateValue(symbol, forKey: vertex.id)
                 {

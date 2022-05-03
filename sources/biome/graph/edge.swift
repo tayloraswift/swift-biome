@@ -1,85 +1,8 @@
 import Grammar 
 import JSON
 
-/* extension SwiftConstraint where Link == Symbol.ID
-{
-    func map<T>(to transform:[Symbol.ID: T]) -> SwiftConstraint<T>
-    {
-        // TODO: turn this back into a `map` when we can enforce this again 
-        //try self.map 
-        self.flatMap 
-        {
-            if let transformed:T = transform[$0]
-            {
-                return transformed 
-            }
-            else 
-            {
-                return nil
-                // throw Biome.SymbolError.undefined(id: $0)
-            }
-        }
-    }
-} */
-
-/* enum EdgeError:Error 
-{
-    case constraints(on:Int, is:Edge.Kind, of:Int)
-    case polygamous(Int, is:Edge.Kind, of:Int, Int)
-    case disputed(Edge, Edge)
-} */
-
 struct Edge:Hashable 
 {
-    /* struct References 
-    {
-        let parent:Int?, 
-            module:Int?, 
-            bystander:Int?
-        
-        var members:[Int], 
-            crimes:[Int],
-        
-            defaultImplementationOf:[Int], 
-            defaultImplementations:[Int], 
-            
-            overrideOf:Int?,
-            overrides:[Int],
-            
-            sponsor:Int?,
-            //specializationOf:Int?,
-            //specializations:[Int],
-            
-            requirementOf:Int?,
-            requirements:[Int],
-            
-            upstream:[(index:Int, conditions:[SwiftConstraint<Int>])], // protocols this type conforms to
-            downstream:[(index:Int, conditions:[SwiftConstraint<Int>])], // types that conform to this type 
-            subclasses:[Int],
-            superclass:Int?
-        
-        init(parent:Int?, module:Int?, bystander:Int?) 
-        {
-            self.parent                     = parent
-            self.module                     = module
-            self.bystander                  = bystander
-            self.members                    = []
-            self.crimes                     = []
-            self.defaultImplementationOf    = []
-            self.defaultImplementations     = []
-            self.overrideOf                 = nil
-            self.overrides                  = []
-            self.sponsor                    = nil
-            // self.specializationOf           = nil
-            // self.specializations            = []
-            self.requirementOf              = nil
-            self.requirements               = []
-            self.upstream                   = []
-            self.downstream                 = []
-            self.subclasses                 = []
-            self.superclass                 = nil
-        }
-    } */
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
     enum Kind:String
     {
@@ -99,21 +22,7 @@ struct Edge:Hashable
     var target:Symbol.ID
     var constraints:[SwiftConstraint<Symbol.ID>]
     
-    /* // only hash (source, kind, target)
-    static 
-    func == (lhs:Self, rhs:Self) -> Bool 
-    {
-        lhs.source == rhs.source && 
-        lhs.kind   == rhs.kind && 
-        lhs.target == rhs.target
-    }
-    func hash(into hasher:inout Hasher) 
-    {
-        self.source.hash(into: &hasher)
-        self.kind.hash(into: &hasher)
-        self.target.hash(into: &hasher)
-    }
-    
+    /*
     func link(_ table:inout [References], indices:[Symbol.ID: Int]) throws 
     {
         guard let source:Int = indices[self.source]
@@ -224,7 +133,9 @@ struct Edge:Hashable
             table[target].defaultImplementations.append(source)
         }
     } */
-    
+}
+extension Edge 
+{
     init(from json:JSON) throws
     {
         (self.kind, self.fake, source: self.source, target: self.target, self.constraints) = 
