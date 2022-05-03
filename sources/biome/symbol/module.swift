@@ -89,26 +89,25 @@ struct Module:Identifiable, Sendable
         var articles:[(name:String, source:Location)]
     }
     
-    typealias Colony = (module:Index, symbols:Range<Int>)
+    typealias Colony = (module:Index, symbols:Symbol.IndexRange)
         
     public 
     let id:ID
     
-    /// the list of modules this module depends on, grouped by package. 
-    let dependencies:[[Module.Index]]
-    
+    /// the complete list of symbols vended by this module. the ranges are *contiguous*.
+    /// ``core`` contains the symbols with the lowest addresses.
+    let core:Symbol.IndexRange
+    let colonies:[Colony]
     /// the symbols scoped to this module’s top-level namespace. every index in 
     /// this array falls within the range of ``core``, since it is not possible 
     /// to extend the top-level namespace of a module.
-    let toplevel:[Int]
-    /// the complete list of symbols vended by this module. the ranges are *contiguous*.
-    /// ``core`` contains the symbols with the lowest addresses.
-    let core:Range<Int>
-    let colonies:[Colony]
+    let toplevel:[Symbol.Index]
+    /// the list of modules this module depends on, grouped by package. 
+    let dependencies:[[Module.Index]]
     
-    var symbols:Range<Int>
+    var symbols:Symbol.IndexRange
     {
-        self.core.lowerBound ..< self.extensions.last?.symbols.upperBound ?? self.core.upperBound
+        self.colonies.last?.symbols.bits.upperBound.map { self.core.lowerBound ..< $0 } ?? self.core
     }
     /// this module’s exact identifier string, e.g. '_Concurrency'
     var name:String 
@@ -120,16 +119,24 @@ struct Module:Identifiable, Sendable
     {
         self.id.title
     }
+    var index:Index 
+    {
+        // since ``core`` stores a symbol index, we can get the module index 
+        // for free!
+        self.core.module
+    }
     
-    init(id:ID, dependencies:[[Module.Index]], core:Range<Int>, colonies:[Colony], 
-        _ isToplevel:(Int) throws -> Bool) rethrows
+    // only the core subgraph can contain top-level symbols.
+    init(id:ID, 
+        core:Symbol.IndexRange, 
+        colonies:[Colony], 
+        toplevel:[Symbol.Index], 
+        dependencies:[[Module.Index]])
     {
         self.id = id 
         self.core = core 
         self.colonies = colonies 
-        // only the core subgraph can contain top-level symbols.
-        self.toplevel = self.core.filter(isToplevel)
-        
+        self.toplevel = toplevel
         self.dependencies = dependencies
     }
 }

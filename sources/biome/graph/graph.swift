@@ -32,10 +32,9 @@ struct Supergraph
     let package:(id:Package.ID, index:Package.Index)
     
     private(set)
-    var opinions:[(symbol:Symbol.Index, has:Symbol.ExtrinsicRelationship)],
-        modules:[Module] = []
+    var opinions:[(symbol:Symbol.Index, has:Symbol.ExtrinsicRelationship)]
     private 
-    var vertices:[Vertex] = []
+    var nodes:[Node]
     private
     var indices:
     (
@@ -45,34 +44,58 @@ struct Supergraph
     
     init(package:(id:Package.ID, index:Package.Index)) 
     {
-        self.package = package 
-        
-        self.opinions = []
-        self.vertices = []
-        self.modules = []
+        self.nodes = []
         self.indices = ([:], [:])
+        self.package = package 
+        self.opinions = []
     }
         
     // for now, we can only call this *once*!
     // TODO: implement progressive supergraph updates 
     mutating 
-    func linearize(_ graphs:[_Graph], given biome:Biome) throws 
+    func linearize(_ graphs:[_Graph], given biome:Biome) throws -> Package 
     {
-        self.modules = []
         self.indices.modules = .init(uniqueKeysWithValues: graphs.enumerated().map 
         {
             ($0.1.core.id, .init(self.package.index, offset: $0.0))
         })
         
-        try self.populate(from: graphs, given: biome)
-        try self.link(from: graphs, given: biome)
+        let modules:[Module]      = try self.populate     (from: graphs, given: biome)
+        let scopes:[Module.Scope] = try self.link(modules, from: graphs, given: biome)
+        
+        var symbols:[Symbol] = []
+            symbols.reserveCapacity(self.nodes.count)
+        for (module, scope):(Module, Module.Scope) in zip(modules, scopes)
+        {
+            for node:Node in self.nodes[module.core.offsets]
+            {
+                symbols.append(try .init(node, namespace: module.index, scope: scope))
+            }
+            for colony:Module.Colony in module.colonies 
+            {
+                for node:Node in self.nodes[colony.symbols.offsets]
+                {
+                    symbols.append(try .init(node, namespace: colony.module, scope: scope))
+                }
+            }
+        }
+        return .init(id: self.package.id, 
+            indices: self.indices, 
+            modules: modules, 
+            symbols: symbols, 
+            hash: graphs.reduce(.semantic(0, 1, 2)) { $0 * $1.hash })
     }
 
     private mutating 
-    func populate(from graphs:[_Graph], given biome:Biome) throws 
+    func populate(from graphs:[_Graph], given biome:Biome) throws -> [Module]
     {
-        for graph:_Graph in graphs
+        try graphs.indices.map
         {
+            (offset:Int) in 
+            
+            let module:Module.Index = .init(self.package.index, offset: offset), 
+                graph:_Graph = graphs[offset]
+            
             let dependencies:[[(key:Module.ID, value:Module.Index)]] = try graph.dependencies.map 
             {
                 (dependency:_Graph.Dependency) in 
@@ -98,12 +121,12 @@ struct Supergraph
             //  run in quadratic time; otherwise it would be cubic!
             let bystanders:[Module.ID: Module.Index] = .init(uniqueKeysWithValues: dependencies.joined())
 
-            let core:Range<Int> = try self.populate(graph.core.namespace, from: graph.core)
+            let core:Symbol.IndexRange = try self.populate((graph.core.namespace, module), from: graph.core)
             let colonies:[Colony] = try graph.extensions.compactMap
             {
                 if let bystander:Module.Index = bystanders[$0.namespace]
                 {
-                    return (bystander, try self.populate(graph.core.namespace, from: $0))
+                    return (bystander,   try self.populate((graph.core.namespace, module), from: $0))
                 }
                 else 
                 {
@@ -112,18 +135,22 @@ struct Supergraph
                     return nil
                 }
             }
-            let module:Module = .init(id: graph.core.namespace, 
-                dependencies: dependencies.map { $0.map(\.value) }, 
-                core: core, colonies: colonies)
+            let toplevel:[Symbol.Index] = core.offsets.filter 
             {
                 // a vertex is top-level if it has exactly one path component. 
-                self.vertices[$0].path.count == 1
+                self.nodes[$0].vertex.path.count == 1
             }
-            self.modules.append(module)
+            return .init(
+                id: graph.core.namespace, 
+                core: core, 
+                colonies: colonies, 
+                toplevel: toplevel, 
+                dependencies: dependencies.map { $0.map(\.value) })
         }
     }
     private mutating 
-    func populate(_ perpetrator:Module.ID, from subgraph:Subgraph) throws -> Range<Int>
+    func populate(_ perpetrator:(id:Module.ID, index:Module.Index), from subgraph:Subgraph) 
+        throws -> Symbol.IndexRange
     {
         // about half of the symbols in a typical symbol graph are non-canonical. 
         // (i.e., they are inherited by victims). in theory, these symbols can 
@@ -139,64 +166,63 @@ struct Supergraph
         // example: UnsafePointer.predecessor() actually originates from 
         // the witness `ss8_PointerPsE11predecessorxyF`, which is part of 
         // the underscored `_Pointer` protocol.
-        let module:Module.Index = .init(self.package.index, offset: self.modules.endIndex)
-        
-        let start:Int = self.vertices.endIndex
+        let start:Symbol.Index = .init(perpetrator.index, offset: self.nodes.endIndex)
         for vertex:Vertex in subgraph.vertices 
         {
-            let symbol:Symbol.Index = .init(module, offset: self.vertices.endIndex)
+            let symbol:Symbol.Index = .init(perpetrator.index, offset: self.nodes.endIndex)
             // FIXME: all vertices can have duplicates, even canonical ones, due to 
             // the behavior of `@_exported import`.
             if  vertex.isCanonical 
             {
-                if let incumbent:Int = self.indices.updateValue(symbol, forKey: vertex.id)
+                if let _:Symbol.Index = self.indices.updateValue(symbol, forKey: vertex.id)
                 {
-                    throw Symbol.CollisionError.init(vertex.id, from: perpetrator) 
+                    throw Symbol.CollisionError.init(vertex.id, from: perpetrator.id) 
                 }
-                self.vertices.append(vertex)
+                self.nodes.append(.init(vertex))
             }
             // *not* subgraph.namespace !
             else if case nil = self.indices.index(forKey: vertex.id), 
-                vertex.id.isUnderscoredProtocolExtensionMember(from: perpetrator)
+                vertex.id.isUnderscoredProtocolExtensionMember(from: perpetrator.id)
             {
                 // if the symbol is synthetic and belongs to an underscored 
                 // protocol, assume the generic base does not exist, and register 
                 // it *once*.
                 self.indices.updateValue(symbol, forKey: vertex.id)
-                self.vertices.append(vertex)
+                self.nodes.append(.init(vertex))
             }
         }
-        let end:Int = self.vertices.endIndex
-        return start ..< end
+        return start ..< self.nodes.endIndex
     }
     
     private 
-    subscript(vertex:Symbol.Index) -> Vertex?
+    subscript(vertex:Symbol.Index) -> Vertex.Content?
     {
-        self.package.index == vertex.module.package ? self.vertices[vertex.offset] : nil
+        self.package.index == vertex.module.package ? self.nodes[vertex.offset].vertex : nil
     }
     
     private mutating 
-    func link(from graphs:[_Graph], given biome:Biome) throws 
+    func link(_ modules:[Module], from graphs:[_Graph], given biome:Biome) throws -> [Module.Scope]
     {
-        let scopes:[Module.Scope] = self.modules.indices.map
+        zip(modules, graphs).map
         {
-            (offset:Int) in 
-            
-            let module:Module.Index = .init(self.package.index, offset: offset)
+            let (module, graph):(Module, _Graph) = $0
             
             // compute scope 
-            let filter:Set<Module.Index> = [module].union(self.modules[offset].dependencies.joined())
+            let filter:Set<Module.Index> = [module.index].union(module.dependencies.joined())
             let scope:Module.Scope = .init(filter: filter, layers: 
                 Set<Package.Index>.init(filter.map(\.package)).map 
             {
-                $0 == module.package ? self.indices.symbols : biome[$0].indices.symbols
+                $0 == self.package.index ? self.indices.symbols : biome[$0].indices.symbols
             })
             
-            for edge:Edge in edges
+            for edge:Edge in graph.edges.joined()
             {
                 let source:Symbol.ColoredIndex
                 let target:Symbol.ColoredIndex
+                let constraints:[SwiftConstraint<Symbol.Index>] = try edge.constraints.map
+                {
+                    try $0.map(scope.index(of:))
+                }
                 
                 source.index = try scope.index(of: edge.source)
                 target.index = try scope.index(of: edge.target)
@@ -204,19 +230,26 @@ struct Supergraph
                 source.color = self[source.index]?.color ?? biome[source.index].color
                 target.color = self[target.index]?.color ?? biome[target.index].color
                 
-                let sponsor:Symbol.Index? = try edge.sponsor.map(scope.index(of:))
-                let constraints:[SwiftConstraint<Symbol.Index>] = try edge.constraints.map
-                {
-                    try $0.map(scope.index(of:))
-                }
-                
                 let relationship:(source:Symbol.Relationship?, target:Symbol.Relationship) = 
                     try edge.kind.relationships(source, target, where: constraints)
                 
-                try self.link(target.index, relationship.target, accordingTo: module)
+                try self.link(target.index, relationship.target, accordingTo: module.index)
                 if let relationship:Symbol.Relationship = relationship.source 
                 {
-                    try self.link(source.index, relationship, accordingTo: module)
+                    try self.link(source.index, relationship, accordingTo: module.index)
+                }
+                
+                if let fake:Symbol.Index = try edge.fake.map(scope.index(of:))
+                {
+                    if source.module == module.index 
+                    {
+                        self.deport(source.index, impersonating: fake, given: biome)
+                    }
+                    else 
+                    {
+                        // cannot deport symbols from another module
+                        throw Symbol.RelationshipError.jurisdiction(module.index, says: source.index, impersonates: fake)
+                    }
                 }
             }
             
@@ -232,7 +265,7 @@ struct Supergraph
         case  .is(let intrinsic):
             if perpetrator == symbol.module
             {
-                self.vertices[symbol.offset].relationships.append(relationship)
+                self.nodes[symbol.offset].relationships.append(relationship)
             }
             else 
             {
@@ -242,12 +275,42 @@ struct Supergraph
         case .has(let extrinsic):
             if self.package.index == symbol.module.package
             {
-                self.vertices[symbol.offset].relationships.append(relationship)
+                self.nodes[symbol.offset].relationships.append(relationship)
             }
             else 
             {
                 self.opinions.append((symbol, has: extrinsic))
             }
+        }
+    }
+    private mutating 
+    func deport(_ symbol:Symbol.Index, impersonating citizen:Symbol.Index, given biome:Biome)
+    {
+        guard case .documented(comment: let papers) = self.nodes[symbol.offset].legality 
+        else 
+        {
+            // symbol has already been deported 
+            return 
+        }
+        switch (self[citizen]?.legality ?? biome[citizen].legality, papers)
+        {
+        case (.undocumented(impersonating: _), _):
+            // this is dangerous because it could cause infinite recursion 
+            // if the migration chain forms a cycle!
+            // self.deport(symbol, impersonating: citizen, given: biome)
+            fatalError("unimplemented")
+        
+        case (.documented(comment:      _), ""):
+            // symbol had no documentation. deport immediately!
+            fallthrough
+        case (.documented(comment: papers),  _): 
+            // symbol had documentation, but it was fradulent. deport immediately!
+            self.nodes[symbol.offset].legality = .undocumented(impersonating: citizen)
+        
+        case (.documented(comment:      _),  _):
+            // a small number of symbols using fakes are actually documented, 
+            // and should not be deported. 
+            print("warning: recovered documentation for symbol \(self.nodes[symbol.offset].vertex.path)")
         }
     }
 }
@@ -270,6 +333,11 @@ struct _Graph
         {
             $0 * $1.hash
         }
+    }
+    
+    var edges:[[Edge]] 
+    {
+        [self.core.edges] + self.extensions.map(\.edges)
     }
 }
 struct Subgraph 
@@ -295,9 +363,7 @@ struct Subgraph
         case undefined(id:Symbol.ID)
     } */
     
-    private 
     let vertices:[Vertex]
-    private 
     let edges:[Edge]
     let hash:Resource.Version?
     let namespace:Module.ID
@@ -342,24 +408,6 @@ struct Subgraph
                 throw _ModuleError.mismatched(id: module)
             }
             return (vertices, edges)
-        }
-    }
-    
-    func populate(_ edges:inout Set<Edge>) throws
-    {
-        for edge:Edge in self.edges 
-        {
-            guard let incumbent:Edge = edges.update(with: edge)
-            else 
-            {
-                continue 
-            }
-            guard   incumbent.origin      == edge.origin, 
-                    incumbent.constraints == edge.constraints 
-            else 
-            {
-                throw EdgeError.disputed(incumbent, edge)
-            }
         }
     }
 }

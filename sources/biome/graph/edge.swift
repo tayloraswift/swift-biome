@@ -22,16 +22,16 @@ import JSON
     }
 } */
 
-enum EdgeError:Error 
+/* enum EdgeError:Error 
 {
     case constraints(on:Int, is:Edge.Kind, of:Int)
     case polygamous(Int, is:Edge.Kind, of:Int, Int)
     case disputed(Edge, Edge)
-}
+} */
 
 struct Edge:Hashable 
 {
-    struct References 
+    /* struct References 
     {
         let parent:Int?, 
             module:Int?, 
@@ -79,7 +79,7 @@ struct Edge:Hashable
             self.subclasses                 = []
             self.superclass                 = nil
         }
-    }
+    } */
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
     enum Kind:String
     {
@@ -94,13 +94,12 @@ struct Edge:Hashable
     }
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.cpp
     var kind:Kind
+    var fake:Symbol.ID?
     var source:Symbol.ID
     var target:Symbol.ID
-    // if the source inherited docs 
-    var origin:Symbol.ID?
     var constraints:[SwiftConstraint<Symbol.ID>]
     
-    // only hash (source, kind, target)
+    /* // only hash (source, kind, target)
     static 
     func == (lhs:Self, rhs:Self) -> Bool 
     {
@@ -224,15 +223,16 @@ struct Edge:Hashable
             table[source].defaultImplementationOf.append(target)
             table[target].defaultImplementations.append(source)
         }
-    }
+    } */
     
     init(from json:JSON) throws
     {
-        (self.kind, self.source, self.target, self.origin, self.constraints) = try json.lint(["targetFallback"])
+        (self.kind, self.fake, source: self.source, target: self.target, self.constraints) = 
+            try json.lint(["targetFallback"])
         {
             var kind:Edge.Kind = try $0.remove("kind") { try $0.case(of: Edge.Kind.self) }
             let target:Symbol.ID = try $0.remove("target", Symbol.ID.init(from:))
-            let origin:Symbol.ID? = try $0.pop("sourceOrigin")
+            let fake:Symbol.ID? = try $0.pop("sourceOrigin")
             {
                 try $0.lint(["displayName"])
                 {
@@ -258,7 +258,7 @@ struct Edge:Hashable
             }
             return 
                 (
-                    kind: kind, source: source, target: target, origin: origin, 
+                    kind: kind, fake: fake, source: source, target: target, 
                     constraints: try $0.pop("swiftConstraints", as: [JSON]?.self) 
                     { 
                         try $0.map(SwiftConstraint.init(from:)) 

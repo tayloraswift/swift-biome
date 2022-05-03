@@ -25,10 +25,59 @@ struct Symbol:Sendable, Identifiable
         }
         init(_ module:Module.Index, offset:Int)
         {
+            self.init(module, bits: .init(offset))
+        }
+        fileprivate 
+        init(_ module:Module.Index, bits:UInt32)
+        {
             self.module = module
-            self.bits = .init(offset)
+            self.bits = bits
+        }
+    }
+    struct IndexRange 
+    {
+        let module:Module.Index 
+        let bits:Range<UInt32>
+        
+        var offsets:Range<Int> 
+        {
+            .init(self.bits.lowerBound) ..< .init(self.bits.upperBound)
+        }
+        var lowerBound:Index 
+        {
+            .init(self.module, bits: self.bits.lowerBound)
+        }
+        var upperBound:Index 
+        {
+            .init(self.module, bits: self.bits.upperBound)
         }
         
+        static 
+        func ..< (lhs:Index, rhs:Int) -> Self 
+        {
+            lhs ..< UInt32.init(rhs)
+        }
+        static 
+        func ..< (lhs:Int, rhs:Index) -> Self 
+        {
+            UInt32.init(lhs) ..< rhs
+        }
+        static 
+        func ..< (lhs:Index, rhs:UInt32) -> Self 
+        {
+            self.init(lhs.module, bits: lhs.bits ..< rhs)
+        }
+        static 
+        func ..< (lhs:UInt32, rhs:Index) -> Self 
+        {
+            self.init(rhs.module, bits: lhs ..< rhs.bits)
+        }
+        private 
+        init(_ module:Module.Index, bits:Range<UInt32>)
+        {
+            self.module = module
+            self.bits = bits
+        }
     }
     
     struct CollisionError:Error
@@ -88,7 +137,7 @@ struct Symbol:Sendable, Identifiable
         // we must store the comment, otherwise packages that depend on the package 
         // this symbol belongs to will not be able to reliably de-duplicate documentation
         case documented(comment:String)
-        case undocumented(sponsor:Index)
+        case undocumented(impersonating:Index)
     }
     
     let id:ID
@@ -98,7 +147,9 @@ struct Symbol:Sendable, Identifiable
     /// The enclosing scope this symbol is defined in. If the symbol is a protocol 
     /// extension member, this contains the name of the protocol.
     let scope:[String]
-    let bystander:Module.Index? 
+    //  this is only the same as the perpetrator if this symbol is part of its 
+    //  core symbol graph.
+    let namespace:Module.Index 
     let legality:Legality
     let signature:Notebook<SwiftHighlight, Never>
     let declaration:Notebook<SwiftHighlight, Index>
@@ -113,51 +164,28 @@ struct Symbol:Sendable, Identifiable
         self.relationships.color
     }
     
-    init(_ vertex:Vertex, bystander:Module.Index, legality:Legality, modules:Module.Scope) throws 
+    init(_ node:Node, namespace:Module.Index, scope:Module.Scope) throws 
     {
-        self.bystander      = bystander
-        self.legality       = legality
+        self.bystander      = namespace
+        self.legality       = node.legality
         
-        self.id             =       vertex.id
-        self.name           =       vertex.path[vertex.path.endIndex - 1]
-        self.scope          = .init(vertex.path.dropLast())
+        self.id             =       node.vertex.id
+        self.name           =       node.vertex.path[vertex.path.endIndex - 1]
+        self.scope          = .init(node.vertex.path.dropLast())
         
-        self.availability   = vertex.availability 
-        self.generics       = vertex.generics
-        self.signature      = vertex.signature
-        self.declaration    = try vertex.declaration.mapLinks(modules.index(of:))
-        self.genericConstraints = try vertex.genericConstraints.map
+        self.availability   = node.vertex.availability 
+        self.generics       = node.vertex.generics
+        self.signature      = node.vertex.signature
+        self.declaration    = try node.vertex.declaration.mapLinks(scope.index(of:))
+        self.genericConstraints = try node.vertex.genericConstraints.map
         {
-            try $0.map(modules.index(of:))
+            try $0.map(scope.index(of:))
         }
-        self.extensionConstraints = try vertex.extensionConstraints.map
+        self.extensionConstraints = try node.vertex.extensionConstraints.map
         {
-            try $0.map(modules.index(of:))
+            try $0.map(scope.index(of:))
         }
-        self.relationships  = try .init(validating: vertex.relationships)
-        
-        // FIXME: we should validate extendedModule consistency in the caller, 
-        // not this initializer...
-        /* if let extended:Module.ID   = vertex.extendedModule
-        {
-            guard let extended:Int  = modules.index(of: extended)
-            else 
-            {
-                throw _ModuleError.undefined(id: extended)
-            }
-            if  extended != self.module
-            {
-                switch self.bystander
-                {
-                case nil, extended?: 
-                    break 
-                case let bystander?:
-                    throw _ModuleError.mismatchedExtension(
-                        id: modules[extended].id, expected: modules[bystander].id, 
-                        in: self.id)
-                }
-            }
-        } */
+        self.relationships  = try .init(validating: node.relationships)
     }
 
     @available(*, deprecated, renamed: "name")

@@ -1,24 +1,42 @@
 import JSON 
 import Highlight
 
-infix operator ~~ :ComparisonPrecedence
+// infix operator ~~ :ComparisonPrecedence
 
+struct Node 
+{
+    var vertex:Vertex.Content
+    var legality:Symbol.Legality
+    var relationships:[Symbol.Relationship]
+    
+    init(_ vertex:Vertex)
+    {
+        self.vertex = vertex.content 
+        self.legality = .documented(comment: vertex.comment)
+        self.relationships = []
+    }
+}
 struct Vertex
 {
-    var isCanonical:Bool
-    var id:Symbol.ID,
-        color:Symbol.Color, 
-        path:[String], 
-        availability:Symbol.Availability,
-        signature:Notebook<SwiftHighlight, Never>, 
-        declaration:Notebook<SwiftHighlight, Symbol.ID>, 
-        generics:[Symbol.Generic], 
-        genericConstraints:[SwiftConstraint<Symbol.ID>],
-        extensionConstraints:[SwiftConstraint<Symbol.ID>],
-        extendedModule:Module.ID?, 
-        comment:String
+    struct Content
+    {
+        var id:Symbol.ID 
+        var path:[String] 
+        var color:Symbol.Color 
+        var availability:Symbol.Availability 
+        var signature:Notebook<SwiftHighlight, Never> 
+        var declaration:Notebook<SwiftHighlight, Symbol.ID> 
+        var generics:[Symbol.Generic] 
+        var genericConstraints:[SwiftConstraint<Symbol.ID>] 
+        var extensionConstraints:[SwiftConstraint<Symbol.ID>] 
+        var extendedModule:Module.ID?
+    }
     
-    static 
+    var content:Content
+    var comment:String
+    var isCanonical:Bool
+    
+    /* static 
     func ~~ (lhs:Self, rhs:Self) -> Bool 
     {
         if  lhs.id                          == rhs.id,
@@ -35,26 +53,11 @@ struct Vertex
         {
             return false
         }
-    }
+    } */
     
     init(from json:JSON) throws 
     {
-        (
-            self.isCanonical,
-            self.id,
-            self.color,
-            self.path,
-            self.availability,
-            self.signature,
-            self.declaration,
-            self.generics,
-            self.genericConstraints,
-            self.extensionConstraints,
-            self.extendedModule,
-            self.comment
-        )
-        =
-        try json.lint 
+        (self.content, self.comment, self.isCanonical) = try json.lint 
         {
             let (id, isCanonical):(Symbol.ID, Bool) = try $0.remove("identifier")
             {
@@ -188,21 +191,18 @@ struct Vertex
                     }
                 }
             }
-            return 
-                (
-                isCanonical:            isCanonical, 
+            let content:Content = .init(
                 id:                     id,
-                color:                  color, 
                 path:                   path,
+                color:                  color, 
                 availability:           availability ?? .init(), 
                 signature:              signature, 
                 declaration:            declaration, 
                 generics:               generics?.parameters ?? [], 
                 genericConstraints:     generics?.constraints ?? [], 
                 extensionConstraints:  `extension`?.constraints ?? [], 
-                extendedModule:        `extension`?.extendedModule,
-                comment:                comment ?? ""
-                )
+                extendedModule:        `extension`?.extendedModule)
+            return (content, comment ?? "", isCanonical)
         }
     }
 
