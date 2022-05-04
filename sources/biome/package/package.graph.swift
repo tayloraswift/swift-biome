@@ -31,16 +31,14 @@ extension Package
         private 
         var nodes:[Node]
         private
-        var indices:
-        (
-            modules:[Module.ID: Module.Index],
+        var modules:[Module.ID: Module.Index],
             symbols:[Symbol.ID: Symbol.Index]
-        )
         
         init(package:(id:ID, index:Index)) 
         {
             self.nodes = []
-            self.indices = ([:], [:])
+            self.symbols = [:]
+            self.modules = [:]
             self.package = package 
             self.opinions = []
         }
@@ -48,6 +46,7 @@ extension Package
 }
 extension Package.Graph 
 {
+    private 
     struct Node 
     {
         var vertex:Vertex.Content
@@ -67,7 +66,7 @@ extension Package.Graph
     mutating 
     func linearize(_ graphs:[Module.Graph], given biome:Biome) throws -> Package 
     {
-        self.indices.modules = .init(uniqueKeysWithValues: graphs.enumerated().map 
+        self.modules = .init(uniqueKeysWithValues: graphs.enumerated().map 
         {
             ($0.1.core.id, .init(self.package.index, offset: $0.0))
         })
@@ -113,7 +112,7 @@ extension Package.Graph
                 (dependency:Module.Graph.Dependency) in 
                 
                 guard let local:[Module.ID: Module.Index] = dependency.package == self.package.id ? 
-                    self.indices.modules : biome[dependency.package]?.trunks 
+                    self.modules : biome[dependency.package]?.trunks 
                 else 
                 {
                     throw PackageIdentityError.undefined(dependency.package)
@@ -186,20 +185,20 @@ extension Package.Graph
             // the behavior of `@_exported import`.
             if case .natural = vertex.kind 
             {
-                if let _:Symbol.Index = self.indices.updateValue(symbol, forKey: vertex.id)
+                if let _:Symbol.Index = self.symbols.updateValue(symbol, forKey: vertex.id)
                 {
                     throw Symbol.CollisionError.init(vertex.id, from: perpetrator.id) 
                 }
                 self.nodes.append(.init(vertex))
             }
             // *not* subgraph.namespace !
-            else if case nil = self.indices.index(forKey: vertex.id), 
+            else if case nil = self.symbols.index(forKey: vertex.id), 
                 vertex.id.isUnderscoredProtocolExtensionMember(from: perpetrator.id)
             {
                 // if the symbol is synthetic and belongs to an underscored 
                 // protocol, assume the generic base does not exist, and register 
                 // it *once*.
-                self.indices.updateValue(symbol, forKey: vertex.id)
+                self.symbols.updateValue(symbol, forKey: vertex.id)
                 self.nodes.append(.init(vertex))
             }
         }
@@ -224,7 +223,7 @@ extension Package.Graph
             let scope:Module.Scope = .init(filter: filter, layers: 
                 Set<Package.Index>.init(filter.map(\.package)).map 
             {
-                $0 == self.package.index ? self.indices.symbols : biome[$0].indices.symbols
+                $0 == self.package.index ? self.symbols : biome[$0].table.symbols
             })
             
             for edge:Edge in graph.edges.joined()

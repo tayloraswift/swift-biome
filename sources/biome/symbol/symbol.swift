@@ -146,11 +146,11 @@ struct Symbol:Sendable, Identifiable
     //  core symbol graph.
     let namespace:Module.Index 
     let legality:Legality
-    let signature:Notebook<SwiftHighlight, Never>
-    let declaration:Notebook<SwiftHighlight, Index>
+    let signature:Notebook<Fragment.Color, Never>
+    let declaration:Notebook<Fragment.Color, Index>
     let generics:[Generic], 
-        genericConstraints:[SwiftConstraint<Index>], 
-        extensionConstraints:[SwiftConstraint<Index>]
+        genericConstraints:[Generic.Constraint<Index>], 
+        extensionConstraints:[Generic.Constraint<Index>]
     let availability:Availability
     var relationships:Relationships
     
@@ -171,7 +171,7 @@ struct Symbol:Sendable, Identifiable
         self.availability   = node.vertex.availability 
         self.generics       = node.vertex.generics
         self.signature      = node.vertex.signature
-        self.declaration    = try node.vertex.declaration.mapLinks(scope.index(of:))
+        self.declaration    = try node.vertex.declaration.map(scope.index(of:))
         self.genericConstraints = try node.vertex.genericConstraints.map
         {
             try $0.map(scope.index(of:))

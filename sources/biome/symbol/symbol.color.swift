@@ -11,7 +11,6 @@ extension Symbol
             case `struct`
             case `class`
             case  actor
-            case `typealias`
         }
         enum Callable:Sendable, Hashable
         {
@@ -31,8 +30,9 @@ extension Symbol
             case `func`
         }
         
-        case `protocol`
         case `associatedtype`
+        case `protocol`
+        case `typealias`
         case  concretetype(ConcreteType)
         case  callable(Callable)
         
@@ -45,13 +45,13 @@ extension Symbol
         {
             switch rawValue 
             {
-            case "swift.protocol":          self = .protocol
             case "swift.associatedtype":    self = .associatedtype
+            case "swift.protocol":          self = .protocol
+            case "swift.typealias":         self = .typealias
             case "swift.enum":              self = .concretetype(.enum)
             case "swift.struct":            self = .concretetype(.struct)
             case "swift.class":             self = .concretetype(.class)
             case "swift.actor":             self = .concretetype(.actor)
-            case "swift.typealias":         self = .concretetype(.typealias)
             case "swift.enum.case":         self = .callable(.case)
             case "swift.init":              self = .callable(.initializer)
             case "swift.deinit":            self = .callable(.deinitializer)
@@ -72,13 +72,13 @@ extension Symbol
         {
             switch self 
             {
-            case .protocol:                     return "swift.protocol"
             case .associatedtype:               return "swift.associatedtype"
+            case .protocol:                     return "swift.protocol"
+            case .typealias:                    return "swift.typealias"
             case .concretetype(.enum):          return "swift.enum"
             case .concretetype(.struct):        return "swift.struct"
             case .concretetype(.class):         return "swift.class"
             case .concretetype(.actor):         return "swift.actor"
-            case .concretetype(.typealias):     return "swift.typealias"
             case .callable(.case):              return "swift.enum.case"
             case .callable(.initializer):       return "swift.init"
             case .callable(.deinitializer):     return "swift.deinit"
@@ -99,7 +99,7 @@ extension Symbol
         {
             switch self
             {
-            case .associatedtype, .concretetype, .protocol:
+            case .associatedtype, .concretetype, .typealias, .protocol:
                 return true
             case .callable:
                 return false
@@ -110,13 +110,13 @@ extension Symbol
         {
             switch self 
             {
-            case .protocol:                     return "Protocol"
             case .associatedtype:               return "Associated Type"
+            case .protocol:                     return "Protocol"
+            case .typealias:                    return "Typealias"
             case .concretetype(.enum):          return "Enumeration"
             case .concretetype(.struct):        return "Structure"
             case .concretetype(.class):         return "Class"
             case .concretetype(.actor):         return "Actor"
-            case .concretetype(.alias):         return "Typealias"
             case .callable(.case):              return "Enumeration Case"
             case .callable(.initializer):       return "Initializer"
             case .callable(.deinitializer):     return "Deinitializer"

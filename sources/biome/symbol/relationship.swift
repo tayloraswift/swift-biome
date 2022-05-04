@@ -20,6 +20,11 @@ extension Symbol
         {
             fatalError("unimplemented")
         }
+        
+        /* var members:[[Index]]
+        {
+            [self.extrinsic]
+        } */
     }
     struct ExtrinsicRelationships:Sendable 
     {
@@ -222,6 +227,8 @@ extension Edge.Kind
             )
         
         case    (.concretetype(_),  is: .member,                of: .concretetype(_),   conditional: false), 
+                (.typealias,        is: .member,                of: .concretetype(_),   conditional: false), 
+                (.callable(_),      is: .member,                of: .concretetype(_),   conditional: false), 
                 (.concretetype(_),  is: .member,                of: .protocol,          conditional: false),
                 (.typealias,        is: .member,                of: .protocol,          conditional: false),
                 (.callable(_),      is: .member,                of: .protocol,          conditional: false):
