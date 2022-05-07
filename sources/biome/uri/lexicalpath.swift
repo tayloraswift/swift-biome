@@ -204,13 +204,8 @@ struct URI
                 }
             }
         }
-        enum Orientation:Unicode.Scalar
-        {
-            case gay        = "."
-            case straight   = "/"
-        }
         
-        var orientation:Orientation
+        var orientation:Symbol.Orientation
         var components:[Component]
         
         init(normalizing vectors:[Vector?]) throws

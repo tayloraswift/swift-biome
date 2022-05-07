@@ -21,8 +21,6 @@ struct Module:Identifiable, Sendable
             self.bits = .init(offset)
         }
     }
-    
-    typealias Colony = (module:Index, symbols:Symbol.IndexRange)
         
     public 
     let id:ID
@@ -30,7 +28,7 @@ struct Module:Identifiable, Sendable
     /// the complete list of symbols vended by this module. the ranges are *contiguous*.
     /// ``core`` contains the symbols with the lowest addresses.
     let core:Symbol.IndexRange
-    let colonies:[Colony]
+    let colonies:[Symbol.ColonialRange]
     /// the symbols scoped to this module’s top-level namespace. every index in 
     /// this array falls within the range of ``core``, since it is not possible 
     /// to extend the top-level namespace of a module.
@@ -38,10 +36,6 @@ struct Module:Identifiable, Sendable
     /// the list of modules this module depends on, grouped by package. 
     let dependencies:[[Module.Index]]
     
-    var symbols:Symbol.IndexRange
-    {
-        self.colonies.last?.symbols.bits.upperBound.map { self.core.lowerBound ..< $0 } ?? self.core
-    }
     /// this module’s exact identifier string, e.g. '_Concurrency'
     var name:String 
     {
@@ -60,10 +54,7 @@ struct Module:Identifiable, Sendable
     }
     
     // only the core subgraph can contain top-level symbols.
-    init(id:ID, 
-        core:Symbol.IndexRange, 
-        colonies:[Colony], 
-        toplevel:[Symbol.Index], 
+    init(id:ID, core:Symbol.IndexRange, colonies:[Symbol.ColonialRange], toplevel:[Symbol.Index], 
         dependencies:[[Module.Index]])
     {
         self.id = id 
@@ -72,4 +63,17 @@ struct Module:Identifiable, Sendable
         self.toplevel = toplevel
         self.dependencies = dependencies
     }
+    
+    /// all symbols declared by this module, including symbols in other namespaces 
+    var symbols:Symbol.IndexRange
+    {
+        self.colonies.last?.bits.upperBound.map { self.core.lowerBound ..< $0 } ?? self.core
+    }
+    /* func symbols(in nameverse:Package.Index) -> [Range<Int>]
+    {
+        let offsets:[Range<Int>] = [module.core.offsets] + module.colonies.compactMap 
+        {
+            $0.namespace.package == nameverse ? $0.offsets : nil
+        }
+    } */
 }

@@ -3,6 +3,11 @@ extension Symbol
     @available(*, deprecated, renamed: "Color")
     typealias Kind = Color 
     
+    enum Orientation:Unicode.Scalar
+    {
+        case gay        = "."
+        case straight   = "/"
+    }
     enum Color:Sendable, Hashable, RawRepresentable
     {
         enum ConcreteType:Sendable, Hashable
@@ -36,8 +41,6 @@ extension Symbol
         case  concretetype(ConcreteType)
         case  callable(Callable)
         
-        static 
-        let `typealias`:Self = .concretetype(.typealias)
         static 
         let `class`:Self = .concretetype(.class)
 
@@ -103,6 +106,16 @@ extension Symbol
                 return true
             case .callable:
                 return false
+            }
+        }
+        var orientation:Orientation 
+        {
+            switch self
+            {
+            case .concretetype(_), .associatedtype, .protocol, .typealias:
+                return .straight
+            case .callable(_):
+                return .gay
             }
         }
         

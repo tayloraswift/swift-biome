@@ -34,7 +34,7 @@ struct Symbol:Sendable, Identifiable
             self.bits = bits
         }
     }
-    struct IndexRange 
+    struct IndexRange:RandomAccessCollection
     {
         let module:Module.Index 
         let bits:Range<UInt32>
@@ -50,6 +50,19 @@ struct Symbol:Sendable, Identifiable
         var upperBound:Index 
         {
             .init(self.module, bits: self.bits.upperBound)
+        }
+        
+        var startIndex:UInt32
+        {
+            self.bits.startIndex
+        }
+        var endIndex:UInt32
+        {
+            self.bits.endIndex
+        }
+        subscript(index:UInt32) -> Index 
+        {
+            .init(self.module, bits: self.bits[index])
         }
         
         static 
@@ -76,6 +89,29 @@ struct Symbol:Sendable, Identifiable
         init(_ module:Module.Index, bits:Range<UInt32>)
         {
             self.module = module
+            self.bits = bits
+        }
+    }
+    // this is like ``Symbol.IndexRange``, except the ``module`` field refers to 
+    // a namespace, not the module that actually contains the symbol
+    struct ColonialRange
+    {
+        let namespace:Module.Index 
+        let bits:Range<UInt32>
+        
+        var offsets:Range<Int> 
+        {
+            .init(self.bits.lowerBound) ..< .init(self.bits.upperBound)
+        }
+        
+        init(namespace:Module.Index, offsets:Range<Int>)
+        {
+            self.init(namespace: namespace, bits: .init(offsets.lowerBound) ..< .init(offsets.upperBound))
+        }
+        private 
+        init(namespace:Module.Index, bits:Range<UInt32>)
+        {
+            self.namespace = namespace
             self.bits = bits
         }
     }
@@ -145,6 +181,9 @@ struct Symbol:Sendable, Identifiable
     //  this is only the same as the perpetrator if this symbol is part of its 
     //  core symbol graph.
     let namespace:Module.Index 
+    private 
+    let component:(full:Key.Component, stem:Key.Component, leaf:Key.Component)
+    
     let legality:Legality
     let signature:Notebook<Fragment.Color, Never>
     let declaration:Notebook<Fragment.Color, Index>
@@ -158,15 +197,32 @@ struct Symbol:Sendable, Identifiable
     {
         self.relationships.color
     }
-    
-    init(_ node:Node, namespace:Module.Index, scope:Module.Scope) throws 
+    var orientation:Orientation
     {
-        self.bystander      = namespace
+        self.relationships.color.orientation
+    }
+    
+    var key:Key 
+    {
+        .init(self.namespace, stem: self.path.stem, leaf:    self.path.leaf, orientation:    self.orientation)
+    }
+    func key(feature:Self) -> Key 
+    {
+        .init(self.namespace, stem: self.path.full, leaf: feature.path.leaf, orientation: feature.orientation)
+    }
+    
+    init(_ node:Node, namespace:Module.Index, scope:Module.Scope, paths:inout PathTable) throws 
+    {
         self.legality       = node.legality
         
         self.id             =       node.vertex.id
         self.name           =       node.vertex.path[vertex.path.endIndex - 1]
         self.scope          = .init(node.vertex.path.dropLast())
+        
+        self.namespace      = namespace
+        self.component.full = paths.register(stem: node.vertex.path)
+        self.component.stem = paths.register(stem: self.scope)
+        self.component.leaf = paths.register(stem: self.name)
         
         self.availability   = node.vertex.availability 
         self.generics       = node.vertex.generics

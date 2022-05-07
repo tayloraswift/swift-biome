@@ -13,172 +13,129 @@ enum _ModuleError:Error
     case undefined(id:Module.ID)
 } */
 
-struct Biome 
+/// an ecosystem is a subset of a biome containing packages that are relevant 
+/// (in some user-defined way) to some task. 
+/// 
+/// ecosystem views are mainly useful for providing an immutable context for 
+/// accessing foreign packages.
+struct Ecosystem 
 {
-    private 
-    var indices:[Package.ID: Package.Index]
-    private 
-    var nations:[Nation]
+    var packages:[Package], 
+        indices:[Package.ID: Package.Index]
     
-    init() 
+    init()
     {
-        self.indices = []
-        self.nations = []
+        self.packages = []
+        self.indices = [:]
     }
-    /* subscript(package:Package.ID) -> Package?
-    {
-        self.indices[package].map(self.subscript(_:))
-    }  */
+    
     subscript(package:Package.Index) -> Package
     {
         _read 
         {
-            yield self.nations[package.offset].package
+            yield self.packages[package.offset]
         }
         _modify 
         {
-            yield &self.nations[package.offset].package
+            yield &self.packages[package.offset]
         }
     } 
     subscript(module:Module.Index) -> Module
     {
         _read 
         {
-            yield self.nations[module.package.offset].package.modules[module.offset]
+            yield self.packages[module.package.offset].modules[module.offset]
         }
         _modify 
         {
-            yield &self.nations[module.package.offset].package.modules[module.offset]
+            yield &self.packages[module.package.offset].modules[module.offset]
         }
     } 
     subscript(symbol:Symbol.Index) -> Symbol
     {
         _read 
         {
-            yield self.nations[symbol.module.package.offset].package.symbols[symbols.offset]
+            yield self.packages[symbol.module.package.offset].symbols[symbols.offset]
         }
         _modify 
         {
-            yield &self.nations[symbol.module.package.offset].package.symbols[symbols.offset]
+            yield &self.packages[symbol.module.package.offset].symbols[symbols.offset]
         }
     } 
-    
-    mutating 
-    func append(_ id:Package.ID, graphs:[_Graph]) throws 
-    {
-        let index:Package.Index = .init(offset: self.nations.endIndex)
-        
-        var supergraph:Supergraph = .init(package: (id, index))
-        let package:Package = try supergraph.linearize(graphs, given: self)
-        // TODO: register outgoing edges from `supergraph.opinions`
-        self.indices[package.id] = index 
-        self.nations.append(.init(package))
-    }
 }
 
-struct Nation
+struct Biome 
 {
-    // 10B size, 12B stride. 
-    struct Key:Hashable 
-    {
-        let leaf:UInt32 
-        let stem:UInt32 
-        let trunk:UInt16
-        
-        init(trunk:UInt16, leaf:UInt32)
-        {
-            self.init(trunk: trunk, stem: .max, leaf: leaf)
-        }
-        init(trunk:UInt16, stem:UInt32, leaf:UInt32)
-        {
-            self.trunk = trunk
-            self.stem = stem
-            self.leaf = leaf
-        }
-    }
-    
-    var package:Package 
-    
-    private
-    var symbols:[Key: Symbol.Group], 
-        articles:[Key: Int]
     private 
-    let pairings:[Symbol.Pairing: Symbol.Depth]
+    var ecosystem:Ecosystem
+    private 
+    var paths:PathTable
     
-    init(_ package:Package)
+    init() 
     {
-        self.package = package 
-        self.symbols = [:]
-        self.articles = [:]
-        self.pairings = [:]
+        self.paths = .init()
+        self.ecosystem = .init()
     }
-    
-    func resolve(module component:LexicalPath.Component) -> Int?
+    /* subscript(package:Package.ID) -> Package?
     {
-        if case .identifier(let string, hyphen: nil) = component
-        {
-            return self.trunks[Module.ID.init(string)]
-        }
-        else 
-        {
-            return nil
-        }
-    }
-    func depth(of symbol:(orientation:LexicalPath.Orientation, index:Int), in key:Key) -> Symbol.Depth?
-    {
-        self.symbols[key]?.depth(of: symbol)
-    }
-    
-    subscript(module module:Int, symbol path:LocalSelector) -> Symbol.Group?
-    {
-        self.symbols    [Key.init(module: module, stem: path.stem, leaf: path.leaf)]
-    }
-    subscript(module module:Int, article leaf:UInt32) -> Int?
-    {
-        self.articles   [Key.init(module: module,                  leaf:      leaf)]
-    }
-    subscript(path:NationalSelector) -> NationalResolution?
-    {
-        switch path 
-        {
-        case .opaque(let opaque):
-            // no additional lookups necessary
-            return .opaque(opaque)
-        
-        case .symbol(module: let module, nil): 
-            // no additional lookups necessary
-            return .module(module)
+        self.indices[package].map(self.subscript(_:))
+    }  */
 
-        case .symbol(module: let module, let path?): 
-            return self[module: module, symbol: path].map { NationalResolution.group($0, path.suffix) }
-        
-        case .article(module: let module, let leaf): 
-            return self[module: module, article: leaf].map( NationalResolution.article(_:) )
-        }
-    }
     
     mutating 
-    func insert(_ pairing:Symbol.Pairing, _ orientation:LexicalPath.Orientation, into key:Key)
+    func append(_ id:Package.ID, graphs:[Module.Graph]) throws 
     {
-        switch orientation 
+        var graph:Package.Graph = .init(id: id, index: .init(offset: self.packages.endIndex))
+        let hash:Resource.Version = graphs.reduce(.semantic(0, 1, 2)) { $0 * $1.hash }
+        let (modules, symbols):([Module], [Symbol]) = 
+            try graph.linearize(graphs, given: self.ecosystem, paths: &self.paths)
+        
+        var groups:[Symbol.Key: Symbol.Group] = [:]
+        for index:Symbol.Index in modules.map(\.symbols).joined()
         {
-        case .straight: self.insert(.big(pairing), into: key)
-        case .gay:   self.insert(.little(pairing), into: key)
+            let symbol:Symbol = symbols[index.offset]
+            // register resident symbols
+            groups[symbol.key, default: .none].insert(natural: index)
+            // register resident features. we can get them by filtering the features
+            // lists of our resident symbols by citizenship.
+            for feature:Symbol.Index in symbol.relationships.citizens.features
+            {
+                // we don’t know what culture the natural base is, since 
+                // feature culture is determined by perpetrator module and 
+                // not by its natural base. so we may have to subscript `self` 
+                // and not `symbols` to get it.
+                let key:Symbol.Key = symbol.key(feature: feature.module.package == graph.index ? 
+                    symbols[feature.offset] : self.ecosystem[index])
+                groups[key, default: .none].insert(victim: index, feature: feature)
+            }
         }
-    }
-    private mutating 
-    func insert(_ entry:Symbol.Group, into key:Key)
-    {
-        if let index:Dictionary<Key, Symbol.Group>.Index = self.symbols.index(forKey: key)
+        
+        for (upstream, opinions):(Package.Index, [Package.Opinion]) in graph.opinions 
         {
-            self.symbols.values[index].merge(entry)
+            self.ecosystem[upstream].update(with: opinions, from: graph.index)
+            
+            for opinion:Package.Opinion in opinions 
+            {
+                guard case (let victim, has: .feature(let feature)) = opinion 
+                else 
+                {
+                    continue 
+                }
+                let key:Symbol.Key = self.ecosystem[victim].key(feature: self.ecosystem[feature])
+                groups[key, default: .none].insert(victim: victim, feature: feature)
+            }
         }
-        else 
-        {
-            self.symbols.updateValue(entry, forKey: key)
-        }
+
+        self.packages.append(.init(id: id, indices: graph.indices, 
+            modules: modules, 
+            symbols: symbols,
+            table: table,
+            hash: hash))
+        self.indices[package.id] = graph.index 
     }
 }
+
+
 
 /* public 
 struct Biome:Sendable 

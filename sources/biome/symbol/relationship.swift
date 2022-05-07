@@ -13,43 +13,58 @@ extension Symbol
     {
         let color:Color
         let intrinsic:IntrinsicRelationships
-        let extrinsic:ExtrinsicRelationships
-        var foreign:[Package.Index: ExtrinsicRelationships]
+        let citizens:ExtrinsicRelationships
+        var aliens:[Package.Index: ExtrinsicRelationships]
         
         init(validating relationships:[Relationship]) throws 
         {
             fatalError("unimplemented")
         }
-        
-        /* var members:[[Index]]
-        {
-            [self.extrinsic]
-        } */
     }
+    //  conceptually, this type encodes:
+    //  -   associatedtype: 
+    //          0: (uninhabited)
+    //          1: default implementations (``implementations``)
+    //          2: restatements (``downstream``)
+    //          3: (uninhabited)
+    //  -   protocol:
+    //          0: (uninhabited; requirements are stored in ``IntrinsicRelationships``)
+    //          1: extension members (``features``)
+    //          2: inheriting protocols (``downstream``)
+    //          3: conforming types (``conformers``)
+    //  -   typealias:
+    //          0: (uninhabited)
+    //          1: (uninhabited)
+    //          2: (uninhabited)
+    //          3: (uninhabited)
+    //  -   concretetype(_):
+    //          0: members (``members``)
+    //          1: features (``features``)
+    //          2: subclasses (``downstream``)
+    //          3: protocol conformances (``conformances``)
+    //  -   callable(_):
+    //          0: (uninhabited)
+    //          1: (uninhabited)
+    //          2: overriding callables (``downstream``)
+    //          3: (uninhabited)
     struct ExtrinsicRelationships:Sendable 
     {
         init() 
         {
-            self.storage = ([], [], [])
+            self.storage = ([], [], [], [])
         }
         private 
         var storage:
         (
             [Index], 
             [Index], 
+            [Index], 
             [(index:Index, conditions:[SwiftConstraint<Index>])]
         )
-        /// if a protocol, the members in extensions of this protocol. 
         /// if a concrete type, the members of this type, not including members 
         /// inherited through protocol conformances.
         /// 
-        /// this shares backing storage with ``implementations``. requirements 
-        /// should access ``implementations`` instead. witnesses must not access 
-        /// this property.
-        /// 
-        /// > note: for concrete types, the module that a member originates from 
-        /// is not necessarily the perpetrator of the conformance that trafficked 
-        /// it into its scope.
+        /// protocols, requirements, and witnesses must not access this property.
         var members:[Index]
         {
             _read 
@@ -61,6 +76,28 @@ extension Symbol
                 yield &self.storage.0
             }
         }
+        /// if a protocol, the members in extensions of this protocol. 
+        /// if a concrete type, members of this type inherited through 
+        /// protocol conformances.
+        /// 
+        /// this shares backing storage with ``implementations``. requirements 
+        /// should access ``implementations`` instead. witnesses must not access 
+        /// this property.
+        /// 
+        /// > note: for concrete types, the module that an inherited member 
+        /// originates from is not necessarily the perpetrator of the conformance 
+        /// that trafficked it into its scope.
+        var features:[Index]
+        {
+            _read 
+            {
+                yield self.storage.1
+            }
+            _modify
+            {
+                yield &self.storage.1
+            }
+        }
         /// if a requirement, the default implementations available for this 
         /// requirement. 
         /// 
@@ -70,11 +107,11 @@ extension Symbol
         {
             _read 
             {
-                yield self.storage.0
+                yield self.storage.1
             }
             _modify
             {
-                yield &self.storage.0
+                yield &self.storage.1
             }
         }
         /// if a protocol, protocols that inherit from this protocol.
@@ -87,11 +124,11 @@ extension Symbol
         {
             _read 
             {
-                yield self.storage.1
+                yield self.storage.2
             }
             _modify
             {
-                yield &self.storage.1
+                yield &self.storage.2
             }
         }
         
@@ -104,11 +141,11 @@ extension Symbol
         {
             _read 
             {
-                yield self.storage.2
+                yield self.storage.3
             }
             _modify
             {
-                yield &self.storage.2
+                yield &self.storage.3
             }
         }
         /// if a concrete type, protocols this type conforms to.
@@ -120,11 +157,11 @@ extension Symbol
         {
             _read 
             {
-                yield self.storage.2
+                yield self.storage.3
             }
             _modify
             {
-                yield &self.storage.2
+                yield &self.storage.3
             }
         }
     }
@@ -187,6 +224,7 @@ extension Symbol
     {
         // members 
         case member(Index)
+        case feature(Index)
         // implementations 
         case implementation(Index)
         // downstream
@@ -223,7 +261,7 @@ extension Edge.Kind
             relationships =
             (
                 source:  nil,
-                target: .has(.member(source.index))
+                target: .has(.feature(source.index))
             )
         
         case    (.concretetype(_),  is: .member,                of: .concretetype(_),   conditional: false), 

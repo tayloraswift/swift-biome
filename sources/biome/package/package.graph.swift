@@ -22,57 +22,59 @@ extension Package
         }
     }
     
+    typealias Opinion = (symbol:Symbol.Index, has:Symbol.ExtrinsicRelationship)
+    
     struct Graph 
     {
+        private 
+        struct Node 
+        {
+            var vertex:Vertex.Content
+            var legality:Symbol.Legality
+            var relationships:[Symbol.Relationship]
+            
+            init(_ vertex:Vertex)
+            {
+                self.vertex = vertex.content 
+                self.legality = .documented(comment: vertex.comment)
+                self.relationships = []
+            }
+        }
+        
         let package:(id:ID, index:Index)
         
-        private(set)
-        var opinions:[(symbol:Symbol.Index, has:Symbol.ExtrinsicRelationship)]
         private 
         var nodes:[Node]
-        private
-        var modules:[Module.ID: Module.Index],
+        private(set)
+        var opinions:[Package.Index: [Opinion]],
+            modules:[Module.ID: Module.Index],
             symbols:[Symbol.ID: Symbol.Index]
         
-        init(package:(id:ID, index:Index)) 
+        init(id:ID, index:Index) 
         {
+            self.package = package 
             self.nodes = []
+            self.opinions = [:]
             self.symbols = [:]
             self.modules = [:]
-            self.package = package 
-            self.opinions = []
         }
     }
 }
 extension Package.Graph 
 {
-    private 
-    struct Node 
-    {
-        var vertex:Vertex.Content
-        var legality:Symbol.Legality
-        var relationships:[Symbol.Relationship]
-        
-        init(_ vertex:Vertex)
-        {
-            self.vertex = vertex.content 
-            self.legality = .documented(comment: vertex.comment)
-            self.relationships = []
-        }
-    }
-    
     // for now, we can only call this *once*!
     // TODO: implement progressive supergraph updates 
     mutating 
-    func linearize(_ graphs:[Module.Graph], given biome:Biome) throws -> Package 
+    func linearize(_ graphs:[Module.Graph], given ecosystem:Ecosystem, paths:inout PathTable) 
+        throws -> (modules:[Module], symbols:[Symbol])
     {
         self.modules = .init(uniqueKeysWithValues: graphs.enumerated().map 
         {
             ($0.1.core.id, .init(self.package.index, offset: $0.0))
         })
         
-        let modules:[Module]      = try self.populate     (from: graphs, given: biome)
-        let scopes:[Module.Scope] = try self.link(modules, from: graphs, given: biome)
+        let modules:[Module]      = try self.populate     (from: graphs, given: ecosystem)
+        let scopes:[Module.Scope] = try self.link(modules, from: graphs, given: ecosystem)
         
         var symbols:[Symbol] = []
             symbols.reserveCapacity(self.nodes.count)
@@ -80,39 +82,39 @@ extension Package.Graph
         {
             for node:Node in self.nodes[module.core.offsets]
             {
-                symbols.append(try .init(node, namespace: module.index, scope: scope))
+                symbols.append(try .init(node, namespace: module.index, scope: scope, paths: &paths))
             }
-            for colony:Module.Colony in module.colonies 
+            for colony:Symbol.ColonialRange in module.colonies 
             {
-                for node:Node in self.nodes[colony.symbols.offsets]
+                for node:Node in self.nodes[colony.offsets]
                 {
-                    symbols.append(try .init(node, namespace: colony.module, scope: scope))
+                    symbols.append(try .init(node, namespace: colony.namespace, scope: scope, paths: &paths))
                 }
             }
         }
-        return .init(id: self.package.id, 
-            indices: self.indices, 
-            modules: modules, 
-            symbols: symbols, 
-            hash: graphs.reduce(.semantic(0, 1, 2)) { $0 * $1.hash })
+        return (modules, symbols)
     }
 
     private mutating 
-    func populate(from graphs:[Module.Graph], given biome:Biome) throws -> [Module]
+    func populate(from graphs:[Module.Graph], given ecosystem:Ecosystem) throws -> [Module]
     {
         try graphs.indices.map
         {
             (offset:Int) in 
             
-            let module:Module.Index = .init(self.package.index, offset: offset), 
-                graph:Module.Graph = graphs[offset]
+            let graph:Module.Graph = graphs[offset]
+            let module:(id:Module.ID, index:Module.Index) = 
+            (
+                id: graph.core.namespace, 
+                index: .init(self.package.index, offset: offset)
+            )
             
             let dependencies:[[(key:Module.ID, value:Module.Index)]] = try graph.dependencies.map 
             {
                 (dependency:Module.Graph.Dependency) in 
                 
                 guard let local:[Module.ID: Module.Index] = dependency.package == self.package.id ? 
-                    self.modules : biome[dependency.package]?.trunks 
+                    self.modules : ecosystem[dependency.package]?.indices.modules 
                 else 
                 {
                     throw PackageIdentityError.undefined(dependency.package)
@@ -132,12 +134,13 @@ extension Package.Graph
             //  run in quadratic time; otherwise it would be cubic!
             let bystanders:[Module.ID: Module.Index] = .init(uniqueKeysWithValues: dependencies.joined())
 
-            let core:Symbol.IndexRange = try self.populate((graph.core.namespace, module), from: graph.core)
-            let colonies:[Colony] = try graph.extensions.compactMap
+            let core:Symbol.IndexRange = 
+                .init(graph.core.namespace, offsets: try self.populate(module, from: graph.core))
+            let colonies:[Symbol.ColonialRange] = try graph.extensions.compactMap
             {
                 if let bystander:Module.Index = bystanders[$0.namespace]
                 {
-                    return (bystander,   try self.populate((graph.core.namespace, module), from: $0))
+                    return .init(namespace: bystander, offsets: try self.populate(module, from: $0))
                 }
                 else 
                 {
@@ -161,7 +164,7 @@ extension Package.Graph
     }
     private mutating 
     func populate(_ perpetrator:(id:Module.ID, index:Module.Index), from subgraph:Module.Subgraph) 
-        throws -> Symbol.IndexRange
+        throws -> Range<Int>
     {
         // about half of the symbols in a typical symbol graph are non-canonical. 
         // (i.e., they are inherited by victims). in theory, these symbols can 
@@ -177,7 +180,7 @@ extension Package.Graph
         // example: UnsafePointer.predecessor() actually originates from 
         // the witness `ss8_PointerPsE11predecessorxyF`, which is part of 
         // the underscored `_Pointer` protocol.
-        let start:Symbol.Index = .init(perpetrator.index, offset: self.nodes.endIndex)
+        let start:Int = self.nodes.endIndex
         for vertex:Vertex in subgraph.vertices 
         {
             let symbol:Symbol.Index = .init(perpetrator.index, offset: self.nodes.endIndex)
@@ -212,7 +215,8 @@ extension Package.Graph
     }
     
     private mutating 
-    func link(_ modules:[Module], from graphs:[Module.Graph], given biome:Biome) throws -> [Module.Scope]
+    func link(_ modules:[Module], from graphs:[Module.Graph], given ecosystem:Ecosystem) 
+        throws -> [Module.Scope]
     {
         zip(modules, graphs).map
         {
@@ -223,7 +227,7 @@ extension Package.Graph
             let scope:Module.Scope = .init(filter: filter, layers: 
                 Set<Package.Index>.init(filter.map(\.package)).map 
             {
-                $0 == self.package.index ? self.symbols : biome[$0].table.symbols
+                $0 == self.package.index ? self.symbols : ecosystem[$0].indices.symbols
             })
             
             for edge:Edge in graph.edges.joined()
@@ -238,8 +242,8 @@ extension Package.Graph
                 source.index = try scope.index(of: edge.source)
                 target.index = try scope.index(of: edge.target)
                 
-                source.color = self[source.index]?.color ?? biome[source.index].color
-                target.color = self[target.index]?.color ?? biome[target.index].color
+                source.color = self[source.index]?.color ?? ecosystem[source.index].color
+                target.color = self[target.index]?.color ?? ecosystem[target.index].color
                 
                 let relationship:(source:Symbol.Relationship?, target:Symbol.Relationship) = 
                     try edge.kind.relationships(source, target, where: constraints)
@@ -254,7 +258,7 @@ extension Package.Graph
                 {
                     if source.module == module.index 
                     {
-                        self.deport(source.index, impersonating: fake, given: biome)
+                        self.deport(source.index, impersonating: fake, given: ecosystem)
                     }
                     else 
                     {
@@ -290,12 +294,12 @@ extension Package.Graph
             }
             else 
             {
-                self.opinions.append((symbol, has: extrinsic))
+                self.opinions[symbol.module.package, default: []].append((symbol, has: extrinsic))
             }
         }
     }
     private mutating 
-    func deport(_ symbol:Symbol.Index, impersonating citizen:Symbol.Index, given biome:Biome)
+    func deport(_ symbol:Symbol.Index, impersonating citizen:Symbol.Index, given ecosystem:Ecosystem)
     {
         guard case .documented(comment: let papers) = self.nodes[symbol.offset].legality 
         else 
@@ -303,7 +307,7 @@ extension Package.Graph
             // symbol has already been deported 
             return 
         }
-        switch (self[citizen]?.legality ?? biome[citizen].legality, papers)
+        switch (self[citizen]?.legality ?? ecosystem[citizen].legality, papers)
         {
         case (.undocumented(impersonating: _), _):
             // this is dangerous because it could cause infinite recursion 
