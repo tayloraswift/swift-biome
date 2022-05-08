@@ -3,6 +3,10 @@ import JSON
 
 extension Module 
 {
+    enum SubgraphError:Error 
+    {
+        case id(ID, expected:ID)
+    }
     struct Subgraph 
     {        
         let vertices:[Vertex]
@@ -47,7 +51,7 @@ extension Module
                 guard module == subgraph.perpetrator
                 else 
                 {
-                    throw _ModuleError.mismatched(id: module)
+                    throw SubgraphError.id(module, expected: subgraph.perpetrator)
                 }
                 return (vertices, edges)
             }

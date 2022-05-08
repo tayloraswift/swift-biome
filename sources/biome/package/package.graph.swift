@@ -14,9 +14,9 @@ extension Package
             async throws -> [Module.Graph]
         {
             var graphs:[Module.Graph] = []
-            for module:Module.Catalog<Location> in package.modules 
+            for module:Module.Catalog<Location> in self.modules 
             {
-                graphs.append(try await .init(loading: module, with: loader))
+                graphs.append(try await module.load(with: loader))
             }
             return graphs
         }
@@ -26,7 +26,6 @@ extension Package
     
     struct Graph 
     {
-        private 
         struct Node 
         {
             var vertex:Vertex.Content
@@ -52,7 +51,7 @@ extension Package
         
         init(id:ID, index:Index) 
         {
-            self.package = package 
+            self.package = (id, index) 
             self.nodes = []
             self.opinions = [:]
             self.symbols = [:]
@@ -70,7 +69,7 @@ extension Package.Graph
     {
         self.modules = .init(uniqueKeysWithValues: graphs.enumerated().map 
         {
-            ($0.1.core.id, .init(self.package.index, offset: $0.0))
+            ($0.1.core.namespace, .init(self.package.index, offset: $0.0))
         })
         
         let modules:[Module]      = try self.populate     (from: graphs, given: ecosystem)
@@ -109,7 +108,7 @@ extension Package.Graph
                 index: .init(self.package.index, offset: offset)
             )
             
-            let dependencies:[[(key:Module.ID, value:Module.Index)]] = try graph.dependencies.map 
+            let dependencies:[[(Module.ID, Module.Index)]] = try graph.dependencies.map 
             {
                 (dependency:Module.Graph.Dependency) in 
                 
@@ -117,14 +116,14 @@ extension Package.Graph
                     self.modules : ecosystem[dependency.package]?.indices.modules 
                 else 
                 {
-                    throw PackageIdentityError.undefined(dependency.package)
+                    throw Package.ResolutionError.undefined(dependency.package)
                 }
                 return try dependency.modules.map 
                 {
                     guard let index:Module.Index = local[$0] 
                     else 
                     {
-                        throw ModuleIdentityError.undefined(dependency.package, $0)
+                        throw Module.ResolutionError.undefined($0)
                     }
                     return ($0, index)
                 }
@@ -135,8 +134,8 @@ extension Package.Graph
             let bystanders:[Module.ID: Module.Index] = .init(uniqueKeysWithValues: dependencies.joined())
 
             let core:Symbol.IndexRange = 
-                .init(graph.core.namespace, offsets: try self.populate(module, from: graph.core))
-            let colonies:[Symbol.ColonialRange] = try graph.extensions.compactMap
+                .init(module.index, offsets: try self.populate(module, from: graph.core))
+            let colonies:[Symbol.ColonialRange] = try graph.colonies.compactMap
             {
                 if let bystander:Module.Index = bystanders[$0.namespace]
                 {
@@ -149,17 +148,17 @@ extension Package.Graph
                     return nil
                 }
             }
-            let toplevel:[Symbol.Index] = core.offsets.filter 
+            let toplevel:[Symbol.Index] = core.filter 
             {
                 // a vertex is top-level if it has exactly one path component. 
-                self.nodes[$0].vertex.path.count == 1
+                self.nodes[$0.offset].vertex.path.count == 1
             }
             return .init(
                 id: graph.core.namespace, 
                 core: core, 
                 colonies: colonies, 
                 toplevel: toplevel, 
-                dependencies: dependencies.map { $0.map(\.value) })
+                dependencies: dependencies.map { $0.map(\.1) })
         }
     }
     private mutating 
@@ -188,20 +187,20 @@ extension Package.Graph
             // the behavior of `@_exported import`.
             if case .natural = vertex.kind 
             {
-                if let _:Symbol.Index = self.symbols.updateValue(symbol, forKey: vertex.id)
+                if let _:Symbol.Index = self.symbols.updateValue(symbol, forKey: vertex.content.id)
                 {
-                    throw Symbol.CollisionError.init(vertex.id, from: perpetrator.id) 
+                    throw Symbol.CollisionError.init(vertex.content.id, from: perpetrator.id) 
                 }
                 self.nodes.append(.init(vertex))
             }
             // *not* subgraph.namespace !
-            else if case nil = self.symbols.index(forKey: vertex.id), 
-                vertex.id.isUnderscoredProtocolExtensionMember(from: perpetrator.id)
+            else if case nil = self.symbols.index(forKey: vertex.content.id), 
+                vertex.content.id.isUnderscoredProtocolExtensionMember(from: perpetrator.id)
             {
                 // if the symbol is synthetic and belongs to an underscored 
                 // protocol, assume the generic base does not exist, and register 
                 // it *once*.
-                self.symbols.updateValue(symbol, forKey: vertex.id)
+                self.symbols.updateValue(symbol, forKey: vertex.content.id)
                 self.nodes.append(.init(vertex))
             }
         }
@@ -209,21 +208,21 @@ extension Package.Graph
     }
     
     private 
-    subscript(vertex:Symbol.Index) -> Vertex.Content?
+    subscript(vertex:Symbol.Index) -> Node?
     {
-        self.package.index == vertex.module.package ? self.nodes[vertex.offset].vertex : nil
+        self.package.index == vertex.module.package ? self.nodes[vertex.offset] : nil
     }
     
     private mutating 
     func link(_ modules:[Module], from graphs:[Module.Graph], given ecosystem:Ecosystem) 
         throws -> [Module.Scope]
     {
-        zip(modules, graphs).map
+        try zip(modules, graphs).map
         {
             let (module, graph):(Module, Module.Graph) = $0
             
             // compute scope 
-            let filter:Set<Module.Index> = [module.index].union(module.dependencies.joined())
+            let filter:Set<Module.Index> = ([module.index] as Set).union(module.dependencies.joined())
             let scope:Module.Scope = .init(filter: filter, layers: 
                 Set<Package.Index>.init(filter.map(\.package)).map 
             {
@@ -232,38 +231,40 @@ extension Package.Graph
             
             for edge:Edge in graph.edges.joined()
             {
-                let source:Symbol.ColoredIndex
-                let target:Symbol.ColoredIndex
-                let constraints:[SwiftConstraint<Symbol.Index>] = try edge.constraints.map
+                let constraints:[Generic.Constraint<Symbol.Index>] = try edge.constraints.map
                 {
                     try $0.map(scope.index(of:))
                 }
-                
-                source.index = try scope.index(of: edge.source)
-                target.index = try scope.index(of: edge.target)
-                
-                source.color = self[source.index]?.color ?? ecosystem[source.index].color
-                target.color = self[target.index]?.color ?? ecosystem[target.index].color
+                let index:(source:Symbol.Index, target:Symbol.Index) = 
+                (
+                    source: try scope.index(of: edge.source),
+                    target: try scope.index(of: edge.target)
+                )
+                let color:(source:Symbol.Color, target:Symbol.Color) = 
+                (
+                    source: self[index.source]?.vertex.color ?? ecosystem[index.source].color,
+                    target: self[index.target]?.vertex.color ?? ecosystem[index.target].color
+                )
                 
                 let relationship:(source:Symbol.Relationship?, target:Symbol.Relationship) = 
-                    try edge.kind.relationships(source, target, where: constraints)
+                    try edge.kind.relationships((index.source, color.source), (index.target, color.target), where: constraints)
                 
-                try self.link(target.index, relationship.target, accordingTo: module.index)
+                try self.link(index.target, relationship.target, accordingTo: module.index)
                 if let relationship:Symbol.Relationship = relationship.source 
                 {
-                    try self.link(source.index, relationship, accordingTo: module.index)
+                    try self.link(index.source, relationship, accordingTo: module.index)
                 }
                 
                 if let fake:Symbol.Index = try edge.fake.map(scope.index(of:))
                 {
-                    if source.module == module.index 
+                    if index.source.module == module.index 
                     {
-                        self.deport(source.index, impersonating: fake, given: ecosystem)
+                        self.deport(index.source, impersonating: fake, given: ecosystem)
                     }
                     else 
                     {
                         // cannot deport symbols from another module
-                        throw Symbol.RelationshipError.jurisdiction(module.index, says: source.index, impersonates: fake)
+                        throw Symbol.RelationshipError.jurisdiction(module.index, says: index.source, impersonates: fake)
                     }
                 }
             }

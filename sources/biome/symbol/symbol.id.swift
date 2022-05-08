@@ -1,5 +1,9 @@
 extension Symbol 
 {
+    enum ResolutionError:Error 
+    {
+        case undefined(ID)
+    }
     enum Language:Unicode.Scalar, Hashable, Sendable 
     {
         case c      = "c"

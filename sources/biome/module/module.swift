@@ -67,7 +67,14 @@ struct Module:Identifiable, Sendable
     /// all symbols declared by this module, including symbols in other namespaces 
     var symbols:Symbol.IndexRange
     {
-        (self.colonies.last?.bits.upperBound).map { self.core.lowerBound ..< $0 } ?? self.core
+        if let last:Symbol.ColonialRange = self.colonies.last 
+        {
+            return .init(self.core.module, bits: self.core.bits.lowerBound ..< last.bits.upperBound)
+        }
+        else 
+        {
+            return self.core 
+        }
     }
     /* func symbols(in nameverse:Package.Index) -> [Range<Int>]
     {

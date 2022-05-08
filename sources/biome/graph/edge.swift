@@ -165,7 +165,8 @@ extension Edge
                 source  = generic 
                 kind    = .feature 
             case (_, let invalid):
-                throw SymbolError.synthetic(resolution: invalid)
+                fatalError("unimplemented")
+                //throw SymbolError.synthetic(resolution: invalid)
             }
             return 
                 (

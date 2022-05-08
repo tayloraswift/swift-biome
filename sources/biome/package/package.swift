@@ -72,11 +72,11 @@ struct Package:Identifiable, Sendable
         symbols:[Symbol.ID: Symbol.Index]
     )
     private 
-    var table:Table
+    var groups:[Symbol.Key: Symbol.Group]
     
     var name:String 
     {
-        self.id.name
+        self.id.string
     }
     
     init(id:ID, indices:
@@ -86,7 +86,7 @@ struct Package:Identifiable, Sendable
         ), 
         modules:[Module], 
         symbols:[Symbol], 
-        table:Table,
+        groups:[Symbol.Key: Symbol.Group],
         hash:Resource.Version?)
     {
         self.id = id
@@ -94,6 +94,12 @@ struct Package:Identifiable, Sendable
         self.indices = indices
         self.modules = modules
         self.symbols = symbols
-        self.table = table
+        self.groups = groups
+    }
+    
+    mutating 
+    func update(with opinions:[Opinion], from package:Index)
+    {
+        fatalError("unimplemented")
     }
 }

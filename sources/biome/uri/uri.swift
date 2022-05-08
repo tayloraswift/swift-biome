@@ -10,10 +10,38 @@ struct URI
         typealias Terminal = UInt8
         typealias Encoding = Grammar.Encoding<Location, Terminal>
     }
+    private
+    enum EncodedString<UnencodedByte>:ParsingRule 
+    where   UnencodedByte:ParsingRule, 
+            UnencodedByte.Terminal == UInt8,
+            UnencodedByte.Construction == Void
+    {
+        typealias Location = UnencodedByte.Location 
+        typealias Terminal = UnencodedByte.Terminal
+        static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> (string:String, unencoded:Bool)
+            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        {
+            let start:Location      = input.index 
+            input.parse(as: UnencodedByte.self, in: Void.self)
+            let end:Location        = input.index 
+            var string:String       = .init(decoding: input[start ..< end], as: Unicode.UTF8.self)
+            
+            while let utf8:[UInt8]  = input.parse(as: Grammar.Reduce<Rule<Location>.EncodedByte, [UInt8]>?.self)
+            {
+                string             += .init(decoding: utf8,                 as: Unicode.UTF8.self)
+                let start:Location  = input.index 
+                input.parse(as: UnencodedByte.self, in: Void.self)
+                let end:Location    = input.index 
+                string             += .init(decoding: input[start ..< end], as: Unicode.UTF8.self)
+            }
+            return (string, end == input.index)
+        }
+    } 
 }
 extension URI.Rule:ParsingRule 
 {
-    private 
+    fileprivate 
     enum EncodedByte:ParsingRule
     {
         typealias Terminal = UInt8
@@ -27,35 +55,7 @@ extension URI.Rule:ParsingRule
             return high << 4 | low
         }
     } 
-    private
-    enum EncodedString<UnencodedByte>:ParsingRule 
-    where   UnencodedByte:ParsingRule, 
-            UnencodedByte.Terminal == UInt8,
-            UnencodedByte.Construction == Void
-    {
-        typealias Location = UnencodedByte.Location
-        typealias Terminal = UnencodedByte.Terminal
-        
-        static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> (string:String, unencoded:Bool)
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
-        {
-            let start:Location      = input.index 
-            input.parse(as: UnencodedByte.self, in: Void.self)
-            let end:Location        = input.index 
-            var string:String       = .init(decoding: input[start ..< end], as: Unicode.UTF8.self)
-            
-            while let utf8:[UInt8]  = input.parse(as: Grammar.Reduce<EncodedByte, [UInt8]>?.self)
-            {
-                string             += .init(decoding: utf8,                 as: Unicode.UTF8.self)
-                let start:Location  = input.index 
-                input.parse(as: UnencodedByte.self, in: Void.self)
-                let end:Location    = input.index 
-                string             += .init(decoding: input[start ..< end], as: Unicode.UTF8.self)
-            }
-            return (string, end == input.index)
-        }
-    } 
+
     // `Vector` and `Query` can only be defined for UInt8 because we are decoding UTF-8 to a String    
     private
     enum Vector:ParsingRule 
@@ -101,7 +101,7 @@ extension URI.Rule:ParsingRule
             func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> LexicalPath.Vector?
                 where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
             {
-                let (string, unencoded):(String, Bool) = try input.parse(as: EncodedString<UnencodedByte>.self)
+                let (string, unencoded):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
                 guard unencoded
                 else 
                 {
@@ -169,9 +169,9 @@ extension URI.Rule:ParsingRule
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> LexicalQuery.Parameter
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
-            let (key, _):(String, Bool) = try input.parse(as: EncodedString<UnencodedByte>.self)
+            let (key, _):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
             try input.parse(as: Encoding.Equals.self)
-            let (value, _):(String, Bool) = try input.parse(as: EncodedString<UnencodedByte>.self)
+            let (value, _):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
             return (key, value)
         }
     }

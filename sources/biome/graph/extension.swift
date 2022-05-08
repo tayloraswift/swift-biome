@@ -26,7 +26,7 @@ struct Extension
             }
         }
         
-        func rendered() -> Documentation.Element? 
+        /* func rendered() -> Documentation.Element? 
         {
             guard case .explicit(let headline) = self
             else 
@@ -37,7 +37,7 @@ struct Extension
             // array, but a compiler crash prevents this method 
             // from taking any `inout` arguments.
             return .bytes(utf8: Extension.render(recurring: headline, as: .h1).rendered(as: [UInt8].self))
-        }
+        } */
     }
     struct Metadata 
     {        
@@ -227,7 +227,7 @@ struct Extension
             return nil
         }
     }
-    var content:Article.Rendered<UnresolvedLink>.Content
+    /* var content:Article.Rendered<UnresolvedLink>.Content
     {
         var renderer:Renderer = .init()
         // note: we *never* render the top-level heading. this will either be 
@@ -324,7 +324,7 @@ struct Extension
             Self.render(recurring: span).rendered(into: &bytes)
         }
         return .bytes(utf8: bytes)
-    }
+    } */
 }
 extension Extension 
 {

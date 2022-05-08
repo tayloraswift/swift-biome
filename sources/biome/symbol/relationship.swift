@@ -4,6 +4,7 @@ extension Symbol
     
     enum RelationshipError:Error 
     {
+        case miscegenation(Module.Index, says:Index, is:IntrinsicRelationship)
         case jurisdiction(Module.Index, says:Index, impersonates:Index)
         case constraints(ColoredIndex,   isOnly:Edge.Kind, of:ColoredIndex, where:[Generic.Constraint<Index>])
         case color      (ColoredIndex, cannotBe:Edge.Kind, of:ColoredIndex)

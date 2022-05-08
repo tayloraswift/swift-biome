@@ -30,7 +30,7 @@ extension Module
             }
             else 
             {
-                throw SymbolError.undefined(id: symbol)
+                throw Symbol.ResolutionError.undefined(symbol)
             } 
         }
         private 
@@ -55,6 +55,7 @@ extension Module
                 }
                 return index
             }
+            return nil
         }
     }
 }

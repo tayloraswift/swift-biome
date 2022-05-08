@@ -64,7 +64,7 @@ extension Article
             }
         } */
     }
-    struct Renderer 
+    /* struct Renderer 
     {
         typealias Element = Rendered<UnresolvedLink>.Element 
         
@@ -832,5 +832,5 @@ extension Article
             }
             return keywords.map { $0.lowercased() }
         }
-    }
+    } */
 }

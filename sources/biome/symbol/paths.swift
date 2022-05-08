@@ -91,7 +91,7 @@ struct PathTable
     func register(_ string:String) -> Symbol.Key.Component 
     {
         var counter:Symbol.Key.Component = self.counter.successor
-        self.table.merge(CollectionOfOne<(Symbol.Key.Component, Symbol.Key.Component)>.init((string, counter))) 
+        self.table.merge(CollectionOfOne<(String, Symbol.Key.Component)>.init((string, counter))) 
         { 
             (current:Symbol.Key.Component, _:Symbol.Key.Component) in 
             counter = current 

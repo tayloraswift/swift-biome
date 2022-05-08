@@ -1,5 +1,9 @@
 extension Package 
 {
+    enum ResolutionError:Error 
+    {
+        case undefined(ID)
+    }
     public 
     struct ID:Hashable, Comparable, Sendable, Decodable, ExpressibleByStringLiteral, CustomStringConvertible
     {
@@ -70,12 +74,6 @@ extension Package
         init(kind:Kind)
         {
             self.kind = kind
-        }
-        
-        @available(*, deprecated)
-        var root:[UInt8]
-        {
-            Documentation.URI.encode(component: self.name.utf8)
         }
         
         @available(*, deprecated, renamed: "string")

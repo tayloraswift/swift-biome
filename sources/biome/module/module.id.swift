@@ -1,5 +1,9 @@
 extension Module 
 {
+    enum ResolutionError:Error 
+    {
+        case undefined(ID)
+    }
     public
     struct ID:Hashable, Sendable, Decodable, ExpressibleByStringLiteral, CustomStringConvertible
     {

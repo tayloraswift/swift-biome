@@ -1,5 +1,5 @@
 // import JSON 
-// import Resource
+import Resource
 
 /* enum _PackageError:Error 
 {
@@ -50,6 +50,10 @@ struct Ecosystem
         self.indices = [:]
     }
     
+    subscript(package:Package.ID) -> Package?
+    {
+        self.indices[package].map { self[$0] }
+    } 
     subscript(package:Package.Index) -> Package
     {
         _read 
@@ -67,21 +71,21 @@ struct Ecosystem
         {
             yield self.packages[module.package.offset].modules[module.offset]
         }
-        _modify 
+        /* _modify 
         {
             yield &self.packages[module.package.offset].modules[module.offset]
-        }
+        } */
     } 
     subscript(symbol:Symbol.Index) -> Symbol
     {
         _read 
         {
-            yield self.packages[symbol.module.package.offset].symbols[symbols.offset]
+            yield self.packages[symbol.module.package.offset].symbols[symbol.offset]
         }
-        _modify 
+        /* _modify 
         {
             yield &self.packages[symbol.module.package.offset].symbols[symbols.offset]
-        }
+        } */
     } 
 }
 
@@ -134,17 +138,12 @@ struct Biome
             lunr:       self.paths.register(leaf: "lunr")
         )
     }
-    /* subscript(package:Package.ID) -> Package?
-    {
-        self.indices[package].map(self.subscript(_:))
-    }  */
-
     
     mutating 
     func append(_ id:Package.ID, graphs:[Module.Graph]) throws 
     {
-        var graph:Package.Graph = .init(id: id, index: .init(offset: self.packages.endIndex))
-        let hash:Resource.Version = graphs.reduce(.semantic(0, 1, 2)) { $0 * $1.hash }
+        var graph:Package.Graph = .init(id: id, index: .init(offset: self.ecosystem.packages.endIndex))
+        let hash:Resource.Version? = graphs.reduce(.semantic(0, 1, 2)) { $0 * $1.hash }
         let (modules, symbols):([Module], [Symbol]) = 
             try graph.linearize(graphs, given: self.ecosystem, paths: &self.paths)
         
@@ -162,7 +161,7 @@ struct Biome
                 // feature culture is determined by perpetrator module and 
                 // not by its natural base. so we may have to subscript `self` 
                 // and not `symbols` to get it.
-                let key:Symbol.Key = symbol.key(feature: feature.module.package == graph.index ? 
+                let key:Symbol.Key = symbol.key(feature: feature.module.package == graph.package.index ? 
                     symbols[feature.offset] : self.ecosystem[index])
                 groups[key, default: .none].insert(victim: index, feature: feature)
             }
@@ -170,7 +169,7 @@ struct Biome
         
         for (upstream, opinions):(Package.Index, [Package.Opinion]) in graph.opinions 
         {
-            self.ecosystem[upstream].update(with: opinions, from: graph.index)
+            self.ecosystem[upstream].update(with: opinions, from: graph.package.index)
             
             for opinion:Package.Opinion in opinions 
             {
@@ -184,12 +183,12 @@ struct Biome
             }
         }
 
-        self.packages.append(.init(id: id, indices: graph.indices, 
+        self.ecosystem.packages.append(.init(id: id, indices: (graph.modules, graph.symbols), 
             modules: modules, 
             symbols: symbols,
-            table: table,
+            groups: groups,
             hash: hash))
-        self.indices[package.id] = graph.index 
+        self.ecosystem.indices[graph.package.id] = graph.package.index 
     }
 }
 

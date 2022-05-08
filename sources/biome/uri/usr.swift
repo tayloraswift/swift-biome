@@ -199,7 +199,7 @@ extension Symbol.USR.Rule
             try input.parse(as: Encoding.S.Lowercase.self)
             let namespace:Module.ID = try input.parse(as: MangledModuleName.self)
             let (name, _):(String, Void) = try input.parse(as: (MangledIdentifier, Encoding.P.Uppercase).self)
-            if case let (perpetrator, _)? = try input.parse(as: (MangledModuleName, Encoding.E.Uppercase).self)
+            if case let (perpetrator, _)? = try? input.parse(as: (MangledModuleName, Encoding.E.Uppercase).self)
             {
                 return (perpetrator: perpetrator, namespace: namespace, name)
             }

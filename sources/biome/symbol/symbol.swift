@@ -1,4 +1,4 @@
-import Highlight
+import Notebook
 
 struct Symbol:Sendable, Identifiable  
 {
@@ -33,6 +33,28 @@ struct Symbol:Sendable, Identifiable
             self.module = module
             self.bits = bits
         }
+        
+        // do we really need these?
+        /* static 
+        func ..< (lhs:Self, rhs:Int) -> IndexRange
+        {
+            lhs ..< UInt32.init(rhs)
+        }
+        static 
+        func ..< (lhs:Int, rhs:Self) -> IndexRange
+        {
+            UInt32.init(lhs) ..< rhs
+        }
+        static 
+        func ..< (lhs:Self, rhs:UInt32) -> IndexRange
+        {
+            .init(lhs.module, bits: lhs.bits ..< rhs)
+        }
+        static 
+        func ..< (lhs:UInt32, rhs:Self) -> IndexRange
+        {
+            .init(rhs.module, bits: lhs ..< rhs.bits)
+        } */
     }
     struct IndexRange:RandomAccessCollection, Hashable, Sendable
     {
@@ -65,27 +87,10 @@ struct Symbol:Sendable, Identifiable
             .init(self.module, bits: self.bits[index])
         }
         
-        static 
-        func ..< (lhs:Index, rhs:Int) -> Self 
+        init(_ module:Module.Index, offsets:Range<Int>)
         {
-            lhs ..< UInt32.init(rhs)
+            self.init(module, bits: .init(offsets.lowerBound) ..< .init(offsets.upperBound))
         }
-        static 
-        func ..< (lhs:Int, rhs:Index) -> Self 
-        {
-            UInt32.init(lhs) ..< rhs
-        }
-        static 
-        func ..< (lhs:Index, rhs:UInt32) -> Self 
-        {
-            self.init(lhs.module, bits: lhs.bits ..< rhs)
-        }
-        static 
-        func ..< (lhs:UInt32, rhs:Index) -> Self 
-        {
-            self.init(rhs.module, bits: lhs ..< rhs.bits)
-        }
-        private 
         init(_ module:Module.Index, bits:Range<UInt32>)
         {
             self.module = module
@@ -204,19 +209,19 @@ struct Symbol:Sendable, Identifiable
     
     var key:Key 
     {
-        .init(self.namespace, stem: self.component.stem, leaf: self.component.leaf, orientation:    self.orientation)
+        .init(self.namespace, stem: self.component.stem, leaf:    self.component.leaf, orientation:    self.orientation)
     }
     func key(feature:Self) -> Key 
     {
-        .init(self.namespace, stem: self.component.full, leaf:   feature.path.leaf, orientation: feature.orientation)
+        .init(self.namespace, stem: self.component.full, leaf: feature.component.leaf, orientation: feature.orientation)
     }
     
-    init(_ node:Node, namespace:Module.Index, scope:Module.Scope, paths:inout PathTable) throws 
+    init(_ node:Package.Graph.Node, namespace:Module.Index, scope:Module.Scope, paths:inout PathTable) throws 
     {
         self.legality       = node.legality
         
         self.id             =       node.vertex.id
-        self.name           =       node.vertex.path[vertex.path.endIndex - 1]
+        self.name           =       node.vertex.path[node.vertex.path.endIndex - 1]
         self.scope          = .init(node.vertex.path.dropLast())
         
         self.namespace      = namespace

@@ -196,7 +196,7 @@ extension Symbol
             }
         }
         private 
-        init(_ namespace:Module.Index, stem:UInt32, leaf:UInt32)
+        init(_ namespace:Module.Index, stem:Component, leaf:UInt32)
         {
             self.leaf = leaf
             self.stem = stem

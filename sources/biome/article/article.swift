@@ -54,7 +54,7 @@ enum Article
         let headline:Documentation.Element?
         var content:Content
         
-        var stem:[[UInt8]]
+        /* var stem:[[UInt8]]
         {
             //self.path.map { URI.encode(component: $0.utf8) }
             self.path.suffix(1).map { Documentation.URI.encode(component: $0.utf8) }
@@ -62,6 +62,6 @@ enum Article
         var leaf:[UInt8]
         {
             []
-        }
+        } */
     }
 }
