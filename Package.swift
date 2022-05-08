@@ -33,7 +33,7 @@ let package = Package(
             dependencies: 
             [
                 .product(name: "JSON",                  package: "swift-json"),
-                .product(name: "Highlight",             package: "swift-highlight"),
+                .product(name: "Notebook",              package: "swift-highlight"),
                 .product(name: "StructuredDocument",    package: "swift-structured-document"),
                 .product(name: "SwiftSyntaxParser",     package: "swift-syntax"),
                 .product(name: "SwiftSyntax",           package: "swift-syntax"),

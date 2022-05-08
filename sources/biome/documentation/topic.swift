@@ -1,4 +1,4 @@
-extension Documentation.Topic 
+/* extension Documentation.Topic 
 {
     public 
     enum Automatic:String, Sendable, Hashable, CaseIterable
@@ -53,4 +53,4 @@ extension Documentation
             }
         }
     }
-}
+} */

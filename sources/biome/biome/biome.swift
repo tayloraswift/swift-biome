@@ -13,6 +13,27 @@ enum _ModuleError:Error
     case undefined(id:Module.ID)
 } */
 
+extension URI 
+{
+    enum Base:Hashable, Sendable 
+    {
+        case package
+        case module
+        case symbol 
+        case article
+    }
+    /* enum Opaque
+    {
+        case lunr
+        case sitemap 
+        
+        var module:Int? 
+        {
+            nil
+        }
+    } */
+}
+
 /// an ecosystem is a subset of a biome containing packages that are relevant 
 /// (in some user-defined way) to some task. 
 /// 
@@ -67,14 +88,51 @@ struct Ecosystem
 struct Biome 
 {
     private 
+    let bases:
+    (
+        package:String, 
+        module:String, 
+        symbol:String, 
+        article:String
+    )
+    private 
+    let keyword:
+    (
+        package:Symbol.Key.Component, 
+        module:Symbol.Key.Component, 
+        symbol:Symbol.Key.Component, 
+        article:Symbol.Key.Component,
+        
+        sitemap:Symbol.Key.Component,
+        lunr:Symbol.Key.Component
+    )
+    private 
     var ecosystem:Ecosystem
     private 
     var paths:PathTable
     
-    init() 
+    init(bases:[URI.Base: String] = [:]) 
     {
-        self.paths = .init()
         self.ecosystem = .init()
+        self.paths = .init()
+        
+        self.bases = 
+        (
+            package: bases[.package, default: "packages"],
+            module:  bases[.module,  default: "modules"],
+            symbol:  bases[.symbol,  default: "reference"],
+            article: bases[.article, default: "learn"]
+        )
+        self.keyword = 
+        (
+            package:    self.paths.register(leaf: self.bases.package),
+            module:     self.paths.register(leaf: self.bases.module),
+            symbol:     self.paths.register(leaf: self.bases.symbol),
+            article:    self.paths.register(leaf: self.bases.article),
+            
+            sitemap:    self.paths.register(leaf: "sitemap"),
+            lunr:       self.paths.register(leaf: "lunr")
+        )
     }
     /* subscript(package:Package.ID) -> Package?
     {

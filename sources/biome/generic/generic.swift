@@ -8,7 +8,6 @@ struct Generic:Hashable, Sendable
 }
 extension Generic 
 {
-    fileprivate
     init(from json:JSON) throws 
     {
         (self.name, self.index, self.depth) = try json.lint 

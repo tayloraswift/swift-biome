@@ -36,9 +36,10 @@ extension Module
                 dependencies: self.dependencies)
         }
     }
-    
+    public 
     struct Graph 
     {
+        public 
         struct Dependency:Decodable
         {
             let package:Package.ID

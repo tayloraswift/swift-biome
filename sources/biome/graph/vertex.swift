@@ -38,12 +38,12 @@ extension Vertex
                 {
                     try $0.remove("precise", as: String.self)
                 }
-                switch try Grammar.parse(string.utf8, as: URI.Rule<String.Index, UInt8>.USR.self)
+                switch try Grammar.parse(string.utf8, as: Symbol.USR.Rule<String.Index>.self)
                 {
                 case .natural(let id): 
-                    return (id, .natural)
+                    return (.natural, id)
                 case .synthesized(from: let id, for: _): 
-                    return (id, .synthesized)
+                    return (.synthesized, id)
                 }
             }
             let color:Symbol.Color = try $0.remove("kind")
@@ -141,7 +141,7 @@ extension Vertex
                         return (key: domain, value: availability)
                     }
                 }
-                return .init(availability)
+                return try .init(availability)
             }
             let comment:String? = try $0.pop("docComment")
             {

@@ -1,4 +1,4 @@
-struct RoutingTable 
+/* struct RoutingTable 
 {
     typealias URI = Documentation.URI 
     typealias Index = Documentation.Index
@@ -625,4 +625,4 @@ extension Biome
         }
         return (namespace, context)
     }
-}
+} */

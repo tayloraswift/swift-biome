@@ -1,13 +1,7 @@
-import StructuredDocument
 import HTML
 
 extension Documentation 
 {
-    public 
-    typealias Element = HTML.Element<Anchor>
-    public 
-    typealias StaticElement = HTML.Element<Never>
-    
     @frozen public 
     enum Anchor:Hashable, Sendable
     {
@@ -34,7 +28,7 @@ extension Documentation
         case dynamic
     }
 
-    private 
+    /* private 
     func present(reference resolved:ResolvedLink) -> StaticElement
     {
         let components:[(text:String, uri:URI)], 
@@ -643,27 +637,27 @@ extension Documentation
     }
 
     private 
-    func highlight(_ text:String, _ highlight:SwiftHighlight, link:Int?) -> Element
+    func highlight(_ text:String, _ color:Fragment.Color, link:Int?) -> Element
     {
-        return link.map { self.highlight(text, highlight, link: $0) } ?? .highlight(text, highlight)
+        return link.map { self.highlight(text, color, link: $0) } ?? .highlight(text, color)
     }
     private 
-    func highlight(_ text:String, _ highlight:SwiftHighlight, link index:Int) -> Element
+    func highlight(_ text:String, _ color:Fragment.Color, link index:Int) -> Element
     {
         .link(text, to: self.format(uri: self.uri(witness: index, victim: nil)), internal: true)
         {
             ["syntax-type"] 
         }
-    }
+    } */
 }
 
 extension DocumentElement where Domain == HTML 
 {
-    static 
-    func highlight(_ text:String, _ highlight:SwiftHighlight) -> Self
+    /* static 
+    func highlight(_ text:String, _ color:Fragment.Color) -> Self
     {
         let css:[String]
-        switch highlight
+        switch color
         {
         case .text: 
             return .text(escaping: text)
@@ -697,5 +691,5 @@ extension DocumentElement where Domain == HTML
             css = ["syntax-invalid"]
         }
         return .span(text) { css }
-    }
+    } */
 }

@@ -44,7 +44,7 @@ extension Package
         @inlinable public 
         init(from decoder:any Decoder) throws 
         {
-            self.init(try decoder.decode(String.self))
+            self.init(try decoder.singleValueContainer().decode(String.self))
         }
         public 
         init(stringLiteral:String)

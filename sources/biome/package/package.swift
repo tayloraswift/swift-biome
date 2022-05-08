@@ -35,10 +35,10 @@ import Resource
 /// - **witness**: a concrete declaration. it is conceptually unique and 
 ///     canonical.
 public 
-struct Package:Sendable, Identifiable
+struct Package:Identifiable, Sendable
 {
     /// A globally-unique index referencing a package. 
-    struct Index 
+    struct Index:Hashable, Sendable 
     {
         let bits:UInt16
         

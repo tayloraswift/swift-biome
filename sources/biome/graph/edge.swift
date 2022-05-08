@@ -20,7 +20,7 @@ struct Edge:Hashable
     var fake:Symbol.ID?
     var source:Symbol.ID
     var target:Symbol.ID
-    var constraints:[SwiftConstraint<Symbol.ID>]
+    var constraints:[Generic.Constraint<Symbol.ID>]
     
     /*
     func link(_ table:inout [References], indices:[Symbol.ID: Int]) throws 
@@ -153,7 +153,7 @@ extension Edge
             let usr:Symbol.USR = try $0.remove("source")
             {
                 let text:String = try $0.as(String.self)
-                return try Grammar.parse(text.utf8, as: URI.Rule<String.Index, UInt8>.USR.self)
+                return try Grammar.parse(text.utf8, as: Symbol.USR.Rule<String.Index>.self)
             }
             let source:Symbol.ID
             switch (kind, usr)
@@ -172,7 +172,7 @@ extension Edge
                     kind: kind, fake: fake, source: source, target: target, 
                     constraints: try $0.pop("swiftConstraints", as: [JSON]?.self) 
                     { 
-                        try $0.map(SwiftConstraint.init(from:)) 
+                        try $0.map(Generic.Constraint.init(from:)) 
                     } ?? []
                 )
         }

@@ -22,7 +22,7 @@ extension Module
                 loaded.hash = version
             
             case    .binary (let bytes, type: _, version: let version):
-                json = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
+                loaded.json = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
                 loaded.hash = version
             }
             try self.init(loading: subgraph, from: loaded)

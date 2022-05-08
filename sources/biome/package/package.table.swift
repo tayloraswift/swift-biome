@@ -41,13 +41,7 @@ extension Package
             self.groups = [:]
         }
         
-        func register(citizens:Symbol.IndexRange, among symbols:[Symbol], given ecosystem:Ecosystem)
-        {
-            
-        }
-
-        
-        func resolve(module component:LexicalPath.Component) -> Int?
+        /* func resolve(module component:LexicalPath.Component) -> Int?
         {
             if case .identifier(let string, hyphen: nil) = component
             {
@@ -90,6 +84,6 @@ extension Package
             case .article(module: let module, let leaf): 
                 return self[module: module, article: leaf].map( NationalResolution.article(_:) )
             }
-        }
+        } */
     }
 }

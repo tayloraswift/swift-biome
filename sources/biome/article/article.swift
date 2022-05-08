@@ -5,7 +5,7 @@ public
 enum Article 
 {    
     public
-    struct Rendered<Anchor>:GreenAlien where Anchor:Hashable
+    struct Rendered<Anchor> where Anchor:Hashable
     {
         typealias Element = HTML.Element<Anchor> 
         

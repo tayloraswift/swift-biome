@@ -39,7 +39,7 @@ enum Demangle
     {
         // '$s' 
         let prefixed:String = "$\(mangled)"
-        guard let string:UnsafeMutablePointer<Int8> = self.function(prefixed.utf8, prefixed.utf8.count, nil, nil, 0)
+        guard let string:UnsafeMutablePointer<Int8> = self.function(prefixed, prefixed.utf8.count, nil, nil, 0)
         else 
         {
             print("warning: could not demangle symbol '\(mangled)'")

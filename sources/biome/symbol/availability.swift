@@ -43,12 +43,15 @@ extension Symbol
         var general:UnversionedAvailability?
         var platforms:[Platform: VersionedAvailability]
         
-        init(_ items:[(key:AvailabilityDomain, value:VersionedAvailability)] = [])
+        init()
         {
             self.swift = nil 
             self.general = nil 
             self.platforms = [:]
-            
+        }
+        init(_ items:[(key:AvailabilityDomain, value:VersionedAvailability)]) throws
+        {
+            self.init()
             for (key, value):(AvailabilityDomain, VersionedAvailability) in items
             {
                 switch key 
@@ -64,7 +67,7 @@ extension Symbol
                     }
                 
                 case .swift:
-                    if case nil = availability.swift 
+                    if case nil = self.swift 
                     {
                         self.swift = .init(value)
                     }
@@ -77,7 +80,7 @@ extension Symbol
                     fatalError("unimplemented (yet)")
                 
                 case .platform(let platform):
-                    guard case nil = self.platforms.updateValue(value, forKey: key)
+                    guard case nil = self.platforms.updateValue(value, forKey: platform)
                     else 
                     {
                         throw AvailabilityError.duplicate(domain: key)
@@ -97,11 +100,11 @@ extension Symbol
         
         init(_ versioned:VersionedAvailability)
         {
-            self.deprecated = value.deprecated ?? nil
-            self.introduced = value.introduced
-            self.obsoleted = value.obsoleted
-            self.renamed = value.renamed
-            self.message = value.message
+            self.deprecated = versioned.deprecated ?? nil
+            self.introduced = versioned.introduced
+            self.obsoleted = versioned.obsoleted
+            self.renamed = versioned.renamed
+            self.message = versioned.message
         }
     }
     struct UnversionedAvailability:Sendable

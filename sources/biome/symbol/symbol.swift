@@ -6,7 +6,7 @@ struct Symbol:Sendable, Identifiable
     /// 
     /// A symbol index encodes the module it belongs to, whichs makes it possible 
     /// to query module membership based on the index alone.
-    struct Index 
+    struct Index:Hashable, Sendable
     {
         let module:Module.Index
         let bits:UInt32
@@ -34,7 +34,7 @@ struct Symbol:Sendable, Identifiable
             self.bits = bits
         }
     }
-    struct IndexRange:RandomAccessCollection
+    struct IndexRange:RandomAccessCollection, Hashable, Sendable
     {
         let module:Module.Index 
         let bits:Range<UInt32>
@@ -204,11 +204,11 @@ struct Symbol:Sendable, Identifiable
     
     var key:Key 
     {
-        .init(self.namespace, stem: self.path.stem, leaf:    self.path.leaf, orientation:    self.orientation)
+        .init(self.namespace, stem: self.component.stem, leaf: self.component.leaf, orientation:    self.orientation)
     }
     func key(feature:Self) -> Key 
     {
-        .init(self.namespace, stem: self.path.full, leaf: feature.path.leaf, orientation: feature.orientation)
+        .init(self.namespace, stem: self.component.full, leaf:   feature.path.leaf, orientation: feature.orientation)
     }
     
     init(_ node:Node, namespace:Module.Index, scope:Module.Scope, paths:inout PathTable) throws 
@@ -222,7 +222,7 @@ struct Symbol:Sendable, Identifiable
         self.namespace      = namespace
         self.component.full = paths.register(stem: node.vertex.path)
         self.component.stem = paths.register(stem: self.scope)
-        self.component.leaf = paths.register(stem: self.name)
+        self.component.leaf = paths.register(leaf: self.name)
         
         self.availability   = node.vertex.availability 
         self.generics       = node.vertex.generics

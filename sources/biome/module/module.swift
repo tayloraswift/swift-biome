@@ -2,7 +2,7 @@ public
 struct Module:Identifiable, Sendable
 {
     /// A globally-unique index referencing a module. 
-    struct Index 
+    struct Index:Hashable, Sendable 
     {
         let package:Package.Index 
         let bits:UInt16
@@ -21,7 +21,7 @@ struct Module:Identifiable, Sendable
             self.bits = .init(offset)
         }
     }
-        
+    
     public 
     let id:ID
     
@@ -67,7 +67,7 @@ struct Module:Identifiable, Sendable
     /// all symbols declared by this module, including symbols in other namespaces 
     var symbols:Symbol.IndexRange
     {
-        self.colonies.last?.bits.upperBound.map { self.core.lowerBound ..< $0 } ?? self.core
+        (self.colonies.last?.bits.upperBound).map { self.core.lowerBound ..< $0 } ?? self.core
     }
     /* func symbols(in nameverse:Package.Index) -> [Range<Int>]
     {

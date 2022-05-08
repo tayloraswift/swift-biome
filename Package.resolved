@@ -28,15 +28,6 @@
       }
     },
     {
-      "identity" : "swift-highlight",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kelvin13/swift-highlight",
-      "state" : {
-        "revision" : "918f5e9eb0d6296e99cf171e1cea8d4bd650fa3c",
-        "version" : "0.1.0"
-      }
-    },
-    {
       "identity" : "swift-markdown",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-markdown.git",

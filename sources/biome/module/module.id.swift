@@ -29,16 +29,10 @@ extension Module
             self.value.hash(into: &hasher)
         }
         
-        @available(*, deprecated, renamed: "value")
-        var trunk:[UInt8]
-        {
-            Documentation.URI.encode(component: self.title.utf8)
-        }
-        
         @inlinable public 
         init(from decoder:any Decoder) throws 
         {
-            self.init(try decoder.decode(String.self))
+            self.init(try decoder.singleValueContainer().decode(String.self))
         }
         public
         init(stringLiteral:String)

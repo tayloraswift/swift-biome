@@ -36,7 +36,7 @@ struct Extension
             // FIXME: we should really be populating an outer `errors`
             // array, but a compiler crash prevents this method 
             // from taking any `inout` arguments.
-            return .bytes(utf8: Surveyed.render(recurring: headline, as: .h1).rendered(as: [UInt8].self))
+            return .bytes(utf8: Extension.render(recurring: headline, as: .h1).rendered(as: [UInt8].self))
         }
     }
     struct Metadata 
@@ -227,7 +227,7 @@ struct Extension
             return nil
         }
     }
-    var content:Rendered<UnresolvedLink>.Content
+    var content:Article.Rendered<UnresolvedLink>.Content
     {
         var renderer:Renderer = .init()
         // note: we *never* render the top-level heading. this will either be 
@@ -251,7 +251,7 @@ struct Extension
         case .implicit: rank = 1
         case .explicit: rank = 0
         }
-        var discussion:[Rendered<UnresolvedLink>.Element] = []
+        var discussion:[Article.Rendered<UnresolvedLink>.Element] = []
         for node:Node in remaining 
         {
             renderer.render(node: node, demotedBy: rank, into: &discussion)
@@ -263,7 +263,7 @@ struct Extension
             // has a terrible block parsing API :/
             discussion = Renderer._sift(discussion, errors: &renderer.errors)
         }
-        let content:Rendered<UnresolvedLink>.Content = 
+        let content:Article.Rendered<UnresolvedLink>.Content = 
             .init(errors: renderer.errors, summary: summary, discussion: discussion)
         return content
     }

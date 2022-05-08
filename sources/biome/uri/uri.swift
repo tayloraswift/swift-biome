@@ -1,13 +1,20 @@
 import Grammar
 
-extension URI 
+struct URI 
 {
-    enum Rule<Location, Terminal>
+    var path:[LexicalPath.Vector?]
+    var query:[LexicalQuery.Parameter]?
+    
+    enum Rule<Location>
     {
+        typealias Terminal = UInt8
         typealias Encoding = Grammar.Encoding<Location, Terminal>
     }
+}
+extension URI.Rule:ParsingRule 
+{
     private 
-    enum EncodedByte<Location>:ParsingRule
+    enum EncodedByte:ParsingRule
     {
         typealias Terminal = UInt8
         static 
@@ -27,7 +34,7 @@ extension URI
             UnencodedByte.Construction == Void
     {
         typealias Location = UnencodedByte.Location
-        typealias Terminal = UInt8
+        typealias Terminal = UnencodedByte.Terminal
         
         static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> (string:String, unencoded:Bool)
@@ -38,7 +45,7 @@ extension URI
             let end:Location        = input.index 
             var string:String       = .init(decoding: input[start ..< end], as: Unicode.UTF8.self)
             
-            while let utf8:[UInt8]  = input.parse(as: Grammar.Reduce<EncodedByte<Location>, [UInt8]>?.self)
+            while let utf8:[UInt8]  = input.parse(as: Grammar.Reduce<EncodedByte, [UInt8]>?.self)
             {
                 string             += .init(decoding: utf8,                 as: Unicode.UTF8.self)
                 let start:Location  = input.index 
@@ -49,15 +56,13 @@ extension URI
             return (string, end == input.index)
         }
     } 
-}
-extension URI.Rule:ParsingRule where Terminal == UInt8
-{
     // `Vector` and `Query` can only be defined for UInt8 because we are decoding UTF-8 to a String    
     private
     enum Vector:ParsingRule 
     {
         enum Separator:TerminalRule
         {
+            typealias Terminal = UInt8
             typealias Construction = Void
             static 
             func parse(terminal:Terminal) -> Void? 
@@ -73,6 +78,7 @@ extension URI.Rule:ParsingRule where Terminal == UInt8
         /// Matches a UTF-8 code unit that is allowed to appear inline in URL path component. 
         enum UnencodedByte:TerminalRule
         {
+            typealias Terminal = UInt8
             typealias Construction = Void 
             static 
             func parse(terminal:UInt8) -> Void? 
@@ -90,11 +96,12 @@ extension URI.Rule:ParsingRule where Terminal == UInt8
         
         enum Component:ParsingRule 
         {
+            typealias Terminal = UInt8
             static 
-            func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.Vector?
+            func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> LexicalPath.Vector?
                 where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
             {
-                let (string, unencoded):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
+                let (string, unencoded):(String, Bool) = try input.parse(as: EncodedString<UnencodedByte>.self)
                 guard unencoded
                 else 
                 {
@@ -110,8 +117,9 @@ extension URI.Rule:ParsingRule where Terminal == UInt8
             }
         }
 
+        typealias Terminal = UInt8
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.Vector?
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> LexicalPath.Vector?
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
             try input.parse(as: Separator.self)
@@ -123,9 +131,10 @@ extension URI.Rule:ParsingRule where Terminal == UInt8
     {
         enum Separator:TerminalRule 
         {
-            typealias Construction  = Void 
+            typealias Terminal = UInt8
+            typealias Construction = Void 
             static 
-            func parse(terminal:UInt8) -> Void?
+            func parse(terminal:Terminal) -> Void?
             {
                 switch terminal
                 {
@@ -139,9 +148,10 @@ extension URI.Rule:ParsingRule where Terminal == UInt8
         }
         enum UnencodedByte:TerminalRule 
         {
-            typealias Construction  = Void 
+            typealias Terminal = UInt8
+            typealias Construction = Void 
             static 
-            func parse(terminal:UInt8) -> Void?
+            func parse(terminal:Terminal) -> Void?
             {
                 switch terminal
                 {
@@ -154,13 +164,14 @@ extension URI.Rule:ParsingRule where Terminal == UInt8
             }
         }
         
+        typealias Terminal = UInt8
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.Parameter
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> LexicalQuery.Parameter
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
-            let (key, _):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
+            let (key, _):(String, Bool) = try input.parse(as: EncodedString<UnencodedByte>.self)
             try input.parse(as: Encoding.Equals.self)
-            let (value, _):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
+            let (value, _):(String, Bool) = try input.parse(as: EncodedString<UnencodedByte>.self)
             return (key, value)
         }
     }
@@ -169,14 +180,15 @@ extension URI.Rule:ParsingRule where Terminal == UInt8
     private
     enum VectorList:ParsingRule 
     {
+        typealias Terminal = UInt8
         static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
-            throws -> (absolute:Bool, vectors:[URI.Vector?])
+            throws -> (absolute:Bool, vectors:[LexicalPath.Vector?])
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
             let absolute:Bool 
-            var vectors:[URI.Vector?] 
-            if let first:URI.Vector? = input.parse(as: Vector?.self)
+            var vectors:[LexicalPath.Vector?] 
+            if let first:LexicalPath.Vector? = input.parse(as: Vector?.self)
             {
                 absolute = true
                 vectors = [first]
@@ -186,7 +198,7 @@ extension URI.Rule:ParsingRule where Terminal == UInt8
                 absolute = false 
                 vectors = [try input.parse(as: Vector.Component.self)]
             }
-            while let next:URI.Vector? = input.parse(as: Vector?.self)
+            while let next:LexicalPath.Vector? = input.parse(as: Vector?.self)
             {
                 vectors.append(next)
             }
@@ -197,25 +209,27 @@ extension URI.Rule:ParsingRule where Terminal == UInt8
     private
     enum ParameterList:ParsingRule 
     {
+        typealias Terminal = UInt8
         static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
-            throws -> [URI.Parameter]
+            throws -> [LexicalQuery.Parameter]
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
             try input.parse(as: Encoding.Question.self)
-            return input.parse(as: Grammar.Join<Parameter, Parameter.Separator, [URI.Parameter]>?.self) ?? []
+            return input.parse(as: Grammar.Join<Parameter, Parameter.Separator, [LexicalQuery.Parameter]>?.self) ?? []
         }
     }
     
     enum LinkExpression:ParsingRule 
     {
+        typealias Terminal = UInt8
         static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
-            throws -> (absolute:Bool, vectors:[URI.Vector?], parameters:[URI.Parameter])
+            throws -> (absolute:Bool, vectors:[LexicalPath.Vector?], parameters:[LexicalQuery.Parameter])
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
-            let path:(absolute:Bool, vectors:[URI.Vector?]) = try input.parse(as: VectorList.self)
-            let parameters:[URI.Parameter] = input.parse(as: ParameterList?.self) ?? []
+            let path:(absolute:Bool, vectors:[LexicalPath.Vector?]) = try input.parse(as: VectorList.self)
+            let parameters:[LexicalQuery.Parameter] = input.parse(as: ParameterList?.self) ?? []
             return (path.absolute, path.vectors, parameters)
         }
     }
@@ -232,8 +246,8 @@ extension URI.Rule:ParsingRule where Terminal == UInt8
         //  the first slash '/' does not generate an empty component.
         //  this is the uri we percieve as the uri entered by the user, even 
         //  if their slash ('/' vs '\') or percent-encoding scheme is different.
-        let path:[URI.Vector?] = input.parse(as: Vector.self, in: [URI.Vector?].self)
-        let query:[URI.Parameter]? = input.parse(as: ParameterList?.self)
+        let path:[LexicalPath.Vector?] = input.parse(as: Vector.self, in: [LexicalPath.Vector?].self)
+        let query:[LexicalQuery.Parameter]? = input.parse(as: ParameterList?.self)
         return .init(path: path, query: query)
     }
 }

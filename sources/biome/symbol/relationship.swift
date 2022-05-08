@@ -5,7 +5,7 @@ extension Symbol
     enum RelationshipError:Error 
     {
         case jurisdiction(Module.Index, says:Index, impersonates:Index)
-        case constraints(ColoredIndex,   isOnly:Edge.Kind, of:ColoredIndex, where:[SwiftConstraint<Index>])
+        case constraints(ColoredIndex,   isOnly:Edge.Kind, of:ColoredIndex, where:[Generic.Constraint<Index>])
         case color      (ColoredIndex, cannotBe:Edge.Kind, of:ColoredIndex)
     }
     
@@ -59,7 +59,7 @@ extension Symbol
             [Index], 
             [Index], 
             [Index], 
-            [(index:Index, conditions:[SwiftConstraint<Index>])]
+            [(index:Index, conditions:[Generic.Constraint<Index>])]
         )
         /// if a concrete type, the members of this type, not including members 
         /// inherited through protocol conformances.
@@ -137,7 +137,7 @@ extension Symbol
         /// this shares backing storage with ``conformances``. concrete types 
         /// should access ``conformances`` instead. requirements and witnesses 
         /// must not access this property.
-        var conformers:[(index:Index, conditions:[SwiftConstraint<Index>])]
+        var conformers:[(index:Index, conditions:[Generic.Constraint<Index>])]
         {
             _read 
             {
@@ -153,7 +153,7 @@ extension Symbol
         /// this shares backing storage with ``conformers``. protocols 
         /// should access ``conformers`` instead. requirements and witnesses 
         /// must not access this property.
-        var conformances:[(index:Index, conditions:[SwiftConstraint<Index>])]
+        var conformances:[(index:Index, conditions:[Generic.Constraint<Index>])]
         {
             _read 
             {
@@ -232,9 +232,9 @@ extension Symbol
         case subclass(Index)
         case override(Index)
         // conformers
-        case conformer(Index, where:[SwiftConstraint<Index>])
+        case conformer(Index, where:[Generic.Constraint<Index>])
         // conformances
-        case conformance(Index, where:[SwiftConstraint<Index>])
+        case conformance(Index, where:[Generic.Constraint<Index>])
     }
     enum IntrinsicRelationship 
     {
@@ -251,10 +251,10 @@ extension Symbol
 extension Edge.Kind 
 {
     func relationships(_ source:Symbol.ColoredIndex, _ target:Symbol.ColoredIndex, 
-        where constraints:[SwiftConstraint<Symbol.Index>])
-        -> (source:Relationship?, target:Relationship)
+        where constraints:[Generic.Constraint<Symbol.Index>])
+    throws -> (source:Symbol.Relationship?, target:Symbol.Relationship)
     {
-        let relationships:(source:Relationship?, target:Relationship)
+        let relationships:(source:Symbol.Relationship?, target:Symbol.Relationship)
         switch  (source.color,      is: self,                   of: target.color,       conditional: constraints.isEmpty) 
         {
         case    (.callable(_),      is: .feature,               of: .concretetype(_),   conditional: false):

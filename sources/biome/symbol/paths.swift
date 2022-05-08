@@ -72,7 +72,7 @@ struct PathTable
         }
         return self.table[Self.subpath(stem)]
     }
-    subscript<Path>(stem stem:Path, last:LexicalPath.Component) -> LocalSelector?
+    /* subscript<Path>(stem stem:Path, last:LexicalPath.Component) -> LocalSelector?
         where Path:Sequence, Path.Element == LexicalPath.Component
     {
         if case let (leaf, suffix)? = last.leaf, 
@@ -85,7 +85,7 @@ struct PathTable
         {
             return nil 
         }
-    }
+    } */
     
     private mutating 
     func register(_ string:String) -> Symbol.Key.Component 
@@ -100,13 +100,13 @@ struct PathTable
         return counter
     }
     mutating 
-    func register<S>(leaf component:S) -> UInt32
+    func register<S>(leaf component:S) -> Symbol.Key.Component 
         where S:StringProtocol 
     {
         self.register(Self.subpath(component))
     }
     mutating 
-    func register<S>(stem components:S) -> UInt32
+    func register<S>(stem components:S) -> Symbol.Key.Component 
         where S:Sequence, S.Element:StringProtocol 
     {
         self.register(Self.subpath(components))
