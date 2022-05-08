@@ -50,33 +50,22 @@ extension Symbol
     //          3: (uninhabited)
     struct ExtrinsicRelationships:Sendable 
     {
-        init() 
-        {
-            self.storage = ([], [], [], [])
-        }
-        private 
-        var storage:
-        (
-            [Index], 
-            [Index], 
-            [Index], 
-            [(index:Index, conditions:[Generic.Constraint<Index>])]
-        )
         /// if a concrete type, the members of this type, not including members 
         /// inherited through protocol conformances.
         /// 
         /// protocols, requirements, and witnesses must not access this property.
         var members:[Index]
-        {
-            _read 
-            {
-                yield self.storage.0
-            }
-            _modify
-            {
-                yield &self.storage.0
-            }
-        }
+        
+        /// if a protocol, protocols that inherit from this protocol.
+        /// if a class, classes that subclass this class.
+        /// if a requirement, any requirements of protocols that refine its
+        /// interface that also restate this requirement.
+        /// if a witness, any subclass members that override this witness, if 
+        /// it is a class member.
+        var downstream:[Index] 
+        
+        private 
+        var unconditional:[Index]            
         /// if a protocol, the members in extensions of this protocol. 
         /// if a concrete type, members of this type inherited through 
         /// protocol conformances.
@@ -92,11 +81,11 @@ extension Symbol
         {
             _read 
             {
-                yield self.storage.1
+                yield self.unconditional
             }
             _modify
             {
-                yield &self.storage.1
+                yield &self.unconditional
             }
         }
         /// if a requirement, the default implementations available for this 
@@ -108,31 +97,16 @@ extension Symbol
         {
             _read 
             {
-                yield self.storage.1
+                yield self.unconditional
             }
             _modify
             {
-                yield &self.storage.1
-            }
-        }
-        /// if a protocol, protocols that inherit from this protocol.
-        /// if a class, classes that subclass this class.
-        /// if a requirement, any requirements of protocols that refine its
-        /// interface that also restate this requirement.
-        /// if a witness, any subclass members that override this witness, if 
-        /// it is a class member.
-        var downstream:[Index] 
-        {
-            _read 
-            {
-                yield self.storage.2
-            }
-            _modify
-            {
-                yield &self.storage.2
+                yield &self.unconditional
             }
         }
         
+        private 
+        var conditional:[(index:Index, conditions:[Generic.Constraint<Index>])] 
         /// if a protocol, concrete types that implement this protocol.
         /// 
         /// this shares backing storage with ``conformances``. concrete types 
@@ -142,11 +116,11 @@ extension Symbol
         {
             _read 
             {
-                yield self.storage.3
+                yield self.conditional
             }
             _modify
             {
-                yield &self.storage.3
+                yield &self.conditional
             }
         }
         /// if a concrete type, protocols this type conforms to.
@@ -158,12 +132,20 @@ extension Symbol
         {
             _read 
             {
-                yield self.storage.3
+                yield self.conditional
             }
             _modify
             {
-                yield &self.storage.3
+                yield &self.conditional
             }
+        }
+        
+        init() 
+        {
+            self.members = []
+            self.downstream = []
+            self.unconditional = []
+            self.conditional = []
         }
     }
     enum IntrinsicRelationships:Sendable 
