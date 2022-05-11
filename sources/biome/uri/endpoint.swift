@@ -1,6 +1,6 @@
 import Grammar
 
-struct URI 
+struct LexicalEndpoint 
 {
     var path:[LexicalPath.Vector?]
     var query:[LexicalQuery.Parameter]?
@@ -39,7 +39,7 @@ struct URI
         }
     } 
 }
-extension URI.Rule:ParsingRule 
+extension LexicalEndpoint.Rule:ParsingRule 
 {
     fileprivate 
     enum EncodedByte:ParsingRule
@@ -101,7 +101,7 @@ extension URI.Rule:ParsingRule
             func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> LexicalPath.Vector?
                 where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
             {
-                let (string, unencoded):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
+                let (string, unencoded):(String, Bool) = try input.parse(as: LexicalEndpoint.EncodedString<UnencodedByte>.self)
                 guard unencoded
                 else 
                 {
@@ -169,9 +169,9 @@ extension URI.Rule:ParsingRule
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> LexicalQuery.Parameter
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
-            let (key, _):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
+            let (key, _):(String, Bool) = try input.parse(as: LexicalEndpoint.EncodedString<UnencodedByte>.self)
             try input.parse(as: Encoding.Equals.self)
-            let (value, _):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
+            let (value, _):(String, Bool) = try input.parse(as: LexicalEndpoint.EncodedString<UnencodedByte>.self)
             return (key, value)
         }
     }
@@ -235,7 +235,7 @@ extension URI.Rule:ParsingRule
     }
 
     static 
-    func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) -> URI
+    func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) -> LexicalEndpoint
         where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
     {
         //  i. lexical segmentation and percent-decoding 

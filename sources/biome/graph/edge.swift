@@ -1,10 +1,10 @@
 import Grammar 
 import JSON
 
-struct Edge:Hashable 
+struct Edge:Hashable, Sendable
 {
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
-    enum Kind:String
+    enum Kind:String, Sendable
     {
         case feature                = "_featureOf"
         case member                 = "memberOf"
@@ -17,9 +17,9 @@ struct Edge:Hashable
     }
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.cpp
     var kind:Kind
-    var fake:Symbol.ID?
     var source:Symbol.ID
     var target:Symbol.ID
+    var origin:Symbol.ID?
     var constraints:[Generic.Constraint<Symbol.ID>]
     
     /*
@@ -138,12 +138,12 @@ extension Edge
 {
     init(from json:JSON) throws
     {
-        (self.kind, self.fake, source: self.source, target: self.target, self.constraints) = 
+        (self.kind, self.origin, source: self.source, target: self.target, self.constraints) = 
             try json.lint(["targetFallback"])
         {
             var kind:Edge.Kind = try $0.remove("kind") { try $0.case(of: Edge.Kind.self) }
             let target:Symbol.ID = try $0.remove("target", Symbol.ID.init(from:))
-            let fake:Symbol.ID? = try $0.pop("sourceOrigin")
+            let origin:Symbol.ID? = try $0.pop("sourceOrigin")
             {
                 try $0.lint(["displayName"])
                 {
@@ -164,13 +164,13 @@ extension Edge
             case (.member, .synthesized(from: let generic, for: target)):
                 source  = generic 
                 kind    = .feature 
-            case (_, let invalid):
+            case (_, _):
                 fatalError("unimplemented")
                 //throw SymbolError.synthetic(resolution: invalid)
             }
             return 
                 (
-                    kind: kind, fake: fake, source: source, target: target, 
+                    kind: kind, origin: origin, source: source, target: target, 
                     constraints: try $0.pop("swiftConstraints", as: [JSON]?.self) 
                     { 
                         try $0.map(Generic.Constraint.init(from:)) 

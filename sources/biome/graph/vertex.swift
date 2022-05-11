@@ -1,14 +1,14 @@
 import JSON 
 import Notebook
 
-struct Vertex
+struct Vertex:Sendable
 {
-    enum Kind 
+    enum Kind:Sendable
     {
         case natural 
         case synthesized
     }
-    struct Content
+    struct Content:Sendable
     {
         var id:Symbol.ID 
         var path:[String] 

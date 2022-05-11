@@ -2,7 +2,8 @@ extension Module
 {
     enum ResolutionError:Error 
     {
-        case undefined(ID)
+        case target(ID, in:Package.ID)
+        case dependency(ID, of:ID)
     }
     public
     struct ID:Hashable, Sendable, Decodable, ExpressibleByStringLiteral, CustomStringConvertible

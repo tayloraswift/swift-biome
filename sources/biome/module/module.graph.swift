@@ -9,9 +9,22 @@ extension Module
         let id:ID, 
             dependencies:[Graph.Dependency]
         public 
-        var graphs:(core:Location, colonies:[(namespace:ID, graph:Location)])
-        public 
         var articles:[(name:String, source:Location)]
+        public 
+        var graphs:(core:Location, colonies:[(namespace:ID, graph:Location)])
+        
+        public 
+        init(id:ID, core:Location, 
+            colonies:[(namespace:ID, graph:Location)], 
+            articles:[(name:String, source:Location)], 
+            dependencies:[Graph.Dependency])
+        {
+            self.id = id 
+            self.articles = articles
+            self.graphs.core = core 
+            self.graphs.colonies = colonies 
+            self.dependencies = dependencies
+        }
         
         func load(with loader:(Location, Resource.Text) async throws -> Resource) 
             async throws -> Graph
@@ -37,10 +50,10 @@ extension Module
         }
     }
     public 
-    struct Graph 
+    struct Graph:Sendable 
     {
         public 
-        struct Dependency:Decodable
+        struct Dependency:Decodable, Sendable
         {
             let package:Package.ID
             let modules:[Module.ID]

@@ -2,7 +2,7 @@ extension Symbol
 {
     enum ResolutionError:Error 
     {
-        case undefined(ID)
+        case id(ID)
     }
     enum Language:Unicode.Scalar, Hashable, Sendable 
     {

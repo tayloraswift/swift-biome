@@ -1,11 +1,16 @@
 extension Symbol 
 {
+    typealias Statement = (subject:Index, predicate:Relationship)
+    typealias Sponsorship = (sponsored:Index, by:Index)
     typealias ColoredIndex = (index:Index, color:Color)
     
+    enum MiscegenationError:Error 
+    {
+        case module(Module.Index, says:Index, is:IntrinsicRelationship)
+        case package(Package.Index, says:Index, isSponsoredBy:Index)
+    }
     enum RelationshipError:Error 
     {
-        case miscegenation(Module.Index, says:Index, is:IntrinsicRelationship)
-        case jurisdiction(Module.Index, says:Index, impersonates:Index)
         case constraints(ColoredIndex,   isOnly:Edge.Kind, of:ColoredIndex, where:[Generic.Constraint<Index>])
         case color      (ColoredIndex, cannotBe:Edge.Kind, of:ColoredIndex)
     }
@@ -231,11 +236,43 @@ extension Symbol
         case requirement(of:Index)
     }
 }
+extension Edge 
+{
+    typealias Statements = (Symbol.Statement, Symbol.Statement?, Symbol.Sponsorship?)
+    
+    func statements(given scope:Scope, color:(Symbol.Index) throws -> Symbol.Color) 
+        throws -> Statements
+    {
+        let constraints:[Generic.Constraint<Symbol.Index>] = try self.constraints.map
+        {
+            try $0.map(scope.index(of:))
+        }
+        let index:(source:Symbol.Index, target:Symbol.Index) = 
+        (
+            try scope.index(of: self.source),
+            try scope.index(of: self.target)
+        )
+        let (source, target):(Symbol.ColoredIndex, Symbol.ColoredIndex) = 
+        (
+            (index.source, try color(index.source)),
+            (index.target, try color(index.target))
+        )
+        
+        let sponsorship:Symbol.Sponsorship? = try self.origin.map
+        {
+            (sponsored: index.source, by: try scope.index(of: $0))
+        }
+        let (secondary, primary):(Symbol.Relationship?, Symbol.Relationship) = 
+            try self.kind.relationships(source, target, where: constraints)
+
+        return ((index.target, primary), secondary.map { (index.source, $0) }, sponsorship)
+    }
+}
 extension Edge.Kind 
 {
     func relationships(_ source:Symbol.ColoredIndex, _ target:Symbol.ColoredIndex, 
         where constraints:[Generic.Constraint<Symbol.Index>])
-    throws -> (source:Symbol.Relationship?, target:Symbol.Relationship)
+        throws -> (source:Symbol.Relationship?, target:Symbol.Relationship)
     {
         let relationships:(source:Symbol.Relationship?, target:Symbol.Relationship)
         switch  (source.color,      is: self,                   of: target.color,       conditional: constraints.isEmpty) 

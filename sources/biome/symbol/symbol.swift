@@ -168,12 +168,15 @@ struct Symbol:Sendable, Identifiable
         // var fragment:[SwiftLanguage.Lexeme<ID>]
     } */
 
-    enum Legality:Sendable 
+    enum Legality:Hashable, Sendable 
     {
         // we must store the comment, otherwise packages that depend on the package 
         // this symbol belongs to will not be able to reliably de-duplicate documentation
-        case documented(comment:String)
-        case undocumented(impersonating:Index)
+        static 
+        let undocumented:Self = .documented("")
+        
+        case documented(String)
+        case sponsored(by:Index)
     }
     
     let id:ID
@@ -216,7 +219,7 @@ struct Symbol:Sendable, Identifiable
         .init(self.namespace, stem: self.component.full, leaf: feature.component.leaf, orientation: feature.orientation)
     }
     
-    init(_ node:Package.Graph.Node, namespace:Module.Index, scope:Module.Scope, paths:inout PathTable) throws 
+    init(_ node:Package.Node, namespace:Module.Index, scope:Scope, paths:inout PathTable) throws 
     {
         self.legality       = node.legality
         

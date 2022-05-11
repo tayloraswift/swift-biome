@@ -1,98 +1,21 @@
-// import JSON 
+import StructuredDocument
 import Resource
 
-/* enum _PackageError:Error 
+/* enum Opaque
 {
-    case duplicate(id:Package.ID)
-}
-enum _ModuleError:Error 
-{
-    case mismatchedExtension(id:Module.ID, expected:Module.ID, in:Symbol.ID)
-    case mismatched(id:Module.ID)
-    case duplicate(id:Module.ID)
-    case undefined(id:Module.ID)
+    case lunr
+    case sitemap 
+    
+    var module:Int? 
+    {
+        nil
+    }
 } */
-
-extension URI 
-{
-    enum Base:Hashable, Sendable 
-    {
-        case package
-        case module
-        case symbol 
-        case article
-    }
-    /* enum Opaque
-    {
-        case lunr
-        case sitemap 
-        
-        var module:Int? 
-        {
-            nil
-        }
-    } */
-}
-
-/// an ecosystem is a subset of a biome containing packages that are relevant 
-/// (in some user-defined way) to some task. 
-/// 
-/// ecosystem views are mainly useful for providing an immutable context for 
-/// accessing foreign packages.
-struct Ecosystem 
-{
-    var packages:[Package], 
-        indices:[Package.ID: Package.Index]
-    
-    init()
-    {
-        self.packages = []
-        self.indices = [:]
-    }
-    
-    subscript(package:Package.ID) -> Package?
-    {
-        self.indices[package].map { self[$0] }
-    } 
-    subscript(package:Package.Index) -> Package
-    {
-        _read 
-        {
-            yield self.packages[package.offset]
-        }
-        _modify 
-        {
-            yield &self.packages[package.offset]
-        }
-    } 
-    subscript(module:Module.Index) -> Module
-    {
-        _read 
-        {
-            yield self.packages[module.package.offset].modules[module.offset]
-        }
-        /* _modify 
-        {
-            yield &self.packages[module.package.offset].modules[module.offset]
-        } */
-    } 
-    subscript(symbol:Symbol.Index) -> Symbol
-    {
-        _read 
-        {
-            yield self.packages[symbol.module.package.offset].symbols[symbol.offset]
-        }
-        /* _modify 
-        {
-            yield &self.packages[symbol.module.package.offset].symbols[symbols.offset]
-        } */
-    } 
-}
 
 struct Biome 
 {
     private 
-    let bases:
+    let channels:
     (
         package:String, 
         module:String, 
@@ -111,28 +34,32 @@ struct Biome
         lunr:Symbol.Key.Component
     )
     private 
+    let template:DocumentTemplate<Documentation.Anchor, [UInt8]>
+    private 
     var ecosystem:Ecosystem
     private 
     var paths:PathTable
     
-    init(bases:[URI.Base: String] = [:]) 
+    init(channels:[Documentation.Channel: String] = [:], 
+        template:DocumentTemplate<Documentation.Anchor, [UInt8]>) 
     {
         self.ecosystem = .init()
         self.paths = .init()
         
-        self.bases = 
+        self.template = template 
+        self.channels = 
         (
-            package: bases[.package, default: "packages"],
-            module:  bases[.module,  default: "modules"],
-            symbol:  bases[.symbol,  default: "reference"],
-            article: bases[.article, default: "learn"]
+            package: channels[.package, default: "packages"],
+            module:  channels[.module,  default: "modules"],
+            symbol:  channels[.symbol,  default: "reference"],
+            article: channels[.article, default: "learn"]
         )
         self.keyword = 
         (
-            package:    self.paths.register(leaf: self.bases.package),
-            module:     self.paths.register(leaf: self.bases.module),
-            symbol:     self.paths.register(leaf: self.bases.symbol),
-            article:    self.paths.register(leaf: self.bases.article),
+            package:    self.paths.register(leaf: self.channels.package),
+            module:     self.paths.register(leaf: self.channels.module),
+            symbol:     self.paths.register(leaf: self.channels.symbol),
+            article:    self.paths.register(leaf: self.channels.article),
             
             sitemap:    self.paths.register(leaf: "sitemap"),
             lunr:       self.paths.register(leaf: "lunr")
@@ -142,53 +69,16 @@ struct Biome
     mutating 
     func append(_ id:Package.ID, graphs:[Module.Graph]) throws 
     {
-        var graph:Package.Graph = .init(id: id, index: .init(offset: self.ecosystem.packages.endIndex))
-        let hash:Resource.Version? = graphs.reduce(.semantic(0, 1, 2)) { $0 * $1.hash }
-        let (modules, symbols):([Module], [Symbol]) = 
-            try graph.linearize(graphs, given: self.ecosystem, paths: &self.paths)
-        
-        var groups:[Symbol.Key: Symbol.Group] = [:]
-        for index:Symbol.Index in modules.map(\.symbols).joined()
+        let prior:Ecosystem = self.ecosystem
+        let index:Package.Index = self.ecosystem.create(package: id)
+        // this will trigger copy-on-write, we need to fix this
+        let opinions:[Package.Index: [Package.Opinion]] = 
+            try self.ecosystem[index].update(with: graphs, given: _move(prior), paths: &self.paths)
+        // hopefully ``ecosystem`` is uniquely referenced now
+        for (upstream, opinions):(Package.Index, [Package.Opinion]) in opinions 
         {
-            let symbol:Symbol = symbols[index.offset]
-            // register resident symbols
-            groups[symbol.key, default: .none].insert(natural: index)
-            // register resident features. we can get them by filtering the features
-            // lists of our resident symbols by citizenship.
-            for feature:Symbol.Index in symbol.relationships.citizens.features
-            {
-                // we don’t know what culture the natural base is, since 
-                // feature culture is determined by perpetrator module and 
-                // not by its natural base. so we may have to subscript `self` 
-                // and not `symbols` to get it.
-                let key:Symbol.Key = symbol.key(feature: feature.module.package == graph.package.index ? 
-                    symbols[feature.offset] : self.ecosystem[index])
-                groups[key, default: .none].insert(victim: index, feature: feature)
-            }
+            self.ecosystem[upstream].update(with: opinions, from: index)
         }
-        
-        for (upstream, opinions):(Package.Index, [Package.Opinion]) in graph.opinions 
-        {
-            self.ecosystem[upstream].update(with: opinions, from: graph.package.index)
-            
-            for opinion:Package.Opinion in opinions 
-            {
-                guard case (let victim, has: .feature(let feature)) = opinion 
-                else 
-                {
-                    continue 
-                }
-                let key:Symbol.Key = self.ecosystem[victim].key(feature: self.ecosystem[feature])
-                groups[key, default: .none].insert(victim: victim, feature: feature)
-            }
-        }
-
-        self.ecosystem.packages.append(.init(id: id, indices: (graph.modules, graph.symbols), 
-            modules: modules, 
-            symbols: symbols,
-            groups: groups,
-            hash: hash))
-        self.ecosystem.indices[graph.package.id] = graph.package.index 
     }
 }
 
