@@ -51,10 +51,17 @@ struct Ecosystem
             yield &self.packages[symbol.module.package.offset].symbol.buffer[symbols.offset]
         } */
     } 
-    
+    /// returns the index of the entry for the given package, creating it if it 
+    /// does not already exist.
     mutating 
-    func create(package _:Package.ID) -> Package.Index 
+    func create(package:Package.ID) -> Package.Index 
     {
-        fatalError("unimplemented")
+        if let index:Package.Index = self.indices[package]
+        {
+            return index 
+        }
+        let index:Package.Index = .init(offset: self.packages.endIndex)
+        self.packages.append(.init(id: package, index: index))
+        return index
     }
 }
