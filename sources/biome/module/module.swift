@@ -76,11 +76,4 @@ struct Module:Identifiable, Sendable
             return self.core 
         }
     }
-    /* func symbols(in nameverse:Package.Index) -> [Range<Int>]
-    {
-        let offsets:[Range<Int>] = [module.core.offsets] + module.colonies.compactMap 
-        {
-            $0.namespace.package == nameverse ? $0.offsets : nil
-        }
-    } */
 }

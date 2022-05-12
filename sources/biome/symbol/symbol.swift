@@ -33,28 +33,6 @@ struct Symbol:Sendable, Identifiable
             self.module = module
             self.bits = bits
         }
-        
-        // do we really need these?
-        /* static 
-        func ..< (lhs:Self, rhs:Int) -> IndexRange
-        {
-            lhs ..< UInt32.init(rhs)
-        }
-        static 
-        func ..< (lhs:Int, rhs:Self) -> IndexRange
-        {
-            UInt32.init(lhs) ..< rhs
-        }
-        static 
-        func ..< (lhs:Self, rhs:UInt32) -> IndexRange
-        {
-            .init(lhs.module, bits: lhs.bits ..< rhs)
-        }
-        static 
-        func ..< (lhs:UInt32, rhs:Self) -> IndexRange
-        {
-            .init(rhs.module, bits: lhs ..< rhs.bits)
-        } */
     }
     struct IndexRange:RandomAccessCollection, Hashable, Sendable
     {
@@ -132,25 +110,7 @@ struct Symbol:Sendable, Identifiable
             self.module = module 
         }
     }
-
-    /* enum LinkingError:Error 
-    {
-        case members([Int], in:Kind, Int) 
-        case crimes([Int], in:Kind, Int) 
-        case conformers([(index:Int, conditions:[SwiftConstraint<Int>])], in:Kind, Int) 
-        case conformances([(index:Int, conditions:[SwiftConstraint<Int>])], in:Kind, Int) 
-        case requirements([Int], in:Kind, Int) 
-        case subclasses([Int], in:Kind, Int) 
-        case superclass(Int, in:Kind, Int) 
-        
-        case defaultImplementationOf([Int], Kind, Int) 
-        case requirementOf(Int, Kind, Int) 
-        case overrideOf(Int, Kind, Int) 
-        
-        case island(associatedtype:Int)
-        case orphaned(symbol:Int)
-        //case junction(symbol:Int)
-    } */
+    
     enum AccessLevel:String, Sendable
     {
         case `private` 
@@ -159,14 +119,6 @@ struct Symbol:Sendable, Identifiable
         case `public`
         case `open`
     }
-
-    /* public 
-    struct Parameter:Sendable
-    {
-        var label:String 
-        var name:String?
-        // var fragment:[SwiftLanguage.Lexeme<ID>]
-    } */
 
     enum Legality:Hashable, Sendable 
     {
