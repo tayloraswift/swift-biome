@@ -18,7 +18,7 @@ struct Package:Identifiable, Sendable
         }
     }
     
-    typealias Opinion = (symbol:Symbol.Index, has:Symbol.ExtrinsicRelationship)
+    typealias Opinion = (symbol:Symbol.Index, has:Symbol.Trait)
 
     /* struct Dependency
     {
@@ -80,16 +80,16 @@ struct Package:Identifiable, Sendable
                 {
                     buffer[$0]?.vertex.color ?? ecosystem[$0].color
                 }
-                if  case let (foreign, has: extrinsic)? = 
+                if  case let (foreign, has: trait)? = 
                     try buffer.link(statement.subject, statement.predicate, accordingTo: scope.vantage)
                 {
-                    opinions[foreign.module.package, default: []].append((foreign, has: extrinsic))
+                    opinions[foreign.module.package, default: []].append((foreign, has: trait))
                 }
                 if  let statement:Symbol.Statement = secondary, 
-                    case let (foreign, has: extrinsic)? = 
+                    case let (foreign, has: trait)? = 
                     try buffer.link(statement.subject, statement.predicate, accordingTo: scope.vantage)
                 {
-                    opinions[foreign.module.package, default: []].append((foreign, has: extrinsic))
+                    opinions[foreign.module.package, default: []].append((foreign, has: trait))
                 }
                 if  case let (sponsored, by: sponsor)? = sponsorship,
                     case .documented(let comment)? = buffer[sponsor]?.legality ?? ecosystem[sponsor].legality

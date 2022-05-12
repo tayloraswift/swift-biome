@@ -46,21 +46,21 @@ extension Package
         
         mutating 
         func link(_ subject:Symbol.Index, _ predicate:Symbol.Relationship, accordingTo perpetrator:Module.Index) 
-            throws -> (subject:Symbol.Index, has:Symbol.ExtrinsicRelationship)?
+            throws -> (subject:Symbol.Index, has:Symbol.Trait)?
         {
             switch predicate
             {
-            case  .is(let intrinsic):
+            case  .is(let role):
                 guard perpetrator == subject.module
                 else 
                 {
-                    throw Symbol.MiscegenationError.module(perpetrator, says: subject, is: intrinsic)
+                    throw Symbol.JurisdictionalError.module(perpetrator, says: subject, is: role)
                 }
-            case .has(let extrinsic):
+            case .has(let trait):
                 guard self.package == subject.module.package
                 else 
                 {
-                    return (subject, has: extrinsic)
+                    return (subject, has: trait)
                 }
             }
             
@@ -77,7 +77,7 @@ extension Package
             case nil:
                 // cannot sponsor symbols from another package (but symbols in 
                 // another package can sponsor symbols in this package)
-                throw Symbol.MiscegenationError.package(self.package, says: sponsored, isSponsoredBy: sponsor)
+                throw Symbol.JurisdictionalError.package(self.package, says: sponsored, isSponsoredBy: sponsor)
             
             case .undocumented?, .documented(papers)?:
                 self.nodes[sponsored.offset].legality = .sponsored(by: sponsor)

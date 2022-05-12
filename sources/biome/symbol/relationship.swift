@@ -4,236 +4,169 @@ extension Symbol
     typealias Sponsorship = (sponsored:Index, by:Index)
     typealias ColoredIndex = (index:Index, color:Color)
     
-    enum MiscegenationError:Error 
+    enum JurisdictionalError:Error 
     {
-        case module(Module.Index, says:Index, is:IntrinsicRelationship)
+        case module(Module.Index,   says:Index, is:Role)
         case package(Package.Index, says:Index, isSponsoredBy:Index)
     }
-    enum RelationshipError:Error 
+    enum MiscegenationError:Error 
     {
         case constraints(ColoredIndex,   isOnly:Edge.Kind, of:ColoredIndex, where:[Generic.Constraint<Index>])
         case color      (ColoredIndex, cannotBe:Edge.Kind, of:ColoredIndex)
     }
-    
-    struct Relationships:Sendable 
+    enum ExclusivityError:Error 
     {
-        let color:Color
-        let intrinsic:IntrinsicRelationships
-        let citizens:ExtrinsicRelationships
-        var aliens:[Package.Index: ExtrinsicRelationships]
-        
-        init(validating relationships:[Relationship]) throws 
-        {
-            fatalError("unimplemented")
-        }
-    }
-    //  conceptually, this type encodes:
-    //  -   associatedtype: 
-    //          0: (uninhabited)
-    //          1: default implementations (``implementations``)
-    //          2: restatements (``downstream``)
-    //          3: (uninhabited)
-    //  -   protocol:
-    //          0: (uninhabited; requirements are stored in ``IntrinsicRelationships``)
-    //          1: extension members (``features``)
-    //          2: inheriting protocols (``downstream``)
-    //          3: conforming types (``conformers``)
-    //  -   typealias:
-    //          0: (uninhabited)
-    //          1: (uninhabited)
-    //          2: (uninhabited)
-    //          3: (uninhabited)
-    //  -   concretetype(_):
-    //          0: members (``members``)
-    //          1: features (``features``)
-    //          2: subclasses (``downstream``)
-    //          3: protocol conformances (``conformances``)
-    //  -   callable(_):
-    //          0: (uninhabited)
-    //          1: (uninhabited)
-    //          2: overriding callables (``downstream``)
-    //          3: (uninhabited)
-    struct ExtrinsicRelationships:Sendable 
-    {
-        /// if a concrete type, the members of this type, not including members 
-        /// inherited through protocol conformances.
-        /// 
-        /// protocols, requirements, and witnesses must not access this property.
-        var members:[Index]
-        
-        /// if a protocol, protocols that inherit from this protocol.
-        /// if a class, classes that subclass this class.
-        /// if a requirement, any requirements of protocols that refine its
-        /// interface that also restate this requirement.
-        /// if a witness, any subclass members that override this witness, if 
-        /// it is a class member.
-        var downstream:[Index] 
-        
-        private 
-        var unconditional:[Index]            
-        /// if a protocol, the members in extensions of this protocol. 
-        /// if a concrete type, members of this type inherited through 
-        /// protocol conformances.
-        /// 
-        /// this shares backing storage with ``implementations``. requirements 
-        /// should access ``implementations`` instead. witnesses must not access 
-        /// this property.
-        /// 
-        /// > note: for concrete types, the module that an inherited member 
-        /// originates from is not necessarily the perpetrator of the conformance 
-        /// that trafficked it into its scope.
-        var features:[Index]
-        {
-            _read 
-            {
-                yield self.unconditional
-            }
-            _modify
-            {
-                yield &self.unconditional
-            }
-        }
-        /// if a requirement, the default implementations available for this 
-        /// requirement. 
-        /// 
-        /// this shares backing storage with ``members``. types should access 
-        /// ``members`` instead. witnesses must not access this property.
-        var implementations:[Index]
-        {
-            _read 
-            {
-                yield self.unconditional
-            }
-            _modify
-            {
-                yield &self.unconditional
-            }
-        }
-        
-        private 
-        var conditional:[(index:Index, conditions:[Generic.Constraint<Index>])] 
-        /// if a protocol, concrete types that implement this protocol.
-        /// 
-        /// this shares backing storage with ``conformances``. concrete types 
-        /// should access ``conformances`` instead. requirements and witnesses 
-        /// must not access this property.
-        var conformers:[(index:Index, conditions:[Generic.Constraint<Index>])]
-        {
-            _read 
-            {
-                yield self.conditional
-            }
-            _modify
-            {
-                yield &self.conditional
-            }
-        }
-        /// if a concrete type, protocols this type conforms to.
-        /// 
-        /// this shares backing storage with ``conformers``. protocols 
-        /// should access ``conformers`` instead. requirements and witnesses 
-        /// must not access this property.
-        var conformances:[(index:Index, conditions:[Generic.Constraint<Index>])]
-        {
-            _read 
-            {
-                yield self.conditional
-            }
-            _modify
-            {
-                yield &self.conditional
-            }
-        }
-        
-        init() 
-        {
-            self.members = []
-            self.downstream = []
-            self.unconditional = []
-            self.conditional = []
-        }
-    }
-    enum IntrinsicRelationships:Sendable 
-    {
-        case `protocol`(ProtocolRelationships)
-        case requirement(RequirementRelationships)
-        case witness(WitnessRelationships)
-        case global
-    }
-    struct ProtocolRelationships:Sendable 
-    {
-        /// the requirements of this protocol. 
-        /// 
-        /// > tip: requirements are always module-local.
-        var requirements:[Index]
-        /// protocols this protocol inherits from. 
-        /// 
-        /// > tip: it is not possible to retroactively conform protocols to other 
-        /// protocols, so the full list of implications can be computed 
-        /// using only upstream information.
-        var upstream:[Index]
-    }
-    struct RequirementRelationships:Sendable 
-    {
-        /// the protocol this requirement is part of. 
-        /// 
-        /// > tip: requirements are always module-local.
-        var `protocol`:Index
-        /// the inherited requirement this requirement restates. 
-        /// 
-        /// > tip: it is not possible to retroactively conform protocols to other 
-        /// protocols, so the overridden requirement can be determined 
-        /// using only module-local information.
-        var upstream:Index?
-    }
-    struct WitnessRelationships:Sendable 
-    {
-        var membership:Index
-        /// the requirements that this witness could serve as a default 
-        /// implementation for, if this witness originates from a protocol extension;
-        /// otherwise a single-element array if this witness is a class 
-        /// member that overrides a virtual superclass member.
-        /// 
-        /// there can be more than one requirement if a type conforms to 
-        /// multiple protocols that have at least one requirement in common.
-        /// 
-        /// > tip: it is not possible to retroactively conform protocols to other 
-        /// protocols, so the implemented requirements can be determined 
-        /// using only upstream information.
-        var requirements:[Index]
+        case member     (of:Index, and:Index)
+        case subclass   (of:Index, and:Role)
+        case requirement(of:Index, and:Role)
+        case global     (is:Role)
     }
     
     enum Relationship 
     {
-        case `is`(IntrinsicRelationship)
-        case has(ExtrinsicRelationship)
+        case `is`(Role)
+        case has(Trait)
     }
-    enum ExtrinsicRelationship 
+    struct Relationships:Sendable 
     {
-        // members 
-        case member(Index)
-        case feature(Index)
-        // implementations 
-        case implementation(Index)
-        // downstream
-        case refinement(Index)
-        case subclass(Index)
-        case override(Index)
-        // conformers
-        case conformer(Index, where:[Generic.Constraint<Index>])
-        // conformances
-        case conformance(Index, where:[Generic.Constraint<Index>])
-    }
-    enum IntrinsicRelationship 
-    {
-        case member(of:Index)
-        case implementation(of:Index)
-        case refinement(of:Index)
-        case subclass(of:Index)
-        case override(of:Index)
+        let color:Color
+        let roles:Roles
+        private(set)
+        var facts:Traits, 
+            opinions:[Package.Index: Traits]
         
-        case `protocol`(of:Index)
-        case requirement(of:Index)
+        init(validating relationships:[Relationship], color:Color) throws 
+        {
+            // partition relationships buffer 
+            var roles:[Role] = []
+            var traits:[Trait] = []
+            var membership:Index? = nil 
+            var superclass:Index? = nil 
+            var interface:Index?  = nil
+            
+            for relationship:Relationship in relationships 
+            {
+                switch relationship 
+                {
+                case  .is(.member(of: let mistress)): 
+                    if let spouse:Index = membership 
+                    {
+                        throw ExclusivityError.member(of: spouse, and: mistress)
+                    }
+                    membership = mistress 
+                    
+                case  .is(.subclass(of: let mistress)): 
+                    if let spouse:Index = superclass 
+                    {
+                        throw ExclusivityError.subclass(of: spouse, and: .subclass(of: mistress))
+                    }
+                    superclass = mistress 
+                    
+                case  .is(.requirement(of: let mistress)): 
+                    if let spouse:Index = interface
+                    {
+                        throw ExclusivityError.requirement(of: spouse, and: .requirement(of: mistress))
+                    }
+                    interface = mistress 
+                    
+                case  .is(let role): 
+                    roles.append(role)
+                case .has(let trait): 
+                    traits.append(trait)
+                }
+            }
+            
+            try self.init(membership: membership, superclass: superclass, interface: interface, 
+                roles: roles, color: color)
+            self.update(traits: traits)
+        }
+        private 
+        init(membership:Index?, superclass:Index?, interface:Index?, roles:[Role], color:Color) throws
+        {
+            self.opinions = [:]
+            self.facts = .init()
+            self.color = color 
+            if  case .protocol = color 
+            {
+                // sanity check: should have thrown a ``MiscegenationError`` earlier
+                guard case (nil, nil, nil) = (membership, superclass, interface)
+                else 
+                {
+                    fatalError("unreachable")
+                }
+                
+                var requirements:[Index] = [], 
+                    upstream:[Index] = []
+                for role:Role in roles 
+                {
+                    switch role 
+                    {
+                    case .interface(of: let requirement):
+                        requirements.append(requirement)
+                    case .refinement(of: let `protocol`):
+                        upstream.append(`protocol`)
+                    default: 
+                        fatalError("unreachable") 
+                    }
+                }
+                self.roles = .interface(of: requirements, upstream: upstream)
+                return 
+            }
+            
+            switch (membership: membership, superclass: superclass, interface: interface) 
+            {
+            case (membership: let membership?, superclass: _,               interface: let interface?):
+                throw ExclusivityError.requirement(of: interface, and: .member(of: membership))
+                
+            case (membership: nil,             superclass: _,               interface: let interface?):
+                self.roles = .requirement(of: interface, upstream: try roles.map 
+                {
+                    switch $0 
+                    {
+                    case .override(of: let upstream): 
+                        return upstream
+                    default: 
+                        throw ExclusivityError.requirement(of: interface, and: $0)
+                    }
+                })
+                
+            case (membership: let membership?, superclass: nil,             interface: nil):
+                self.roles = .implementation(of: roles.map 
+                {
+                    switch $0 
+                    {
+                    case .implementation(of: let upstream), .override(of: let upstream): 
+                        return upstream
+                    default: 
+                        fatalError("unreachable") 
+                    }
+                }, membership: membership)
+            
+            case (membership: nil,             superclass: nil,             interface: nil):
+                self.roles = .global 
+                for role:Role in roles 
+                {
+                    throw ExclusivityError.global(is: role)
+                }
+                
+            case (membership: let membership,  superclass: let superclass?, interface: nil):
+                self.roles = .subclass(of: superclass, membership: membership)
+                for role:Role in roles 
+                {
+                    throw ExclusivityError.subclass(of: superclass, and: role)
+                }
+            }
+        }
+        private mutating 
+        func update(traits:[Trait])  
+        {
+            self.facts.update(with: traits, as: self.color)
+        }
+        mutating 
+        func update(traits:[Trait], from package:Package.Index)  
+        {
+            self.opinions[package, default: .init()].update(with: traits, as: self.color)
+        }
     }
 }
 extension Edge 
@@ -331,7 +264,7 @@ extension Edge.Kind
             relationships = 
             (
                 source:  .is(.requirement(of: target.index)), 
-                target:  .is(   .protocol(of: source.index))
+                target:  .is(  .interface(of: source.index))
             ) 
          
         case    (.callable(_),      is: .defaultImplementation, of: .callable(_),       conditional: false):
@@ -342,9 +275,9 @@ extension Edge.Kind
             ) 
         
         case (_, is: _, of: _, conditional: true):
-            throw Symbol.RelationshipError.constraints(source, isOnly: self, of: target, where: constraints)
+            throw Symbol.MiscegenationError.constraints(source, isOnly: self, of: target, where: constraints)
         case (_, is: _, of: _, conditional: false):
-            throw Symbol.RelationshipError.color(source, cannotBe: self, of: target)
+            throw Symbol.MiscegenationError.color(source, cannotBe: self, of: target)
         }
         return relationships
     }

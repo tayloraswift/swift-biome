@@ -196,7 +196,7 @@ struct Symbol:Sendable, Identifiable
         {
             try $0.map(scope.index(of:))
         }
-        self.relationships  = try .init(validating: node.relationships)
+        self.relationships  = try .init(validating: node.relationships, color: node.vertex.color)
     }
 
     @available(*, deprecated, renamed: "name")
