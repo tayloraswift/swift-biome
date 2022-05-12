@@ -1,22 +1,31 @@
 import Resource 
+import JSON 
 
 extension Module 
 {
     public 
-    struct Catalog<Location>
+    enum GraphError:Error 
+    {
+        // this is thrown by the BiomeIndex module
+        case missing(id:ID)
+        case culture(id:ID, expected:ID)
+    }
+    
+    public 
+    struct Catalog
     {
         public 
         let id:ID, 
             dependencies:[Graph.Dependency]
         public 
-        var articles:[(name:String, source:Location)]
+        var articles:[(name:String, source:Resource)]
         public 
-        var graphs:(core:Location, colonies:[(namespace:ID, graph:Location)])
+        var graphs:(core:Resource, colonies:[(namespace:ID, graph:Resource)])
         
         public 
-        init(id:ID, core:Location, 
-            colonies:[(namespace:ID, graph:Location)], 
-            articles:[(name:String, source:Location)], 
+        init(id:ID, core:Resource, 
+            colonies:[(namespace:ID, graph:Resource)], 
+            articles:[(name:String, source:Resource)], 
             dependencies:[Graph.Dependency])
         {
             self.id = id 
@@ -26,26 +35,18 @@ extension Module
             self.dependencies = dependencies
         }
         
-        func load(with loader:(Location, Resource.Text) async throws -> Resource) 
-            async throws -> Graph
+        func graph() throws -> Graph
         {
-            let core:Subgraph = try await 
-                .init(loading: (self.id, nil), from: self.graphs.core, with: loader)
-            var colonies:[Subgraph] = []
-                colonies.reserveCapacity(self.graphs.colonies.count)
-            for (namespace, location):(Module.ID, Location) in self.graphs.colonies 
-            {
-                colonies.append(try await 
-                    .init(loading: (self.id, namespace), from: location, with: loader))
-            }
-            var articles:[Extension] = []
-                articles.reserveCapacity(self.articles.count)
-            for (name, location):(String, Location) in self.articles 
-            {
-                articles.append(try await 
-                    .init(loading: name, from: location, with: loader))
-            }
-            return .init(core: core, colonies: colonies, articles: articles,
+            .init(core: 
+                    try .init(from: self.graphs.core, culture: self.id), 
+                colonies: try self.graphs.colonies.map 
+                {
+                    try .init(from:   $0.graph,       culture: self.id, namespace: $0.namespace)
+                }, 
+                articles:     self.articles.map 
+                {
+                        .init(from: $0.source, name: $0.name)
+                },
                 dependencies: self.dependencies)
         }
     }
@@ -76,6 +77,54 @@ extension Module
         var edges:[[Edge]] 
         {
             [self.core.edges] + self.colonies.map(\.edges)
+        }
+    }
+    struct Subgraph:Sendable 
+    {        
+        let vertices:[Vertex]
+        let edges:[Edge]
+        let hash:Resource.Version?
+        let namespace:Module.ID
+        
+        init(from resource:Resource, culture:Module.ID, namespace:Module.ID? = nil) throws 
+        {
+            let json:JSON 
+            let hash:Resource.Version?
+            switch resource
+            {
+            case    .text   (let string, type: _, version: let version):
+                json = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
+                hash = version
+            
+            case    .binary (let bytes, type: _, version: let version):
+                json = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
+                hash = version
+            }
+            try self.init(from: json, hash: hash, culture: culture, namespace: namespace)
+        }
+        private 
+        init(from json:JSON, hash:Resource.Version?, culture:Module.ID, namespace:Module.ID?) throws 
+        {
+            self.hash = hash 
+            self.namespace = namespace ?? culture
+            (self.vertices, self.edges) = try json.lint(["metadata"]) 
+            {
+                let edges:[Edge]      = try $0.remove("relationships") { try $0.map(  Edge.init(from:)) }
+                let vertices:[Vertex] = try $0.remove("symbols")       { try $0.map(Vertex.init(from:)) }
+                let module:Module.ID  = try $0.remove("module")
+                {
+                    try $0.lint(["platform"]) 
+                    {
+                        Module.ID.init(try $0.remove("name", as: String.self))
+                    }
+                }
+                guard module == culture
+                else 
+                {
+                    throw GraphError.culture(id: module, expected: culture)
+                }
+                return (vertices, edges)
+            }
         }
     }
 }

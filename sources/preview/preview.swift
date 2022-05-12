@@ -46,6 +46,10 @@ struct Main:AsyncParsableCommand
         Backtrace.install()
         
         let bureaucrat:Bureaucrat = .init(git: .init(self.git), repository: .init(self.resources))
+        let indices:[[Package.Descriptor]] = try self.indices.map
+        {
+            try Package.descriptors(parsing: try Bureaucrat.read(from: FilePath.init($0)))
+        }
         let resources:[String: Resource] = 
         [
             "/biome.css"        : try await bureaucrat.read(concatenating: "default-dark/common.css", "default-dark/biome.css", type: .css), 
@@ -61,17 +65,10 @@ struct Main:AsyncParsableCommand
             "/text-65.woff2"    : try await bureaucrat.read(from: "fonts/literata/Literata-SemiBold.woff2",       type: .woff2), 
             "/text-67.woff2"    : try await bureaucrat.read(from: "fonts/literata/Literata-SemiBoldItalic.woff2", type: .woff2), 
         ]
-        let documentation:Documentation = try await .init(serving: 
-            [
-                .biome: "/reference",
-                .learn: "/learn",
-            ], 
-            template: .init(freezing: DefaultTemplates.documentation), 
-            loading: self.indices.map(FilePath.init(_:)))
+        
+        let preview:Preview = try await .init(indices.joined(), resources: _move(resources))
         
         let host:String = self.host 
-        let preview:Preview = .init(documentation: _move(documentation), resources: _move(resources))
-        
         let group:MultiThreadedEventLoopGroup   = .init(numberOfThreads: 4)
         let bootstrap:ServerBootstrap           = .init(group: group)
             .serverChannelOption(ChannelOptions.backlog,                        value: 256)
@@ -100,12 +97,22 @@ struct Preview:ServiceBackend
     typealias Continuation = EventLoopPromise<StaticResponse>
     
     let resources:[String: Resource]
-    let documentation:Documentation
+    var biome:Biome
     
-    init(documentation:Documentation, resources:[String: Resource]) 
+    init<S>(_ descriptors:S, resources:[String: Resource]) async throws 
+        where S:Sequence, S.Element == Package.Descriptor
     {
-        self.documentation = documentation
         self.resources = resources
+        self.biome = .init(channels: [.symbol: "/reference", .article: "/learn"], 
+            template: .init(freezing: DefaultTemplates.documentation))
+        for descriptor:Package.Descriptor in descriptors 
+        {
+            let catalog:Package.Catalog = try await descriptor.load(prefix: .init(root: nil))
+            {
+                .utf8(encoded: try Bureaucrat.read(from: $0), type: $1, version: nil)
+            }
+            try self.biome.append(try catalog.graph())
+        }
     }
     
     func request(_:Never, continuation _:EventLoopPromise<StaticResponse>) 
@@ -117,7 +124,7 @@ struct Preview:ServiceBackend
         {
             return .immediate(.matched(canonical: uri, resource))
         }
-        else if let response:StaticResponse = self.documentation[uri, referrer: nil]
+        else if let response:StaticResponse = self.biome[uri, referrer: nil]
         {
             
             return .immediate(response)

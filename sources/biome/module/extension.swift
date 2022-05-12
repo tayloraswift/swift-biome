@@ -109,6 +109,17 @@ struct Extension
         }
     }
     
+    init(from resource:Resource, name:String) 
+    {
+        // TODO: handle versioning
+        switch resource
+        {
+        case    .text   (let text,  type: _, version: _):
+            self.init(markdown: text)
+        case    .binary (let bytes, type: _, version: _):
+            self.init(markdown: String.init(decoding: bytes, as: Unicode.UTF8.self))
+        }
+    }
     init(markdown string:String)
     {
         let root:Markdown.Document = .init(parsing: string, 
@@ -325,19 +336,4 @@ struct Extension
         }
         return .bytes(utf8: bytes)
     } */
-}
-extension Extension 
-{
-    init<Location>(loading name:String, from location:Location, 
-        with load:(Location, Resource.Text) async throws -> Resource) async throws 
-    {
-        // TODO: handle versioning
-        switch try await load(location, .markdown)
-        {
-        case    .text   (let text,  type: _, version: _):
-            self.init(markdown: text)
-        case    .binary (let bytes, type: _, version: _):
-            self.init(markdown: String.init(decoding: bytes, as: Unicode.UTF8.self))
-        }
-    }
 }

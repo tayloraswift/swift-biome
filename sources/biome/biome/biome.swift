@@ -11,7 +11,7 @@ import Resource
         nil
     }
 } */
-
+public
 struct Biome 
 {
     private 
@@ -40,6 +40,7 @@ struct Biome
     private 
     var paths:PathTable
     
+    public 
     init(channels:[Documentation.Channel: String] = [:], 
         template:DocumentTemplate<Documentation.Anchor, [UInt8]>) 
     {
@@ -66,14 +67,20 @@ struct Biome
         )
     }
     
-    mutating 
-    func append(_ id:Package.ID, graphs:[Module.Graph]) throws 
+    public 
+    subscript(uri:String, referrer referrer:Never?) -> StaticResponse?
+    {
+        nil
+    }
+    
+    public mutating 
+    func append(_ graph:Package.Graph) throws 
     {
         let prior:Ecosystem = self.ecosystem
-        let index:Package.Index = self.ecosystem.create(package: id)
+        let index:Package.Index = self.ecosystem.create(package: graph.id)
         // this will trigger copy-on-write, we need to fix this
         let opinions:[Package.Index: [Package.Opinion]] = 
-            try self.ecosystem[index].update(with: graphs, given: _move(prior), paths: &self.paths)
+            try self.ecosystem[index].update(with: graph.modules, given: _move(prior), paths: &self.paths)
         // hopefully ``ecosystem`` is uniquely referenced now
         for (upstream, opinions):(Package.Index, [Package.Opinion]) in opinions 
         {

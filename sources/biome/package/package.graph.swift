@@ -1,30 +1,36 @@
-import Resource
-
 extension Package 
 {
     public 
-    struct Catalog<Location>
+    struct Catalog
     {
         public 
         let id:ID 
         public 
-        let modules:[Module.Catalog<Location>]
+        let modules:[Module.Catalog]
         
         public 
-        init(id:ID, modules:[Module.Catalog<Location>])
+        init(id:ID, modules:[Module.Catalog])
         {
             self.id = id 
             self.modules = modules
         }
-        func load(with loader:(Location, Resource.Text) async throws -> Resource) 
-            async throws -> [Module.Graph]
+        public 
+        func graph() throws -> Graph
         {
-            var graphs:[Module.Graph] = []
-            for module:Module.Catalog<Location> in self.modules 
-            {
-                graphs.append(try await module.load(with: loader))
-            }
-            return graphs
+            .init(id: self.id, modules: try self.modules.map { try $0.graph() })
+        }
+    }
+    public
+    struct Graph 
+    {
+        let id:ID 
+        let modules:[Module.Graph]
+        
+        public 
+        init(id:ID, modules:[Module.Graph])
+        {
+            self.id = id 
+            self.modules = modules
         }
     }
 }

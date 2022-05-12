@@ -65,11 +65,11 @@ struct Symbol:Sendable, Identifiable
         {
             .init(self.bits.lowerBound) ..< .init(self.bits.upperBound)
         }
-        var lowerBound:Index 
+        var lowerBound:Symbol.Index 
         {
             .init(self.module, bits: self.bits.lowerBound)
         }
-        var upperBound:Index 
+        var upperBound:Symbol.Index 
         {
             .init(self.module, bits: self.bits.upperBound)
         }
@@ -82,7 +82,7 @@ struct Symbol:Sendable, Identifiable
         {
             self.bits.endIndex
         }
-        subscript(index:UInt32) -> Index 
+        subscript(index:UInt32) -> Symbol.Index 
         {
             .init(self.module, bits: self.bits[index])
         }
