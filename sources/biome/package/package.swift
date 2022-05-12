@@ -59,7 +59,15 @@ struct Package:Identifiable, Sendable
     mutating 
     func update(with opinions:[Opinion], from package:Index)
     {
-        fatalError("unimplemented")
+        var traits:[Int: [Symbol.Trait]] = [:]
+        for (symbol, trait):(Symbol.Index, Symbol.Trait) in opinions 
+        {
+            traits[symbol.offset, default: []].append(trait)
+        }
+        for (offset, traits):(Int, [Symbol.Trait]) in traits 
+        {
+            self.symbol.buffer[offset].update(traits: traits, from: package)
+        }
     }
     
     mutating 

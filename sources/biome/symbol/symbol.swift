@@ -151,6 +151,7 @@ struct Symbol:Sendable, Identifiable
         genericConstraints:[Generic.Constraint<Index>], 
         extensionConstraints:[Generic.Constraint<Index>]
     let availability:Availability
+    private(set)
     var relationships:Relationships
     
     var color:Color 
@@ -198,10 +199,10 @@ struct Symbol:Sendable, Identifiable
         }
         self.relationships  = try .init(validating: node.relationships, color: node.vertex.color)
     }
-
-    @available(*, deprecated, renamed: "name")
-    var title:String 
+    
+    mutating 
+    func update(traits:[Trait], from package:Package.Index)  
     {
-        self.name
+        self.relationships.update(traits: traits, from: package)
     }
 }
