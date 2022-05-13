@@ -208,75 +208,75 @@ extension Edge.Kind
         throws -> (source:Symbol.Relationship?, target:Symbol.Relationship)
     {
         let relationships:(source:Symbol.Relationship?, target:Symbol.Relationship)
-        switch  (source.color,      is: self,                   of: target.color,       conditional: constraints.isEmpty) 
+        switch  (source.color,      is: self,                   of: target.color,       unconditional: constraints.isEmpty) 
         {
-        case    (.callable(_),      is: .feature,               of: .concretetype(_),   conditional: false):
+        case    (.callable(_),      is: .feature,               of: .concretetype(_),   unconditional: true):
             relationships =
             (
                 source:  nil,
                 target: .has(.feature(source.index))
             )
         
-        case    (.concretetype(_),  is: .member,                of: .concretetype(_),   conditional: false), 
-                (.typealias,        is: .member,                of: .concretetype(_),   conditional: false), 
-                (.callable(_),      is: .member,                of: .concretetype(_),   conditional: false), 
-                (.concretetype(_),  is: .member,                of: .protocol,          conditional: false),
-                (.typealias,        is: .member,                of: .protocol,          conditional: false),
-                (.callable(_),      is: .member,                of: .protocol,          conditional: false):
+        case    (.concretetype(_),  is: .member,                of: .concretetype(_),   unconditional: true), 
+                (.typealias,        is: .member,                of: .concretetype(_),   unconditional: true), 
+                (.callable(_),      is: .member,                of: .concretetype(_),   unconditional: true), 
+                (.concretetype(_),  is: .member,                of: .protocol,          unconditional: true),
+                (.typealias,        is: .member,                of: .protocol,          unconditional: true),
+                (.callable(_),      is: .member,                of: .protocol,          unconditional: true):
             relationships = 
             (
                 source:  .is(.member(of: target.index)), 
                 target: .has(.member(    source.index))
             )
         
-        case    (.concretetype(_),  is: .conformer,             of: .protocol,          conditional: _):
+        case    (.concretetype(_),  is: .conformer,             of: .protocol,          unconditional: _):
             relationships = 
             (
                 source: .has(.conformance(target.index, where: constraints)), 
                 target: .has(  .conformer(source.index, where: constraints))
             ) 
-        case    (.protocol,         is: .conformer,             of: .protocol,          conditional: false):
+        case    (.protocol,         is: .conformer,             of: .protocol,          unconditional: true):
             relationships = 
             (
                 source:  .is(.refinement(of: target.index)), 
                 target: .has(.refinement(    source.index))
             ) 
         
-        case    (.class,            is: .subclass,              of: .class,             conditional: false):
+        case    (.class,            is: .subclass,              of: .class,             unconditional: true):
             relationships = 
             (
                 source:  .is(.subclass(of: target.index)), 
                 target: .has(.subclass(    source.index))
             ) 
          
-        case    (.associatedtype,   is: .override,              of: .associatedtype,    conditional: false),
-                (.callable(_),      is: .override,              of: .callable,          conditional: false):
+        case    (.associatedtype,   is: .override,              of: .associatedtype,    unconditional: true),
+                (.callable(_),      is: .override,              of: .callable,          unconditional: true):
             relationships = 
             (
                 source:  .is(.override(of: target.index)), 
                 target: .has(.override(    source.index))
             ) 
          
-        case    (.associatedtype,   is: .requirement,           of: .protocol,          conditional: false),
-                (.callable(_),      is: .requirement,           of: .protocol,          conditional: false),
-                (.associatedtype,   is: .optionalRequirement,   of: .protocol,          conditional: false),
-                (.callable(_),      is: .optionalRequirement,   of: .protocol,          conditional: false):
+        case    (.associatedtype,   is: .requirement,           of: .protocol,          unconditional: true),
+                (.callable(_),      is: .requirement,           of: .protocol,          unconditional: true),
+                (.associatedtype,   is: .optionalRequirement,   of: .protocol,          unconditional: true),
+                (.callable(_),      is: .optionalRequirement,   of: .protocol,          unconditional: true):
             relationships = 
             (
                 source:  .is(.requirement(of: target.index)), 
                 target:  .is(  .interface(of: source.index))
             ) 
          
-        case    (.callable(_),      is: .defaultImplementation, of: .callable(_),       conditional: false):
+        case    (.callable(_),      is: .defaultImplementation, of: .callable(_),       unconditional: true):
             relationships = 
             (
                 source:  .is(.implementation(of: target.index)), 
                 target: .has(.implementation(    source.index))
             ) 
         
-        case (_, is: _, of: _, conditional: true):
+        case (_, is: _, of: _, unconditional: false):
             throw Symbol.MiscegenationError.constraints(source, isOnly: self, of: target, where: constraints)
-        case (_, is: _, of: _, conditional: false):
+        case (_, is: _, of: _, unconditional: true):
             throw Symbol.MiscegenationError.color(source, cannotBe: self, of: target)
         }
         return relationships
