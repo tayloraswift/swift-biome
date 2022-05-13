@@ -39,11 +39,8 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
             switch self.backend.request(request.uri)
             {
             case .immediate(let response):
-                self.respond(with: response, through: context)
-                {
-                    // check for an ETag 
-                    request.headers["if-none-match"].first.flatMap(Resource.Version.init(etag:))
-                }
+                let etag:Resource.Tag? = request.headers["if-none-match"].first.flatMap(Resource.Tag.init(etag:))
+                self.respond(with: response, through: context, ifNoneMatch: etag)
             case .enqueue(to: _): 
                 fatalError("unreachable")
             }
@@ -102,33 +99,31 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
         -> (headers:HTTPHeaders, body:ByteBuffer?) 
     {
         var headers:HTTPHeaders = self.headers(canonical: canonical)
-        let buffer:ByteBuffer?, 
-            version:Resource.Version?,
-            content:(length:String, type:String)
-        switch resource
+        let content:(length:String, type:String), 
+            buffer:ByteBuffer?
+        switch resource.payload
         {
-        case .text  (let string, type: let type, version: let current):
+        case .text  (let string, type: let type):
             content.length  = "\(string.utf8.count)"
             content.type    = "\(type.description); charset=utf-8"
-            version         = current
             buffer          = cached ? nil : allocator.buffer(string: string)
-        case .binary(let bytes,  type: let type, version: let current):
+        case .binary(let bytes,  type: let type):
             content.length  = "\(bytes.count)"
             content.type    = type.description // includes charset if applicable
-            version         = current
             buffer          = cached ? nil : allocator.buffer(bytes: bytes)
         }
         headers.add(name: "content-length", value: content.length)
         headers.add(name: "content-type",   value: content.type)
-        if let version:Resource.Version = version 
+        if let etag:String = resource.tag?.etag 
         {
-            headers.add(name: "etag",       value: version.etag)
+            headers.add(name: "etag",       value: etag)
         }
         return (headers, buffer)
     }
     private 
-    func respond(with response:StaticResponse, through context:ChannelHandlerContext, 
-        unless version:() throws -> Resource.Version?) rethrows
+    func respond(with response:StaticResponse, 
+        through context:ChannelHandlerContext, 
+        ifNoneMatch tag:Resource.Tag?)
     {
         switch response
         {
@@ -149,7 +144,7 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
                 through: context)
         
         case .matched(canonical: let canonical, let resource):
-            let cached:Bool = resource.matches(version: try version())
+            let cached:Bool = resource.tag =~= tag 
             self.respond(with: self.response(canonical: canonical, 
                     containing: resource, 
                     cached:     cached, 

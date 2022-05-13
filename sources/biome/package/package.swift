@@ -31,7 +31,7 @@ struct Package:Identifiable, Sendable
     private 
     let index:Index 
     private 
-    var hash:Resource.Version?
+    var tag:Resource.Tag?
     private(set)
     var module:(buffer:[Module], indices:[Module.ID: Module.Index]),
         symbol:(buffer:[Symbol], indices:[Symbol.ID: Symbol.Index])
@@ -48,7 +48,7 @@ struct Package:Identifiable, Sendable
         self.id = id 
         self.index = index
         
-        self.hash = .semantic(2, 0, 0)
+        self.tag = "2.0.0"
         self.module.buffer = []
         self.symbol.buffer = []
         self.module.indices = [:]
@@ -145,7 +145,7 @@ extension Package
         // TODO: handle version dimension
         for (offset, graph):(Int, Module.Graph) in graphs.enumerated() 
         {
-            self.hash *= graph.hash
+            self.tag *= graph.tag
             self.module.indices[graph.core.namespace] = .init(self.index, offset: offset)
         }
         
@@ -275,6 +275,8 @@ extension Package
                     self.symbol.buffer.append(try .init(node, namespace: colony.namespace, scope: scope, paths: &paths))
                 }
             }
+            
+            print("(\(self.id)) added module '\(module.id)'")
         }
     }
 }

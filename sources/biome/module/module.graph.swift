@@ -56,8 +56,17 @@ extension Module
         public 
         struct Dependency:Decodable, Sendable
         {
-            let package:Package.ID
-            let modules:[Module.ID]
+            public
+            var package:Package.ID
+            public
+            var modules:[Module.ID]
+            
+            public 
+            init(package:Package.ID, modules:[Module.ID])
+            {
+                self.package = package 
+                self.modules = modules 
+            }
         }
         
         let core:Subgraph,
@@ -66,11 +75,11 @@ extension Module
         
         let dependencies:[Dependency]
         
-        var hash:Resource.Version? 
+        var tag:Resource.Tag? 
         {
-            self.colonies.reduce(self.core.hash) 
+            self.colonies.reduce(self.core.tag) 
             {
-                $0 * $1.hash
+                $0 * $1.tag
             }
         }
         
@@ -83,29 +92,25 @@ extension Module
     {        
         let vertices:[Vertex]
         let edges:[Edge]
-        let hash:Resource.Version?
+        let tag:Resource.Tag?
         let namespace:Module.ID
         
         init(from resource:Resource, culture:Module.ID, namespace:Module.ID? = nil) throws 
         {
             let json:JSON 
-            let hash:Resource.Version?
-            switch resource
+            switch resource.payload
             {
-            case    .text   (let string, type: _, version: let version):
+            case    .text(let string, type: _):
                 json = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
-                hash = version
-            
-            case    .binary (let bytes, type: _, version: let version):
+            case    .binary(let bytes, type: _):
                 json = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
-                hash = version
             }
-            try self.init(from: json, hash: hash, culture: culture, namespace: namespace)
+            try self.init(from: json, tag: resource.tag, culture: culture, namespace: namespace)
         }
         private 
-        init(from json:JSON, hash:Resource.Version?, culture:Module.ID, namespace:Module.ID?) throws 
+        init(from json:JSON, tag:Resource.Tag?, culture:Module.ID, namespace:Module.ID?) throws 
         {
-            self.hash = hash 
+            self.tag = tag 
             self.namespace = namespace ?? culture
             (self.vertices, self.edges) = try json.lint(["metadata"]) 
             {

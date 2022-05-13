@@ -1,5 +1,4 @@
 import Markdown
-import StructuredDocument
 import Resource 
 import HTML
 
@@ -112,11 +111,11 @@ struct Extension
     init(from resource:Resource, name:String) 
     {
         // TODO: handle versioning
-        switch resource
+        switch resource.payload
         {
-        case    .text   (let text,  type: _, version: _):
+        case    .text   (let text,  type: _):
             self.init(markdown: text)
-        case    .binary (let bytes, type: _, version: _):
+        case    .binary (let bytes, type: _):
             self.init(markdown: String.init(decoding: bytes, as: Unicode.UTF8.self))
         }
     }
