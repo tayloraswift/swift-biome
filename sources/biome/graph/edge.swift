@@ -56,14 +56,20 @@ extension Edge
                 fatalError("unimplemented")
                 //throw SymbolError.synthetic(resolution: invalid)
             }
-            return 
-                (
-                    kind: kind, origin: origin, source: source, target: target, 
-                    constraints: try $0.pop("swiftConstraints", as: [JSON]?.self) 
-                    { 
-                        try $0.map(Generic.Constraint.init(from:)) 
-                    } ?? []
-                )
+            // only 'conformsTo' edges may contain constraints 
+            let constraints:[Generic.Constraint<Symbol.ID>] 
+            if case .conformer = kind 
+            {
+                constraints = try $0.pop("swiftConstraints", as: [JSON]?.self) 
+                { 
+                    try $0.map(Generic.Constraint.init(from:)) 
+                } ?? []
+            }
+            else 
+            {
+                constraints = []
+            }
+            return (kind, origin: origin, source: source, target: target, constraints)
         }
     }
 }

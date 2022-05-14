@@ -1,8 +1,19 @@
 extension Symbol 
 {
-    enum ResolutionError:Error 
+    public 
+    enum ResolutionError:Error, CustomStringConvertible
     {
         case id(ID)
+        
+        public 
+        var description:String 
+        {
+            switch self 
+            {
+            case .id(let id): 
+                return "could not resolve symbol '\(id.string)' (\(id.description))"
+            }
+        }
     }
     enum Language:Unicode.Scalar, Hashable, Sendable 
     {

@@ -16,7 +16,7 @@ extension Symbol.ID
         self = try Grammar.parse(string.utf8, as: Symbol.USR.Rule<String.Index>.OpaqueName.self)
     }
     
-    func isUnderscoredProtocolExtensionMember(from module:Module.ID) -> Bool 
+    func isUnderscoredProtocolMember(from module:Module.ID) -> Bool 
     {
         // if a vertex is non-canonical, the symbol id of its generic base 
         // always starts with a mangled protocol name. 

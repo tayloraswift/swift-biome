@@ -188,7 +188,22 @@ struct Symbol:Sendable, Identifiable
         self.availability   = node.vertex.availability 
         self.generics       = node.vertex.generics
         self.signature      = node.vertex.signature
-        self.declaration    = try node.vertex.declaration.map(scope.index(of:))
+        // even with mythical symbol inference, it is still possible or 
+        // declarations to reference non-existent USRs, e.g. 'ss14_UnicodeParserP8EncodingQa'
+        // (Swift._UnicodeParser.Encoding)
+        self.declaration    = node.vertex.declaration.compactMap 
+        {
+            do 
+            {
+                return try scope.index(of: $0)
+            }
+            catch let error 
+            {
+                print("warning: \(error)")
+                return nil 
+            }
+        }
+        // self.declaration    = try node.vertex.declaration.map(scope.index(of:))
         self.genericConstraints = try node.vertex.genericConstraints.map
         {
             try $0.map(scope.index(of:))

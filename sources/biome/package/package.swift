@@ -228,7 +228,8 @@ extension Package
         var symbol:Symbol.Index { .init(culture.index, offset: offset) }
         // FIXME: all vertices can have duplicates, even canonical ones, due to 
         // the behavior of `@_exported import`.
-        if case .natural = vertex.kind 
+        guard case .synthesized = vertex.kind 
+        else 
         {
             if let _:Symbol.Index = self.symbol.indices.updateValue(symbol, forKey: vertex.content.id)
             {
@@ -237,12 +238,27 @@ extension Package
             return true
         }
         // *not* subgraph.namespace !
-        else if case nil = self.symbol.indices.index(forKey: vertex.content.id), 
-            vertex.content.id.isUnderscoredProtocolExtensionMember(from: culture.id)
+        guard case nil = self.symbol.indices.index(forKey: vertex.content.id)
+        else 
         {
-            // if the symbol is synthetic and belongs to an underscored 
-            // protocol, assume the generic base does not exist, and register 
-            // it *once*.
+            return false 
+        }
+        
+        // if the symbol is synthetic and belongs to an underscored 
+        // protocol, assume the generic base does not exist, and register 
+        // the synthesized copy anyway.
+        if vertex.content.id.isUnderscoredProtocolMember(from: culture.id)
+        {
+            print("note: inferred existence of mythical protocol extension member '\(vertex.content.id.string)' (\(vertex.content.id.description))")
+            self.symbol.indices.updateValue(symbol, forKey: vertex.content.id)
+            return true 
+        }
+        // if the symbol is unconditionally unavailable, assume the generic 
+        // base does not exist (omitted by SymbolGraphGen), and register the 
+        // synthesized copy anyway.
+        else if case true? = vertex.content.availability.general?.unavailable
+        {
+            print("note: inferred existence of unconditionally unavailable symbol '\(vertex.content.id.string)' (\(vertex.content.id.description))")
             self.symbol.indices.updateValue(symbol, forKey: vertex.content.id)
             return true 
         }

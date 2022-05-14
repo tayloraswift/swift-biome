@@ -4,15 +4,15 @@ extension Symbol
     typealias Sponsorship = (sponsored:Index, by:Index)
     typealias ColoredIndex = (index:Index, color:Color)
     
-    enum JurisdictionalError:Error 
+    enum SponsorshipError:Error 
     {
-        case module(Module.Index,   says:Index, is:Role)
-        case package(Package.Index, says:Index, isSponsoredBy:Index)
+        case disputed                        (Index, isSponsoredBy:Index, and:Index)
+        case unauthorized(Package.Index, says:Index, isSponsoredBy:Index)
     }
-    enum MiscegenationError:Error 
+    enum RelationshipError:Error 
     {
-        case constraints(ColoredIndex,   isOnly:Edge.Kind, of:ColoredIndex, where:[Generic.Constraint<Index>])
-        case color      (ColoredIndex, cannotBe:Edge.Kind, of:ColoredIndex)
+        case miscegenation(ColoredIndex, cannotBe:Edge.Kind, of:ColoredIndex)
+        case unauthorized(Module.Index, says:Index, is:Role)
     }
     enum ExclusivityError:Error 
     {
@@ -191,9 +191,17 @@ extension Edge
             (index.target, try color(index.target))
         )
         
-        let sponsorship:Symbol.Sponsorship? = try self.origin.map
+        let sponsorship:Symbol.Sponsorship? = self.origin.flatMap
         {
-            (sponsored: index.source, by: try scope.index(of: $0))
+            do 
+            {
+                return (sponsored: index.source, by: try scope.index(of: $0))
+            }
+            catch let error 
+            {
+                print("warning: \(error) while resolving sponsorship relation")
+                return nil 
+            }
         }
         let (secondary, primary):(Symbol.Relationship?, Symbol.Relationship) = 
             try self.kind.relationships(source, target, where: constraints)
@@ -275,9 +283,11 @@ extension Edge.Kind
             ) 
         
         case (_, is: _, of: _, unconditional: false):
-            throw Symbol.MiscegenationError.constraints(source, isOnly: self, of: target, where: constraints)
+            // ``Edge.init(from:)`` should have thrown a ``JSON.LintingError`
+            fatalError("unreachable")
+        
         case (_, is: _, of: _, unconditional: true):
-            throw Symbol.MiscegenationError.color(source, cannotBe: self, of: target)
+            throw Symbol.RelationshipError.miscegenation(source, cannotBe: self, of: target)
         }
         return relationships
     }

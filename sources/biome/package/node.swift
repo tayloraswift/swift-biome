@@ -54,7 +54,7 @@ extension Package
                 guard perpetrator == subject.module
                 else 
                 {
-                    throw Symbol.JurisdictionalError.module(perpetrator, says: subject, is: role)
+                    throw Symbol.RelationshipError.unauthorized(perpetrator, says: subject, is: role)
                 }
             case .has(let trait):
                 guard self.package == subject.module.package
@@ -77,15 +77,28 @@ extension Package
             case nil:
                 // cannot sponsor symbols from another package (but symbols in 
                 // another package can sponsor symbols in this package)
-                throw Symbol.JurisdictionalError.package(self.package, says: sponsored, isSponsoredBy: sponsor)
+                throw Symbol.SponsorshipError.unauthorized(self.package, says: sponsored, isSponsoredBy: sponsor)
+            
+            case .sponsored(by: sponsor):
+                // documentation has already been de-deduplicated
+                break 
+            
+            case .sponsored(by: let other): 
+                throw Symbol.SponsorshipError.disputed(sponsored, isSponsoredBy: other, and: sponsor)
             
             case .undocumented?, .documented(papers)?:
                 self.nodes[sponsored.offset].legality = .sponsored(by: sponsor)
             
-            default:
+            case .documented(_):
                 // a small number of symbols using fakes are actually documented, 
                 // and should not be deported. 
-                print("warning: recovered documentation for symbol \(self.nodes[sponsored.offset].vertex.path)")
+                // print("warning: recovered documentation for symbol \(self.nodes[sponsored.offset].vertex.path)")
+                // print("> sponsor’s documentation:")
+                // print(papers)
+                // print("> alien’s documentation:")
+                // print(recovered)
+                // print("------------")
+                break
             }
         }
     }
