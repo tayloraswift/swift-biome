@@ -102,12 +102,10 @@ struct Symbol:Sendable, Identifiable
     struct CollisionError:Error
     {
         let id:ID
-        let module:Module.ID 
         
-        init(_ id:ID, from module:Module.ID)
+        init(_ id:ID)
         {
             self.id = id 
-            self.module = module 
         }
     }
     
@@ -212,7 +210,7 @@ struct Symbol:Sendable, Identifiable
         {
             try $0.map(scope.index(of:))
         }
-        self.relationships  = try .init(validating: node.relationships, color: node.vertex.color)
+        self.relationships = try .init(validating: node.relationships, color: node.vertex.color)
     }
     
     mutating 

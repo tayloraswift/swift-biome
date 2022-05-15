@@ -13,6 +13,11 @@ extension Symbol
     }
     enum Roles:Sendable 
     {
+        /// roles for global symbols, of which there are none.
+        case global
+        /// roles for mythical symbols, which we don’t have membership information for
+        case mythicalImplementation(of:[Index])
+        
         /// general roles for scoped symbols that are neither protocols, protocol 
         /// requirements, or subclasses.
         /// 
@@ -80,7 +85,5 @@ extension Symbol
         /// ``implementation(of:membership:)`` instead. top-level base classes 
         /// also do not use this case; they use ``global`` instead.
         case subclass(of:Index, membership:Index?)
-        /// roles for global symbols, of which there are none.
-        case global
     }
 }

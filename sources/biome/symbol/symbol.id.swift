@@ -24,6 +24,10 @@ extension Symbol
     {
         let string:String 
         
+        init(string:String)
+        {
+            self.string = string
+        }
         init<ASCII>(_ language:Language, _ mangled:ASCII) where ASCII:Collection, ASCII.Element == UInt8 
         {
             self.string = "\(language.rawValue)\(String.init(decoding: mangled, as: Unicode.ASCII.self))"

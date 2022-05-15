@@ -16,7 +16,7 @@ extension Symbol.ID
         self = try Grammar.parse(string.utf8, as: Symbol.USR.Rule<String.Index>.OpaqueName.self)
     }
     
-    func isUnderscoredProtocolMember(from module:Module.ID) -> Bool 
+    var interface:(culture:Module.ID, protocol:(name:String, id:Self))?
     {
         // if a vertex is non-canonical, the symbol id of its generic base 
         // always starts with a mangled protocol name. 
@@ -25,14 +25,17 @@ extension Symbol.ID
         // are only using this to detect symbols that are defined in extensions 
         // on underscored protocols.
         var input:ParsingInput<Grammar.NoDiagnostics> = .init(self.string.utf8)
-        switch input.parse(as: Symbol.USR.Rule<String.Index>.MangledProtocolName?.self)
+        guard case let (namespace, name)? = 
+            input.parse(as: Symbol.USR.Rule<String.Index>.MangledProtocolName?.self)
+        else 
         {
-        case    (perpetrator: module?, namespace: _,      let name)?, 
-                (perpetrator: nil,     namespace: module, let name)?:
-            return name.starts(with: "_") 
-        default: 
-            return false 
+            return nil 
         }
+        // parsing input shares indices with `self.string`
+        let id:Self = .init(string: .init(self.string[..<input.index]))
+        let culture:Module.ID = 
+            input.parse(as: Symbol.USR.Rule<String.Index>.MangledExtensionContext?.self) ?? namespace
+        return (culture, (name, id))
     }
 }
 extension Symbol.USR 
@@ -193,20 +196,26 @@ extension Symbol.USR.Rule
         typealias Terminal = UInt8
         static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
-            throws -> (perpetrator:Module.ID?, namespace:Module.ID, name:String)
+            throws -> (module:Module.ID, name:String)
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
             try input.parse(as: Encoding.S.Lowercase.self)
-            let namespace:Module.ID = try input.parse(as: MangledModuleName.self)
-            let (name, _):(String, Void) = try input.parse(as: (MangledIdentifier, Encoding.P.Uppercase).self)
-            if case let (perpetrator, _)? = try? input.parse(as: (MangledModuleName, Encoding.E.Uppercase).self)
-            {
-                return (perpetrator: perpetrator, namespace: namespace, name)
-            }
-            else 
-            {
-                return (perpetrator:         nil, namespace: namespace, name)
-            }
+            let module:Module.ID = try input.parse(as: MangledModuleName.self)
+            let name:String = try input.parse(as: MangledIdentifier.self)
+            try input.parse(as: Encoding.P.Uppercase.self)
+            return (module, name)
+        }
+    }
+    enum MangledExtensionContext:ParsingRule
+    {
+        typealias Terminal = UInt8
+        static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> Module.ID
+            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        {
+            let culture:Module.ID = try input.parse(as: MangledModuleName.self)
+            try input.parse(as: Encoding.E.Uppercase.self)
+            return culture
         }
     }
 }

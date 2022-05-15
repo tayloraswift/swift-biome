@@ -86,12 +86,13 @@ struct Preview:ServiceBackend
     init<S>(_ catalogs:S, controller:VersionController) async throws 
         where S:Sequence, S.Element == Package.Descriptor
     {
-        self.biome = .init(channels: [.symbol: "/reference", .article: "/learn"], 
-            template: .init(freezing: DefaultTemplates.documentation))
         // load the names of the swift standard library modules. 
         let standardModules:[Module.ID] = try controller.read(from: "swift.txt")
             .split(whereSeparator: \.isWhitespace)
             .map(Module.ID.init(_:))
+        
+        self.biome = .init(channels: [.symbol: "/reference", .article: "/learn"], 
+            template: .init(freezing: DefaultTemplates.documentation))
         // load the standard library 
         let standardLibrary:Package.Descriptor = .init(id: .swift, 
             modules: standardModules.map 
@@ -105,7 +106,6 @@ struct Preview:ServiceBackend
                 .init(package: .swift, modules: standardModules.filter { $0 != id })
             ])
         })
-        
         try self.biome.append(try await standardLibrary.load(with: controller).graph())
         
         // user-specified catalogs should contain absolute paths (since that is 

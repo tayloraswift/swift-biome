@@ -166,30 +166,30 @@ extension Package
             //  all of a module’s dependencies have unique names, so build a lookup 
             //  table for them. this lookup table enables this function to 
             //  run in quadratic time; otherwise it would be cubic!
-            let bystanders:[Module.ID: Module.Index] = 
+            let namespaces:[Module.ID: Module.Index] = 
                 .init(uniqueKeysWithValues: dependencies.joined())
             
             let culture:(id:Module.ID, index:Module.Index) =
                 (graph.core.namespace, .init(self.index, offset: offset))
             
             let core:Symbol.IndexRange = .init(culture.index, 
-                offsets: try buffer.extend(with: graph.core.vertices)
+                offsets: try buffer.extend(with: graph.core.vertices, of: culture)
             {
-                try self.register($1, at: $0, culture: culture)
+                try self.register($0, at: $1)
             })
             // let core:Symbol.IndexRange = .init(culture.index, offsets: 
             //     try self.register(graph.core, culture: culture, buffer: &buffer))
             let colonies:[Symbol.ColonialRange] = try graph.colonies.map
             {
-                guard let bystander:Module.Index = bystanders[$0.namespace]
+                guard let namespace:Module.Index = namespaces[$0.namespace]
                 else 
                 {
                     throw Module.ResolutionError.dependency($0.namespace, of: culture.id)
                 }
-                return .init(namespace: bystander, 
-                    offsets: try buffer.extend(with: $0.vertices)
+                return .init(namespace: namespace, 
+                    offsets: try buffer.extend(with: $0.vertices, of: culture)
                 {
-                    try self.register($1, at: $0, culture: culture)
+                    try self.register($0, at: $1)
                 })
             }
             // a vertex is top-level if it has exactly one path component. 
@@ -208,63 +208,11 @@ extension Package
     // symbols in the index tables without creating corresponding entries in the 
     // symbol buffer.
     private mutating 
-    func register(_ vertex:Vertex, at offset:Int, culture:(id:Module.ID, index:Module.Index)) 
-        throws -> Bool
+    func register(_ id:Symbol.ID, at index:Symbol.Index) throws
     {
-        // about half of the symbols in a typical symbol graph are non-canonical. 
-        // (i.e., they are inherited by victims). in theory, these symbols can 
-        // recieve documentation through article bindings, but it is very 
-        // unlikely that the symbol graph vertices themselves contain 
-        // useful information. 
-        // 
-        // that said, we cannot ignore non-canonical symbols altogether, because 
-        // if their canonical base originates from an underscored protocol 
-        // (or is implicitly private itself), then the non-canonical symbols 
-        // are our only source of information about the canonical base. 
-        // 
-        // example: UnsafePointer.predecessor() actually originates from 
-        // the witness `ss8_PointerPsE11predecessorxyF`, which is part of 
-        // the underscored `_Pointer` protocol.
-        var symbol:Symbol.Index { .init(culture.index, offset: offset) }
-        // FIXME: all vertices can have duplicates, even canonical ones, due to 
-        // the behavior of `@_exported import`.
-        guard case .synthesized = vertex.kind 
-        else 
+        if let _:Symbol.Index = self.symbol.indices.updateValue(index, forKey: id)
         {
-            if let _:Symbol.Index = self.symbol.indices.updateValue(symbol, forKey: vertex.content.id)
-            {
-                throw Symbol.CollisionError.init(vertex.content.id, from: culture.id) 
-            }
-            return true
-        }
-        // *not* subgraph.namespace !
-        guard case nil = self.symbol.indices.index(forKey: vertex.content.id)
-        else 
-        {
-            return false 
-        }
-        
-        // if the symbol is synthetic and belongs to an underscored 
-        // protocol, assume the generic base does not exist, and register 
-        // the synthesized copy anyway.
-        if vertex.content.id.isUnderscoredProtocolMember(from: culture.id)
-        {
-            print("note: inferred existence of mythical protocol extension member '\(vertex.content.id.string)' (\(vertex.content.id.description))")
-            self.symbol.indices.updateValue(symbol, forKey: vertex.content.id)
-            return true 
-        }
-        // if the symbol is unconditionally unavailable, assume the generic 
-        // base does not exist (omitted by SymbolGraphGen), and register the 
-        // synthesized copy anyway.
-        else if case true? = vertex.content.availability.general?.unavailable
-        {
-            print("note: inferred existence of unconditionally unavailable symbol '\(vertex.content.id.string)' (\(vertex.content.id.description))")
-            self.symbol.indices.updateValue(symbol, forKey: vertex.content.id)
-            return true 
-        }
-        else 
-        {
-            return false 
+            throw Symbol.CollisionError.init(id) 
         }
     }
 }

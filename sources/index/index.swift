@@ -60,8 +60,8 @@ extension Module
     struct Descriptor:Decodable 
     {
         let id:ID
-        let include:[String] 
-        let dependencies:[Graph.Dependency]
+        var include:[String] 
+        var dependencies:[Graph.Dependency]
         
         public 
         enum CodingKeys:String, CodingKey 

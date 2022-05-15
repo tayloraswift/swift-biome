@@ -86,7 +86,18 @@ extension Symbol
             self.opinions = [:]
             self.facts = .init()
             self.color = color 
-            if  case .protocol = color 
+            
+            if case .global(_) = color 
+            {
+                guard roles.isEmpty
+                else 
+                {
+                    fatalError("unreachable") 
+                }
+                self.roles = .global 
+                return 
+            }
+            else if case .protocol = color 
             {
                 // sanity check: should have thrown a ``MiscegenationError`` earlier
                 guard case (nil, nil, nil) = (membership, superclass, interface)
@@ -143,11 +154,16 @@ extension Symbol
                 }, membership: membership)
             
             case (membership: nil,             superclass: nil,             interface: nil):
-                self.roles = .global 
-                for role:Role in roles 
+                self.roles = .mythicalImplementation(of: roles.map 
                 {
-                    throw ExclusivityError.global(is: role)
-                }
+                    switch $0 
+                    {
+                    case .implementation(of: let upstream), .override(of: let upstream): 
+                        return upstream
+                    default: 
+                        fatalError("unreachable") 
+                    }
+                })
                 
             case (membership: let membership,  superclass: let superclass?, interface: nil):
                 self.roles = .subclass(of: superclass, membership: membership)
@@ -190,19 +206,18 @@ extension Edge
             (index.source, try color(index.source)),
             (index.target, try color(index.target))
         )
-        
-        let sponsorship:Symbol.Sponsorship? = self.origin.flatMap
+        // this fails quite frequently. we don’t have a great solution for this.
+        let sponsorship:Symbol.Sponsorship? 
+        if  let origin:Symbol.ID = self.origin, 
+            let origin:Symbol.Index = try? scope.index(of: origin)
         {
-            do 
-            {
-                return (sponsored: index.source, by: try scope.index(of: $0))
-            }
-            catch let error 
-            {
-                print("warning: \(error) while resolving sponsorship relation")
-                return nil 
-            }
+            sponsorship = (index.source, by: origin)
         }
+        else 
+        {
+            sponsorship = nil
+        }
+        
         let (secondary, primary):(Symbol.Relationship?, Symbol.Relationship) = 
             try self.kind.relationships(source, target, where: constraints)
 

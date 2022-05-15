@@ -160,7 +160,7 @@ extension Symbol
                     }
                 }
             
-            case .typealias: 
+            case .typealias, .global(_): 
                 for _:Trait in traits 
                 {
                     fatalError("unreachable")
@@ -195,10 +195,12 @@ extension Symbol
                     {
                     //  [0] (uninhabited)
                     //  [1] (uninhabited)
-                    //  [2] overriding callables (``downstream``)
+                    //  [2] overriding callables or restatements (``downstream``)
                     case .override(let downstream):
                         self.downstream.append(downstream)
-                    //  [3] (uninhabited)
+                    //  [3] default implementations (``implementations``)
+                    case .implementation(let implementation):
+                        self.implementations.append(implementation)
                     default: 
                         fatalError("unreachable")
                     }

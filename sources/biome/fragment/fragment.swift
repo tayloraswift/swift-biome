@@ -6,6 +6,14 @@ struct Fragment:NotebookFragment
     var text:String
     var link:Symbol.ID?
     var color:Color
+    
+    init(_ text:String, color:Color, link:Symbol.ID? = nil)
+    {
+        self.text = text 
+        self.color = color 
+        self.link = link
+    }
+    
 }
 extension Fragment 
 {

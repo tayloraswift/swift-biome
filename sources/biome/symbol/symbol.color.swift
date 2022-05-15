@@ -28,11 +28,13 @@ extension Symbol
             case  instanceProperty
             case  typeMethod
             case  instanceMethod
-            
             case `operator`
-            
+        }
+        enum Global:Sendable, Hashable 
+        {
             case `var`
             case `func`
+            case `operator`
         }
         
         case `associatedtype`
@@ -40,6 +42,7 @@ extension Symbol
         case `typealias`
         case  concretetype(ConcreteType)
         case  callable(Callable)
+        case  global(Global)
         
         static 
         let `class`:Self = .concretetype(.class)
@@ -54,7 +57,7 @@ extension Symbol
             case "swift.enum":              self = .concretetype(.enum)
             case "swift.struct":            self = .concretetype(.struct)
             case "swift.class":             self = .concretetype(.class)
-            case "swift.actor":             self = .concretetype(.actor)
+            case "swift.actor":             self = .concretetype(.actor) // not an actual color string
             case "swift.enum.case":         self = .callable(.case)
             case "swift.init":              self = .callable(.initializer)
             case "swift.deinit":            self = .callable(.deinitializer)
@@ -64,9 +67,10 @@ extension Symbol
             case "swift.property":          self = .callable(.instanceProperty)
             case "swift.type.method":       self = .callable(.typeMethod)
             case "swift.method":            self = .callable(.instanceMethod)
-            case "swift.func.op":           self = .callable(.operator)
-            case "swift.func":              self = .callable(.func)
-            case "swift.var":               self = .callable(.var)
+            case "swift.type.method.op":    self = .callable(.operator) // not an actual color string
+            case "swift.func.op":           self = .global(.operator)
+            case "swift.func":              self = .global(.func)
+            case "swift.var":               self = .global(.var)
             default: return nil
             }
         }
@@ -81,7 +85,7 @@ extension Symbol
             case .concretetype(.enum):          return "swift.enum"
             case .concretetype(.struct):        return "swift.struct"
             case .concretetype(.class):         return "swift.class"
-            case .concretetype(.actor):         return "swift.actor"
+            case .concretetype(.actor):         return "swift.actor" // not an actual color string
             case .callable(.case):              return "swift.enum.case"
             case .callable(.initializer):       return "swift.init"
             case .callable(.deinitializer):     return "swift.deinit"
@@ -91,30 +95,20 @@ extension Symbol
             case .callable(.instanceProperty):  return "swift.property"
             case .callable(.typeMethod):        return "swift.type.method"
             case .callable(.instanceMethod):    return "swift.method"
-            case .callable(.operator):          return "swift.func.op"
-            case .callable(.func):              return "swift.func"
-            case .callable(.var):               return "swift.var"
+            case .callable(.operator):          return "swift.type.method.op" // not an actual color string
+            case .global(.operator):            return "swift.func.op"
+            case .global(.func):                return "swift.func"
+            case .global(.var):                 return "swift.var"
             }
         }
         
-        @available(*, deprecated)
-        var capitalized:Bool 
-        {
-            switch self
-            {
-            case .associatedtype, .concretetype, .typealias, .protocol:
-                return true
-            case .callable:
-                return false
-            }
-        }
         var orientation:Orientation 
         {
             switch self
             {
             case .concretetype(_), .associatedtype, .protocol, .typealias:
                 return .straight
-            case .callable(_):
+            case .callable(_), .global(_):
                 return .gay
             }
         }
@@ -139,9 +133,10 @@ extension Symbol
             case .callable(.instanceProperty):  return "Instance Property"
             case .callable(.typeMethod):        return "Type Method"
             case .callable(.instanceMethod):    return "Instance Method"
-            case .callable(.operator):          return "Operator"
-            case .callable(.func):              return "Function"
-            case .callable(.var):               return "Global Variable"
+            case .callable(.operator):          return "Type Operator"
+            case .global(.operator):            return "Global Operator"
+            case .global(.func):                return "Global Function"
+            case .global(.var):                 return "Global Variable"
             }
         }
     }

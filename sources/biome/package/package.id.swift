@@ -40,7 +40,7 @@ extension Package
         {
             switch self.kind
             {
-            case .swift:                return "(swift)"
+            case .swift:                return "swift"
             case .community(let name):  return name 
             }
         }

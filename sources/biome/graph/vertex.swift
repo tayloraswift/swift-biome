@@ -5,8 +5,8 @@ struct Vertex:Sendable
 {
     enum Kind:Sendable
     {
-        case natural 
-        case synthesized
+        case natural
+        case synthesized(namespace:Module.ID)
     }
     struct Content:Sendable
     {
@@ -19,7 +19,6 @@ struct Vertex:Sendable
         var generics:[Generic] 
         var genericConstraints:[Generic.Constraint<Symbol.ID>] 
         var extensionConstraints:[Generic.Constraint<Symbol.ID>] 
-        var extendedModule:Module.ID?
     }
     
     var kind:Kind
@@ -32,6 +31,30 @@ extension Vertex
     {
         (self.kind, self.content, self.comment) = try json.lint 
         {
+            let `extension`:(extendedModule:Module.ID, constraints:[Generic.Constraint<Symbol.ID>])? = 
+                try $0.pop("swiftExtension")
+            {
+                let (module, constraints):(String, [Generic.Constraint<Symbol.ID>]) = try $0.lint
+                {
+                    (
+                        try $0.remove("extendedModule", as: String.self),
+                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(Generic.Constraint.init(from:)) } ?? []
+                    )
+                }
+                return (.init(module), constraints)
+            }
+            let generics:(parameters:[Generic], constraints:[Generic.Constraint<Symbol.ID>])? = 
+                try $0.pop("swiftGenerics")
+            {
+                try $0.lint 
+                {
+                    (
+                        try $0.pop("parameters",  as: [JSON]?.self) { try $0.map(Generic.init(from:)) } ?? [],
+                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(Generic.Constraint.init(from:)) } ?? []
+                    )
+                }
+            }
+            
             let (kind, id):(Kind, Symbol.ID) = try $0.remove("identifier")
             {
                 let string:String = try $0.lint(["interfaceLanguage"])
@@ -43,17 +66,35 @@ extension Vertex
                 case .natural(let id): 
                     return (.natural, id)
                 case .synthesized(from: let id, for: _): 
-                    return (.synthesized, id)
-                }
-            }
-            let color:Symbol.Color = try $0.remove("kind")
-            {
-                try $0.lint(["displayName"])
-                {
-                    try $0.remove("identifier") { try $0.case(of: Symbol.Color.self) }
+                    // synthesized symbols always live in extensions
+                    guard let namespace:Module.ID = `extension`?.extendedModule
+                    else 
+                    {
+                        // FIXME: we should throw an error instead 
+                        fatalError("FIXME")
+                    }
+                    return (.synthesized(namespace: namespace), id)
                 }
             }
             let path:[String] = try $0.remove("pathComponents") { try $0.map { try $0.as(String.self) } }
+            let color:Symbol.Color = try $0.remove("kind")
+            {
+                let color:Symbol.Color = try $0.lint(["displayName"])
+                {
+                    try $0.remove("identifier") { try $0.case(of: Symbol.Color.self) }
+                }
+                // if the symbol is an operator and it has more than one path component, 
+                // consider it a type operator. 
+                if case .global(.operator) = color, path.count > 1
+                {
+                    return .callable(.operator)
+                }
+                else 
+                {
+                    return color
+                }
+            }
+            
             let _:Symbol.AccessLevel = try $0.remove("accessLevel") { try $0.case(of: Symbol.AccessLevel.self) }
             
             let declaration:Notebook<Fragment.Color, Symbol.ID> = .init(
@@ -88,29 +129,7 @@ extension Vertex
             {
                 _ in ()
             }
-            let `extension`:(extendedModule:Module.ID, constraints:[Generic.Constraint<Symbol.ID>])? = 
-                try $0.pop("swiftExtension")
-            {
-                let (module, constraints):(String, [Generic.Constraint<Symbol.ID>]) = try $0.lint
-                {
-                    (
-                        try $0.remove("extendedModule", as: String.self),
-                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(Generic.Constraint.init(from:)) } ?? []
-                    )
-                }
-                return (.init(module), constraints)
-            }
-            let generics:(parameters:[Generic], constraints:[Generic.Constraint<Symbol.ID>])? = 
-                try $0.pop("swiftGenerics")
-            {
-                try $0.lint 
-                {
-                    (
-                        try $0.pop("parameters",  as: [JSON]?.self) { try $0.map(Generic.init(from:)) } ?? [],
-                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(Generic.Constraint.init(from:)) } ?? []
-                    )
-                }
-            }
+
             let availability:Symbol.Availability? = 
                 try $0.pop("availability", as: [JSON]?.self)
             {
@@ -168,8 +187,7 @@ extension Vertex
                 declaration:            declaration, 
                 generics:               generics?.parameters ?? [], 
                 genericConstraints:     generics?.constraints ?? [], 
-                extensionConstraints:  `extension`?.constraints ?? [], 
-                extendedModule:        `extension`?.extendedModule)
+                extensionConstraints:  `extension`?.constraints ?? [])
             return (kind, content, comment ?? "")
         }
     }
