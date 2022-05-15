@@ -191,7 +191,12 @@ extension Package
             case nil:
                 // cannot sponsor symbols from another package (but symbols in 
                 // another package can sponsor symbols in this package)
-                throw Symbol.SponsorshipError.unauthorized(self.package, says: sponsored, isSponsoredBy: sponsor)
+                
+                // FIXME: we need to handle this error! it indicates that data is 
+                // also being duplicated ELSEWHERE
+                
+                // throw Symbol.SponsorshipError.unauthorized(self.package, says: sponsored, isSponsoredBy: sponsor)
+                break
             
             case .sponsored(by: sponsor):
                 // documentation has already been de-deduplicated

@@ -7,7 +7,7 @@ extension Symbol
     enum SponsorshipError:Error 
     {
         case disputed                        (Index, isSponsoredBy:Index, and:Index)
-        case unauthorized(Package.Index, says:Index, isSponsoredBy:Index)
+    //    case unauthorized(Package.Index, says:Index, isSponsoredBy:Index)
     }
     enum RelationshipError:Error 
     {
