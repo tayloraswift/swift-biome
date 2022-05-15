@@ -5,11 +5,16 @@
 /// accessing foreign packages.
 struct Ecosystem 
 {
+    let standardModules:[Module.ID]
+    let coreModules:[Module.ID]
+    
     var packages:[Package], 
         indices:[Package.ID: Package.Index]
     
-    init()
+    init(standardModules:[Module.ID])
     {
+        self.standardModules = standardModules
+        self.coreModules = []
         self.packages = []
         self.indices = [:]
     }
@@ -62,6 +67,7 @@ struct Ecosystem
         }
         let index:Package.Index = .init(offset: self.packages.endIndex)
         self.packages.append(.init(id: package, index: index))
+        self.indices[package] = index
         return index
     }
 }

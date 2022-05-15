@@ -135,6 +135,27 @@ extension Package
             throw Module.ResolutionError.target(module, in: self.id)
         }
     }
+    // this may include the current module itself!
+    private 
+    func resolve(dependencies:[Module.Graph.Dependency], given ecosystem:Ecosystem) 
+        throws -> [[(Module.ID, Module.Index)]]
+    {
+        let implicit:[Module.Graph.Dependency] = 
+        [
+            .init(package: .swift, modules: ecosystem.standardModules),
+        ]
+        return try [implicit, dependencies].joined().map 
+        {
+            if let package:Self = self.id == $0.package ? self : ecosystem[$0.package]
+            {
+                return try $0.modules.map { ($0, try package.index(of: $0)) }
+            }
+            else 
+            {
+                throw Package.ResolutionError.dependency($0.package, of: self.id)
+            }
+        }
+    }
     // this method leaves `self` in a temporarily-invalid state, as it creates
     // modules that reference symbols in the symbol buffer that do not yet exist.
     private mutating 
@@ -152,17 +173,8 @@ extension Package
         var buffer:NodeBuffer = .init(package: self.index)
         for (offset, graph):(Int, Module.Graph) in graphs.enumerated() 
         {
-            let dependencies:[[(Module.ID, Module.Index)]] = try graph.dependencies.map 
-            {
-                if let package:Self = self.id == $0.package ? self : ecosystem[$0.package]
-                {
-                    return try $0.modules.map { ($0, try package.index(of: $0)) }
-                }
-                else 
-                {
-                    throw Package.ResolutionError.dependency($0.package, of: self.id)
-                }
-            }
+            let dependencies:[[(Module.ID, Module.Index)]] = 
+                try self.resolve(dependencies: graph.dependencies, given: ecosystem)
             //  all of a module’s dependencies have unique names, so build a lookup 
             //  table for them. this lookup table enables this function to 
             //  run in quadratic time; otherwise it would be cubic!
@@ -199,7 +211,15 @@ extension Package
             }
             let module:Module = .init(id: culture.id, 
                 core: core, colonies: colonies, toplevel: toplevel, 
-                dependencies: dependencies.map { $0.map(\.1) })
+                dependencies: dependencies.map 
+                { 
+                    // filter out self-references
+                    $0.map(\.1).filter { $0 != culture.index }
+                }
+                .filter 
+                {
+                    !$0.isEmpty
+                })
             self.module.buffer.append(module)
         }
         return buffer

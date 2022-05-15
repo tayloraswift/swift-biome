@@ -92,19 +92,14 @@ struct Preview:ServiceBackend
             .map(Module.ID.init(_:))
         
         self.biome = .init(channels: [.symbol: "/reference", .article: "/learn"], 
+            standardModules: standardModules, 
             template: .init(freezing: DefaultTemplates.documentation))
         // load the standard library 
         let standardLibrary:Package.Descriptor = .init(id: .swift, 
             modules: standardModules.map 
         {
-            (id:Module.ID) in 
             // use a relative path, since this is from a git repository. 
-            .init(id: id, include: ["swift/\(id.string)"], dependencies: 
-            [
-                // every standard library module depends on every other standard 
-                // library module, except itself.
-                .init(package: .swift, modules: standardModules.filter { $0 != id })
-            ])
+            .init(id: $0, include: ["swift/\($0.string)"], dependencies: [])
         })
         try self.biome.append(try await standardLibrary.load(with: controller).graph())
         

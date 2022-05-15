@@ -42,9 +42,10 @@ struct Biome
     
     public 
     init(channels:[Documentation.Channel: String] = [:], 
+        standardModules:[Module.ID], 
         template:DocumentTemplate<Documentation.Anchor, [UInt8]>) 
     {
-        self.ecosystem = .init()
+        self.ecosystem = .init(standardModules: standardModules)
         self.paths = .init()
         
         self.template = template 
