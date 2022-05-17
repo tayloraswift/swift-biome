@@ -27,15 +27,13 @@ extension Symbol
         case `is`(Role)
         case has(Trait)
     }
-    struct Relationships:Sendable 
+    struct Relationships:Equatable, Sendable 
     {
-        let color:Color
         let roles:Roles
         private(set)
-        var facts:Traits, 
-            opinions:[Package.Index: Traits]
+        var facts:Traits
         
-        init(validating relationships:[Relationship], color:Color) throws 
+        init(validating relationships:[Relationship], as color:Color) throws 
         {
             // partition relationships buffer 
             var roles:[Role] = []
@@ -76,112 +74,13 @@ extension Symbol
                 }
             }
             
-            try self.init(membership: membership, superclass: superclass, interface: interface, 
-                roles: roles, color: color)
-            self.update(traits: traits)
-        }
-        private 
-        init(membership:Index?, superclass:Index?, interface:Index?, roles:[Role], color:Color) throws
-        {
-            self.opinions = [:]
+            self.roles = try .init(roles, 
+                membership: membership, 
+                superclass: superclass, 
+                interface: interface, 
+                as: color)
             self.facts = .init()
-            self.color = color 
-            
-            if case .global(_) = color 
-            {
-                guard roles.isEmpty
-                else 
-                {
-                    fatalError("unreachable") 
-                }
-                self.roles = .global 
-                return 
-            }
-            else if case .protocol = color 
-            {
-                // sanity check: should have thrown a ``MiscegenationError`` earlier
-                guard case (nil, nil, nil) = (membership, superclass, interface)
-                else 
-                {
-                    fatalError("unreachable")
-                }
-                
-                var requirements:[Index] = [], 
-                    upstream:[Index] = []
-                for role:Role in roles 
-                {
-                    switch role 
-                    {
-                    case .interface(of: let requirement):
-                        requirements.append(requirement)
-                    case .refinement(of: let `protocol`):
-                        upstream.append(`protocol`)
-                    default: 
-                        fatalError("unreachable") 
-                    }
-                }
-                self.roles = .interface(of: requirements, upstream: upstream)
-                return 
-            }
-            
-            switch (membership: membership, superclass: superclass, interface: interface) 
-            {
-            case (membership: let membership?, superclass: _,               interface: let interface?):
-                throw ExclusivityError.requirement(of: interface, and: .member(of: membership))
-                
-            case (membership: nil,             superclass: _,               interface: let interface?):
-                self.roles = .requirement(of: interface, upstream: try roles.map 
-                {
-                    switch $0 
-                    {
-                    case .override(of: let upstream): 
-                        return upstream
-                    default: 
-                        throw ExclusivityError.requirement(of: interface, and: $0)
-                    }
-                })
-                
-            case (membership: let membership?, superclass: nil,             interface: nil):
-                self.roles = .implementation(of: roles.map 
-                {
-                    switch $0 
-                    {
-                    case .implementation(of: let upstream), .override(of: let upstream): 
-                        return upstream
-                    default: 
-                        fatalError("unreachable") 
-                    }
-                }, membership: membership)
-            
-            case (membership: nil,             superclass: nil,             interface: nil):
-                self.roles = .mythicalImplementation(of: roles.map 
-                {
-                    switch $0 
-                    {
-                    case .implementation(of: let upstream), .override(of: let upstream): 
-                        return upstream
-                    default: 
-                        fatalError("unreachable") 
-                    }
-                })
-                
-            case (membership: let membership,  superclass: let superclass?, interface: nil):
-                self.roles = .subclass(of: superclass, membership: membership)
-                for role:Role in roles 
-                {
-                    throw ExclusivityError.subclass(of: superclass, and: role)
-                }
-            }
-        }
-        private mutating 
-        func update(traits:[Trait])  
-        {
-            self.facts.update(with: traits, as: self.color)
-        }
-        mutating 
-        func update(traits:[Trait], from package:Package.Index)  
-        {
-            self.opinions[package, default: .init()].update(with: traits, as: self.color)
+            self.facts.update(with: traits, as: color)
         }
     }
 }

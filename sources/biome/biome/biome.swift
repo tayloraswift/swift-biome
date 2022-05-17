@@ -25,13 +25,13 @@ struct Biome
     private 
     let keyword:
     (
-        package:Symbol.Key.Component, 
-        module:Symbol.Key.Component, 
-        symbol:Symbol.Key.Component, 
-        article:Symbol.Key.Component,
+        package:Symbol.Key.Stem, 
+        module:Symbol.Key.Stem, 
+        symbol:Symbol.Key.Stem, 
+        article:Symbol.Key.Stem,
         
-        sitemap:Symbol.Key.Component,
-        lunr:Symbol.Key.Component
+        sitemap:Symbol.Key.Stem,
+        lunr:Symbol.Key.Stem
     )
     private 
     let template:DocumentTemplate<Documentation.Anchor, [UInt8]>
@@ -58,13 +58,13 @@ struct Biome
         )
         self.keyword = 
         (
-            package:    self.paths.register(leaf: self.channels.package),
-            module:     self.paths.register(leaf: self.channels.module),
-            symbol:     self.paths.register(leaf: self.channels.symbol),
-            article:    self.paths.register(leaf: self.channels.article),
+            package:    self.paths.register(component: self.channels.package),
+            module:     self.paths.register(component: self.channels.module),
+            symbol:     self.paths.register(component: self.channels.symbol),
+            article:    self.paths.register(component: self.channels.article),
             
-            sitemap:    self.paths.register(leaf: "sitemap"),
-            lunr:       self.paths.register(leaf: "lunr")
+            sitemap:    self.paths.register(component: "sitemap"),
+            lunr:       self.paths.register(component: "lunr")
         )
     }
     

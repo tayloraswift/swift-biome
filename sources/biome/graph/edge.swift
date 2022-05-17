@@ -21,6 +21,17 @@ struct Edge:Hashable, Sendable
     var target:Symbol.ID
     var origin:Symbol.ID?
     var constraints:[Generic.Constraint<Symbol.ID>]
+    
+    init(_ source:Symbol.ID, is kind:Kind, of target:Symbol.ID)
+    {
+        assert(kind == .conformer || constraints.isEmpty)
+        
+        self.kind = kind 
+        self.source = source 
+        self.target = target 
+        self.origin = nil 
+        self.constraints = []
+    }
 }
 extension Edge 
 {

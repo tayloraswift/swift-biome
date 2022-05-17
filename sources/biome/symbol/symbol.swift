@@ -1,5 +1,3 @@
-import Notebook
-
 struct Symbol:Sendable, Identifiable  
 {
     /// A globally-unique index referencing a symbol. 
@@ -109,113 +107,47 @@ struct Symbol:Sendable, Identifiable
         }
     }
     
-    enum AccessLevel:String, Sendable
-    {
-        case `private` 
-        case `fileprivate`
-        case `internal`
-        case `public`
-        case `open`
-    }
-
-    enum Legality:Hashable, Sendable 
-    {
-        // we must store the comment, otherwise packages that depend on the package 
-        // this symbol belongs to will not be able to reliably de-duplicate documentation
-        static 
-        let undocumented:Self = .documented("")
-        
-        case documented(String)
-        case sponsored(by:Index)
-    }
-    
+    // these stored properties are constant with respect to symbol identity. 
     let id:ID
+    let key:Key
     let name:String 
     //  TODO: see if small-array optimizations here are beneficial, since this could 
     //  often be a single-element array
     /// The enclosing scope this symbol is defined in. If the symbol is a protocol 
     /// extension member, this contains the name of the protocol.
-    let scope:[String]
+    let nest:[String]
+    let color:Color
+    
+    var latest:Int?
+    var _opinions:[Package.Index: Traits]
+    // var history:[(range:Range<Package.Version>, declaration:Int)]
+    
     //  this is only the same as the perpetrator if this symbol is part of its 
     //  core symbol graph.
-    let namespace:Module.Index 
-    private 
-    let component:(full:Key.Component, stem:Key.Component, leaf:Key.Component)
-    
-    let legality:Legality
-    let signature:Notebook<Fragment.Color, Never>
-    let declaration:Notebook<Fragment.Color, Index>
-    let generics:[Generic], 
-        genericConstraints:[Generic.Constraint<Index>], 
-        extensionConstraints:[Generic.Constraint<Index>]
-    let availability:Availability
-    private(set)
-    var relationships:Relationships
-    
-    var color:Color 
+    var namespace:Module.Index 
     {
-        self.relationships.color
+        self.key.namespace
     }
     var orientation:Orientation
     {
-        self.relationships.color.orientation
+        self.color.orientation
     }
     
-    var key:Key 
+    init(id:ID, key:Key, nest:[String], name:String, color:Color)
     {
-        .init(self.namespace, stem: self.component.stem, leaf:    self.component.leaf, orientation:    self.orientation)
-    }
-    func key(feature:Self) -> Key 
-    {
-        .init(self.namespace, stem: self.component.full, leaf: feature.component.leaf, orientation: feature.orientation)
-    }
-    
-    init(_ node:Package.Node, namespace:Module.Index, scope:Scope, paths:inout PathTable) throws 
-    {
-        self.legality       = node.legality
+        self.id = id 
+        self.key = key 
+        self.name = name 
+        self.nest = nest 
+        self.color = color 
         
-        self.id             =       node.vertex.id
-        self.name           =       node.vertex.path[node.vertex.path.endIndex - 1]
-        self.scope          = .init(node.vertex.path.dropLast())
-        
-        self.namespace      = namespace
-        self.component.full = paths.register(stem: node.vertex.path)
-        self.component.stem = paths.register(stem: self.scope)
-        self.component.leaf = paths.register(leaf: self.name)
-        
-        self.availability   = node.vertex.availability 
-        self.generics       = node.vertex.generics
-        self.signature      = node.vertex.signature
-        // even with mythical symbol inference, it is still possible or 
-        // declarations to reference non-existent USRs, e.g. 'ss14_UnicodeParserP8EncodingQa'
-        // (Swift._UnicodeParser.Encoding)
-        self.declaration    = node.vertex.declaration.compactMap 
-        {
-            do 
-            {
-                return try scope.index(of: $0)
-            }
-            catch let error 
-            {
-                print("warning: \(error)")
-                return nil 
-            }
-        }
-        // self.declaration    = try node.vertex.declaration.map(scope.index(of:))
-        self.genericConstraints = try node.vertex.genericConstraints.map
-        {
-            try $0.map(scope.index(of:))
-        }
-        self.extensionConstraints = try node.vertex.extensionConstraints.map
-        {
-            try $0.map(scope.index(of:))
-        }
-        self.relationships = try .init(validating: node.relationships, color: node.vertex.color)
+        self.latest = nil 
+        self._opinions = [:]
     }
     
     mutating 
     func update(traits:[Trait], from package:Package.Index)  
     {
-        self.relationships.update(traits: traits, from: package)
+        self.opinions[package, default: .init()].update(with: traits, as: self.color)
     }
 }

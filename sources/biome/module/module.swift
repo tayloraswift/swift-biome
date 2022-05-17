@@ -24,17 +24,19 @@ struct Module:Identifiable, Sendable
     
     public 
     let id:ID
+    let index:Index 
     
+    var matrix:[Symbol.ColonialRange]
     /// the complete list of symbols vended by this module. the ranges are *contiguous*.
     /// ``core`` contains the symbols with the lowest addresses.
-    let core:Symbol.IndexRange
-    let colonies:[Symbol.ColonialRange]
+    // let core:Symbol.IndexRange
+    // let colonies:[Symbol.ColonialRange]
     /// the symbols scoped to this module’s top-level namespace. every index in 
     /// this array falls within the range of ``core``, since it is not possible 
     /// to extend the top-level namespace of a module.
-    let toplevel:[Symbol.Index]
+    var toplevel:[Symbol.Index]
     /// the list of modules this module depends on, grouped by package. 
-    let dependencies:[[Module.Index]]
+    // let dependencies:[[Module.Index]]
     
     /// this module’s exact identifier string, e.g. '_Concurrency'
     var name:String 
@@ -54,18 +56,15 @@ struct Module:Identifiable, Sendable
     }
     
     // only the core subgraph can contain top-level symbols.
-    init(id:ID, core:Symbol.IndexRange, colonies:[Symbol.ColonialRange], toplevel:[Symbol.Index], 
-        dependencies:[[Module.Index]])
+    init(id:ID)
     {
         self.id = id 
-        self.core = core 
-        self.colonies = colonies 
-        self.toplevel = toplevel
-        self.dependencies = dependencies
+        self.matrix = []
+        self.toplevel = []
     }
     
     /// all symbols declared by this module, including symbols in other namespaces 
-    var symbols:Symbol.IndexRange
+    /* var symbols:Symbol.IndexRange
     {
         if let last:Symbol.ColonialRange = self.colonies.last 
         {
@@ -75,5 +74,5 @@ struct Module:Identifiable, Sendable
         {
             return self.core 
         }
-    }
+    } */
 }

@@ -1,6 +1,8 @@
 extension Symbol 
 {
-    enum Trait 
+    // FIXME: the ``Equatable`` conformance is probably broken; it should 
+    // really be comparing the constraints arrays as ``Set``s.
+    enum Trait:Equatable
     {
         // members 
         case member(Index)
@@ -16,7 +18,9 @@ extension Symbol
         // conformances
         case conformance(Index, where:[Generic.Constraint<Index>])
     }
-    struct Traits:Sendable 
+    // FIXME: the ``Equatable`` conformance is probably broken; it should 
+    // really be comparing ``Set``s.
+    struct Traits:Equatable, Sendable 
     {
         /// if a concrete type, the members of this type, not including members 
         /// inherited through protocol conformances. 

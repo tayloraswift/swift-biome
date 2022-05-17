@@ -1,6 +1,6 @@
 extension Symbol 
 {
-    enum Role 
+    enum Role:Hashable, Sendable 
     {
         case member(of:Index)
         case implementation(of:Index)
@@ -11,7 +11,9 @@ extension Symbol
         case interface(of:Index)
         case requirement(of:Index)
     }
-    enum Roles:Sendable 
+    // FIXME: the ``Equatable`` conformance is probably broken; it should 
+    // really be comparing ``Set``s.
+    enum Roles:Equatable, Sendable 
     {
         /// roles for global symbols, of which there are none.
         case global
@@ -85,5 +87,95 @@ extension Symbol
         /// ``implementation(of:membership:)`` instead. top-level base classes 
         /// also do not use this case; they use ``global`` instead.
         case subclass(of:Index, membership:Index?)
+        
+        init(_ roles:[Role], membership:Index?, superclass:Index?, interface:Index?, as color:Color) 
+            throws
+        {
+            if case .global(_) = color 
+            {
+                guard roles.isEmpty
+                else 
+                {
+                    fatalError("unreachable") 
+                }
+                self = .global 
+                return 
+            }
+            else if case .protocol = color 
+            {
+                // sanity check: should have thrown a ``MiscegenationError`` earlier
+                guard case (nil, nil, nil) = (membership, superclass, interface)
+                else 
+                {
+                    fatalError("unreachable")
+                }
+                
+                var requirements:[Index] = [], 
+                    upstream:[Index] = []
+                for role:Role in roles 
+                {
+                    switch role 
+                    {
+                    case .interface(of: let requirement):
+                        requirements.append(requirement)
+                    case .refinement(of: let `protocol`):
+                        upstream.append(`protocol`)
+                    default: 
+                        fatalError("unreachable") 
+                    }
+                }
+                self = .interface(of: requirements, upstream: upstream)
+                return 
+            }
+            
+            switch (membership: membership, superclass: superclass, interface: interface) 
+            {
+            case (membership: let membership?, superclass: _,               interface: let interface?):
+                throw ExclusivityError.requirement(of: interface, and: .member(of: membership))
+                
+            case (membership: nil,             superclass: _,               interface: let interface?):
+                self = .requirement(of: interface, upstream: try roles.map 
+                {
+                    switch $0 
+                    {
+                    case .override(of: let upstream): 
+                        return upstream
+                    default: 
+                        throw ExclusivityError.requirement(of: interface, and: $0)
+                    }
+                })
+                
+            case (membership: let membership?, superclass: nil,             interface: nil):
+                self = .implementation(of: roles.map 
+                {
+                    switch $0 
+                    {
+                    case .implementation(of: let upstream), .override(of: let upstream): 
+                        return upstream
+                    default: 
+                        fatalError("unreachable") 
+                    }
+                }, membership: membership)
+            
+            case (membership: nil,             superclass: nil,             interface: nil):
+                self = .mythicalImplementation(of: roles.map 
+                {
+                    switch $0 
+                    {
+                    case .implementation(of: let upstream), .override(of: let upstream): 
+                        return upstream
+                    default: 
+                        fatalError("unreachable") 
+                    }
+                })
+                
+            case (membership: let membership,  superclass: let superclass?, interface: nil):
+                self = .subclass(of: superclass, membership: membership)
+                for role:Role in roles 
+                {
+                    throw ExclusivityError.subclass(of: superclass, and: role)
+                }
+            }
+        }
     }
 }

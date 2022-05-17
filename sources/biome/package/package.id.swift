@@ -11,6 +11,7 @@ extension Package
         enum Kind:Hashable, Comparable, Sendable 
         {
             case swift 
+            case core
             case community(String)
         }
         
@@ -32,6 +33,7 @@ extension Package
             switch self.kind
             {
             case .swift:                return "swift-standard-library"
+            case .core:                 return "swift-core"
             case .community(let name):  return name 
             }
         }
@@ -41,6 +43,7 @@ extension Package
             switch self.kind
             {
             case .swift:                return "swift"
+            case .core:                 return "swift-core"
             case .community(let name):  return name 
             }
         }

@@ -9,18 +9,23 @@ struct Scope
     //  a dictionary result in the local package, if the foreign package contains 
     //  a module that shadows one of the modules in the local package (as long 
     //  as the target itself does not also depend upon the shadowed local module.)
-    let vantage:Module.Index
-    
     private 
-    let filter:Set<Module.Index>
+    var filter:Set<Module.Index>
     private 
-    let lenses:[[Symbol.ID: Symbol.Index]]
+    var lenses:[[Symbol.ID: Symbol.Index]]
     
-    init(vantage:Module.Index, filter:Set<Module.Index>, lenses:[[Symbol.ID: Symbol.Index]])
+    init(filter:Set<Module.Index>, lenses:[[Symbol.ID: Symbol.Index]])
     {
-        self.vantage = vantage
         self.filter = filter 
         self.lenses = lenses 
+    }
+    
+    mutating 
+    func `import`<S>(_ modules:S, lens:[Symbol.ID: Symbol.Index])
+        where S:Sequence, S.Element == Module.Index
+    {
+        self.filter.formUnion(modules)
+        self.lenses.append(lens)
     }
     
     func index(of symbol:Symbol.ID) throws -> Symbol.Index 
@@ -34,7 +39,6 @@ struct Scope
             throw Symbol.ResolutionError.id(symbol)
         } 
     }
-    private 
     subscript(symbol:Symbol.ID) -> Symbol.Index?
     {
         for lens:Int in self.lenses.indices

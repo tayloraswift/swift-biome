@@ -27,7 +27,7 @@ struct Ecosystem
     {
         _read 
         {
-            yield self.packages[package.offset]
+            yield  self.packages[package.offset]
         }
         _modify 
         {
@@ -38,23 +38,15 @@ struct Ecosystem
     {
         _read 
         {
-            yield self.packages[module.package.offset].module.buffer[module.offset]
+            yield self.packages[       module.package.offset][local: module]
         }
-        /* _modify 
-        {
-            yield &self.packages[module.package.offset].module.buffer[module.offset]
-        } */
     } 
     subscript(symbol:Symbol.Index) -> Symbol
     {
         _read 
         {
-            yield self.packages[symbol.module.package.offset].symbol.buffer[symbol.offset]
+            yield self.packages[symbol.module.package.offset][local: symbol]
         }
-        /* _modify 
-        {
-            yield &self.packages[symbol.module.package.offset].symbol.buffer[symbols.offset]
-        } */
     } 
     /// returns the index of the entry for the given package, creating it if it 
     /// does not already exist.

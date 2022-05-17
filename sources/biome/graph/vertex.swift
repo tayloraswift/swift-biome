@@ -1,35 +1,53 @@
 import JSON 
 import Notebook
 
-struct Vertex:Sendable
+struct Image:Sendable
 {
     enum Kind:Sendable
     {
         case natural
-        case synthesized(namespace:Module.ID)
+        case synthesized(namespace:Module.ID) // namespace of natural base
     }
-    struct Content:Sendable
+    
+    let id:Symbol.ID
+    var kind:Kind
+    var vertex:Vertex
+    
+    var canonical:(id:Symbol.ID, vertex:Vertex)?
     {
-        var id:Symbol.ID 
-        var path:[String] 
-        var color:Symbol.Color 
-        var availability:Symbol.Availability 
-        var signature:Notebook<Fragment.Color, Never> 
+        if case .natural = self.kind 
+        {
+            return (self.id, self.vertex)
+        }
+        else 
+        {
+            return nil
+        }
+    }
+}
+struct Vertex:Sendable
+{
+    struct Frame:Sendable 
+    {
+        var availability:Availability 
         var declaration:Notebook<Fragment.Color, Symbol.ID> 
+        var signature:Notebook<Fragment.Color, Never> 
         var generics:[Generic] 
         var genericConstraints:[Generic.Constraint<Symbol.ID>] 
         var extensionConstraints:[Generic.Constraint<Symbol.ID>] 
+        var comment:String
     }
     
-    var kind:Kind
-    var content:Content
-    var comment:String
+    var path:[String] 
+    var color:Symbol.Color 
+    var frame:Frame
 }
-extension Vertex 
+
+extension Image
 {
     init(from json:JSON) throws 
     {
-        (self.kind, self.content, self.comment) = try json.lint 
+        (self.id, self.kind, self.vertex) = try json.lint 
         {
             let `extension`:(extendedModule:Module.ID, constraints:[Generic.Constraint<Symbol.ID>])? = 
                 try $0.pop("swiftExtension")
@@ -95,7 +113,7 @@ extension Vertex
                 }
             }
             
-            let _:Symbol.AccessLevel = try $0.remove("accessLevel") { try $0.case(of: Symbol.AccessLevel.self) }
+            let _:AccessLevel = try $0.remove("accessLevel") { try $0.case(of: AccessLevel.self) }
             
             let declaration:Notebook<Fragment.Color, Symbol.ID> = .init(
                 try $0.remove("declarationFragments") { try $0.map(Fragment.init(from:)) })
@@ -130,32 +148,32 @@ extension Vertex
                 _ in ()
             }
 
-            let availability:Symbol.Availability? = 
+            let availability:Availability? = 
                 try $0.pop("availability", as: [JSON]?.self)
             {
-                let availability:[(key:Symbol.AvailabilityDomain, value:Symbol.VersionedAvailability)] = 
+                let availability:[(key:AvailabilityDomain, value:VersionedAvailability)] = 
                 try $0.map 
                 {
                     try $0.lint
                     {
-                        let deprecated:Package.Version?? = try
-                            $0.pop("deprecated", Package.Version.init(from:)) ?? 
+                        let deprecated:Version?? = try
+                            $0.pop("deprecated", Version.init(from:)) ?? 
                             $0.pop("isUnconditionallyDeprecated", as: Bool?.self).flatMap 
                         {
-                            (flag:Bool) -> Package.Version?? in 
+                            (flag:Bool) -> Version?? in 
                             flag ? .some(nil) : nil
                         } 
                         // possible be both unconditionally unavailable and unconditionally deprecated
-                        let availability:Symbol.VersionedAvailability = .init(
+                        let availability:VersionedAvailability = .init(
                             unavailable: try $0.pop("isUnconditionallyUnavailable", as: Bool?.self) ?? false,
                             deprecated: deprecated,
-                            introduced: try $0.pop("introduced", Package.Version.init(from:)),
-                            obsoleted: try $0.pop("obsoleted", Package.Version.init(from:)), 
+                            introduced: try $0.pop("introduced", Version.init(from:)),
+                            obsoleted: try $0.pop("obsoleted", Version.init(from:)), 
                             renamed: try $0.pop("renamed", as: String?.self),
                             message: try $0.pop("message", as: String?.self))
-                        let domain:Symbol.AvailabilityDomain = try $0.remove("domain") 
+                        let domain:AvailabilityDomain = try $0.remove("domain") 
                         { 
-                            try $0.case(of: Symbol.AvailabilityDomain.self) 
+                            try $0.case(of: AvailabilityDomain.self) 
                         }
                         return (key: domain, value: availability)
                     }
@@ -178,17 +196,15 @@ extension Vertex
                     }
                 }
             }
-            let content:Content = .init(
-                id:                     id,
-                path:                   path,
-                color:                  color, 
+            let frame:Vertex.Frame = .init(
                 availability:           availability ?? .init(), 
-                signature:              signature, 
                 declaration:            declaration, 
+                signature:              signature, 
                 generics:               generics?.parameters ?? [], 
                 genericConstraints:     generics?.constraints ?? [], 
-                extensionConstraints:  `extension`?.constraints ?? [])
-            return (kind, content, comment ?? "")
+                extensionConstraints:  `extension`?.constraints ?? [], 
+                comment:                comment ?? "")
+            return (id, kind, .init(path: path, color: color, frame: frame))
         }
     }
 }

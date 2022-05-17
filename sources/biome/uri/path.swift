@@ -13,7 +13,7 @@ struct LexicalPath
     enum Component 
     {
         case identifier(String, hyphen:String.Index? = nil)
-        case version(Package.Version)
+        case version(Version)
         
         var leaf:(prefix:Substring, suffix:Suffix?)?
         {
@@ -56,7 +56,7 @@ struct LexicalPath
     enum Segmentation<Location> where Location:Comparable
     {
         case opaque(Location) // end index
-        case version(Package.Version)
+        case version(Version)
         case big
         case little(Location) // start index 
         case reveal(big:Location, little:Location) // end index, start index

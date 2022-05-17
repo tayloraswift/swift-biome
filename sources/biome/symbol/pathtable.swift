@@ -1,9 +1,9 @@
 struct PathTable 
 {
     private 
-    var counter:Symbol.Key.Component
+    var counter:Symbol.Key.Stem
     private
-    var table:[String: Symbol.Key.Component]
+    var table:[String: Symbol.Key.Stem]
     
     init() 
     {
@@ -25,19 +25,19 @@ struct PathTable
     }
     
     private 
-    subscript(subpath:String) -> Symbol.Key.Component? 
+    subscript(subpath:String) -> Symbol.Key.Stem? 
     {
         self.table[subpath]
     }
     
     private 
-    subscript<S>(leaf component:S) -> Symbol.Key.Component? 
+    subscript<S>(leaf component:S) -> Symbol.Key.Stem? 
         where S:StringProtocol 
     {
         self.table[Self.subpath(component)]
     }
     // this ignores the hyphen!
-    subscript(leaf component:LexicalPath.Component) -> Symbol.Key.Component? 
+    subscript(leaf component:LexicalPath.Component) -> Symbol.Key.Stem? 
     {
         guard case .identifier(let component, hyphen: _) = component
         else 
@@ -48,13 +48,13 @@ struct PathTable
     }
     
     private 
-    subscript<Path>(stem components:Path) -> Symbol.Key.Component? 
+    subscript<Path>(stem components:Path) -> Symbol.Key.Stem? 
         where Path:Sequence, Path.Element:StringProtocol 
     {
         self.table[Self.subpath(components)]
     }
     private 
-    subscript<Path>(stem components:Path) -> Symbol.Key.Component? 
+    subscript<Path>(stem components:Path) -> Symbol.Key.Stem? 
         where Path:Sequence, Path.Element == LexicalPath.Component 
     {
         // all remaining components must be identifier-components, and only 
@@ -88,27 +88,43 @@ struct PathTable
     } */
     
     private mutating 
-    func register(_ string:String) -> Symbol.Key.Component 
+    func register(_ string:String) -> Symbol.Key.Stem 
     {
-        var counter:Symbol.Key.Component = self.counter.successor
-        self.table.merge(CollectionOfOne<(String, Symbol.Key.Component)>.init((string, counter))) 
+        var counter:Symbol.Key.Stem = self.counter.successor
+        self.table.merge(CollectionOfOne<(String, Symbol.Key.Stem)>.init((string, counter))) 
         { 
-            (current:Symbol.Key.Component, _:Symbol.Key.Component) in 
+            (current:Symbol.Key.Stem, _:Symbol.Key.Stem) in 
             counter = current 
             return current 
         }
         return counter
     }
+    
     mutating 
-    func register<S>(leaf component:S) -> Symbol.Key.Component 
+    func register<S>(components:S) -> Symbol.Key.Stem 
+        where S:Sequence, S.Element:StringProtocol 
+    {
+        self.register(Self.subpath(components))
+    }
+    mutating 
+    func register<S>(component:S) -> Symbol.Key.Stem 
         where S:StringProtocol 
     {
         self.register(Self.subpath(component))
     }
-    mutating 
-    func register<S>(stem components:S) -> Symbol.Key.Component 
-        where S:Sequence, S.Element:StringProtocol 
+    
+    private mutating 
+    func register<S>(leaf component:S, orientation:Symbol.Orientation) -> Symbol.Key.Leaf 
+        where S:StringProtocol 
     {
-        self.register(Self.subpath(components))
+        .init(self.register(Self.subpath(component)), orientation: orientation)
+    }
+}
+extension PathTable 
+{
+    mutating 
+    func register(_ id:Symbol.ID, vertex:Vertex, namespace:Module.Index) -> Symbol
+    {
+        
     }
 }

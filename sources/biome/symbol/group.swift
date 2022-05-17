@@ -3,7 +3,7 @@ extension Symbol
     struct Key:Hashable 
     {
         // the lsb is reserved to encode orientation
-        struct Component:Hashable 
+        struct Stem:Hashable 
         {
             let bitPattern:UInt32
             
@@ -12,30 +12,34 @@ extension Symbol
                 .init(bitPattern: self.bitPattern + 2)
             }
         }
-        
-        let namespace:Module.Index
-        let stem:Component 
-        let leaf:UInt32 
-
-        var orientation:Orientation 
+        struct Leaf:Hashable 
         {
-            self.leaf & 1 == 0 ? .gay : .straight
-        }
-        
-        init(_ namespace:Module.Index, stem:Component, leaf:Component, orientation:Orientation)
-        {
-            switch orientation 
+            let bitPattern:UInt32 
+            
+            var orientation:Orientation 
             {
-            case .gay:      self.init(namespace, stem: stem, leaf: leaf.bitPattern)
-            case .straight: self.init(namespace, stem: stem, leaf: leaf.bitPattern | 1)
+                self.bitPattern & 1 == 0 ? .gay : .straight
+            }
+            
+            init(_ stem:Stem, orientation:Orientation) 
+            {
+                switch orientation 
+                {
+                case .gay:      self.bitPattern = stem.bitPattern
+                case .straight: self.bitPattern = stem.bitPattern | 1
+                }
             }
         }
-        private 
-        init(_ namespace:Module.Index, stem:Component, leaf:UInt32)
+        
+        let namespace:Module.Index
+        let stem:Stem 
+        let leaf:Leaf 
+        
+        init(_ namespace:Module.Index, _ stem:Stem, _ leaf:Leaf)
         {
-            self.leaf = leaf
-            self.stem = stem
             self.namespace = namespace
+            self.stem = stem
+            self.leaf = leaf
         }
     }
     // 24B stride. the ``many`` case should be quite rare, since we are now 
@@ -49,12 +53,12 @@ extension Symbol
         case many ([(Index, Index)])
         
         mutating 
-        func insert(natural:Index)
+        func insert(_ natural:Index)
         {
             self.insert((natural, natural))
         }
         mutating 
-        func insert(victim:Index, feature:Index)
+        func insert(_ victim:Index, feature:Index)
         {
             self.insert((victim, feature))
         }
