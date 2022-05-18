@@ -1,5 +1,3 @@
-import Notebook
-
 extension Symbol 
 {
     enum Legality:Hashable, Sendable 

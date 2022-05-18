@@ -136,7 +136,7 @@ extension Module
             if let namespace:Module.ID = namespace
             {
                 self.namespace = namespace
-                self.vertices = images.compactMap(.canonical)
+                self.vertices = images.compactMap(\.canonical)
                 return
             }
             else 
@@ -171,8 +171,7 @@ extension Module
             {
                 // comb through generic constraints looking for references to 
                 // underscored protocols and associatedtypes
-                for constraint:Generic.Constraint<Symbol.ID> in 
-                    [image.vertex.genericConstraints, image.vertex.extensionConstraints].joined()
+                for constraint:Generic.Constraint<Symbol.ID> in image.constraints
                 {
                     guard let id:Symbol.ID = constraint.link 
                     else 
@@ -216,7 +215,7 @@ extension Module
                 {
                     continue 
                 }
-                if case true? = image.vertex.availability.general?.unavailable
+                if case true? = image.vertex.frame.availability.general?.unavailable
                 {
                     // if the symbol is unconditionally unavailable, generate 
                     // an edge for it:
@@ -246,15 +245,14 @@ extension Module
                     .init(" ",          color: .text),
                     .init(name,         color: .identifier),
                 ]
-                let vertex:Vertex = .init(
-                    path:                  [name],
-                    color:                 .protocol, 
+                let vertex:Vertex = .init(path: [name], color: .protocol, frame: .init(
                     availability:          .init(), 
-                    signature:             .init(fragments), 
                     declaration:           .init(fragments), 
+                    signature:             .init(fragments), 
                     generics:               [], 
                     genericConstraints:     [], 
-                    extensionConstraints:   [])
+                    extensionConstraints:   [], 
+                    comment:                ""))
                 self.vertices.append((id, vertex))
             }
         }

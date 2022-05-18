@@ -118,7 +118,8 @@ struct Symbol:Sendable, Identifiable
     let nest:[String]
     let color:Color
     
-    var latest:Int?
+    var latestFrame:Int?, 
+        latestRelationships:Int?
     var _opinions:[Package.Index: Traits]
     // var history:[(range:Range<Package.Version>, declaration:Int)]
     
@@ -141,13 +142,14 @@ struct Symbol:Sendable, Identifiable
         self.nest = nest 
         self.color = color 
         
-        self.latest = nil 
+        self.latestFrame = nil 
+        self.latestRelationships = nil 
         self._opinions = [:]
     }
     
     mutating 
     func update(traits:[Trait], from package:Package.Index)  
     {
-        self.opinions[package, default: .init()].update(with: traits, as: self.color)
+        self._opinions[package, default: .init()].update(with: traits, as: self.color)
     }
 }

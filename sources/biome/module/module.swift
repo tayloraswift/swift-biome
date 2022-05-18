@@ -48,17 +48,11 @@ struct Module:Identifiable, Sendable
     {
         self.id.title
     }
-    var index:Index 
-    {
-        // since ``core`` stores a symbol index, we can get the module index 
-        // for free!
-        self.core.module
-    }
     
-    // only the core subgraph can contain top-level symbols.
-    init(id:ID)
+    init(id:ID, index:Index)
     {
         self.id = id 
+        self.index = index
         self.matrix = []
         self.toplevel = []
     }

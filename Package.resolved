@@ -41,8 +41,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-highlight",
       "state" : {
-        "revision" : "e2928b5da39d7aaad8beffa3c04ba1383122cd42",
-        "version" : "0.1.1"
+        "revision" : "eebdd035cb9fb88452a155aa19dab44f7fffdcc3",
+        "version" : "0.1.2"
       }
     },
     {

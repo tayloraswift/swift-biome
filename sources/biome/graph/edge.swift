@@ -24,8 +24,6 @@ struct Edge:Hashable, Sendable
     
     init(_ source:Symbol.ID, is kind:Kind, of target:Symbol.ID)
     {
-        assert(kind == .conformer || constraints.isEmpty)
-        
         self.kind = kind 
         self.source = source 
         self.target = target 

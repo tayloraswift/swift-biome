@@ -13,7 +13,7 @@ let package = Package(
     dependencies: 
     [
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
-        .package(url: "https://github.com/kelvin13/swift-highlight",            from: "0.1.1"),
+        .package(url: "https://github.com/kelvin13/swift-highlight",            from: "0.1.2"),
         .package(url: "https://github.com/kelvin13/swift-resource",             from: "0.2.0"),
         .package(url: "https://github.com/kelvin13/swift-structured-document",  from: "0.2.3"),
         

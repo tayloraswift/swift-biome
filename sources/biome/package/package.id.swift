@@ -26,6 +26,8 @@ extension Package
         
         public static 
         let swift:Self = .init(kind: .swift)
+        public static 
+        let core:Self = .init(kind: .core)
         
         public 
         var string:String 
@@ -33,7 +35,7 @@ extension Package
             switch self.kind
             {
             case .swift:                return "swift-standard-library"
-            case .core:                 return "swift-core"
+            case .core:                 return "swift-core-libraries"
             case .community(let name):  return name 
             }
         }
@@ -43,7 +45,7 @@ extension Package
             switch self.kind
             {
             case .swift:                return "swift"
-            case .core:                 return "swift-core"
+            case .core:                 return "swift-core-libraries"
             case .community(let name):  return name 
             }
         }

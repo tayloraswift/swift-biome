@@ -34,7 +34,7 @@ enum AvailabilityError:Error
     case duplicate(domain:AvailabilityDomain)
 }
 
-struct Availability:Sendable
+struct Availability:Equatable, Sendable
 {
     var swift:SwiftAvailability?
     //let tools:SwiftAvailability?
@@ -87,7 +87,7 @@ struct Availability:Sendable
         }
     }
 }
-struct SwiftAvailability:Sendable
+struct SwiftAvailability:Equatable, Sendable
 {
     // unconditionals not allowed 
     var deprecated:Version?
@@ -105,7 +105,7 @@ struct SwiftAvailability:Sendable
         self.message = versioned.message
     }
 }
-struct UnversionedAvailability:Sendable
+struct UnversionedAvailability:Equatable, Sendable
 {
     var unavailable:Bool 
     var deprecated:Bool 
@@ -120,7 +120,7 @@ struct UnversionedAvailability:Sendable
         self.message = versioned.message
     }
 }
-struct VersionedAvailability:Sendable 
+struct VersionedAvailability:Equatable, Sendable 
 {
     var unavailable:Bool 
     // .some(nil) represents unconditional deprecation

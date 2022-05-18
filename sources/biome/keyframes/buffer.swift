@@ -1,3 +1,5 @@
+import Notebook
+
 /* struct Node 
 {
     let index:Symbol.Index 
@@ -137,7 +139,7 @@ extension Symbol
             }
         }
         
-        func index(of module:Module.ID) -> Module.Index 
+        func index(of module:Module.ID) -> Module.Index? 
         {
             self.module.indices[module] 
         }
@@ -153,7 +155,7 @@ extension Symbol
             {
                 // create records for modules if they do not yet exist 
                 let index:Module.Index = .init(package, offset: self.module.buffer.endIndex)
-                self.module.buffer.append(.init(id: module))
+                self.module.buffer.append(.init(id: module, index: index))
                 self.module.indices[module] = index
                 return index 
             }
@@ -163,10 +165,7 @@ extension Symbol
         func extend(with graph:Module.Graph, of culture:Module.Index, 
             upstream:Scope, namespaces:[Module.ID: Module.Index], 
             paths:inout PathTable) throws -> [Index: Vertex.Frame]
-        {
-            let namespaces:[Module.ID: Module.Index] = 
-                .init(uniqueKeysWithValues: dependencies.joined())
-            
+        {            
             var updates:[Index: Vertex.Frame] = [:]
             try self.extend(with: graph.core.vertices, of: culture, namespace: culture, 
                 upstream: upstream, paths: &paths)
@@ -174,7 +173,7 @@ extension Symbol
                 updates[$0] = $1
             }
             
-            for colony:Subgraph in graph.colonies 
+            for colony:Module.Subgraph in graph.colonies 
             {
                 guard let namespace:Module.Index = namespaces[colony.namespace]
                 else 
@@ -200,7 +199,7 @@ extension Symbol
             of culture:Module.Index, namespace:Module.Index, upstream:Scope, 
             paths:inout PathTable, update:(Index, Vertex.Frame) throws -> ()) throws 
         {
-            var start:Int = self.symbols.endIndex
+            let start:Int = self.symbols.endIndex
             for (id, vertex):(ID, Vertex) in vertices 
             {
                 guard case nil = upstream[id]
@@ -219,7 +218,7 @@ extension Symbol
                     continue 
                 }
                 
-                let index:Index = .init(culture, self.symbols.endIndex)
+                let index:Index = .init(culture, offset: self.symbols.endIndex)
                 
                 if case _? = self.indices.updateValue(index, forKey: id)
                 {
@@ -251,7 +250,9 @@ extension Symbol
             {
                 for (symbol, frame):(Index, Vertex.Frame) in updates 
                 {
-                    self.frames.update(head: &self[local: symbol].latestFrame, 
+                    // we have to inline the ``subscript(local:)`` call due to 
+                    // overlapping access
+                    self.frames.update(head: &self.symbols[symbol.offset].latestFrame, 
                         with: try .init(frame, given: scope))
                 }
             }
@@ -259,10 +260,20 @@ extension Symbol
         mutating 
         func update(with nodes:[Index: [Relationship]]) throws
         {
-            for (symbol, relationships):(Index, [Relationship]) in updates 
+            for (symbol, relationships):(Index, [Relationship]) in nodes 
             {
-                self.relationships.update(head: &self[local: symbol].latestRelationships, 
+                // we have to inline the ``subscript(local:)`` call due to 
+                // overlapping access
+                self.relationships.update(head: &self.symbols[symbol.offset].latestRelationships, 
                     with: try .init(validating: relationships, as: self[local: symbol].color))
+            }
+        }
+        mutating 
+        func update(with traits:[Index: [Trait]], from package:Package.Index)
+        {
+            for (symbol, traits):(Index, [Trait]) in traits 
+            {
+                self[local: symbol].update(traits: traits, from: package)
             }
         }
     }
@@ -299,7 +310,7 @@ extension Symbol
                 }
             }
             
-            if case _? = self.nodes[statement.subject]?.relationships.append(statement.predicate)
+            if case _? = self.nodes[statement.subject]?.append(statement.predicate)
             {
                 return nil
             }

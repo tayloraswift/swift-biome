@@ -24,6 +24,11 @@ struct Image:Sendable
             return nil
         }
     }
+    
+    var constraints:FlattenSequence<[[Generic.Constraint<Symbol.ID>]]>
+    {
+        [self.vertex.frame.genericConstraints, self.vertex.frame.extensionConstraints].joined()
+    }
 }
 struct Vertex:Sendable
 {

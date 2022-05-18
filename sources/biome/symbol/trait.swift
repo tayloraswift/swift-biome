@@ -120,6 +120,12 @@ extension Symbol
             self.conditional = []
         }
         
+        static 
+        func == (lhs:Self, rhs:Self) -> Bool 
+        {
+            fatalError("unimplemented")
+        }
+        
         mutating 
         func update<S>(with traits:S, as color:Color)  
             where S:Sequence, S.Element == Trait

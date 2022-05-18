@@ -27,7 +27,7 @@ struct Package:Identifiable, Sendable
     // private 
     // var tag:Resource.Tag?
     private 
-    var buffer:Buffer
+    var buffer:Symbol.Buffer
         
     private 
     var groups:[Symbol.Key: Symbol.Group]
@@ -48,10 +48,8 @@ struct Package:Identifiable, Sendable
         self.index = index
         
         // self.tag = "2.0.0"
-        self.declarations = []
         self.groups = [:]
         self.buffer = .init()
-        self.frames = .init()
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -81,15 +79,12 @@ struct Package:Identifiable, Sendable
     mutating 
     func update(with opinions:[Opinion], from package:Index)
     {
-        var traits:[Int: [Symbol.Trait]] = [:]
+        var traits:[Symbol.Index: [Symbol.Trait]] = [:]
         for (symbol, trait):(Symbol.Index, Symbol.Trait) in opinions 
         {
-            traits[symbol.offset, default: []].append(trait)
+            traits[symbol, default: []].append(trait)
         }
-        for (offset, traits):(Int, [Symbol.Trait]) in traits 
-        {
-            self.symbol.buffer[offset].update(traits: traits, from: package)
-        }
+        self.buffer.update(with: traits, from: package)
     }
     
     mutating 
@@ -122,17 +117,17 @@ struct Package:Identifiable, Sendable
                 paths: &paths)
         }
         // add the newly-registered symbols to each module scope 
-        for (scope, module):(Int, Module.Node) in zip(scopes.indices, _move(dependencies))
+        for (scope, dependencies):(Int, Module.Node) in zip(scopes.indices, _move(dependencies))
         {
-            scopes[scope].import(module.dependencies.local, lens: self.lens)
+            scopes[scope].import(dependencies.local, lens: self.lens)
         }
         // apply vertex updates 
-        self.buffer.update(with: zip(scopes, updates))
+        try self.buffer.update(with: zip(scopes, updates))
         
         // second pass
-        var tray:Symbol.Tray = .init(_move(updates).map(.keys).joined())
+        var tray:Symbol.Tray = .init(_move(updates).map(\.keys).joined())
         var opinions:[Index: [Opinion]] = [:]
-        for (culrure, (scope, graph)):(Module.Index, (Scope, Module.Graph)) in 
+        for (culture, (scope, graph)):(Module.Index, (Scope, Module.Graph)) in 
             zip(cultures, zip(scopes, graphs))
         {
             for edge:Edge in graph.edges.joined()
@@ -155,7 +150,7 @@ struct Package:Identifiable, Sendable
         }
         
         // apply edge updates 
-        self.buffer.update(with: tray.nodes)
+        try self.buffer.update(with: tray.nodes)
         return opinions
     }
     
@@ -184,7 +179,7 @@ struct Package:Identifiable, Sendable
             return try $0.value.map(package.index(of:))
         }
         // add self-import, if not already present 
-        return .init(local: [culture].union(with: try local.map(self.index(of:))), 
+        return .init(local: ([culture] as Set).union(try local.map(self.index(of:))), 
             upstream: .init(upstream.joined()))
     }
     private 

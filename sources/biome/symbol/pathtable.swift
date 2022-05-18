@@ -120,11 +120,3 @@ struct PathTable
         .init(self.register(Self.subpath(component)), orientation: orientation)
     }
 }
-extension PathTable 
-{
-    mutating 
-    func register(_ id:Symbol.ID, vertex:Vertex, namespace:Module.Index) -> Symbol
-    {
-        
-    }
-}

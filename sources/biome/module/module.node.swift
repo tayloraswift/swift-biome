@@ -19,7 +19,7 @@ extension Module
         
         func namespaces(given ecosystem:Ecosystem, local:Package) -> [ID: Index] 
         {
-            var namespaces:[ID: Index] 
+            var namespaces:[ID: Index] = [:]
                 namespaces.reserveCapacity(self.local.count + self.upstream.count)
             for dependency:Index in self.upstream 
             {

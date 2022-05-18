@@ -412,6 +412,24 @@ extension LexicalPath.Rule
             try input.parse(as: Arguments.self)
         }
     }
+    
+    private 
+    enum ToolchainOrdinal:TerminalRule
+    {
+        typealias Terminal = Unicode.Scalar
+        typealias Construction = Unicode.Scalar
+        static 
+        func parse(terminal:Terminal) -> Unicode.Scalar?
+        {
+            switch terminal 
+            {
+            case "a" ... "z":   return terminal 
+            //case "A" ... "Z":   return terminal.lowercased()
+            default:            return nil
+            }
+        }
+    }
+    
     //  LexicalComponent  ::= IdentifierBase   '.' Leaf 
     //                      | IdentifierBase Arguments
     //                      | IdentifierBase ( '-' . * ) ?
@@ -504,26 +522,28 @@ extension LexicalPath.Rule
                 let month:Int = try input.parse(as: Integer.self)
                 try input.parse(as: Encoding.Hyphen.self)
                 let day:Int = try input.parse(as: Integer.self)
-                return .version(.date(year: first, month: month, day: day))
+                try input.parse(as: Encoding.Hyphen.self)
+                let letter:Unicode.Scalar = try input.parse(as: ToolchainOrdinal.self)
+                return .version(.date(year: first, month: month, day: day, letter: letter))
             }
             // parse a x.y.z.w semantic version. the w component is 
             // a documentation version, which is a sub-patch increment
             guard let minor:Int = input.parse(as: Integer?.self)
             else 
             {
-                return .version(.tag(major: first, nil))
+                return .version(.tag(first, nil))
             }
             guard let patch:Int = input.parse(as: Integer?.self)
             else 
             {
-                return .version(.tag(major: first, (minor, nil)))
+                return .version(.tag(first, (minor, nil)))
             }
             guard let edition:Int = input.parse(as: Integer?.self)
             else 
             {
-                return .version(.tag(major: first, (minor, (patch, nil))))
+                return .version(.tag(first, (minor, (patch, nil))))
             }
-            return .version(.tag(major: first, (minor, (patch, edition))))
+            return .version(.tag(first, (minor, (patch, edition))))
         }
     }
 }
