@@ -15,7 +15,9 @@ extension Package
             case toolsVersion   = "catalog_tools_version"
         }
         
+        public
         let id:ID
+        public
         let modules:[Module.Descriptor]
         let toolsVersion:Int
         
@@ -59,6 +61,7 @@ extension Module
     public 
     struct Descriptor:Decodable 
     {
+        public
         let id:ID
         var include:[String] 
         var dependencies:[Graph.Dependency]

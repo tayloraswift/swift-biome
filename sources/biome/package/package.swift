@@ -165,8 +165,11 @@ struct Package:Identifiable, Sendable
             $0.flatMap(\.modules)
         }
         // add implicit dependencies 
-        dependencies[.swift,  default: []].append(contentsOf: ecosystem.standardModules)
-        dependencies[.core,   default: []].append(contentsOf: ecosystem.coreModules)
+        dependencies[.swift,    default: []].append(contentsOf: ecosystem.standardModules)
+        if self.id != .swift 
+        {
+            dependencies[.core, default: []].append(contentsOf: ecosystem.coreModules)
+        }
         
         let local:[Module.ID] = dependencies.removeValue(forKey: self.id) ?? []
         let upstream:[[Module.Index]] = try dependencies.map

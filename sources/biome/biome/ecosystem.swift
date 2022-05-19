@@ -11,10 +11,10 @@ struct Ecosystem
     var packages:[Package], 
         indices:[Package.ID: Package.Index]
     
-    init(standardModules:[Module.ID])
+    init(standardModules:[Module.ID], coreModules:[Module.ID])
     {
         self.standardModules = standardModules
-        self.coreModules = []
+        self.coreModules = coreModules
         self.packages = []
         self.indices = [:]
     }

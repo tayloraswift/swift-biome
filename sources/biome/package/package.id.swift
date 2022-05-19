@@ -42,12 +42,7 @@ extension Package
         public 
         var description:String 
         {
-            switch self.kind
-            {
-            case .swift:                return "swift"
-            case .core:                 return "swift-core-libraries"
-            case .community(let name):  return name 
-            }
+            self.string
         }
         
         @inlinable public 

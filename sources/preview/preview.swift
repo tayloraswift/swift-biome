@@ -76,6 +76,20 @@ struct Main:AsyncParsableCommand
     }
 }
 
+extension VersionController 
+{
+    func read(package:Package.ID) throws -> Package.Descriptor
+    {
+        let modules:[Module.ID] = try self.read(from: FilePath.init("\(package.string).txt"))
+            .split(whereSeparator: \.isWhitespace)
+            .map(Module.ID.init(_:))
+        return .init(id: package, modules: modules.map 
+        {
+            // use a relative path, since this is from a git repository. 
+            .init(id: $0, include: ["\(package.string)/\($0.string)"], dependencies: [])
+        })
+    }
+}
 struct Preview:ServiceBackend 
 {
     typealias Continuation = EventLoopPromise<StaticResponse>
@@ -87,21 +101,18 @@ struct Preview:ServiceBackend
         where S:Sequence, S.Element == Package.Descriptor
     {
         // load the names of the swift standard library modules. 
-        let standardModules:[Module.ID] = try controller.read(from: "swift.txt")
-            .split(whereSeparator: \.isWhitespace)
-            .map(Module.ID.init(_:))
-        
+        let library:(standard:Package.Descriptor, core:Package.Descriptor) = 
+        (
+            standard:   try controller.read(package: .swift),
+            core:       try controller.read(package: .core)
+        )
         self.biome = .init(channels: [.symbol: "/reference", .article: "/learn"], 
-            standardModules: standardModules, 
+            standardModules: library.standard.modules.map(\.id), 
+            coreModules: library.core.modules.map(\.id), 
             template: .init(freezing: DefaultTemplates.documentation))
-        // load the standard library 
-        let standardLibrary:Package.Descriptor = .init(id: .swift, 
-            modules: standardModules.map 
-        {
-            // use a relative path, since this is from a git repository. 
-            .init(id: $0, include: ["swift/\($0.string)"], dependencies: [])
-        })
-        try self.biome.append(try await standardLibrary.load(with: controller).graph())
+        // load the standard and core libraries
+        try self.biome.append(try await library.standard.load(with: controller).graph())
+        try self.biome.append(try await library.core.load(with: controller).graph())
         
         // user-specified catalogs should contain absolute paths (since that is 
         // what `swift package catalog` emits), and this preview tool does not 
