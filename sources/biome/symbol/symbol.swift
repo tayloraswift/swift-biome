@@ -1,4 +1,4 @@
-struct Symbol:Sendable, Identifiable  
+struct Symbol:Sendable, Identifiable, CustomStringConvertible  
 {
     /// A globally-unique index referencing a symbol. 
     /// 
@@ -175,6 +175,10 @@ struct Symbol:Sendable, Identifiable
     var orientation:Orientation
     {
         self.color.orientation
+    }
+    var description:String 
+    {
+        self.nest.isEmpty ? self.name : "\(self.nest.joined(separator: ".")).\(self.name)"
     }
     
     init(id:ID, key:Key, nest:[String], name:String, color:Color)

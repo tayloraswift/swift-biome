@@ -262,10 +262,16 @@ extension Symbol
         {
             for (symbol, relationships):(Index, [Relationship]) in nodes 
             {
+                let relationships:Relationships = try .init(validating: relationships, 
+                    as: self[local: symbol].color)
+                if case .implementation(of: [], membership: nil) = relationships.roles
+                {
+                    print("warning: orphaned symbol '\(self[local: symbol].description)'")
+                }
                 // we have to inline the ``subscript(local:)`` call due to 
                 // overlapping access
                 self.relationships.update(head: &self.symbols[symbol.offset].head.relationships, 
-                    to: version, with: try .init(validating: relationships, as: self[local: symbol].color))
+                    to: version, with: relationships)
             }
         }
         mutating 
