@@ -243,7 +243,7 @@ extension Symbol
         }
         
         mutating 
-        func update<S>(with vertices:S) throws 
+        func update<S>(to version:Version, with vertices:S) throws 
             where S:Sequence, S.Element == (Scope, [Index: Vertex.Frame])
         {
             for (scope, updates):(Scope, [Index: Vertex.Frame]) in vertices
@@ -252,20 +252,20 @@ extension Symbol
                 {
                     // we have to inline the ``subscript(local:)`` call due to 
                     // overlapping access
-                    self.frames.update(head: &self.symbols[symbol.offset].latestFrame, 
-                        with: try .init(frame, given: scope))
+                    self.frames.update(head: &self.symbols[symbol.offset].head.frame, 
+                        to: version, with: try .init(frame, given: scope))
                 }
             }
         }
         mutating 
-        func update(with nodes:[Index: [Relationship]]) throws
+        func update(to version:Version, with nodes:[Index: [Relationship]]) throws
         {
             for (symbol, relationships):(Index, [Relationship]) in nodes 
             {
                 // we have to inline the ``subscript(local:)`` call due to 
                 // overlapping access
-                self.relationships.update(head: &self.symbols[symbol.offset].latestRelationships, 
-                    with: try .init(validating: relationships, as: self[local: symbol].color))
+                self.relationships.update(head: &self.symbols[symbol.offset].head.relationships, 
+                    to: version, with: try .init(validating: relationships, as: self[local: symbol].color))
             }
         }
         mutating 

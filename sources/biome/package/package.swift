@@ -88,7 +88,8 @@ struct Package:Identifiable, Sendable
     }
     
     mutating 
-    func update(with graphs:[Module.Graph], given ecosystem:Ecosystem, paths:inout PathTable) 
+    func update(to version:Version, with graphs:[Module.Graph], 
+        given ecosystem:Ecosystem, paths:inout PathTable) 
         throws -> [Index: [Opinion]]
     {
         // *not* necessarily contiguous, or even monotonically increasing
@@ -122,7 +123,7 @@ struct Package:Identifiable, Sendable
             scopes[scope].import(dependencies.local, lens: self.lens)
         }
         // apply vertex updates 
-        try self.buffer.update(with: zip(scopes, updates))
+        try self.buffer.update(to: version, with: zip(scopes, updates))
         
         // second pass
         var tray:Symbol.Tray = .init(_move(updates).map(\.keys).joined())
@@ -150,7 +151,7 @@ struct Package:Identifiable, Sendable
         }
         
         // apply edge updates 
-        try self.buffer.update(with: tray.nodes)
+        try self.buffer.update(to: version, with: tray.nodes)
         return opinions
     }
     

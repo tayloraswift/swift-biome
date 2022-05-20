@@ -111,8 +111,8 @@ struct Preview:ServiceBackend
             coreModules: library.core.modules.map(\.id), 
             template: .init(freezing: DefaultTemplates.documentation))
         // load the standard and core libraries
-        try self.biome.append(try await library.standard.load(with: controller).graph())
-        try self.biome.append(try await library.core.load(with: controller).graph())
+        try self.biome.append(try await library.standard.load(with: controller).graph(_version: .tag(5, (7, (0, 0)))))
+        try self.biome.append(try await     library.core.load(with: controller).graph(_version: .tag(5, (7, (0, 0)))))
         
         // user-specified catalogs should contain absolute paths (since that is 
         // what `swift package catalog` emits), and this preview tool does not 
@@ -120,7 +120,7 @@ struct Preview:ServiceBackend
         // so we do not load them through the version controller
         for catalog:Package.Descriptor in catalogs 
         {
-            try self.biome.append(try await catalog.load(with: nil).graph())
+            try self.biome.append(try await catalog.load(with: nil).graph(_version: .tag(1, (0, (0, 0)))))
         }
         self.resources = 
         [

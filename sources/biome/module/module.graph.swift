@@ -215,11 +215,16 @@ extension Module
                 {
                     continue 
                 }
+                var description:String 
+                {
+                    "\(`protocol`.name).\(image.vertex.path.joined(separator: "."))"
+                }
                 if case true? = image.vertex.frame.availability.general?.unavailable
                 {
                     // if the symbol is unconditionally unavailable, generate 
                     // an edge for it:
                     self.edges.append(.init(image.id, is: .member, of: `protocol`.id))
+                    print("note: naturalized unavailable protocol member '\(description)'")
                 }
                 else if case "_"? = `protocol`.name.first
                 {
@@ -228,10 +233,11 @@ extension Module
                     self.edges.append(.init(image.id, is: .member, of: `protocol`.id))
                     // make a note of the protocol name and identifier
                     protocols[`protocol`.id] = `protocol`.name
+                    print("note: naturalized underscored protocol member '\(description)'")
                 }
             }
             
-            self.vertices.reserveCapacity(self.vertices.count + images.count + protocols.count)
+            self.vertices.reserveCapacity(self.vertices.count + vertices.count + protocols.count)
             for (id, vertex):(Symbol.ID, Vertex) in vertices 
             {
                 self.vertices.append((id, vertex))
@@ -254,6 +260,7 @@ extension Module
                     extensionConstraints:   [], 
                     comment:                ""))
                 self.vertices.append((id, vertex))
+                print("note: naturalized underscored protocol '\(name)'")
             }
         }
     }

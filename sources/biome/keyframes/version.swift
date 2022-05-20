@@ -1,6 +1,6 @@
 import JSON
 
-public 
+@frozen public 
 struct Version:Hashable, CustomStringConvertible, Sendable
 {
     typealias Date  = (year:Int, month:Int, day:Int, letter:Unicode.Scalar)
@@ -13,7 +13,7 @@ struct Version:Hashable, CustomStringConvertible, Sendable
         case latest
     }
     
-    private 
+    public 
     var bitPattern:UInt64
     
     init(bitPattern:UInt64)
@@ -21,7 +21,7 @@ struct Version:Hashable, CustomStringConvertible, Sendable
         self.bitPattern = bitPattern
     }
     
-    public static 
+    @inlinable public static 
     func == (lhs:Self, rhs:Self) -> Bool 
     {
         false
@@ -32,9 +32,9 @@ struct Version:Hashable, CustomStringConvertible, Sendable
         lhs.bitPattern < rhs.bitPattern 
     }
     
-    static 
+    public static 
     let latest:Self = .init(bitPattern: 0xffff_ffff_ffff_ffff)
-    static 
+    @inlinable public static 
     func tag(_ major:Int, _ minor:(Int, (patch:Int, edition:Int?)?)?) -> Self 
     {
         var version:Self = .latest 

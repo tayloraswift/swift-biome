@@ -107,6 +107,50 @@ struct Symbol:Sendable, Identifiable
         }
     }
     
+    @propertyWrapper 
+    struct Head<Value>:Equatable
+    {
+        private 
+        var bits:UInt32
+        
+        init()
+        {
+            self.bits = .max
+        }
+        var wrappedValue:Keyframe<Value>.Buffer.Index?
+        {
+            get 
+            {
+                self.bits != .max ? .init(bits: self.bits) : nil
+            }
+            set(value)
+            {
+                if let bits:UInt32 = value?.bits
+                {
+                    precondition(bits != .max)
+                    self.bits = bits 
+                }
+                else 
+                {
+                    self.bits = .max
+                }
+            }
+        }
+    }
+    struct Heads 
+    {
+        @Head<Frame>
+        var frame:Keyframe<Frame>.Buffer.Index?
+        @Head<Relationships>
+        var relationships:Keyframe<Relationships>.Buffer.Index?
+        
+        init() 
+        {
+            self._frame = .init()
+            self._relationships = .init()
+        }
+    }
+    
     // these stored properties are constant with respect to symbol identity. 
     let id:ID
     let key:Key
@@ -118,8 +162,7 @@ struct Symbol:Sendable, Identifiable
     let nest:[String]
     let color:Color
     
-    var latestFrame:Int?, 
-        latestRelationships:Int?
+    var head:Heads
     var _opinions:[Package.Index: Traits]
     // var history:[(range:Range<Package.Version>, declaration:Int)]
     
@@ -142,8 +185,7 @@ struct Symbol:Sendable, Identifiable
         self.nest = nest 
         self.color = color 
         
-        self.latestFrame = nil 
-        self.latestRelationships = nil 
+        self.head = .init()
         self._opinions = [:]
     }
     
