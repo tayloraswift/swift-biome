@@ -89,7 +89,7 @@ struct Package:Identifiable, Sendable
     
     mutating 
     func update(to version:Version, with graphs:[Module.Graph], 
-        given ecosystem:Ecosystem, paths:inout PathTable) 
+        given ecosystem:Ecosystem, keys:inout Symbol.Key.Table) 
         throws -> [Index: [Opinion]]
     {
         // *not* necessarily contiguous, or even monotonically increasing
@@ -115,7 +115,7 @@ struct Package:Identifiable, Sendable
             
             return try self.buffer.extend(with: graph, of: culture, upstream: scope,
                 namespaces: node.namespaces(given: ecosystem, local: self),
-                paths: &paths)
+                keys: &keys)
         }
         // add the newly-registered symbols to each module scope 
         for (scope, dependencies):(Int, Module.Node) in zip(scopes.indices, _move(dependencies))
@@ -131,6 +131,10 @@ struct Package:Identifiable, Sendable
         for (culture, (scope, graph)):(Module.Index, (Scope, Module.Graph)) in 
             zip(cultures, zip(scopes, graphs))
         {
+            for article:Extension in graph.articles 
+            {
+                print(article.metadata.path)
+            }
             for edge:Edge in graph.edges.joined()
             {
                 let (statement, secondary, sponsorship):Edge.Statements = 

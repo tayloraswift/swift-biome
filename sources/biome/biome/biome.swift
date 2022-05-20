@@ -38,7 +38,7 @@ struct Biome
     private 
     var ecosystem:Ecosystem
     private 
-    var paths:PathTable
+    var keys:Symbol.Key.Table
     
     public 
     init(channels:[Documentation.Channel: String] = [:], 
@@ -46,7 +46,7 @@ struct Biome
         template:DocumentTemplate<Documentation.Anchor, [UInt8]>) 
     {
         self.ecosystem = .init(standardModules: standardModules, coreModules: coreModules)
-        self.paths = .init()
+        self.keys = .init()
         
         self.template = template 
         self.channels = 
@@ -58,13 +58,13 @@ struct Biome
         )
         self.keyword = 
         (
-            package:    self.paths.register(component: self.channels.package),
-            module:     self.paths.register(component: self.channels.module),
-            symbol:     self.paths.register(component: self.channels.symbol),
-            article:    self.paths.register(component: self.channels.article),
+            package:    self.keys.register(component: self.channels.package),
+            module:     self.keys.register(component: self.channels.module),
+            symbol:     self.keys.register(component: self.channels.symbol),
+            article:    self.keys.register(component: self.channels.article),
             
-            sitemap:    self.paths.register(component: "sitemap"),
-            lunr:       self.paths.register(component: "lunr")
+            sitemap:    self.keys.register(component: "sitemap"),
+            lunr:       self.keys.register(component: "lunr")
         )
     }
     
@@ -82,7 +82,7 @@ struct Biome
         // this will trigger copy-on-write, we need to fix this
         let opinions:[Package.Index: [Package.Opinion]] = 
             try self.ecosystem[index].update(to: graph.version, 
-                with: graph.modules, given: _move(prior), paths: &self.paths)
+                with: graph.modules, given: _move(prior), keys: &self.keys)
         // hopefully ``ecosystem`` is uniquely referenced now
         for (upstream, opinions):(Package.Index, [Package.Opinion]) in opinions 
         {

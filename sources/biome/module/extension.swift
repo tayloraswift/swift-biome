@@ -38,56 +38,9 @@ struct Extension
             return .bytes(utf8: Extension.render(recurring: headline, as: .h1).rendered(as: [UInt8].self))
         } */
     }
-    struct Metadata 
-    {        
-        var path:[String]
-        var imports:Set<Module.ID> 
-        var errors:[DirectiveArgumentText.ParseError]
-        
-        var noTitle:Bool
-        
-        init(directives:[BlockDirective])
-        {
-            self.errors = []
-            self.path = []
-            self.imports = []
-            
-            self.noTitle = false
-            
-            let directives:[String: [BlockDirective]] = .init(grouping: directives, by: \.name)
-            // @notitle 
-            if  let anything:[BlockDirective] = directives["notitle"], !anything.isEmpty
-            {
-                self.noTitle = true
-            }
-            // @import(_:)
-            if  let matches:[BlockDirective] = directives["import"]
-            {
-                for invocation:BlockDirective in matches 
-                {
-                    guard let imported:Substring = invocation.argumentText.segments.first?.trimmedText
-                    else 
-                    {
-                        continue 
-                    }
-                    self.imports.insert(Module.ID.init(imported))
-                }
-            }
-            // @path(_:)
-            if  let matches:[BlockDirective] = directives["path"],
-                let match:BlockDirective = matches.last
-            {
-                self.path = match.argumentText.segments
-                    .map(\.trimmedText)
-                    .joined()
-                    .split(separator: "/")
-                    .map(String.init(_:))
-            }
-        }
-    }
-    // private 
-    // let directives:[BlockDirective]
-    let metadata:Metadata
+    
+    private(set)
+    var metadata:Metadata
     
     let headline:Headline
     let nodes:[Node]
@@ -117,6 +70,10 @@ struct Extension
             self.init(markdown: text)
         case    .binary (let bytes, type: _):
             self.init(markdown: String.init(decoding: bytes, as: Unicode.UTF8.self))
+        }
+        if self.metadata.path.isEmpty 
+        {
+            self.metadata.path = [name]
         }
     }
     init(markdown string:String)

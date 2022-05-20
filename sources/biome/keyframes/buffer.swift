@@ -1,5 +1,3 @@
-import Notebook
-
 /* struct Node 
 {
     let index:Symbol.Index 
@@ -32,54 +30,6 @@ import Notebook
 
 extension Symbol
 {
-    struct Frame:Equatable
-    {
-        // signatures and declarations can change without disturbing the symbol identifier, 
-        // since they contain information that is not part of ABI.
-        let signature:Notebook<Fragment.Color, Never>
-        let declaration:Notebook<Fragment.Color, Symbol.Index>
-        // generic parameter *names* are not part of ABI.
-        let generics:[Generic]
-        // these *might* be version-independent, but right now we are storing generic 
-        // parameter/associatedtype names
-        let genericConstraints:[Generic.Constraint<Symbol.Index>]
-        let extensionConstraints:[Generic.Constraint<Symbol.Index>]
-        let availability:Availability
-        
-        init(_ vertex:Vertex.Frame, given scope:Scope) throws 
-        {
-            self.availability   = vertex.availability 
-            self.generics       = vertex.generics
-            self.signature      = vertex.signature
-            // even with mythical symbol inference, it is still possible or 
-            // declarations to reference non-existent USRs, e.g. 'ss14_UnicodeParserP8EncodingQa'
-            // (Swift._UnicodeParser.Encoding)
-            self.declaration = vertex.declaration.compactMap 
-            {
-                do 
-                {
-                    return try scope.index(of: $0)
-                }
-                catch let error 
-                {
-                    print("warning: \(error)")
-                    return nil 
-                }
-            }
-            // self.declaration    = try node.vertex.declaration.map(scope.index(of:))
-            self.genericConstraints = try vertex.genericConstraints.map
-            {
-                try $0.map(scope.index(of:))
-            }
-            self.extensionConstraints = try vertex.extensionConstraints.map
-            {
-                try $0.map(scope.index(of:))
-            }
-            
-            //self.relationships = try .init(validating: node.relationships, as: node.vertex.color)
-        }
-    }
-    
     struct Buffer 
     {
         private 
@@ -92,7 +42,7 @@ extension Symbol
         var symbols:[Symbol], 
             indices:[ID: Index]
         private 
-        var frames:Keyframe<Frame>.Buffer 
+        var declarations:Keyframe<Declaration>.Buffer 
         // documentation:Keyframe<Void>.Buffer,
         private 
         var relationships:Keyframe<Relationships>.Buffer
@@ -109,7 +59,7 @@ extension Symbol
             self.module.buffer = []
             self.module.indices = [:]
             
-            self.frames = .init()
+            self.declarations = .init()
             // self.documentation = .init()
             self.relationships = .init()
         }
@@ -164,11 +114,11 @@ extension Symbol
         mutating 
         func extend(with graph:Module.Graph, of culture:Module.Index, 
             upstream:Scope, namespaces:[Module.ID: Module.Index], 
-            paths:inout PathTable) throws -> [Index: Vertex.Frame]
+            keys:inout Key.Table) throws -> [Index: Vertex.Frame]
         {            
             var updates:[Index: Vertex.Frame] = [:]
             try self.extend(with: graph.core.vertices, of: culture, namespace: culture, 
-                upstream: upstream, paths: &paths)
+                upstream: upstream, keys: &keys)
             {
                 updates[$0] = $1
             }
@@ -181,7 +131,7 @@ extension Symbol
                     throw Module.ResolutionError.dependency(colony.namespace, of: graph.core.namespace)
                 }
                 try self.extend(with: colony.vertices, of: culture, namespace: namespace, 
-                    upstream: upstream, paths: &paths)
+                    upstream: upstream, keys: &keys)
                 {
                     updates[$0] = $1
                 }
@@ -197,7 +147,7 @@ extension Symbol
         private mutating 
         func extend(with vertices:[(id:ID, vertex:Vertex)], 
             of culture:Module.Index, namespace:Module.Index, upstream:Scope, 
-            paths:inout PathTable, update:(Index, Vertex.Frame) throws -> ()) throws 
+            keys:inout Key.Table, update:(Index, Vertex.Frame) throws -> ()) throws 
         {
             let start:Int = self.symbols.endIndex
             for (id, vertex):(ID, Vertex) in vertices 
@@ -231,8 +181,8 @@ extension Symbol
                 let stem:[String] = .init(vertex.path.dropLast())
                 let symbol:Symbol = .init(id: id, 
                     key: .init(namespace, 
-                              paths.register(components: stem), 
-                        .init(paths.register(component:  leaf), orientation: vertex.color.orientation)), 
+                              keys.register(components: stem), 
+                        .init(keys.register(component:  leaf), orientation: vertex.color.orientation)), 
                     nest: stem, 
                     name: leaf, 
                     color: vertex.color)
@@ -252,7 +202,7 @@ extension Symbol
                 {
                     // we have to inline the ``subscript(local:)`` call due to 
                     // overlapping access
-                    self.frames.update(head: &self.symbols[symbol.offset].head.frame, 
+                    self.declarations.update(head: &self.symbols[symbol.offset].head.declaration, 
                         to: version, with: try .init(frame, given: scope))
                 }
             }
