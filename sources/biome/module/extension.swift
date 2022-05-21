@@ -173,7 +173,7 @@ struct Extension
         self.nodes = nodes
     }
     
-    var binding:UnresolvedLink?
+    var binding:String?
     {
         guard case .explicit(let headline) = self.headline 
         else 
@@ -187,7 +187,7 @@ struct Extension
             let owner:SymbolLink    = owner as? SymbolLink,
             let owner:String        = owner.destination, !owner.isEmpty
         {
-            return .fenced(owner)
+            return owner
         }
         else 
         {

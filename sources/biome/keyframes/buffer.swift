@@ -117,7 +117,7 @@ extension Symbol
             keys:inout Key.Table) throws -> [Index: Vertex.Frame]
         {            
             var updates:[Index: Vertex.Frame] = [:]
-            try self.extend(with: graph.core.vertices, of: culture, namespace: culture, 
+            self.extend(with: graph.core.vertices, of: culture, namespace: culture, 
                 upstream: upstream, keys: &keys)
             {
                 updates[$0] = $1
@@ -130,7 +130,7 @@ extension Symbol
                 {
                     throw Module.ResolutionError.dependency(colony.namespace, of: graph.core.namespace)
                 }
-                try self.extend(with: colony.vertices, of: culture, namespace: namespace, 
+                self.extend(with: colony.vertices, of: culture, namespace: namespace, 
                     upstream: upstream, keys: &keys)
                 {
                     updates[$0] = $1
@@ -147,7 +147,7 @@ extension Symbol
         private mutating 
         func extend(with vertices:[(id:ID, vertex:Vertex)], 
             of culture:Module.Index, namespace:Module.Index, upstream:Scope, 
-            keys:inout Key.Table, update:(Index, Vertex.Frame) throws -> ()) throws 
+            keys:inout Key.Table, update:(Index, Vertex.Frame) throws -> ()) rethrows 
         {
             let start:Int = self.symbols.endIndex
             for (id, vertex):(ID, Vertex) in vertices 
@@ -168,12 +168,8 @@ extension Symbol
                     continue 
                 }
                 
-                let index:Index = .init(culture, offset: self.symbols.endIndex)
-                
-                if case _? = self.indices.updateValue(index, forKey: id)
-                {
-                    throw Symbol.CollisionError.init(id) 
-                }
+                let index:Index     = .init(culture, offset: self.symbols.endIndex)
+                self.indices[id]    = index
                 
                 try update(index, vertex.frame)
                 

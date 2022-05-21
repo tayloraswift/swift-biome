@@ -97,16 +97,6 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         }
     }
     
-    struct CollisionError:Error
-    {
-        let id:ID
-        
-        init(_ id:ID)
-        {
-            self.id = id 
-        }
-    }
-    
     // these stored properties are constant with respect to symbol identity. 
     let id:ID
     let key:Key
