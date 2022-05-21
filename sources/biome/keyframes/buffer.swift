@@ -208,26 +208,37 @@ extension Symbol
             }
         }
         mutating 
-        func update(to version:Version, with nodes:[Index: [Relationship]]) throws
+        func update(to version:Version, with facts:[Index: [Relationship]]) throws -> [Index: [Index]]
         {
-            for (symbol, relationships):(Index, [Relationship]) in nodes 
+            var local:[Index: [Index]] = [:]
+                local.reserveCapacity(facts.count)
+            for (index, facts):(Index, [Relationship]) in facts
             {
-                let relationships:Relationships = try .init(validating: relationships, 
-                    as: self[local: symbol].color)
+                let symbol:Symbol = self[local: index]
+                let relationships:Relationships = try .init(validating: facts, as: symbol.color)
                 if case .implementation(of: [], membership: nil) = relationships.roles
                 {
-                    print("warning: orphaned symbol '\(self[local: symbol].description)'")
+                    print("warning: orphaned symbol '\(symbol.description)'")
                 }
                 // we have to inline the ``subscript(local:)`` call due to 
                 // overlapping access
-                self.relationships.update(head: &self.symbols[symbol.offset].head.relationships, 
+                self.relationships.update(head: &self.symbols[index.offset].head.relationships, 
                     to: version, with: relationships)
+                if case .concretetype(_) = symbol.color 
+                {
+                    local[index] = relationships.facts.features
+                }
+                else 
+                {
+                    local[index] = []
+                }
             }
+            return local
         }
         mutating 
-        func update(with traits:[Index: [Trait]], from package:Package.Index)
+        func update(with opinions:[Index: [Trait]], from package:Package.Index)
         {
-            for (symbol, traits):(Index, [Trait]) in traits 
+            for (symbol, traits):(Index, [Trait]) in opinions 
             {
                 self[local: symbol].update(traits: traits, from: package)
             }
@@ -239,38 +250,36 @@ extension Symbol
     struct Tray 
     {
         private(set)
-        var nodes:[Index: [Relationship]]
+        var facts:[Index: [Relationship]], 
+            opinions:[Package.Index: [Index: [Trait]]]
         
         init<Indices>(_ indices:Indices) where Indices:Sequence, Indices.Element == Symbol.Index 
         {
-            self.nodes = .init(uniqueKeysWithValues: indices.map { ($0, []) })
+            self.facts = .init(uniqueKeysWithValues: indices.map { ($0, []) })
+            self.opinions = [:]
         }
         
         mutating 
-        func link(_ statement:Statement, of culture:Module.Index) 
-            throws -> (subject:Index, has:Trait)?
+        func link(_ statement:Statement, of culture:Module.Index) throws
         {
-            switch statement.predicate
+            switch statement
             {
-            case  .is(let role):
-                guard culture         == statement.subject.module
+            case (let subject, .is(let role)):
+                guard culture         == subject.module
                 else 
                 {
-                    throw RelationshipError.unauthorized(culture, says: statement.subject, is: role)
+                    throw RelationshipError.unauthorized(culture, says: subject, is: role)
                 }
-            case .has(let trait):
-                guard culture.package == statement.subject.module.package
+            case (let subject, .has(let trait)):
+                guard culture.package == subject.module.package
                 else 
                 {
-                    return (statement.subject, has: trait)
+                    self.opinions[subject.module.package, default: [:]][subject, default: []]
+                        .append(trait)
+                    return
                 }
             }
-            
-            if case _? = self.nodes[statement.subject]?.append(statement.predicate)
-            {
-                return nil
-            }
-            else 
+            if case nil = self.facts[statement.subject]?.append(statement.predicate)
             {
                 fatalError("unreachable")
             }

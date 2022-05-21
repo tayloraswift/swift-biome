@@ -80,11 +80,11 @@ struct Biome
         let prior:Ecosystem = self.ecosystem
         let index:Package.Index = self.ecosystem.create(package: graph.id)
         // this will trigger copy-on-write, we need to fix this
-        let opinions:[Package.Index: [Package.Opinion]] = 
+        let opinions:[Package.Index: [Symbol.Index: [Symbol.Trait]]] = 
             try self.ecosystem[index].update(to: graph.version, 
                 with: graph.modules, given: _move(prior), keys: &self.keys)
         // hopefully ``ecosystem`` is uniquely referenced now
-        for (upstream, opinions):(Package.Index, [Package.Opinion]) in opinions 
+        for (upstream, opinions):(Package.Index, [Symbol.Index: [Symbol.Trait]]) in opinions 
         {
             self.ecosystem[upstream].update(with: opinions, from: index)
         }

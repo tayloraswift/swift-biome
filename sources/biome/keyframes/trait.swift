@@ -17,6 +17,18 @@ extension Symbol
         case conformer(Index, where:[Generic.Constraint<Index>])
         // conformances
         case conformance(Index, where:[Generic.Constraint<Index>])
+        
+        var feature:Index? 
+        {
+            if case .feature(let feature) = self 
+            {
+                return feature
+            }
+            else 
+            {
+                return nil
+            }
+        }
     }
     // FIXME: the ``Equatable`` conformance is probably broken; it should 
     // really be comparing ``Set``s.

@@ -103,6 +103,11 @@ extension Symbol.Key
         }
         
         mutating 
+        func register(complete symbol:Symbol) -> Stem 
+        {
+            symbol.nest.isEmpty ? symbol.key.leaf.stem : self.register(components: symbol.nest + [symbol.name])
+        }
+        mutating 
         func register<S>(components:S) -> Stem 
             where S:Sequence, S.Element:StringProtocol 
         {
