@@ -28,12 +28,9 @@ struct Package:Identifiable, Sendable
     var modules:CulturalBuffer<Module.Index, Module>, 
         symbols:CulturalBuffer<Symbol.Index, Symbol>
     private 
-    var dependencies:Keyframe<Module.Dependencies>.Buffer 
-    private 
-    var declarations:Keyframe<Symbol.Declaration>.Buffer 
-    // documentation:Keyframe<Void>.Buffer,
-    private 
-    var relationships:Keyframe<Symbol.Relationships>.Buffer
+    var dependencies:Keyframe<Module.Dependencies>.Buffer, 
+        declarations:Keyframe<Symbol.Declaration>.Buffer, 
+        relationships:Keyframe<Symbol.Relationships>.Buffer
         
     private 
     var table:[Symbol.Key: Symbol.Group]
@@ -63,23 +60,15 @@ struct Package:Identifiable, Sendable
     {
         _read 
         {
-            yield  self.modules[local: module]
+            yield self.modules[local: module]
         }
-        /* _modify 
-        {
-            yield &self.modules[local: module]
-        } */
     }
     subscript(local symbol:Symbol.Index) -> Symbol
     {
         _read 
         {
-            yield  self.symbols[local: symbol]
+            yield self.symbols[local: symbol]
         }
-        /* _modify 
-        {
-            yield &self.symbols[local: symbol]
-        } */
     } 
     
     subscript(module:Module.Index) -> Module?

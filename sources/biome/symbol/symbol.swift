@@ -32,6 +32,23 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
             self.bits = bits
         }
     }
+    struct IndexPair:Hashable, Sendable
+    {
+        private 
+        let prefix:Index, 
+            suffix:Index
+        
+        static 
+        func natural(_ index:Index) -> Self 
+        {
+            .init(prefix: index, suffix: index)
+        }
+        static 
+        func synthesized(_ victim:Index, _ feature:Index) -> Self 
+        {
+            .init(prefix: victim, suffix: feature)
+        }
+    }
     struct IndexRange:RandomAccessCollection, Hashable, Sendable
     {
         let module:Module.Index 
@@ -75,7 +92,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     }
     // this is like ``Symbol.IndexRange``, except the ``module`` field refers to 
     // a namespace, not the module that actually contains the symbol
-    struct ColonialRange
+    struct ColonialRange:Hashable, Sendable
     {
         let namespace:Module.Index 
         let bits:Range<UInt32>
