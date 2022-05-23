@@ -2,16 +2,15 @@ extension Symbol
 {
     typealias Statement = (subject:Index, predicate:Relationship)
     typealias Sponsorship = (sponsored:Index, by:Index)
-    typealias ColoredIndex = (index:Index, color:Color)
     
     enum SponsorshipError:Error 
     {
-        case disputed                        (Index, isSponsoredBy:Index, and:Index)
+        case disputed(Index, isSponsoredBy:Index, and:Index)
     //    case unauthorized(Package.Index, says:Index, isSponsoredBy:Index)
     }
     enum RelationshipError:Error 
     {
-        case miscegenation(ColoredIndex, cannotBe:Edge.Kind, of:ColoredIndex)
+        case miscegenation(Color, cannotBe:Edge.Kind, of:Color)
         case unauthorized(Module.Index, says:Index, is:Role)
     }
     enum ExclusivityError:Error 
@@ -82,127 +81,5 @@ extension Symbol
             self.facts = .init()
             self.facts.update(with: traits, as: color)
         }
-    }
-}
-extension Edge 
-{
-    typealias Statements = (Symbol.Statement, Symbol.Statement?, Symbol.Sponsorship?)
-    
-    func statements(given scope:Scope, color:(Symbol.Index) throws -> Symbol.Color) 
-        throws -> Statements
-    {
-        let constraints:[Generic.Constraint<Symbol.Index>] = try self.constraints.map
-        {
-            try $0.map(scope.index(of:))
-        }
-        let index:(source:Symbol.Index, target:Symbol.Index) = 
-        (
-            try scope.index(of: self.source),
-            try scope.index(of: self.target)
-        )
-        let (source, target):(Symbol.ColoredIndex, Symbol.ColoredIndex) = 
-        (
-            (index.source, try color(index.source)),
-            (index.target, try color(index.target))
-        )
-        // this fails quite frequently. we don’t have a great solution for this.
-        let sponsorship:Symbol.Sponsorship? 
-        if  let origin:Symbol.ID = self.origin, 
-            let origin:Symbol.Index = try? scope.index(of: origin)
-        {
-            sponsorship = (index.source, by: origin)
-        }
-        else 
-        {
-            sponsorship = nil
-        }
-        
-        let (secondary, primary):(Symbol.Relationship?, Symbol.Relationship) = 
-            try self.kind.relationships(source, target, where: constraints)
-
-        return ((index.target, primary), secondary.map { (index.source, $0) }, sponsorship)
-    }
-}
-extension Edge.Kind 
-{
-    func relationships(_ source:Symbol.ColoredIndex, _ target:Symbol.ColoredIndex, 
-        where constraints:[Generic.Constraint<Symbol.Index>])
-        throws -> (source:Symbol.Relationship?, target:Symbol.Relationship)
-    {
-        let relationships:(source:Symbol.Relationship?, target:Symbol.Relationship)
-        switch  (source.color,      is: self,                   of: target.color,       unconditional: constraints.isEmpty) 
-        {
-        case    (.callable(_),      is: .feature,               of: .concretetype(_),   unconditional: true):
-            relationships =
-            (
-                source:  nil,
-                target: .has(.feature(source.index))
-            )
-        
-        case    (.concretetype(_),  is: .member,                of: .concretetype(_),   unconditional: true), 
-                (.typealias,        is: .member,                of: .concretetype(_),   unconditional: true), 
-                (.callable(_),      is: .member,                of: .concretetype(_),   unconditional: true), 
-                (.concretetype(_),  is: .member,                of: .protocol,          unconditional: true),
-                (.typealias,        is: .member,                of: .protocol,          unconditional: true),
-                (.callable(_),      is: .member,                of: .protocol,          unconditional: true):
-            relationships = 
-            (
-                source:  .is(.member(of: target.index)), 
-                target: .has(.member(    source.index))
-            )
-        
-        case    (.concretetype(_),  is: .conformer,             of: .protocol,          unconditional: _):
-            relationships = 
-            (
-                source: .has(.conformance(target.index, where: constraints)), 
-                target: .has(  .conformer(source.index, where: constraints))
-            ) 
-        case    (.protocol,         is: .conformer,             of: .protocol,          unconditional: true):
-            relationships = 
-            (
-                source:  .is(.refinement(of: target.index)), 
-                target: .has(.refinement(    source.index))
-            ) 
-        
-        case    (.class,            is: .subclass,              of: .class,             unconditional: true):
-            relationships = 
-            (
-                source:  .is(.subclass(of: target.index)), 
-                target: .has(.subclass(    source.index))
-            ) 
-         
-        case    (.associatedtype,   is: .override,              of: .associatedtype,    unconditional: true),
-                (.callable(_),      is: .override,              of: .callable,          unconditional: true):
-            relationships = 
-            (
-                source:  .is(.override(of: target.index)), 
-                target: .has(.override(    source.index))
-            ) 
-         
-        case    (.associatedtype,   is: .requirement,           of: .protocol,          unconditional: true),
-                (.callable(_),      is: .requirement,           of: .protocol,          unconditional: true),
-                (.associatedtype,   is: .optionalRequirement,   of: .protocol,          unconditional: true),
-                (.callable(_),      is: .optionalRequirement,   of: .protocol,          unconditional: true):
-            relationships = 
-            (
-                source:  .is(.requirement(of: target.index)), 
-                target:  .is(  .interface(of: source.index))
-            ) 
-         
-        case    (.callable(_),      is: .defaultImplementation, of: .callable(_),       unconditional: true):
-            relationships = 
-            (
-                source:  .is(.implementation(of: target.index)), 
-                target: .has(.implementation(    source.index))
-            ) 
-        
-        case (_, is: _, of: _, unconditional: false):
-            // ``Edge.init(from:)`` should have thrown a ``JSON.LintingError`
-            fatalError("unreachable")
-        
-        case (_, is: _, of: _, unconditional: true):
-            throw Symbol.RelationshipError.miscegenation(source, cannotBe: self, of: target)
-        }
-        return relationships
     }
 }

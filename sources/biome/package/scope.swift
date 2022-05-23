@@ -12,20 +12,26 @@ struct Scope
     private 
     var filter:Set<Module.Index>
     private 
-    var lenses:[[Symbol.ID: Symbol.Index]]
+    var modules:[Module.ID: Module.Index], 
+        symbols:[[Symbol.ID: Symbol.Index]]
     
-    init(filter:Set<Module.Index>, lenses:[[Symbol.ID: Symbol.Index]])
+    init()
     {
-        self.filter = filter 
-        self.lenses = lenses 
+        self.filter = []
+        self.symbols = [] 
+        self.modules = [:] 
     }
     
     mutating 
-    func `import`<S>(_ modules:S, lens:[Symbol.ID: Symbol.Index])
-        where S:Sequence, S.Element == Module.Index
+    func `import`(_ module:Module)
     {
-        self.filter.formUnion(modules)
-        self.lenses.append(lens)
+        self.filter.insert(module.index)
+        self.modules[module.id] = module.index
+    }
+    mutating 
+    func append(lens:[Symbol.ID: Symbol.Index])
+    {
+        self.symbols.append(lens)
     }
     
     func index(of symbol:Symbol.ID) throws -> Symbol.Index 
@@ -39,27 +45,32 @@ struct Scope
             throw Symbol.ResolutionError.id(symbol)
         } 
     }
+    subscript(module:Module.ID) -> Module.Index?
+    {
+        self.modules[module]
+    }
     subscript(symbol:Symbol.ID) -> Symbol.Index?
     {
-        for lens:Int in self.lenses.indices
+        var match:Symbol.Index? = nil
+        for lens:[Symbol.ID: Symbol.Index] in self.symbols
         {
-            guard let index:Symbol.Index = self.lenses[lens][symbol], 
+            guard let index:Symbol.Index = lens[symbol], 
                 self.filter.contains(index.module)
             else 
             {
                 continue 
             }
-            // sanity check: ensure none of the remaining lenses contains 
-            // a colliding symbol 
-            for lens:[Symbol.ID: Symbol.Index] in self.lenses[lens...].dropFirst()
+            if case nil = match 
             {
-                if case _? = lens[symbol], self.filter.contains(index.module)
-                {
-                    fatalError("colliding symbol identifiers in search space")
-                }
+                match = index
             }
-            return index
+            else 
+            {
+                // sanity check: ensure none of the remaining lenses contains 
+                // a colliding symbol 
+                fatalError("colliding symbol identifiers in search space")
+            }
         }
-        return nil
+        return match
     }
 }

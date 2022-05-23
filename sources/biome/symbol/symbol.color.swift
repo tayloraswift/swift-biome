@@ -1,8 +1,5 @@
 extension Symbol 
 {
-    @available(*, deprecated, renamed: "Color")
-    typealias Kind = Color 
-    
     enum Orientation:Unicode.Scalar
     {
         case gay        = "."

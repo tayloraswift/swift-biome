@@ -2,7 +2,7 @@ public
 struct Module:Identifiable, Sendable
 {
     /// A globally-unique index referencing a module. 
-    struct Index:Hashable, Sendable 
+    struct Index:CulturalIndex, Hashable, Sendable 
     {
         let package:Package.Index 
         let bits:UInt16
@@ -22,21 +22,33 @@ struct Module:Identifiable, Sendable
         }
     }
     
+    struct Dependencies:Equatable, Sendable 
+    {
+        // must *not* include current package. 
+        // (this is why it cannot be a computed property)
+        let packages:Set<Package.Index>
+        var modules:Set<Index>
+    }
+    
+    struct Heads 
+    {
+        @Keyframe<Dependencies>.Head
+        var dependencies:Keyframe<Dependencies>.Buffer.Index?
+        
+        init() 
+        {
+            self._dependencies = .init()
+        }
+    }
+    
     public 
     let id:ID
     let index:Index 
     
     var matrix:[Symbol.ColonialRange]
-    /// the complete list of symbols vended by this module. the ranges are *contiguous*.
-    /// ``core`` contains the symbols with the lowest addresses.
-    // let core:Symbol.IndexRange
-    // let colonies:[Symbol.ColonialRange]
-    /// the symbols scoped to this module’s top-level namespace. every index in 
-    /// this array falls within the range of ``core``, since it is not possible 
-    /// to extend the top-level namespace of a module.
     var toplevel:[Symbol.Index]
-    /// the list of modules this module depends on, grouped by package. 
-    // let dependencies:[[Module.Index]]
+    
+    var head:Heads
     
     /// this module’s exact identifier string, e.g. '_Concurrency'
     var name:String 
@@ -55,6 +67,8 @@ struct Module:Identifiable, Sendable
         self.index = index
         self.matrix = []
         self.toplevel = []
+        
+        self.head = .init()
     }
     
     /// all symbols declared by this module, including symbols in other namespaces 

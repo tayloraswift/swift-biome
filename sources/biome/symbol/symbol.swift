@@ -4,7 +4,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     /// 
     /// A symbol index encodes the module it belongs to, whichs makes it possible 
     /// to query module membership based on the index alone.
-    struct Index:Hashable, Sendable
+    struct Index:CulturalIndex, Hashable, Sendable
     {
         let module:Module.Index
         let bits:UInt32
@@ -94,6 +94,31 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         {
             self.namespace = namespace
             self.bits = bits
+        }
+    }
+    
+    enum Legality:Hashable, Sendable 
+    {
+        // we must store the comment, otherwise packages that depend on the package 
+        // this symbol belongs to will not be able to reliably de-duplicate documentation
+        static 
+        let undocumented:Self = .documented("")
+        
+        case documented(String)
+        case sponsored(by:Symbol.Index)
+    }
+    
+    struct Heads 
+    {
+        @Keyframe<Declaration>.Head
+        var declaration:Keyframe<Declaration>.Buffer.Index?
+        @Keyframe<Relationships>.Head
+        var relationships:Keyframe<Relationships>.Buffer.Index?
+        
+        init() 
+        {
+            self._declaration = .init()
+            self._relationships = .init()
         }
     }
     
