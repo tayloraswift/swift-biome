@@ -41,6 +41,11 @@ struct Vertex:Sendable
         var genericConstraints:[Generic.Constraint<Symbol.ID>] 
         var extensionConstraints:[Generic.Constraint<Symbol.ID>] 
         var comment:String
+        
+        var documentation:String? 
+        {
+            self.comment.isEmpty ? nil : self.comment
+        }
     }
     
     var path:[String] 

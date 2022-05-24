@@ -1,15 +1,27 @@
 extension Symbol 
 {
-    struct Key:Hashable 
+    struct Key:Hashable, Sendable, CustomStringConvertible 
     {
         // the lsb is reserved to encode orientation
         struct Stem:Hashable 
         {
-            let bitPattern:UInt32
+            private(set)
+            var bitPattern:UInt32
             
-            var successor:Self 
+            init()
             {
-                .init(bitPattern: self.bitPattern + 2)
+                self.bitPattern = 0
+            }
+            init(masking bits:UInt32)
+            {
+                self.bitPattern = bits & 0xffff_fffe
+            }
+            
+            mutating 
+            func increment() -> Self
+            {
+                self.bitPattern += 2 
+                return self 
             }
         }
         struct Leaf:Hashable 
@@ -18,7 +30,7 @@ extension Symbol
             
             var stem:Stem 
             {
-                .init(bitPattern: self.bitPattern & 0xffff_fffe)
+                .init(masking: self.bitPattern)
             }
             var orientation:Orientation 
             {
@@ -38,6 +50,16 @@ extension Symbol
         let namespace:Module.Index
         let stem:Stem 
         let leaf:Leaf 
+        
+        var description:String 
+        {
+            """
+            \(self.namespace.package.bits):\
+            \(self.namespace.bits).\
+            \(self.stem.bitPattern >> 1).\
+            \(self.leaf.bitPattern)
+            """
+        }
         
         init(_ namespace:Module.Index, _ stem:Stem, _ leaf:Leaf)
         {

@@ -9,7 +9,7 @@ extension Symbol.Key
         
         init() 
         {
-            self.counter = .init(bitPattern: 0)
+            self.counter = .init()
             self.table = [:]
         }
         
@@ -92,14 +92,15 @@ extension Symbol.Key
         private mutating 
         func register(_ string:String) -> Stem 
         {
-            var counter:Stem = self.counter.successor
-            self.table.merge(CollectionOfOne<(String, Stem)>.init((string, counter))) 
-            { 
-                (current:Stem, _:Stem) in 
-                counter = current 
-                return current 
+            if let stem:Stem = self.table[string]
+            {
+                return stem 
             }
-            return counter
+            else 
+            {
+                self.table[string] = self.counter.increment()
+                return self.counter
+            }
         }
         
         mutating 

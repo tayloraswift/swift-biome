@@ -123,15 +123,25 @@ extension Package
             }
             return self.scope(dependencies, given: ecosystem)
         }
+        let extant:Int = self.symbols.count
         let updates:[[Symbol.Index: Vertex.Frame]] = zip(cultures, zip(graphs, scopes)).map
         {
             self.extend($0.0, with: $0.1.0, scope: $0.1.1, keys: &keys)
         }
+        let updated:Int = updates.reduce(0) { $0 + $1.count }
+        print("(\(self.id)) updated \(updated) symbols (\(self.symbols.count - extant) are new)")
+        
         // add the newly-registered symbols to each module scope 
         for scope:Int in scopes.indices
         {
             scopes[scope].append(lens: self.symbols.indices)
         }
+        
+        // extract doccomments 
+        let documentation:[[Symbol.Index: String]] = 
+            updates.map { $0.compactMapValues(\.documentation) }
+        
+        print("(\(self.id)) found comments for \(documentation.reduce(0) { $0 + $1.count }) of \(updated) symbols")
         
         // resolve symbol declarations
         let declarations:[[Symbol.Index: Symbol.Declaration]] = 
@@ -165,10 +175,9 @@ extension Package
             facts: facts, opinions: opinions.values.joined(), 
             given: ecosystem, 
             keys: &keys)
+        print("(\(self.id)) found \(groups.count) addressable endpoints")
         // defer the merge until the end to reduce algorithmic complexity
         self.table.merge(_move(groups)) { $0.union($1) }
-        
-        print("updated package '\(self.id)' to version \(version)")
         
         return opinions
     }
@@ -254,6 +263,7 @@ extension Package
         {
             let victim:Symbol = self[local: symbol]
             groups[victim.key, default: .none].insert(.natural(symbol))
+            
             if case .concretetype(_) = victim.color, 
                 !relationships.facts.features.isEmpty
             {
