@@ -20,11 +20,10 @@ struct Package:Identifiable, Sendable
     
     public 
     let id:ID
-    private 
     let index:Index 
     // private 
     // var tag:Resource.Tag?
-    private 
+    private(set) 
     var modules:CulturalBuffer<Module.Index, Module>, 
         symbols:CulturalBuffer<Symbol.Index, Symbol>
     private 
@@ -80,12 +79,6 @@ struct Package:Identifiable, Sendable
         self.index == symbol.module.package ? self[local: symbol] : nil
     }
     
-    subscript(local module:Module.Index, at version:Version) 
-        -> (module:Module, dependencies:Module.Dependencies)
-    {
-        fatalError("unimplemented")
-    }
-    
     mutating 
     func update(with opinions:[Symbol.Index: [Symbol.Trait]], from package:Index)
     {
@@ -98,103 +91,38 @@ struct Package:Identifiable, Sendable
 
 extension Package 
 {
-    private mutating 
-    func create(modules graphs:[Module.Graph], version:Version, given ecosystem:Ecosystem) 
-        throws -> [Module.Index]
-    {
-        // first pass: create module entries
-        let cultures:[Module.Index] = graphs.map 
-        {
-            self.modules.insert($0.core.namespace, culture: self.index, Module.init(id:index:))
-        }
-        // second pass: apply module updates
-        for (culture, graph):(Module.Index, Module.Graph) in zip(cultures, graphs)
-        {
-            var dependencies:Module.Dependencies = try self.resolve(graph.dependencies, 
-                given: ecosystem)
-            // add self-import, if not already present 
-            dependencies.modules.insert(culture)
-            
-            self.dependencies.update(head: &self.modules[local: culture].head.dependencies, 
-                to: version, with: dependencies)
-        }
-        return cultures
-    }
-    private 
-    func resolve(_ dependencies:[Module.Graph.Dependency], given ecosystem:Ecosystem) 
-        throws -> Module.Dependencies
-    {
-        var dependencies:[ID: [Module.ID]] = [ID: [Module.Graph.Dependency]]
-            .init(grouping: dependencies, by: \.package)
-            .mapValues 
-        {
-            $0.flatMap(\.modules)
-        }
-        // add implicit dependencies 
-            dependencies[.swift,    default: []].append(contentsOf: ecosystem.standardModules)
-        if self.id != .swift 
-        {
-            dependencies[.core, default: []].append(contentsOf: ecosystem.coreModules)
-        }
-        
-        var modules:Set<Module.Index> = []
-        var packages:Set<Package.Index> = []
-        for (id, imports):(ID, [Module.ID]) in dependencies 
-        {
-            let package:Self 
-            if self.id == id
-            {
-                package = self 
-            }
-            else if let upstream:Package = ecosystem[id]
-            {
-                package = upstream
-                packages.insert(upstream.index)
-            }
-            else 
-            {
-                throw Package.ResolutionError.dependency(id, of: self.id)
-            }
-            
-            for id:Module.ID in imports
-            {
-                guard let index:Module.Index = package.modules.indices[id]
-                else 
-                {
-                    throw Module.ResolutionError.target(id, in: package.id)
-                }
-                modules.insert(index)
-            }
-        }
-        return .init(packages: packages, modules: modules)
-    }
     mutating 
     func update(to version:Version, with graphs:[Module.Graph], 
         given ecosystem:Ecosystem, keys:inout Symbol.Key.Table) 
         throws -> [Index: [Symbol.Index: [Symbol.Trait]]]
     {
+        // create modules, if they do not exist already.
         // note: module indices are *not* necessarily contiguous, 
         // or even monotonically increasing
+        let cultures:[Module.Index] = graphs.map { self.insert($0.core.namespace) }
         
-        let cultures:[Module.Index] = try self.create(modules: graphs, 
-            version: version, given: ecosystem)
+        // resolve dependencies
+        let dependencies:[Module.Dependencies] = 
+            try self.dependencies(zip(cultures, graphs), given: ecosystem)
+        
+        // apply dependency updates
+        for (culture, dependencies):(Module.Index, Module.Dependencies) in 
+            zip(cultures, _move(dependencies))
+        {
+            self.dependencies.update(head: &self.modules[local: culture].heads.dependencies, 
+                to: version, with: dependencies)
+        }
         
         var scopes:[Scope] = cultures.map 
         {
-            let dependencies:Module.Dependencies = self[local: $0, at: version].dependencies
-            
-            var scope:Scope = .init()
-            for module:Module.Index in dependencies.modules 
+            guard let dependencies:Module.Dependencies = 
+                self.dependencies.at(version, head: self[local: $0].heads.dependencies)
+            else 
             {
-                scope.import(self[module] ?? ecosystem[module])
+                fatalError("unreachable")
             }
-            for package:Index in dependencies.packages
-            {
-                scope.append(lens: ecosystem[package].symbols.indices)
-            }
-            return scope
+            return self.scope(dependencies, given: ecosystem)
         }
-        
         let updates:[[Symbol.Index: Vertex.Frame]] = zip(cultures, zip(graphs, scopes)).map
         {
             self.extend($0.0, with: $0.1.0, scope: $0.1.1, keys: &keys)
@@ -223,13 +151,13 @@ extension Package
         // apply declaration updates 
         for (symbol, declaration):(Symbol.Index, Symbol.Declaration) in _move(declarations).joined() 
         {
-            self.declarations.update(head: &self.symbols[local: symbol].head.declaration, 
+            self.declarations.update(head: &self.symbols[local: symbol].heads.declaration, 
                 to: version, with: declaration)
         }
         // apply relationship updates 
         for (symbol, relationships):(Symbol.Index, Symbol.Relationships) in _move(facts)
         {
-            self.relationships.update(head: &self.symbols[local: symbol].head.relationships, 
+            self.relationships.update(head: &self.symbols[local: symbol].heads.relationships, 
                 to: version, with: relationships)
         }
         
@@ -240,7 +168,15 @@ extension Package
         // defer the merge until the end to reduce algorithmic complexity
         self.table.merge(_move(groups)) { $0.union($1) }
         
+        print("updated package '\(self.id)' to version \(version)")
+        
         return opinions
+    }
+    
+    private mutating 
+    func insert(_ module:Module.ID) -> Module.Index
+    {
+        self.modules.insert(module, culture: self.index, Module.init(id:index:))
     }
     
     private mutating 

@@ -150,7 +150,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     let nest:[String]
     let color:Color
     
-    var head:Heads
+    var heads:Heads
     var _opinions:[Package.Index: Traits]
     // var history:[(range:Range<Package.Version>, declaration:Int)]
     
@@ -177,7 +177,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         self.nest = nest 
         self.color = color 
         
-        self.head = .init()
+        self.heads = .init()
         self._opinions = [:]
     }
     

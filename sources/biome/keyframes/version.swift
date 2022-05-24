@@ -27,6 +27,11 @@ struct Version:Hashable, CustomStringConvertible, Sendable
         false
     }
     static 
+    func <= (lhs:Self, rhs:Self) -> Bool 
+    {
+        lhs.bitPattern <= rhs.bitPattern 
+    }
+    static 
     func < (lhs:Self, rhs:Self) -> Bool 
     {
         lhs.bitPattern < rhs.bitPattern 

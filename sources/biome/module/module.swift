@@ -48,7 +48,7 @@ struct Module:Identifiable, Sendable
     var matrix:[Symbol.ColonialRange]
     var toplevel:[Symbol.Index]
     
-    var head:Heads
+    var heads:Heads
     
     /// this module’s exact identifier string, e.g. '_Concurrency'
     var name:String 
@@ -68,7 +68,7 @@ struct Module:Identifiable, Sendable
         self.matrix = []
         self.toplevel = []
         
-        self.head = .init()
+        self.heads = .init()
     }
     
     /// all symbols declared by this module, including symbols in other namespaces 
