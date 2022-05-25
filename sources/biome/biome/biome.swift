@@ -25,20 +25,20 @@ struct Biome
     private 
     let keyword:
     (
-        package:Symbol.Key.Stem, 
-        module:Symbol.Key.Stem, 
-        symbol:Symbol.Key.Stem, 
-        article:Symbol.Key.Stem,
+        package:Route.Stem, 
+        module:Route.Stem, 
+        symbol:Route.Stem, 
+        article:Route.Stem,
         
-        sitemap:Symbol.Key.Stem,
-        lunr:Symbol.Key.Stem
+        sitemap:Route.Stem,
+        lunr:Route.Stem
     )
     private 
     let template:DocumentTemplate<Documentation.Anchor, [UInt8]>
     private 
     var ecosystem:Ecosystem
     private 
-    var keys:Symbol.Key.Table
+    var keys:Route.Keys
     
     public 
     init(channels:[Documentation.Channel: String] = [:], 

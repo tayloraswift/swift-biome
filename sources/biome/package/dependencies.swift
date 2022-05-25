@@ -22,14 +22,14 @@ extension Package
         try modules.map
         {
             var dependencies:Module.Dependencies = 
-                try self.resolve($0.1.dependencies, given: ecosystem)
+                try self.dependencies($0.1.dependencies, given: ecosystem)
             // add self-import, if not already present 
             dependencies.modules.insert($0.0)
             return dependencies
         }
     }
     private 
-    func resolve(_ dependencies:[Module.Graph.Dependency], given ecosystem:Ecosystem) 
+    func dependencies(_ dependencies:[Module.Graph.Dependency], given ecosystem:Ecosystem) 
         throws -> Module.Dependencies
     {
         var dependencies:[ID: [Module.ID]] = [ID: [Module.Graph.Dependency]]

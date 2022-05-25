@@ -2,7 +2,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
 {
     /// A globally-unique index referencing a symbol. 
     /// 
-    /// A symbol index encodes the module it belongs to, whichs makes it possible 
+    /// A symbol index encodes the module it belongs to, which makes it possible 
     /// to query module membership based on the index alone.
     struct Index:CulturalIndex, Hashable, Sendable
     {
@@ -13,14 +13,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         {
             .init(self.bits)
         }
-        init(package:Int, module:Int, offset:Int)
-        {
-            self.init(Package.Index.init(offset: package), module: module, offset: offset)
-        }
-        init(_ package:Package.Index, module:Int, offset:Int)
-        {
-            self.init(Module.Index.init(package, offset: module), offset: offset)
-        }
+        
         init(_ module:Module.Index, offset:Int)
         {
             self.init(module, bits: .init(offset))
@@ -35,18 +28,18 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     struct IndexPair:Hashable, Sendable
     {
         private 
-        let prefix:Index, 
-            suffix:Index
+        let outer:Index 
+        let symbol:Index
         
         static 
         func natural(_ index:Index) -> Self 
         {
-            .init(prefix: index, suffix: index)
+            .init(outer: index, symbol: index)
         }
         static 
         func synthesized(_ victim:Index, _ feature:Index) -> Self 
         {
-            .init(prefix: victim, suffix: feature)
+            .init(outer: victim, symbol: feature)
         }
     }
     struct IndexRange:RandomAccessCollection, Hashable, Sendable
@@ -141,7 +134,6 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     
     // these stored properties are constant with respect to symbol identity. 
     let id:ID
-    let key:Key
     let name:String 
     //  TODO: see if small-array optimizations here are beneficial, since this could 
     //  often be a single-element array
@@ -149,6 +141,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     /// extension member, this contains the name of the protocol.
     let nest:[String]
     let color:Color
+    let route:Route
     
     var heads:Heads
     var _opinions:[Package.Index: Traits]
@@ -158,9 +151,9 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     //  core symbol graph.
     var namespace:Module.Index 
     {
-        self.key.namespace
+        self.route.namespace
     }
-    var orientation:Orientation
+    var orientation:Route.Orientation
     {
         self.color.orientation
     }
@@ -169,13 +162,13 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         self.nest.isEmpty ? self.name : "\(self.nest.joined(separator: ".")).\(self.name)"
     }
     
-    init(id:ID, key:Key, nest:[String], name:String, color:Color)
+    init(id:ID, nest:[String], name:String, color:Color, route:Route)
     {
         self.id = id 
-        self.key = key 
-        self.name = name 
         self.nest = nest 
+        self.name = name 
         self.color = color 
+        self.route = route
         
         self.heads = .init()
         self._opinions = [:]

@@ -1,10 +1,5 @@
 extension Symbol 
 {
-    enum Orientation:Unicode.Scalar
-    {
-        case gay        = "."
-        case straight   = "/"
-    }
     enum Color:Sendable, Hashable, RawRepresentable
     {
         enum ConcreteType:Sendable, Hashable
@@ -99,7 +94,7 @@ extension Symbol
             }
         }
         
-        var orientation:Orientation 
+        var orientation:Route.Orientation 
         {
             switch self
             {

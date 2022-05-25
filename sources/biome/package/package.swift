@@ -1,4 +1,5 @@
 import Resource
+import Grammar
 
 public 
 struct Package:Identifiable, Sendable
@@ -25,14 +26,16 @@ struct Package:Identifiable, Sendable
     // var tag:Resource.Tag?
     private(set) 
     var modules:CulturalBuffer<Module.Index, Module>, 
-        symbols:CulturalBuffer<Symbol.Index, Symbol>
+        symbols:CulturalBuffer<Symbol.Index, Symbol>,
+        articles:CulturalBuffer<Article.Index, Article>
     private 
     var dependencies:Keyframe<Module.Dependencies>.Buffer, 
         declarations:Keyframe<Symbol.Declaration>.Buffer, 
-        relationships:Keyframe<Symbol.Relationships>.Buffer
+        relationships:Keyframe<Symbol.Relationships>.Buffer,
+        documentation:Keyframe<_Documentation>.Buffer
         
     private 
-    var table:[Symbol.Key: Symbol.Group]
+    var routes:[Route: Symbol.Group]
     
     var name:String 
     {
@@ -45,14 +48,15 @@ struct Package:Identifiable, Sendable
         self.index = index
         
         // self.tag = "2.0.0"
-        self.table = [:]
+        self.routes = [:]
         self.modules = .init()
         self.symbols = .init()
+        self.articles = .init()
         
         self.dependencies = .init()
         self.declarations = .init()
-        // self.documentation = .init()
         self.relationships = .init()
+        self.documentation = .init()
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -93,7 +97,7 @@ extension Package
 {
     mutating 
     func update(to version:Version, with graphs:[Module.Graph], 
-        given ecosystem:Ecosystem, keys:inout Symbol.Key.Table) 
+        given ecosystem:Ecosystem, keys:inout Route.Keys) 
         throws -> [Index: [Symbol.Index: [Symbol.Trait]]]
     {
         // create modules, if they do not exist already.
@@ -138,7 +142,7 @@ extension Package
         }
         
         // extract doccomments 
-        let documentation:[[Symbol.Index: String]] = 
+        var documentation:[[Symbol.Index: String]] = 
             updates.map { $0.compactMapValues(\.documentation) }
         
         print("(\(self.id)) found comments for \(documentation.reduce(0) { $0 + $1.count }) of \(updated) symbols")
@@ -171,13 +175,44 @@ extension Package
                 to: version, with: relationships)
         }
         
-        let groups:[Symbol.Key: Symbol.Group] = self.groups(
+        let groups:[Route: Symbol.Group] = self.groups(
             facts: facts, opinions: opinions.values.joined(), 
             given: ecosystem, 
             keys: &keys)
         print("(\(self.id)) found \(groups.count) addressable endpoints")
         // defer the merge until the end to reduce algorithmic complexity
-        self.table.merge(_move(groups)) { $0.union($1) }
+        self.routes.merge(_move(groups)) { $0.union($1) }
+        
+        // gather documentation extensions 
+        for (index, (graph, scope)):(Int, (Module.Graph, Scope)) in 
+            zip(documentation.indices, zip(graphs, scopes))
+        {
+            for article:Extension in graph.articles 
+            {
+                if let binding:Link.Expression = try article.binding.map(Link.Expression.init(relative:))
+                {
+                    // check if the first component refers to a module. it can be the same 
+                    // as its own culture, or one of its dependencies. 
+                    let namespace:Module.Index
+                    let local:Link.Reference<ArraySlice<Link.Component>>
+                    if  let id:Module.ID = binding.reference.module,
+                        let explicit:Module.Index = scope[id]
+                    {
+                        namespace = explicit
+                        local = binding.reference.dropFirst()
+                        
+                    }
+                    else 
+                    {
+                        local = binding.reference[...]
+                    }
+                }
+                else 
+                {
+                    
+                }
+            }
+        }
         
         return opinions
     }
@@ -189,8 +224,7 @@ extension Package
     }
     
     private mutating 
-    func extend(_ culture:Module.Index, with graph:Module.Graph, scope:Scope, 
-        keys:inout Symbol.Key.Table) 
+    func extend(_ culture:Module.Index, with graph:Module.Graph, scope:Scope, keys:inout Route.Keys) 
         -> [Symbol.Index: Vertex.Frame]
     {            
         var updates:[Symbol.Index: Vertex.Frame] = [:]
@@ -217,16 +251,13 @@ extension Package
                 let index:Symbol.Index = self.symbols.insert(id, culture: culture)
                 {
                     (id:Symbol.ID, _:Symbol.Index) in 
-                    let leaf:String = vertex.path[vertex.path.endIndex - 1]
                     let stem:[String] = .init(vertex.path.dropLast())
-                    return .init(id: id, 
-                        key: .init(namespace, 
-                                  keys.register(components: stem), 
-                            .init(keys.register(component:  leaf), 
-                            orientation: vertex.color.orientation)), 
-                        nest: stem, 
-                        name: leaf, 
-                        color: vertex.color)
+                    let leaf:String = vertex.path[vertex.path.endIndex - 1]
+                    let route:Route = .init(namespace, 
+                              keys.register(components: stem), 
+                        .init(keys.register(component:  leaf), 
+                        orientation: vertex.color.orientation))
+                    return .init(id: id, nest: stem, name: leaf, color: vertex.color, route: route)
                 }
                 
                 updates[index] = vertex.frame
@@ -240,29 +271,29 @@ extension Package
     
     private 
     func groups<Facts, Opinions>(facts:Facts, opinions:Opinions, 
-        given ecosystem:Ecosystem, keys:inout Symbol.Key.Table)
-         -> [Symbol.Key: Symbol.Group]
+        given ecosystem:Ecosystem, keys:inout Route.Keys)
+         -> [Route: Symbol.Group]
         where   Facts:Sequence,    Facts.Element    == (key:Symbol.Index, value:Symbol.Relationships), 
                 Opinions:Sequence, Opinions.Element == (key:Symbol.Index, value:[Symbol.Trait])
     {
-        var groups:[Symbol.Key: Symbol.Group] = [:]
+        var groups:[Route: Symbol.Group] = [:]
         
         func add(features:[Symbol.Index], to victim:Symbol, at index:Symbol.Index) 
         {
-            let stem:Symbol.Key.Stem = keys.register(complete: victim)
+            let stem:Route.Stem = keys.register(complete: victim)
             for feature:Symbol.Index in features 
             {
                 // symbols can inherit things from other packages
                 let witness:Symbol = self[feature] ?? ecosystem[feature]
-                let key:Symbol.Key = .init(victim.namespace, stem, witness.key.leaf)
+                let route:Route = .init(victim.namespace, stem, witness.route.leaf)
                 
-                groups[key, default: .none].insert(.synthesized(index, feature))
+                groups[route, default: .none].insert(.synthesized(index, feature))
             }
         }
         for (symbol, relationships):(Symbol.Index, Symbol.Relationships) in facts
         {
             let victim:Symbol = self[local: symbol]
-            groups[victim.key, default: .none].insert(.natural(symbol))
+            groups[victim.route, default: .none].insert(.natural(symbol))
             
             if case .concretetype(_) = victim.color, 
                 !relationships.facts.features.isEmpty
@@ -279,5 +310,64 @@ extension Package
             }
         }
         return groups
+    }
+}
+
+extension Package 
+{
+    private 
+    func resolve<Path>(
+        _ namespace:Module.Index, 
+        _ nest:[String] = [], 
+        _ link:Link.Reference<Path>, 
+        keys:Route.Keys) 
+        throws -> Link.Resolution?
+        where Path:BidirectionalCollection, Path.Element == Link.Component
+    {
+        let path:[String] = nest.isEmpty ? 
+            link.path.compactMap(\.prefix) : nest + link.path.compactMap(\.prefix)
+        
+        guard let last:String = path.last 
+        else 
+        {
+            return .module(namespace)
+        }
+        guard   let stem:Route.Stem = keys[stem: path.dropLast()],
+                let leaf:Route.Stem = keys[leaf: last]
+        else 
+        {
+            return nil
+        }
+        
+        let group:Symbol.Group
+        if  let exact:Symbol.Group = 
+            self.routes[.init(namespace, stem, leaf, orientation: link.orientation)]
+        {
+            group = exact 
+        }
+        else if case .straight = link.orientation, 
+            let closeted:Symbol.Group = 
+            self.routes[.init(namespace, stem, leaf, orientation: .gay)]
+        {
+            group = closeted
+        }
+        else 
+        {
+            return nil
+        }
+        
+        switch group 
+        {
+        case .none: 
+            fatalError("unreachable")
+        case .one(let pair): 
+            return .unambiguous(pair)
+        case .many(let pairs):
+            let disambiguator:Link.Disambiguator = .init(
+                suffix: link.path.last?.suffix ?? nil,
+                victim: link.query.victim,
+                symbol: link.query.symbol)
+            return .ambiguous(pairs, disambiguator)
+        }
     }
 }

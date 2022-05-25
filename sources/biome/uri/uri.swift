@@ -1,9 +1,19 @@
 import Grammar
 
-struct LexicalEndpoint 
+struct URI 
 {
-    var path:[LexicalPath.Vector?]
-    var query:[LexicalQuery.Parameter]?
+    enum Vector
+    {
+        /// '..'
+        case pop 
+        /// A regular path component. This can be '.' or '..' if at least one 
+        /// of the dots was percent-encoded.
+        case push(String)
+    }
+    typealias Parameter = (key:String, value:String)
+    
+    var path:[Vector?]
+    var query:[Parameter]?
     
     enum Rule<Location>
     {
@@ -39,7 +49,7 @@ struct LexicalEndpoint
         }
     } 
 }
-extension LexicalEndpoint.Rule:ParsingRule 
+extension URI.Rule:ParsingRule 
 {
     fileprivate 
     enum EncodedByte:ParsingRule
@@ -98,10 +108,10 @@ extension LexicalEndpoint.Rule:ParsingRule
         {
             typealias Terminal = UInt8
             static 
-            func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> LexicalPath.Vector?
+            func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.Vector?
                 where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
             {
-                let (string, unencoded):(String, Bool) = try input.parse(as: LexicalEndpoint.EncodedString<UnencodedByte>.self)
+                let (string, unencoded):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
                 guard unencoded
                 else 
                 {
@@ -119,7 +129,7 @@ extension LexicalEndpoint.Rule:ParsingRule
 
         typealias Terminal = UInt8
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> LexicalPath.Vector?
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.Vector?
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
             try input.parse(as: Separator.self)
@@ -166,45 +176,16 @@ extension LexicalEndpoint.Rule:ParsingRule
         
         typealias Terminal = UInt8
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> LexicalQuery.Parameter
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.Parameter
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
-            let (key, _):(String, Bool) = try input.parse(as: LexicalEndpoint.EncodedString<UnencodedByte>.self)
+            let (key, _):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
             try input.parse(as: Encoding.Equals.self)
-            let (value, _):(String, Bool) = try input.parse(as: LexicalEndpoint.EncodedString<UnencodedByte>.self)
+            let (value, _):(String, Bool) = try input.parse(as: URI.EncodedString<UnencodedByte>.self)
             return (key, value)
         }
     }
-    
-    // always contains at least one vector, and can be absolute or relative 
-    private
-    enum VectorList:ParsingRule 
-    {
-        typealias Terminal = UInt8
-        static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
-            throws -> (absolute:Bool, vectors:[LexicalPath.Vector?])
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
-        {
-            let absolute:Bool 
-            var vectors:[LexicalPath.Vector?] 
-            if let first:LexicalPath.Vector? = input.parse(as: Vector?.self)
-            {
-                absolute = true
-                vectors = [first]
-            }
-            else 
-            {
-                absolute = false 
-                vectors = [try input.parse(as: Vector.Component.self)]
-            }
-            while let next:LexicalPath.Vector? = input.parse(as: Vector?.self)
-            {
-                vectors.append(next)
-            }
-            return (absolute, vectors)
-        }
-    }
+
     // always begins with '?', but may be empty 
     private
     enum ParameterList:ParsingRule 
@@ -212,42 +193,66 @@ extension LexicalEndpoint.Rule:ParsingRule
         typealias Terminal = UInt8
         static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
-            throws -> [LexicalQuery.Parameter]
+            throws -> [URI.Parameter]
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
             try input.parse(as: Encoding.Question.self)
-            return input.parse(as: Grammar.Join<Parameter, Parameter.Separator, [LexicalQuery.Parameter]>?.self) ?? []
+            return input.parse(as: Grammar.Join<Parameter, Parameter.Separator, [URI.Parameter]>?.self) ?? []
         }
     }
     
-    enum LinkExpression:ParsingRule 
+    // always contains at least one vector ('/' -> [.push("")])
+    enum Absolute:ParsingRule 
+    {
+        typealias Terminal = UInt8
+
+        static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI
+            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        {
+            //  i. lexical segmentation and percent-decoding 
+            //
+            //  '//foo/bar/.\bax.qux/..//baz./.Foo/%2E%2E//' becomes 
+            // ['', 'foo', 'bar', < None >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', '']
+            // 
+            //  the first slash '/' does not generate an empty component.
+            //  this is the uri we percieve as the uri entered by the user, even 
+            //  if their slash ('/' vs '\') or percent-encoding scheme is different.
+            let path:[URI.Vector?] = try input.parse(as: Grammar.Reduce<Vector, [URI.Vector?]>.self)
+            let query:[URI.Parameter]? = input.parse(as: ParameterList?.self)
+            return .init(path: path, query: query)
+        }
+    }
+    // always contains at least one vector
+    enum Relative:ParsingRule 
     {
         typealias Terminal = UInt8
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
-            throws -> (absolute:Bool, vectors:[LexicalPath.Vector?], parameters:[LexicalQuery.Parameter])
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
-            let path:(absolute:Bool, vectors:[LexicalPath.Vector?]) = try input.parse(as: VectorList.self)
-            let parameters:[LexicalQuery.Parameter] = input.parse(as: ParameterList?.self) ?? []
-            return (path.absolute, path.vectors, parameters)
+            var path:[URI.Vector?] = [try input.parse(as: Vector.Component.self)]
+            while let next:URI.Vector? = input.parse(as: Vector?.self)
+            {
+                path.append(next)
+            }
+            let query:[URI.Parameter]? = input.parse(as: ParameterList?.self)
+            return .init(path: path, query: query)
         }
     }
-
+    
     static 
-    func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) -> LexicalEndpoint
+    func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
+        throws -> (absolute:Bool, uri:URI)
         where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
     {
-        //  i. lexical segmentation and percent-decoding 
-        //
-        //  '//foo/bar/.\bax.qux/..//baz./.Foo/%2E%2E//' becomes 
-        // ['', 'foo', 'bar', < None >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', '']
-        // 
-        //  the first slash '/' does not generate an empty component.
-        //  this is the uri we percieve as the uri entered by the user, even 
-        //  if their slash ('/' vs '\') or percent-encoding scheme is different.
-        let path:[LexicalPath.Vector?] = input.parse(as: Vector.self, in: [LexicalPath.Vector?].self)
-        let query:[LexicalQuery.Parameter]? = input.parse(as: ParameterList?.self)
-        return .init(path: path, query: query)
+        if let uri:URI = input.parse(as: Absolute?.self)
+        {
+            return (true, uri) 
+        }
+        else 
+        {
+            return (false, try input.parse(as: Relative.self))
+        }
     }
 }

@@ -1,30 +1,43 @@
 import Grammar
 
-struct LexicalPath 
+enum Link 
 {
-    enum Vector
+    fileprivate 
+    enum ComponentSegmentation<Location> where Location:Comparable
     {
-        /// '..'
-        case pop 
-        /// A regular path component. This can be '.' or '..' if at least one 
-        /// of the dots was percent-encoded.
-        case push(String)
+        case opaque(Location) // end index
+        case version(Version)
+        case big
+        case little(Location) // start index 
+        case reveal(big:Location, little:Location) // end index, start index
     }
+    
     enum Component 
     {
         case identifier(String, hyphen:String.Index? = nil)
         case version(Version)
         
-        var leaf:(prefix:Substring, suffix:Suffix?)?
+        var prefix:String?
         {
             switch self 
             {
             case .identifier(let string, hyphen: nil):
-                return (string[...], nil)
+                return       string
             case .identifier(let string, hyphen: let hyphen?):
-                return (string[..<hyphen], .init(string[hyphen...].dropFirst()))
+                return .init(string[..<hyphen])
             case .version(_): 
                 return nil
+            }
+        }
+        var suffix:Suffix?
+        {
+            if case .identifier(let string, hyphen: let hyphen?) = self 
+            {
+                return .init(string[hyphen...].dropFirst())
+            }
+            else 
+            {
+                return nil 
             }
         }
     }
@@ -33,6 +46,7 @@ struct LexicalPath
         case color(Symbol.Color)
         case fnv(hash:UInt32)
         
+        fileprivate
         init?<S>(_ string:S) where S:StringProtocol 
         {
             // will never collide with symbol colors, since they always contain 
@@ -52,133 +66,234 @@ struct LexicalPath
             }
         }
     }
-    fileprivate 
-    enum Segmentation<Location> where Location:Comparable
+    struct Query 
     {
-        case opaque(Location) // end index
-        case version(Version)
-        case big
-        case little(Location) // start index 
-        case reveal(big:Location, little:Location) // end index, start index
-    }
-    
-    var orientation:Symbol.Orientation
-    var components:[Component]
-    
-    init(normalizing vectors:[Vector?]) throws
-    {
-        (self, _) = try Self.normalize(vectors: vectors)
-    }
-    init()
-    {
-        // the empty path ('/') is straight
-        self.orientation = .straight 
-        self.components = []
-    }
-    
-    fileprivate static 
-    func normalize(vectors:[LexicalPath.Vector?]) throws -> (path:LexicalPath, visible:Int)
-    {
-        // ii. lexical normalization 
-        //
-        // ['', 'foo', 'bar', < nil >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', ''] becomes 
-        // [    'foo', 'bar',                                   'baz.bar', '.Foo', '..']
-        //                                                      ^~~~~~~~~~~~~~~~~~~~~~~
-        //                                                      (visible = 3)
-        //  if `Self` components would erase past the beginning of the components list, 
-        //  the extra `Self` components are ignored.
-        //  redirects generated from this step are PERMANENT. 
-        //  paths containing `nil` and empty components always generate redirects.
-        //  however, the presence and location of an empty component can be meaningful 
-        //  in a symbollink.    
-        var components:[String] = []
-            components.reserveCapacity(vectors.count)
-        var fold:Int = components.endIndex
-        for vector:LexicalPath.Vector? in vectors
+        var victim:Symbol.ID?
+        var symbol:Symbol.ID?
+        
+        init() 
         {
-            switch vector 
-            {
-            case .pop?:
-                let _:String? = components.popLast()
-                fallthrough
-            case nil: 
-                fold = components.endIndex
-            case .push(let component): 
-                components.append(component)
-            }
+            self.victim = nil
+            self.symbol = nil 
         }
-        // iii. semantic segmentation 
-        //
-        // [     'foo',       'bar',       'baz.bar',                     '.Foo',          '..'] becomes
-        // [.big("foo"), .big("bar"), .big("baz"), .little("bar"), .little("Foo"), .little("..")] 
-        //                                                                         ^~~~~~~~~~~~~~~
-        //                                                                          (visible = 1)
-        var path:LexicalPath = .init()
-        var visible:Int = 0
-        for (index, component):(Int, String) in zip(components.indices, components)
+        
+        fileprivate mutating 
+        func update(normalizing parameters:[URI.Parameter]) throws 
         {
-            let appended:Int 
-            switch try Grammar.parse(component.unicodeScalars, as: Rule<String.Index>.Components.self)
+            for (key, value):(String, String) in parameters 
             {
-            case .opaque(let hyphen): 
-                path.components.append(.identifier(component, hyphen: hyphen))
-                path.orientation = .straight 
-                appended = 1
-            case .big:
-                path.components.append(.identifier(component))
-                path.orientation = .straight 
-                appended = 1
-            
-            case .little                      (let start):
-                // an isolated little-component implies an empty big-predecessor, 
-                // and therefore resets the visibility counter
-                visible = 0
-                path.components.append(.identifier(String.init(component[start...])))
-                path.orientation = .gay 
-                appended = 1
-            
-            case .reveal(big: let end, little: let start):
-                path.components.append(.identifier(String.init(component[..<end])))
-                path.components.append(.identifier(String.init(component[start...])))
-                path.orientation = .gay 
-                appended = 2
+                switch key
+                {
+                case "self":
+                    // if the mangled name contained a colon ('SymbolGraphGen style'), 
+                    // the parsing rule will remove it.
+                    self.victim  = try Grammar.parse(value.utf8, as: Symbol.USR.Rule<String.Index>.OpaqueName.self)
                 
-            case .version(let version):
-                path.components.append(.version(version))
-                path.orientation = .straight 
-                appended = 1
-            }
-            if fold <= index 
-            {
-                visible += appended
+                case "overload": 
+                    switch         try Grammar.parse(value.utf8, as: Symbol.USR.Rule<String.Index>.self) 
+                    {
+                    case .natural(let symbol):
+                        self.symbol = symbol
+                    
+                    case .synthesized(from: let symbol, for: let victim):
+                        // this is supported for backwards-compatibility, 
+                        // but the `::SYNTHESIZED::` infix is deprecated, 
+                        // so this will end up causing a redirect 
+                        self.victim = victim
+                        self.symbol = symbol 
+                    }
+
+                default: 
+                    continue  
+                }
             }
         }
-        return (path, visible)
     }
-}
-struct LexicalPathFragment
-{
-    var absolute:Bool
-    let path:LexicalPath 
-    let visible:Int
     
-    init(absolute:Bool, normalizing vectors:[LexicalPath.Vector?]) throws
+    struct Expression
     {
-        self.absolute = absolute
-        (self.path, self.visible) = try LexicalPath.normalize(vectors: vectors)
+        private(set)
+        var reference:Reference<[Component]>, 
+            visible:Int
+        
+        init(relative string:String) throws 
+        {
+            try self.init(normalizing: try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Relative.self))
+        }
+        
+        init(normalizing uri:URI) throws
+        {
+            // ii. lexical normalization 
+            //
+            // ['', 'foo', 'bar', < nil >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', ''] becomes 
+            // [    'foo', 'bar',                                   'baz.bar', '.Foo', '..']
+            //                                                      ^~~~~~~~~~~~~~~~~~~~~~~
+            //                                                      (visible = 3)
+            //  if `Self` components would erase past the beginning of the components list, 
+            //  the extra `Self` components are ignored.
+            //  redirects generated from this step are PERMANENT. 
+            //  paths containing `nil` and empty components always generate redirects.
+            //  however, the presence and location of an empty component can be meaningful 
+            //  in a symbollink.    
+            var components:[String] = []
+                components.reserveCapacity(uri.path.count)
+            var fold:Int = components.endIndex
+            for vector:URI.Vector? in uri.path
+            {
+                switch vector 
+                {
+                case .pop?:
+                    let _:String? = components.popLast()
+                    fallthrough
+                case nil: 
+                    fold = components.endIndex
+                case .push(let component): 
+                    components.append(component)
+                }
+            }
+            // iii. semantic segmentation 
+            //
+            // [     'foo',       'bar',       'baz.bar',                     '.Foo',          '..'] becomes
+            // [.big("foo"), .big("bar"), .big("baz"), .little("bar"), .little("Foo"), .little("..")] 
+            //                                                                         ^~~~~~~~~~~~~~~
+            //                                                                          (visible = 1)
+            self.reference = .init(path: [])
+            self.visible = 0
+            for (index, component):(Int, String) in zip(components.indices, components)
+            {
+                let appended:Int 
+                switch try Grammar.parse(component.unicodeScalars, as: Rule<String.Index>.Component.self)
+                {
+                case .opaque(let hyphen): 
+                    self.reference.path.append(.identifier(component, hyphen: hyphen))
+                    self.reference.orientation = .straight 
+                    appended = 1
+                case .big:
+                    self.reference.path.append(.identifier(component))
+                    self.reference.orientation = .straight 
+                    appended = 1
+                
+                case .little                      (let start):
+                    // an isolated little-component implies an empty big-predecessor, 
+                    // and therefore resets the visibility counter
+                    self.visible = 0
+                    self.reference.path.append(.identifier(String.init(component[start...])))
+                    self.reference.orientation = .gay 
+                    appended = 1
+                
+                case .reveal(big: let end, little: let start):
+                    self.reference.path.append(.identifier(String.init(component[..<end])))
+                    self.reference.path.append(.identifier(String.init(component[start...])))
+                    self.reference.orientation = .gay 
+                    appended = 2
+                    
+                case .version(let version):
+                    self.reference.path.append(.version(version))
+                    self.reference.orientation = .straight 
+                    appended = 1
+                }
+                if fold <= index 
+                {
+                    self.visible += appended
+                }
+            }
+            if let query:[URI.Parameter] = uri.query 
+            {
+                try self.reference.query.update(normalizing: query)
+            }
+        }
+    }
+    
+    struct Reference<Path>:BidirectionalCollection 
+        where Path:BidirectionalCollection, Path.Element == Component
+    {
+        var path:Path
+        var query:Query
+        var orientation:Route.Orientation
+        
+        var startIndex:Path.Index 
+        {
+            self.path.startIndex
+        }
+        var endIndex:Path.Index 
+        {
+            self.path.endIndex
+        }
+        subscript(index:Path.Index) -> Component 
+        {
+            _read 
+            {
+                yield self.path[index]
+            }
+        }
+        subscript(bounds:Range<Path.Index>) -> Reference<Path.SubSequence>
+        {
+            .init(path: self.path[bounds], query: self.query, orientation: self.orientation)
+        }
+        func index(before index:Path.Index) -> Path.Index 
+        {
+            self.path.index(before: index)
+        }
+        func index(after index:Path.Index) -> Path.Index 
+        {
+            self.path.index(after: index)
+        }
+        
+        // it’s possible to get an empty path even though the URI is guaranteed non-empty
+        // for example, we could have `/foo/..`, which would generate `[]`.
+        init(path:Path, query:Query = .init(), orientation:Route.Orientation = .gay)
+        {
+            self.path = path 
+            self.query = query 
+            self.orientation = orientation
+        }
+        
+        var package:Package.ID? 
+        {
+            guard case .identifier(let package, hyphen: _)? = self.path.first
+            else 
+            {
+                return nil
+            }
+            return .init(package)
+        }
+        var module:Module.ID? 
+        {
+            guard case .identifier(let module, hyphen: nil)? = self.path.first
+            else 
+            {
+                return nil
+            }
+            return .init(module)
+        }
+    }
+    
+    struct Disambiguator 
+    {
+        let suffix:Suffix?
+        let victim:Symbol.ID?
+        let symbol:Symbol.ID?
+    }
+    
+    enum Resolution 
+    {
+        case module(Module.Index)
+        case unambiguous(Symbol.IndexPair)
+        case ambiguous([Symbol.IndexPair], Disambiguator)
     }
 }
 
 // parsing rules 
-extension LexicalPath 
+extension Link 
 {
+    fileprivate 
     enum Rule<Location>
     {
         typealias Terminal = Unicode.Scalar
         typealias Encoding = Grammar.Encoding<Location, Terminal>
     }
 }
-extension LexicalPath.Rule 
+extension Link.Rule 
 {
     private 
     typealias Integer = Grammar.UnsignedIntegerLiteral<Grammar.DecimalDigitScalar<Location, Int>>
@@ -438,13 +553,12 @@ extension LexicalPath.Rule
     //                      | DotlessOperatorLeaf
     //                      | UInt   '-' UInt   '-' UInt
     //                      | UInt ( '.' UInt ( '.' UInt ( '.' UInt ) ? ) ? ) ?
-    fileprivate
-    enum Components:ParsingRule
+    enum Component:ParsingRule
     {
         typealias Terminal = Unicode.Scalar
         static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
-            throws -> LexicalPath.Segmentation<Location>
+            throws -> Link.ComponentSegmentation<Location>
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
         {
             let start:Location = input.index 

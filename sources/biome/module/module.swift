@@ -11,10 +11,6 @@ struct Module:Identifiable, Sendable
         {
             .init(self.bits)
         }
-        init(package:Int, offset:Int)
-        {
-            self.init(Package.Index.init(offset: package), offset: offset)
-        }
         init(_ package:Package.Index, offset:Int)
         {
             self.package = package 
