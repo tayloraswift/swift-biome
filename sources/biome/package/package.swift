@@ -124,33 +124,16 @@ extension Package
         given ecosystem:Ecosystem, keys:inout Route.Keys) 
         throws -> [Index: [Symbol.Index: [Symbol.Trait]]]
     {
-        // create modules, if they do not exist already.
-        // note: module indices are *not* necessarily contiguous, 
-        // or even monotonically increasing
-        let cultures:[Module.Index] = graphs.map { self.insert($0.core.namespace) }
+        let cultures:[Module.Index] = 
+            try self.update(modules: graphs, to: version, given: ecosystem)
         
-        // resolve dependencies
-        let dependencies:[Module.Dependencies] = 
-            try self.dependencies(zip(cultures, graphs), given: ecosystem)
-        
-        // apply dependency updates
-        for (culture, dependencies):(Module.Index, Module.Dependencies) in 
-            zip(cultures, _move(dependencies))
-        {
-            self.dependencies.update(head: &self.modules[local: culture].heads.dependencies, 
-                to: version, with: dependencies)
+        var scopes:[Symbol.Scope] = cultures.map 
+        { 
+            self.scope($0, at: version, given: ecosystem) 
         }
         
-        var scopes:[Symbol.Scope] = cultures.map { self.scope($0, at: version, given: ecosystem) }
-        
-        let extant:Int = self.symbols.count
-        let updates:[[Symbol.Index: Vertex.Frame]] = zip(graphs, scopes).map
-        {
-            self.extend(with: $0.0, scope: $0.1, keys: &keys)
-        }
-        let updated:Int = updates.reduce(0) { $0 + $1.count }
-        print("(\(self.id)) updated \(updated) symbols (\(self.symbols.count - extant) are new)")
-        
+        let frames:[[Symbol.Index: Vertex.Frame]] = 
+            self.update(symbols: graphs, scopes: scopes, keys: &keys)
         // add the newly-registered symbols to each module scope 
         for scope:Int in scopes.indices
         {
@@ -159,16 +142,16 @@ extension Package
         
         // extract doccomments 
         var documentation:[[Symbol.Index: String]] = 
-            updates.map { $0.compactMapValues(\.documentation) }
+            frames.map { $0.compactMapValues(\.documentation) }
         
-        print("(\(self.id)) found comments for \(documentation.reduce(0) { $0 + $1.count }) of \(updated) symbols")
+        print("(\(self.id)) found comments for \(documentation.reduce(0) { $0 + $1.count }) symbols")
         
         // resolve symbol declarations
         let declarations:[[Symbol.Index: Symbol.Declaration]] = 
-            try zip(_move(updates), scopes).map 
+            try zip(_move(frames), scopes).map 
         {
-            (module:(updates:[Symbol.Index: Vertex.Frame], scope:Symbol.Scope)) in 
-            try module.updates.mapValues { try .init($0, given: module.scope) }
+            (module:(frames:[Symbol.Index: Vertex.Frame], scope:Symbol.Scope)) in 
+            try module.frames.mapValues { try .init($0, given: module.scope) }
         }
         // resolve edge statements 
         let (statements, sponsorships):([[Symbol.Statement]], [Symbol.Sponsorship]) = 
@@ -220,6 +203,7 @@ extension Package
         let bindings:[[Link.UniqueResolution: Extension]] = try self.bind(
             zip(_move(extensions), scopes.map(\.namespaces)), given: ecosystem, keys: keys)
         
+        print(bindings)
         /* for (index, comment):(Symbol.Index, String) in documentation.joined()
         {
 
@@ -277,14 +261,60 @@ extension Package
         }
     } */
     
+
     private mutating 
-    func insert(_ module:Module.ID) -> Module.Index
+    func update(modules graphs:[Module.Graph], to version:Version, given ecosystem:Ecosystem) 
+        throws -> [Module.Index]
+    {
+        // create modules, if they do not exist already.
+        // note: module indices are *not* necessarily contiguous, 
+        // or even monotonically increasing
+        let cultures:[Module.Index] = graphs.map 
+        { 
+            self.insert(module: $0.core.namespace) 
+        }
+        // resolve dependencies
+        let dependencies:[Module.Dependencies] = 
+            try self.dependencies(zip(cultures, graphs), given: ecosystem)
+        
+        // apply dependency updates
+        for (culture, dependencies):(Module.Index, Module.Dependencies) in 
+            zip(cultures, _move(dependencies))
+        {
+            self.dependencies.update(head: &self.modules[local: culture].heads.dependencies, 
+                to: version, with: dependencies)
+        }
+        
+        return cultures
+    }
+    private mutating 
+    func insert(module:Module.ID) -> Module.Index
     {
         self.modules.insert(module, culture: self.index, Module.init(id:index:))
     }
     
     private mutating 
-    func extend(with graph:Module.Graph, scope:Symbol.Scope, keys:inout Route.Keys) 
+    func update(symbols graphs:[Module.Graph], scopes:[Symbol.Scope], keys:inout Route.Keys) 
+        -> [[Symbol.Index: Vertex.Frame]]
+    {
+        let extant:Int = self.symbols.count
+        
+        var updated:Int = 0 
+        var frames:[[Symbol.Index: Vertex.Frame]] = []
+            frames.reserveCapacity(graphs.count)
+        for (graph, scope):(Module.Graph, Symbol.Scope) in zip(graphs, scopes)
+        {
+            let updates:[Symbol.Index: Vertex.Frame] = 
+                self.insert(symbols: graph, scope: scope, keys: &keys)
+            frames.append(updates)
+            updated += updates.count
+        }
+        
+        print("(\(self.id)) updated \(updated) symbols (\(self.symbols.count - extant) are new)")
+        return frames
+    }
+    private mutating 
+    func insert(symbols graph:Module.Graph, scope:Symbol.Scope, keys:inout Route.Keys) 
         -> [Symbol.Index: Vertex.Frame]
     {            
         var updates:[Symbol.Index: Vertex.Frame] = [:]
