@@ -32,15 +32,32 @@ extension Route
             self.table[subpath]
         }
         
-        subscript<S>(leaf component:S) -> Stem? 
-            where S:StringProtocol 
+        private 
+        subscript<Component>(leaf component:Component) -> Stem? 
+            where Component:StringProtocol 
         {
             self.table[Self.subpath(component)]
         }        
+        private 
         subscript<Path>(stem components:Path) -> Stem? 
             where Path:Sequence, Path.Element:StringProtocol 
         {
             self.table[Self.subpath(components)]
+        }
+        
+        subscript<Prefix, Last>(
+            namespace:Module.Index, 
+            prefix:Prefix, 
+            last:Last, orientation:Orientation) -> Route? 
+            where Prefix:Sequence, Prefix.Element:StringProtocol, Last:StringProtocol
+        {
+            guard   let stem:Stem = self[stem: prefix],
+                    let leaf:Stem = self[leaf: last]
+            else 
+            {
+                return nil
+            }
+            return .init(namespace, stem, leaf, orientation: orientation)
         }
         
         private mutating 

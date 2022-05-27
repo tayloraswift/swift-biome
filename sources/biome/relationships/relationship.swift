@@ -30,7 +30,8 @@ extension Symbol
     {
         let roles:Roles
         private(set)
-        var facts:Traits
+        var traits:Traits
+        var identities:[Module.Index: Traits]
         
         init(validating relationships:[Relationship], as color:Color) throws 
         {
@@ -78,8 +79,30 @@ extension Symbol
                 superclass: superclass, 
                 interface: interface, 
                 as: color)
-            self.facts = .init()
-            self.facts.update(with: traits, as: color)
+            self.traits = .init()
+            self.traits.update(with: traits, as: color)
+            self.identities = [:]
+        }
+        
+        func features(assuming color:Color) -> [(perpetrator:Module.Index?, features:[Index])]
+        {
+            guard case .concretetype(_) = color
+            else 
+            {
+                return []
+            }
+            
+            var features:[(perpetrator:Module.Index?, features:[Index])] = []
+            if !self.traits.features.isEmpty
+            {
+                features.append((nil, self.traits.features))
+            }
+            for (perpetrator, traits):(Module.Index, Traits) in self.identities 
+                where !traits.features.isEmpty
+            {
+                features.append((perpetrator, traits.features))
+            }
+            return features
         }
     }
 }

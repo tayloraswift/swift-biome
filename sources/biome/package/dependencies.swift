@@ -1,20 +1,5 @@
 extension Package 
-{
-    func scope(_ dependencies:Module.Dependencies, given ecosystem:Ecosystem) -> Scope
-    {
-        var scope:Scope = .init()
-        for module:Module.Index in dependencies.modules 
-        {
-            scope.import(self[module] ?? ecosystem[module])
-        }
-        for package:Index in dependencies.packages
-        {
-            assert(package != self.index)
-            scope.append(lens: ecosystem[package].symbols.indices)
-        }
-        return scope
-    }
-    
+{    
     func dependencies<Modules>(_ modules:Modules, given ecosystem:Ecosystem) 
         throws -> [Module.Dependencies]
         where Modules:Sequence, Modules.Element == (Module.Index, Module.Graph)
@@ -23,8 +8,8 @@ extension Package
         {
             var dependencies:Module.Dependencies = 
                 try self.dependencies($0.1.dependencies, given: ecosystem)
-            // add self-import, if not already present 
-            dependencies.modules.insert($0.0)
+            // remove self-import, if present
+            dependencies.modules.remove($0.0)
             return dependencies
         }
     }
@@ -47,7 +32,7 @@ extension Package
         
         var modules:Set<Module.Index> = []
         var packages:Set<Package.Index> = []
-        for (id, imports):(ID, [Module.ID]) in dependencies 
+        for (id, namespaces):(ID, [Module.ID]) in dependencies 
         {
             let package:Self 
             if self.id == id
@@ -64,7 +49,7 @@ extension Package
                 throw Package.ResolutionError.dependency(id, of: self.id)
             }
             
-            for id:Module.ID in imports
+            for id:Module.ID in namespaces
             {
                 guard let index:Module.Index = package.modules.indices[id]
                 else 

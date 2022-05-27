@@ -25,23 +25,6 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
             self.bits = bits
         }
     }
-    struct IndexPair:Hashable, Sendable
-    {
-        private 
-        let outer:Index 
-        let symbol:Index
-        
-        static 
-        func natural(_ index:Index) -> Self 
-        {
-            .init(outer: index, symbol: index)
-        }
-        static 
-        func synthesized(_ victim:Index, _ feature:Index) -> Self 
-        {
-            .init(outer: victim, symbol: feature)
-        }
-    }
     struct IndexRange:RandomAccessCollection, Hashable, Sendable
     {
         let module:Module.Index 

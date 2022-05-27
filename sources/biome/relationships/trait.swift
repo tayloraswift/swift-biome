@@ -64,6 +64,7 @@ extension Symbol
                 yield &self.unconditional
             }
         }
+        
         /// if a requirement, the default implementations available for this 
         /// requirement. 
         /// 

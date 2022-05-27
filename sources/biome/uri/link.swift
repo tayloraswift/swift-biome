@@ -70,11 +70,13 @@ enum Link
     {
         var victim:Symbol.ID?
         var symbol:Symbol.ID?
+        var culture:Package.ID?
         
         init() 
         {
             self.victim = nil
             self.symbol = nil 
+            self.culture = nil 
         }
         
         fileprivate mutating 
@@ -84,6 +86,11 @@ enum Link
             {
                 switch key
                 {
+                case "from":
+                    // if the mangled name contained a colon ('SymbolGraphGen style'), 
+                    // the parsing rule will remove it.
+                    self.culture = .init(value)
+                
                 case "self":
                     // if the mangled name contained a colon ('SymbolGraphGen style'), 
                     // the parsing rule will remove it.
@@ -248,7 +255,7 @@ enum Link
             self.orientation = orientation
         }
         
-        var package:Package.ID? 
+        var nation:Package.ID? 
         {
             guard case .identifier(let package, hyphen: _)? = self.path.first
             else 
@@ -257,7 +264,7 @@ enum Link
             }
             return .init(package)
         }
-        var module:Module.ID? 
+        var namespace:Module.ID? 
         {
             guard case .identifier(let module, hyphen: nil)? = self.path.first
             else 
@@ -266,20 +273,14 @@ enum Link
             }
             return .init(module)
         }
-    }
-    
-    struct Disambiguator 
-    {
-        let suffix:Suffix?
-        let victim:Symbol.ID?
-        let symbol:Symbol.ID?
-    }
-    
-    enum Resolution 
-    {
-        case module(Module.Index)
-        case unambiguous(Symbol.IndexPair)
-        case ambiguous([Symbol.IndexPair], Disambiguator)
+        
+        var disambiguation:Link.Disambiguation 
+        {
+            .init(
+                suffix: self.path.last?.suffix ?? nil,
+                victim: self.query.victim,
+                symbol: self.query.symbol)
+        }
     }
 }
 

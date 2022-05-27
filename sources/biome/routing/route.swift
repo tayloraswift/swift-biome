@@ -35,6 +35,11 @@ struct Route:Hashable, Sendable, CustomStringConvertible
         {
             .init(masking: self.bitPattern)
         }
+        var outed:Self? 
+        {
+            let outed:Self = .init(bitPattern: self.stem.bitPattern)
+            return outed == self ? nil : outed
+        }
         var orientation:Orientation 
         {
             self.bitPattern & 1 == 0 ? .gay : .straight
@@ -44,15 +49,25 @@ struct Route:Hashable, Sendable, CustomStringConvertible
         {
             switch orientation 
             {
-            case .gay:      self.bitPattern = stem.bitPattern
-            case .straight: self.bitPattern = stem.bitPattern | 1
+            case .gay:      self.init(bitPattern: stem.bitPattern)
+            case .straight: self.init(bitPattern: stem.bitPattern | 1)
             }
+        }
+        private 
+        init(bitPattern:UInt32)
+        {
+            self.bitPattern = bitPattern
         }
     }
     
     let namespace:Module.Index
     let stem:Stem 
     let leaf:Leaf 
+    
+    var outed:Self? 
+    {
+        self.leaf.outed.map { .init(self.namespace, self.stem, $0) }
+    }
     
     var description:String 
     {

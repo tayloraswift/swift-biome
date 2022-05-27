@@ -7,11 +7,11 @@ extension Symbol
         // only used for dictionary initialization and array appends
         case none
         // if there is no feature index, the natural index is duplicated. 
-        case one   (IndexPair)
-        case many ([IndexPair])
+        case one   (Crime)
+        case many ([Crime])
         
         mutating 
-        func insert(_ next:IndexPair)
+        func insert(_ next:Crime)
         {
             switch self 
             {
@@ -19,15 +19,15 @@ extension Symbol
                 self = .one(next)
             case .one(let first): 
                 self = .many([first, next])
-            case .many(var pairs):
+            case .many(var crimes):
                 self = .none 
-                pairs.append(next)
-                self = .many(pairs)
+                crimes.append(next)
+                self = .many(crimes)
             }
         }
         func union(_ other:Self) -> Self 
         {
-            let union:Set<IndexPair>
+            let union:Set<Crime>
             switch (self, other)
             {
             case (.none, .none): 
@@ -36,16 +36,16 @@ extension Symbol
                 return some
             case (.one(let first), .one(let next)):
                 return first == next ? .one(first) : .many([first, next])
-            case (.many(let pairs), .one(let next)), (.one(let next), .many(let pairs)):
-                union =  ([next] as Set<IndexPair>).union(pairs)
-            case (.many(let pairs), .many(let others)):
-                union = Set<IndexPair>.init(others).union(pairs)
+            case (.many(let crimes), .one(let next)), (.one(let next), .many(let crimes)):
+                union =  ([next] as Set<Crime>).union(crimes)
+            case (.many(let crimes), .many(let others)):
+                union = Set<Crime>.init(others).union(crimes)
             }
             if union.count <= 1 
             {
                 fatalError("unreachable")
             }
-            return .many([IndexPair].init(union))
+            return .many([Crime].init(union))
         }
     }
 }
