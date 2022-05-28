@@ -107,6 +107,12 @@ struct Lexicon
         self.keys = keys 
     }
     
+    func resolve<Modules>(imports modules:Modules) -> [Module.Index]
+        where Modules:Sequence, Modules.Element == Module.ID
+    {
+        modules.compactMap { self.namespaces[$0] }
+    }
+    
     func resolve<Path>(visible link:Link.Reference<Path>, 
         imports:Set<Module.Index>, 
         context:Symbol, 
@@ -221,5 +227,59 @@ struct Lexicon
         {
             return nil
         }
+    }
+}
+
+extension Lexicon 
+{
+    func resolve(expression:String, imports:Set<Module.Index>, context:Symbol, 
+        _ dereference:(Symbol.Index) throws -> Symbol) 
+        rethrows -> Link
+    {
+        // must attempt to parse absolute first, otherwise 
+        // '/foo' will parse to ["", "foo"]
+        if      let link:Link.Expression = try? .init(absolute: expression)
+        {
+            print("global", expression)
+        }
+        else if let link:Link.Expression = try? .init(relative: expression)
+        {
+            switch try self.resolve(visible: link.reference, 
+                imports: imports, 
+                context: context, 
+                dereference)
+            {
+            case nil:
+                print("FAILURE", expression)
+                print("note: location is \(context)")
+                
+            case .one(.symbol(let symbol))?:
+                print("SUCCESS", expression, "->", try dereference(symbol))
+                return .resolution(.symbol(symbol))
+            
+            case .one(let resolution)?: 
+                print("SUCCESS", expression, "-> (unavailable)")
+                return .resolution(resolution)
+            
+            case .many(let possibilities)?: 
+                print("AMBIGUOUS", expression)
+                for (i, possibility):(Int, Link.UniqueResolution) in possibilities.enumerated()
+                {
+                    switch possibility 
+                    {
+                    case .symbol(let symbol):
+                        print("\(i).", try dereference(symbol))
+                    default: 
+                        print("\(i). (unavailable)")
+                    }
+                }
+                print("note: location is \(context)")
+            }
+        }
+        else 
+        {
+            print("unknown", expression)
+        }
+        return .fallback(expression)
     }
 }

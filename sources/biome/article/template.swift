@@ -2,11 +2,23 @@ import HTML
 
 extension Article 
 {
-    struct Template<Anchor> where Anchor:Hashable
+    struct Template<Anchor>:Hashable where Anchor:Hashable
     {
         let errors:[Error]
         let summary:DocumentTemplate<Anchor, [UInt8]>
         let discussion:DocumentTemplate<Anchor, [UInt8]>
+        
+        // don’t include ``errors`` 
+        static 
+        func == (lhs:Self, rhs:Self) -> Bool 
+        {
+            lhs.summary == rhs.summary && lhs.discussion == rhs.discussion
+        }
+        func hash(into hasher:inout Hasher) 
+        {
+            self.summary.hash(into: &hasher)
+            self.discussion.hash(into: &hasher)
+        }
         
         static 
         var empty:Self 

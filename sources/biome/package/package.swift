@@ -244,62 +244,16 @@ extension Package
             for (symbol, comment):(Symbol.Index, String) in comments
             {
                 let comment:Extension = .init(markdown: comment)
-                
-                var imports:Set<Module.Index> = stdlib 
-                for module:Module.ID in comment.metadata.imports
-                {
-                    if let module:Module.Index = lexicon.namespaces[module]
-                    {
-                        imports.insert(module)
-                    }
-                }
+                let imports:Set<Module.Index> = 
+                    stdlib.union(lexicon.resolve(imports: comment.metadata.imports))
+                let context:Symbol = self[local: symbol]
                 let unresolved:Article.Template<String> = comment.render()
                 let resolved:Article.Template<Link> = unresolved.map 
                 {
-                    // must attempt to parse absolute first, otherwise 
-                    // '/foo' will parse to ["", "foo"]
-                    if let global:Link.Expression = try? .init(absolute: $0)
+                    lexicon.resolve(expression: $0, imports: imports, context: context)
                     {
-                        print("global", $0)
+                        self[$0] ?? ecosystem[$0]
                     }
-                    else if let link:Link.Expression = try? .init(relative: $0)
-                    {
-                        let resolution:Link.Resolution? = lexicon.resolve(
-                            visible: link.reference, imports: imports,
-                            context: self[local: symbol])
-                        {
-                            self[$0] ?? ecosystem[$0]
-                        }
-                        switch resolution
-                        {
-                        case nil:
-                            print("FAILURE", $0)
-                            print("note: location is \(self[symbol] ?? ecosystem[symbol])")
-                            
-                        case .one(.symbol(let symbol))?:
-                            print("SUCCESS", $0, "->", self[symbol] ?? ecosystem[symbol])
-                        case .one(_)?: 
-                            print("SUCCESS", $0, "-> (unavailable)")
-                        case .many(let possibilities)?: 
-                            print("AMBIGUOUS", $0)
-                            for (i, possibility):(Int, Link.UniqueResolution) in possibilities.enumerated()
-                            {
-                                switch possibility 
-                                {
-                                case .symbol(let symbol):
-                                    print("\(i).", self[symbol] ?? ecosystem[symbol])
-                                default: 
-                                    print("\(i). (unavailable)")
-                                }
-                            }
-                            print("note: location is \(self[symbol] ?? ecosystem[symbol])")
-                        }
-                    }
-                    else 
-                    {
-                        print("unknown", $0)
-                    }
-                    return .fallback($0)
                 }
             } 
         }
