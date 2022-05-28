@@ -244,6 +244,15 @@ extension Package
             for (symbol, comment):(Symbol.Index, String) in comments
             {
                 let comment:Extension = .init(markdown: comment)
+                
+                var imports:Set<Module.Index> = stdlib 
+                for module:Module.ID in comment.metadata.imports
+                {
+                    if let module:Module.Index = lexicon.namespaces[module]
+                    {
+                        imports.insert(module)
+                    }
+                }
                 let unresolved:Article.Template<String> = comment.render()
                 let resolved:Article.Template<Link> = unresolved.map 
                 {
@@ -256,7 +265,7 @@ extension Package
                     else if let link:Link.Expression = try? .init(relative: $0)
                     {
                         let resolution:Link.Resolution? = lexicon.resolve(
-                            visible: link.reference, imports: stdlib,
+                            visible: link.reference, imports: imports,
                             context: self[local: symbol])
                         {
                             self[$0] ?? ecosystem[$0]
