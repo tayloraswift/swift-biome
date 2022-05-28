@@ -18,18 +18,10 @@ struct Module:Identifiable, Sendable
         }
     }
     
-    struct Dependencies:Equatable, Sendable 
-    {
-        // must *not* include current package. 
-        // (this is why it cannot be a computed property)
-        let packages:Set<Package.Index>
-        var modules:Set<Index>
-    }
-    
     struct Heads 
     {
-        @Keyframe<Dependencies>.Head
-        var dependencies:Keyframe<Dependencies>.Buffer.Index?
+        @Keyframe<Set<Index>>.Head
+        var dependencies:Keyframe<Set<Index>>.Buffer.Index?
         
         init() 
         {

@@ -223,7 +223,7 @@ extension URI.Rule:ParsingRule
             return .init(path: path, query: query)
         }
     }
-    // always contains at least one vector
+    // always contains at least one vector, but it may be empty
     enum Relative:ParsingRule 
     {
         typealias Terminal = UInt8

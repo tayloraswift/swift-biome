@@ -349,8 +349,6 @@ extension Extension
 }
 struct Extension 
 {
-    typealias StaticElement = HTML.Element<Never>
-    
     enum Node 
     {
         case section(Heading, [Self])
@@ -560,22 +558,22 @@ struct Extension
         }
     }
     
-    func render()
+    func render() -> Article.Template<String>
     {
         var renderer:Renderer = .init(rank: self.headline.rank)
         // note: we *never* render the top-level heading. this will either be 
         // auto-generated (for owned symbols), or stored as plain text by the 
         // caller of this function.
-        let summary:Renderer.Element?, 
+        let first:HTML.Element<String>?, 
             remaining:ArraySlice<Node>
         if let paragraph:Paragraph = self.summary
         {
-            summary = renderer.render(span: paragraph, as: .p)
+            first = renderer.render(span: paragraph, as: .p)
             remaining = self.nodes.dropFirst()
         }
         else 
         {
-            summary = nil 
+            first = nil 
             remaining = self.nodes[...]
         }
         
@@ -588,6 +586,17 @@ struct Extension
         {
             renderer.append(nodes: remaining)
         }
+        let discussion:DocumentTemplate<String, [UInt8]> = .init(freezing: renderer.elements)
+        let summary:DocumentTemplate<String, [UInt8]>
+        if let first:HTML.Element<String> = first 
+        {
+            summary = .init(freezing: first)
+        }
+        else 
+        {
+            summary = .empty
+        }
+        return .init(errors: renderer.errors, summary: summary, discussion: discussion)
     }
     // `RecurringInlineMarkup` is not a useful abstraction
     /* private static 

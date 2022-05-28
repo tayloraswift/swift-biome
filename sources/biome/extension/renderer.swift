@@ -79,14 +79,15 @@ extension Extension
         
         private 
         let rank:Int
-        var errors:[Error]
-        var blocks:[Element]
+        private(set)
+        var errors:[Error], 
+            elements:[Element]
         
         init(rank:Int)
         {
             self.rank = rank
             self.errors = []
-            self.blocks = []
+            self.elements = []
         }
         
         private mutating 
@@ -130,18 +131,18 @@ extension Extension
         func append<Nodes>(nodes:Nodes, under heading:String, classes:String)
             where Nodes:Sequence, Nodes.Element == Node
         {
-            var blocks:[Element] = []
-            self.render(nodes: nodes, into: &blocks)
-            self.append(blocks, under: heading, classes: classes)
+            var elements:[Element] = []
+            self.render(nodes: nodes, into: &elements)
+            self.append(elements, under: heading, classes: classes)
         }
         mutating 
         func append<Nodes>(nodes:Nodes)
             where Nodes:Sequence, Nodes.Element == Node
         {
-            var blocks:[Element] = self.blocks 
-            self.blocks = []
-            self.render(nodes: nodes, into: &blocks)
-            self.blocks = blocks
+            var elements:[Element] = self.elements 
+            self.elements = []
+            self.render(nodes: nodes, into: &elements)
+            self.elements = elements
         }
         private mutating 
         func append(_ elements:[Element], under heading:String, classes:String)
@@ -158,10 +159,10 @@ extension Extension
                 }
                 elements
             }
-            self.blocks.append(section)
+            self.elements.append(section)
         }
         private mutating 
-        func render<Nodes>(nodes:Nodes, into blocks:inout [Element])
+        func render<Nodes>(nodes:Nodes, into elements:inout [Element])
             where Nodes:Sequence, Nodes.Element == Node
         {
             for node:Node in nodes 
@@ -170,14 +171,14 @@ extension Extension
                 {
                 case .block(let block): 
                     // rank should not matter
-                    blocks.append(self.render(block: block))
+                    elements.append(self.render(block: block))
                 
                 case .aside(let aside, let content):
-                    blocks.append(self.render(aside: aside, content: content))
+                    elements.append(self.render(aside: aside, content: content))
                     
                 case .section(let heading, let children):
-                    blocks.append(self.render(heading: heading))
-                    self.render(nodes: children, into: &blocks)
+                    elements.append(self.render(heading: heading))
+                    self.render(nodes: children, into: &elements)
                 }
             }
         }
