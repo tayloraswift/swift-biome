@@ -16,7 +16,7 @@ extension Symbol
         let extensionConstraints:[Generic.Constraint<Index>]
         let availability:Availability
         
-        init(_ vertex:Vertex.Frame, given scope:Scope) throws 
+        init(_ vertex:Vertex.Frame, scope:Scope) throws 
         {
             self.availability = vertex.availability 
             self.generics = vertex.generics

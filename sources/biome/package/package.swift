@@ -117,8 +117,52 @@ struct Package:Identifiable, Sendable
     }
 }
 
+/* struct Documentation 
+{
+    enum Comment 
+    {
+        case linked(Link.UniqueResolution)
+        case attached(String)
+        case external(Extension)
+    }
+    
+    var symbol:[Link.UniqueResolution: Comment]
+} */
 extension Package 
 {
+    struct Sources 
+    {
+        private 
+        let modules:[[Symbol.Index: Vertex.Frame]]
+        
+        init(modules:[[Symbol.Index: Vertex.Frame]])
+        {
+            self.modules = modules
+        }
+        
+        func declarations(scopes:[Symbol.Scope]) throws -> [[Symbol.Index: Symbol.Declaration]]
+        {
+            var declarations:[[Symbol.Index: Symbol.Declaration]] = []
+                declarations.reserveCapacity(self.modules.count)
+            for (frames, scope):([Symbol.Index: Vertex.Frame], Symbol.Scope) in 
+                zip(self.modules, scopes)
+            {
+                let module:[Symbol.Index: Symbol.Declaration] = try frames.mapValues 
+                { 
+                    try .init($0, scope: scope) 
+                }
+                declarations.append(module)
+            }
+            return declarations
+        }
+        func documentation() -> [Symbol.Index: String]
+        {
+            self.modules.reduce(into: [:])
+            {
+                $0.merge($1.compactMapValues(\.documentation)) { $1 }
+            }
+        }
+    }
     mutating 
     func update(to version:Version, with graphs:[Module.Graph], 
         given ecosystem:Ecosystem, keys:inout Route.Keys) 
@@ -132,30 +176,29 @@ extension Package
             self.scope($0, at: version, given: ecosystem) 
         }
         
-        let frames:[[Symbol.Index: Vertex.Frame]] = 
-            self.update(symbols: graphs, scopes: scopes, keys: &keys)
+        let sources:Sources = self.update(symbols: graphs, scopes: scopes, keys: &keys)
+        
+        // let frames:[[Symbol.Index: Vertex.Frame]] = 
+        //     self.update(symbols: graphs, scopes: scopes, keys: &keys)
         // add the newly-registered symbols to each module scope 
         for scope:Int in scopes.indices
         {
             scopes[scope].lenses.append(self.symbols.indices)
         }
         
-        // extract doccomments 
-        var documentation:[[Symbol.Index: String]] = 
-            frames.map { $0.compactMapValues(\.documentation) }
-        
-        print("(\(self.id)) found comments for \(documentation.reduce(0) { $0 + $1.count }) symbols")
-        
-        // resolve symbol declarations
+        // resolve symbol declarations, extract doccomments 
+        let comments:[Symbol.Index: String] = sources.documentation()
         let declarations:[[Symbol.Index: Symbol.Declaration]] = 
-            try zip(_move(frames), scopes).map 
-        {
-            (module:(frames:[Symbol.Index: Vertex.Frame], scope:Symbol.Scope)) in 
-            try module.frames.mapValues { try .init($0, given: module.scope) }
-        }
+            try sources.declarations(scopes: scopes)
+        
+        let _ = _move(sources)
+        
+        print("(\(self.id)) found comments for \(comments.count) symbols")
+        
         // resolve edge statements 
         let (statements, sponsorships):([[Symbol.Statement]], [Symbol.Sponsorship]) = 
             try self.statements(zip(graphs, scopes), given: ecosystem)
+        
         // compute relationships
         let ideologies:[Module.Index: Module.Beliefs] = try self.beliefs(_move(statements), 
             about: declarations.map(\.keys),
@@ -166,27 +209,16 @@ extension Package
         
         print("(\(self.id)) found \(self.lens.count) addressable endpoints")
         
-        // apply declaration updates 
-        for (symbol, declaration):(Symbol.Index, Symbol.Declaration) in 
-            _move(declarations).joined() 
-        {
-            self.declarations.update(head: &self.symbols[local: symbol].heads.declaration, 
-                to: version, with: declaration)
-        }
-        // apply relationship updates 
-        for (symbol, relationships):(Symbol.Index, Symbol.Relationships) in 
-            ideologies.values.map(\.facts).joined()
-        {
-            self.relationships.update(head: &self.symbols[local: symbol].heads.relationships, 
-                to: version, with: relationships)
-        }
-        
         // merge opinions into a single dictionary
         let opinions:[Index: [Symbol.Index: [Symbol.Trait]]] = 
-            _move(ideologies).values.reduce(into: [:])
+            ideologies.values.reduce(into: [:])
         {
             $0.merge($1.opinions) { $0.merging($1, uniquingKeysWith: + ) }
         }
+        
+        // apply versioned updates
+        self.update(declarations:  _move(declarations),                   to: version)
+        self.update(relationships: _move(ideologies).values.map(\.facts), to: version)
         
         // gather documentation extensions 
         let articles:[[Extension]] = graphs.map 
@@ -203,11 +235,11 @@ extension Package
         let bindings:[[Link.UniqueResolution: Extension]] = try self.bind(
             zip(_move(extensions), scopes.map(\.namespaces)), given: ecosystem, keys: keys)
         
-        print(bindings)
-        /* for (index, comment):(Symbol.Index, String) in documentation.joined()
+        for (index, comment):(Symbol.Index, String) in comments
         {
-
-        } */
+            let comment:Extension = .init(markdown: comment)
+            comment.render()
+        } 
         return opinions
     }
     
@@ -295,23 +327,23 @@ extension Package
     
     private mutating 
     func update(symbols graphs:[Module.Graph], scopes:[Symbol.Scope], keys:inout Route.Keys) 
-        -> [[Symbol.Index: Vertex.Frame]]
+        -> Sources
     {
         let extant:Int = self.symbols.count
         
         var updated:Int = 0 
-        var frames:[[Symbol.Index: Vertex.Frame]] = []
-            frames.reserveCapacity(graphs.count)
+        var modules:[[Symbol.Index: Vertex.Frame]] = []
+            modules.reserveCapacity(graphs.count)
         for (graph, scope):(Module.Graph, Symbol.Scope) in zip(graphs, scopes)
         {
-            let updates:[Symbol.Index: Vertex.Frame] = 
+            let frames:[Symbol.Index: Vertex.Frame] = 
                 self.insert(symbols: graph, scope: scope, keys: &keys)
-            frames.append(updates)
-            updated += updates.count
+            modules.append(frames)
+            updated += frames.count
         }
         
         print("(\(self.id)) updated \(updated) symbols (\(self.symbols.count - extant) are new)")
-        return frames
+        return .init(modules: modules)
     }
     private mutating 
     func insert(symbols graph:Module.Graph, scope:Symbol.Scope, keys:inout Route.Keys) 
@@ -356,6 +388,25 @@ extension Package
                 namespace: namespace, offsets: offset ..< self.symbols.count))
         }
         return updates
+    }
+    
+    private mutating 
+    func update(declarations:[[Symbol.Index: Symbol.Declaration]], to version:Version)
+    {
+        for (symbol, declaration):(Symbol.Index, Symbol.Declaration) in declarations.joined() 
+        {
+            self.declarations.update(head: &self.symbols[local: symbol].heads.declaration, 
+                to: version, with: declaration)
+        }
+    }
+    private mutating 
+    func update(relationships:[[Symbol.Index: Symbol.Relationships]], to version:Version)
+    {
+        for (symbol, relationships):(Symbol.Index, Symbol.Relationships) in relationships.joined()
+        {
+            self.relationships.update(head: &self.symbols[local: symbol].heads.relationships, 
+                to: version, with: relationships)
+        }
     }
     
     private 
