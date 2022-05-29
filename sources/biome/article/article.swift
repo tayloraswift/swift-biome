@@ -31,8 +31,8 @@ struct Article:Identifiable
     
     struct Heads 
     {
-        @Keyframe<_Documentation>.Head
-        var documentation:Keyframe<_Documentation>.Buffer.Index?
+        @Keyframe<Template<Link>>.Head
+        var documentation:Keyframe<Template<Link>>.Buffer.Index?
         
         init() 
         {

@@ -1,5 +1,39 @@
 extension Symbol 
 {
+    struct Groups 
+    {
+        private(set)
+        var table:[Route: Symbol.Group]
+        
+        init()
+        {
+            self.table = [:]
+        }
+        
+        mutating 
+        func insert(natural:(symbol:Symbol.Index, route:Route)) 
+        {
+            self.table[natural.route, default: .none].insert(.init(natural: natural.symbol))
+        }
+        mutating 
+        func insert(perpetrator:Module.Index, 
+            victim:(symbol:Symbol.Index, namespace:Module.Index, path:Route.Stem), 
+            features:[(base:Symbol.Index, leaf:Route.Leaf)]) 
+        {
+            for (feature, leaf):(Symbol.Index, Route.Leaf) in features 
+            {
+                let route:Route = .init(victim.namespace, victim.path, leaf)
+                let crime:Crime = .init(victim: victim.symbol, feature: feature, 
+                    culture: perpetrator)
+                self.table[route, default: .none].insert(crime)
+            }
+        }
+        mutating 
+        func merge(_ other:Self)
+        {
+            self.table.merge(other.table) { $0.union($1) }
+        }
+    }
     // 24B stride. the ``many`` case should be quite rare, since we are now 
     // encoding path orientation in the leaf key.
     enum Group 

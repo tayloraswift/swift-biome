@@ -32,10 +32,14 @@ struct Package:Identifiable, Sendable
     var dependencies:Keyframe<Set<Module.Index>>.Buffer, 
         declarations:Keyframe<Symbol.Declaration>.Buffer, 
         relationships:Keyframe<Symbol.Relationships>.Buffer,
-        documentation:Keyframe<_Documentation>.Buffer
+        documentation:Keyframe<Article.Template<Link>>.Buffer
         
-    private(set)
-    var lens:Lexicon.Lens
+    private
+    var groups:Symbol.Groups
+    var lens:Lexicon.Lens 
+    {
+        .init(groups: self.groups.table, learn: self.articles.indices)
+    }
     
     var name:String 
     {
@@ -48,7 +52,7 @@ struct Package:Identifiable, Sendable
         self.index = index
         
         // self.tag = "2.0.0"
-        self.lens = .init()
+        self.groups = .init()
         self.modules = .init()
         self.symbols = .init()
         self.articles = .init()
@@ -116,45 +120,15 @@ struct Package:Identifiable, Sendable
 {
     enum Comment 
     {
-        case linked(Link.UniqueResolution)
+        case linked(Link.Target)
         case attached(String)
         case external(Extension)
     }
     
-    var symbol:[Link.UniqueResolution: Comment]
+    var symbol:[Link.Target: Comment]
 } */
 extension Package 
 {
-    struct Sources 
-    {
-        private 
-        let modules:[[Symbol.Index: Vertex.Frame]]
-        
-        init(modules:[[Symbol.Index: Vertex.Frame]])
-        {
-            self.modules = modules
-        }
-        
-        func declarations(scopes:[Symbol.Scope]) throws -> [[Symbol.Index: Symbol.Declaration]]
-        {
-            var declarations:[[Symbol.Index: Symbol.Declaration]] = []
-                declarations.reserveCapacity(self.modules.count)
-            for (frames, scope):([Symbol.Index: Vertex.Frame], Symbol.Scope) in 
-                zip(self.modules, scopes)
-            {
-                let module:[Symbol.Index: Symbol.Declaration] = try frames.mapValues 
-                { 
-                    try .init($0, scope: scope) 
-                }
-                declarations.append(module)
-            }
-            return declarations
-        }
-        func documentation() -> [[Symbol.Index: String]]
-        {
-            self.modules.map { $0.compactMapValues(\.documentation) }
-        }
-    }
     mutating 
     func update(to version:Version, with graphs:[Module.Graph], 
         given ecosystem:Ecosystem, keys:inout Route.Keys) 
@@ -168,7 +142,8 @@ extension Package
             self.scope($0, at: version, given: ecosystem) 
         }
         
-        let sources:Sources = self.update(symbols: graphs, scopes: scopes, keys: &keys)
+        let sources:Sources         = self.addSources    (graphs, scopes:   scopes,   keys: &keys)
+        let peripherals:Peripherals = self.addPeripherals(graphs, cultures: cultures, keys: &keys)
         
         // let frames:[[Symbol.Index: Vertex.Frame]] = 
         //     self.update(symbols: graphs, scopes: scopes, keys: &keys)
@@ -179,7 +154,7 @@ extension Package
         }
         
         // resolve symbol declarations, extract doccomments 
-        let comments:[[Symbol.Index: String]] = sources.documentation()
+        let comments:[[Symbol.Index: String]] = sources.comments()
         let declarations:[[Symbol.Index: Symbol.Declaration]] = 
             try sources.declarations(scopes: scopes)
         
@@ -197,9 +172,9 @@ extension Package
             cultures: cultures)
         
         // defer the merge until the end to reduce algorithmic complexity
-        self.lens.merge(self.lens(ideologies, given: ecosystem, keys: &keys))
+        self.groups.merge(self.groups(ideologies, given: ecosystem, keys: &keys))
         
-        print("(\(self.id)) found \(self.lens.count) addressable endpoints")
+        print("(\(self.id)) found \(self.lens.groups.count) addressable endpoints")
         
         // merge opinions into a single dictionary
         let opinions:[Index: [Symbol.Index: [Symbol.Trait]]] = 
@@ -212,42 +187,51 @@ extension Package
         self.update(declarations:  _move(declarations),                   to: version)
         self.update(relationships: _move(ideologies).values.map(\.facts), to: version)
         
-        // gather documentation extensions 
-        let articles:[[Extension]] = graphs.map 
-        { 
-            $0.articles.filter { $0.binding == nil } 
-        }
-        let extensions:[[(String, Extension)]] = graphs.map 
-        { 
-            $0.articles.compactMap 
-            { 
-                (article:Extension) in article.binding.map { ($0, article) } 
-            } 
-        }
-        let bindings:[[Link.UniqueResolution: Extension]] = try self.bind(
-            zip(_move(extensions), scopes.map(\.namespaces)), given: ecosystem, keys: keys)
-        //  build lexical scopes for each module culture 
-        let lexica:[Lexicon] = scopes.map 
+        //  build lexical scopes for each module culture. 
+        //  initialize a single-lens lexicon for each culture. it should contain 
+        //  *all* our available namespaces, but only *one* lens.
+        var lexica:[Lexicon] = scopes.map 
         {
-            var lexicon:Lexicon = .init(keys: keys, namespaces: $0.namespaces, 
-                lenses: $0.namespaces.lenses(given: ecosystem, \.lens))
-            //  add the local lens 
-            lexicon.lenses.append(self.lens)
-            return lexicon
+            .init(keys: keys, namespaces: $0.namespaces, lenses: [self.lens])
         }
+        let extensions:[[Link.Target: Extension]] = 
+            peripherals.extensions(lexica: lexica)
+        {
+            self[$0] ?? ecosystem[$0]
+        }
+        // add upstream lenses 
+        for lexicon:Int in lexica.indices 
+        {
+            let lenses:[Lexicon.Lens] = 
+                lexica[lexicon].namespaces.lenses(given: ecosystem, \.lens)
+            lexica[lexicon].lenses.append(contentsOf: lenses)
+        }
+        
         //  always import the standard library
         let stdlib:Set<Module.Index> = self.stdlib(given: ecosystem)
         
-        for (lexicon, comments):(Lexicon, [Symbol.Index: String]) in 
-            zip(lexica, _move(comments))
+        var templates:[Link.Target: Article.Template<Link>] = [:]
+            templates.reserveCapacity(comments.reduce(0) { $0 + $1.count })
+        
+        for (lexicon, extensions):(Lexicon, [Link.Target: Extension]) in 
+            zip(lexica, _move(extensions))
         {
-            for (symbol, comment):(Symbol.Index, String) in comments
+            for (target, article):(Link.Target, Extension) in extensions
             {
-                let comment:Extension = .init(markdown: comment)
+                let context:Symbol?
+                switch target 
+                {
+                case .package(_), .module(_), .feature(_, _): 
+                    print("warning: UNIMPLEMENTED EXTENSION TARGET \(target)")
+                    continue 
+                
+                case .symbol(let index):
+                    context = self[local: index]
+                }
+                
                 let imports:Set<Module.Index> = 
-                    stdlib.union(lexicon.resolve(imports: comment.metadata.imports))
-                let context:Symbol = self[local: symbol]
-                let unresolved:Article.Template<String> = comment.render()
+                    stdlib.union(lexicon.resolve(imports: article.metadata.imports))
+                let unresolved:Article.Template<String> = article.render()
                 let resolved:Article.Template<Link> = unresolved.map 
                 {
                     lexicon.resolve(expression: $0, imports: imports, context: context)
@@ -255,6 +239,33 @@ extension Package
                         self[$0] ?? ecosystem[$0]
                     }
                 }
+                templates[target] = resolved
+            } 
+        }
+        for (lexicon, comments):(Lexicon, [Symbol.Index: String]) in 
+            zip(lexica, _move(comments))
+        {
+            for (index, comment):(Symbol.Index, String) in comments
+            {
+                let symbol:Symbol = self[local: index]
+                
+                if templates.keys.contains(.symbol(index))
+                {
+                    print("warning: overwrote documentation for \(symbol)")
+                }
+                
+                let comment:Extension = .init(markdown: comment)
+                let imports:Set<Module.Index> = 
+                    stdlib.union(lexicon.resolve(imports: comment.metadata.imports))
+                let unresolved:Article.Template<String> = comment.render()
+                let resolved:Article.Template<Link> = unresolved.map 
+                {
+                    lexicon.resolve(expression: $0, imports: imports, context: symbol)
+                    {
+                        self[$0] ?? ecosystem[$0]
+                    }
+                }
+                templates[.symbol(index)] = resolved
             } 
         }
 
@@ -345,71 +356,6 @@ extension Package
     }
     
     private mutating 
-    func update(symbols graphs:[Module.Graph], scopes:[Symbol.Scope], keys:inout Route.Keys) 
-        -> Sources
-    {
-        let extant:Int = self.symbols.count
-        
-        var updated:Int = 0 
-        var modules:[[Symbol.Index: Vertex.Frame]] = []
-            modules.reserveCapacity(graphs.count)
-        for (graph, scope):(Module.Graph, Symbol.Scope) in zip(graphs, scopes)
-        {
-            let frames:[Symbol.Index: Vertex.Frame] = 
-                self.insert(symbols: graph, scope: scope, keys: &keys)
-            modules.append(frames)
-            updated += frames.count
-        }
-        
-        print("(\(self.id)) updated \(updated) symbols (\(self.symbols.count - extant) are new)")
-        return .init(modules: modules)
-    }
-    private mutating 
-    func insert(symbols graph:Module.Graph, scope:Symbol.Scope, keys:inout Route.Keys) 
-        -> [Symbol.Index: Vertex.Frame]
-    {            
-        var updates:[Symbol.Index: Vertex.Frame] = [:]
-        for colony:Module.Subgraph in [[graph.core], graph.colonies].joined()
-        {
-            // will always succeed for the core subgraph
-            guard let namespace:Module.Index = scope.namespaces[colony.namespace]
-            else 
-            {
-                print("warning: ignored colonial symbolgraph '\(graph.core.namespace)@\(colony.namespace)'")
-                print("note: '\(colony.namespace)' is not a known dependency of '\(graph.core.namespace)'")
-                continue 
-            }
-            
-            let offset:Int = self.symbols.count
-            for (id, vertex):(Symbol.ID, Vertex) in colony.vertices 
-            {
-                if scope.contains(id) 
-                {
-                    // usually happens because of inferred symbols. ignore.
-                    continue 
-                }
-                let index:Symbol.Index = self.symbols.insert(id, culture: scope.culture)
-                {
-                    (id:Symbol.ID, _:Symbol.Index) in 
-                    let stem:[String] = .init(vertex.path.dropLast())
-                    let leaf:String = vertex.path[vertex.path.endIndex - 1]
-                    let route:Route = .init(namespace, 
-                              keys.register(components: stem), 
-                        .init(keys.register(component:  leaf), 
-                        orientation: vertex.color.orientation))
-                    return .init(id: id, nest: stem, name: leaf, color: vertex.color, route: route)
-                }
-                
-                updates[index] = vertex.frame
-            }
-            
-            self.modules[local: scope.culture].matrix.append(Symbol.ColonialRange.init(
-                namespace: namespace, offsets: offset ..< self.symbols.count))
-        }
-        return updates
-    }
-    
-    private mutating 
     func update(declarations:[[Symbol.Index: Symbol.Declaration]], to version:Version)
     {
         for (symbol, declaration):(Symbol.Index, Symbol.Declaration) in declarations.joined() 
@@ -474,50 +420,20 @@ extension Package
         }
         return .init(package.modules.indices.values)
     }
-    private 
-    func bind<Modules>(_ modules:Modules, given ecosystem:Ecosystem, keys:Route.Keys) 
-        throws -> [[Link.UniqueResolution: Extension]]
-        where Modules:Sequence, Modules.Element == ([(String, Extension)], Module.Scope)
-    {
-        try modules.map 
-        {
-            // build a single-lens lexicon for the bindings. it should contain *all* our 
-            // available namespaces, but only *one* lens.
-            let lexicon:Lexicon = .init(keys: keys, namespaces: $0.1, lenses: [self.lens])
-            var extensions:[Link.UniqueResolution: Extension] = [:]
-            for (binding, article):(String, Extension) in $0.0
-            {
-                let expression:Link.Expression = try Link.Expression.init(relative: binding)
-                let binding:Link.Resolution? = lexicon.resolve(visible: expression.reference)
-                {
-                    self[$0] ?? ecosystem[$0]
-                }
-                switch binding
-                {
-                case .many(_)?, nil: 
-                    fatalError("unimplemented")
-                case .one(let unique)?:
-                    // TODO: emit warning for colliding extensions
-                    extensions[unique] = article 
-                }
-            }
-            return extensions
-        }
-    }
     
     private 
-    func lens(_ ideologies:[Module.Index: Module.Beliefs], 
+    func groups(_ ideologies:[Module.Index: Module.Beliefs], 
         given ecosystem:Ecosystem, keys:inout Route.Keys)
-         -> Lexicon.Lens
+         -> Symbol.Groups
     {
-        var lens:Lexicon.Lens = .init()
+        var groups:Symbol.Groups = .init()
         for (culture, beliefs):(Module.Index, Module.Beliefs) in ideologies 
         {
             for (host, relationships):(Symbol.Index, Symbol.Relationships) in beliefs.facts
             {
                 let symbol:Symbol = self[local: host]
                 
-                lens.insert(natural: (host, symbol.route))
+                groups.insert(natural: (host, symbol.route))
                 
                 let features:[(perpetrator:Module.Index?, features:[Symbol.Index])] = 
                     relationships.features(assuming: symbol.color)
@@ -530,7 +446,7 @@ extension Package
                 let path:Route.Stem = keys.register(complete: symbol)
                 for (perpetrator, features):(Module.Index?, [Symbol.Index]) in features 
                 {
-                    lens.insert(perpetrator: perpetrator ?? culture, 
+                    groups.insert(perpetrator: perpetrator ?? culture, 
                         victim: (host, symbol.namespace, path), 
                         features: features.map 
                         { 
@@ -545,7 +461,7 @@ extension Package
                 {
                     let symbol:Symbol = ecosystem[host]
                     let path:Route.Stem = keys.register(complete: symbol)
-                    lens.insert(perpetrator: culture, 
+                    groups.insert(perpetrator: culture, 
                         victim: (host, symbol.namespace, path), 
                         features: features.map 
                         {
@@ -554,6 +470,193 @@ extension Package
                 }
             }
         }
-        return lens
+        return groups
+    }
+}
+
+// sources 
+extension Package 
+{
+    struct Sources 
+    {
+        fileprivate 
+        let modules:[[Symbol.Index: Vertex.Frame]]
+    }
+    
+    mutating 
+    func addSources(_ graphs:[Module.Graph], scopes:[Symbol.Scope], keys:inout Route.Keys) 
+        -> Sources
+    {
+        let extant:Int = self.symbols.count
+        
+        var updated:Int = 0 
+        var modules:[[Symbol.Index: Vertex.Frame]] = []
+            modules.reserveCapacity(graphs.count)
+        for (graph, scope):(Module.Graph, Symbol.Scope) in zip(graphs, scopes)
+        {
+            let frames:[Symbol.Index: Vertex.Frame] = 
+                self.insert(symbols: graph, scope: scope, keys: &keys)
+            modules.append(frames)
+            updated += frames.count
+        }
+        
+        print("(\(self.id)) updated \(updated) symbols (\(self.symbols.count - extant) are new)")
+        return .init(modules: modules)
+    }
+    private mutating 
+    func insert(symbols graph:Module.Graph, scope:Symbol.Scope, keys:inout Route.Keys) 
+        -> [Symbol.Index: Vertex.Frame]
+    {            
+        var updates:[Symbol.Index: Vertex.Frame] = [:]
+        for colony:Module.Subgraph in [[graph.core], graph.colonies].joined()
+        {
+            // will always succeed for the core subgraph
+            guard let namespace:Module.Index = scope.namespaces[colony.namespace]
+            else 
+            {
+                print("warning: ignored colonial symbolgraph '\(graph.core.namespace)@\(colony.namespace)'")
+                print("note: '\(colony.namespace)' is not a known dependency of '\(graph.core.namespace)'")
+                continue 
+            }
+            
+            let offset:Int = self.symbols.count
+            for (id, vertex):(Symbol.ID, Vertex) in colony.vertices 
+            {
+                if scope.contains(id) 
+                {
+                    // usually happens because of inferred symbols. ignore.
+                    continue 
+                }
+                let index:Symbol.Index = self.symbols.insert(id, culture: scope.culture)
+                {
+                    (id:Symbol.ID, _:Symbol.Index) in 
+                    let stem:[String] = .init(vertex.path.dropLast())
+                    let leaf:String = vertex.path[vertex.path.endIndex - 1]
+                    let route:Route = .init(namespace, 
+                              keys.register(components: stem), 
+                        .init(keys.register(component:  leaf), 
+                        orientation: vertex.color.orientation))
+                    return .init(id: id, nest: stem, name: leaf, color: vertex.color, route: route)
+                }
+                
+                updates[index] = vertex.frame
+            }
+            
+            self.modules[local: scope.culture].matrix.append(Symbol.ColonialRange.init(
+                namespace: namespace, offsets: offset ..< self.symbols.count))
+        }
+        return updates
+    }
+}
+extension Package.Sources 
+{
+    func comments() -> [[Symbol.Index: String]]
+    {
+        self.modules.map 
+        { 
+            $0.compactMapValues 
+            {
+                $0.comment.isEmpty ? nil : $0.comment
+            } 
+        }
+    }
+    func declarations(scopes:[Symbol.Scope]) throws -> [[Symbol.Index: Symbol.Declaration]]
+    {
+        var declarations:[[Symbol.Index: Symbol.Declaration]] = []
+            declarations.reserveCapacity(self.modules.count)
+        for (frames, scope):([Symbol.Index: Vertex.Frame], Symbol.Scope) in 
+            zip(self.modules, scopes)
+        {
+            let module:[Symbol.Index: Symbol.Declaration] = try frames.mapValues 
+            { 
+                try .init($0, scope: scope) 
+            }
+            declarations.append(module)
+        }
+        return declarations
+    }
+}
+
+// peripherals 
+extension Package 
+{
+    struct Peripherals 
+    {
+        let articles:[[Article.Index: Extension]]
+        fileprivate 
+        let extensions:[[String: Extension]]
+    }
+    
+    mutating 
+    func addPeripherals(_ graphs:[Module.Graph], cultures:[Module.Index], 
+        keys:inout Route.Keys) -> Peripherals
+    {
+        var extensions:[[String: Extension]] = []
+            extensions.reserveCapacity(cultures.count)
+        var articles:[[Article.Index: Extension]] = []
+            articles.reserveCapacity(cultures.count)
+        for (culture, graph):(Module.Index, Module.Graph) in zip(cultures, graphs)
+        {
+            var unregistered:[String: Extension] = [:] 
+            var registered:[Article.Index: Extension] = [:]
+            for article:Extension in graph.articles
+            {
+                if let binding:String = article.binding 
+                {
+                    unregistered[binding] = article 
+                    continue 
+                }
+                // article namespace is always its culture
+                let path:[String] = article.metadata.path
+                let nest:[String] = .init(path.dropLast()),
+                    name:String = path[path.endIndex - 1]
+                let id:Route = .init(culture, 
+                          keys.register(components: nest), 
+                    .init(keys.register(component:  name), 
+                    orientation: .straight))
+                let index:Article.Index = self.articles.insert(id, culture: culture)
+                {
+                    (route:Route, _:Article.Index) in 
+                    .init(nest: nest, name: name, route: route)
+                }
+                registered[index] = article
+            }
+            extensions.append(unregistered)
+            articles.append(registered)
+        }
+        return .init(articles: articles, extensions: extensions)
+    }
+}
+extension Package.Peripherals
+{
+    func extensions(lexica:[Lexicon], _ dereference:(Symbol.Index) throws -> Symbol) 
+        rethrows -> [[Link.Target: Extension]]
+    {
+        var modules:[[Link.Target: Extension]] = [] 
+            modules.reserveCapacity(lexica.count)
+        for (lexicon, articles):(Lexicon, [String: Extension]) in zip(lexica, self.extensions)
+        {
+            var bindings:[Link.Target: Extension] = [:]
+                bindings.reserveCapacity(articles.count)
+            for (binding, article):(String, Extension) in articles
+            {
+                guard let link:Link.Expression = try? Link.Expression.init(relative: binding)
+                else 
+                {
+                    print("warning: ignored article with invalid binding '\(binding)'")
+                    continue 
+                }
+                switch try lexicon.resolve(visible: link.reference, dereference)
+                {
+                case .many(_)?, nil: 
+                    fatalError("unimplemented")
+                case .one(let unique)?:
+                    // TODO: emit warning for colliding extensions
+                    bindings[unique] = article 
+                }
+            }
+            modules.append(bindings)
+        }
+        return modules
     }
 }

@@ -2,19 +2,19 @@ import Grammar
 
 enum Link:Hashable, Sendable
 {
-    case resolution(UniqueResolution)
+    case target(Target)
     case fallback(String)
 }
 extension Link 
 {
     enum Resolution
     {
-        case one(UniqueResolution)
-        case many([UniqueResolution])
+        case one(Target)
+        case many([Target])
         
-        init?(_ matches:[UniqueResolution]) 
+        init?(_ matches:[Target]) 
         {
-            guard let first:UniqueResolution = matches.first 
+            guard let first:Target = matches.first 
             else 
             {
                 return nil
@@ -29,7 +29,7 @@ extension Link
             }
         }
     }
-    enum UniqueResolution:Hashable 
+    enum Target:Hashable 
     {
         case package(Package.Index)
         case module(Module.Index)
@@ -69,7 +69,7 @@ extension Link.Disambiguation
         rethrows -> Link.Resolution?
         where Groups:Sequence, Groups.Element == Symbol.Group
     {
-        var filtered:[Link.UniqueResolution] = []
+        var filtered:[Link.Target] = []
         for group:Symbol.Group in groups 
         {
             switch group 

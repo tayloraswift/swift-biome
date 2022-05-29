@@ -2,93 +2,13 @@ struct Lexicon
 {
     struct Lens:Sendable 
     {
-        private 
-        var groups:[Route: Symbol.Group]
-        
-        var count:Int 
-        {
-            self.groups.count
-        }
-        
-        init()
-        {
-            self.groups = [:]
-        }
-        
-        subscript(exactly route:Route) -> Symbol.Group?
+        let groups:[Route: Symbol.Group]
+        let learn:[Route: Article.Index]
+                
+        subscript(group route:Route) -> Symbol.Group?
         {
             self.groups[route] 
         }
-        /* private 
-        subscript(route:Route) -> Symbol.Group?
-        {
-            if let group:Symbol.Group = self.groups[route] 
-            {
-                return group
-            }
-            else if let route:Route = route.outed
-            {
-                return self.groups[route]
-            }
-            else 
-            {
-                return nil
-            }
-        } */
-        
-        mutating 
-        func insert(natural:(symbol:Symbol.Index, route:Route)) 
-        {
-            self.groups[natural.route, default: .none].insert(.init(natural: natural.symbol))
-        }
-        mutating 
-        func insert(perpetrator:Module.Index, 
-            victim:(symbol:Symbol.Index, namespace:Module.Index, path:Route.Stem), 
-            features:[(base:Symbol.Index, leaf:Route.Leaf)]) 
-        {
-            for (feature, leaf):(Symbol.Index, Route.Leaf) in features 
-            {
-                let route:Route = .init(victim.namespace, victim.path, leaf)
-                let crime:Crime = .init(victim: victim.symbol, feature: feature, 
-                    culture: perpetrator)
-                self.groups[route, default: .none].insert(crime)
-            }
-        }
-        mutating 
-        func merge(_ other:Self)
-        {
-            self.groups.merge(other.groups) { $0.union($1) }
-        }
-        /* 
-        func select<Path>(_ namespace:Module.Index, _ nest:[String] = [], _ link:Link.Reference<Path>, 
-            keys:Route.Keys) 
-            throws -> Link.ResolutionGroup?
-            where Path:BidirectionalCollection, Path.Element == Link.Component
-        {
-            let path:[String] = nest.isEmpty ? 
-                link.path.compactMap(\.prefix) : nest + link.path.compactMap(\.prefix)
-            
-            guard   let last:String = path.last 
-            else 
-            {
-                return .one(.module(namespace))
-            }
-            guard   let route:Route = keys[namespace, path.dropLast(), last, link.orientation], 
-                    let group:Symbol.Group = self[route]
-            else 
-            {
-                return nil
-            }
-            switch group 
-            {
-            case .none: 
-                fatalError("unreachable")
-            case .one(let pair): 
-                return .one(.symbol(pair))
-            case .many(let pairs):
-                return .many(pairs, link.disambiguation)
-            }
-        } */
     }
     
     var namespaces:Module.Scope
@@ -115,7 +35,7 @@ struct Lexicon
     
     func resolve<Path>(visible link:Link.Reference<Path>, 
         imports:Set<Module.Index>, 
-        context:Symbol, 
+        context:Symbol?, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link.Resolution?
         where Path:BidirectionalCollection, Path.Element == Link.Component
@@ -125,7 +45,7 @@ struct Lexicon
         {
             return qualified
         }
-        if !context.nest.isEmpty, 
+        if  let context:Symbol = context, !context.nest.isEmpty, 
             self.culture == context.namespace || imports.contains(context.namespace), 
             let relative:Link.Resolution = 
             try self.resolve(context.namespace, context.nest, link, dereference)
@@ -206,7 +126,7 @@ struct Lexicon
         // results that match orientation should take precedence over 
         // results that do not match orientation.
         let disambiguation:Link.Disambiguation = link.disambiguation
-        let exact:[Symbol.Group] = self.lenses.compactMap { $0[exactly: route] }
+        let exact:[Symbol.Group] = self.lenses.compactMap { $0[group: route] }
         if  let resolution:Link.Resolution = try disambiguation.filter(exact, 
             by: dereference, where: self.namespaces.contains(_:))
         {
@@ -217,7 +137,7 @@ struct Lexicon
         {
             return nil
         }
-        let redirects:[Symbol.Group] = self.lenses.compactMap { $0[exactly: route] }
+        let redirects:[Symbol.Group] = self.lenses.compactMap { $0[group: route] }
         if  let resolution:Link.Resolution = try disambiguation.filter(redirects, 
             by: dereference, where: self.namespaces.contains(_:))
         {
@@ -232,13 +152,13 @@ struct Lexicon
 
 extension Lexicon 
 {
-    func resolve(expression:String, imports:Set<Module.Index>, context:Symbol, 
+    func resolve(expression:String, imports:Set<Module.Index>, context:Symbol?, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link
     {
         // must attempt to parse absolute first, otherwise 
         // '/foo' will parse to ["", "foo"]
-        if      let link:Link.Expression = try? .init(absolute: expression)
+        if      let _:Link.Expression = try? .init(absolute: expression)
         {
             print("global", expression)
         }
@@ -251,19 +171,19 @@ extension Lexicon
             {
             case nil:
                 print("FAILURE", expression)
-                print("note: location is \(context)")
+                print("note: location is \(context as Any)")
                 
             case .one(.symbol(let symbol))?:
                 print("SUCCESS", expression, "->", try dereference(symbol))
-                return .resolution(.symbol(symbol))
+                return .target(.symbol(symbol))
             
-            case .one(let resolution)?: 
+            case .one(let target)?: 
                 print("SUCCESS", expression, "-> (unavailable)")
-                return .resolution(resolution)
+                return .target(target)
             
             case .many(let possibilities)?: 
                 print("AMBIGUOUS", expression)
-                for (i, possibility):(Int, Link.UniqueResolution) in possibilities.enumerated()
+                for (i, possibility):(Int, Link.Target) in possibilities.enumerated()
                 {
                     switch possibility 
                     {
@@ -273,7 +193,7 @@ extension Lexicon
                         print("\(i). (unavailable)")
                     }
                 }
-                print("note: location is \(context)")
+                print("note: location is \(context as Any)")
             }
         }
         else 
