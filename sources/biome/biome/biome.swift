@@ -103,8 +103,8 @@ struct Biome
         })
         // this will trigger copy-on-write, we need to fix this
         let opinions:[Package.Index: [Symbol.Index: [Symbol.Trait]]] = 
-            try self.ecosystem[index].update(to: pins[index] ?? .latest, 
-                with: graph.modules, ecosystem: _move(prior), keys: &self.keys)
+            try self.ecosystem[index].update(with: graph.modules, 
+                ecosystem: _move(prior), pins: pins, keys: &self.keys)
         // hopefully ``ecosystem`` is uniquely referenced now
         for (upstream, opinions):(Package.Index, [Symbol.Index: [Symbol.Trait]]) in opinions 
         {

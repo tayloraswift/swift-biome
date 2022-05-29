@@ -119,6 +119,7 @@ struct Preview:ServiceBackend
                 try File.read(from: project.appending("Package.catalog")))
             let resolved:Package.Resolved = try .init(parsing: 
                 try File.read(from: project.appending("Package.resolved")))
+            let pins:[Package.ID: Version] = pins.merging(resolved.pins) { $1 }
             for package:Package.Descriptor in packages 
             {
                 // user-specified catalogs should contain absolute paths (since that is 
@@ -128,7 +129,7 @@ struct Preview:ServiceBackend
                 let catalog:Package.Catalog = try await package.load(with: nil), 
                     graph:Package.Graph = try catalog.graph()
                 
-                try self.biome.append(graph, pins: resolved.pins)
+                try self.biome.append(graph, pins: pins)
             }
         }
         

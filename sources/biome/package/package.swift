@@ -149,10 +149,13 @@ struct Package:Identifiable, Sendable
 extension Package 
 {
     mutating 
-    func update(to version:Version, with graphs:[Module.Graph], 
-        ecosystem:Ecosystem, keys:inout Route.Keys) 
+    func update(with graphs:[Module.Graph], 
+        ecosystem:Ecosystem, 
+        pins:[Index: Version], 
+        keys:inout Route.Keys) 
         throws -> [Index: [Symbol.Index: [Symbol.Trait]]]
     {
+        let version:Version = pins[self.index] ?? .latest
         // create modules, if they do not exist already.
         // note: module indices are *not* necessarily contiguous, 
         // or even monotonically increasing
