@@ -47,12 +47,11 @@ extension Module
             self.filter.insert(module.index)
         }
         
-        func lenses<Lens>(given ecosystem:Ecosystem, 
-            _ transform:(Package) throws -> Lens) rethrows -> [Lens]
+        func packages() -> Set<Package.Index>
         {
             var packages:Set<Package.Index> = .init(self.filter.map(\.package))
                 packages.remove(self.culture.package)
-            return try packages.map { try transform(ecosystem[$0]) }
+            return packages
         }
     }
 }

@@ -35,6 +35,7 @@ extension Link
         case module(Module.Index)
         case symbol(Symbol.Index)
         case feature(Symbol.Index, Symbol.Index)
+        case article(Article.Index)
         
         static 
         func crime(_ crime:Crime) -> Self

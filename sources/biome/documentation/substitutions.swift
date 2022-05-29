@@ -1,6 +1,7 @@
 import HTML
 
-extension Documentation 
+public
+struct Page 
 {
     @frozen public 
     enum Anchor:Hashable, Sendable
@@ -26,7 +27,7 @@ extension Documentation
         case discussion
         
         case dynamic
-    }
+    } 
 
     /* private 
     func present(reference resolved:ResolvedLink) -> StaticElement

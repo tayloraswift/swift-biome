@@ -14,6 +14,15 @@ import Resource
 public
 struct Biome 
 {
+    public 
+    enum _Channel:Hashable, Sendable 
+    {
+        case package
+        case module
+        case symbol 
+        case article
+    }
+    
     private 
     let channels:
     (
@@ -34,16 +43,16 @@ struct Biome
         lunr:Route.Stem
     )
     private 
-    let template:DocumentTemplate<Documentation.Anchor, [UInt8]>
+    let template:DocumentTemplate<Page.Anchor, [UInt8]>
     private 
     var ecosystem:Ecosystem
     private 
     var keys:Route.Keys
     
     public 
-    init(channels:[Documentation.Channel: String] = [:], 
+    init(channels:[_Channel: String] = [:], 
         standardModules:[Module.ID], coreModules:[Module.ID], 
-        template:DocumentTemplate<Documentation.Anchor, [UInt8]>) 
+        template:DocumentTemplate<Page.Anchor, [UInt8]>) 
     {
         self.ecosystem = .init(standardModules: standardModules, coreModules: coreModules)
         self.keys = .init()
@@ -82,7 +91,7 @@ struct Biome
         // this will trigger copy-on-write, we need to fix this
         let opinions:[Package.Index: [Symbol.Index: [Symbol.Trait]]] = 
             try self.ecosystem[index].update(to: graph.version, 
-                with: graph.modules, given: _move(prior), keys: &self.keys)
+                with: graph.modules, ecosystem: _move(prior), keys: &self.keys)
         // hopefully ``ecosystem`` is uniquely referenced now
         for (upstream, opinions):(Package.Index, [Symbol.Index: [Symbol.Trait]]) in opinions 
         {

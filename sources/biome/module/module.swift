@@ -22,10 +22,13 @@ struct Module:Identifiable, Sendable
     {
         @Keyframe<Set<Index>>.Head
         var dependencies:Keyframe<Set<Index>>.Buffer.Index?
+        @Keyframe<Documentation>.Head
+        var documentation:Keyframe<Documentation>.Buffer.Index?
         
         init() 
         {
             self._dependencies = .init()
+            self._documentation = .init()
         }
     }
     

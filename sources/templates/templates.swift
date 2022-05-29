@@ -6,10 +6,10 @@ public
 enum DefaultTemplates 
 {
     public 
-    typealias Element = HTML.Element<Documentation.Anchor>
+    typealias Element = HTML.Element<Page.Anchor>
     
     public static
-    var documentation:DocumentRoot<HTML, Documentation.Anchor>
+    var documentation:DocumentRoot<HTML, Page.Anchor>
     {
         .init 
         {
