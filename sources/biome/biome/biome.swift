@@ -84,13 +84,26 @@ struct Biome
     }
     
     public mutating 
-    func append(_ graph:Package.Graph) throws 
+    func append(_ graph:Package.Graph, pins:[Package.ID: Version]) throws 
     {
+        print(pins)
+        
         let prior:Ecosystem = self.ecosystem
         let index:Package.Index = self.ecosystem.create(package: graph.id)
+        let pins:[Package.Index: Version] = .init(uniqueKeysWithValues: pins.compactMap 
+        {
+            if let index:Package.Index = self.ecosystem.indices[$0.key] 
+            {
+                return (index, $0.value)
+            }
+            else 
+            {
+                return nil
+            }
+        })
         // this will trigger copy-on-write, we need to fix this
         let opinions:[Package.Index: [Symbol.Index: [Symbol.Trait]]] = 
-            try self.ecosystem[index].update(to: graph.version, 
+            try self.ecosystem[index].update(to: pins[index] ?? .latest, 
                 with: graph.modules, ecosystem: _move(prior), keys: &self.keys)
         // hopefully ``ecosystem`` is uniquely referenced now
         for (upstream, opinions):(Package.Index, [Symbol.Index: [Symbol.Trait]]) in opinions 

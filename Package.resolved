@@ -77,8 +77,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-resource",
       "state" : {
-        "revision" : "a0b1aa226a6332ef1f2ea6c32a88235804a74fef",
-        "version" : "0.2.0"
+        "revision" : "4ecf0ea47ee0feabcba8f1a524ba604005ba1c4a",
+        "version" : "0.2.1"
       }
     },
     {

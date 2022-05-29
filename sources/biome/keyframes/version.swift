@@ -16,6 +16,7 @@ struct Version:Hashable, CustomStringConvertible, Sendable
     public 
     var bitPattern:UInt64
     
+    @usableFromInline
     init(bitPattern:UInt64)
     {
         self.bitPattern = bitPattern
@@ -39,36 +40,37 @@ struct Version:Hashable, CustomStringConvertible, Sendable
     
     public static 
     let latest:Self = .init(bitPattern: 0xffff_ffff_ffff_ffff)
+    
     @inlinable public static 
     func tag(_ major:Int, _ minor:(Int, (patch:Int, edition:Int?)?)?) -> Self 
     {
         var version:Self = .latest 
         precondition(major < 0xffff)
-        version.bitPattern &= UInt64.init(major) << 48 
+        version.bitPattern &= UInt64.init(major) << 48 | 0x0000_ffff_ffff_ffff
         guard case let (minor, patch)? = minor 
         else 
         {
             return version
         }
         precondition(minor < 0xffff)
-        version.bitPattern &= UInt64.init(minor) << 32
+        version.bitPattern &= UInt64.init(minor) << 32 | 0xffff_0000_ffff_ffff
         guard case let (patch, edition)? = patch 
         else 
         {
             return version
         }
         precondition(patch < 0xffff)
-        version.bitPattern &= UInt64.init(patch) << 16
+        version.bitPattern &= UInt64.init(patch) << 16 | 0xffff_ffff_0000_ffff
         guard let edition:Int = edition 
         else 
         {
             return version
         }
         precondition(edition < 0xffff)
-        version.bitPattern &= UInt64.init(edition)
+        version.bitPattern &= UInt64.init(edition)     | 0xffff_ffff_ffff_0000
         return version
     }
-    static 
+    @inlinable public static  
     func date(year:Int, month:Int, day:Int, letter:Unicode.Scalar) -> Self 
     {
         precondition(year < 0x7fff)

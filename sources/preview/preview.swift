@@ -23,8 +23,8 @@ struct Main:AsyncParsableCommand
     @Option(name: [.customShort("b"), .customLong("resources")], help: "path to a copy of the 'swift-biome-resources' repository")
     var resources:String = "resources"
     
-    @Argument(help: "path(s) to documentation index file")
-    var catalogs:[String] 
+    @Argument(help: "path(s) to project repositories")
+    var projects:[String] 
     
     static 
     func main() async 
@@ -44,12 +44,7 @@ struct Main:AsyncParsableCommand
     {
         Backtrace.install()
         
-        let catalogs:[[Package.Descriptor]] = try self.catalogs.map
-        {
-            try Package.descriptors(parsing: try File.read(from: FilePath.init($0)))
-        }
-        
-        let preview:Preview = try await .init(catalogs.joined(), 
+        let preview:Preview = try await .init(projects: self.projects.map(FilePath.init(_:)), 
             controller: .init(git: .init(self.git), repository: .init(self.resources)))
         
         let host:String = self.host 
@@ -97,9 +92,13 @@ struct Preview:ServiceBackend
     let resources:[String: Resource]
     var biome:Biome
     
-    init<S>(_ catalogs:S, controller:VersionController) async throws 
-        where S:Sequence, S.Element == Package.Descriptor
+    init(projects:[FilePath], controller:VersionController) async throws 
     {
+        let pins:[Package.ID: Version] = 
+        [
+            .swift: .tag(5, (7, nil)),
+            .core:  .tag(5, (7, nil)),
+        ]
         // load the names of the swift standard library modules. 
         let library:(standard:Package.Descriptor, core:Package.Descriptor) = 
         (
@@ -111,17 +110,28 @@ struct Preview:ServiceBackend
             coreModules: library.core.modules.map(\.id), 
             template: .init(freezing: DefaultTemplates.documentation))
         // load the standard and core libraries
-        try self.biome.append(try await library.standard.load(with: controller).graph(_version: .tag(5, (7, (0, 0)))))
-        try self.biome.append(try await     library.core.load(with: controller).graph(_version: .tag(5, (7, (0, 0)))))
+        try self.biome.append(try await library.standard.load(with: controller).graph(), pins: pins)
+        try self.biome.append(try await     library.core.load(with: controller).graph(), pins: pins)
         
-        // user-specified catalogs should contain absolute paths (since that is 
-        // what `swift package catalog` emits), and this preview tool does not 
-        // support intelligent caching for user-specified package documentation. 
-        // so we do not load them through the version controller
-        for catalog:Package.Descriptor in catalogs 
+        for project:FilePath in projects 
         {
-            try self.biome.append(try await catalog.load(with: nil).graph(_version: .tag(1, (0, (0, 0)))))
+            let packages:[Package.Descriptor] = try Package.descriptors(parsing: 
+                try File.read(from: project.appending("Package.catalog")))
+            let resolved:Package.Resolved = try .init(parsing: 
+                try File.read(from: project.appending("Package.resolved")))
+            for package:Package.Descriptor in packages 
+            {
+                // user-specified catalogs should contain absolute paths (since that is 
+                // what `swift package catalog` emits), and this preview tool does not 
+                // support intelligent caching for user-specified package documentation. 
+                // so we do not load them through the version controller
+                let catalog:Package.Catalog = try await package.load(with: nil), 
+                    graph:Package.Graph = try catalog.graph()
+                
+                try self.biome.append(graph, pins: resolved.pins)
+            }
         }
+        
         self.resources = 
         [
             "/biome.css"        : try await controller.read(concatenating: "default-dark/common.css", "default-dark/biome.css", type: .css), 
