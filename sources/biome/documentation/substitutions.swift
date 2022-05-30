@@ -6,7 +6,13 @@ struct Page
     @frozen public 
     enum Anchor:Hashable, Sendable
     {
-        case reference(ResolvedLink)
+        public 
+        struct Internal:Hashable, Sendable
+        {
+            let target:Link.Target
+        } 
+        
+        case `internal`(Internal)
         
         case title 
         case constants 
@@ -23,7 +29,7 @@ struct Page
         case declaration
         
         case headline
-        case _introduction
+        case introduction
         case discussion
         
         case dynamic

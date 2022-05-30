@@ -187,7 +187,7 @@ enum DefaultTemplates
                                 Element.anchor(id: .platforms)
                                 Element.anchor(id: .declaration)
                                 
-                                Element.anchor(id: ._introduction)
+                                Element.anchor(id: .introduction)
                                 Element.anchor(id: .discussion)
                             }
                         }
