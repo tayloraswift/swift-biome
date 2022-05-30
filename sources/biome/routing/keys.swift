@@ -45,14 +45,10 @@ extension Route
             self.table[Self.subpath(components)]
         }
         
-        subscript<Prefix, Last>(
-            namespace:Module.Index, 
-            prefix:Prefix, 
-            last:Last, orientation:Orientation) -> Route? 
-            where Prefix:Sequence, Prefix.Element:StringProtocol, Last:StringProtocol
+        subscript(namespace:Module.Index, path:Path, orientation:Orientation) -> Route? 
         {
-            guard   let stem:Stem = self[stem: prefix],
-                    let leaf:Stem = self[leaf: last]
+            guard   let stem:Stem = self[stem: path.prefix],
+                    let leaf:Stem = self[leaf: path.last]
             else 
             {
                 return nil

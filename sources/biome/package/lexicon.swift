@@ -11,18 +11,17 @@ struct Lexicon
         }
         
         // single-lens resolution
-        func resolve<Path>(_ namespace:Module.Index, _ link:Link.Reference<Path>, 
+        func resolve<Components>(_ namespace:Module.Index, _ link:Link.Reference<Components>, 
             keys:Route.Keys, _ dereference:(Symbol.Index) throws -> Symbol) 
             rethrows -> Link.Resolution?
-            where Path:BidirectionalCollection, Path.Element == Link.Component
+            where Components:BidirectionalCollection, Components.Element == Link.Component
         {
-            let path:[String] = link.path.compactMap(\.prefix)
-            guard let last:String = path.last 
+            guard let path:Path = .init(link.path.compactMap(\.prefix))
             else 
             {
                 return .one(.module(namespace))
             }
-            guard let route:Route = keys[namespace, path.dropLast(), last, link.orientation]
+            guard let route:Route = keys[namespace, path, link.orientation]
             else 
             {
                 return nil
@@ -72,13 +71,13 @@ struct Lexicon
         modules.compactMap { self.namespaces[$0] }
     }
     
-    func resolve<Path>(
-        visible link:Link.Reference<Path>, 
+    func resolve<Components>(
+        visible link:Link.Reference<Components>, 
         imports:Set<Module.Index>, 
         nest:Symbol.Nest?, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link.Resolution?
-        where Path:BidirectionalCollection, Path.Element == Link.Component
+        where Components:BidirectionalCollection, Components.Element == Link.Component
     {
         if  let qualified:Link.Resolution = 
             try self.resolve(qualified: link, dereference)
@@ -118,18 +117,18 @@ struct Lexicon
         }
         return imported 
     }
-    func resolve<Path>(visible link:Link.Reference<Path>, 
+    func resolve<Components>(visible link:Link.Reference<Components>, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link.Resolution?
-        where Path:BidirectionalCollection, Path.Element == Link.Component
+        where Components:BidirectionalCollection, Components.Element == Link.Component
     {
         try self.resolve(       qualified: link, dereference) ?? 
             self.resolve(self.culture, [], link, dereference)
     }
-    func resolve<Path>(qualified link:Link.Reference<Path>, 
+    func resolve<Components>(qualified link:Link.Reference<Components>, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link.Resolution?
-        where Path:BidirectionalCollection, Path.Element == Link.Component
+        where Components:BidirectionalCollection, Components.Element == Link.Component
     {
         // check if the first component refers to a module. it can be the same 
         // as its own culture, or one of its dependencies. 
@@ -145,20 +144,20 @@ struct Lexicon
             return nil
         }
     }
-    func resolve<Path>(_ namespace:Module.Index, _ prefix:[String], _ link:Link.Reference<Path>, 
+    func resolve<Components>(_ namespace:Module.Index, _ prefix:[String], 
+        _ link:Link.Reference<Components>, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link.Resolution?
-        where Path:BidirectionalCollection, Path.Element == Link.Component
+        where Components:BidirectionalCollection, Components.Element == Link.Component
     {
-        let path:[String] = prefix.isEmpty ? 
-                     link.path.compactMap(\.prefix) : 
-            prefix + link.path.compactMap(\.prefix)
-        guard let last:String = path.last 
+        let suffix:[String] = link.path.compactMap(\.prefix)
+        guard let path:Path = prefix.isEmpty ? 
+            .init(suffix) : .init([prefix, suffix].joined())
         else 
         {
             return .one(.module(namespace))
         }
-        guard let route:Route = keys[namespace, path.dropLast(), last, link.orientation]
+        guard let route:Route = keys[namespace, path, link.orientation]
         else 
         {
             return nil
