@@ -181,24 +181,29 @@ extension Package
         }
         
         // resolve symbol declarations, extract doccomments 
-        let comments:[[Symbol.Index: String]] = sources.comments()
+        var comments:[Symbol.Index: String] = sources.comments()
         let declarations:[[Symbol.Index: Symbol.Declaration]] = 
             try sources.declarations(scopes: scopes)
         
         let _ = _move(sources)
         
         // resolve edge statements 
-        let (speeches, origins):([[Symbol.Statement]], [Symbol.Index: Symbol.Index]) = 
+        let (speeches, hints):([[Symbol.Statement]], [Symbol.Index: Symbol.Index]) = 
             try ecosystem.statements(self, graphs, scopes: scopes)
-            
-        // sanity check 
-        for (clone, origin):(Symbol.Index, Symbol.Index) in origins 
+
+        // delete comments if a hint indicates it is duplicated
+        var pruned:Int = 0
+        for (member, union):(Symbol.Index, Symbol.Index) in hints 
         {
-            if origins.keys.contains(origin) 
+            if  let comment:String  = comments[member],
+                let original:String = comments[union],
+                    original == comment 
             {
-                print("CHAINED!")
+                comments.removeValue(forKey: member)
+                pruned += 1
             }
         }
+        print("(\(self.id)) pruned \(pruned) duplicate documentation comments (\(comments.count) remaining)")
         
         // compute relationships
         let ideologies:[Module.Index: Module.Beliefs] = try self.beliefs(_move(speeches), 
@@ -221,55 +226,47 @@ extension Package
         self.update(declarations:  _move(declarations),                   to: version)
         self.update(relationships: _move(ideologies).values.map(\.facts), to: version)
         
-        var documentation:[Link.Target: Documentation] = self.documentation(
+        let documentation:[Link.Target: Documentation] = self.documentation(
                 ecosystem: ecosystem,
                 comments: _move(comments), 
                 extras: _move(extras), 
                 scopes: scopes.map(\.namespaces), 
                 keys: keys)
-        var shared:[Symbol.Index: Symbol.Index] = [:]
-        // TODO: deduplicate docs! 
-        /* for (index, origin):(Symbol.Index, Symbol.Index) in _move(origins)
-            where self.index == index.module.package 
+        let sponsors:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = 
+            self.update(documentation: _move(documentation), to: version)
+        // TODO: move the code below into a separate function, once we have 
+        // better version pinning abstractions
+        for (member, union):(Symbol.Index, Symbol.Index) in hints
+            where !sponsors.keys.contains(member)
         {
-            let subject:Link.Target = .symbol(index)
-            guard case .template(let clone) = documentation[subject]
-            else 
+            // if a symbol did not have documentation of its own, 
+            // check if it has a sponsor 
+            if let sponsor:Keyframe<Documentation>.Buffer.Index = sponsors[union]
             {
-                // undocumented or already de-duplicated
-                continue 
+                self.documentation.update(head: &self.symbols[local: member].heads.documentation, 
+                    to: version, with: .shared(sponsor))
             }
-            if  self.index == origin.module.package 
+            else if self.index != union.module.package
             {
-                // note: empty doccomments are omitted from the dictionary
-                if  case .template(clone)? = documentation[.symbol(origin)]
+                guard let pin:Version = pins[union.module.package]
+                else 
                 {
-                    documentation.removeValue(forKey: subject)
-                    shared.updateValue(origin, forKey: index)
+                    fatalError("missing pin")
                 }
-            }
-            else if let version:Version = pins[origin.module.package]
-            {
-                let package:Self = ecosystem[origin.module.package]
+                let package:Self = ecosystem[union.module.package]
                 // note: empty doccomments are omitted from the documentation buffer
-                if  let original:Keyframe<Documentation>.Buffer.Index = 
-                    package[local: origin].heads.documentation,
-                    //package.documentation.find(version, 
-                    //    head: package[local: origin].heads.documentation),
-                    case .template(clone) = package.documentation[original].value
+                guard   let head:Keyframe<Documentation>.Buffer.Index = 
+                        package[local: union].heads.documentation,
+                        let sponsor:Keyframe<Documentation>.Buffer.Index = 
+                        package.documentation.find(pin, head: head)
+                else 
                 {
-                    documentation[subject] = .shared(original)
-                    print("deduplicated")
+                    continue 
                 }
+                self.documentation.update(head: &self.symbols[local: member].heads.documentation, 
+                    to: version, with: .shared(sponsor))
             }
-            else 
-            {
-                fatalError("missing pin")
-            }
-        } */
-        
-        self.update(documentation: documentation, shared: shared, to: version)
-        
+        }
         return opinions
     }
     
@@ -401,10 +398,10 @@ extension Package
         }
     }
     private mutating 
-    func update(documentation:[Link.Target: Documentation], shared:[Symbol.Index: Symbol.Index], 
-        to version:Version)
+    func update(documentation:[Link.Target: Documentation], to version:Version)
+        -> [Symbol.Index: Keyframe<Documentation>.Buffer.Index]
     {
-        var templates:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = [:]
+        var updated:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = [:]
         for (target, documentation):(Link.Target, Documentation) in documentation 
         {
             switch target 
@@ -417,7 +414,7 @@ extension Package
                 }
                 self.documentation.update(head: &self.symbols[local: composite.base].heads.documentation, 
                     to: version, with: documentation)
-                templates[composite.base] = self.symbols[local: composite.base].heads.documentation
+                updated[composite.base] = self.symbols[local: composite.base].heads.documentation
                 
             case .article(let index): 
                 self.documentation.update(head: &self.articles[local: index].heads.documentation, 
@@ -434,16 +431,7 @@ extension Package
                 fatalError("unreachable")
             }
         }
-        for (index, origin):(Symbol.Index, Symbol.Index) in shared 
-        {
-            guard let origin:Keyframe<Documentation>.Buffer.Index = templates[origin]
-            else 
-            {
-                fatalError("unreachable")
-            }
-            self.documentation.update(head: &self.symbols[local: index].heads.documentation, 
-                to: version, with: .shared(origin))
-        }
+        return updated
     }
 }
 
@@ -479,7 +467,7 @@ extension Package
         for (graph, scope):(Module.Graph, Symbol.Scope) in zip(graphs, scopes)
         {
             let frames:[Symbol.Index: Vertex.Frame] = 
-                self.insert(symbols: graph, scope: scope, keys: &keys)
+                self.addSymbols(graph, scope: scope, keys: &keys)
             modules.append(frames)
             updated += frames.count
         }
@@ -488,7 +476,7 @@ extension Package
         return .init(modules: modules)
     }
     private mutating 
-    func insert(symbols graph:Module.Graph, scope:Symbol.Scope, keys:inout Route.Keys) 
+    func addSymbols(_ graph:Module.Graph, scope:Symbol.Scope, keys:inout Route.Keys) 
         -> [Symbol.Index: Vertex.Frame]
     {            
         var updates:[Symbol.Index: Vertex.Frame] = [:]
@@ -532,15 +520,18 @@ extension Package
 }
 extension Package.Sources 
 {
-    func comments() -> [[Symbol.Index: String]]
+    func comments() -> [Symbol.Index: String]
     {
-        self.modules.map 
+        var comments:[Symbol.Index: String] = [:]
+        for module:[Symbol.Index: Vertex.Frame] in self.modules
         { 
-            $0.compactMapValues 
+            for (symbol, frame):(Symbol.Index, Vertex.Frame) in module 
+                where !frame.comment.isEmpty
             {
-                $0.comment.isEmpty ? nil : $0.comment
-            } 
+                comments[symbol] = frame.comment
+            }
         }
+        return comments
     }
     func declarations(scopes:[Symbol.Scope]) throws -> [[Symbol.Index: Symbol.Declaration]]
     {

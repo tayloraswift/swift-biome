@@ -173,7 +173,7 @@ extension Lexicon
                 print("note: location is \(nest as Any)")
                 
             case .one(.composite(let composite))?:
-                if let victim:Symbol.Index = composite.victim 
+                /* if let victim:Symbol.Index = composite.victim 
                 {
                     print("SUCCESS", expression, "->", try dereference(composite.base), 
                         "for", try dereference(victim))
@@ -181,11 +181,11 @@ extension Lexicon
                 else 
                 {
                     print("SUCCESS", expression, "->", try dereference(composite.base))
-                }
+                } */
                 return .target(.composite(composite))
             
             case .one(let target)?: 
-                print("SUCCESS", expression, "-> (unavailable)")
+                //print("SUCCESS", expression, "-> (unavailable)")
                 return .target(target)
             
             case .many(let possibilities)?: 

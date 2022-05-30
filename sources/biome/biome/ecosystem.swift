@@ -121,9 +121,9 @@ extension Ecosystem
 extension Ecosystem 
 {
     func statements(_ local:Package, _ graphs:[Module.Graph], scopes:[Symbol.Scope])
-        throws -> (speeches:[[Symbol.Statement]], origins:[Symbol.Index: Symbol.Index])
+        throws -> (speeches:[[Symbol.Statement]], hints:[Symbol.Index: Symbol.Index])
     {
-        var origins:[Symbol.Index: Symbol.Index] = [:]
+        var uptree:[Symbol.Index: Symbol.Index] = [:]
         var speeches:[[Symbol.Statement]] = [] 
             speeches.reserveCapacity(scopes.count)
         for (graph, scope):(Module.Graph, Symbol.Scope) in zip(graphs, scopes)
@@ -151,16 +151,43 @@ extension Ecosystem
                     statements.append(target)
                 }
                 
+                // don’t care about hints for symbols in other packages
+                if  source.module.package == local.index, 
+                    let origin:Symbol.ID = edge.origin, 
                 // this fails quite frequently. we don’t have a great solution for this.
-                if  let origin:Symbol.ID = edge.origin, 
-                    let origin:Symbol.Index = try? scope.index(of: origin)
+                    let origin:Symbol.Index = try? scope.index(of: origin), origin != source
                 {
-                    origins[source] = origin
+                    uptree[source] = origin
                 }
             }
             speeches.append(statements)
         }
-        return (speeches, origins)
+        
+        // flatten the uptree, in O(n). every item in the dictionary will be 
+        // visited at most twice.
+        for index:Dictionary<Symbol.Index, Symbol.Index>.Index in uptree.indices 
+        {
+            var crumbs:Set<Dictionary<Symbol.Index, Symbol.Index>.Index> = []
+            var current:Dictionary<Symbol.Index, Symbol.Index>.Index = index
+            while let union:Dictionary<Symbol.Index, Symbol.Index>.Index = 
+                uptree.index(forKey: uptree.values[current])
+            {
+                assert(current != union)
+                
+                crumbs.update(with: current)
+                current = union
+                
+                if crumbs.contains(union)
+                {
+                    fatalError("detected cycle in doccomment uptree")
+                }
+            }
+            for crumb:Dictionary<Symbol.Index, Symbol.Index>.Index in crumbs 
+            {
+                uptree.values[crumb] = uptree.values[current]
+            }
+        }
+        return (speeches, uptree)
     }
     
     private 

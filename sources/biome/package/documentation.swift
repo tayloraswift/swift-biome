@@ -7,7 +7,7 @@ enum Documentation:Equatable
 extension Package 
 {    
     func documentation(ecosystem:Ecosystem, 
-        comments:[[Symbol.Index: String]], 
+        comments:[Symbol.Index: String], 
         extras:Extras, 
         scopes:[Module.Scope], 
         keys:Route.Keys)
@@ -51,33 +51,40 @@ extension Package
         return .init(package.modules.indices.values)
     }
     private 
-    func documentation(ecosystem:Ecosystem, lexica:[Lexicon], comments:[[Symbol.Index: String]])
+    func documentation(ecosystem:Ecosystem, lexica:[Lexicon], comments:[Symbol.Index: String])
         -> [Link.Target: Documentation]
     {
         //  always import the standard library
         let standardLibrary:Set<Module.Index> = self.standardLibrary(ecosystem: ecosystem)
+        // need to turn the lexica into something we can select from a flattened 
+        // comments dictionary 
+        let lexica:[Module.Index: Lexicon] = 
+            .init(uniqueKeysWithValues: lexica.map { ($0.namespaces.culture, $0) })
         
         var documentation:[Link.Target: Documentation] = [:]
-            documentation.reserveCapacity(comments.reduce(0) { $0 + $1.count })
-        for (lexicon, comments):(Lexicon, [Symbol.Index: String]) in zip(lexica, comments)
+            documentation.reserveCapacity(comments.count)
+        for (symbol, comment):(Symbol.Index, String) in comments
         {
-            for (symbol, comment):(Symbol.Index, String) in comments
+            guard let lexicon:Lexicon = lexica[symbol.module] 
+            else 
             {
-                let nest:Symbol.Nest? = self[local: symbol].nest
-                let comment:Extension = .init(markdown: comment)
-                let imports:Set<Module.Index> = 
-                    standardLibrary.union(lexicon.resolve(imports: comment.metadata.imports))
-                let unresolved:Article.Template<String> = comment.render()
-                let resolved:Article.Template<Link> = unresolved.map 
+                fatalError("unreachable")
+            }
+            
+            let nest:Symbol.Nest? = self[local: symbol].nest
+            let comment:Extension = .init(markdown: comment)
+            let imports:Set<Module.Index> = 
+                standardLibrary.union(lexicon.resolve(imports: comment.metadata.imports))
+            let unresolved:Article.Template<String> = comment.render()
+            let resolved:Article.Template<Link> = unresolved.map 
+            {
+                lexicon.resolve(expression: $0, imports: imports, nest: nest)
                 {
-                    lexicon.resolve(expression: $0, imports: imports, nest: nest)
-                    {
-                        self[$0] ?? ecosystem[$0]
-                    }
+                    self[$0] ?? ecosystem[$0]
                 }
-                documentation[.symbol(symbol)] = .template(resolved)
-            } 
-        }
+            }
+            documentation[.symbol(symbol)] = .template(resolved)
+        } 
         return documentation
     }
     private 
