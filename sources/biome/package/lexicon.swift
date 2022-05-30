@@ -9,6 +9,45 @@ struct Lexicon
         {
             self.groups[route] 
         }
+        
+        // single-lens resolution
+        func resolve<Path>(_ namespace:Module.Index, _ link:Link.Reference<Path>, 
+            keys:Route.Keys, _ dereference:(Symbol.Index) throws -> Symbol) 
+            rethrows -> Link.Resolution?
+            where Path:BidirectionalCollection, Path.Element == Link.Component
+        {
+            let path:[String] = link.path.compactMap(\.prefix)
+            guard let last:String = path.last 
+            else 
+            {
+                return .one(.module(namespace))
+            }
+            guard let route:Route = keys[namespace, path.dropLast(), last, link.orientation]
+            else 
+            {
+                return nil
+            }
+            // results that match orientation should take precedence over 
+            // results that do not match orientation.
+            let disambiguation:Link.Disambiguation = link.disambiguation
+            if  let group:Symbol.Group = self[group: route],
+                let resolution:Link.Resolution = 
+                try disambiguation.filter(group, by: dereference, where: { _ in true })
+            {
+                return resolution
+            }
+            if  let route:Route = route.outed, 
+                let group:Symbol.Group = self[group: route],
+                let resolution:Link.Resolution = 
+                try disambiguation.filter(group, by: dereference, where: { _ in true })
+            {
+                return resolution
+            }
+            else 
+            {
+                return nil
+            }
+        }
     }
     
     var namespaces:Module.Scope
@@ -148,73 +187,5 @@ struct Lexicon
         {
             return nil
         }
-    }
-}
-
-extension Lexicon 
-{
-    func resolve(expression:String, imports:Set<Module.Index>, nest:Symbol.Nest?, 
-        _ dereference:(Symbol.Index) throws -> Symbol) 
-        rethrows -> Link
-    {
-        // must attempt to parse absolute first, otherwise 
-        // '/foo' will parse to ["", "foo"]
-        if      let _:Link.Expression = try? .init(absolute: expression)
-        {
-            print("global", expression)
-        }
-        else if let link:Link.Expression = try? .init(relative: expression)
-        {
-            switch try self.resolve(visible: link.reference, 
-                imports: imports, nest: nest, dereference)
-            {
-            case nil:
-                print("FAILURE", expression)
-                print("note: location is \(nest as Any)")
-                
-            case .one(.composite(let composite))?:
-                /* if let victim:Symbol.Index = composite.victim 
-                {
-                    print("SUCCESS", expression, "->", try dereference(composite.base), 
-                        "for", try dereference(victim))
-                }
-                else 
-                {
-                    print("SUCCESS", expression, "->", try dereference(composite.base))
-                } */
-                return .target(.composite(composite))
-            
-            case .one(let target)?: 
-                //print("SUCCESS", expression, "-> (unavailable)")
-                return .target(target)
-            
-            case .many(let possibilities)?: 
-                print("AMBIGUOUS", expression)
-                for (i, possibility):(Int, Link.Target) in possibilities.enumerated()
-                {
-                    switch possibility 
-                    {
-                    case .composite(let composite):
-                        if let victim:Symbol.Index = composite.victim 
-                        {
-                            print("\(i).", try dereference(composite.base), 
-                                "for", try dereference(victim))
-                        }
-                        else 
-                        {
-                            print("\(i).", try dereference(composite.base))
-                        }
-                    default: 
-                        print("\(i). (unavailable)")
-                    }
-                }
-                print("note: location is \(nest as Any)")
-            }
-        }
-        else 
-        {
-            print("unknown", expression)
-        }
-        return .fallback(expression)
     }
 }

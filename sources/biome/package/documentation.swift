@@ -35,9 +35,9 @@ extension Package
         }
         
         let comments:[Link.Target: Documentation] = 
-            self.documentation(ecosystem: ecosystem, lexica: lexica, comments: comments)
+            self.documentation(comments, lexica: lexica, ecosystem: ecosystem)
         let assigned:[Link.Target: Documentation] = 
-            self.documentation(ecosystem: ecosystem, lexica: lexica, assigned: extras)
+            self.documentation(extras, lexica: lexica, ecosystem: ecosystem)
         return comments.merging(assigned) { $1 }
     }
     private 
@@ -51,7 +51,7 @@ extension Package
         return .init(package.modules.indices.values)
     }
     private 
-    func documentation(ecosystem:Ecosystem, lexica:[Lexicon], comments:[Symbol.Index: String])
+    func documentation(_ comments:[Symbol.Index: String], lexica:[Lexicon], ecosystem:Ecosystem)
         -> [Link.Target: Documentation]
     {
         //  always import the standard library
@@ -78,17 +78,15 @@ extension Package
             let unresolved:Article.Template<String> = comment.render()
             let resolved:Article.Template<Link> = unresolved.map 
             {
-                lexicon.resolve(expression: $0, imports: imports, nest: nest)
-                {
-                    self[$0] ?? ecosystem[$0]
-                }
+                self.resolve(string: $0, imports: imports, nest: nest, 
+                    lexicon: lexicon, ecosystem: ecosystem)
             }
             documentation[.symbol(symbol)] = .template(resolved)
         } 
         return documentation
     }
     private 
-    func documentation(ecosystem:Ecosystem, lexica:[Lexicon], assigned:[[Link.Target: Extension]])
+    func documentation(_ assigned:[[Link.Target: Extension]], lexica:[Lexicon], ecosystem:Ecosystem)
         -> [Link.Target: Documentation]
     {
         //  always import the standard library
@@ -100,16 +98,14 @@ extension Package
         {
             for (target, article):(Link.Target, Extension) in assigned
             {
-                let nest:Symbol.Nest? = self.nest(ecosystem: ecosystem, local: target)
+                let nest:Symbol.Nest? = self.nest(local: target, ecosystem: ecosystem)
                 let imports:Set<Module.Index> = 
                     standardLibrary.union(lexicon.resolve(imports: article.metadata.imports))
                 let unresolved:Article.Template<String> = article.render()
                 let resolved:Article.Template<Link> = unresolved.map 
                 {
-                    lexicon.resolve(expression: $0, imports: imports, nest: nest)
-                    {
-                        self[$0] ?? ecosystem[$0]
-                    }
+                    self.resolve(string: $0, imports: imports, nest: nest, 
+                        lexicon: lexicon, ecosystem: ecosystem)
                 }
                 documentation[target] = .template(resolved)
             } 
@@ -117,7 +113,7 @@ extension Package
         return documentation
     }
     private 
-    func nest(ecosystem:Ecosystem, local target:Link.Target) -> Symbol.Nest?
+    func nest(local target:Link.Target, ecosystem:Ecosystem) -> Symbol.Nest?
     {
         guard case .composite(let composite) = target 
         else 
@@ -134,4 +130,169 @@ extension Package
             return self[local: composite.base].nest
         }
     }
+    private 
+    func resolve(string:String, imports:Set<Module.Index>, nest:Symbol.Nest?, 
+        lexicon:Lexicon, ecosystem:Ecosystem) 
+        -> Link
+    {
+        // must attempt to parse absolute first, otherwise 
+        // '/foo' will parse to ["", "foo"]
+        let resolution:Link.Resolution?
+        let visible:Int
+        if let absolute:Link.Expression = try? .init(absolute: string)
+        {
+            visible = absolute.visible
+            resolution = self.resolve(global: absolute.reference, 
+                lexicon: lexicon, ecosystem: ecosystem)
+        }
+        else if let relative:Link.Expression = try? .init(relative: string)
+        {
+            visible = relative.visible
+            resolution = lexicon.resolve(
+                visible: relative.reference, 
+                imports: imports, 
+                nest: nest)
+            {
+                self[$0] ?? ecosystem[$0]
+            }
+        }
+        else 
+        {
+            print("unknown", string)
+            return .fallback(string)
+        }
+        
+        switch resolution
+        {
+        case nil:
+            print("FAILURE", string)
+            if let nest:Symbol.Nest = nest 
+            {
+                print("note: location is \(nest)")
+            }
+            
+        case .one(.composite(let composite))?:
+            /* if let victim:Symbol.Index = composite.victim 
+            {
+                print("SUCCESS", string, "->", try dereference(composite.base), 
+                    "for", try dereference(victim))
+            }
+            else 
+            {
+                print("SUCCESS", string, "->", try dereference(composite.base))
+            } */
+            return .target(.composite(composite), visible: visible)
+        
+        case .one(let target)?: 
+            //print("SUCCESS", string, "-> (unavailable)")
+            return .target(target, visible: visible)
+        
+        case .many(let possibilities)?: 
+            print("AMBIGUOUS", string)
+            for (i, possibility):(Int, Link.Target) in possibilities.enumerated()
+            {
+                switch possibility 
+                {
+                case .composite(let composite):
+                    if let victim:Symbol.Index = composite.victim 
+                    {
+                        print("\(i).", self[composite.base] ?? ecosystem[composite.base], 
+                            "for", self[victim] ?? ecosystem[victim])
+                    }
+                    else 
+                    {
+                        print("\(i).", self[composite.base] ?? ecosystem[composite.base])
+                    }
+                default: 
+                    print("\(i). (unavailable)")
+                }
+            }
+            if let nest:Symbol.Nest = nest 
+            {
+                print("note: location is \(nest)")
+            }
+        }
+        return .fallback(string)
+    }
+    private 
+    func resolve<Path>(global link:Link.Reference<Path>, lexicon:Lexicon, ecosystem:Ecosystem)
+        -> Link.Resolution?
+        where Path:BidirectionalCollection, Path.Element == Link.Component
+    {
+        guard   let nation:Package.ID = link.nation, 
+                let nation:Self = self.id == nation ? self : ecosystem[nation]
+        else 
+        {
+            return nil 
+        }
+        
+        let qualified:Link.Reference<Path.SubSequence> = link.dropFirst()
+        
+        guard let namespace:Module.ID = qualified.namespace 
+        else 
+        {
+            return .one(.package(nation.index))
+        }
+        // if the global path starts with a package/namespace that 
+        // matches one of our dependencies, treat it like a qualified 
+        // reference. 
+        if  case nil = qualified.query.culture, 
+            let namespace:Module.Index = lexicon.namespaces[namespace], 
+                namespace.package == nation.index, 
+            let resolution:Link.Resolution = 
+                lexicon.resolve(namespace, [], qualified.dropFirst(), 
+                {
+                    self[$0] ?? ecosystem[$0]
+                })
+        {
+            return resolution
+        }
+        guard let namespace:Module.Index = nation.modules.indices[namespace]
+        else 
+        {
+            return nil 
+        }
+        // determine which package contains the actual symbol documentation; 
+        // it may be different from the nation 
+        let lens:Lexicon.Lens 
+        if  let culture:ID = link.query.culture, 
+            let culture:Self = self.id == culture ? self : ecosystem[culture]
+        {
+            lens = culture.lens 
+        }
+        else 
+        {
+            lens = nation.lens 
+        }
+        return lens.resolve(namespace, qualified.dropFirst(), keys: lexicon.keys)
+        {
+            self[$0] ?? ecosystem[$0]
+        }
+        
+        /* let local:Link.Reference<Path.SubSequence>
+        let nation:Self, 
+            implicit:Bool
+        if  let package:ID = link.nation, 
+            let package:Self = self.id == package ? self : ecosystem[package]
+        {
+            implicit = false
+            nation = package 
+            local = link.dropFirst()
+        }
+        else if let swift:Self = ecosystem[.swift]
+        {
+            implicit = true
+            nation = swift
+            local = link[...]
+        }
+        else 
+        {
+            return nil
+        }
+        guard let namespace:Module.ID = local.namespace 
+        else 
+        {
+            return implicit ? nil : .one(.package(nation.index))
+        } */
+    } 
 }

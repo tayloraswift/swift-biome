@@ -2,7 +2,7 @@ import Grammar
 
 enum Link:Hashable, Sendable
 {
-    case target(Target)
+    case target(Target, visible:Int)
     case fallback(String)
 }
 extension Link 
@@ -56,9 +56,17 @@ extension Link
 }
 extension Link.Disambiguation 
 {
+    func filter(_ group:Symbol.Group, 
+        by dereference:(Symbol.Index) throws -> Symbol, 
+        where predicate:(Module.Index) throws -> Bool) 
+        rethrows -> Link.Resolution?
+    {
+        let groups:CollectionOfOne<Symbol.Group> = .init(group)
+        return try self.filter(groups, by: dereference, where: predicate)
+    }
     func filter<Groups>(_ groups:Groups, 
         by dereference:(Symbol.Index) throws -> Symbol, 
-        where predicate:(Module.Index) throws -> Bool = { _ in true }) 
+        where predicate:(Module.Index) throws -> Bool) 
         rethrows -> Link.Resolution?
         where Groups:Sequence, Groups.Element == Symbol.Group
     {

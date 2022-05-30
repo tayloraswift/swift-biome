@@ -321,55 +321,6 @@ extension Package
         }
     }
     
-    /* func _select<Path>(global link:Link.Reference<Path>, 
-        given ecosystem:Ecosystem, keys:Route.Keys)
-        throws -> Link.Resolution?
-        where Path:BidirectionalCollection, Path.Element == Link.Component
-    {
-        let local:Link.Reference<Path.SubSequence>
-        let nation:Self, 
-            implicit:Bool
-        if  let package:ID = link.nation, 
-            let package:Self = self.id == package ? self : ecosystem[package]
-        {
-            implicit = false
-            nation = package 
-            local = link.dropFirst()
-        }
-        else if let swift:Self = ecosystem[.swift]
-        {
-            implicit = true
-            nation = swift
-            local = link[...]
-        }
-        else 
-        {
-            return nil
-        }
-        guard let namespace:Module.ID = local.namespace 
-        else 
-        {
-            return implicit ? nil : .one(.package(nation.index))
-        }
-        guard let namespace:Module.Index = nation.modules.indices[namespace]
-        else 
-        {
-            return nil
-        }
-        
-        // determine which package contains the actual symbol documentation; 
-        // it may be different from the nation 
-        if  let culture:ID = link.query.culture, 
-            let culture:Self = self.id == culture ? self : ecosystem[culture]
-        {
-            return try culture.lens.select(namespace, [], local.dropFirst(), keys: keys)
-        }
-        else 
-        {
-            return try  nation.lens.select(namespace, [], local.dropFirst(), keys: keys)
-        }
-    } */
-    
     private mutating 
     func update(dependencies:[Set<Module.Index>], cultures:[Module.Index], to version:Version) 
     {
