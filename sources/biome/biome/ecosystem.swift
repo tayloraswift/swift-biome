@@ -121,9 +121,9 @@ extension Ecosystem
 extension Ecosystem 
 {
     func statements(_ local:Package, _ graphs:[Module.Graph], scopes:[Symbol.Scope])
-        throws -> (speeches:[[Symbol.Statement]], sponsorships:[Symbol.Sponsorship])
+        throws -> (speeches:[[Symbol.Statement]], origins:[Symbol.Index: Symbol.Index])
     {
-        var sponsorships:[Symbol.Sponsorship] = []
+        var origins:[Symbol.Index: Symbol.Index] = [:]
         var speeches:[[Symbol.Statement]] = [] 
             speeches.reserveCapacity(scopes.count)
         for (graph, scope):(Module.Graph, Symbol.Scope) in zip(graphs, scopes)
@@ -155,12 +155,12 @@ extension Ecosystem
                 if  let origin:Symbol.ID = edge.origin, 
                     let origin:Symbol.Index = try? scope.index(of: origin)
                 {
-                    sponsorships.append((source, by: origin))
+                    origins[source] = origin
                 }
             }
             speeches.append(statements)
         }
-        return (speeches, sponsorships)
+        return (speeches, origins)
     }
     
     private 

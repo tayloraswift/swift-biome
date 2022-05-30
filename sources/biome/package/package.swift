@@ -188,8 +188,17 @@ extension Package
         let _ = _move(sources)
         
         // resolve edge statements 
-        let (speeches, sponsorships):([[Symbol.Statement]], [Symbol.Sponsorship]) = 
+        let (speeches, origins):([[Symbol.Statement]], [Symbol.Index: Symbol.Index]) = 
             try ecosystem.statements(self, graphs, scopes: scopes)
+            
+        // sanity check 
+        for (clone, origin):(Symbol.Index, Symbol.Index) in origins 
+        {
+            if origins.keys.contains(origin) 
+            {
+                print("CHAINED!")
+            }
+        }
         
         // compute relationships
         let ideologies:[Module.Index: Module.Beliefs] = try self.beliefs(_move(speeches), 
@@ -197,7 +206,7 @@ extension Package
             cultures: cultures)
         
         // defer the merge until the end to reduce algorithmic complexity
-        self.groups.merge(keys.groups(ideologies) { self[$0] ?? ecosystem[$0] })
+        self.regroup(ecosystem: ecosystem, ideologies: ideologies, keys: &keys)
         
         print("(\(self.id)) found \(self.lens.groups.count) addressable endpoints")
         
@@ -212,18 +221,108 @@ extension Package
         self.update(declarations:  _move(declarations),                   to: version)
         self.update(relationships: _move(ideologies).values.map(\.facts), to: version)
         
-        let documentation:[Link.Target: Documentation] = self.documentation(
+        var documentation:[Link.Target: Documentation] = self.documentation(
                 ecosystem: ecosystem,
                 comments: _move(comments), 
                 extras: _move(extras), 
                 scopes: scopes.map(\.namespaces), 
                 keys: keys)
+        var shared:[Symbol.Index: Symbol.Index] = [:]
         // TODO: deduplicate docs! 
-        self.update(documentation: documentation, to: version)
+        /* for (index, origin):(Symbol.Index, Symbol.Index) in _move(origins)
+            where self.index == index.module.package 
+        {
+            let subject:Link.Target = .symbol(index)
+            guard case .template(let clone) = documentation[subject]
+            else 
+            {
+                // undocumented or already de-duplicated
+                continue 
+            }
+            if  self.index == origin.module.package 
+            {
+                // note: empty doccomments are omitted from the dictionary
+                if  case .template(clone)? = documentation[.symbol(origin)]
+                {
+                    documentation.removeValue(forKey: subject)
+                    shared.updateValue(origin, forKey: index)
+                }
+            }
+            else if let version:Version = pins[origin.module.package]
+            {
+                let package:Self = ecosystem[origin.module.package]
+                // note: empty doccomments are omitted from the documentation buffer
+                if  let original:Keyframe<Documentation>.Buffer.Index = 
+                    package[local: origin].heads.documentation,
+                    //package.documentation.find(version, 
+                    //    head: package[local: origin].heads.documentation),
+                    case .template(clone) = package.documentation[original].value
+                {
+                    documentation[subject] = .shared(original)
+                    print("deduplicated")
+                }
+            }
+            else 
+            {
+                fatalError("missing pin")
+            }
+        } */
+        
+        self.update(documentation: documentation, shared: shared, to: version)
         
         return opinions
     }
     
+    private mutating 
+    func regroup(ecosystem:Ecosystem, ideologies:[Module.Index: Module.Beliefs], 
+        keys:inout Route.Keys)
+    {
+        for (culture, beliefs):(Module.Index, Module.Beliefs) in ideologies 
+        {
+            for (host, relationships):(Symbol.Index, Symbol.Relationships) in beliefs.facts
+            {
+                let symbol:Symbol = self[local: host]
+                
+                groups.insert(natural: host, at: symbol.route)
+                
+                let features:[(perpetrator:Module.Index?, features:[Symbol.Index])] = 
+                    relationships.features(assuming: symbol.color)
+                if  features.isEmpty
+                {
+                    continue 
+                }
+                // don’t register the complete host path unless we have at 
+                // least one feature!
+                let path:Route.Stem = keys.register(complete: symbol)
+                for (perpetrator, features):(Module.Index?, [Symbol.Index]) in features 
+                {
+                    self.groups.insert(
+                        diacritic: .init(victim: host, culture: perpetrator ?? culture), 
+                        features: features.map 
+                        { 
+                            ($0, (self[$0] ?? ecosystem[$0]).route.leaf) 
+                        }, 
+                        under: (symbol.namespace, path))
+                }
+            }
+            for (victim, traits):(Symbol.Index, [Symbol.Trait]) in beliefs.opinions.values.joined()
+            {
+                let features:[Symbol.Index] = traits.compactMap(\.feature) 
+                if !features.isEmpty
+                {
+                    let symbol:Symbol = ecosystem[victim]
+                    let path:Route.Stem = keys.register(complete: symbol)
+                    self.groups.insert(
+                        diacritic: .init(victim: victim, culture: culture), 
+                        features: features.map 
+                        {
+                            ($0, (self[$0] ?? ecosystem[$0]).route.leaf)
+                        },
+                        under: (symbol.namespace, path))
+                }
+            }
+        }
+    }
     
     /* func _select<Path>(global link:Link.Reference<Path>, 
         given ecosystem:Ecosystem, keys:Route.Keys)
@@ -302,22 +401,28 @@ extension Package
         }
     }
     private mutating 
-    func update(documentation:[Link.Target: Documentation], to version:Version)
+    func update(documentation:[Link.Target: Documentation], shared:[Symbol.Index: Symbol.Index], 
+        to version:Version)
     {
+        var templates:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = [:]
         for (target, documentation):(Link.Target, Documentation) in documentation 
         {
             switch target 
             {
+            case .composite(let composite):
+                guard case nil = composite.victim 
+                else 
+                {
+                    fatalError("unimplemented")
+                }
+                self.documentation.update(head: &self.symbols[local: composite.base].heads.documentation, 
+                    to: version, with: documentation)
+                templates[composite.base] = self.symbols[local: composite.base].heads.documentation
+                
             case .article(let index): 
                 self.documentation.update(head: &self.articles[local: index].heads.documentation, 
                     to: version, with: documentation)
-            
-            case .feature(_, _): 
-                fatalError("unimplemented")
-            
-            case .symbol(let index): 
-                self.documentation.update(head: &self.symbols[local: index].heads.documentation, 
-                    to: version, with: documentation)
+                
             case .module(let index): 
                 self.documentation.update(head: &self.modules[local: index].heads.documentation, 
                     to: version, with: documentation)
@@ -328,6 +433,16 @@ extension Package
             case .package(_): 
                 fatalError("unreachable")
             }
+        }
+        for (index, origin):(Symbol.Index, Symbol.Index) in shared 
+        {
+            guard let origin:Keyframe<Documentation>.Buffer.Index = templates[origin]
+            else 
+            {
+                fatalError("unreachable")
+            }
+            self.documentation.update(head: &self.symbols[local: index].heads.documentation, 
+                to: version, with: .shared(origin))
         }
     }
 }
@@ -399,13 +514,11 @@ extension Package
                 let index:Symbol.Index = self.symbols.insert(id, culture: scope.culture)
                 {
                     (id:Symbol.ID, _:Symbol.Index) in 
-                    let stem:[String] = .init(vertex.path.dropLast())
-                    let leaf:String = vertex.path[vertex.path.endIndex - 1]
                     let route:Route = .init(namespace, 
-                              keys.register(components: stem), 
-                        .init(keys.register(component:  leaf), 
+                              keys.register(components: vertex.path.prefix), 
+                        .init(keys.register(component:  vertex.path.last), 
                         orientation: vertex.color.orientation))
-                    return .init(id: id, nest: stem, name: leaf, color: vertex.color, route: route)
+                    return .init(id: id, path: vertex.path, color: vertex.color, route: route)
                 }
                 
                 updates[index] = vertex.frame
@@ -476,17 +589,20 @@ extension Package
                     continue 
                 }
                 // article namespace is always its culture
-                let path:[String] = article.metadata.path
-                let nest:[String] = .init(path.dropLast()),
-                    name:String = path[path.endIndex - 1]
+                guard let path:Path = article.metadata.path
+                else 
+                {
+                    // should have been checked earlier
+                    fatalError("unreachable")
+                }
                 let id:Route = .init(culture, 
-                          keys.register(components: nest), 
-                    .init(keys.register(component:  name), 
+                          keys.register(components: path.prefix), 
+                    .init(keys.register(component:  path.last), 
                     orientation: .straight))
                 let index:Article.Index = self.articles.insert(id, culture: culture)
                 {
                     (route:Route, _:Article.Index) in 
-                    .init(nest: nest, name: name, route: route)
+                    .init(path: path, route: route)
                 }
                 registered[index] = article
             }

@@ -425,9 +425,9 @@ struct Extension
         case    .binary (let bytes, type: _):
             self.init(markdown: String.init(decoding: bytes, as: Unicode.UTF8.self))
         }
-        if self.metadata.path.isEmpty 
+        if case nil = self.metadata.path
         {
-            self.metadata.path = [name]
+            self.metadata.path = .init(last: name)
         }
     }
     init(markdown string:String)

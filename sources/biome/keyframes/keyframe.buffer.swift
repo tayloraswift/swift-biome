@@ -66,9 +66,30 @@ extension Keyframe
             }
             return self.at(version, head: head)
         }
+        func find(_ version:Version, head:Index?) -> Index?
+        {
+            guard let head:Index = head 
+            else 
+            {
+                return nil
+            }
+            return self.find(version, head: head)
+        }
         
         private 
         func at(_ version:Version, head:Index) -> Value?
+        {
+            if let index:Index = self.find(version, head: head)
+            {
+                return self[index].value
+            }
+            else 
+            {
+                return nil
+            }
+        }
+        private 
+        func find(_ version:Version, head:Index) -> Index?
         {
             var current:Index = head
             while true 
@@ -82,7 +103,7 @@ extension Keyframe
                 guard version < keyframe.first
                 else 
                 {
-                    return keyframe.value
+                    return current
                 }
                 if  current < keyframe.previous 
                 {

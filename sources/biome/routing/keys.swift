@@ -77,7 +77,8 @@ extension Route
         mutating 
         func register(complete symbol:Symbol) -> Stem 
         {
-            symbol.nest.isEmpty ? symbol.route.leaf.stem : self.register(components: symbol.nest + [symbol.name])
+            symbol.path.prefix.isEmpty ? 
+                symbol.route.leaf.stem : self.register(components: symbol.path)
         }
         mutating 
         func register<S>(components:S) -> Stem 
@@ -90,58 +91,6 @@ extension Route
             where S:StringProtocol 
         {
             self.register(Self.subpath(component))
-        }
-        
-        mutating 
-        func groups(_ ideologies:[Module.Index: Module.Beliefs], 
-            _ dereference:(Symbol.Index) throws -> Symbol)
-            rethrows -> Symbol.Groups
-        {
-            var groups:Symbol.Groups = .init()
-            for (culture, beliefs):(Module.Index, Module.Beliefs) in ideologies 
-            {
-                for (host, relationships):(Symbol.Index, Symbol.Relationships) in beliefs.facts
-                {
-                    let symbol:Symbol = try dereference(host)
-                    
-                    groups.insert(natural: (host, symbol.route))
-                    
-                    let features:[(perpetrator:Module.Index?, features:[Symbol.Index])] = 
-                        relationships.features(assuming: symbol.color)
-                    if  features.isEmpty
-                    {
-                        continue 
-                    }
-                    // don’t register the complete host path unless we have at 
-                    // least one feature!
-                    let path:Stem = self.register(complete: symbol)
-                    for (perpetrator, features):(Module.Index?, [Symbol.Index]) in features 
-                    {
-                        groups.insert(perpetrator: perpetrator ?? culture, 
-                            victim: (host, symbol.namespace, path), 
-                            features: try features.map 
-                            { 
-                                ($0, try dereference($0).route.leaf) 
-                            })
-                    }
-                }
-                for (host, traits):(Symbol.Index, [Symbol.Trait]) in beliefs.opinions.values.joined()
-                {
-                    let features:[Symbol.Index] = traits.compactMap(\.feature) 
-                    if !features.isEmpty
-                    {
-                        let symbol:Symbol = try dereference(host)
-                        let path:Stem = self.register(complete: symbol)
-                        groups.insert(perpetrator: culture, 
-                            victim: (host, symbol.namespace, path), 
-                            features: try features.map 
-                            {
-                                ($0, try dereference($0).route.leaf)
-                            })
-                    }
-                }
-            }
-            return groups
         }
     }
 }

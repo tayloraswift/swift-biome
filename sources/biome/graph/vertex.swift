@@ -43,7 +43,7 @@ struct Vertex:Sendable
         var comment:String
     }
     
-    var path:[String] 
+    var path:Path
     var color:Symbol.Color 
     var frame:Frame
 }
@@ -100,6 +100,12 @@ extension Image
                 }
             }
             let path:[String] = try $0.remove("pathComponents") { try $0.map { try $0.as(String.self) } }
+            guard let path:Path = .init(path)
+            else 
+            {
+                // FIXME: we should throw an error instead 
+                fatalError("FIXME")
+            }
             let color:Symbol.Color = try $0.remove("kind")
             {
                 let color:Symbol.Color = try $0.lint(["displayName"])

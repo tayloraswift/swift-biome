@@ -44,19 +44,17 @@ struct Article:Identifiable
     {
         self.route
     }
-    let name:String 
-    //  TODO: see if small-array optimizations here are beneficial, since this could 
-    //  often be a single-element array
-    /// The enclosing scope this symbol is defined in. If the symbol is a protocol 
-    /// extension member, this contains the name of the protocol.
-    let nest:[String]
+    let path:Path
+    var name:String 
+    {
+        self.path.last
+    }
     let route:Route
     var heads:Heads
     
-    init(nest:[String], name:String, route:Route)
+    init(path:Path, route:Route)
     {
-        self.nest = nest 
-        self.name = name 
+        self.path = path
         self.route = route
         self.heads = .init()
     }

@@ -107,26 +107,37 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         }
     }
     
+    struct Nest 
+    {
+        let namespace:Module.Index 
+        let prefix:[String]
+    }
+    
     // these stored properties are constant with respect to symbol identity. 
     let id:ID
-    let name:String 
     //  TODO: see if small-array optimizations here are beneficial, since this could 
     //  often be a single-element array
-    /// The enclosing scope this symbol is defined in. If the symbol is a protocol 
-    /// extension member, this contains the name of the protocol.
-    let nest:[String]
+    let path:Path
     let color:Color
     let route:Route
     
     var heads:Heads
     var _opinions:[Package.Index: Traits]
-    // var history:[(range:Range<Package.Version>, declaration:Int)]
     
+    var name:String 
+    {
+        self.path.last
+    }
     //  this is only the same as the perpetrator if this symbol is part of its 
     //  core symbol graph.
     var namespace:Module.Index 
     {
         self.route.namespace
+    }
+    var nest:Nest?
+    {
+        self.path.prefix.isEmpty ? 
+            nil : .init(namespace: self.namespace, prefix: self.path.prefix)
     }
     var orientation:Route.Orientation
     {
@@ -134,14 +145,13 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     }
     var description:String 
     {
-        self.nest.isEmpty ? self.name : "\(self.nest.joined(separator: ".")).\(self.name)"
+        self.path.joined(separator: ".")
     }
     
-    init(id:ID, nest:[String], name:String, color:Color, route:Route)
+    init(id:ID, path:Path, color:Color, route:Route)
     {
         self.id = id 
-        self.nest = nest 
-        self.name = name 
+        self.path = path
         self.color = color 
         self.route = route
         

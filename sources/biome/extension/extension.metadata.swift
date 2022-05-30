@@ -4,7 +4,7 @@ extension Extension
 {
     struct Metadata 
     {        
-        var path:[String]
+        var path:Path?
         var imports:Set<Module.ID> 
         var errors:[DirectiveArgumentText.ParseError]
         
@@ -12,8 +12,8 @@ extension Extension
         
         init(directives:[BlockDirective])
         {
+            self.path = nil
             self.errors = []
-            self.path = []
             self.imports = []
             
             self.noTitle = false
@@ -41,11 +41,11 @@ extension Extension
             if  let matches:[BlockDirective] = directives["path"],
                 let match:BlockDirective = matches.last
             {
-                self.path = match.argumentText.segments
+                self.path = .init(match.argumentText.segments
                     .map(\.trimmedText)
                     .joined()
                     .split(separator: "/")
-                    .map(String.init(_:))
+                    .map(String.init(_:)))
             }
         }
     }

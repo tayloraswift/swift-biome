@@ -252,14 +252,16 @@ extension Module
                     .init(" ",          color: .text),
                     .init(name,         color: .identifier),
                 ]
-                let vertex:Vertex = .init(path: [name], color: .protocol, frame: .init(
-                    availability:          .init(), 
-                    declaration:           .init(fragments), 
-                    signature:             .init(fragments), 
-                    generics:               [], 
-                    genericConstraints:     [], 
-                    extensionConstraints:   [], 
-                    comment:                ""))
+                let vertex:Vertex = .init(path: .init(last: name), 
+                    color: .protocol, 
+                    frame: .init(
+                        availability:          .init(), 
+                        declaration:           .init(fragments), 
+                        signature:             .init(fragments), 
+                        generics:               [], 
+                        genericConstraints:     [], 
+                        extensionConstraints:   [], 
+                        comment:                ""))
                 self.vertices.append((id, vertex))
                 print("note: naturalized underscored protocol '\(name)'")
             }

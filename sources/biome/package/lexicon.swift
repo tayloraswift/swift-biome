@@ -33,9 +33,10 @@ struct Lexicon
         modules.compactMap { self.namespaces[$0] }
     }
     
-    func resolve<Path>(visible link:Link.Reference<Path>, 
+    func resolve<Path>(
+        visible link:Link.Reference<Path>, 
         imports:Set<Module.Index>, 
-        context:Symbol?, 
+        nest:Symbol.Nest?, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link.Resolution?
         where Path:BidirectionalCollection, Path.Element == Link.Component
@@ -45,10 +46,10 @@ struct Lexicon
         {
             return qualified
         }
-        if  let context:Symbol = context, !context.nest.isEmpty, 
-            self.culture == context.namespace || imports.contains(context.namespace), 
+        if  let nest:Symbol.Nest = nest, 
+            self.culture == nest.namespace || imports.contains(nest.namespace), 
             let relative:Link.Resolution = 
-            try self.resolve(context.namespace, context.nest, link, dereference)
+            try self.resolve(nest.namespace, nest.prefix, link, dereference)
         {
             return relative
         }
@@ -105,14 +106,14 @@ struct Lexicon
             return nil
         }
     }
-    func resolve<Path>(_ namespace:Module.Index, _ nest:[String], _ link:Link.Reference<Path>, 
+    func resolve<Path>(_ namespace:Module.Index, _ prefix:[String], _ link:Link.Reference<Path>, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link.Resolution?
         where Path:BidirectionalCollection, Path.Element == Link.Component
     {
-        let path:[String] = nest.isEmpty ? 
-                   link.path.compactMap(\.prefix) : 
-            nest + link.path.compactMap(\.prefix)
+        let path:[String] = prefix.isEmpty ? 
+                     link.path.compactMap(\.prefix) : 
+            prefix + link.path.compactMap(\.prefix)
         guard let last:String = path.last 
         else 
         {
@@ -152,7 +153,7 @@ struct Lexicon
 
 extension Lexicon 
 {
-    func resolve(expression:String, imports:Set<Module.Index>, context:Symbol?, 
+    func resolve(expression:String, imports:Set<Module.Index>, nest:Symbol.Nest?, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link
     {
@@ -165,17 +166,23 @@ extension Lexicon
         else if let link:Link.Expression = try? .init(relative: expression)
         {
             switch try self.resolve(visible: link.reference, 
-                imports: imports, 
-                context: context, 
-                dereference)
+                imports: imports, nest: nest, dereference)
             {
             case nil:
                 print("FAILURE", expression)
-                print("note: location is \(context as Any)")
+                print("note: location is \(nest as Any)")
                 
-            case .one(.symbol(let symbol))?:
-                print("SUCCESS", expression, "->", try dereference(symbol))
-                return .target(.symbol(symbol))
+            case .one(.composite(let composite))?:
+                if let victim:Symbol.Index = composite.victim 
+                {
+                    print("SUCCESS", expression, "->", try dereference(composite.base), 
+                        "for", try dereference(victim))
+                }
+                else 
+                {
+                    print("SUCCESS", expression, "->", try dereference(composite.base))
+                }
+                return .target(.composite(composite))
             
             case .one(let target)?: 
                 print("SUCCESS", expression, "-> (unavailable)")
@@ -187,13 +194,21 @@ extension Lexicon
                 {
                     switch possibility 
                     {
-                    case .symbol(let symbol):
-                        print("\(i).", try dereference(symbol))
+                    case .composite(let composite):
+                        if let victim:Symbol.Index = composite.victim 
+                        {
+                            print("\(i).", try dereference(composite.base), 
+                                "for", try dereference(victim))
+                        }
+                        else 
+                        {
+                            print("\(i).", try dereference(composite.base))
+                        }
                     default: 
                         print("\(i). (unavailable)")
                     }
                 }
-                print("note: location is \(context as Any)")
+                print("note: location is \(nest as Any)")
             }
         }
         else 

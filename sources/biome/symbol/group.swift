@@ -3,7 +3,7 @@ extension Symbol
     struct Groups 
     {
         private(set)
-        var table:[Route: Symbol.Group]
+        var table:[Route: Group]
         
         init()
         {
@@ -11,27 +11,20 @@ extension Symbol
         }
         
         mutating 
-        func insert(natural:(symbol:Symbol.Index, route:Route)) 
+        func insert(natural:Index, at route:Route)
         {
-            self.table[natural.route, default: .none].insert(.init(natural: natural.symbol))
+            self.table[route, default: .none].insert(.init(natural: natural))
         }
         mutating 
-        func insert(perpetrator:Module.Index, 
-            victim:(symbol:Symbol.Index, namespace:Module.Index, path:Route.Stem), 
-            features:[(base:Symbol.Index, leaf:Route.Leaf)]) 
+        func insert(diacritic:Diacritic, 
+            features:[(base:Index, leaf:Route.Leaf)],
+            under victim:(namespace:Module.Index, path:Route.Stem))
         {
-            for (feature, leaf):(Symbol.Index, Route.Leaf) in features 
+            for (base, leaf):(Index, Route.Leaf) in features 
             {
                 let route:Route = .init(victim.namespace, victim.path, leaf)
-                let crime:Crime = .init(victim: victim.symbol, feature: feature, 
-                    culture: perpetrator)
-                self.table[route, default: .none].insert(crime)
+                self.table[route, default: .none].insert(.init(base, diacritic))
             }
-        }
-        mutating 
-        func merge(_ other:Self)
-        {
-            self.table.merge(other.table) { $0.union($1) }
         }
     }
     // 24B stride. the ``many`` case should be quite rare, since we are now 
@@ -41,45 +34,63 @@ extension Symbol
         // only used for dictionary initialization and array appends
         case none
         // if there is no feature index, the natural index is duplicated. 
-        case one   (Crime)
-        case many ([Crime])
+        case one   (Composite)
+        case many ([Index: Subgroup])
         
         mutating 
-        func insert(_ next:Crime)
+        func insert(_ next:Composite)
         {
             switch self 
             {
             case .none: 
                 self = .one(next)
+            case .one(next): 
+                break
             case .one(let first): 
-                self = .many([first, next])
-            case .many(var crimes):
+                let two:[Index: Subgroup]
+                // overloading on victim id is extremely rare; the column 
+                // array layout is inefficient, but allows us to represent the 
+                // more-common row layout efficiently
+                if first.base == next.base 
+                {
+                    two = [first.base: .many([first.diacritic, next.diacritic])]
+                }
+                else 
+                {
+                    two = [first.base: .one(first.diacritic), next.base: .one(next.diacritic)]
+                }
+                self = .many(two)
+            
+            case .many(var subgroups):
                 self = .none 
-                crimes.append(next)
-                self = .many(crimes)
+                subgroups[next.base, default: .none].insert(next.diacritic)
+                self = .many(subgroups)
             }
         }
-        func union(_ other:Self) -> Self 
+    }
+    enum Subgroup 
+    {
+        case none 
+        
+        case one     (Diacritic)
+        case many(Set<Diacritic>)
+        
+        mutating 
+        func insert(_ next:Diacritic)
         {
-            let union:Set<Crime>
-            switch (self, other)
+            switch self 
             {
-            case (.none, .none): 
-                return .none 
-            case (.none, let some), (let some, .none):
-                return some
-            case (.one(let first), .one(let next)):
-                return first == next ? .one(first) : .many([first, next])
-            case (.many(let crimes), .one(let next)), (.one(let next), .many(let crimes)):
-                union =  ([next] as Set<Crime>).union(crimes)
-            case (.many(let crimes), .many(let others)):
-                union = Set<Crime>.init(others).union(crimes)
+            case .none: 
+                self = .one(next)
+            case .one(next): 
+                break
+            case .one(let first): 
+                self = .many([first, next])
+            case .many(var diacritics):
+                self = .none 
+                diacritics.insert(next)
+                self = .many(diacritics)
             }
-            if union.count <= 1 
-            {
-                fatalError("unreachable")
-            }
-            return .many([Crime].init(union))
         }
     }
 }

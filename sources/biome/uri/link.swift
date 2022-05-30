@@ -33,21 +33,13 @@ extension Link
     {
         case package(Package.Index)
         case module(Module.Index)
-        case symbol(Symbol.Index)
-        case feature(Symbol.Index, Symbol.Index)
         case article(Article.Index)
+        case composite(Symbol.Composite)
         
         static 
-        func crime(_ crime:Crime) -> Self
+        func symbol(_ natural:Symbol.Index) -> Self 
         {
-            if let victim:Symbol.Index = crime.victim
-            {
-                return .feature(victim, crime.base)
-            }
-            else 
-            {
-                return .symbol(crime.base)
-            }
+            .composite(.init(natural: natural))
         }
     }
     struct Disambiguation 
@@ -77,33 +69,51 @@ extension Link.Disambiguation
             {
             case .none: 
                 break 
-            case .one(let crime):
-                if  try self.matches(crime, by: dereference, where: predicate)
+            case .one(let composite):
+                if try self.matches(composite, by: dereference, where: predicate)
                 {
-                    filtered.append(.crime(crime))
+                    filtered.append(.composite(composite))
                 }
-            case .many(let crimes):
-                for crime:Crime in crimes where 
-                    try self.matches(crime, by: dereference, where: predicate)
+            case .many(let composites):
+                for (base, diacritics):(Symbol.Index, Symbol.Subgroup) in composites 
                 {
-                    filtered.append(.crime(crime))
+                    switch diacritics
+                    {
+                    case .none: 
+                        break 
+                    case .one(let diacritic):
+                        let composite:Symbol.Composite = .init(base, diacritic)
+                        if try self.matches(composite, by: dereference, where: predicate)
+                        {
+                            filtered.append(.composite(composite))
+                        }
+                    case .many(let diacritics):
+                        for diacritic:Symbol.Diacritic in diacritics 
+                        {
+                            let composite:Symbol.Composite = .init(base, diacritic)
+                            if try self.matches(composite, by: dereference, where: predicate)
+                            {
+                                filtered.append(.composite(composite))
+                            }
+                        }
+                    }
                 }
             }
         }
         return .init(filtered)
     }
     private 
-    func matches(_ crime:Crime, 
+    func matches(_ composite:Symbol.Composite, 
         by dereference:(Symbol.Index) throws -> Symbol, 
         where predicate:(Module.Index) throws -> Bool = { _ in true }) 
         rethrows -> Bool
     {
-        guard try predicate(crime.culture)
+        guard try predicate(composite.culture)
         else 
         {
             return false 
         }
-        let symbol:Symbol = try dereference(crime.base)
+        let symbol:Symbol = try dereference(composite.base)
         switch self.suffix 
         {
         case nil: 
@@ -126,7 +136,7 @@ extension Link.Disambiguation
             // nothing else we can use 
             return true 
         }
-        if  let victim:Symbol.Index = crime.victim
+        if  let victim:Symbol.Index = composite.victim
         {
             let victim:Symbol = try dereference(victim)
             return id == victim.id

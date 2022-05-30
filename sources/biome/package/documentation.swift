@@ -61,22 +61,21 @@ extension Package
             documentation.reserveCapacity(comments.reduce(0) { $0 + $1.count })
         for (lexicon, comments):(Lexicon, [Symbol.Index: String]) in zip(lexica, comments)
         {
-            for (index, comment):(Symbol.Index, String) in comments
+            for (symbol, comment):(Symbol.Index, String) in comments
             {
-                let symbol:Symbol = self[local: index]
-                
+                let nest:Symbol.Nest? = self[local: symbol].nest
                 let comment:Extension = .init(markdown: comment)
                 let imports:Set<Module.Index> = 
                     standardLibrary.union(lexicon.resolve(imports: comment.metadata.imports))
                 let unresolved:Article.Template<String> = comment.render()
                 let resolved:Article.Template<Link> = unresolved.map 
                 {
-                    lexicon.resolve(expression: $0, imports: imports, context: symbol)
+                    lexicon.resolve(expression: $0, imports: imports, nest: nest)
                     {
                         self[$0] ?? ecosystem[$0]
                     }
                 }
-                documentation[.symbol(index)] = .template(resolved)
+                documentation[.symbol(symbol)] = .template(resolved)
             } 
         }
         return documentation
@@ -94,21 +93,13 @@ extension Package
         {
             for (target, article):(Link.Target, Extension) in assigned
             {
-                let context:Symbol?
-                if case .symbol(let index) = target 
-                {
-                    context = self[local: index]
-                }
-                else 
-                {
-                    context = nil
-                }
+                let nest:Symbol.Nest? = self.nest(ecosystem: ecosystem, local: target)
                 let imports:Set<Module.Index> = 
                     standardLibrary.union(lexicon.resolve(imports: article.metadata.imports))
                 let unresolved:Article.Template<String> = article.render()
                 let resolved:Article.Template<Link> = unresolved.map 
                 {
-                    lexicon.resolve(expression: $0, imports: imports, context: context)
+                    lexicon.resolve(expression: $0, imports: imports, nest: nest)
                     {
                         self[$0] ?? ecosystem[$0]
                     }
@@ -117,5 +108,23 @@ extension Package
             } 
         }
         return documentation
+    }
+    private 
+    func nest(ecosystem:Ecosystem, local target:Link.Target) -> Symbol.Nest?
+    {
+        guard case .composite(let composite) = target 
+        else 
+        {
+            return nil 
+        }
+        if  let victim:Symbol.Index = composite.victim 
+        {
+            let victim:Symbol = self[victim] ?? ecosystem[victim]
+            return .init(namespace: victim.namespace, prefix: [String].init(victim.path))
+        }
+        else 
+        {
+            return self[local: composite.base].nest
+        }
     }
 }
