@@ -48,12 +48,7 @@ extension Link
         
         var nation:Package.ID? 
         {
-            guard case .identifier(let package, hyphen: _)? = self.path.first
-            else 
-            {
-                return nil
-            }
-            return .init(package)
+            self.path.first?.identifier.map(Package.ID.init(_:))
         }
         var namespace:Module.ID? 
         {

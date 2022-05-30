@@ -80,7 +80,124 @@ struct Biome
     public 
     subscript(uri:String, referrer referrer:Never?) -> StaticResponse?
     {
-        nil
+        guard   let uri:URI = try? .init(absolute: uri), 
+                let link:Link.Expression = try? .init(normalizing: uri)
+        else 
+        {
+            return nil 
+        }
+        switch self[link.reference]
+        {
+        case nil: 
+            return nil 
+        case .one(let target)?: 
+            return .matched(canonical: "", .text("\(target)"))
+        case .many(let targets)?:
+            return .matched(canonical: "", .text("\(targets)"))
+        }
+    }
+    subscript<Tail>(link:Link.Reference<Tail>) -> Link.Resolution?
+        where Tail:BidirectionalCollection, Tail.Element == Link.Component
+    {
+        guard let layer:String = link.first?.identifier ?? nil
+        else 
+        {
+            return nil
+        }
+        switch self.keys[leaf: layer]
+        {
+        case self.keyword.package?:
+            break
+        case self.keyword.module?:
+            break
+        case self.keyword.symbol?:
+            let global:Link.Reference<Tail.SubSequence> = link.dropFirst()
+            let local:Link.Reference<Tail.SubSequence>
+            
+            let nation:Package, 
+                explicit:Bool
+            if  let package:Package.ID = global.nation, 
+                let package:Package = self.ecosystem[package]
+            {
+                explicit = true
+                nation = package 
+                local = _move(global).dropFirst()
+            }
+            else if let swift:Package = self.ecosystem[.swift]
+            {
+                explicit = false
+                nation = swift
+                local = _move(global)
+            }
+            else 
+            {
+                return nil
+            }
+            
+            let qualified:Link.Reference<Tail.SubSequence>
+            let arrival:Version? 
+            if let version:Version = local.first?.version ?? nil
+            {
+                qualified = _move(local).dropFirst()
+                arrival = version 
+            }
+            else 
+            {
+                qualified = _move(local) 
+                arrival = nil
+            }
+            
+            guard let namespace:Module.ID = qualified.namespace 
+            else 
+            {
+                return explicit ? .one(.package(nation.index)) : nil
+            } 
+            guard let namespace:Module.Index = nation.modules.indices[namespace]
+            else 
+            {
+                return nil
+            }
+            
+            let implicit:Link.Reference<Tail.SubSequence> = _move(qualified).dropFirst()
+            
+            guard let path:Path = .init(implicit.path.compactMap(\.prefix))
+            else 
+            {
+                return .one(.module(namespace))
+            }
+            guard let route:Route = self.keys[namespace, path, implicit.orientation]
+            else 
+            {
+                return nil
+            }
+            
+            // determine which package contains the actual symbol documentation; 
+            // it may be different from the nation 
+            let lens:Lexicon.Lens 
+            if  let culture:Package.ID = implicit.query.culture, 
+                let culture:Package = ecosystem[culture]
+            {
+                lens = culture.lens 
+            }
+            else 
+            {
+                lens = nation.lens 
+            }
+            return lens.resolve(route, disambiguation: implicit.disambiguation) 
+            { 
+                self.ecosystem[$0] 
+            }
+            
+        case self.keyword.article?:
+            break
+        case self.keyword.sitemap?:
+            break
+        case self.keyword.lunr?:
+            break
+        default:
+            break
+        }
+        return nil
     }
     
     public mutating 

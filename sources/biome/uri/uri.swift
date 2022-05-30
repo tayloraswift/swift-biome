@@ -15,6 +15,20 @@ struct URI
     var path:[Vector?]
     var query:[Parameter]?
     
+    init(path:[Vector?], query:[Parameter]?)
+    {
+        self.path = path 
+        self.query = query
+    }
+    init(absolute string:String) throws 
+    {
+        self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Absolute.self)
+    }
+    init(relative string:String) throws 
+    {
+        self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Relative.self)
+    }
+    
     enum Rule<Location>
     {
         typealias Terminal = UInt8

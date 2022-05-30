@@ -5,6 +5,26 @@ extension Link
         case identifier(String, hyphen:String.Index? = nil)
         case version(Version)
         
+        var version:Version?
+        {
+            switch self 
+            {
+            case .identifier(_, hyphen: _):
+                return nil
+            case .version(let version): 
+                return version
+            }
+        }
+        var identifier:String?
+        {
+            switch self 
+            {
+            case .identifier(let string, hyphen: _):
+                return string
+            case .version(_): 
+                return nil
+            }
+        }
         var prefix:String?
         {
             switch self 

@@ -11,24 +11,12 @@ struct Lexicon
         }
         
         // single-lens resolution
-        func resolve<Components>(_ namespace:Module.Index, _ link:Link.Reference<Components>, 
-            keys:Route.Keys, _ dereference:(Symbol.Index) throws -> Symbol) 
+        func resolve(_ route:Route, disambiguation:Link.Disambiguation, 
+            _ dereference:(Symbol.Index) throws -> Symbol) 
             rethrows -> Link.Resolution?
-            where Components:BidirectionalCollection, Components.Element == Link.Component
         {
-            guard let path:Path = .init(link.path.compactMap(\.prefix))
-            else 
-            {
-                return .one(.module(namespace))
-            }
-            guard let route:Route = keys[namespace, path, link.orientation]
-            else 
-            {
-                return nil
-            }
             // results that match orientation should take precedence over 
             // results that do not match orientation.
-            let disambiguation:Link.Disambiguation = link.disambiguation
             if  let group:Symbol.Group = self[group: route],
                 let resolution:Link.Resolution = 
                 try disambiguation.filter(group, by: dereference, where: { _ in true })
@@ -71,13 +59,13 @@ struct Lexicon
         modules.compactMap { self.namespaces[$0] }
     }
     
-    func resolve<Components>(
-        visible link:Link.Reference<Components>, 
+    func resolve<Tail>(
+        visible link:Link.Reference<Tail>, 
         imports:Set<Module.Index>, 
         nest:Symbol.Nest?, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link.Resolution?
-        where Components:BidirectionalCollection, Components.Element == Link.Component
+        where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         if  let qualified:Link.Resolution = 
             try self.resolve(qualified: link, dereference)
@@ -117,18 +105,18 @@ struct Lexicon
         }
         return imported 
     }
-    func resolve<Components>(visible link:Link.Reference<Components>, 
+    func resolve<Tail>(visible link:Link.Reference<Tail>, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link.Resolution?
-        where Components:BidirectionalCollection, Components.Element == Link.Component
+        where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         try self.resolve(       qualified: link, dereference) ?? 
             self.resolve(self.culture, [], link, dereference)
     }
-    func resolve<Components>(qualified link:Link.Reference<Components>, 
+    func resolve<Tail>(qualified link:Link.Reference<Tail>, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link.Resolution?
-        where Components:BidirectionalCollection, Components.Element == Link.Component
+        where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         // check if the first component refers to a module. it can be the same 
         // as its own culture, or one of its dependencies. 
@@ -144,11 +132,11 @@ struct Lexicon
             return nil
         }
     }
-    func resolve<Components>(_ namespace:Module.Index, _ prefix:[String], 
-        _ link:Link.Reference<Components>, 
+    func resolve<Tail>(_ namespace:Module.Index, _ prefix:[String], 
+        _ link:Link.Reference<Tail>, 
         _ dereference:(Symbol.Index) throws -> Symbol) 
         rethrows -> Link.Resolution?
-        where Components:BidirectionalCollection, Components.Element == Link.Component
+        where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         let suffix:[String] = link.path.compactMap(\.prefix)
         guard let path:Path = prefix.isEmpty ? 
@@ -162,9 +150,14 @@ struct Lexicon
         {
             return nil
         }
+        return try self.resolve(route, disambiguation: link.disambiguation, dereference)
+    }
+    func resolve(_ route:Route, disambiguation:Link.Disambiguation, 
+        _ dereference:(Symbol.Index) throws -> Symbol) 
+        rethrows -> Link.Resolution?
+    {
         // results that match orientation should take precedence over 
         // results that do not match orientation.
-        let disambiguation:Link.Disambiguation = link.disambiguation
         let exact:[Symbol.Group] = self.lenses.compactMap { $0[group: route] }
         if  let resolution:Link.Resolution = try disambiguation.filter(exact, 
             by: dereference, where: self.namespaces.contains(_:))

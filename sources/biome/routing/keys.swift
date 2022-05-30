@@ -32,13 +32,11 @@ extension Route
             self.table[subpath]
         }
         
-        private 
         subscript<Component>(leaf component:Component) -> Stem? 
             where Component:StringProtocol 
         {
             self.table[Self.subpath(component)]
         }        
-        private 
         subscript<Path>(stem components:Path) -> Stem? 
             where Path:Sequence, Path.Element:StringProtocol 
         {

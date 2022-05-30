@@ -13,9 +13,11 @@ struct Main:AsyncParsableCommand
     static 
     var configuration:CommandConfiguration = .init(abstract: "preview swift-biome documentation")
         
-    @Option(name: [.customShort("i"), .customLong("ip")], help: "private address to listen on")
+    @Option(name: [.customShort("p"), .customLong("port")], help: "port number to listen on")
+    var port:Int = 8080
+    @Option(name: [.customShort("i"), .customLong("ip")], help: "private host name to listen on")
     var ip:String = "0.0.0.0" 
-    @Option(name: [.customLong("host")], help: "host address")
+    @Option(name: [.customLong("host")], help: "public host name")
     var host:String = "127.0.0.1" 
     
     @Option(name: [.customShort("g"), .customLong("git")], help: "path to `git`, if different from '/usr/bin/git'")
@@ -48,6 +50,7 @@ struct Main:AsyncParsableCommand
             controller: .init(git: .init(self.git), repository: .init(self.resources)))
         
         let host:String = self.host 
+        let port:Int = 8080
         let group:MultiThreadedEventLoopGroup   = .init(numberOfThreads: 4)
         let bootstrap:ServerBootstrap           = .init(group: group)
             .serverChannelOption(ChannelOptions.backlog,                        value: 256)
@@ -65,9 +68,11 @@ struct Main:AsyncParsableCommand
             .childChannelOption(ChannelOptions.maxMessagesPerRead,              value: 1)
             .childChannelOption(ChannelOptions.allowRemoteHalfClosure,          value: true)
 
-        let stopped:EventLoopFuture<Void> = bootstrap.bind(host: self.ip, port: 8080)
-            .flatMap(\.closeFuture)
-        try await stopped.get()
+        let channel:Channel = try await bootstrap.bind(host: self.ip, port: port).get()
+        
+        print("started server at http://\(host):\(port)")
+        
+        try await channel.closeFuture.get()
     }
 }
 
@@ -105,7 +110,7 @@ struct Preview:ServiceBackend
             standard:   try controller.read(package: .swift),
             core:       try controller.read(package: .core)
         )
-        self.biome = .init(channels: [.symbol: "/reference", .article: "/learn"], 
+        self.biome = .init(channels: [.symbol: "reference", .article: "learn"], 
             standardModules: library.standard.modules.map(\.id), 
             coreModules: library.core.modules.map(\.id), 
             template: .init(freezing: DefaultTemplates.documentation))

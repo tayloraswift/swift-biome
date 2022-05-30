@@ -10,11 +10,11 @@ extension Link
         
         init(absolute string:String) throws 
         {
-            try self.init(normalizing: try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Absolute.self))
+            try self.init(normalizing: try .init(absolute: string))
         }
         init(relative string:String) throws 
         {
-            try self.init(normalizing: try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Relative.self))
+            try self.init(normalizing: try .init(relative: string))
         }
         
         init(normalizing uri:URI) throws

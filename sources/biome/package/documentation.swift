@@ -215,9 +215,9 @@ extension Package
         return .fallback(string)
     }
     private 
-    func resolve<Path>(global link:Link.Reference<Path>, lexicon:Lexicon, ecosystem:Ecosystem)
+    func resolve<Tail>(global link:Link.Reference<Tail>, lexicon:Lexicon, ecosystem:Ecosystem)
         -> Link.Resolution?
-        where Path:BidirectionalCollection, Path.Element == Link.Component
+        where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         guard   let nation:Package.ID = link.nation, 
                 let nation:Self = self.id == nation ? self : ecosystem[nation]
@@ -226,7 +226,7 @@ extension Package
             return nil 
         }
         
-        let qualified:Link.Reference<Path.SubSequence> = link.dropFirst()
+        let qualified:Link.Reference<Tail.SubSequence> = link.dropFirst()
         
         guard let namespace:Module.ID = qualified.namespace 
         else 
@@ -238,61 +238,47 @@ extension Package
         // reference. 
         if  case nil = qualified.query.culture, 
             let namespace:Module.Index = lexicon.namespaces[namespace], 
-                namespace.package == nation.index, 
-            let resolution:Link.Resolution = 
-                lexicon.resolve(namespace, [], qualified.dropFirst(), 
-                {
-                    self[$0] ?? ecosystem[$0]
-                })
+                namespace.package == nation.index
         {
-            return resolution
-        }
-        guard let namespace:Module.Index = nation.modules.indices[namespace]
-        else 
-        {
-            return nil 
-        }
-        // determine which package contains the actual symbol documentation; 
-        // it may be different from the nation 
-        let lens:Lexicon.Lens 
-        if  let culture:ID = link.query.culture, 
-            let culture:Self = self.id == culture ? self : ecosystem[culture]
-        {
-            lens = culture.lens 
+            return lexicon.resolve(namespace, [], qualified.dropFirst())
+            {
+                self[$0] ?? ecosystem[$0]
+            }
         }
         else 
         {
-            lens = nation.lens 
+            guard let namespace:Module.Index = nation.modules.indices[namespace]
+            else 
+            {
+                return nil 
+            }
+            let implicit:Link.Reference<Tail.SubSequence> = _move(qualified).dropFirst()
+            guard let path:Path = .init(implicit.path.compactMap(\.prefix))
+            else 
+            {
+                return .one(.module(namespace))
+            }
+            guard let route:Route = lexicon.keys[namespace, path, implicit.orientation]
+            else 
+            {
+                return nil
+            }
+            // determine which package contains the actual symbol documentation; 
+            // it may be different from the nation 
+            let lens:Lexicon.Lens 
+            if  let culture:ID = implicit.query.culture, 
+                let culture:Self = self.id == culture ? self : ecosystem[culture]
+            {
+                lens = culture.lens 
+            }
+            else 
+            {
+                lens = nation.lens 
+            }
+            return lens.resolve(route, disambiguation: implicit.disambiguation)
+            {
+                self[$0] ?? ecosystem[$0]
+            }
         }
-        return lens.resolve(namespace, qualified.dropFirst(), keys: lexicon.keys)
-        {
-            self[$0] ?? ecosystem[$0]
-        }
-        
-        /* let local:Link.Reference<Path.SubSequence>
-        let nation:Self, 
-            implicit:Bool
-        if  let package:ID = link.nation, 
-            let package:Self = self.id == package ? self : ecosystem[package]
-        {
-            implicit = false
-            nation = package 
-            local = link.dropFirst()
-        }
-        else if let swift:Self = ecosystem[.swift]
-        {
-            implicit = true
-            nation = swift
-            local = link[...]
-        }
-        else 
-        {
-            return nil
-        }
-        guard let namespace:Module.ID = local.namespace 
-        else 
-        {
-            return implicit ? nil : .one(.package(nation.index))
-        } */
     } 
 }
