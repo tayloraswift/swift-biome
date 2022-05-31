@@ -1,5 +1,6 @@
 import Grammar
 
+public
 struct URI 
 {
     enum Vector

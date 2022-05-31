@@ -50,6 +50,10 @@ extension Link
         {
             self.path.first?.identifier.map(Package.ID.init(_:))
         }
+        var arrival:Version? 
+        {
+            self.path.first?.version ?? nil
+        }
         var namespace:Module.ID? 
         {
             guard case .identifier(let module, hyphen: nil)? = self.path.first
@@ -117,6 +121,40 @@ extension Link
                     continue  
                 }
             }
+        }
+    }
+}
+extension Link.Reference where Path:RangeReplaceableCollection 
+{
+    mutating 
+    func append(_ nation:Package.ID) 
+    {
+        // already guaranteed to be lowercased
+        self.path.append(.identifier(nation.string))
+    }
+    mutating 
+    func append(_ arrival:Version) 
+    {
+        self.path.append(.version(arrival))
+    }
+    mutating 
+    func append(_ namespace:Module.ID) 
+    {
+        self.path.append(.identifier(namespace.value))
+    }
+    mutating 
+    func append<Component>(lowercasing component:Component) 
+        where Component:StringProtocol
+    {
+        self.path.append(.identifier(component.lowercased()))
+    }
+    mutating 
+    func append<Components>(lowercasing components:Components)
+        where Components:Sequence, Components.Element:StringProtocol
+    {
+        for component:Components.Element in components 
+        {
+            self.append(lowercasing: component)
         }
     }
 }

@@ -7,6 +7,18 @@ extension Route
         private
         var table:[String: Stem]
         
+        var _count:Int 
+        {
+            self.table.count 
+        }
+        var _memoryFootprint:Int 
+        {
+            let direct:Int = self.table.capacity * 
+                MemoryLayout<Dictionary<String, Stem>.Element>.stride
+            let indirect:Int = self.table.keys.reduce(0) { $0 + $1.utf8.count }
+            return direct + indirect
+        }
+        
         init() 
         {
             self.counter = .init()
@@ -66,13 +78,6 @@ extension Route
                 self.table[string] = self.counter.increment()
                 return self.counter
             }
-        }
-        
-        mutating 
-        func register(complete symbol:Symbol) -> Stem 
-        {
-            symbol.path.prefix.isEmpty ? 
-                symbol.route.leaf.stem : self.register(components: symbol.path)
         }
         mutating 
         func register<S>(components:S) -> Stem 

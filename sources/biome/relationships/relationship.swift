@@ -78,14 +78,8 @@ extension Symbol
             self.identities = [:]
         }
         
-        func features(assuming color:Color) -> [(perpetrator:Module.Index?, features:[Index])]
+        func featuresAssumingConcreteType() -> [(perpetrator:Module.Index?, features:[Index])]
         {
-            guard case .concretetype(_) = color
-            else 
-            {
-                return []
-            }
-            
             var features:[(perpetrator:Module.Index?, features:[Index])] = []
             if !self.traits.features.isEmpty
             {

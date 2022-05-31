@@ -116,7 +116,7 @@ extension Image
                 // consider it a type operator. 
                 if case .global(.operator) = color, path.count > 1
                 {
-                    return .callable(.operator)
+                    return .callable(.typeOperator)
                 }
                 else 
                 {

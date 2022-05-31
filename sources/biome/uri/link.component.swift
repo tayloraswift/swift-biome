@@ -1,5 +1,7 @@
 extension Link 
 {
+    // warning: do not make ``Equatable``, unless we enforce the correctness 
+    // of the `hyphen` field!
     enum Component 
     {
         case identifier(String, hyphen:String.Index? = nil)

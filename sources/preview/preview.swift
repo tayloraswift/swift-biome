@@ -110,7 +110,7 @@ struct Preview:ServiceBackend
             standard:   try controller.read(package: .swift),
             core:       try controller.read(package: .core)
         )
-        self.biome = .init(channels: [.symbol: "reference", .article: "learn"], 
+        self.biome = .init(prefixes: [.master: "reference", .doc: "learn"], 
             standardModules: library.standard.modules.map(\.id), 
             coreModules: library.core.modules.map(\.id), 
             template: .init(freezing: DefaultTemplates.documentation))

@@ -7,14 +7,6 @@ extension Package
     public 
     struct ID:Hashable, Comparable, Sendable, Decodable, ExpressibleByStringLiteral, CustomStringConvertible
     {
-        public 
-        enum Kind:Hashable, Comparable, Sendable 
-        {
-            case swift 
-            case core
-            case community(String)
-        }
-        
         @usableFromInline
         let kind:Kind 
         
@@ -74,13 +66,6 @@ extension Package
         init(kind:Kind)
         {
             self.kind = kind
-        }
-        
-        @available(*, deprecated, renamed: "string")
-        public 
-        var name:String 
-        {
-            self.string 
         }
     }
 }

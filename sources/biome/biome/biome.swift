@@ -1,56 +1,40 @@
 import StructuredDocument
 import Resource
 
-/* enum Opaque
+extension URI 
 {
-    case lunr
-    case sitemap 
-    
-    var module:Int? 
+    public 
+    enum Prefix:Hashable, Sendable 
     {
-        nil
+        case master
+        case doc
     }
-} */
+}
 public
 struct Biome 
 {
-    public 
-    enum _Channel:Hashable, Sendable 
-    {
-        case package
-        case module
-        case symbol 
-        case article
-    }
-    
-    private 
-    let channels:
+    let prefixes:
     (
-        package:String, 
-        module:String, 
-        symbol:String, 
-        article:String
+        master:String,
+        doc:String
     )
     private 
     let keyword:
     (
-        package:Route.Stem, 
-        module:Route.Stem, 
-        symbol:Route.Stem, 
-        article:Route.Stem,
-        
-        sitemap:Route.Stem,
-        lunr:Route.Stem
+        master:Route.Stem, 
+        doc:Route.Stem,
+        lunr:Route.Stem,
+        sitemaps:Route.Stem
     )
     private 
     let template:DocumentTemplate<Page.Anchor, [UInt8]>
-    private 
+    private(set)
     var ecosystem:Ecosystem
     private 
     var keys:Route.Keys
     
     public 
-    init(channels:[_Channel: String] = [:], 
+    init(prefixes:[URI.Prefix: String] = [:], 
         standardModules:[Module.ID], coreModules:[Module.ID], 
         template:DocumentTemplate<Page.Anchor, [UInt8]>) 
     {
@@ -58,22 +42,17 @@ struct Biome
         self.keys = .init()
         
         self.template = template 
-        self.channels = 
+        self.prefixes = 
         (
-            package: channels[.package, default: "packages"],
-            module:  channels[.module,  default: "modules"],
-            symbol:  channels[.symbol,  default: "reference"],
-            article: channels[.article, default: "learn"]
+            master: prefixes[.master,   default: "reference"],
+            doc:    prefixes[.doc,      default: "learn"]
         )
         self.keyword = 
         (
-            package:    self.keys.register(component: self.channels.package),
-            module:     self.keys.register(component: self.channels.module),
-            symbol:     self.keys.register(component: self.channels.symbol),
-            article:    self.keys.register(component: self.channels.article),
-            
-            sitemap:    self.keys.register(component: "sitemap"),
-            lunr:       self.keys.register(component: "lunr")
+            master:     self.keys.register(component: self.prefixes.master),
+            doc:        self.keys.register(component: self.prefixes.doc),
+            lunr:       self.keys.register(component: "lunr"),
+            sitemaps:   self.keys.register(component: "sitemaps")
         )
     }
     
@@ -99,18 +78,14 @@ struct Biome
     subscript<Tail>(link:Link.Reference<Tail>) -> Link.Resolution?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
-        guard let layer:String = link.first?.identifier ?? nil
+        guard let prefix:String = link.first?.identifier ?? nil
         else 
         {
             return nil
         }
-        switch self.keys[leaf: layer]
+        switch self.keys[leaf: prefix]
         {
-        case self.keyword.package?:
-            break
-        case self.keyword.module?:
-            break
-        case self.keyword.symbol?:
+        case self.keyword.master?:
             let global:Link.Reference<Tail.SubSequence> = link.dropFirst()
             let local:Link.Reference<Tail.SubSequence>
             
@@ -136,7 +111,7 @@ struct Biome
             
             let qualified:Link.Reference<Tail.SubSequence>
             let arrival:Version? 
-            if let version:Version = local.first?.version ?? nil
+            if let version:Version = local.arrival
             {
                 qualified = _move(local).dropFirst()
                 arrival = version 
@@ -188,11 +163,11 @@ struct Biome
                 self.ecosystem[$0] 
             }
             
-        case self.keyword.article?:
-            break
-        case self.keyword.sitemap?:
+        case self.keyword.doc?:
             break
         case self.keyword.lunr?:
+            break
+        case self.keyword.sitemaps?:
             break
         default:
             break

@@ -19,6 +19,14 @@ struct Package:Identifiable, Sendable
         }
     }
     
+    public 
+    enum Kind:Hashable, Comparable, Sendable 
+    {
+        case swift 
+        case core
+        case community(String)
+    }
+    
     struct Heads 
     {
         @Keyframe<Documentation>.Head
@@ -58,6 +66,10 @@ struct Package:Identifiable, Sendable
     var name:String 
     {
         self.id.string
+    }
+    var kind:Kind 
+    {
+        self.id.kind
     }
     
     init(id:ID, index:Index)
@@ -171,7 +183,7 @@ extension Package
             self.scope(ecosystem: ecosystem, culture: $0, at: version) 
         }
         
-        let sources:Sources = self.addSources(graphs, scopes: scopes, keys: &keys)
+        let sources:Sources = self.addSources(graphs, scopes: scopes,  keys: &keys)
         let extras:Extras = self.addExtras(graphs, cultures: cultures, keys: &keys)
         
         // add the newly-registered symbols to each module scope 
@@ -211,9 +223,10 @@ extension Package
             cultures: cultures)
         
         // defer the merge until the end to reduce algorithmic complexity
-        self.regroup(ecosystem: ecosystem, ideologies: ideologies, keys: &keys)
+        self.regroup(ecosystem: ecosystem, ideologies: ideologies)
         
         print("(\(self.id)) found \(self.lens.groups.count) addressable endpoints")
+        print("note: key table population: \(keys._count), total key size: \(keys._memoryFootprint) B")
         
         // merge opinions into a single dictionary
         let opinions:[Index: [Symbol.Index: [Symbol.Trait]]] = 
@@ -271,8 +284,7 @@ extension Package
     }
     
     private mutating 
-    func regroup(ecosystem:Ecosystem, ideologies:[Module.Index: Module.Beliefs], 
-        keys:inout Route.Keys)
+    func regroup(ecosystem:Ecosystem, ideologies:[Module.Index: Module.Beliefs])
     {
         for (culture, beliefs):(Module.Index, Module.Beliefs) in ideologies 
         {
@@ -282,16 +294,13 @@ extension Package
                 
                 groups.insert(natural: host, at: symbol.route)
                 
-                let features:[(perpetrator:Module.Index?, features:[Symbol.Index])] = 
-                    relationships.features(assuming: symbol.color)
-                if  features.isEmpty
+                guard let path:Route.Stem = symbol.kind.path
+                else 
                 {
                     continue 
                 }
-                // don’t register the complete host path unless we have at 
-                // least one feature!
-                let path:Route.Stem = keys.register(complete: symbol)
-                for (perpetrator, features):(Module.Index?, [Symbol.Index]) in features 
+                for (perpetrator, features):(Module.Index?, [Symbol.Index]) in 
+                    relationships.featuresAssumingConcreteType()
                 {
                     self.groups.insert(
                         diacritic: .init(victim: host, culture: perpetrator ?? culture), 
@@ -304,11 +313,16 @@ extension Package
             }
             for (victim, traits):(Symbol.Index, [Symbol.Trait]) in beliefs.opinions.values.joined()
             {
+                let symbol:Symbol = ecosystem[victim]
+                guard let path:Route.Stem = symbol.kind.path
+                else 
+                {
+                    // can have external traits that do not have to do with features
+                    continue 
+                }
                 let features:[Symbol.Index] = traits.compactMap(\.feature) 
                 if !features.isEmpty
                 {
-                    let symbol:Symbol = ecosystem[victim]
-                    let path:Route.Stem = keys.register(complete: symbol)
                     self.groups.insert(
                         diacritic: .init(victim: victim, culture: culture), 
                         features: features.map 
@@ -457,7 +471,28 @@ extension Package
                               keys.register(components: vertex.path.prefix), 
                         .init(keys.register(component:  vertex.path.last), 
                         orientation: vertex.color.orientation))
-                    return .init(id: id, path: vertex.path, color: vertex.color, route: route)
+                    // if the symbol could inherit features, generate a stem 
+                    // for its children from its full path. this stem will only 
+                    // go to waste if a concretetype is completely uninhabited, 
+                    // which is very rare.
+                    let kind:Symbol.Kind 
+                    switch vertex.color 
+                    {
+                    case .associatedtype: 
+                        kind = .associatedtype 
+                    case .concretetype(let concrete): 
+                        kind = .concretetype(concrete, path: vertex.path.prefix.isEmpty ? 
+                            route.leaf.stem : keys.register(components: vertex.path))
+                    case .callable(let callable): 
+                        kind = .callable(callable)
+                    case .global(let global): 
+                        kind = .global(global)
+                    case .protocol: 
+                        kind = .protocol 
+                    case .typealias: 
+                        kind = .typealias
+                    }
+                    return .init(id: id, path: vertex.path, kind: kind, route: route)
                 }
                 
                 updates[index] = vertex.frame

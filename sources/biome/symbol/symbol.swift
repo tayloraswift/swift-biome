@@ -118,12 +118,16 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     //  TODO: see if small-array optimizations here are beneficial, since this could 
     //  often be a single-element array
     let path:Path
-    let color:Color
+    let kind:Kind
     let route:Route
     
     var heads:Heads
     var _opinions:[Package.Index: Traits]
     
+    var color:Color 
+    {
+        self.kind.color
+    }
     var name:String 
     {
         self.path.last
@@ -148,11 +152,11 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         self.path.joined(separator: ".")
     }
     
-    init(id:ID, path:Path, color:Color, route:Route)
+    init(id:ID, path:Path, kind:Kind, route:Route)
     {
         self.id = id 
         self.path = path
-        self.color = color 
+        self.kind = kind
         self.route = route
         
         self.heads = .init()
