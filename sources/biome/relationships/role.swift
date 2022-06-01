@@ -11,8 +11,6 @@ extension Symbol
         case interface(of:Index)
         case requirement(of:Index)
     }
-    // FIXME: the ``Equatable`` conformance is probably broken; it should 
-    // really be comparing ``Set``s.
     enum Roles:Equatable, Sendable 
     {
         /// roles for global symbols, of which there are none.
@@ -44,7 +42,7 @@ extension Symbol
         /// > tip: it is not possible to retroactively conform protocols to other 
         /// protocols, so the implemented requirements can be determined 
         /// using only information about modules the current culture depends on.
-        case implementation(of:[Index], membership:Index?)
+        case implementation(of:Set<Index>, membership:Index?)
         /// protocol requirement-specific roles. 
         /// 
         /// - parameters: 
@@ -59,7 +57,7 @@ extension Symbol
         /// > tip: it is not possible to retroactively conform protocols to other 
         /// protocols, so the overridden requirement can be determined 
         /// using only information about modules the current culture depends on.
-        case requirement(of:Index, upstream:[Index])
+        case requirement(of:Index, upstream:Set<Index>)
         /// protocol-specific roles. 
         /// 
         /// - parameters:
@@ -72,7 +70,7 @@ extension Symbol
         /// > tip: it is not possible to retroactively conform protocols to other 
         /// protocols, so the full list of implications can be computed using 
         /// only information about modules the current culture depends on.
-        case interface(of:[Index], upstream:[Index])
+        case interface(of:Set<Index>, upstream:Set<Index>)
         /// subclass-specific roles. 
         /// 
         /// - parameters: 
@@ -86,24 +84,23 @@ extension Symbol
         /// also do not use this case; they use ``global`` instead.
         case subclass(of:Index, membership:Index?)
         
-        init(_ roles:[Role], membership:Index?, superclass:Index?, interface:Index?, as color:Color) 
-            throws
+        init<Roles>(_ roles:Roles, membership:Index?, superclass:Index?, interface:Index?, as color:Color) 
+            throws 
+            where Roles:Sequence, Roles.Element == Role
         {
             switch (color, membership: membership, superclass: superclass, interface: interface) 
             {
             case    (.concretetype(_),  membership: nil,                superclass: nil, interface: nil), 
                     (.typealias,        membership: nil,                superclass: nil, interface: nil), 
                     (.global(_),        membership: nil,                superclass: nil, interface: nil):
-                guard roles.isEmpty
-                else 
+                for _:Role in roles
                 {
                     fatalError("unreachable") 
                 }
                 self = .global 
                 
             case    (.typealias,        membership: let membership?,    superclass: nil, interface: nil): 
-                guard roles.isEmpty
-                else 
+                for _:Role in roles
                 {
                     fatalError("unreachable") 
                 }
@@ -118,7 +115,7 @@ extension Symbol
                 
             case    (.concretetype(_),  membership: let membership?,    superclass: nil, interface: nil), 
                     (.callable(_),      membership: let membership?,    superclass: nil, interface: nil):
-                self = .implementation(of: roles.map 
+                self = .implementation(of: .init(roles.map 
                 {
                     switch $0 
                     {
@@ -127,10 +124,10 @@ extension Symbol
                     default: 
                         fatalError("unreachable") 
                     }
-                }, membership: membership)
+                }), membership: membership)
                 
             case    (.callable(_),      membership: nil,                superclass: nil, interface: nil):
-                self = .implementation(of: roles.map 
+                self = .implementation(of: .init(roles.map 
                 {
                     switch $0 
                     {
@@ -139,13 +136,13 @@ extension Symbol
                     default: 
                         fatalError("unreachable") 
                     }
-                }, membership: nil)
+                }), membership: nil)
                 
             case    (.callable(_),      membership: let membership?,    superclass: nil, interface: let interface?):
                 throw ExclusivityError.requirement(of: interface, and: .member(of: membership))
                 
             case    (.callable(_),      membership: nil,                superclass: nil, interface: let interface?):
-                self = .requirement(of: interface, upstream: try roles.map 
+                self = .requirement(of: interface, upstream: .init(try roles.map 
                 {
                     switch $0 
                     {
@@ -154,10 +151,10 @@ extension Symbol
                     default: 
                         throw ExclusivityError.requirement(of: interface, and: $0)
                     }
-                })
+                }))
             
             case    (.associatedtype,   membership: nil,                superclass: nil, interface: let interface?):
-                self = .requirement(of: interface, upstream: try roles.map 
+                self = .requirement(of: interface, upstream: .init(try roles.map 
                 {
                     switch $0 
                     {
@@ -166,20 +163,20 @@ extension Symbol
                     default: 
                         throw ExclusivityError.requirement(of: interface, and: $0)
                     }
-                })
+                }))
                 
             // sanity check: should have thrown a ``MiscegenationError`` earlier
             case    (.protocol,         membership: nil,                superclass: nil, interface: nil):
-                var requirements:[Index] = [], 
-                    upstream:[Index] = []
+                var requirements:Set<Index> = [], 
+                    upstream:Set<Index> = []
                 for role:Role in roles 
                 {
                     switch role 
                     {
                     case .interface(of: let requirement):
-                        requirements.append(requirement)
+                        requirements.insert(requirement)
                     case .refinement(of: let `protocol`):
-                        upstream.append(`protocol`)
+                        upstream.insert(`protocol`)
                     default: 
                         fatalError("unreachable") 
                     }

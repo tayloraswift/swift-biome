@@ -77,13 +77,13 @@ extension Link
     {
         var victim:Symbol.ID?
         var symbol:Symbol.ID?
-        var culture:Package.ID?
+        var lens:(culture:Package.ID, version:Version?)?
         
         init() 
         {
             self.victim = nil
             self.symbol = nil 
-            self.culture = nil 
+            self.lens = nil 
         }
         
         mutating 
@@ -94,9 +94,25 @@ extension Link
                 switch key
                 {
                 case "from":
-                    // if the mangled name contained a colon ('SymbolGraphGen style'), 
-                    // the parsing rule will remove it.
-                    self.culture = .init(value)
+                    // either 'from=swift-foo' or 'from=swift-foo/0.1.2'. 
+                    // we do not tolerate missing slashes
+                    let components:[Substring] = value.split(separator: "/")
+                    guard let first:Substring = components.first
+                    else 
+                    {
+                        continue  
+                    }
+                    let id:Package.ID = .init(first)
+                    if  let second:Substring = components.dropFirst().first, 
+                        let version:Version = try? Grammar.parse(second.unicodeScalars, 
+                            as: Version.Rule<String.Index>.self)
+                    {
+                        self.lens = (id, version)
+                    }
+                    else 
+                    {
+                        self.lens = (id, nil)
+                    }
                 
                 case "self":
                     // if the mangled name contained a colon ('SymbolGraphGen style'), 

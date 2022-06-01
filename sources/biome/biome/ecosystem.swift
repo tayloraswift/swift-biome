@@ -5,17 +5,34 @@
 /// accessing foreign packages.
 struct Ecosystem 
 {
-    private 
-    let standardModules:[Module.ID], 
-        coreModules:[Module.ID]
+    enum DependencyError:Error 
+    {
+        case packageNotFound(Package.ID)
+        case targetNotFound(Module.ID, in:Package.ID)
+    }
+    
+    //private 
+    //let standardModules:[Module.ID], 
+    //    coreModules:[Module.ID]
     
     var packages:[Package], 
         indices:[Package.ID: Package.Index]
     
-    init(standardModules:[Module.ID], coreModules:[Module.ID])
+    var standardLibrary:Set<Module.Index>
     {
-        self.standardModules = standardModules
-        self.coreModules = coreModules
+        if let swift:Package = self[.swift]
+        {
+            return .init(swift.modules.indices.values)
+        }
+        else 
+        {
+            // must register standard library before any other packages 
+            fatalError("first package must be the swift standard library")
+        }
+    }
+    
+    init()
+    {
         self.packages = []
         self.indices = [:]
     }
@@ -49,232 +66,135 @@ struct Ecosystem
             yield self.packages[symbol.module.package.offset][local: symbol]
         }
     } 
+    
+
     /// returns the index of the entry for the given package, creating it if it 
     /// does not already exist.
     mutating 
-    func create(package:Package.ID) -> Package.Index 
+    func updatePackageRegistration(for package:Package.ID, to version:Version)
+        throws -> Package.Index
     {
-        if let index:Package.Index = self.indices[package]
+        if let package:Package.Index = self.indices[package]
         {
-            return index 
+            try self[package].push(version: version)
+            return package 
         }
         let index:Package.Index = .init(offset: self.packages.endIndex)
         self.packages.append(.init(id: package, index: index))
         self.indices[package] = index
         return index
     }
-}
-extension Ecosystem 
-{
-    func dependencies(_ local:Package, _ graphs:[Module.Graph], cultures:[Module.Index]) 
-        throws -> [Set<Module.Index>]
+    
+    mutating 
+    func updateModuleRegistrations(in culture:Package.Index,
+        graphs:[Module.Graph], 
+        era:[Package.ID: Version])
+        throws -> (pins:Package.Pins, scopes:[Symbol.Scope])
     {
-        var dependencies:[Set<Module.Index>] = []
-            dependencies.reserveCapacity(cultures.count)
-        for (graph, culture):(Module.Graph, Module.Index) in zip(graphs, cultures)
+        // create modules, if they do not exist already.
+        // note: module indices are *not* necessarily contiguous, 
+        // or even monotonically increasing
+        let cultures:[Module.Index] = self[culture].addModules(graphs)
+        
+        let dependencies:[Set<Module.Index>] = 
+            try self.computeDependencies(of: cultures, graphs: graphs)
+        
+        var upstream:Set<Package.Index> = []
+        for target:Module.Index in dependencies.joined()
         {
-            // remove self-dependencies 
-            var set:Set<Module.Index> = try self.dependencies(local, graph.dependencies)
-                set.remove(culture)
-            dependencies.append(set)
+            upstream.insert(target.package)
         }
-        return dependencies
+        // allows a package update to look up its own version
+        upstream.insert(culture)
+        
+        let pins:Package.Pins = .init(dependencies: upstream)
+        {
+            let package:Package = self[$0]
+            return $0 == culture ? package.latest : era[package.id] ?? .latest
+        }
+        
+        self[culture].updateDependencies(of: cultures, with: dependencies)
+        //self[culture].updatePins(with: pins)
+        
+        return (pins, self.scopes(of: cultures, dependencies: dependencies))
     }
     
-    private 
-    func dependencies(_ local:Package, _ dependencies:[Module.Graph.Dependency]) 
-        throws -> Set<Module.Index>
+    mutating 
+    func updateDocumentation(in culture:Package.Index, 
+        compiled:[Link.Target: Documentation],
+        hints:[Symbol.Index: Symbol.Index], 
+        pins:Package.Pins)
     {
-        var dependencies:[Package.ID: [Module.ID]] = [Package.ID: [Module.Graph.Dependency]]
-            .init(grouping: dependencies, by: \.package)
-            .mapValues 
+        let sponsors:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = 
+            self[culture].updateDocumentation(compiled)
+        let migrants:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = 
+            self.recruitMigrants(in: culture, 
+                sponsors: _move(sponsors), 
+                hints: hints, 
+                pins: pins)
+        self[culture].distributeDocumentation(_move(migrants))
+    }
+    
+    // `culture` parameter not strictly needed, but we use it to make sure 
+    // that ``generateRhetoric(graphs:scopes:)`` did not return ``hints``
+    // about other packages
+    private 
+    func recruitMigrants(in culture:Package.Index,
+        sponsors:[Symbol.Index: Keyframe<Documentation>.Buffer.Index],
+        hints:[Symbol.Index: Symbol.Index],
+        pins:Package.Pins) 
+        -> [Symbol.Index: Keyframe<Documentation>.Buffer.Index]
+    {
+        var migrants:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = [:]
+        for (member, sponsor):(Symbol.Index, Symbol.Index) in hints
+            where !sponsors.keys.contains(member)
         {
-            $0.flatMap(\.modules)
-        }
-        // add implicit dependencies 
-            dependencies[.swift, default: []].append(contentsOf: self.standardModules)
-        if local.id != .swift 
-        {
-            dependencies[.core,  default: []].append(contentsOf: self.coreModules)
-        }
-        var modules:Set<Module.Index> = []
-        for (id, namespaces):(Package.ID, [Module.ID]) in dependencies 
-        {
-            guard let package:Package = local.id == id ? local : self[id]
-            else 
+            assert(member.module.package == culture)
+            // if a symbol did not have documentation of its own, 
+            // check if it has a sponsor 
+            if let sponsor:Keyframe<Documentation>.Buffer.Index = sponsors[sponsor]
             {
-                throw Package.ResolutionError.dependency(id, of: local.id)
+                migrants[member] = sponsor 
             }
-            for id:Module.ID in namespaces
+            else if culture != sponsor.module.package
             {
-                guard let index:Module.Index = package.modules.indices[id]
+                // note: empty doccomments are omitted from the documentation buffer
+                guard let sponsor:Keyframe<Documentation>.Buffer.Index = 
+                    self[sponsor.module.package].documentation(forLocal: sponsor, 
+                        at: pins[sponsor.module.package])
                 else 
                 {
-                    throw Module.ResolutionError.target(id, in: package.id)
+                    continue 
                 }
-                modules.insert(index)
+                migrants[member] = sponsor
             }
         }
-        return modules
+        return migrants
     }
 }
 extension Ecosystem 
 {
-    func statements(_ local:Package, _ graphs:[Module.Graph], scopes:[Symbol.Scope])
-        throws -> (speeches:[[Symbol.Statement]], hints:[Symbol.Index: Symbol.Index])
-    {
-        var uptree:[Symbol.Index: Symbol.Index] = [:]
-        var speeches:[[Symbol.Statement]] = [] 
-            speeches.reserveCapacity(scopes.count)
-        for (graph, scope):(Module.Graph, Symbol.Scope) in zip(graphs, scopes)
-        {
-            // if we have `n` edges, we will get between `n` and `2n` statements
-            var statements:[Symbol.Statement] = []
-                statements.reserveCapacity(graph.edges.reduce(0) { $0 + $1.count })
-            for edge:Edge in graph.edges.joined()
-            {
-                let constraints:[Generic.Constraint<Symbol.Index>] = 
-                    try edge.constraints.map { try $0.map(scope.index(of:)) }
-                let (source, target):(Symbol.Index, Symbol.Index) = 
-                (
-                    try scope.index(of: edge.source),
-                    try scope.index(of: edge.target)
-                )
-                
-                switch try self.statements(local, 
-                    when: source, is: edge.kind, of: target, where: constraints)
-                {
-                case (let source?,  let target):
-                    statements.append(source)
-                    statements.append(target)
-                case (nil,          let target):
-                    statements.append(target)
-                }
-                
-                // don’t care about hints for symbols in other packages
-                if  source.module.package == local.index, 
-                    let origin:Symbol.ID = edge.origin, 
-                // this fails quite frequently. we don’t have a great solution for this.
-                    let origin:Symbol.Index = try? scope.index(of: origin), origin != source
-                {
-                    uptree[source] = origin
-                }
-            }
-            speeches.append(statements)
-        }
-        
-        // flatten the uptree, in O(n). every item in the dictionary will be 
-        // visited at most twice.
-        for index:Dictionary<Symbol.Index, Symbol.Index>.Index in uptree.indices 
-        {
-            var crumbs:Set<Dictionary<Symbol.Index, Symbol.Index>.Index> = []
-            var current:Dictionary<Symbol.Index, Symbol.Index>.Index = index
-            while let union:Dictionary<Symbol.Index, Symbol.Index>.Index = 
-                uptree.index(forKey: uptree.values[current])
-            {
-                assert(current != union)
-                
-                crumbs.update(with: current)
-                current = union
-                
-                if crumbs.contains(union)
-                {
-                    fatalError("detected cycle in doccomment uptree")
-                }
-            }
-            for crumb:Dictionary<Symbol.Index, Symbol.Index>.Index in crumbs 
-            {
-                uptree.values[crumb] = uptree.values[current]
-            }
-        }
-        return (speeches, uptree)
-    }
-    
     private 
-    func statements(_ local:Package, 
-        when source:Symbol.Index, is label:Edge.Kind, of target:Symbol.Index, 
-        where constraints:[Generic.Constraint<Symbol.Index>])
-        throws -> (source:Symbol.Statement?, target:Symbol.Statement)
+    func scopes(of cultures:[Module.Index], dependencies:[Set<Module.Index>])
+        -> [Symbol.Scope]
     {
-        switch  
-        (
-                local[source]?.color ?? self[source].color,
-            is: label,
-            of: local[target]?.color ?? self[target].color,
-            unconditional: constraints.isEmpty
-        ) 
+        zip(cultures, dependencies).map 
         {
-        case    (.callable(_),      is: .feature,               of: .concretetype(_),   unconditional: true):
-            return
-                (
-                    nil,
-                    (target, .has(.feature(source)))
-                )
-        
-        case    (.concretetype(_),  is: .member,                of: .concretetype(_),   unconditional: true), 
-                (.typealias,        is: .member,                of: .concretetype(_),   unconditional: true), 
-                (.callable(_),      is: .member,                of: .concretetype(_),   unconditional: true), 
-                (.concretetype(_),  is: .member,                of: .protocol,          unconditional: true),
-                (.typealias,        is: .member,                of: .protocol,          unconditional: true),
-                (.callable(_),      is: .member,                of: .protocol,          unconditional: true):
-            return 
-                (
-                    (source,  .is(.member(of: target))), 
-                    (target, .has(.member(    source)))
-                )
-        
-        case    (.concretetype(_),  is: .conformer,             of: .protocol,          unconditional: _):
-            return 
-                (
-                    (source, .has(.conformance(target, where: constraints))), 
-                    (target, .has(  .conformer(source, where: constraints)))
-                )
-         
-        case    (.protocol,         is: .conformer,             of: .protocol,          unconditional: true):
-            return 
-                (
-                    (source,  .is(.refinement(of: target))), 
-                    (target, .has(.refinement(    source)))
-                ) 
-        
-        case    (.class,            is: .subclass,              of: .class,             unconditional: true):
-            return 
-                (
-                    (source,  .is(.subclass(of: target))), 
-                    (target, .has(.subclass(    source)))
-                ) 
-         
-        case    (.associatedtype,   is: .override,              of: .associatedtype,    unconditional: true),
-                (.callable(_),      is: .override,              of: .callable,          unconditional: true):
-            return 
-                (
-                    (source,  .is(.override(of: target))), 
-                    (target, .has(.override(    source)))
-                ) 
-         
-        case    (.associatedtype,   is: .requirement,           of: .protocol,          unconditional: true),
-                (.callable(_),      is: .requirement,           of: .protocol,          unconditional: true),
-                (.associatedtype,   is: .optionalRequirement,   of: .protocol,          unconditional: true),
-                (.callable(_),      is: .optionalRequirement,   of: .protocol,          unconditional: true):
-            return 
-                (
-                    (source,  .is(.requirement(of: target))), 
-                    (target,  .is(  .interface(of: source)))
-                ) 
-         
-        case    (.callable(_),      is: .defaultImplementation, of: .callable(_),       unconditional: true):
-            return 
-                (
-                    (source,  .is(.implementation(of: target))), 
-                    (target, .has(.implementation(    source)))
-                ) 
-        
-        case (_, is: _, of: _, unconditional: false):
-            // ``Edge.init(from:)`` should have thrown a ``JSON.LintingError`
-            fatalError("unreachable")
-        
-        case (let source, is: let label, of: let target, unconditional: true):
-            throw Symbol.RelationshipError.miscegenation(source, cannotBe: label, of: target)
+            self.scope(of: $0.0, dependencies: $0.1)
         }
+    }
+    private 
+    func scope(of culture:Module.Index, dependencies:Set<Module.Index>) 
+        -> Symbol.Scope
+    {
+        var scope:Module.Scope = .init(culture: culture, id: self[culture].id)
+        for namespace:Module.Index in dependencies 
+        {
+            scope.insert(namespace: namespace, id: self[namespace].id)
+        }
+        return .init(namespaces: scope, lenses: scope.packages().map 
+        {
+            self[$0].symbols.indices
+        })
     }
 }

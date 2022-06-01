@@ -1,7 +1,5 @@
 extension Symbol 
 {
-    // FIXME: the ``Equatable`` conformance is probably broken; it should 
-    // really be comparing the constraints arrays as ``Set``s.
     enum Trait:Equatable
     {
         // members 
@@ -14,9 +12,9 @@ extension Symbol
         case subclass(Index)
         case override(Index)
         // conformers
-        case conformer(Index, where:[Generic.Constraint<Index>])
+        case conformer(Index, where:Set<Generic.Constraint<Index>>)
         // conformances
-        case conformance(Index, where:[Generic.Constraint<Index>])
+        case conformance(Index, where:Set<Generic.Constraint<Index>>)
         
         var feature:Index? 
         {
@@ -30,8 +28,6 @@ extension Symbol
             }
         }
     }
-    // FIXME: the ``Equatable`` conformance is probably broken; it should 
-    // really be comparing ``Set``s.
     struct Traits:Equatable, Sendable 
     {
         /// if a concrete type, the members of this type, not including members 
@@ -39,10 +35,10 @@ extension Symbol
         /// if a protocol, the members in extensions of this protocol. 
         /// 
         /// requirements and witnesses must not access this property.
-        var members:[Index]
+        var members:Set<Index>
         
         private 
-        var unconditional:[Index]            
+        var unconditional:Set<Index>
         /// if a concrete type, members of this type inherited through 
         /// protocol conformances.
         /// 
@@ -53,7 +49,7 @@ extension Symbol
         /// > note: for concrete types, the module that an inherited member 
         /// originates from is not necessarily the perpetrator of the conformance 
         /// that trafficked it into its scope.
-        var features:[Index]
+        var features:Set<Index>
         {
             _read 
             {
@@ -70,7 +66,7 @@ extension Symbol
         /// 
         /// this shares backing storage with ``features``. types and witnesses 
         /// must not access this property.
-        var implementations:[Index]
+        var implementations:Set<Index>
         {
             _read 
             {
@@ -88,16 +84,16 @@ extension Symbol
         /// interface that also restate this requirement.
         /// if a witness, any subclass members that override this witness, if 
         /// it is a class member.
-        var downstream:[Index] 
+        var downstream:Set<Index>
         
         private 
-        var conditional:[(index:Index, conditions:[Generic.Constraint<Index>])] 
+        var conditional:[Index: Set<Generic.Constraint<Index>>]
         /// if a protocol, concrete types that implement this protocol.
         /// 
         /// this shares backing storage with ``conformances``. concrete types 
         /// should access ``conformances`` instead. requirements and witnesses 
         /// must not access this property.
-        var conformers:[(index:Index, conditions:[Generic.Constraint<Index>])]
+        var conformers:[Index: Set<Generic.Constraint<Index>>]
         {
             _read 
             {
@@ -113,7 +109,7 @@ extension Symbol
         /// this shares backing storage with ``conformers``. protocols 
         /// should access ``conformers`` instead. requirements and witnesses 
         /// must not access this property.
-        var conformances:[(index:Index, conditions:[Generic.Constraint<Index>])]
+        var conformances:[Index: Set<Generic.Constraint<Index>>]
         {
             _read 
             {
@@ -130,18 +126,19 @@ extension Symbol
             self.members = []
             self.downstream = []
             self.unconditional = []
-            self.conditional = []
+            self.conditional = [:]
         }
         
-        static 
-        func == (lhs:Self, rhs:Self) -> Bool 
+        init<Traits>(_ traits:Traits, as color:Color)
+            where Traits:Sequence, Traits.Element == Trait
         {
-            fatalError("unimplemented")
+            self.init()
+            self.update(with: traits, as: color)
         }
         
         mutating 
-        func update<S>(with traits:S, as color:Color)  
-            where S:Sequence, S.Element == Trait
+        func update<Traits>(with traits:Traits, as color:Color) 
+            where Traits:Sequence, Traits.Element == Trait
         {
             switch color 
             {
@@ -154,10 +151,10 @@ extension Symbol
                     //  [1] (uninhabited)
                     //  [2] restatements (``downstream``)
                     case .override(let downstream):
-                        self.downstream.append(downstream)
+                        self.downstream.insert(downstream)
                     //  [3] default implementations (``implementations``)
                     case .implementation(let implementation): 
-                        self.implementations.append(implementation)
+                        self.implementations.insert(implementation)
                     default:
                         fatalError("unreachable")
                     }
@@ -170,14 +167,14 @@ extension Symbol
                     {
                     //  [0] extension members (``members``)
                     case .member(let member):
-                        self.members.append(member)
+                        self.members.insert(member)
                     //  [1] (uninhabited; requirements are stored in ``Roles``)
                     //  [2] inheriting protocols (``downstream``)
                     case .refinement(let downstream):
-                        self.downstream.append(downstream)
+                        self.downstream.insert(downstream)
                     //  [3] conforming types (``conformers``)
                     case .conformer(let conformer, where: let conditions):
-                        self.conformers.append((conformer, conditions))
+                        self.conformers[conformer] = conditions
                     default: 
                         fatalError("unreachable")
                     }
@@ -196,16 +193,16 @@ extension Symbol
                     {
                     //  [0] members (``members``)
                     case .member(let member):
-                        self.members.append(member)
+                        self.members.insert(member)
                     //  [1] features (``features``)
                     case .feature(let feature):
-                        self.features.append(feature)
+                        self.features.insert(feature)
                     //  [2] subclasses (``downstream``)
                     case .subclass(let downstream):
-                        self.downstream.append(downstream)
+                        self.downstream.insert(downstream)
                     //  [3] protocol conformances (``conformances``)
                     case .conformance(let conformance, where: let conditions):
-                        self.conformances.append((conformance, conditions))
+                        self.conformances[conformance] = conditions
                     default: 
                         fatalError("unreachable")
                     }
@@ -220,10 +217,10 @@ extension Symbol
                     //  [1] (uninhabited)
                     //  [2] overriding callables or restatements (``downstream``)
                     case .override(let downstream):
-                        self.downstream.append(downstream)
+                        self.downstream.insert(downstream)
                     //  [3] default implementations (``implementations``)
                     case .implementation(let implementation):
-                        self.implementations.append(implementation)
+                        self.implementations.insert(implementation)
                     default: 
                         fatalError("unreachable")
                     }

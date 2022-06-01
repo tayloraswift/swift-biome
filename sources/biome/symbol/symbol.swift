@@ -122,7 +122,8 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     let route:Route
     
     var heads:Heads
-    var _opinions:[Package.Index: Traits]
+    private(set)
+    var reputation:[Package.Pin: Traits]
     
     var color:Color 
     {
@@ -160,12 +161,13 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         self.route = route
         
         self.heads = .init()
-        self._opinions = [:]
+        self.reputation = [:]
     }
     
     mutating 
-    func update(traits:[Trait], from package:Package.Index)  
+    func assign<Traits>(traits:Traits, from pin:Package.Pin) 
+        where Traits:Sequence, Traits.Element == Trait
     {
-        self._opinions[package, default: .init()].update(with: traits, as: self.color)
+        self.reputation[pin] = .init(traits, as: self.color)
     }
 }

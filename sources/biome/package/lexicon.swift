@@ -2,13 +2,10 @@ struct Lexicon
 {
     struct Lens:Sendable 
     {
-        let groups:[Route: Symbol.Group]
-        let learn:[Route: Article.Index]
-                
-        subscript(group route:Route) -> Symbol.Group?
-        {
-            self.groups[route] 
-        }
+        let declarations:Keyframe<Symbol.Declaration>.Buffer
+        let version:Version
+        let master:[Route: Symbol.Group]
+        let doc:[Route: Article.Index]
         
         // single-lens resolution
         func resolve(_ route:Route, disambiguation:Link.Disambiguation, 
@@ -17,14 +14,14 @@ struct Lexicon
         {
             // results that match orientation should take precedence over 
             // results that do not match orientation.
-            if  let group:Symbol.Group = self[group: route],
+            if  let group:Symbol.Group = self.master[route],
                 let resolution:Link.Resolution = 
                 try disambiguation.filter(group, by: dereference, where: { _ in true })
             {
                 return resolution
             }
             if  let route:Route = route.outed, 
-                let group:Symbol.Group = self[group: route],
+                let group:Symbol.Group = self.master[route],
                 let resolution:Link.Resolution = 
                 try disambiguation.filter(group, by: dereference, where: { _ in true })
             {
@@ -158,7 +155,7 @@ struct Lexicon
     {
         // results that match orientation should take precedence over 
         // results that do not match orientation.
-        let exact:[Symbol.Group] = self.lenses.compactMap { $0[group: route] }
+        let exact:[Symbol.Group] = self.lenses.compactMap { $0.master[route] }
         if  let resolution:Link.Resolution = try disambiguation.filter(exact, 
             by: dereference, where: self.namespaces.contains(_:))
         {
@@ -169,7 +166,7 @@ struct Lexicon
         {
             return nil
         }
-        let redirects:[Symbol.Group] = self.lenses.compactMap { $0[group: route] }
+        let redirects:[Symbol.Group] = self.lenses.compactMap { $0.master[route] }
         if  let resolution:Link.Resolution = try disambiguation.filter(redirects, 
             by: dereference, where: self.namespaces.contains(_:))
         {

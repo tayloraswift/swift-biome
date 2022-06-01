@@ -35,10 +35,9 @@ struct Biome
     
     public 
     init(prefixes:[URI.Prefix: String] = [:], 
-        standardModules:[Module.ID], coreModules:[Module.ID], 
         template:DocumentTemplate<Page.Anchor, [UInt8]>) 
     {
-        self.ecosystem = .init(standardModules: standardModules, coreModules: coreModules)
+        self.ecosystem = .init()
         self.keys = .init()
         
         self.template = template 
@@ -149,14 +148,14 @@ struct Biome
             // determine which package contains the actual symbol documentation; 
             // it may be different from the nation 
             let lens:Lexicon.Lens 
-            if  let culture:Package.ID = implicit.query.culture, 
+            if case let (culture, departure)? = implicit.query.lens, 
                 let culture:Package = ecosystem[culture]
             {
-                lens = culture.lens 
+                lens = culture.lens(departure) 
             }
             else 
             {
-                lens = nation.lens 
+                lens = nation.lens(arrival) 
             }
             return lens.resolve(route, disambiguation: implicit.disambiguation) 
             { 
@@ -174,34 +173,104 @@ struct Biome
         }
         return nil
     }
-    
+
+
     public mutating 
-    func append(_ graph:Package.Graph, pins:[Package.ID: Version]) throws 
+    func updatePackage(_ graph:Package.Graph, era:[Package.ID: Version]) throws 
     {
-        print(pins)
+        let version:Version = era[graph.id] ?? .latest 
         
-        let prior:Ecosystem = self.ecosystem
-        let index:Package.Index = self.ecosystem.create(package: graph.id)
-        let pins:[Package.Index: Version] = .init(uniqueKeysWithValues: pins.compactMap 
+        let index:Package.Index = 
+            try self.ecosystem.updatePackageRegistration(for: graph.id, to: version)
+        // initialize symbol id scopes for upstream packages only
+        let pins:Package.Pins ; var scopes:[Symbol.Scope] ; (pins, scopes) = 
+            try self.ecosystem.updateModuleRegistrations(in: index, 
+                graphs: graph.modules, 
+                era: era)
+        
+        let (articles, extensions):([[Article.Index: Extension]], [[String: Extension]]) = 
+            self.ecosystem[index].addExtensions(in: scopes.map(\.culture), 
+                graphs: graph.modules, 
+                keys: &self.keys)
+        let symbols:[[Symbol.Index: Vertex.Frame]] = 
+            self.ecosystem[index].addSymbols(through: scopes, 
+                graphs: graph.modules, 
+                keys: &self.keys)
+        
+        print("note: key table population: \(self.keys._count), total key size: \(self.keys._memoryFootprint) B")
+        
+        // add the newly-registered symbols to each module scope 
+        for scope:Int in scopes.indices
         {
-            if let index:Package.Index = self.ecosystem.indices[$0.key] 
-            {
-                return (index, $0.value)
-            }
-            else 
-            {
-                return nil
-            }
-        })
-        // this will trigger copy-on-write, we need to fix this
-        let opinions:[Package.Index: [Symbol.Index: [Symbol.Trait]]] = 
-            try self.ecosystem[index].update(with: graph.modules, 
-                ecosystem: _move(prior), pins: pins, keys: &self.keys)
-        // hopefully ``ecosystem`` is uniquely referenced now
-        for (upstream, opinions):(Package.Index, [Symbol.Index: [Symbol.Trait]]) in opinions 
-        {
-            self.ecosystem[upstream].update(with: opinions, from: index)
+            scopes[scope].lenses.append(self.ecosystem[index].symbols.indices)
         }
+        
+        let positions:[Dictionary<Symbol.Index, Symbol.Declaration>.Keys] =
+            try self.ecosystem[index].updateDeclarations(scopes: scopes, symbols: symbols)
+        let hints:[Symbol.Index: Symbol.Index] = 
+            try self.ecosystem.updateImplicitSymbols(in: index, 
+                fromExplicit: _move(positions), 
+                graphs: graph.modules, 
+                scopes: scopes)
+        
+        //  build lexical scopes for each module culture. 
+        //  important: do not modify ``keys`` after this point! 
+        //  it will cause copy-on-write!
+        let lens:Lexicon.Lens = self.ecosystem[index].lens(nil)
+        var lexica:[Lexicon] = _move(scopes).map 
+        {
+            .init(keys: self.keys, namespaces: $0.namespaces, lenses: [lens])
+        }
+        
+        let comments:[Symbol.Index: String] = Self.comments(from: symbols, pruning: hints)
+        let peripherals:[[Link.Target: Extension]] = 
+            self.ecosystem.resolveBindings(of: _move(extensions), 
+                articles: _move(articles),
+                lexica: lexica)
+        
+        // add upstream lenses 
+        for lexicon:Int in lexica.indices 
+        {
+            let packages:Set<Package.Index> = lexica[lexicon].namespaces.packages()
+            lexica[lexicon].lenses.append(contentsOf: packages.map
+            {
+                self.ecosystem[$0].lens(pins[$0])
+            })
+        }
+        
+        let documentation:[Link.Target: Documentation] = 
+            self.ecosystem.compile(comments: comments, peripherals: peripherals, 
+                lexica: lexica)
+        self.ecosystem.updateDocumentation(in: index, 
+            compiled: _move(documentation), 
+            hints: _move(hints), 
+            pins: _move(pins))
+    }
+    
+    private static
+    func comments(from symbols:[[Symbol.Index: Vertex.Frame]], 
+        pruning hints:[Symbol.Index: Symbol.Index]) 
+        -> [Symbol.Index: String]
+    {
+        var comments:[Symbol.Index: String] = [:]
+        for (symbol, frame):(Symbol.Index, Vertex.Frame) in symbols.joined()
+            where !frame.comment.isEmpty
+        {
+            comments[symbol] = frame.comment
+        }
+        // delete comments if a hint indicates it is duplicated
+        var pruned:Int = 0
+        for (member, union):(Symbol.Index, Symbol.Index) in hints 
+        {
+            if  let comment:String  = comments[member],
+                let original:String = comments[union],
+                    original == comment 
+            {
+                comments.removeValue(forKey: member)
+                pruned += 1
+            }
+        }
+        return comments
     }
 }
 

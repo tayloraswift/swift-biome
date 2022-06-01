@@ -16,11 +16,11 @@ extension Module
             filter:Set<Index>
         let culture:Index
         
-        init(_ module:Module)
+        init(culture:Index, id:ID)
         {
-            self.namespaces = [module.id: module.index]
-            self.filter = [module.index]
-            self.culture = module.index 
+            self.namespaces = [id: culture]
+            self.filter = [culture]
+            self.culture = culture 
         }
         
         subscript(namespace:ID) -> Index?
@@ -41,10 +41,10 @@ extension Module
         }
         
         mutating 
-        func insert(_ module:Module)
+        func insert(namespace:Index, id:ID)
         {
-            self.namespaces[module.id] = module.index
-            self.filter.insert(module.index)
+            self.namespaces[id] = namespace
+            self.filter.insert(namespace)
         }
         
         func packages() -> Set<Package.Index>

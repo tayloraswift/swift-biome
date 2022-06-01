@@ -1,9 +1,5 @@
 extension Package 
 {
-    enum ResolutionError:Error 
-    {
-        case dependency(ID, of:ID)
-    }
     public 
     struct ID:Hashable, Comparable, Sendable, Decodable, ExpressibleByStringLiteral, CustomStringConvertible
     {

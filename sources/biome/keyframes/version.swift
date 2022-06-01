@@ -163,3 +163,71 @@ struct Version:Hashable, CustomStringConvertible, Sendable
         }
     }
 }
+extension Version 
+{
+    struct Rule<Location>:ParsingRule 
+    {
+        typealias Terminal = Unicode.Scalar
+        typealias Encoding = Grammar.Encoding<Location, Terminal>
+    }
+}
+extension Version.Rule 
+{
+    private 
+    typealias Integer = Grammar.UnsignedIntegerLiteral<
+                        Grammar.DecimalDigitScalar<Location, Int>>
+    
+    private 
+    enum ToolchainOrdinal:TerminalRule
+    {
+        typealias Terminal = Unicode.Scalar
+        typealias Construction = Unicode.Scalar
+        static 
+        func parse(terminal:Terminal) -> Unicode.Scalar?
+        {
+            switch terminal 
+            {
+            case "a" ... "z":   return terminal 
+            //case "A" ... "Z":   return terminal.lowercased()
+            default:            return nil
+            }
+        }
+    }
+    
+    static 
+    func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
+        throws -> Version
+        where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+    {
+        let first:Int = try input.parse(as: Integer.self)
+        guard case nil = input.parse(as: Encoding.Hyphen?.self)
+        else 
+        {
+            // parse a date 
+            let month:Int = try input.parse(as: Integer.self)
+            try input.parse(as: Encoding.Hyphen.self)
+            let day:Int = try input.parse(as: Integer.self)
+            try input.parse(as: Encoding.Hyphen.self)
+            let letter:Unicode.Scalar = try input.parse(as: ToolchainOrdinal.self)
+            return .date(year: first, month: month, day: day, letter: letter)
+        }
+        // parse a x.y.z.w semantic version. the w component is 
+        // a documentation version, which is a sub-patch increment
+        guard let minor:Int = input.parse(as: Integer?.self)
+        else 
+        {
+            return .tag(first, nil)
+        }
+        guard let patch:Int = input.parse(as: Integer?.self)
+        else 
+        {
+            return .tag(first, (minor, nil))
+        }
+        guard let edition:Int = input.parse(as: Integer?.self)
+        else 
+        {
+            return .tag(first, (minor, (patch, nil)))
+        }
+        return .tag(first, (minor, (patch, edition)))
+    }
+}

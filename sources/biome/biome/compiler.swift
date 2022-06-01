@@ -4,65 +4,69 @@ enum Documentation:Equatable
     case shared(Keyframe<Self>.Buffer.Index)
 }
 
-extension Package 
-{    
-    func documentation(ecosystem:Ecosystem, 
-        comments:[Symbol.Index: String], 
-        extras:Extras, 
-        scopes:[Module.Scope], 
-        keys:Route.Keys)
+extension Ecosystem 
+{
+    func resolveBindings(of extensions:[[String: Extension]], 
+        articles:[[Article.Index: Extension]],
+        lexica:[Lexicon]) 
+        -> [[Link.Target: Extension]]
+    {
+        zip(lexica, zip(articles, extensions)).map
+        {
+            let (lexicon, ( articles,                          extensions)):
+                (Lexicon, ([Article.Index: Extension], [String: Extension])) = $0
+            
+            var bindings:[Link.Target: Extension] = [:]
+                bindings.reserveCapacity(articles.count + extensions.count)
+            for (index, article):(Article.Index, Extension) in articles 
+            {
+                bindings[.article(index)] = article
+            }
+            for (binding, article):(String, Extension) in extensions
+            {
+                guard let link:Link.Expression = try? Link.Expression.init(relative: binding)
+                else 
+                {
+                    print("warning: ignored article with invalid binding '\(binding)'")
+                    continue 
+                }
+                switch lexicon.resolve(visible: link.reference, { self[$0] })
+                {
+                case .many(_)?, nil: 
+                    fatalError("unimplemented")
+                case .one(let unique)?:
+                    // TODO: emit warning for colliding extensions
+                    bindings[unique] = article 
+                }
+            }
+            return bindings
+        }
+    }
+    
+    func compile(comments:[Symbol.Index: String], 
+        peripherals:[[Link.Target: Extension]], 
+        lexica:[Lexicon])
         -> [Link.Target: Documentation]
     {
-        //  build lexical scopes for each module culture. 
-        //  initialize a single-lens lexicon for each culture. it should contain 
-        //  *all* our available namespaces, but only *one* lens.
-        var lexica:[Lexicon] = scopes.map 
-        {
-            .init(keys: keys, namespaces: $0, lenses: [self.lens])
-        }
-        let extras:[[Link.Target: Extension]] = extras.assigned(lexica: lexica)
-        {
-            self[$0] ?? ecosystem[$0]
-        }
-        // add upstream lenses 
-        for lexicon:Int in lexica.indices 
-        {
-            let lenses:[Lexicon.Lens] = lexica[lexicon].namespaces.packages().map
-            {
-                ecosystem[$0].lens
-            }
-            lexica[lexicon].lenses.append(contentsOf: lenses)
-        }
-        
         let comments:[Link.Target: Documentation] = 
-            self.documentation(comments, lexica: lexica, ecosystem: ecosystem)
-        let assigned:[Link.Target: Documentation] = 
-            self.documentation(extras, lexica: lexica, ecosystem: ecosystem)
-        return comments.merging(assigned) { $1 }
+            self.compile(comments: comments, lexica: lexica)
+        let peripherals:[Link.Target: Documentation] = 
+            self.compile(peripherals: peripherals, lexica: lexica)
+        return comments.merging(peripherals) { $1 }
     }
-    private 
-    func standardLibrary(ecosystem:Ecosystem) -> Set<Module.Index>
-    {
-        guard let package:Self = self.id == .swift ? self : ecosystem[.swift] 
-        else 
-        {
-            return []
-        }
-        return .init(package.modules.indices.values)
-    }
-    private 
-    func documentation(_ comments:[Symbol.Index: String], lexica:[Lexicon], ecosystem:Ecosystem)
+    private
+    func compile(comments:[Symbol.Index: String], lexica:[Lexicon])
         -> [Link.Target: Documentation]
     {
         //  always import the standard library
-        let standardLibrary:Set<Module.Index> = self.standardLibrary(ecosystem: ecosystem)
+        let implicit:Set<Module.Index> = self.standardLibrary
         // need to turn the lexica into something we can select from a flattened 
         // comments dictionary 
         let lexica:[Module.Index: Lexicon] = 
             .init(uniqueKeysWithValues: lexica.map { ($0.namespaces.culture, $0) })
         
-        var documentation:[Link.Target: Documentation] = [:]
-            documentation.reserveCapacity(comments.count)
+        var documentation:[Link.Target: Documentation] = 
+            .init(minimumCapacity: comments.count)
         for (symbol, comment):(Symbol.Index, String) in comments
         {
             guard let lexicon:Lexicon = lexica[symbol.module] 
@@ -71,41 +75,39 @@ extension Package
                 fatalError("unreachable")
             }
             
-            let nest:Symbol.Nest? = self[local: symbol].nest
+            let nest:Symbol.Nest? = self[symbol].nest
             let comment:Extension = .init(markdown: comment)
             let imports:Set<Module.Index> = 
-                standardLibrary.union(lexicon.resolve(imports: comment.metadata.imports))
+                implicit.union(lexicon.resolve(imports: comment.metadata.imports))
             let unresolved:Article.Template<String> = comment.render()
             let resolved:Article.Template<Link> = unresolved.map 
             {
-                self.resolve(string: $0, imports: imports, nest: nest, 
-                    lexicon: lexicon, ecosystem: ecosystem)
+                self.resolve(string: $0, imports: imports, nest: nest, lexicon: lexicon)
             }
             documentation[.symbol(symbol)] = .template(resolved)
         } 
         return documentation
     }
-    private 
-    func documentation(_ assigned:[[Link.Target: Extension]], lexica:[Lexicon], ecosystem:Ecosystem)
+    private
+    func compile(peripherals:[[Link.Target: Extension]], lexica:[Lexicon])
         -> [Link.Target: Documentation]
     {
         //  always import the standard library
-        let standardLibrary:Set<Module.Index> = self.standardLibrary(ecosystem: ecosystem)
+        let implicit:Set<Module.Index> = self.standardLibrary
         
-        var documentation:[Link.Target: Documentation] = [:]
-            documentation.reserveCapacity(assigned.reduce(0) { $0 + $1.count })
-        for (lexicon, assigned):(Lexicon, [Link.Target: Extension]) in zip(lexica, assigned)
+        var documentation:[Link.Target: Documentation] = 
+            .init(minimumCapacity: peripherals.reduce(0) { $0 + $1.count })
+        for (lexicon, assigned):(Lexicon, [Link.Target: Extension]) in zip(lexica, peripherals)
         {
             for (target, article):(Link.Target, Extension) in assigned
             {
-                let nest:Symbol.Nest? = self.nest(local: target, ecosystem: ecosystem)
+                let nest:Symbol.Nest? = self.nest(target)
                 let imports:Set<Module.Index> = 
-                    standardLibrary.union(lexicon.resolve(imports: article.metadata.imports))
+                    implicit.union(lexicon.resolve(imports: article.metadata.imports))
                 let unresolved:Article.Template<String> = article.render()
                 let resolved:Article.Template<Link> = unresolved.map 
                 {
-                    self.resolve(string: $0, imports: imports, nest: nest, 
-                        lexicon: lexicon, ecosystem: ecosystem)
+                    self.resolve(string: $0, imports: imports, nest: nest, lexicon: lexicon)
                 }
                 documentation[target] = .template(resolved)
             } 
@@ -113,7 +115,7 @@ extension Package
         return documentation
     }
     private 
-    func nest(local target:Link.Target, ecosystem:Ecosystem) -> Symbol.Nest?
+    func nest(_ target:Link.Target) -> Symbol.Nest?
     {
         guard case .composite(let composite) = target 
         else 
@@ -122,17 +124,16 @@ extension Package
         }
         if  let victim:Symbol.Index = composite.victim 
         {
-            let victim:Symbol = self[victim] ?? ecosystem[victim]
+            let victim:Symbol = self[victim]
             return .init(namespace: victim.namespace, prefix: [String].init(victim.path))
         }
         else 
         {
-            return self[local: composite.base].nest
+            return self[composite.base].nest
         }
     }
     private 
-    func resolve(string:String, imports:Set<Module.Index>, nest:Symbol.Nest?, 
-        lexicon:Lexicon, ecosystem:Ecosystem) 
+    func resolve(string:String, imports:Set<Module.Index>, nest:Symbol.Nest?, lexicon:Lexicon) 
         -> Link
     {
         // must attempt to parse absolute first, otherwise 
@@ -142,8 +143,7 @@ extension Package
         if let absolute:Link.Expression = try? .init(absolute: string)
         {
             visible = absolute.visible
-            resolution = self.resolve(global: absolute.reference, 
-                lexicon: lexicon, ecosystem: ecosystem)
+            resolution = self.resolve(global: absolute.reference, lexicon: lexicon)
         }
         else if let relative:Link.Expression = try? .init(relative: string)
         {
@@ -153,7 +153,7 @@ extension Package
                 imports: imports, 
                 nest: nest)
             {
-                self[$0] ?? ecosystem[$0]
+                self[$0]
             }
         }
         else 
@@ -196,12 +196,11 @@ extension Package
                 case .composite(let composite):
                     if let victim:Symbol.Index = composite.victim 
                     {
-                        print("\(i).", self[composite.base] ?? ecosystem[composite.base], 
-                            "for", self[victim] ?? ecosystem[victim])
+                        print("\(i).", self[composite.base], "for", self[victim])
                     }
                     else 
                     {
-                        print("\(i).", self[composite.base] ?? ecosystem[composite.base])
+                        print("\(i).", self[composite.base])
                     }
                 default: 
                     print("\(i). (unavailable)")
@@ -215,12 +214,12 @@ extension Package
         return .fallback(string)
     }
     private 
-    func resolve<Tail>(global link:Link.Reference<Tail>, lexicon:Lexicon, ecosystem:Ecosystem)
+    func resolve<Tail>(global link:Link.Reference<Tail>, lexicon:Lexicon)
         -> Link.Resolution?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         guard   let nation:Package.ID = link.nation, 
-                let nation:Self = self.id == nation ? self : ecosystem[nation]
+                let nation:Package = self[nation]
         else 
         {
             return nil 
@@ -236,14 +235,11 @@ extension Package
         // if the global path starts with a package/namespace that 
         // matches one of our dependencies, treat it like a qualified 
         // reference. 
-        if  case nil = qualified.query.culture, 
+        if  case nil = qualified.query.lens, 
             let namespace:Module.Index = lexicon.namespaces[namespace], 
                 namespace.package == nation.index
         {
-            return lexicon.resolve(namespace, [], qualified.dropFirst())
-            {
-                self[$0] ?? ecosystem[$0]
-            }
+            return lexicon.resolve(namespace, [], qualified.dropFirst()) { self[$0] }
         }
         else 
         {
@@ -266,19 +262,17 @@ extension Package
             // determine which package contains the actual symbol documentation; 
             // it may be different from the nation 
             let lens:Lexicon.Lens 
-            if  let culture:ID = implicit.query.culture, 
-                let culture:Self = self.id == culture ? self : ecosystem[culture]
+            if case let (culture, departure)? = implicit.query.lens, 
+                let culture:Package = self[culture]
             {
-                lens = culture.lens 
+                lens = culture.lens(departure) 
             }
             else 
             {
-                lens = nation.lens 
+                // TODO: enable parsing explicit version 
+                lens = nation.lens(nil) 
             }
-            return lens.resolve(route, disambiguation: implicit.disambiguation)
-            {
-                self[$0] ?? ecosystem[$0]
-            }
+            return lens.resolve(route, disambiguation: implicit.disambiguation) { self[$0] }
         }
     } 
 }

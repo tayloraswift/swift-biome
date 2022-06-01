@@ -78,9 +78,9 @@ extension Symbol
             self.identities = [:]
         }
         
-        func featuresAssumingConcreteType() -> [(perpetrator:Module.Index?, features:[Index])]
+        func featuresAssumingConcreteType() -> [(perpetrator:Module.Index?, features:Set<Index>)]
         {
-            var features:[(perpetrator:Module.Index?, features:[Index])] = []
+            var features:[(perpetrator:Module.Index?, features:Set<Index>)] = []
             if !self.traits.features.isEmpty
             {
                 features.append((nil, self.traits.features))
