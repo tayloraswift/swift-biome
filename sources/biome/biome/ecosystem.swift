@@ -46,10 +46,6 @@ struct Ecosystem
         }
     }
     
-    //private 
-    //let standardModules:[Module.ID], 
-    //    coreModules:[Module.ID]
-    
     var packages:[Package], 
         indices:[Package.ID: Package.Index]
     
@@ -109,13 +105,13 @@ struct Ecosystem
     func updatePackageRegistration(for package:Package.ID, to version:Version)
         throws -> Package.Index
     {
-        if let package:Package.Index = self.indices[package]
+        if  let package:Package.Index = self.indices[package]
         {
             try self[package].push(version: version)
             return package 
         }
         let index:Package.Index = .init(offset: self.packages.endIndex)
-        self.packages.append(.init(id: package, index: index))
+        self.packages.append(.init(id: package, index: index, version: version))
         self.indices[package] = index
         return index
     }

@@ -116,7 +116,7 @@ struct Package:Identifiable, Sendable
         self.id.kind
     }
     
-    init(id:ID, index:Index)
+    init(id:ID, index:Index, version:Version)
     {
         self.id = id 
         self.index = index
@@ -124,7 +124,7 @@ struct Package:Identifiable, Sendable
         self.heads = .init()
         
         // self.tag = "2.0.0"
-        self.latest = .tag(0, (0, (0, 0)))
+        self.latest = version
         self.groups = .init()
         self.modules = .init()
         self.symbols = .init()
@@ -172,8 +172,6 @@ struct Package:Identifiable, Sendable
     
     func contains(_ composite:Symbol.Composite, at version:Version) -> Bool 
     {
-        return true 
-        
         if  let host:Symbol.Index = composite.host
         {
             // hosts are always concrete types
