@@ -6,6 +6,41 @@ enum Documentation:Equatable
 
 extension Ecosystem 
 {
+    func compileDocumentation(for culture:Package.Index,
+        extensions:[[String: Extension]],
+        articles:[[Article.Index: Extension]], 
+        comments:[Symbol.Index: String], 
+        scopes:[Module.Scope], 
+        pins:Package.Pins,
+        keys:Route.Keys)
+        -> [Link.Target: Documentation]
+    {
+        //  build lexical scopes for each module culture. 
+        //  we can store entire packages in the lenses because this method 
+        //  is non-mutating!
+        let lens:Lexicon.Lens = .init(self[culture])
+        var lexica:[Lexicon] = scopes.map 
+        {
+            .init(keys: keys, namespaces: $0, lenses: [lens])
+        }
+        
+        let peripherals:[[Link.Target: Extension]] = 
+            self.resolveBindings(of: extensions, articles: articles, lexica: lexica)
+        
+        // add upstream lenses 
+        for lexicon:Int in lexica.indices 
+        {
+            let packages:Set<Package.Index> = lexica[lexicon].namespaces.packages()
+            lexica[lexicon].lenses.append(contentsOf: packages.map
+            {
+                .init(self[$0], at: pins[$0])
+            })
+        }
+        
+        return self.compile(comments: comments, peripherals: peripherals, lexica: lexica)
+    }
+    
+    private 
     func resolveBindings(of extensions:[[String: Extension]], 
         articles:[[Article.Index: Extension]],
         lexica:[Lexicon]) 
@@ -30,7 +65,7 @@ extension Ecosystem
                     print("warning: ignored article with invalid binding '\(binding)'")
                     continue 
                 }
-                switch lexicon.resolve(visible: link.reference, { self[$0] })
+                switch self.resolveVisibleLinkWithRedirect(link.reference, lexicon: lexicon)
                 {
                 case .many(_)?, nil: 
                     fatalError("unimplemented")
@@ -43,6 +78,7 @@ extension Ecosystem
         }
     }
     
+    private 
     func compile(comments:[Symbol.Index: String], 
         peripherals:[[Link.Target: Extension]], 
         lexica:[Lexicon])
@@ -82,7 +118,10 @@ extension Ecosystem
             let unresolved:Article.Template<String> = comment.render()
             let resolved:Article.Template<Link> = unresolved.map 
             {
-                self.resolve(string: $0, imports: imports, nest: nest, lexicon: lexicon)
+                self.resolveLinkWithRedirect(parsing: $0, 
+                    lexicon: lexicon, 
+                    imports: imports, 
+                    nest: nest)
             }
             documentation[.symbol(symbol)] = .template(resolved)
         } 
@@ -107,7 +146,10 @@ extension Ecosystem
                 let unresolved:Article.Template<String> = article.render()
                 let resolved:Article.Template<Link> = unresolved.map 
                 {
-                    self.resolve(string: $0, imports: imports, nest: nest, lexicon: lexicon)
+                    self.resolveLinkWithRedirect(parsing: $0, 
+                        lexicon: lexicon, 
+                        imports: imports, 
+                        nest: nest)
                 }
                 documentation[target] = .template(resolved)
             } 
@@ -122,157 +164,69 @@ extension Ecosystem
         {
             return nil 
         }
-        if  let victim:Symbol.Index = composite.victim 
+        if  let host:Symbol.Index = composite.host 
         {
-            let victim:Symbol = self[victim]
-            return .init(namespace: victim.namespace, prefix: [String].init(victim.path))
+            let host:Symbol = self[host]
+            return .init(namespace: host.namespace, prefix: [String].init(host.path))
         }
         else 
         {
             return self[composite.base].nest
         }
     }
-    private 
-    func resolve(string:String, imports:Set<Module.Index>, nest:Symbol.Nest?, lexicon:Lexicon) 
-        -> Link
+}
+
+extension Ecosystem 
+{
+    mutating 
+    func updateDocumentation(in culture:Package.Index, 
+        compiled:[Link.Target: Documentation],
+        hints:[Symbol.Index: Symbol.Index], 
+        pins:Package.Pins)
     {
-        // must attempt to parse absolute first, otherwise 
-        // '/foo' will parse to ["", "foo"]
-        let resolution:Link.Resolution?
-        let visible:Int
-        if let absolute:Link.Expression = try? .init(absolute: string)
-        {
-            visible = absolute.visible
-            resolution = self.resolve(global: absolute.reference, lexicon: lexicon)
-        }
-        else if let relative:Link.Expression = try? .init(relative: string)
-        {
-            visible = relative.visible
-            resolution = lexicon.resolve(
-                visible: relative.reference, 
-                imports: imports, 
-                nest: nest)
-            {
-                self[$0]
-            }
-        }
-        else 
-        {
-            print("unknown", string)
-            return .fallback(string)
-        }
-        
-        switch resolution
-        {
-        case nil:
-            print("FAILURE", string)
-            if let nest:Symbol.Nest = nest 
-            {
-                print("note: location is \(nest)")
-            }
-            
-        case .one(.composite(let composite))?:
-            /* if let victim:Symbol.Index = composite.victim 
-            {
-                print("SUCCESS", string, "->", try dereference(composite.base), 
-                    "for", try dereference(victim))
-            }
-            else 
-            {
-                print("SUCCESS", string, "->", try dereference(composite.base))
-            } */
-            return .target(.composite(composite), visible: visible)
-        
-        case .one(let target)?: 
-            //print("SUCCESS", string, "-> (unavailable)")
-            return .target(target, visible: visible)
-        
-        case .many(let possibilities)?: 
-            print("AMBIGUOUS", string)
-            for (i, possibility):(Int, Link.Target) in possibilities.enumerated()
-            {
-                switch possibility 
-                {
-                case .composite(let composite):
-                    if let victim:Symbol.Index = composite.victim 
-                    {
-                        print("\(i).", self[composite.base], "for", self[victim])
-                    }
-                    else 
-                    {
-                        print("\(i).", self[composite.base])
-                    }
-                default: 
-                    print("\(i). (unavailable)")
-                }
-            }
-            if let nest:Symbol.Nest = nest 
-            {
-                print("note: location is \(nest)")
-            }
-        }
-        return .fallback(string)
+        let sponsors:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = 
+            self[culture].updateDocumentation(compiled)
+        let migrants:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = 
+            self.recruitMigrants(in: culture, 
+                sponsors: _move(sponsors), 
+                hints: hints, 
+                pins: pins)
+        self[culture].distributeDocumentation(_move(migrants))
     }
+    // `culture` parameter not strictly needed, but we use it to make sure 
+    // that ``generateRhetoric(graphs:scopes:)`` did not return ``hints``
+    // about other packages
     private 
-    func resolve<Tail>(global link:Link.Reference<Tail>, lexicon:Lexicon)
-        -> Link.Resolution?
-        where Tail:BidirectionalCollection, Tail.Element == Link.Component
+    func recruitMigrants(in culture:Package.Index,
+        sponsors:[Symbol.Index: Keyframe<Documentation>.Buffer.Index],
+        hints:[Symbol.Index: Symbol.Index],
+        pins:Package.Pins) 
+        -> [Symbol.Index: Keyframe<Documentation>.Buffer.Index]
     {
-        guard   let nation:Package.ID = link.nation, 
-                let nation:Package = self[nation]
-        else 
+        var migrants:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = [:]
+        for (member, sponsor):(Symbol.Index, Symbol.Index) in hints
+            where !sponsors.keys.contains(member)
         {
-            return nil 
+            assert(member.module.package == culture)
+            // if a symbol did not have documentation of its own, 
+            // check if it has a sponsor 
+            if let sponsor:Keyframe<Documentation>.Buffer.Index = sponsors[sponsor]
+            {
+                migrants[member] = sponsor 
+            }
+            else if culture != sponsor.module.package
+            {
+                // note: empty doccomments are omitted from the documentation buffer
+                guard let sponsor:Keyframe<Documentation>.Buffer.Index = 
+                    self[sponsor.module.package].documentation(forLocal: sponsor, 
+                        at: pins[sponsor.module.package])
+                else 
+                {
+                    continue 
+                }
+                migrants[member] = sponsor
+            }
         }
-        
-        let qualified:Link.Reference<Tail.SubSequence> = link.dropFirst()
-        
-        guard let namespace:Module.ID = qualified.namespace 
-        else 
-        {
-            return .one(.package(nation.index))
-        }
-        // if the global path starts with a package/namespace that 
-        // matches one of our dependencies, treat it like a qualified 
-        // reference. 
-        if  case nil = qualified.query.lens, 
-            let namespace:Module.Index = lexicon.namespaces[namespace], 
-                namespace.package == nation.index
-        {
-            return lexicon.resolve(namespace, [], qualified.dropFirst()) { self[$0] }
-        }
-        else 
-        {
-            guard let namespace:Module.Index = nation.modules.indices[namespace]
-            else 
-            {
-                return nil 
-            }
-            let implicit:Link.Reference<Tail.SubSequence> = _move(qualified).dropFirst()
-            guard let path:Path = .init(implicit.path.compactMap(\.prefix))
-            else 
-            {
-                return .one(.module(namespace))
-            }
-            guard let route:Route = lexicon.keys[namespace, path, implicit.orientation]
-            else 
-            {
-                return nil
-            }
-            // determine which package contains the actual symbol documentation; 
-            // it may be different from the nation 
-            let lens:Lexicon.Lens 
-            if case let (culture, departure)? = implicit.query.lens, 
-                let culture:Package = self[culture]
-            {
-                lens = culture.lens(departure) 
-            }
-            else 
-            {
-                // TODO: enable parsing explicit version 
-                lens = nation.lens(nil) 
-            }
-            return lens.resolve(route, disambiguation: implicit.disambiguation) { self[$0] }
-        }
-    } 
+        return migrants
+    }
 }

@@ -12,8 +12,9 @@ extension Module
     struct Scope
     {
         private 
-        var namespaces:[ID: Index], 
-            filter:Set<Index>
+        var namespaces:[ID: Index]
+        private(set)
+        var filter:Set<Index>
         let culture:Index
         
         init(culture:Index, id:ID)

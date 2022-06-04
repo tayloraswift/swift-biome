@@ -2,13 +2,13 @@ extension Module
 {
     struct Beliefs 
     {
-        var facts:[Symbol.Index: Symbol.Relationships]
-        var opinions:[Package.Index: [Symbol.Index: [Symbol.Trait]]]
+        var facts:[Symbol.Index: Symbol.Facts]
+        var opinions:[Package.Index: [Symbol.Index: Symbol.Traits]]
         
-        init()
+        init(facts:[Symbol.Index: Symbol.Facts])
         {
+            self.facts = facts
             self.opinions = [:]
-            self.facts = [:]
         }
     }
 }
@@ -28,21 +28,90 @@ extension Ecosystem
         let (speeches, hints):([[Symbol.Statement]], [Symbol.Index: Symbol.Index]) = 
             try self.generateRhetoric(graphs: graphs, scopes: scopes)
         // compute relationships
-        let ideology:[Module.Index: Module.Beliefs] = 
-            try self[index].generateIdeology(for: scopes.map(\.culture), 
-                from: speeches, 
-                about: symbols)
+        let (facts, opinions):([Symbol.Index: Symbol.Facts], [Symbol.Diacritic: Symbol.Traits]) = 
+            try self.generateBeliefs(cultures: scopes.map(\.culture), 
+                about: symbols,
+                from: speeches)
         
-        self.updateFeatures(in: index, ideology: ideology)
-        // ``updateFeatures(in:ideology:)`` doesn’t read from the keyframe buffers, 
-        // so it’s okay to call it before ``updateRelationships(ideology:)``.
-        let pin:Package.Pin = self[index].pin 
-        for (culture, stereotype):(Package.Index, [Symbol.Index: [Symbol.Trait]]) in 
-            self[index].updateRelationships(ideology: ideology)
+        self.updateCompositeGroups(in: index, facts: facts, opinions: opinions)
+        // ``updateCompositeGroups(in:facts:opinions:)`` doesn’t read from the 
+        // keyframe buffers, so it’s okay to call it before ``updateRelationships(ideology:)``.
+        self[index].updateFacts(facts)
+        self[index].updateOpinions(opinions)
+        // pollinate opinions 
+        let current:Version = self[index].latest
+        for diacritic:Symbol.Diacritic in opinions.keys 
         {
-            self[culture].assign(stereotype: stereotype, from: pin)
+            let pin:Module.Pin = .init(culture: diacritic.culture, version: current)
+            self[diacritic.host.module.package].pollinate(local: diacritic.host, from: pin)
         }
         return hints
+    }
+    
+    private 
+    func generateBeliefs<Symbols>(
+        cultures:[Module.Index], 
+        about symbols:[Symbols],
+        from speeches:[[Symbol.Statement]])
+        throws -> 
+        (
+            facts:[Symbol.Index: Symbol.Facts], 
+            opinions:[Symbol.Diacritic: Symbol.Traits]
+        )
+        where Symbols:Sequence, Symbols.Element == Symbol.Index
+    {
+        var facts:[Symbol.Index: Symbol.Facts] = [:]
+        var local:[Symbol.Diacritic: Symbol.Traits] = [:]
+        var opinions:[Symbol.Diacritic: Symbol.Traits] = [:]
+        
+        for (culture, (statements, symbols)):(Module.Index, ([Symbol.Statement], Symbols)) in 
+            zip(cultures, zip(speeches, symbols))
+        {
+            var traits:[Symbol.Index: [Symbol.Trait]] = [:]
+            var predicates:[Symbol.Index: [Symbol.Predicate]] = [:]
+            for (subject, predicate):Symbol.Statement in statements 
+            {
+                switch (culture == subject.module, predicate)
+                {
+                case (false,  .is(let role)):
+                    throw AuthorityError.externalSymbol(subject, is: role, accordingTo: culture)
+                case (false, .has(let trait)):
+                    traits[subject, default: []].append(trait)
+                case (true,       let predicate):
+                    predicates[subject, default: []].append(predicate)
+                }
+            }
+            for symbol:Symbol.Index in symbols 
+            {
+                facts[symbol] = try .init(
+                    validating: predicates.removeValue(forKey: symbol) ?? [], 
+                    as: self[symbol].color)
+            }
+            for (symbol, traits):(Symbol.Index, [Symbol.Trait]) in traits 
+            {
+                let diacritic:Symbol.Diacritic = .init(host: symbol, culture: culture)
+                let traits:Symbol.Traits = .init(traits, as: self[symbol].color)
+                if symbol.module.package == culture.package 
+                {
+                    local[diacritic] = traits 
+                }
+                else 
+                {
+                    opinions[diacritic] = traits
+                }
+            }
+        }
+        for (diacritic, traits):(Symbol.Diacritic, Symbol.Traits) in local 
+        {
+            if  let index:Dictionary<Symbol.Index, Symbol.Facts>.Index = 
+                facts.index(forKey: diacritic.host)
+            {
+                assert(diacritic.host.module != diacritic.culture)
+                facts.values[index].external[diacritic.culture] = traits 
+            }
+        }
+        
+        return (facts, opinions)
     }
     
     private 
@@ -208,91 +277,56 @@ extension Ecosystem
     }
 }
 
-extension Package 
+extension Ecosystem 
 {
-    func generateIdeology<Symbols>(for cultures:[Module.Index], 
-        from speeches:[[Symbol.Statement]], 
-        about symbols:[Symbols]) 
-        throws -> [Module.Index: Module.Beliefs]
-        where Symbols:Sequence, Symbols.Element == Symbol.Index
+    // also updates the symbol groups
+    mutating 
+    func updateCompositeGroups(in index:Package.Index, 
+        facts:[Symbol.Index: Symbol.Facts], 
+        opinions:[Symbol.Diacritic: Symbol.Traits])
     {
-        // yes, a four-dimensional collection! we need to know:
-        //  1.  who the perpetrator was 
-        //  2.  who the subject package was 
-        //  3.  who the subject symbol was 
-        //  4.  what the perpetrator’s opinions about that symbol were
-        var ideology:[Module.Index: Module.Beliefs] = [:]
-            ideology.reserveCapacity(cultures.count)
-        for (culture, (statements, symbols)):(Module.Index, ([Symbol.Statement], Symbols)) in 
-            zip(cultures, zip(speeches, symbols))
+        for (host, facts):(Symbol.Index, Symbol.Facts) in facts
         {
-            // reserve a spot for *every* symbol, even if it has no relationships            
-            var facts:[Symbol.Index: [Symbol.Relationship]] = 
-                .init(symbols.map { ($0, []) }) { $1 }
-            var beliefs:Module.Beliefs = .init()
+            assert(host.module.package == index)
             
-            for (subject, predicate):Symbol.Statement in statements 
-            {
-                switch predicate
-                {
-                case  .is(let role):
-                    guard culture == subject.module
-                    else 
-                    {
-                        throw Symbol.RelationshipError
-                            .unauthorized(culture, says: subject, is: role)
-                    }
-                case .has(let trait):
-                    guard culture == subject.module
-                    else 
-                    {
-                        beliefs.opinions[subject.module.package, default: [:]][subject, default: []]
-                            .append(trait)
-                        continue
-                    }
-                }
-                if case nil = facts[subject]?.append(predicate)
-                {
-                    fatalError("unreachable")
-                }
-            }
+            let symbol:Symbol = self[host]
             
-            beliefs.facts.reserveCapacity(facts.count)
-            for (symbol, facts):(Symbol.Index, [Symbol.Relationship]) in facts
-            {
-                beliefs.facts[symbol] = 
-                    try .init(validating: facts, as: self[local: symbol].color)
-            }
+            self[index].groups.insert(natural: host, at: symbol.route)
             
-            ideology[culture] = beliefs
-        }
-        // ratify opinions that relate to the same package 
-        for source:Dictionary<Module.Index, Module.Beliefs>.Index in ideology.indices
-        {
-            guard let stereotypes:[Symbol.Index: [Symbol.Trait]] = 
-                ideology.values[source].opinions.removeValue(forKey: self.index)
+            guard let path:Route.Stem = symbol.kind.path
             else 
             {
                 continue 
             }
-            let perpetrator:Module.Index = ideology.keys[source]
-            for (subject, traits):(Symbol.Index, [Symbol.Trait]) in stereotypes 
+            for (culture, features):(Module.Index?, Set<Symbol.Index>) in 
+                facts.featuresAssumingConcreteType()
             {
-                guard let target:Dictionary<Module.Index, Module.Beliefs>.Index = 
-                    ideology.index(forKey: subject.module)
-                else 
-                {
-                    fatalError("unreachable...?")
-                }
-                if case nil = ideology.values[target]
-                    .facts[subject]?
-                    .identities[perpetrator, default: .init()]
-                    .update(with: traits, as: self[local: subject].color)
-                {
-                    fatalError("unreachable")
-                }
+                self[index].groups.insert(
+                    diacritic: .init(host: host, culture: culture ?? host.module), 
+                    features: features.map { ($0, self[$0].route.leaf) }, 
+                    under: (symbol.namespace, path))
             }
         }
-        return ideology
+        for (diacritic, traits):(Symbol.Diacritic, Symbol.Traits) in opinions
+        {
+            assert(diacritic.host.module.package != index)
+            
+            let symbol:Symbol = self[diacritic.host]
+            
+            guard let path:Route.Stem = symbol.kind.path
+            else 
+            {
+                // can have external traits that do not have to do with features
+                continue 
+            }
+            if !traits.features.isEmpty
+            {
+                self[index].groups.insert(diacritic: diacritic, 
+                    features: traits.features.map { ($0, self[$0].route.leaf) }, 
+                    under: (symbol.namespace, path))
+            }
+        }
+        
+        print("(\(self[index].id)) found \(self[index].groups.table.count) addressable endpoints")
     }
 }

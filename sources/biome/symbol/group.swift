@@ -18,11 +18,11 @@ extension Symbol
         mutating 
         func insert(diacritic:Diacritic, 
             features:[(base:Index, leaf:Route.Leaf)],
-            under victim:(namespace:Module.Index, path:Route.Stem))
+            under host:(namespace:Module.Index, path:Route.Stem))
         {
             for (base, leaf):(Index, Route.Leaf) in features 
             {
-                let route:Route = .init(victim.namespace, victim.path, leaf)
+                let route:Route = .init(host.namespace, host.path, leaf)
                 self.table[route, default: .none].insert(.init(base, diacritic))
             }
         }
@@ -48,7 +48,7 @@ extension Symbol
                 break
             case .one(let first): 
                 let two:[Index: Subgroup]
-                // overloading on victim id is extremely rare; the column 
+                // overloading on host id is extremely rare; the column 
                 // array layout is inefficient, but allows us to represent the 
                 // more-common row layout efficiently
                 if first.base == next.base 

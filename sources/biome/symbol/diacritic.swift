@@ -5,11 +5,12 @@ extension Symbol
         let host:Index 
         let culture:Module.Index
         
-        init(victim:Index, culture:Module.Index)
+        init(host:Index, culture:Module.Index)
         {
-            self.host = victim 
+            self.host = host 
             self.culture = culture
         }
+        
         init(natural:Index)
         {
             self.host = natural 
@@ -20,7 +21,7 @@ extension Symbol
     struct Composite:Hashable, Sendable
     {
         //  there are up to three cultures that come into play here:
-        //  1. victim culture 
+        //  1. host culture 
         //  2. witness culture 
         //  3. perpetrator culture
         let base:Index
@@ -30,7 +31,7 @@ extension Symbol
         {
             self.diacritic.culture
         }
-        var victim:Index? 
+        var host:Index? 
         {
             self.base != self.diacritic.host ? self.diacritic.host : nil
         }

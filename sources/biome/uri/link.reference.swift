@@ -39,7 +39,8 @@ extension Link
         
         // it’s possible to get an empty path even though the URI is guaranteed non-empty
         // for example, we could have `/foo/..`, which would generate `[]`.
-        init(path:Path, query:Query = .init(), orientation:Route.Orientation = .gay)
+        // a path with one single component should default to ``straight``.
+        init(path:Path, query:Query = .init(), orientation:Route.Orientation = .straight)
         {
             self.path = path 
             self.query = query 
@@ -64,25 +65,35 @@ extension Link
             return .init(module)
         }
         
-        var disambiguation:Disambiguation 
+        var disambiguator:Disambiguator 
         {
-            .init(
-                suffix: self.path.last?.suffix ?? nil,
-                victim: self.query.victim,
-                symbol: self.query.symbol)
+            .init(host: self.query.host, 
+                symbol: self.query.symbol, 
+                suffix: self.path.last?.suffix ?? nil)
+        }
+        
+        var outed:Self? 
+        {
+            switch self.orientation 
+            {
+            case .gay: 
+                return nil 
+            case .straight: 
+                return .init(path: self.path, query: self.query, orientation: .gay)
+            }
         }
     }
     
     struct Query 
     {
-        var victim:Symbol.ID?
         var symbol:Symbol.ID?
+        var host:Symbol.ID?
         var lens:(culture:Package.ID, version:Version?)?
         
         init() 
         {
-            self.victim = nil
             self.symbol = nil 
+            self.host = nil
             self.lens = nil 
         }
         
@@ -117,7 +128,7 @@ extension Link
                 case "self":
                     // if the mangled name contained a colon ('SymbolGraphGen style'), 
                     // the parsing rule will remove it.
-                    self.victim  = try Grammar.parse(value.utf8, as: Symbol.USR.Rule<String.Index>.OpaqueName.self)
+                    self.host  = try Grammar.parse(value.utf8, as: Symbol.USR.Rule<String.Index>.OpaqueName.self)
                 
                 case "overload": 
                     switch         try Grammar.parse(value.utf8, as: Symbol.USR.Rule<String.Index>.self) 
@@ -125,11 +136,11 @@ extension Link
                     case .natural(let symbol):
                         self.symbol = symbol
                     
-                    case .synthesized(from: let symbol, for: let victim):
+                    case .synthesized(from: let symbol, for: let host):
                         // this is supported for backwards-compatibility, 
                         // but the `::SYNTHESIZED::` infix is deprecated, 
                         // so this will end up causing a redirect 
-                        self.victim = victim
+                        self.host = host
                         self.symbol = symbol 
                     }
 

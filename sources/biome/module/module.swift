@@ -18,6 +18,12 @@ struct Module:Identifiable, Sendable
         }
     }
     
+    struct Pin:Hashable, Sendable 
+    {
+        var culture:Index 
+        var version:Version
+    }
+    
     struct Heads 
     {
         @Keyframe<Set<Index>>.Head

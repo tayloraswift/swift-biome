@@ -92,18 +92,18 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     
     struct Heads 
     {
-        @Keyframe<Declaration>.Head
-        var declaration:Keyframe<Declaration>.Buffer.Index?
-        @Keyframe<Relationships>.Head
-        var relationships:Keyframe<Relationships>.Buffer.Index?
         @Keyframe<Documentation>.Head
         var documentation:Keyframe<Documentation>.Buffer.Index?
+        @Keyframe<Declaration>.Head
+        var declaration:Keyframe<Declaration>.Buffer.Index?
+        @Keyframe<Facts>.Head
+        var facts:Keyframe<Facts>.Buffer.Index?
         
         init() 
         {
-            self._declaration = .init()
-            self._relationships = .init()
             self._documentation = .init()
+            self._declaration = .init()
+            self._facts = .init()
         }
     }
     
@@ -122,8 +122,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     let route:Route
     
     var heads:Heads
-    private(set)
-    var reputation:[Package.Pin: Traits]
+    var pollen:Set<Module.Pin>
     
     var color:Color 
     {
@@ -150,7 +149,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     }
     var description:String 
     {
-        self.path.joined(separator: ".")
+        self.path.description
     }
     
     init(id:ID, path:Path, kind:Kind, route:Route)
@@ -161,13 +160,6 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         self.route = route
         
         self.heads = .init()
-        self.reputation = [:]
-    }
-    
-    mutating 
-    func assign<Traits>(traits:Traits, from pin:Package.Pin) 
-        where Traits:Sequence, Traits.Element == Trait
-    {
-        self.reputation[pin] = .init(traits, as: self.color)
+        self.pollen = []
     }
 }

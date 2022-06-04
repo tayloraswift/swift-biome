@@ -35,7 +35,6 @@ struct Package:Identifiable, Sendable
     {
         var culture:Index 
         var version:Version
-        
     }
     struct Pins 
     {
@@ -80,10 +79,10 @@ struct Package:Identifiable, Sendable
     let id:ID
     let index:Index
     
-    var pin:Pin 
+    /* var pin:Pin 
     {
         .init(culture: self.index, version: self.latest)
-    }
+    } */
     
     private
     var heads:Heads
@@ -96,21 +95,17 @@ struct Package:Identifiable, Sendable
         symbols:CulturalBuffer<Symbol.Index, Symbol>,
         articles:CulturalBuffer<Article.Index, Article>
     private(set)
+    var external:[Symbol.Diacritic: Keyframe<Symbol.Traits>.Buffer.Index]
+    private(set)
     var dependencies:Keyframe<Set<Module.Index>>.Buffer, 
-        declarations:Keyframe<Symbol.Declaration>.Buffer, 
-        relationships:Keyframe<Symbol.Relationships>.Buffer,
-        documentation:Keyframe<Documentation>.Buffer
-        
-    fileprivate
-    var groups:Symbol.Groups
+        declarations:Keyframe<Symbol.Declaration>.Buffer
+    private(set)
+    var facts:Keyframe<Symbol.Facts>.Buffer,
+        opinions:Keyframe<Symbol.Traits>.Buffer
+    private(set)
+    var documentation:Keyframe<Documentation>.Buffer
     
-    func lens(_ version:Version?) -> Lexicon.Lens 
-    {
-        .init(declarations: self.declarations,
-            version: version ?? self.latest, 
-            master: self.groups.table, 
-            doc: self.articles.indices)
-    }
+    var groups:Symbol.Groups
     
     var name:String 
     {
@@ -134,10 +129,14 @@ struct Package:Identifiable, Sendable
         self.modules = .init()
         self.symbols = .init()
         self.articles = .init()
+        self.external = [:]
         
         self.dependencies = .init()
         self.declarations = .init()
-        self.relationships = .init()
+        
+        self.facts = .init()
+        self.opinions = .init()
+        
         self.documentation = .init()
     }
 
@@ -170,70 +169,61 @@ struct Package:Identifiable, Sendable
     {
         self.documentation.find(version, head: self[local: symbol].heads.documentation)
     }
-            
-    mutating 
-    func assign(stereotype:[Symbol.Index: [Symbol.Trait]], from pin:Pin)
+    
+    func contains(_ composite:Symbol.Composite, at version:Version) -> Bool 
     {
-        for (symbol, traits):(Symbol.Index, [Symbol.Trait]) in stereotype 
+        return true 
+        
+        if  let host:Symbol.Index = composite.host
         {
-            self.symbols[local: symbol].assign(traits: traits, from: pin)
+            // hosts are always concrete types
+            guard let symbol:Symbol = self[host]
+            else 
+            {
+                //  external host
+                if  let traits:Symbol.Traits = 
+                    self.opinions.at(version, head: self.external[composite.diacritic])
+                {
+                    return traits.features.contains(composite.base)
+                }
+                else 
+                {
+                    return false 
+                }
+            }
+            if  let facts:Symbol.Facts = 
+                self.facts.at(version, head: symbol.heads.facts)
+            {
+                if let traits:Symbol.Traits = composite.culture == host.module ? 
+                    facts.internal : facts.external[composite.culture]
+                {
+                    return traits.features.contains(composite.base)
+                }
+                else 
+                {
+                    return false 
+                }
+            }
+            else 
+            {
+                return false 
+            }
+        }
+        else if case _? = self.facts.at(version, 
+            head: self.symbols[local: composite.base].heads.facts)
+        {
+            return true 
+        }
+        else 
+        {
+            return false 
         }
     }
-}
-
-extension Ecosystem 
-{
-    // also updates the symbol groups
+    
     mutating 
-    func updateFeatures(in index:Package.Index, ideology:[Module.Index: Module.Beliefs])
+    func pollinate(local symbol:Symbol.Index, from pin:Module.Pin)
     {
-        for (culture, beliefs):(Module.Index, Module.Beliefs) in ideology 
-        {
-            for (host, relationships):(Symbol.Index, Symbol.Relationships) in beliefs.facts
-            {
-                assert(host.module.package == index)
-                
-                let symbol:Symbol = self[host]
-                
-                self[index].groups.insert(natural: host, at: symbol.route)
-                
-                guard let path:Route.Stem = symbol.kind.path
-                else 
-                {
-                    continue 
-                }
-                for (perpetrator, features):(Module.Index?, Set<Symbol.Index>) in 
-                    relationships.featuresAssumingConcreteType()
-                {
-                    self[index].groups.insert(
-                        diacritic: .init(victim: host, culture: perpetrator ?? culture), 
-                        features: features.map { ($0, self[$0].route.leaf) }, 
-                        under: (symbol.namespace, path))
-                }
-            }
-            for (victim, traits):(Symbol.Index, [Symbol.Trait]) in beliefs.opinions.values.joined()
-            {
-                assert(victim.module.package != index)
-                
-                let symbol:Symbol = self[victim]
-                
-                guard let path:Route.Stem = symbol.kind.path
-                else 
-                {
-                    // can have external traits that do not have to do with features
-                    continue 
-                }
-                let features:[Symbol.Index] = traits.compactMap(\.feature) 
-                if !features.isEmpty
-                {
-                    self[index].groups.insert(
-                        diacritic: .init(victim: victim, culture: culture), 
-                        features: features.map { ($0, self[$0].route.leaf) }, 
-                        under: (symbol.namespace, path))
-                }
-            }
-        }
-        print("(\(self[index].id)) found \(self[index].groups.table.count) addressable endpoints")
+        self.symbols[local: symbol].pollen.insert(pin)
     }
 }
 
@@ -269,11 +259,11 @@ extension Package
             let (scope, symbols):(Symbol.Scope, [Symbol.Index: Vertex.Frame]) = $0
             return try symbols.mapValues { try .init($0, scope: scope) }
         }
-        self.update(declarations: declarations)
+        self.updateDeclarations(declarations)
         return declarations.map(\.keys)
     }
     private mutating 
-    func update(declarations:[[Symbol.Index: Symbol.Declaration]]) 
+    func updateDeclarations(_ declarations:[[Symbol.Index: Symbol.Declaration]]) 
     {
         for (index, declaration):(Symbol.Index, Symbol.Declaration) in declarations.joined() 
         {
@@ -283,22 +273,23 @@ extension Package
     }
     
     mutating 
-    func updateRelationships(ideology:[Module.Index: Module.Beliefs]) -> Ecosystem.Opinions 
+    func updateFacts(_ facts:[Symbol.Index: Symbol.Facts])
     {
-        self.update(relationships: ideology.values.map(\.facts))
-        // merge opinions into a single dictionary
-        return ideology.values.reduce(into: [:])
+        for (index, facts):(Symbol.Index, Symbol.Facts) in facts
         {
-            $0.merge($1.opinions) { $0.merging($1, uniquingKeysWith: + ) }
+            self.facts.update(head: &self.symbols[local: index].heads.facts, 
+                to: self.latest, 
+                with: facts)
         }
     }
-    private mutating 
-    func update(relationships:[[Symbol.Index: Symbol.Relationships]])
+    mutating 
+    func updateOpinions(_ opinions:[Symbol.Diacritic: Symbol.Traits])
     {
-        for (index, relationships):(Symbol.Index, Symbol.Relationships) in relationships.joined()
+        for (diacritic, traits):(Symbol.Diacritic, Symbol.Traits) in opinions 
         {
-            self.relationships.update(head: &self.symbols[local: index].heads.relationships, 
-                to: self.latest, with: relationships)
+            self.opinions.update(head: &self.external[diacritic], 
+                to: self.latest, 
+                with: traits)
         }
     }
 
@@ -312,7 +303,7 @@ extension Package
             switch target 
             {
             case .composite(let composite):
-                guard case nil = composite.victim 
+                guard case nil = composite.host 
                 else 
                 {
                     fatalError("unimplemented")

@@ -1,11 +1,10 @@
 extension Symbol 
 {
-    typealias Statement = (subject:Index, predicate:Relationship)
+    typealias Statement = (subject:Index, predicate:Predicate)
     
     enum RelationshipError:Error 
     {
         case miscegenation(Color, cannotBe:Edge.Kind, of:Color)
-        case unauthorized(Module.Index, says:Index, is:Role)
     }
     enum ExclusivityError:Error 
     {
@@ -15,19 +14,19 @@ extension Symbol
         case global     (is:Role)
     }
     
-    enum Relationship 
+    enum Predicate 
     {
         case `is`(Role)
         case has(Trait)
     }
-    struct Relationships:Equatable, Sendable 
+    struct Facts:Equatable, Sendable 
     {
         let roles:Roles
         private(set)
-        var traits:Traits
-        var identities:[Module.Index: Traits]
+        var `internal`:Traits
+        var  external:[Module.Index: Traits]
         
-        init(validating relationships:[Relationship], as color:Color) throws 
+        init(validating predicates:[Predicate], as color:Color) throws 
         {
             // partition relationships buffer 
             var roles:[Role] = []
@@ -36,9 +35,9 @@ extension Symbol
             var superclass:Index? = nil 
             var interface:Index?  = nil
             
-            for relationship:Relationship in relationships 
+            for predicate:Predicate in predicates 
             {
-                switch relationship 
+                switch predicate 
                 {
                 case  .is(.member(of: let mistress)): 
                     if let spouse:Index = membership 
@@ -73,19 +72,19 @@ extension Symbol
                 superclass: superclass, 
                 interface: interface, 
                 as: color)
-            self.traits = .init()
-            self.traits.update(with: traits, as: color)
-            self.identities = [:]
+            self.internal = .init()
+            self.internal.update(with: traits, as: color)
+            self.external = [:]
         }
         
         func featuresAssumingConcreteType() -> [(perpetrator:Module.Index?, features:Set<Index>)]
         {
             var features:[(perpetrator:Module.Index?, features:Set<Index>)] = []
-            if !self.traits.features.isEmpty
+            if !self.internal.features.isEmpty
             {
-                features.append((nil, self.traits.features))
+                features.append((nil, self.internal.features))
             }
-            for (perpetrator, traits):(Module.Index, Traits) in self.identities 
+            for (perpetrator, traits):(Module.Index, Traits) in self.external 
                 where !traits.features.isEmpty
             {
                 features.append((perpetrator, traits.features))

@@ -1,4 +1,4 @@
-struct Path:Equatable, RandomAccessCollection, Sendable
+struct Path:Equatable, RandomAccessCollection, CustomStringConvertible, Sendable
 {
     var prefix:[String]
     var last:String
@@ -53,5 +53,29 @@ struct Path:Equatable, RandomAccessCollection, Sendable
         }
         self.last = last 
         self.prefix = .init(components.dropLast())
+    }
+    
+    init?<Tail>(_ link:Link.Reference<Tail>) 
+        where Tail:BidirectionalCollection, Tail.Element == Link.Component
+    {
+        self.init(link.path.compactMap(\.prefix))
+    }
+    init?<Tail>(_ prefix:[String], _ link:Link.Reference<Tail>) 
+        where Tail:BidirectionalCollection, Tail.Element == Link.Component
+    {
+        let suffix:[String] = link.path.compactMap(\.prefix)
+        if  prefix.isEmpty 
+        {
+            self.init(suffix)
+        }
+        else 
+        {
+            self.init([prefix, suffix].joined())
+        }
+    }
+    
+    var description:String 
+    {
+        self.joined(separator: ".")
     }
 }

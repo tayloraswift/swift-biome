@@ -111,12 +111,10 @@ struct Preview:ServiceBackend
             core:       try controller.read(package: .core)
         )
         self.biome = .init(prefixes: [.master: "reference", .doc: "learn"], 
-            standardModules: library.standard.modules.map(\.id), 
-            coreModules: library.core.modules.map(\.id), 
             template: .init(freezing: DefaultTemplates.documentation))
         // load the standard and core libraries
-        try self.biome.append(try await library.standard.load(with: controller).graph(), pins: pins)
-        try self.biome.append(try await     library.core.load(with: controller).graph(), pins: pins)
+        try self.biome.updatePackage(try await library.standard.load(with: controller).graph(), era: pins)
+        try self.biome.updatePackage(try await     library.core.load(with: controller).graph(), era: pins)
         
         for project:FilePath in projects 
         {
@@ -134,7 +132,7 @@ struct Preview:ServiceBackend
                 let catalog:Package.Catalog = try await package.load(with: nil), 
                     graph:Package.Graph = try catalog.graph()
                 
-                try self.biome.append(graph, pins: pins)
+                try self.biome.updatePackage(graph, era: pins)
             }
         }
         

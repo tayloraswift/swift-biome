@@ -85,82 +85,7 @@ struct Biome
         switch self.keys[leaf: prefix]
         {
         case self.keyword.master?:
-            let global:Link.Reference<Tail.SubSequence> = link.dropFirst()
-            let local:Link.Reference<Tail.SubSequence>
-            
-            let nation:Package, 
-                explicit:Bool
-            if  let package:Package.ID = global.nation, 
-                let package:Package = self.ecosystem[package]
-            {
-                explicit = true
-                nation = package 
-                local = _move(global).dropFirst()
-            }
-            else if let swift:Package = self.ecosystem[.swift]
-            {
-                explicit = false
-                nation = swift
-                local = _move(global)
-            }
-            else 
-            {
-                return nil
-            }
-            
-            let qualified:Link.Reference<Tail.SubSequence>
-            let arrival:Version? 
-            if let version:Version = local.arrival
-            {
-                qualified = _move(local).dropFirst()
-                arrival = version 
-            }
-            else 
-            {
-                qualified = _move(local) 
-                arrival = nil
-            }
-            
-            guard let namespace:Module.ID = qualified.namespace 
-            else 
-            {
-                return explicit ? .one(.package(nation.index)) : nil
-            } 
-            guard let namespace:Module.Index = nation.modules.indices[namespace]
-            else 
-            {
-                return nil
-            }
-            
-            let implicit:Link.Reference<Tail.SubSequence> = _move(qualified).dropFirst()
-            
-            guard let path:Path = .init(implicit.path.compactMap(\.prefix))
-            else 
-            {
-                return .one(.module(namespace))
-            }
-            guard let route:Route = self.keys[namespace, path, implicit.orientation]
-            else 
-            {
-                return nil
-            }
-            
-            // determine which package contains the actual symbol documentation; 
-            // it may be different from the nation 
-            let lens:Lexicon.Lens 
-            if case let (culture, departure)? = implicit.query.lens, 
-                let culture:Package = ecosystem[culture]
-            {
-                lens = culture.lens(departure) 
-            }
-            else 
-            {
-                lens = nation.lens(arrival) 
-            }
-            return lens.resolve(route, disambiguation: implicit.disambiguation) 
-            { 
-                self.ecosystem[$0] 
-            }
+            return self.ecosystem.resolveGlobalLinkWithRedirect(link.dropFirst(), keys: self.keys) 
             
         case self.keyword.doc?:
             break
@@ -173,7 +98,6 @@ struct Biome
         }
         return nil
     }
-
 
     public mutating 
     func updatePackage(_ graph:Package.Graph, era:[Package.ID: Version]) throws 
@@ -213,34 +137,16 @@ struct Biome
                 graphs: graph.modules, 
                 scopes: scopes)
         
-        //  build lexical scopes for each module culture. 
-        //  important: do not modify ``keys`` after this point! 
-        //  it will cause copy-on-write!
-        let lens:Lexicon.Lens = self.ecosystem[index].lens(nil)
-        var lexica:[Lexicon] = _move(scopes).map 
-        {
-            .init(keys: self.keys, namespaces: $0.namespaces, lenses: [lens])
-        }
-        
-        let comments:[Symbol.Index: String] = Self.comments(from: symbols, pruning: hints)
-        let peripherals:[[Link.Target: Extension]] = 
-            self.ecosystem.resolveBindings(of: _move(extensions), 
-                articles: _move(articles),
-                lexica: lexica)
-        
-        // add upstream lenses 
-        for lexicon:Int in lexica.indices 
-        {
-            let packages:Set<Package.Index> = lexica[lexicon].namespaces.packages()
-            lexica[lexicon].lenses.append(contentsOf: packages.map
-            {
-                self.ecosystem[$0].lens(pins[$0])
-            })
-        }
-        
+        let comments:[Symbol.Index: String] = 
+            Self.comments(from: _move(symbols), pruning: hints)
         let documentation:[Link.Target: Documentation] = 
-            self.ecosystem.compile(comments: comments, peripherals: peripherals, 
-                lexica: lexica)
+            self.ecosystem.compileDocumentation(for: index, 
+                extensions: _move(extensions),
+                articles: _move(articles),
+                comments: _move(comments), 
+                scopes: _move(scopes).map(\.namespaces),
+                pins: pins, 
+                keys: self.keys)
         self.ecosystem.updateDocumentation(in: index, 
             compiled: _move(documentation), 
             hints: _move(hints), 
@@ -628,7 +534,7 @@ struct Biome:Sendable
             return false
         }
     }
-    func organize(symbols:[Int], in scope:Int?) -> [(heading:Documentation.Topic, symbols:[(witness:Int, victim:Int?)])]
+    func organize(symbols:[Int], in scope:Int?) -> [(heading:Documentation.Topic, symbols:[(witness:Int, host:Int?)])]
     {
         let topics:[Documentation.Topic.Automatic: [Int]] = .init(grouping: symbols)
         {
@@ -638,16 +544,16 @@ struct Biome:Sendable
         {
             if  let indices:[Int] = topics[$0]
             {
-                let indices:[(witness:Int, victim:Int?)] = indices.map 
+                let indices:[(witness:Int, host:Int?)] = indices.map 
                 {
                     if  let scope:Int = scope, 
                         let parent:Int = self.symbols[$0].parent, parent != scope 
                     {
-                        return (witness: $0, victim: scope)
+                        return (witness: $0, host: scope)
                     }
                     else 
                     {
-                        return (witness: $0, victim: nil)
+                        return (witness: $0, host: nil)
                     }
                 }
                 return (.automatic($0), indices)

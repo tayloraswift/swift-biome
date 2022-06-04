@@ -10,6 +10,41 @@ struct Ecosystem
         case packageNotFound(Package.ID)
         case targetNotFound(Module.ID, in:Package.ID)
     }
+    enum AuthorityError:Error
+    {
+        case externalSymbol(Symbol.Index, is:Symbol.Role, accordingTo:Module.Index)
+    }
+    enum LinkResolutionError:Error 
+    {
+        case none(String)
+        case many(String, [Symbol.Composite])
+    }
+    
+    func describe(_ error:LinkResolutionError) -> String 
+    {
+        switch error 
+        {
+        case .none(let expression): 
+            return "symbol link '\(expression)' matches no known symbols"
+        case .many(let expression, let possibilities):
+            return 
+                """
+                symbol link '\(expression)' matches multiple symbols:
+                \(possibilities.enumerated().map 
+                {
+                    let symbol:Symbol = self[$0.1.base]
+                    if let host:Symbol.Index = $0.1.host 
+                    {
+                        return "\($0.0). \(self[host].path).\(symbol.name) (\(symbol.id.string))"
+                    }
+                    else 
+                    {
+                        return "\($0.0). \(symbol.path) (\(symbol.id.string))"
+                    }
+                }.joined(separator: "\n"))
+                """
+        }
+    }
     
     //private 
     //let standardModules:[Module.ID], 
@@ -117,59 +152,6 @@ struct Ecosystem
         //self[culture].updatePins(with: pins)
         
         return (pins, self.scopes(of: cultures, dependencies: dependencies))
-    }
-    
-    mutating 
-    func updateDocumentation(in culture:Package.Index, 
-        compiled:[Link.Target: Documentation],
-        hints:[Symbol.Index: Symbol.Index], 
-        pins:Package.Pins)
-    {
-        let sponsors:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = 
-            self[culture].updateDocumentation(compiled)
-        let migrants:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = 
-            self.recruitMigrants(in: culture, 
-                sponsors: _move(sponsors), 
-                hints: hints, 
-                pins: pins)
-        self[culture].distributeDocumentation(_move(migrants))
-    }
-    
-    // `culture` parameter not strictly needed, but we use it to make sure 
-    // that ``generateRhetoric(graphs:scopes:)`` did not return ``hints``
-    // about other packages
-    private 
-    func recruitMigrants(in culture:Package.Index,
-        sponsors:[Symbol.Index: Keyframe<Documentation>.Buffer.Index],
-        hints:[Symbol.Index: Symbol.Index],
-        pins:Package.Pins) 
-        -> [Symbol.Index: Keyframe<Documentation>.Buffer.Index]
-    {
-        var migrants:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = [:]
-        for (member, sponsor):(Symbol.Index, Symbol.Index) in hints
-            where !sponsors.keys.contains(member)
-        {
-            assert(member.module.package == culture)
-            // if a symbol did not have documentation of its own, 
-            // check if it has a sponsor 
-            if let sponsor:Keyframe<Documentation>.Buffer.Index = sponsors[sponsor]
-            {
-                migrants[member] = sponsor 
-            }
-            else if culture != sponsor.module.package
-            {
-                // note: empty doccomments are omitted from the documentation buffer
-                guard let sponsor:Keyframe<Documentation>.Buffer.Index = 
-                    self[sponsor.module.package].documentation(forLocal: sponsor, 
-                        at: pins[sponsor.module.package])
-                else 
-                {
-                    continue 
-                }
-                migrants[member] = sponsor
-            }
-        }
-        return migrants
     }
 }
 extension Ecosystem 
