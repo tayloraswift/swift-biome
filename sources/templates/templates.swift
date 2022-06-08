@@ -5,15 +5,14 @@ import HTML
 public 
 enum DefaultTemplates 
 {
-    public 
     typealias Element = HTML.Element<Page.Anchor>
     
     public static
-    var documentation:DocumentRoot<HTML, Page.Anchor>
+    var documentation:HTML.Root<Page.Anchor>
     {
         .init 
         {
-            HTML.Lang.en
+            ("lang", "en")
         }
         content:
         {
@@ -21,44 +20,49 @@ enum DefaultTemplates
             {
                 Element[.title]
                 {
-                    Element.anchor(id: .title)
+                    Element.anchor(.title)
                 }
-                Element.metadata(charset: Unicode.UTF8.self)
-                Element.metadata 
+                
+                Element[.meta]
                 {
-                    ("viewport", "width=device-width, initial-scale=1")
+                    ("charset", "UTF-8")
+                }
+                Element[.meta]
+                {
+                    ("name",    "viewport")
+                    ("content", "width=device-width, initial-scale=1")
                 }
                 
                 Element[.script]
                 {
-                    Element.anchor(id: .constants)
+                    Element.anchor(.constants)
                 }
                 Element[.script]
                 {
-                    ("/search.js", as: HTML.Src.self)
-                    (true, as: HTML.Defer.self)
+                    ("src",     "/search.js")
+                    ("defer",   true)
                 }
                 
                 Element[.link]
                 {
-                    ("/biome.css", as: HTML.Href.self)
-                    HTML.Rel.stylesheet
+                    ("href",    "/biome.css")
+                    ("rel",     "stylesheet")
                 }
                 Element[.link]
                 {
-                    ("/favicon.png", as: HTML.Href.self)
-                    HTML.Rel.icon
+                    ("href",    "/favicon.png")
+                    ("rel",     "icon")
                 }
                 Element[.link]
                 {
-                    ("/favicon.ico", as: HTML.Href.self)
-                    HTML.Rel.icon
-                    Resource.Binary.icon
+                    ("href",    "/favicon.ico")
+                    ("rel",     "icon")
+                    ("type",    Resource.Binary.icon.rawValue)
                 }
             }
             Element[.body]
             {
-                ["documentation"]
+                ("class", "documentation")
             }
             content: 
             {
@@ -66,58 +70,57 @@ enum DefaultTemplates
                 {
                     Element[.div]
                     {
-                        ["breadcrumbs"]
+                        ("class", "breadcrumbs")
                     } 
                     content: 
                     {
-                        Element.anchor(id: .navigator)
+                        Element.anchor(.navigator)
                     }
                     Element[.div]
                     {
-                        ["search-bar"]
+                        ("class", "search-bar")
                     } 
                     content: 
                     {
                         Element[.form] 
                         {
-                            HTML.Role.search
-                            ("search", as: HTML.ID.self)
+                            ("role",    "search")
+                            ("id",      "search")
                         }
                         content: 
                         {
                             Element[.div]
                             {
-                                ["input-container"]
+                                ("class", "input-container")
                             }
                             content: 
                             {
                                 Element[.div]
                                 {
-                                    ["bevel"]
+                                    ("class", "bevel")
                                 }
                                 Element[.div]
                                 {
-                                    ["rectangle"]
+                                    ("class", "rectangle")
                                 }
                                 content: 
                                 {
                                     Element[.input]
                                     {
-                                        ("search-input", as: HTML.ID.self)
-                                        HTML.InputType.search
-                                        HTML.Autocomplete.off
-                                        // (true, as: HTML.Autofocus.self)
-                                        ("search symbols", as: HTML.Placeholder.self)
+                                        ("id",              "search-input")
+                                        ("type",            "search")
+                                        ("placeholder",     "search symbols")
+                                        ("autocomplete",    "off")
                                     }
                                 }
                                 Element[.div]
                                 {
-                                    ["bevel"]
+                                    ("class", "bevel")
                                 }
                             }
                             Element[.ol]
                             {
-                                ("search-results", as: HTML.ID.self)
+                                ("id", "search-results")
                             }
                         }
                     }
@@ -126,79 +129,79 @@ enum DefaultTemplates
                 {
                     Element[.div]
                     {
-                        ["upper"]
+                        ("class", "upper")
                     }
                     content: 
                     {
                         Element[.div]
                         {
-                            ["upper-container"]
+                            ("class", "upper-container")
                         }
                         content: 
                         {
                             Element[.article]
                             {
-                                ["upper-container-left"]
+                                ("class", "upper-container-left")
                             }
                             content: 
                             {
-                                //Element.anchor(id: .introduction)
+                                //Element.anchor(.introduction)
                                 
                                 Element[.section]
                                 {
-                                    ["introduction"]
+                                    ("class", "introduction")
                                 }
                                 content:
                                 {
                                     Element[.div]
                                     {
-                                        ["eyebrows"]
+                                        ("class", "eyebrows")
                                     }
                                     content:
                                     {
                                         Element[.span]
                                         {
-                                            ["kind"]
+                                            ("class", "kind")
                                         }
                                         content: 
                                         {
-                                            Element.anchor(id: .kind)
+                                            Element.anchor(.kind)
                                         }
                                         
                                         Element[.span]
                                         {
-                                            ["nationality"]
+                                            ("class", "nationality")
                                         }
                                         content: 
                                         {
-                                            Element.anchor(id: .metropole)
-                                            Element.anchor(id: .colony)
+                                            Element.anchor(.metropole)
+                                            Element.anchor(.colony)
                                         }
                                     }
                                     
-                                    Element.anchor(id: .headline)
+                                    Element.anchor(.headline)
                                     
-                                    Element.anchor(id: .summary)
+                                    Element.anchor(.summary)
                                     
-                                    Element.anchor(id: .relationships)
-                                    Element.anchor(id: .availability)
+                                    Element.anchor(.relationships)
+                                    Element.anchor(.availability)
                                 }
                                 
-                                Element.anchor(id: .platforms)
-                                Element.anchor(id: .declaration)
+                                Element.anchor(.platforms)
+                                Element.anchor(.declaration)
                                 
-                                Element.anchor(id: .introduction)
-                                Element.anchor(id: .discussion)
+                                Element.anchor(.introduction)
+                                Element.anchor(.discussion)
                             }
                         }
                     }
                     Element[.div]
                     {
-                        ["lower"]
+                        ("class", "lower")
                     }
                     content: 
                     {
-                        Element.anchor(id: .dynamic)
+                        Element.anchor(.dynamic)
                     }
                 }
             }

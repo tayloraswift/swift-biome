@@ -1,4 +1,3 @@
-import StructuredDocument 
 import HTML
 
 struct Article:Identifiable 

@@ -1,4 +1,4 @@
-import StructuredDocument
+import DOM
 import Resource
 
 extension URI 
@@ -27,15 +27,14 @@ struct Biome
         sitemaps:Route.Stem
     )
     private 
-    let template:DocumentTemplate<Page.Anchor, [UInt8]>
+    let template:DOM.Template<Page.Anchor, [UInt8]>
     private(set)
     var ecosystem:Ecosystem
     private 
     var keys:Route.Keys
     
     public 
-    init(prefixes:[URI.Prefix: String] = [:], 
-        template:DocumentTemplate<Page.Anchor, [UInt8]>) 
+    init(prefixes:[URI.Prefix: String] = [:], template:DOM.Template<Page.Anchor, [UInt8]>) 
     {
         self.ecosystem = .init()
         self.keys = .init()

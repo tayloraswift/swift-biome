@@ -1,5 +1,4 @@
 import Markdown
-import StructuredDocument 
 import HTML
 
 extension Extension
@@ -71,10 +70,10 @@ extension Extension
         typealias Element = HTML.Element<String>
         
         private 
-        enum CodeBlockLanguage 
+        enum CodeBlockLanguage:String 
         {
-            case swift 
-            case plain
+            case swift  = "swift"
+            case text   = "text"
         }
         
         private 
@@ -149,7 +148,7 @@ extension Extension
         {
             let section:Element = Element[.section]
             {
-                [classes]
+                ("class", classes)
             }
             content: 
             {
@@ -188,7 +187,7 @@ extension Extension
         {
             Element[.aside]
             {
-                [aside.rawValue]
+                ("class", aside.rawValue)
             }
             content:
             {
@@ -226,7 +225,7 @@ extension Extension
                 return self.render(list: list, as: .ul)
             case let block as CodeBlock:
                 return Self.highlight(block: block.code, 
-                    as: block.language.map { $0.lowercased() == "swift" ? .swift : .plain } ?? .swift)
+                    as: block.language.map { $0.lowercased() == "swift" ? .swift : .text } ?? .swift)
             case let heading as Heading: 
                 return self.render(heading: heading)
             case let paragraph as Paragraph:
@@ -247,10 +246,10 @@ extension Extension
         private static
         func highlight(block code:String, as language:CodeBlockLanguage) -> Element 
         {
-            var fragments:[Element] = [Element.highlight("", .newlines)]
+            var fragments:[Element] = [.highlight(.text(escaped: ""), .newlines)]
             switch language 
             {
-            case .plain: 
+            case .text: 
                 var lines:[Substring] = code.split(separator: "\n", omittingEmptySubsequences: false)
                 while case true? = lines.last?.isEmpty 
                 {
@@ -262,25 +261,25 @@ extension Extension
                 }
                 for next:Substring in lines.dropFirst()
                 {
-                    fragments.append(.highlight("\n", .newlines))
+                    fragments.append(.highlight(.text(escaped: "\n"), .newlines))
                     fragments.append(.text(escaping: next))
                 }
             case .swift:
                 for (text, color):(String, Fragment.Color) in Fragment.highlight(code)
                 {
-                    fragments.append(.highlight(text, color))
+                    fragments.append(.highlight(escaping: text, color))
                 }
             }
             
             return Element[.pre]
             {
-                ["notebook"]
+                ("class", "notebook")
             }
             content:
             {
                 Element[.code]
                 {
-                    ["\(language)"]
+                    ("class", language.rawValue)
                 }
                 content:
                 {
@@ -291,16 +290,20 @@ extension Extension
         private static
         func highlight(inline code:String, as language:CodeBlockLanguage) -> Element 
         {
-            switch language 
-            {
-            case .plain: 
-                return Element[.code] { ["plain"] } content: { code }
-            case .swift:
-                return Element[.code] { ["swift"] } content:
+            Element[.code] 
+            { 
+                ("class", language.rawValue)  
+            } 
+            content: 
+            { 
+                switch language 
                 {
+                case .text: 
+                    code 
+                case .swift:
                     for (text, color):(String, Fragment.Color) in Fragment.highlight(code)
                     {
-                        Element.highlight(text, color)
+                        Element.highlight(escaping: text, color)
                     }
                 }
             }
@@ -339,7 +342,7 @@ extension Extension
             {
                 Element[.span] 
                 {
-                    ["subsection-anchor"]
+                    ("class", "subsection-anchor")
                 } 
                 content: 
                 {
@@ -435,7 +438,7 @@ extension Extension
                 {
                     if let source:String = image.source, !source.isEmpty
                     {
-                        (source, as: HTML.Src.self)
+                        ("src", source)
                     }
                     else 
                     {
@@ -443,7 +446,7 @@ extension Extension
                     }
                     if let title:String = image.title 
                     {
-                        (title, as: HTML.Alt.self)
+                        ("alt", title)
                     }
                 }
                 self.render(span: image, as: .figcaption)
@@ -474,15 +477,15 @@ extension Extension
             }
             if content.isEmpty 
             {
-                return .anchor(id: destination)
+                return .anchor(destination)
             }
             else 
             {
                 return Element[.a]
                 {
-                    (destination, as: HTML.Href.self)
-                    HTML.Target._blank
-                    HTML.Rel.nofollow
+                    ("href",    destination)
+                    ("target",  "_blank")
+                    ("rel",     "nofollow")
                 }
                 content:
                 {
@@ -495,7 +498,7 @@ extension Extension
         {
             if let string:String = link.destination
             {
-                return .anchor(id: string)
+                return .anchor(string)
             }
             else 
             {

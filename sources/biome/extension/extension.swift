@@ -586,8 +586,8 @@ struct Extension
         {
             renderer.append(nodes: remaining)
         }
-        let discussion:DocumentTemplate<String, [UInt8]> = .init(freezing: renderer.elements)
-        let summary:DocumentTemplate<String, [UInt8]>
+        let discussion:DOM.Template<String, [UInt8]> = .init(freezing: renderer.elements)
+        let summary:DOM.Template<String, [UInt8]>
         if let first:HTML.Element<String> = first 
         {
             summary = .init(freezing: first)

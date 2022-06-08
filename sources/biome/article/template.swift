@@ -5,8 +5,8 @@ extension Article
     struct Template<Anchor>:Hashable where Anchor:Hashable
     {
         let errors:[Error]
-        let summary:DocumentTemplate<Anchor, [UInt8]>
-        let discussion:DocumentTemplate<Anchor, [UInt8]>
+        let summary:DOM.Template<Anchor, [UInt8]>
+        let discussion:DOM.Template<Anchor, [UInt8]>
         
         // don’t include ``errors`` 
         static 
@@ -27,8 +27,8 @@ extension Article
         }
         
         init(errors:[Error], 
-            summary:DocumentTemplate<Anchor, [UInt8]>, 
-            discussion:DocumentTemplate<Anchor, [UInt8]>) 
+            summary:DOM.Template<Anchor, [UInt8]>, 
+            discussion:DOM.Template<Anchor, [UInt8]>) 
         {
             self.errors = errors
             self.summary = summary

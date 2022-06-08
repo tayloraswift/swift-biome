@@ -586,62 +586,8 @@ struct Page
         }
     }
     
-    func constraints(_ constraints:[SwiftConstraint<Int>]) -> [Element] 
-    {
-        guard let ultimate:SwiftConstraint<Int> = constraints.last 
-        else 
-        {
-            fatalError("cannot call \(#function) with empty constraints array")
-        }
-        guard let penultimate:SwiftConstraint<Int> = constraints.dropLast().last
-        else 
-        {
-            return self.constraint(ultimate)
-        }
-        var fragments:[Element]
-        if constraints.count < 3 
-        {
-            fragments =                  self.constraint(penultimate)
-            fragments.append(.text(escaped: " and "))
-            fragments.append(contentsOf: self.constraint(ultimate))
-        }
-        else 
-        {
-            fragments = []
-            for constraint:SwiftConstraint<Int> in constraints.dropLast(2)
-            {
-                fragments.append(contentsOf: self.constraint(constraint))
-                fragments.append(.text(escaped: ", "))
-            }
-            fragments.append(contentsOf: self.constraint(penultimate))
-            fragments.append(.text(escaped: ", and "))
-            fragments.append(contentsOf: self.constraint(ultimate))
-        }
-        return fragments
-    }
-    private 
-    func constraint(_ constraint:SwiftConstraint<Int>) -> [Element] 
-    {
-        let prose:String
-        switch constraint.verb
-        {
-        case .subclasses: 
-            prose   = " inherits from "
-        case .implements:
-            prose   = " conforms to "
-        case .is:
-            prose   = " is "
-        }
-        let subject:Element = Element[.code]
-        {
-            Element.highlight(constraint.subject, .type)
-        }
-        let object:Element = Element[.code]
-        {
-            self.highlight(constraint.object, .type, link: constraint.link)
-        }
-        return [subject, Element.text(escaped: prose), object]
-    }
+
+
 
     private 
     func highlight(_ text:String, _ color:Fragment.Color, link:Int?) -> Element
