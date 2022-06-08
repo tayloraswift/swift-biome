@@ -1,5 +1,5 @@
 import JSON
-
+// FIXME: this is full of security vulnerabilities!
 @frozen public 
 struct Version:Hashable, CustomStringConvertible, Sendable
 {
@@ -22,11 +22,6 @@ struct Version:Hashable, CustomStringConvertible, Sendable
         self.bitPattern = bitPattern
     }
     
-    @inlinable public static 
-    func == (lhs:Self, rhs:Self) -> Bool 
-    {
-        false
-    }
     static 
     func <= (lhs:Self, rhs:Self) -> Bool 
     {
@@ -213,17 +208,20 @@ extension Version.Rule
         }
         // parse a x.y.z.w semantic version. the w component is 
         // a documentation version, which is a sub-patch increment
-        guard let minor:Int = input.parse(as: Integer?.self)
+        guard case let (_, minor)? = 
+            try? input.parse(as: (Encoding.Period, Integer).self)
         else 
         {
             return .tag(first, nil)
         }
-        guard let patch:Int = input.parse(as: Integer?.self)
+        guard case let (_, patch)? = 
+            try? input.parse(as: (Encoding.Period, Integer).self)
         else 
         {
             return .tag(first, (minor, nil))
         }
-        guard let edition:Int = input.parse(as: Integer?.self)
+        guard case let (_, edition)? = 
+            try? input.parse(as: (Encoding.Period, Integer).self)
         else 
         {
             return .tag(first, (minor, (patch, nil)))
