@@ -20,6 +20,68 @@ struct Ecosystem
         case many(String, [Symbol.Composite])
     }
     
+    enum Index:Hashable, Sendable
+    {
+        case package(Package.Index)
+        case module(Module.Index)
+        case article(Article.Index)
+        case composite(Symbol.Composite)
+        
+        static 
+        func symbol(_ natural:Symbol.Index) -> Self 
+        {
+            .composite(.init(natural: natural))
+        }
+    }
+    enum Selection
+    {
+        case package(Package.Index)
+        case module(Module.Index)
+        case article(Article.Index)
+        case composite(Symbol.Composite)
+        case composites([Symbol.Composite])
+        
+        var index:Index?
+        {
+            switch self 
+            {
+            case .package   (let index):    return .package     (index)
+            case .module    (let index):    return .module      (index)
+            case .article   (let index):    return .article     (index)
+            case .composite (let index):    return .composite   (index)
+            case .composites(_):            return nil
+            }
+        }
+        var possibilities:[Symbol.Composite] 
+        {
+            if case .composites(let possibilities) = self
+            {
+                return possibilities
+            }
+            else 
+            {
+                return []
+            }
+        }
+        
+        init?(_ matches:[Symbol.Composite]) 
+        {
+            guard let first:Symbol.Composite = matches.first 
+            else 
+            {
+                return nil
+            }
+            if matches.count < 2
+            {
+                self = .composite(first)
+            } 
+            else 
+            {
+                self = .composites(matches)
+            }
+        }
+    }
+    
     func describe(_ error:LinkResolutionError) -> String 
     {
         switch error 

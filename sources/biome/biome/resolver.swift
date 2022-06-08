@@ -1,55 +1,9 @@
 extension Ecosystem 
 {
-    func resolveLinkWithRedirect(
-        parsing string:String, 
-        lexicon:Lexicon,
-        imports:Set<Module.Index>, 
-        nest:Symbol.Nest?) 
-        -> Link
-    {
-        // must attempt to parse absolute first, otherwise 
-        // '/foo' will parse to ["", "foo"]
-        let resolution:Link.Resolution?
-        let visible:Int
-        if let absolute:Link.Expression = try? .init(absolute: string)
-        {
-            visible = absolute.visible
-            resolution = self.resolveGlobalLinkWithRedirect(absolute.reference, 
-                lexicon: lexicon)
-        }
-        else if let relative:Link.Expression = try? .init(relative: string)
-        {
-            visible = relative.visible
-            resolution = self.resolveVisibleLinkWithRedirect(relative.reference, 
-                lexicon: lexicon,
-                imports: imports, 
-                nest: nest)
-        }
-        else 
-        {
-            print(self.describe(.none(string)))
-            return .unresolved(string)
-        }
-        switch resolution
-        {
-        case nil: 
-            print(self.describe(.none(string)))
-            return .unresolved(string)
-        
-        case .one(let target): 
-            return .resolved(target, visible: visible)
-        
-        case .many(let possibilities):
-            print(self.describe(.many(string, possibilities)))
-            return .unresolved(string)
-        }
-    }
-    
-    func resolveGlobalLinkWithRedirect<Tail>(_ link:Link.Reference<Tail>, keys:Route.Keys) 
-        -> Link.Resolution?
+    func resolve<Tail>(location global:Link.Reference<Tail>, keys:Route.Keys) 
+        -> (selection:Selection, version:Version, redirected:Bool)?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
-        let global:Link.Reference<Tail.SubSequence> = link.dropFirst()
         let local:Link.Reference<Tail.SubSequence>
         
         let nation:Package, 
@@ -59,13 +13,13 @@ extension Ecosystem
         {
             explicit = true
             nation = package 
-            local = _move(global).dropFirst()
+            local = global.dropFirst()
         }
         else if let swift:Package = self[.swift]
         {
             explicit = false
             nation = swift
-            local = _move(global)
+            local = global[...]
         }
         else 
         {
@@ -73,7 +27,7 @@ extension Ecosystem
         }
         
         let qualified:Link.Reference<Tail.SubSequence>
-        let arrival:Version? 
+        let arrival:Version
         if let version:Version = local.arrival
         {
             qualified = _move(local).dropFirst()
@@ -82,13 +36,15 @@ extension Ecosystem
         else 
         {
             qualified = _move(local) 
-            arrival = nil
+            arrival = nation.latest
         }
+        
+        print(arrival, nation.latest)
         
         guard let namespace:Module.ID = qualified.namespace 
         else 
         {
-            return explicit ? .one(.package(nation.index)) : nil
+            return explicit ? (.package(nation.index), arrival, false) : nil
         } 
         guard let namespace:Module.Index = nation.modules.indices[namespace]
         else 
@@ -96,20 +52,95 @@ extension Ecosystem
             return nil
         }
         
-        return self.resolveImplicitLinkWithRedirect(qualified.dropFirst(), 
-            namespace: namespace, 
-            arrival: arrival,
-            nation: nation.index, 
-            keys: keys)
+        let implicit:Link.Reference<Tail.SubSequence> = _move(qualified).dropFirst()
+        
+        guard let path:Path = .init(implicit)
+        else 
+        {
+            return (.module(namespace), arrival, false)
+        }
+        guard let route:Route = keys[namespace, path, implicit.orientation]
+        else 
+        {
+            return nil
+        }
+        let lens:Lexicon.Lens = self.localize(implicit.query.lens) ?? 
+            .init(nation, at: arrival)
+        if case let (selection, redirected: redirected)? = 
+            self.selectWithRedirect(from: route, lens: lens, 
+                disambiguator: implicit.disambiguator)
+        {
+            return (selection, lens.version, redirected)
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    
+    func resolve(link string:String, lexicon:Lexicon, imports:Set<Module.Index>, nest:Symbol.Nest?) 
+        -> Link
+    {
+        // must attempt to parse absolute first, otherwise 
+        // '/foo' will parse to ["", "foo"]
+        let selection:Selection?
+        let visible:Int
+        if let absolute:Link.Expression = try? .init(absolute: string)
+        {
+            visible = absolute.visible
+            selection = self.selectWithRedirect(globalLink: absolute.reference, 
+                lexicon: lexicon)
+        }
+        else if let relative:Link.Expression = try? .init(relative: string)
+        {
+            visible = relative.visible
+            selection = self.selectWithRedirect(visibleLink: relative.reference, 
+                lexicon: lexicon,
+                imports: imports, 
+                nest: nest)
+        }
+        else 
+        {
+            print(self.describe(.none(string)))
+            return .unresolved(string)
+        }
+        guard let selection:Selection = selection 
+        else 
+        {
+            print(self.describe(.none(string)))
+            return .unresolved(string)
+        }
+        guard let index:Index = selection.index 
+        else 
+        {
+            print(self.describe(.many(string, selection.possibilities)))
+            return .unresolved(string)
+        }
+        
+        return .resolved(index, visible: visible)
+    }
+    func resolve(binding string:String, lexicon:Lexicon) -> Index?
+    {
+        if  let expression:Link.Expression = 
+            try? Link.Expression.init(relative: string),
+            let selection:Selection = 
+            self.selectWithRedirect(visibleLink: expression.reference, lexicon: lexicon)
+        {
+            return selection.index
+        }
+        else 
+        {
+            return nil 
+        }
     }
     
     private 
-    func resolveGlobalLinkWithRedirect<Tail>(_ link:Link.Reference<Tail>, lexicon:Lexicon)
-        -> Link.Resolution?
+    func selectWithRedirect<Tail>(globalLink link:Link.Reference<Tail>, lexicon:Lexicon)
+        -> Selection?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         guard   let nation:Package.ID = link.nation, 
-                let nation:Package.Index = self.indices[nation]
+                let nation:Package = self[nation]
         else 
         {
             return nil 
@@ -120,57 +151,70 @@ extension Ecosystem
         guard let namespace:Module.ID = qualified.namespace 
         else 
         {
-            return .one(.package(nation))
+            return .package(nation.index)
+        }
+        guard let namespace:Module.Index = nation.modules.indices[namespace]
+        else 
+        {
+            return nil
+        }
+        
+        let implicit:Link.Reference<Tail.SubSequence> = _move(qualified).dropFirst()
+        guard let path:Path = .init(implicit)
+        else 
+        {
+            return .module(namespace)
+        }
+        guard let route:Route = lexicon.keys[namespace, path, implicit.orientation]
+        else 
+        {
+            return nil
         }
         // if the global path starts with a package/namespace that 
         // matches one of our dependencies, treat it like a qualified 
         // reference. 
-        if  case nil = qualified.query.lens, 
-            let namespace:Module.Index = lexicon.namespaces[namespace], 
-                namespace.package == nation
+        if  case nil = implicit.query.lens, lexicon.namespaces.contains(namespace), 
+            let selection:Selection = 
+            self.selectWithRedirect(from: route, lexicon: lexicon, 
+                disambiguator: implicit.disambiguator)
         {
-            return self.resolveImplicitLinkWithRedirect([], qualified.dropFirst(), 
-                namespace: namespace, 
-                lexicon: lexicon)
+            return selection
         }
-        else if let namespace:Module.Index = self[nation].modules.indices[namespace]
+        else if case let (selection, _)? = 
+            self.selectWithRedirect(from: route, 
+                lens: self.localize(implicit.query.lens) ?? .init(nation), 
+                disambiguator: implicit.disambiguator)
         {
-            return self.resolveImplicitLinkWithRedirect(qualified.dropFirst(), 
-                namespace: namespace, 
-                arrival: nil,
-                nation: nation, 
-                keys: lexicon.keys)
+            return selection
         }
         else 
         {
             return nil
         }
     } 
-}
-extension Ecosystem 
-{
-    func resolveVisibleLinkWithRedirect<Tail>(
-        _ link:Link.Reference<Tail>, 
+    private 
+    func selectWithRedirect<Tail>(
+        visibleLink link:Link.Reference<Tail>, 
         lexicon:Lexicon,
         imports:Set<Module.Index> = [], 
         nest:Symbol.Nest? = nil) 
-        -> Link.Resolution?
+        -> Selection?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
-        if  let resolution:Link.Resolution = self.resolveVisibleLink(link, 
+        if  let selection:Selection = self.select(visibleLink: link, 
                 lexicon: lexicon, 
                 imports: imports, 
                 nest: nest)
         {
-            return resolution 
+            return selection 
         }
         else if let link:Link.Reference<Tail> = link.outed, 
-            let resolution:Link.Resolution = self.resolveVisibleLink(link, 
+            let selection:Selection = self.select(visibleLink: link, 
                 lexicon: lexicon, 
                 imports: imports, 
                 nest: nest)
         {
-            return resolution
+            return selection
         }
         else 
         {
@@ -179,36 +223,56 @@ extension Ecosystem
     }
     
     private 
-    func resolveVisibleLink<Tail>(
-        _ link:Link.Reference<Tail>, 
+    func localize(_ specifier:(culture:Package.ID, version:Version?)?) -> Lexicon.Lens?
+    {
+        // determine which package contains the actual symbol documentation; 
+        // it may be different from the nation 
+        if case let (culture, departure)? = specifier, 
+                let  culture:Package = self[culture]
+        {
+            return .init(culture, at: departure)
+        }
+        else 
+        {
+            return nil
+        }
+    }
+}
+extension Ecosystem 
+{
+    private 
+    func select<Tail>(visibleLink link:Link.Reference<Tail>, 
         lexicon:Lexicon,
         imports:Set<Module.Index> = [], 
         nest:Symbol.Nest? = nil) 
-        -> Link.Resolution?
+        -> Selection?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
-        if  let qualified:Link.Resolution = 
-            self.resolveQualifiedLink(link, lexicon: lexicon)
+        if  let qualified:Selection = self.select(qualifiedLink: link, lexicon: lexicon)
         {
             return qualified
         }
         if  let nest:Symbol.Nest = nest, 
             lexicon.culture == nest.namespace || imports.contains(nest.namespace), 
-            let relative:Link.Resolution = 
-            self.resolveImplicitLink(nest.prefix, link, namespace: nest.namespace,  lexicon: lexicon)
+            let relative:Selection = self.select(relativeLink: link, 
+                namespace: nest.namespace, 
+                prefix: nest.prefix, 
+                lexicon: lexicon)
         {
             return relative
         }
-        if  let absolute:Link.Resolution = 
-            self.resolveImplicitLink([],          link, namespace: lexicon.culture, lexicon: lexicon) 
+        if  let absolute:Selection = self.select(relativeLink: link, 
+                namespace: lexicon.culture, 
+                lexicon: lexicon) 
         {
             return absolute
         }
-        var imported:Link.Resolution? = nil 
+        var imported:Selection? = nil 
         for namespace:Module.Index in imports where namespace != lexicon.culture 
         {
-            if  let absolute:Link.Resolution = 
-                self.resolveImplicitLink([], link, namespace: namespace, lexicon: lexicon) 
+            if  let absolute:Selection = self.select(relativeLink: link, 
+                    namespace: namespace, 
+                    lexicon: lexicon) 
             {
                 if case nil = imported 
                 {
@@ -224,8 +288,8 @@ extension Ecosystem
         return imported 
     }
     private 
-    func resolveQualifiedLink<Tail>(_ link:Link.Reference<Tail>, lexicon:Lexicon) 
-        -> Link.Resolution?
+    func select<Tail>(qualifiedLink link:Link.Reference<Tail>, lexicon:Lexicon) 
+        -> Selection?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         // check if the first component refers to a module. it can be the same 
@@ -235,7 +299,7 @@ extension Ecosystem
         if  let namespace:Module.ID = link.namespace, 
             let namespace:Module.Index = lexicon.namespaces[namespace]
         {
-            return self.resolveImplicitLink([], link.dropFirst(), 
+            return self.select(relativeLink: link.dropFirst(), 
                 namespace: namespace, 
                 lexicon: lexicon)
         }
@@ -245,116 +309,83 @@ extension Ecosystem
         }
     }
     private 
-    func resolveImplicitLink<Tail>(
-        _ prefix:[String], 
-        _ link:Link.Reference<Tail>, 
+    func select<Tail>(
+        relativeLink link:Link.Reference<Tail>, 
         namespace:Module.Index, 
+        prefix:[String] = [], 
         lexicon:Lexicon) 
-        -> Link.Resolution?
+        -> Selection?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         guard let path:Path = .init(prefix, link)
         else 
         {
-            return .one(.module(namespace))
+            return .module(namespace)
         }
         guard let route:Route = lexicon.keys[namespace, path, link.orientation]
         else 
         {
             return nil
         }
-        return .init(self.select(from: route, lexicon: lexicon, 
-            disambiguator: link.disambiguator))
-    }
-    private 
-    func resolveImplicitLinkWithRedirect<Tail>(
-        _ prefix:[String], 
-        _ link:Link.Reference<Tail>, 
-        namespace:Module.Index, 
-        lexicon:Lexicon) 
-        -> Link.Resolution?
-        where Tail:BidirectionalCollection, Tail.Element == Link.Component
-    {
-        guard let path:Path = .init(prefix, link)
-        else 
-        {
-            return .one(.module(namespace))
-        }
-        guard let route:Route = lexicon.keys[namespace, path, link.orientation]
-        else 
-        {
-            return nil
-        }
-        if  let resolution:Link.Resolution = .init(
-            self.select(from: route, lexicon: lexicon, disambiguator: link.disambiguator))
-        {
-            return resolution
-        }
-        else if let route:Route = route.outed, 
-            let resolution:Link.Resolution = .init(
-            self.select(from: route, lexicon: lexicon, disambiguator: link.disambiguator))
-        {
-            return resolution
-        }
-        else 
-        {
-            return nil
-        }
-    }
-    private 
-    func resolveImplicitLinkWithRedirect<Tail>(
-        _ link:Link.Reference<Tail>, 
-        namespace:Module.Index,
-        arrival:Version?,
-        nation:Package.Index, 
-        keys:Route.Keys)
-        -> Link.Resolution?
-        where Tail:BidirectionalCollection, Tail.Element == Link.Component
-    {
-        guard let path:Path = .init(link)
-        else 
-        {
-            return .one(.module(namespace))
-        }
-        guard let route:Route = keys[namespace, path, link.orientation]
-        else 
-        {
-            return nil
-        }
-        // determine which package contains the actual symbol documentation; 
-        // it may be different from the nation 
-        let lens:Lexicon.Lens 
-        if case let (culture, departure)? = link.query.lens, 
-            let culture:Package = self[culture]
-        {
-            lens = .init(culture, at: departure)
-        }
-        else 
-        {
-            lens = .init(self[nation], at: arrival)
-        }
-        if  let resolution:Link.Resolution = .init(
-            self.select(from: route, lens: lens, disambiguator: link.disambiguator))
-        {
-            return resolution
-        }
-        else if let route:Route = route.outed, 
-            let resolution:Link.Resolution = .init(
-            self.select(from: route, lens: lens, disambiguator: link.disambiguator))
-        {
-            return resolution
-        }
-        else 
-        {
-            return nil
-        }
+        return self.select(from: route, lexicon: lexicon, 
+            disambiguator: link.disambiguator)
     }
 }
 extension Ecosystem
 {
     private 
+    func selectWithRedirect(from route:Route, lens:Lexicon.Lens, disambiguator:Link.Disambiguator) 
+        -> (selection:Selection, redirected:Bool)?
+    {
+        if  let selection:Selection = 
+            self.select(from: route, lens: lens, disambiguator: disambiguator)
+        {
+            return (selection, false)
+        }
+        else if let route:Route = route.outed, 
+            let selection:Selection = 
+            self.select(from: route, lens: lens, disambiguator: disambiguator)
+        {
+            return (selection, true)
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    private 
+    func select(from route:Route, lens:Lexicon.Lens, disambiguator:Link.Disambiguator) 
+        -> Selection?
+    {
+        self.select(from: route, lenses: CollectionOfOne<Lexicon.Lens>.init(lens))
+        {
+            self.filter($0, by: disambiguator)
+        }
+    }
+    
+    private 
+    func selectWithRedirect(from route:Route, lexicon:Lexicon, disambiguator:Link.Disambiguator) 
+        -> Selection?
+    {
+        if  let selection:Selection = 
+            self.select(from: route, lexicon: lexicon, disambiguator: disambiguator)
+        {
+            return selection
+        }
+        else if let route:Route = route.outed, 
+            let selection:Selection = 
+            self.select(from: route, lexicon: lexicon, disambiguator: disambiguator)
+        {
+            return selection
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    private 
     func select(from route:Route, lexicon:Lexicon, disambiguator:Link.Disambiguator) 
-        -> [Symbol.Composite]
+        -> Selection?
     {
         self.select(from: route, lenses: lexicon.lenses)
         {
@@ -362,17 +393,10 @@ extension Ecosystem
             self.filter($0, by: disambiguator)
         }
     }
-    private 
-    func select(from route:Route, lens:Lexicon.Lens, disambiguator:Link.Disambiguator) 
-        -> [Symbol.Composite]
-    {
-        self.select(from: route, 
-            lenses: CollectionOfOne<Lexicon.Lens>.init(lens), 
-            disambiguator: disambiguator)
-    }
+    
     private 
     func select<Lenses>(from route:Route, lenses:Lenses, disambiguator:Link.Disambiguator) 
-        -> [Symbol.Composite]
+        -> Selection?
         where Lenses:Sequence, Lenses.Element == Lexicon.Lens
     {
         self.select(from: route, lenses: lenses)
@@ -383,24 +407,24 @@ extension Ecosystem
     private 
     func select<Lenses>(from route:Route, lenses:Lenses, 
         where predicate:(Symbol.Composite) throws -> Bool) 
-        rethrows -> [Symbol.Composite]
+        rethrows -> Selection?
         where Lenses:Sequence, Lenses.Element == Lexicon.Lens
     {
         var matches:[Symbol.Composite] = []
         for lens:Lexicon.Lens in lenses 
         {
-            switch lens.package.groups.table[route]
+            switch lens.package.groups[route]
             {
-            case nil, .none?: 
+            case .none: 
                 continue 
             
-            case .one(let composite)?:
+            case .one(let composite):
                 if try predicate(composite), lens.contains(composite)
                 {
                     matches.append(composite)
                 }
             
-            case .many(let composites)?:
+            case .many(let composites):
                 for (base, diacritics):(Symbol.Index, Symbol.Subgroup) in composites 
                 {
                     switch diacritics
@@ -426,14 +450,15 @@ extension Ecosystem
                 }
             }
         }
-        return matches
+        return .init(matches)
     }
     
     private 
     func filter(_ composite:Symbol.Composite, by disambiguator:Link.Disambiguator) 
         -> Bool
     {
-        let symbol:Symbol = self[composite.base]
+        let host:Symbol = self[composite.diacritic.host]
+        let base:Symbol = self[composite.base]
         switch disambiguator.suffix 
         {
         case nil: 
@@ -441,28 +466,20 @@ extension Ecosystem
         case .fnv(_)?: 
             // TODO: implement this 
             break 
-        case .color(symbol.color)?: 
+        case .color(base.color)?: 
             break 
         case .color(_)?:
             return false
         }
-        if      let id:Symbol.ID = disambiguator.symbol, id != symbol.id 
+        switch (disambiguator.base, disambiguator.host)
         {
+        case    (base.id?, host.id?), 
+                (base.id?, nil),
+                (nil,      host.id?),
+                (nil,      nil): 
+            return true
+        default: 
             return false
-        }
-        guard   let id:Symbol.ID = disambiguator.host
-        else 
-        {
-            // nothing else we can use 
-            return true 
-        }
-        if  let host:Symbol.Index = composite.host
-        {
-            return id == self[host].id
-        }
-        else 
-        {
-            return false 
         }
     }
 }

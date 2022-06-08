@@ -14,15 +14,17 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
     var responding:Bool, 
         keep:Bool
     private 
-    let host:String
+    let host:String, 
+        port:Int
     private 
     let backend:Backend 
 
-    init(backend:Backend, host:String) 
+    init(backend:Backend, host:String, port:Int) 
     {
         self.responding = false
         self.keep       = false
         self.host       = host
+        self.port       = port
         self.backend    = backend 
     }
     func channelRead(context:ChannelHandlerContext, data:NIOAny) 
@@ -75,11 +77,19 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
     }
     
     private 
+    func url(_ uri:String) -> String 
+    {
+        self.port == 80 ? 
+            "http://\(self.host)\(uri)" : 
+            "http://\(self.host):\(self.port)\(uri)"
+    }
+    
+    private 
     func headers(canonical:String?) -> HTTPHeaders 
     {
         if let canonical:String = canonical 
         {
-            return ["host": self.host, "link": "<https://\(self.host)\(canonical)>; rel=\"canonical\""]
+            return ["host": self.host, "link": "<\(self.url(canonical))>; rel=\"canonical\""]
         }
         else 
         {
@@ -90,7 +100,7 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
     func headers(canonical:String?, location path:String) -> HTTPHeaders 
     {
         var headers:HTTPHeaders = self.headers(canonical: canonical)
-        headers.add(name: "location", value: "https://\(self.host)\(path)")
+        headers.add(name: "location", value: self.url(path))
         return headers
     }
     private 

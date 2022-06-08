@@ -13,7 +13,7 @@ extension Ecosystem
         scopes:[Module.Scope], 
         pins:Package.Pins,
         keys:Route.Keys)
-        -> [Link.Target: Documentation]
+        -> [Index: Documentation]
     {
         //  build lexical scopes for each module culture. 
         //  we can store entire packages in the lenses because this method 
@@ -24,7 +24,7 @@ extension Ecosystem
             .init(keys: keys, namespaces: $0, lenses: [lens])
         }
         
-        let peripherals:[[Link.Target: Extension]] = 
+        let peripherals:[[Index: Extension]] = 
             self.resolveBindings(of: extensions, articles: articles, lexica: lexica)
         
         // add upstream lenses 
@@ -44,14 +44,14 @@ extension Ecosystem
     func resolveBindings(of extensions:[[String: Extension]], 
         articles:[[Article.Index: Extension]],
         lexica:[Lexicon]) 
-        -> [[Link.Target: Extension]]
+        -> [[Index: Extension]]
     {
         zip(lexica, zip(articles, extensions)).map
         {
             let (lexicon, ( articles,                          extensions)):
                 (Lexicon, ([Article.Index: Extension], [String: Extension])) = $0
             
-            var bindings:[Link.Target: Extension] = [:]
+            var bindings:[Index: Extension] = [:]
                 bindings.reserveCapacity(articles.count + extensions.count)
             for (index, article):(Article.Index, Extension) in articles 
             {
@@ -59,20 +59,13 @@ extension Ecosystem
             }
             for (binding, article):(String, Extension) in extensions
             {
-                guard let link:Link.Expression = try? Link.Expression.init(relative: binding)
+                guard let binding:Index = self.resolve(binding: binding, lexicon: lexicon)
                 else 
                 {
-                    print("warning: ignored article with invalid binding '\(binding)'")
-                    continue 
-                }
-                switch self.resolveVisibleLinkWithRedirect(link.reference, lexicon: lexicon)
-                {
-                case .many(_)?, nil: 
                     fatalError("unimplemented")
-                case .one(let unique)?:
-                    // TODO: emit warning for colliding extensions
-                    bindings[unique] = article 
                 }
+                // TODO: emit warning for colliding extensions
+                bindings[binding] = article 
             }
             return bindings
         }
@@ -80,19 +73,19 @@ extension Ecosystem
     
     private 
     func compile(comments:[Symbol.Index: String], 
-        peripherals:[[Link.Target: Extension]], 
+        peripherals:[[Index: Extension]], 
         lexica:[Lexicon])
-        -> [Link.Target: Documentation]
+        -> [Index: Documentation]
     {
-        let comments:[Link.Target: Documentation] = 
+        let comments:[Index: Documentation] = 
             self.compile(comments: comments, lexica: lexica)
-        let peripherals:[Link.Target: Documentation] = 
+        let peripherals:[Index: Documentation] = 
             self.compile(peripherals: peripherals, lexica: lexica)
         return comments.merging(peripherals) { $1 }
     }
     private
     func compile(comments:[Symbol.Index: String], lexica:[Lexicon])
-        -> [Link.Target: Documentation]
+        -> [Index: Documentation]
     {
         //  always import the standard library
         let implicit:Set<Module.Index> = self.standardLibrary
@@ -101,7 +94,7 @@ extension Ecosystem
         let lexica:[Module.Index: Lexicon] = 
             .init(uniqueKeysWithValues: lexica.map { ($0.namespaces.culture, $0) })
         
-        var documentation:[Link.Target: Documentation] = 
+        var documentation:[Index: Documentation] = 
             .init(minimumCapacity: comments.count)
         for (symbol, comment):(Symbol.Index, String) in comments
         {
@@ -118,7 +111,7 @@ extension Ecosystem
             let unresolved:Article.Template<String> = comment.render()
             let resolved:Article.Template<Link> = unresolved.map 
             {
-                self.resolveLinkWithRedirect(parsing: $0, 
+                self.resolve(link: $0, 
                     lexicon: lexicon, 
                     imports: imports, 
                     nest: nest)
@@ -128,17 +121,17 @@ extension Ecosystem
         return documentation
     }
     private
-    func compile(peripherals:[[Link.Target: Extension]], lexica:[Lexicon])
-        -> [Link.Target: Documentation]
+    func compile(peripherals:[[Index: Extension]], lexica:[Lexicon])
+        -> [Index: Documentation]
     {
         //  always import the standard library
         let implicit:Set<Module.Index> = self.standardLibrary
         
-        var documentation:[Link.Target: Documentation] = 
+        var documentation:[Index: Documentation] = 
             .init(minimumCapacity: peripherals.reduce(0) { $0 + $1.count })
-        for (lexicon, assigned):(Lexicon, [Link.Target: Extension]) in zip(lexica, peripherals)
+        for (lexicon, assigned):(Lexicon, [Index: Extension]) in zip(lexica, peripherals)
         {
-            for (target, article):(Link.Target, Extension) in assigned
+            for (target, article):(Index, Extension) in assigned
             {
                 let nest:Symbol.Nest? = self.nest(target)
                 let imports:Set<Module.Index> = 
@@ -146,7 +139,7 @@ extension Ecosystem
                 let unresolved:Article.Template<String> = article.render()
                 let resolved:Article.Template<Link> = unresolved.map 
                 {
-                    self.resolveLinkWithRedirect(parsing: $0, 
+                    self.resolve(link: $0, 
                         lexicon: lexicon, 
                         imports: imports, 
                         nest: nest)
@@ -157,7 +150,7 @@ extension Ecosystem
         return documentation
     }
     private 
-    func nest(_ target:Link.Target) -> Symbol.Nest?
+    func nest(_ target:Index) -> Symbol.Nest?
     {
         guard case .composite(let composite) = target 
         else 
@@ -180,7 +173,7 @@ extension Ecosystem
 {
     mutating 
     func updateDocumentation(in culture:Package.Index, 
-        compiled:[Link.Target: Documentation],
+        compiled:[Index: Documentation],
         hints:[Symbol.Index: Symbol.Index], 
         pins:Package.Pins)
     {

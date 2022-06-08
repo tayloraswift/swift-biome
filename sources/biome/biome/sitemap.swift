@@ -1,57 +1,106 @@
-extension Biome 
+extension Ecosystem 
 {
-    func canonical(_ target:Link.Target) -> Link.Reference<[Link.Component]>
+    func location(of namespace:Module.Index, at version:Version) 
+        -> Link.Reference<[String]>
     {
-        switch target 
+        let package:Package = self[namespace.package]
+        
+        var location:Link.Reference<[String]> = package.root
+        if  package.latest != version
         {
-        case .composite(let composite):
-            //return self.canonical(composite)
-            fatalError("unimplemented")
-        case .module(let module):
-            return self.canonical(module)
-        default: 
-            fatalError("unimplemented")
+            location.path.append(version.description)
         }
+        // *not* `id.string` !
+        location.path.append(self[namespace].id.value)
+        return location
     }
-    private 
-    func canonical(_ index:Module.Index) -> Link.Reference<[Link.Component]>
+    
+    func location(of composite:Symbol.Composite, at version:Version) 
+        -> Link.Reference<[String]>
     {
-        var canonical:Link.Reference<[Link.Component]> = .init(path: [])
-            canonical.path.reserveCapacity(2)
+        // same as host if composite is natural
+        let base:Symbol = self[composite.base]
+        let host:Symbol = self[composite.diacritic.host] 
         
-        canonical.append(lowercasing: self.prefixes.master)
+        var location:Link.Reference<[String]> = self[host.namespace.package].root
         
-        let module:Module = self.ecosystem[index]
-        let package:Package = self.ecosystem[index.package]
-        switch package.kind 
+        let culture:Package = self[composite.culture.package]
+        if  culture.index == host.namespace.package, culture.latest != version
         {
-        case .swift: 
-            break 
-        case .core, .community(_): 
-            canonical.append(package.id)
+            location.path.append(version.description)
         }
-        canonical.append(module.id)
-        return canonical
-    }
-    /* private 
-    func canonical(_ composite:Symbol.Composite) -> Link.Reference<[Link.Component]>
-    {
-        var canonical:Link.Reference<[Link.Component]>
         
-        let base:Symbol = self.ecosystem[composite.base]
-        if  let victim:Symbol.Index = composite.victim 
+            location.path.append(self[host.namespace].id.value)
+        
+        for component:String in host.path 
         {
-            let victim:Symbol = self.ecosystem[victim]
-            canonical = self.canonical(victim.namespace)
-            canonical.append(contentsOf: victim.path)
-            // not necessarily the same as the base’s culture!
-            self.ecosystem[composite.culture.package].victims
+            location.path.append(component.lowercased())
+        }
+        
+        if composite.base != composite.diacritic.host
+        {
+            location.path.append(base.name.lowercased())
+            
+            guard let stem:Route.Stem = host.kind.path
+            else 
+            {
+                fatalError("unreachable: (host: \(host), base: \(base))")
+            }
+            
+            let route:Route = .init(host.namespace, stem, base.route.leaf)
+            switch culture.depth(of: composite, at: version, route: route)
+            {
+            case (host: false, base: false): 
+                break 
+            
+            case (host: true,  base: _): 
+                location.query.host = host.id
+                fallthrough 
+                
+            case (host: false, base: true): 
+                location.query.base = base.id
+            }
         }
         else 
         {
-            canonical = self.canonical(base.namespace)
-            canonical.append(contentsOf: base.path.prefix)
+            switch culture.depth(of: composite, at: version, route: base.route)
+            {
+            case (host: _, base: false): 
+                break 
+            case (host: _, base: true): 
+                location.query.base = base.id
+            }
         }
-        canonical.append(oriented: base)
-    } */
+        
+        location.orientation = base.orientation
+        
+        if composite.culture.package != host.namespace.package
+        {
+            location.query.lens = (culture.id, culture.latest != version ? version : nil)
+        }
+        return location
+    }
+}
+
+extension Biome 
+{
+    func location(of index:Ecosystem.Index, at version:Version) -> URI
+    {
+        let prefix:String 
+        let location:Link.Reference<[String]>
+        switch index 
+        {
+        case .composite(let composite):
+            prefix = self.prefixes.master
+            location = self.ecosystem.location(of: composite, at: version)
+        
+        case .module(let module):
+            prefix = self.prefixes.master
+            location = self.ecosystem.location(of: module, at: version)
+        
+        default: 
+            fatalError("unimplemented")
+        }
+        return .init(prefix: prefix, location)
+    }
 }

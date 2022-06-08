@@ -3,7 +3,7 @@ import Grammar
 public
 struct URI 
 {
-    enum Vector
+    enum Vector:Hashable, Sendable
     {
         /// '..'
         case pop 
@@ -15,6 +15,73 @@ struct URI
     
     var path:[Vector?]
     var query:[Parameter]?
+    
+    var description:String 
+    {
+        var string:String = ""
+        for vector:Vector? in self.path
+        {
+            switch vector
+            {
+            case  nil: 
+                string += "/."
+            case .pop?: 
+                string += "/.."
+            case .push(let component)?: 
+                string += "/\(Self.encode(utf8: component.utf8))"
+            }
+        }
+        guard let parameters:[Parameter] = self.query 
+        else 
+        {
+            return string
+        }
+        // don’t bother percent-encoding the query parameters
+        string.append("?")
+        string += parameters.map { "\($0.key)=\($0.value)" }.joined(separator: "&")
+        return string
+    }
+    
+    static 
+    func ~= (lhs:Self, rhs:Self) -> Bool 
+    {
+        guard lhs.path == rhs.path 
+        else 
+        {
+            return false 
+        }
+        switch (lhs.query, rhs.query)
+        {
+        case (_?, nil), (nil, _?): 
+            return false
+        case (nil, nil):
+            return true 
+        case (let lhs?, let rhs?):
+            guard lhs.count == rhs.count 
+            else 
+            {
+                return false 
+            }
+            var unmatched:[String: String] = .init(minimumCapacity: lhs.count)
+            for (key, value):(String, String) in lhs 
+            {
+                guard case nil = unmatched.updateValue(value, forKey: key)
+                else
+                {
+                    return false
+                }
+            }
+            for (key, value):(String, String) in rhs
+            {
+                guard case value? = unmatched.removeValue(forKey: key)
+                else
+                {
+                    return false
+                }
+            }
+            return true
+        }
+    }
     
     init(path:[Vector?], query:[Parameter]?)
     {
@@ -28,6 +95,117 @@ struct URI
     init(relative string:String) throws 
     {
         self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Relative.self)
+    }
+    
+    init(prefix:String, _ link:Link.Reference<[String]>)
+    {
+        self.path = []
+        if case .gay = link.orientation, link.path.count >= 2
+        {
+            self.path.reserveCapacity(link.path.count)
+            self.path.append(.push(prefix))
+            for component:String in link.path.dropLast(2)
+            {
+                self.path.append(.push(component))
+            }
+            let penultimate:String = link.path[link.path.endIndex - 2]
+            let    ultimate:String = link.path[link.path.endIndex - 1]
+            self.path.append(.push("\(penultimate).\(ultimate)"))
+        }
+        else 
+        {
+            self.path.reserveCapacity(link.path.count + 1)
+            self.path.append(.push(prefix))
+            for component:String in link.path
+            {
+                self.path.append(.push(component))
+            }
+        }
+        self.query = nil
+        if let base:Symbol.ID = link.query.base
+        {
+            self.insert((Link.Query.base, base.string))
+        }
+        if let host:Symbol.ID = link.query.host
+        {
+            self.insert((Link.Query.host, host.string))
+        }
+        switch link.query.lens
+        {
+        case nil: 
+            break 
+        case (let culture, nil)?:
+            self.insert((Link.Query.lens,    culture.string))
+        case (let culture, let version?)?:
+            self.insert((Link.Query.lens, "\(culture.string)/\(version.description)"))
+        }
+    }
+    
+    private mutating 
+    func insert(_ parameter:Parameter) 
+    {
+        switch self.query 
+        {
+        case nil:
+            self.query = [parameter]
+        case var parameters?:
+            self.query = nil 
+            parameters.append(parameter)
+            self.query = parameters
+        }
+    }
+    
+    private static 
+    func encode<UTF8>(utf8 bytes:UTF8) -> String
+        where UTF8:Sequence, UTF8.Element == UInt8
+    {
+        var utf8:[UInt8] = []
+            utf8.reserveCapacity(bytes.underestimatedCount)
+        for byte:UInt8 in bytes
+        {
+            if let byte:UInt8 = Self.filter(byte: byte)
+            {
+                utf8.append(byte)
+            }
+            else 
+            {
+                // percent-encode
+                utf8.append(0x25) // '%'
+                utf8.append(Self.hex(uppercasing: byte >> 4))
+                utf8.append(Self.hex(uppercasing: byte & 0x0f))
+            }
+        }
+        return .init(unsafeUninitializedCapacity: utf8.count) 
+        { 
+            $0.initialize(from: utf8).1 - $0.startIndex
+        }
+    }
+    private static 
+    func filter(byte:UInt8) -> UInt8?
+    {
+        switch byte 
+        {
+        case    0x30 ... 0x39,  // [0-9]
+                0x41 ... 0x5a,  // [A-Z]
+                0x61 ... 0x7a,  // [a-z]
+                0x2d,           // '-'
+                0x2e,           // '.'
+                // not technically a URL character, but browsers won’t render '%3A' 
+                // in the URL bar, and ':' is so common in Swift it is not worth 
+                // percent-encoding. 
+                // the ':' character also appears in legacy USRs.
+                0x3a,           // ':' 
+                0x5f,           // '_'
+                0x7e:           // '~'
+            return byte 
+        default: 
+            return nil 
+        }
+    }
+    private static 
+    func hex(uppercasing value:UInt8) -> UInt8
+    {
+        (value < 10 ? 0x30 : 0x37) + value 
     }
     
     enum Rule<Location>

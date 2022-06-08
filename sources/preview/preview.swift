@@ -50,7 +50,8 @@ struct Main:AsyncParsableCommand
             controller: .init(git: .init(self.git), repository: .init(self.resources)))
         
         let host:String = self.host 
-        let port:Int = 8080
+        let port:Int = self.port
+        
         let group:MultiThreadedEventLoopGroup   = .init(numberOfThreads: 4)
         let bootstrap:ServerBootstrap           = .init(group: group)
             .serverChannelOption(ChannelOptions.backlog,                        value: 256)
@@ -61,7 +62,9 @@ struct Main:AsyncParsableCommand
             
             return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap 
             {
-                channel.pipeline.addHandler(Endpoint<Preview>.init(backend: preview, host: host))
+                channel.pipeline.addHandler(Endpoint<Preview>.init(backend: preview, 
+                    host: host, 
+                    port: port))
             }
         }
             .childChannelOption(ChannelOptions.socketOption(.so_reuseaddr),     value: 1)

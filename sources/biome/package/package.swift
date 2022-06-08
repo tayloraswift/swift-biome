@@ -164,47 +164,98 @@ struct Package:Identifiable, Sendable
         self.index == symbol.module.package ? self[local: symbol] : nil
     }
     
+    var root:Link.Reference<[String]> 
+    {
+        switch self.kind
+        {
+        case .swift: 
+            return .init(path: []) 
+        case .core, .community(_):
+            return .init(path: [self.name])
+        }
+    }
+    
     func documentation(forLocal symbol:Symbol.Index, at version:Version)
         -> Keyframe<Documentation>.Buffer.Index?
     {
         self.documentation.find(version, head: self[local: symbol].heads.documentation)
     }
     
+    func depth(of composite:Symbol.Composite, at version:Version, route:Route)
+        -> (host:Bool, base:Bool)
+    {
+        var explicit:(host:Bool, base:Bool) = (false, false)
+        switch self.groups[route]
+        {
+        case .none: 
+            assert(false)
+            
+        case .one(let occupant):
+            assert(occupant == composite)
+        
+        case .many(let occupants):
+            filtering:
+            for (base, diacritics):(Symbol.Index, Symbol.Subgroup) in occupants
+            {
+                switch (base == composite.base, diacritics)
+                {
+                case (_, .none):
+                    assert(false)
+                
+                case (true, .one(let diacritic)):
+                    assert(diacritic == composite.diacritic)
+                
+                case (false, .one(let diacritic)):
+                    if self.contains(.init(base, diacritic), at: version)
+                    {
+                        explicit.base = true 
+                    }
+                    
+                case (true, .many(let diacritics)):
+                    for diacritic:Symbol.Diacritic in diacritics 
+                        where diacritic != composite.diacritic 
+                    {
+                        if self.contains(.init(base, diacritic), at: version)
+                        {
+                            explicit.base = true 
+                            explicit.host = true 
+                            break filtering
+                        }
+                    }
+                
+                case (false, .many(let diacritics)):
+                    for diacritic:Symbol.Diacritic in diacritics 
+                    {
+                        if self.contains(.init(base, diacritic), at: version)
+                        {
+                            explicit.base = true 
+                            continue filtering
+                        }
+                    }
+                }
+            }
+        }
+        return explicit
+    }
+    
     func contains(_ composite:Symbol.Composite, at version:Version) -> Bool 
     {
-        if  let host:Symbol.Index = composite.host
+        if let host:Symbol.Index = composite.host
         {
-            // hosts are always concrete types
-            guard let symbol:Symbol = self[host]
-            else 
+            if let heads:Symbol.Heads = self[host]?.heads
             {
-                //  external host
-                if  let traits:Symbol.Traits = 
-                    self.opinions.at(version, head: self.external[composite.diacritic])
+                if  let facts:Symbol.Facts = self.facts.at(version, head: heads.facts), 
+                    let traits:Symbol.Traits = composite.culture == host.module ? 
+                        facts.internal : facts.external[composite.culture]
                 {
                     return traits.features.contains(composite.base)
                 }
-                else 
-                {
-                    return false 
-                }
             }
-            if  let facts:Symbol.Facts = 
-                self.facts.at(version, head: symbol.heads.facts)
+            //  external host
+            else if let traits:Symbol.Traits = 
+                self.opinions.at(version, head: self.external[composite.diacritic])
             {
-                if let traits:Symbol.Traits = composite.culture == host.module ? 
-                    facts.internal : facts.external[composite.culture]
-                {
-                    return traits.features.contains(composite.base)
-                }
-                else 
-                {
-                    return false 
-                }
-            }
-            else 
-            {
-                return false 
+                return traits.features.contains(composite.base)
             }
         }
         else if case _? = self.facts.at(version, 
@@ -212,10 +263,8 @@ struct Package:Identifiable, Sendable
         {
             return true 
         }
-        else 
-        {
-            return false 
-        }
+        
+        return false 
     }
     
     mutating 
@@ -292,13 +341,13 @@ extension Package
     }
 
     mutating 
-    func updateDocumentation(_ compiled:[Link.Target: Documentation])
+    func updateDocumentation(_ compiled:[Ecosystem.Index: Documentation])
         -> [Symbol.Index: Keyframe<Documentation>.Buffer.Index]
     {
         var sponsors:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = [:]
-        for (target, documentation):(Link.Target, Documentation) in compiled 
+        for (index, documentation):(Ecosystem.Index, Documentation) in compiled 
         {
-            switch target 
+            switch index 
             {
             case .composite(let composite):
                 guard case nil = composite.host 

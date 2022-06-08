@@ -2,8 +2,7 @@ import Grammar
 
 extension Link 
 {
-    struct Reference<Path>:BidirectionalCollection 
-        where Path:BidirectionalCollection, Path.Element == Component
+    struct Reference<Path>:BidirectionalCollection where Path:BidirectionalCollection
     {
         var path:Path
         var query:Query
@@ -17,7 +16,7 @@ extension Link
         {
             self.path.endIndex
         }
-        subscript(index:Path.Index) -> Component 
+        subscript(index:Path.Index) -> Path.Element
         {
             _read 
             {
@@ -46,32 +45,7 @@ extension Link
             self.query = query 
             self.orientation = orientation
         }
-        
-        var nation:Package.ID? 
-        {
-            self.path.first?.identifier.map(Package.ID.init(_:))
-        }
-        var arrival:Version? 
-        {
-            self.path.first?.version ?? nil
-        }
-        var namespace:Module.ID? 
-        {
-            guard case .identifier(let module, hyphen: nil)? = self.path.first
-            else 
-            {
-                return nil
-            }
-            return .init(module)
-        }
-        
-        var disambiguator:Disambiguator 
-        {
-            .init(host: self.query.host, 
-                symbol: self.query.symbol, 
-                suffix: self.path.last?.suffix ?? nil)
-        }
-        
+                
         var outed:Self? 
         {
             switch self.orientation 
@@ -86,13 +60,18 @@ extension Link
     
     struct Query 
     {
-        var symbol:Symbol.ID?
+        static 
+        let base:String = "overload", 
+            host:String = "self", 
+            lens:String = "from"
+        
+        var base:Symbol.ID?
         var host:Symbol.ID?
         var lens:(culture:Package.ID, version:Version?)?
         
         init() 
         {
-            self.symbol = nil 
+            self.base = nil 
             self.host = nil
             self.lens = nil 
         }
@@ -104,7 +83,7 @@ extension Link
             {
                 switch key
                 {
-                case "from":
+                case Self.lens:
                     // either 'from=swift-foo' or 'from=swift-foo/0.1.2'. 
                     // we do not tolerate missing slashes
                     let components:[Substring] = value.split(separator: "/")
@@ -125,23 +104,23 @@ extension Link
                         self.lens = (id, nil)
                     }
                 
-                case "self":
+                case Self.host:
                     // if the mangled name contained a colon ('SymbolGraphGen style'), 
                     // the parsing rule will remove it.
                     self.host  = try Grammar.parse(value.utf8, as: Symbol.USR.Rule<String.Index>.OpaqueName.self)
                 
-                case "overload": 
+                case Self.base: 
                     switch         try Grammar.parse(value.utf8, as: Symbol.USR.Rule<String.Index>.self) 
                     {
-                    case .natural(let symbol):
-                        self.symbol = symbol
+                    case .natural(let base):
+                        self.base = base
                     
-                    case .synthesized(from: let symbol, for: let host):
+                    case .synthesized(from: let base, for: let host):
                         // this is supported for backwards-compatibility, 
                         // but the `::SYNTHESIZED::` infix is deprecated, 
                         // so this will end up causing a redirect 
                         self.host = host
-                        self.symbol = symbol 
+                        self.base = base 
                     }
 
                 default: 
@@ -151,37 +130,30 @@ extension Link
         }
     }
 }
-extension Link.Reference where Path:RangeReplaceableCollection 
+
+extension Link.Reference where Path.Element == Link.Component 
 {
-    mutating 
-    func append(_ nation:Package.ID) 
+    var nation:Package.ID? 
     {
-        // already guaranteed to be lowercased
-        self.path.append(.identifier(nation.string))
+        self.path.first?.identifier.map(Package.ID.init(_:))
     }
-    mutating 
-    func append(_ arrival:Version) 
+    var arrival:Version? 
     {
-        self.path.append(.version(arrival))
+        self.path.first?.version ?? nil
     }
-    mutating 
-    func append(_ namespace:Module.ID) 
+    var namespace:Module.ID? 
     {
-        self.path.append(.identifier(namespace.value))
-    }
-    mutating 
-    func append<Component>(lowercasing component:Component) 
-        where Component:StringProtocol
-    {
-        self.path.append(.identifier(component.lowercased()))
-    }
-    mutating 
-    func append<Components>(lowercasing components:Components)
-        where Components:Sequence, Components.Element:StringProtocol
-    {
-        for component:Components.Element in components 
+        guard case .identifier(let module, hyphen: nil)? = self.path.first
+        else 
         {
-            self.append(lowercasing: component)
+            return nil
         }
+        return .init(module)
+    }
+    
+    var disambiguator:Link.Disambiguator 
+    {
+        .init(host: self.query.host, base: self.query.base, 
+            suffix: self.path.last?.suffix ?? nil)
     }
 }

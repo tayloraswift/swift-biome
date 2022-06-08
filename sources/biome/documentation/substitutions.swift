@@ -9,7 +9,7 @@ struct Page
         public 
         struct Internal:Hashable, Sendable
         {
-            let target:Link.Target
+            let target:Ecosystem.Index
         } 
         
         case `internal`(Internal)

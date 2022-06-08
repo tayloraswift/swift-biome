@@ -381,30 +381,7 @@ extension Biome
     }
 }
 extension Documentation.URI
-{
-    static 
-    func encode<Component>(component:Component) -> [UInt8]
-        where Component:Sequence, Component.Element == UInt8
-    {
-        var utf8:[UInt8] = []
-            utf8.reserveCapacity(component.underestimatedCount)
-        for byte:UInt8 in component
-        {
-            if let unencoded:UInt8 = Self.normalize(byte: byte, mask: 0x20)
-            {
-                utf8.append(unencoded)
-            }
-            else 
-            {
-                // percent-encode
-                utf8.append(0x25) // '%'
-                utf8.append(Self.hex(uppercasing: byte >> 4))
-                utf8.append(Self.hex(uppercasing: byte & 0x0f))
-            }
-        }
-        return utf8
-    }
-    
+{    
     static 
     func normalize<Path>(path:Path) -> [[UInt8]]
         where Path:Sequence, Path.Element:Sequence, Path.Element.Element == UInt8
@@ -507,34 +484,6 @@ extension Documentation.URI
             }
         }
         return utf8
-    }
-    private static 
-    func hex(uppercasing value:UInt8) -> UInt8
-    {
-        (value < 10 ? 0x30 : 0x37) + value 
-    }
-    private static 
-    func normalize(byte:UInt8, mask:UInt8) -> UInt8?
-    {
-        switch byte 
-        {
-        case    0x41 ... 0x5a:  // [A-Z] -> [a-z]
-            return byte | mask
-        case    0x30 ... 0x39,  // [0-9]
-                0x61 ... 0x7a,  // [a-z]
-                0x2d,           // '-'
-                0x2e,           // '.'
-                // not technically a URL character, but browsers won’t render '%3A' 
-                // in the URL bar, and ':' is so common in Swift it is not worth 
-                // percent-encoding. 
-                // the ':' character also appears in legacy USRs.
-                0x3a,           // ':' 
-                0x5f,           // '_'
-                0x7e:           // '~'
-            return byte 
-        default: 
-            return nil 
-        }
     }
     
     enum Rule<Location> 

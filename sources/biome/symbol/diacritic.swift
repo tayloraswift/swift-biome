@@ -33,7 +33,7 @@ extension Symbol
         }
         var host:Index? 
         {
-            self.base != self.diacritic.host ? self.diacritic.host : nil
+            self.base == self.diacritic.host ? nil : self.diacritic.host 
         }
         
         init(natural:Index) 

@@ -2,13 +2,27 @@ extension Symbol
 {
     struct Groups 
     {
-        private(set)
+        private
         var table:[Route: Group]
+        
+        var _count:Int 
+        {
+            self.table.count
+        }
         
         init()
         {
             self.table = [:]
         }
+        
+        subscript(route:Route) -> Group
+        {
+            self.table[route] ?? .none
+        }
+        /* subscript(namespace:Module.Index, stem:Route.Stem, leaf:Route.Leaf) -> Group
+        {
+            self[.init(namespace, stem, leaf)]
+        } */
         
         mutating 
         func insert(natural:Index, at route:Route)

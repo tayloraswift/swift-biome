@@ -64,20 +64,38 @@ struct Biome
         {
             return nil 
         }
-        switch self[link.reference]
+        
+        guard case let (selection, version, redirected)? = self.resolve(uri: link.reference)
+        else 
         {
-        case nil: 
-            return nil 
-        case .one(let target)?: 
-            return .matched(canonical: "", .text("\(target)"))
-        case .many(let targets)?:
-            return .matched(canonical: "", .text("\(targets)"))
+            return nil
+        }
+        guard let index:Ecosystem.Index = selection.index 
+        else 
+        {
+            return .matched(canonical: "", .text("\(version): \(selection.possibilities)"))
+        }
+        
+        let location:URI = self.location(of: index, at: version)
+        if  location ~= uri 
+        {
+            return .matched(canonical: "", .text("success!"))
+        }
+        else if redirected 
+        {
+            return .maybe(canonical: "", at: location.description)
+        }
+        else 
+        {
+            return .found(canonical: "", at: location.description)
         }
     }
-    subscript<Tail>(link:Link.Reference<Tail>) -> Link.Resolution?
+    
+    func resolve<Tail>(uri:Link.Reference<Tail>) 
+        -> (selection:Ecosystem.Selection, version:Version, redirected:Bool)?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
-        guard let prefix:String = link.first?.identifier ?? nil
+        guard let prefix:String = uri.first?.identifier ?? nil
         else 
         {
             return nil
@@ -85,7 +103,7 @@ struct Biome
         switch self.keys[leaf: prefix]
         {
         case self.keyword.master?:
-            return self.ecosystem.resolveGlobalLinkWithRedirect(link.dropFirst(), keys: self.keys) 
+            return self.ecosystem.resolve(location: uri.dropFirst(), keys: self.keys) 
             
         case self.keyword.doc?:
             break
@@ -139,7 +157,7 @@ struct Biome
         
         let comments:[Symbol.Index: String] = 
             Self.comments(from: _move(symbols), pruning: hints)
-        let documentation:[Link.Target: Documentation] = 
+        let documentation:[Ecosystem.Index: Documentation] = 
             self.ecosystem.compileDocumentation(for: index, 
                 extensions: _move(extensions),
                 articles: _move(articles),

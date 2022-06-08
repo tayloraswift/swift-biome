@@ -327,6 +327,6 @@ extension Ecosystem
             }
         }
         
-        print("(\(self[index].id)) found \(self[index].groups.table.count) addressable endpoints")
+        print("(\(self[index].id)) found \(self[index].groups._count) addressable endpoints")
     }
 }
