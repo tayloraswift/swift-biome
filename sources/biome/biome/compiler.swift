@@ -211,7 +211,7 @@ extension Ecosystem
             {
                 // note: empty doccomments are omitted from the documentation buffer
                 guard let sponsor:Keyframe<Documentation>.Buffer.Index = 
-                    self[sponsor.module.package].documentation(forLocal: sponsor, 
+                    self.findDocumentation(for: sponsor, 
                         at: pins[sponsor.module.package])
                 else 
                 {

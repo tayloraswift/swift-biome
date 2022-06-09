@@ -1,3 +1,5 @@
+import Notebook
+
 public 
 struct Module:Identifiable, Sendable
 {
@@ -71,12 +73,12 @@ struct Module:Identifiable, Sendable
         self.heads = .init()
     }
     
-    var fragments:[(text:String, color:Fragment.Color, link:Symbol.Index?)] 
+    var fragments:[Notebook<Highlight, Symbol.Index>.Fragment] 
     {
         [
-            ("import",     color: .keywordText, link: nil),
-            (" ",          color: .text,        link: nil),
-            (self.name,    color: .identifier,  link: nil),
+            .init("import",     color: .keywordText),
+            .init(" ",          color: .text),
+            .init(self.name,    color: .identifier),
         ]
     }
     

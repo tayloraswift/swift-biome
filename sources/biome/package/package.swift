@@ -177,12 +177,6 @@ struct Package:Identifiable, Sendable
         }
     }
     
-    func documentation(forLocal symbol:Symbol.Index, at version:Version)
-        -> Keyframe<Documentation>.Buffer.Index?
-    {
-        self.documentation.find(version, head: self[local: symbol].heads.documentation)
-    }
-    
     func depth(of composite:Symbol.Composite, at version:Version, route:Route)
         -> (host:Bool, base:Bool)
     {

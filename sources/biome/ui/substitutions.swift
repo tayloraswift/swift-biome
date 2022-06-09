@@ -1,29 +1,177 @@
 import HTML
 
-/* extension Ecosystem 
+extension Ecosystem 
 {
-    func navigator(for symbol:Symbol, in scope:Int?) -> HTML.Element<Index>
+    private static 
+    func constants(filter:[Package.ID]) -> String
     {
-        var breadcrumbs:[Element]   = [ Element[.li] { symbol.title } ]
-        var next:Int?               = scope ?? symbol.parent
-        while let index:Int         = next
-        {
-            breadcrumbs.append(Element[.li]
-            {
-                Element.link(self.biome.symbols[index].title, to: self.format(uri: self.uri(witness: index, victim: nil)), internal: true)
-            })
-            next = self.biome.symbols[index].parent
-        }
-        return Element[.ol] 
-        {
-            ["breadcrumbs-container"]
-        }
-        content:
-        {
-            breadcrumbs.reversed()
-        }
+        // package name is alphanumeric, we should enforce this in 
+        // `Package.ID`, otherwise this could be a security hole
+        """
+        includedPackages = [\(filter.map { "'\($0.string)'" }.joined(separator: ","))];
+        """
     }
-} */
+    private 
+    func navigator(base:Symbol, host:Symbol.Index?) -> HTML.Element<Index>
+    {
+        var crumbs:[HTML.Element<Index>] = [.li(base.name)]
+        var next:Symbol.Index? = host ?? base.shape?.index
+        while let index:Symbol.Index = next
+        {
+            let current:Symbol = self[index]
+            let crumb:HTML.Element<Index> = .a(.highlight(escaping: current.name, .type))
+            {
+                ("href", .anchor(.symbol(index)))
+            }
+            crumbs.append(.li(crumb))
+            next = current.shape?.index
+        }
+        crumbs.reverse()
+        return .ol(items: crumbs) { ("class", "breadcrumbs-container") }
+    }
+    func substitutions(for composite:Symbol.Composite, at version:Version) 
+        -> [Page.Anchor: HTML.Element<Index>]
+    {
+        // let dynamic:(sections:[Element], cards:Set<Int>) = self.dynamicContent(witness: witness)
+        
+        let base:Symbol = self[composite.base]
+        
+        guard let declaration:Symbol.Declaration = 
+            self.declaration(for: composite.base, at: version)
+        else 
+        {
+            return [:]
+        }
+        
+        var substitutions:[Page.Anchor: HTML.Element<Index>] = 
+        [
+            .title:        .text(escaping: base.name), 
+            .headline:     .h1(base.name), 
+            .constants:    .text(escaped: Self.constants(filter: [])),
+            
+            .navigator:     self.navigator(base: base, host: composite.host),
+            
+            .kind:         .text(escaping: base.color.title),
+            .fragments:    .render(fragments: declaration.fragments),
+            // .dynamic:       Element[.div]
+            // {
+            //     ["lower-container"]
+            // }
+            // content:
+            // {
+            //     dynamic.sections
+            // },
+        ]
+        
+        substitutions[.platforms] = .render(
+            availability: declaration.availability.platforms)
+        substitutions[.availability] = .render(
+            availability: 
+        (
+            declaration.availability.swift, 
+            declaration.availability.general
+        ))
+        
+        return substitutions
+        
+        /* if case nil = substitutions.index(forKey: .summary)
+        {
+            substitutions[.summary]     = Element[.p]
+            {
+                "No overview available."
+            }
+        }
+        for origin:Int in dynamic.cards 
+        {
+            substitutions[.reference(.symbol(origin, victim: nil))] = self.symbols[origin].summary.map(self.fill(template:))
+        }
+        
+        let metropole:Element?
+        if let module:Int   = symbol.module
+        {
+            if      let victim:Int      = victim, 
+                    let namespace:Int   = self.biome.symbols[victim].namespace, namespace != module
+            {
+                metropole   = self.link(module: namespace)
+            }
+            else if let namespace:Int   =                     symbol.namespace, namespace != module 
+            {
+                metropole   = self.link(module: namespace)
+            }
+            else 
+            {
+                metropole   = nil
+            }
+            substitutions[.colony] = self.link(module: module)
+        }
+        else 
+        {
+            metropole = nil
+            substitutions[.colony] = Element.span("(Mythical)") 
+        }
+        if let metropole:Element = metropole  
+        {
+            substitutions[.metropole] = Element[.span]
+            {
+                ["metropole"]
+            }
+            content:
+            {
+                metropole
+            }
+        }
+        
+        var relationships:[Element] 
+        if case _? = symbol.relationships.requirementOf
+        {
+            relationships = 
+            [
+                Element[.li] 
+                {
+                    Element[.p]
+                    {
+                        ["required"]
+                    }
+                    content:
+                    {
+                        "Required."
+                    }
+                }
+            ]
+        }
+        else 
+        {
+            relationships = []
+        }
+        
+        if !symbol.extensionConstraints.isEmpty
+        {
+            relationships.append(Element[.li] 
+            {
+                Element[.p]
+                {
+                    "Available when "
+                    self.constraints(symbol.extensionConstraints)
+                }
+            })
+        }
+        if !relationships.isEmpty 
+        {
+            substitutions[.relationships] = Element[.ul]
+            {
+                ["relationships-list"]
+            }
+            content: 
+            {
+                relationships
+            }
+        }
+        
+        let article:Article.Rendered<ResolvedLink>.Content = self.symbols[symbol.sponsor ?? witness]
+        substitutions[.summary]     = article.summary.map(self.fill(template:))
+        substitutions[.discussion]  = article.discussion.map(self.fill(template:)) */
+    }
+} 
 
 public
 struct Page 
@@ -51,7 +199,7 @@ struct Page
         case availability 
         
         case platforms
-        case declaration
+        case fragments
         
         case headline
         case introduction
@@ -136,15 +284,7 @@ struct Page
         .bytes(utf8: self.fill(template: template))
     }
     
-    private static 
-    func constants(filter:[Package.ID]) -> String
-    {
-        // package name is alphanumeric, we should enforce this in 
-        // `Package.ID`, otherwise this could be a security hole
-        """
-        includedPackages = [\(filter.map { "'\($0.name)'" }.joined(separator: ","))];
-        """
-    }
+
 
     public 
     func substitutions(for article:Article.Rendered<ResolvedLink>) -> [Anchor: Element] 
@@ -248,7 +388,7 @@ struct Page
             },
             .kind:         .text(escaped: "Module"),
             .metropole:     self.link(package: module.package),
-            .declaration:   Self.declaration(for: module),
+            .fragments:     Self.fragments(for: module),
             .dynamic:       Element[.div]
             {
                 ["lower-container"]
@@ -271,145 +411,7 @@ struct Page
         
         return substitutions
     }
-    func substitutions(witness:Int, victim:Int?, filter:[Package.ID]) -> [Anchor: Element] 
-    {
-        let symbol:Symbol = self.biome.symbols[witness]
-        let dynamic:(sections:[Element], cards:Set<Int>) = self.dynamicContent(witness: witness)
-        
-        var substitutions:[Anchor: Element] = 
-        [
-            .title:        .text(escaping: symbol.title), 
-            .headline:     Element[.h1] { symbol.title }, 
-            .constants:    .text(escaped: Self.constants(filter: filter)),
-            
-            .navigator:     self.navigator(for: symbol, in: victim),
-            
-            .kind:         .text(escaping: symbol.kind.title),
-            .declaration:   self.declaration(for: symbol),
-            .dynamic:       Element[.div]
-            {
-                ["lower-container"]
-            }
-            content:
-            {
-                dynamic.sections
-            },
-        ]
-        
-        substitutions[.platforms]   = Self.platforms(availability: symbol.platforms)
-        
-        if case nil = substitutions.index(forKey: .summary)
-        {
-            substitutions[.summary]     = Element[.p]
-            {
-                "No overview available."
-            }
-        }
-        for origin:Int in dynamic.cards 
-        {
-            substitutions[.reference(.symbol(origin, victim: nil))] = self.symbols[origin].summary.map(self.fill(template:))
-        }
-        
-        let metropole:Element?
-        if let module:Int   = symbol.module
-        {
-            if      let victim:Int      = victim, 
-                    let namespace:Int   = self.biome.symbols[victim].namespace, namespace != module
-            {
-                metropole   = self.link(module: namespace)
-            }
-            else if let namespace:Int   =                     symbol.namespace, namespace != module 
-            {
-                metropole   = self.link(module: namespace)
-            }
-            else 
-            {
-                metropole   = nil
-            }
-            substitutions[.colony] = self.link(module: module)
-        }
-        else 
-        {
-            metropole = nil
-            substitutions[.colony] = Element.span("(Mythical)") 
-        }
-        if let metropole:Element = metropole  
-        {
-            substitutions[.metropole] = Element[.span]
-            {
-                ["metropole"]
-            }
-            content:
-            {
-                metropole
-            }
-        }
-        
-        var relationships:[Element] 
-        if case _? = symbol.relationships.requirementOf
-        {
-            relationships = 
-            [
-                Element[.li] 
-                {
-                    Element[.p]
-                    {
-                        ["required"]
-                    }
-                    content:
-                    {
-                        "Required."
-                    }
-                }
-            ]
-        }
-        else 
-        {
-            relationships = []
-        }
-        
-        if !symbol.extensionConstraints.isEmpty
-        {
-            relationships.append(Element[.li] 
-            {
-                Element[.p]
-                {
-                    "Available when "
-                    self.constraints(symbol.extensionConstraints)
-                }
-            })
-        }
-        let availability:[Element] = Self.availability(symbol.availability)
-        
-        if !relationships.isEmpty 
-        {
-            substitutions[.relationships] = Element[.ul]
-            {
-                ["relationships-list"]
-            }
-            content: 
-            {
-                relationships
-            }
-        }
-        if !availability.isEmpty 
-        {
-            substitutions[.availability] = Element[.ul]
-            {
-                ["availability-list"]
-            }
-            content: 
-            {
-                availability
-            }
-        }
-        
-        let article:Article.Rendered<ResolvedLink>.Content = self.symbols[symbol.sponsor ?? witness]
-        substitutions[.summary]     = article.summary.map(self.fill(template:))
-        substitutions[.discussion]  = article.discussion.map(self.fill(template:))
-        
-        return substitutions
-    }
+
     
     private 
     func link(package:Int) -> Element
@@ -423,12 +425,12 @@ struct Page
     }
     
     private 
-    func highlight(_ text:String, _ color:Fragment.Color, link:Int?) -> Element
+    func highlight(_ text:String, _ color:Highlight, link:Int?) -> Element
     {
         return link.map { self.highlight(text, color, link: $0) } ?? .highlight(text, color)
     }
     private 
-    func highlight(_ text:String, _ color:Fragment.Color, link index:Int) -> Element
+    func highlight(_ text:String, _ color:Highlight, link index:Int) -> Element
     {
         .link(text, to: self.format(uri: self.uri(witness: index, victim: nil)), internal: true)
         {

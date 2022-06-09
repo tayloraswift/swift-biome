@@ -1,3 +1,4 @@
+import Notebook
 import Resource 
 import JSON 
 
@@ -246,7 +247,7 @@ extension Module
             // generate vertices for underscored protocols
             for (id, name):(Symbol.ID, String) in protocols 
             {
-                let fragments:[Fragment] = 
+                let fragments:[Notebook<Highlight, Symbol.ID>.Fragment] = 
                 [
                     .init("protocol",   color: .keywordText),
                     .init(" ",          color: .text),

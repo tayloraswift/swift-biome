@@ -145,8 +145,6 @@ enum DefaultTemplates
                             }
                             content: 
                             {
-                                //Element.anchor(.introduction)
-                                
                                 Element[.section]
                                 {
                                     ("class", "introduction")
@@ -188,7 +186,7 @@ enum DefaultTemplates
                                 }
                                 
                                 Element.anchor(.platforms)
-                                Element.anchor(.declaration)
+                                Element.anchor(.fragments)
                                 
                                 Element.anchor(.introduction)
                                 Element.anchor(.discussion)

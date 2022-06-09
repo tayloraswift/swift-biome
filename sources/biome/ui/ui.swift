@@ -4,7 +4,7 @@ import Notebook
 extension DOM.Element where Domain == HTML
 {
     static 
-    func highlight(escaping string:String, _ color:Fragment.Color, href anchor:Anchor?) 
+    func highlight(escaping string:String, _ color:Highlight, href anchor:Anchor?) 
         -> Self
     {
         if let anchor:Anchor = anchor
@@ -23,12 +23,12 @@ extension DOM.Element where Domain == HTML
 extension DOM.Element where Domain == HTML 
 {
     static 
-    func highlight(escaping string:String, _ color:Fragment.Color) -> Self
+    func highlight(escaping string:String, _ color:Highlight) -> Self
     {
         Self.highlight(.text(escaping: string), color)
     }
     static 
-    func highlight(_ child:Self, _ color:Fragment.Color) -> Self
+    func highlight(_ child:Self, _ color:Highlight) -> Self
     {
         let classes:String
         switch color
@@ -68,34 +68,19 @@ extension DOM.Element where Domain == HTML
     } 
 }
 
-extension HTML 
+extension DOM.Element where Domain == HTML, Anchor == Ecosystem.Index 
 {
     static 
-    func render<Fragments>(fragments:Fragments) -> Element<Ecosystem.Index>
-        where Fragments:Sequence, Fragments.Element == (String, Fragment.Color, Symbol.Index?)
+    func render<Fragments>(fragments:Fragments) -> Self
+        where   Fragments:Sequence, 
+                Fragments.Element == Notebook<Highlight, Symbol.Index>.Fragment
     {
-        Element<Ecosystem.Index>[.section]
+        let fragments:[Self] = fragments.map 
         {
-            ("class", "declaration")
+            .highlight(escaping: $0.text, $0.color, href: $0.link.map(Ecosystem.Index.symbol(_:)))
         }
-        content:
-        {
-            Element<Ecosystem.Index>[.pre]
-            {
-                Element<Ecosystem.Index>[.code] 
-                {
-                    ("class", "swift")
-                }
-                content: 
-                {
-                    for (text, color, link):(String, Fragment.Color, Symbol.Index?) in fragments 
-                    {
-                        .highlight(escaping: text, color, 
-                            href: link.map(Ecosystem.Index.symbol(_:)))
-                    }
-                }
-            }
-        }
+        let code:Self = .code(fragments) { ("class", "swift") }
+        return .section(.pre(code)) { ("class", "declaration") }
     }
 }
 
@@ -159,10 +144,10 @@ extension HTML
     }
 }
 
-extension HTML 
+extension DOM.Element where Domain == HTML, Anchor == Ecosystem.Index 
 {
-    static 
-    func render(availability:UnversionedAvailability?) -> Element<Ecosystem.Index>?
+    private static 
+    func render(availability:UnversionedAvailability?) -> Self?
     {
         guard let availability:UnversionedAvailability = availability
         else 
@@ -184,8 +169,8 @@ extension HTML
         }
         return .li { "\(adjective, as: .strong)" }
     }
-    static 
-    func render(availability:SwiftAvailability?) -> Element<Ecosystem.Index>?
+    private static 
+    func render(availability:SwiftAvailability?) -> Self?
     {
         guard let availability:SwiftAvailability = availability
         else 
@@ -193,7 +178,7 @@ extension HTML
             return nil 
         }
         let adjective:String 
-        let toolchain:Element<Ecosystem.Index>
+        let toolchain:Self
         if let version:Version = availability.obsoleted 
         {
             adjective = "Obsolete"
@@ -215,14 +200,29 @@ extension HTML
         }
         return .li { "\(adjective, as: .strong) since Swift \(toolchain)" }
     }
-}
-
-extension HTML 
-{
-    static
-    func render(availability:[Platform: VersionedAvailability]) -> Element<Ecosystem.Index>?
+    
+    static 
+    func render(availability:(swift:SwiftAvailability?, general:UnversionedAvailability?)) 
+        -> Self?
     {
-        var platforms:[Element<Ecosystem.Index>] = []
+        var items:[Self] = []
+        if  let swift:SwiftAvailability = availability.swift, 
+            let item:Self = .render(availability: swift)
+        {
+            items.append(item)
+        }
+        if  let general:UnversionedAvailability = availability.general, 
+            let item:Self = .render(availability: general)
+        {
+            items.append(item)
+        }
+        return items.isEmpty ? nil : .ul(items: items) { ("class", "availability-list") }
+    }
+    
+    static
+    func render(availability:[Platform: VersionedAvailability]) -> Self?
+    {
+        var platforms:[Self] = []
         for platform:Platform in Platform.allCases
         {
             guard let availability:VersionedAvailability = availability[platform]
@@ -253,17 +253,7 @@ extension HTML
         }
         else 
         {
-            return Element<Ecosystem.Index>[.section]
-            {
-                ("class", "platforms")
-            }
-            content: 
-            {
-                Element<Ecosystem.Index>[.ul]
-                {
-                    platforms
-                }
-            }
+            return .section(.ul(items: platforms)) { ("class", "platforms") }
         }
     }
 }

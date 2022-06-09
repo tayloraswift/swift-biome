@@ -63,18 +63,9 @@ extension Extension
             }
         } */
     } */
-    
-    
     struct Renderer 
     {
         typealias Element = HTML.Element<String>
-        
-        private 
-        enum CodeBlockLanguage:String 
-        {
-            case swift  = "swift"
-            case text   = "text"
-        }
         
         private 
         let rank:Int
@@ -265,7 +256,7 @@ extension Extension
                     fragments.append(.text(escaping: next))
                 }
             case .swift:
-                for (text, color):(String, Fragment.Color) in Fragment.highlight(code)
+                for (text, color):(String, Highlight) in Self.highlight(code)
                 {
                     fragments.append(.highlight(escaping: text, color))
                 }
@@ -301,7 +292,7 @@ extension Extension
                 case .text: 
                     code 
                 case .swift:
-                    for (text, color):(String, Fragment.Color) in Fragment.highlight(code)
+                    for (text, color):(String, Highlight) in Self.highlight(code)
                     {
                         Element.highlight(escaping: text, color)
                     }

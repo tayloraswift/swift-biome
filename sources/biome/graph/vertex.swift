@@ -35,8 +35,8 @@ struct Vertex:Sendable
     struct Frame:Sendable 
     {
         var availability:Availability 
-        var declaration:Notebook<Fragment.Color, Symbol.ID> 
-        var signature:Notebook<Fragment.Color, Never> 
+        var declaration:Notebook<Highlight, Symbol.ID> 
+        var signature:Notebook<Highlight, Never> 
         var generics:[Generic] 
         var genericConstraints:[Generic.Constraint<Symbol.ID>] 
         var extensionConstraints:[Generic.Constraint<Symbol.ID>] 
@@ -126,14 +126,20 @@ extension Image
             
             let _:AccessLevel = try $0.remove("accessLevel") { try $0.case(of: AccessLevel.self) }
             
-            let declaration:Notebook<Fragment.Color, Symbol.ID> = .init(
-                try $0.remove("declarationFragments") { try $0.map(Fragment.init(from:)) })
-            let signature:Notebook<Fragment.Color, Never> = .init(
+            let declaration:Notebook<Highlight, Symbol.ID> = .init(
+                try $0.remove("declarationFragments") 
+            { 
+                try $0.map(Notebook<Highlight, Symbol.ID>.Fragment.init(from:)) 
+            })
+            let signature:Notebook<Highlight, Never> = .init(
                 try $0.remove("names")
             {
                 try $0.lint(["title", "navigator"])
                 {
-                    try $0.remove("subHeading") { try $0.map(Fragment.init(from:)) }
+                    try $0.remove("subHeading") 
+                    { 
+                        try $0.map(Notebook<Highlight, Symbol.ID>.Fragment.init(from:)) 
+                    }
                 }
             })
             let _:(String, Int, Int)? = try $0.pop("location")

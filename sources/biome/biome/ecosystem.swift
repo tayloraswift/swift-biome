@@ -238,3 +238,31 @@ extension Ecosystem
         })
     }
 }
+extension Ecosystem 
+{
+    func findDocumentation(for symbol:Symbol.Index, at version:Version)
+        -> Keyframe<Documentation>.Buffer.Index?
+    {
+        self[symbol.module.package].documentation
+            .find(version, head: self[symbol].heads.documentation)
+    }
+    
+    func documentation(for symbol:Symbol.Index, at version:Version)
+    -> Documentation?
+    {
+        self[symbol.module.package].documentation
+            .at(version, head: self[symbol].heads.documentation)
+    }
+    func declaration(for symbol:Symbol.Index, at version:Version)
+        -> Symbol.Declaration?
+    {
+        self[symbol.module.package].declarations
+            .at(version, head: self[symbol].heads.declaration)
+    }
+    func facts(for symbol:Symbol.Index, at version:Version)
+        -> Symbol.Predicates?
+    {
+        self[symbol.module.package].facts
+            .at(version, head: self[symbol].heads.facts)
+    }
+}
