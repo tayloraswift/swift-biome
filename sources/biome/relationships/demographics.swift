@@ -26,109 +26,24 @@ extension Symbol
         case `func`
         case `operator`
     }
-    enum Kind:Sendable 
+    // should have stride of 16 B, as well as `Shape?` and `Shape??`
+    enum Shape:Sendable, Hashable, CustomStringConvertible
     {
-        case `associatedtype`
-        case `enum`(Route.Stem)
-        case `struct`(Route.Stem)
-        case `class`(Route.Stem)
-        case `actor`(Route.Stem)
-        case `case`
-        case  initializer
-        case  deinitializer
-        case  typeSubscript
-        case  instanceSubscript
-        case  typeProperty
-        case  instanceProperty
-        case  typeMethod
-        case  instanceMethod
-        case `typeOperator`
-        case `var`
-        case `func`
-        case `operator`
-        case `protocol`
-        case `typealias`
+        // not the same as `global`; extensions on protocol composition types 
+        // are also geeds
+        case member(of:Index)
+        case requirement(of:Index)
         
-        var path:Route.Stem?
+        var description:String 
         {
             switch self 
             {
-            case    .enum(let path), 
-                    .struct(let path), 
-                    .class(let path), 
-                    .actor(let path):
-                return path 
-            default: 
-                return nil 
-            }
-        }
-        
-        static 
-        func concretetype(_ subtype:ConcreteType, path:Route.Stem) -> Self 
-        {
-            switch subtype 
-            {
-            case .enum:                 return .enum(path)
-            case .struct:               return .struct(path)
-            case .class:                return .class(path)
-            case .actor:                return .actor(path)
-            }
-        }
-        static 
-        func callable(_ subtype:Callable) -> Self 
-        {
-            switch subtype 
-            {
-            case .case:                 return .case
-            case .initializer:          return .initializer
-            case .deinitializer:        return .deinitializer
-            case .typeSubscript:        return .typeSubscript
-            case .instanceSubscript:    return .instanceSubscript
-            case .typeProperty:         return .typeProperty
-            case .instanceProperty:     return .instanceProperty
-            case .typeMethod:           return .typeMethod
-            case .instanceMethod:       return .instanceMethod
-            case .typeOperator:         return .typeOperator
-            }
-        }
-        static 
-        func global(_ subtype:Global) -> Self 
-        {
-            switch subtype 
-            {
-            case .var:                  return .var
-            case .func:                 return .func
-            case .operator:             return .operator
-            }
-        }
-        
-        var color:Color 
-        {
-            switch self 
-            {
-            case .associatedtype:       return .associatedtype
-            case .enum(_):              return .concretetype(.enum)
-            case .struct(_):            return .concretetype(.struct)
-            case .class(_):             return .concretetype(.class)
-            case .actor(_):             return .concretetype(.actor)
-            case .case:                 return .callable(.case)
-            case .initializer:          return .callable(.initializer)
-            case .deinitializer:        return .callable(.deinitializer)
-            case .typeSubscript:        return .callable(.typeSubscript)
-            case .instanceSubscript:    return .callable(.instanceSubscript)
-            case .typeProperty:         return .callable(.typeProperty)
-            case .instanceProperty:     return .callable(.instanceProperty)
-            case .typeMethod:           return .callable(.typeMethod)
-            case .instanceMethod:       return .callable(.instanceMethod)
-            case .typeOperator:         return .callable(.typeOperator)
-            case .var:                  return .global(.var)
-            case .func:                 return .global(.func)
-            case .operator:             return .global(.operator)
-            case .protocol:             return .protocol
-            case .typealias:            return .typealias
+            case .member:       return "member"
+            case .requirement:  return "requirement"
             }
         }
     }
+    
     enum Color:Sendable, Hashable, RawRepresentable
     {
         case `associatedtype`

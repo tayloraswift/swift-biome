@@ -96,8 +96,8 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         var documentation:Keyframe<Documentation>.Buffer.Index?
         @Keyframe<Declaration>.Head
         var declaration:Keyframe<Declaration>.Buffer.Index?
-        @Keyframe<Facts>.Head
-        var facts:Keyframe<Facts>.Buffer.Index?
+        @Keyframe<Predicates>.Head
+        var facts:Keyframe<Predicates>.Buffer.Index?
         
         init() 
         {
@@ -120,7 +120,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     let path:Path
     let kind:Kind
     let route:Route
-    
+    var shape:Shape?
     var heads:Heads
     var pollen:Set<Module.Pin>
     
@@ -158,6 +158,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         self.path = path
         self.kind = kind
         self.route = route
+        self.shape = nil
         
         self.heads = .init()
         self.pollen = []

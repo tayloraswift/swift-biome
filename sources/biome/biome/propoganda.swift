@@ -1,21 +1,6 @@
-extension Module 
-{
-    struct Beliefs 
-    {
-        var facts:[Symbol.Index: Symbol.Facts]
-        var opinions:[Package.Index: [Symbol.Index: Symbol.Traits]]
-        
-        init(facts:[Symbol.Index: Symbol.Facts])
-        {
-            self.facts = facts
-            self.opinions = [:]
-        }
-    }
-}
-
 extension Ecosystem 
 {
-    typealias Opinions = [Package.Index: [Symbol.Index: [Symbol.Trait]]]
+    // typealias Opinions = [Package.Index: [Symbol.Index: [Symbol.Trait]]]
     
     mutating 
     func updateImplicitSymbols<Symbols>(in index:Package.Index, 
@@ -33,11 +18,13 @@ extension Ecosystem
                 about: symbols,
                 from: speeches)
         
-        self.updateCompositeGroups(in: index, facts: facts, opinions: opinions)
-        // ``updateCompositeGroups(in:facts:opinions:)`` doesn’t read from the 
-        // keyframe buffers, so it’s okay to call it before ``updateRelationships(ideology:)``.
+        // none of these methods read from the keyframe buffers, so we can order 
+        // the method calls any way we like...
+        self[index].assignShapes(facts)
         self[index].updateFacts(facts)
         self[index].updateOpinions(opinions)
+        self.updateCompositeGroups(in: index, facts: _move(facts), opinions: opinions)
+        
         // pollinate opinions 
         let current:Version = self[index].latest
         for diacritic:Symbol.Diacritic in opinions.keys 
@@ -68,7 +55,7 @@ extension Ecosystem
             zip(cultures, zip(speeches, symbols))
         {
             var traits:[Symbol.Index: [Symbol.Trait]] = [:]
-            var predicates:[Symbol.Index: [Symbol.Predicate]] = [:]
+            var roles:[Symbol.Index: [Symbol.Role]] = [:]
             for (subject, predicate):Symbol.Statement in statements 
             {
                 switch (culture == subject.module, predicate)
@@ -76,15 +63,18 @@ extension Ecosystem
                 case (false,  .is(let role)):
                     throw AuthorityError.externalSymbol(subject, is: role, accordingTo: culture)
                 case (false, .has(let trait)):
-                    traits[subject, default: []].append(trait)
-                case (true,       let predicate):
-                    predicates[subject, default: []].append(predicate)
+                    traits  [subject, default: []].append(trait)
+                case (true,  .has(let trait)):
+                    traits  [subject, default: []].append(trait)
+                case (true,   .is(let role)):
+                    roles   [subject, default: []].append(role)
                 }
             }
             for symbol:Symbol.Index in symbols 
             {
                 facts[symbol] = try .init(
-                    validating: predicates.removeValue(forKey: symbol) ?? [], 
+                    traits: traits.removeValue(forKey: symbol) ?? [],
+                    roles: roles.removeValue(forKey: symbol) ?? [], 
                     as: self[symbol].color)
             }
             for (symbol, traits):(Symbol.Index, [Symbol.Trait]) in traits 
@@ -107,7 +97,7 @@ extension Ecosystem
                 facts.index(forKey: diacritic.host)
             {
                 assert(diacritic.host.module != diacritic.culture)
-                facts.values[index].external[diacritic.culture] = traits 
+                facts.values[index].predicates.external[diacritic.culture] = traits 
             }
         }
         
@@ -272,7 +262,7 @@ extension Ecosystem
             fatalError("unreachable")
         
         case (let source, is: let label, of: let target, unconditional: true):
-            throw Symbol.RelationshipError.miscegenation(source, cannotBe: label, of: target)
+            throw Symbol.ColorError.miscegenation(source, is: label, of: target)
         }
     }
 }
@@ -299,7 +289,7 @@ extension Ecosystem
                 continue 
             }
             for (culture, features):(Module.Index?, Set<Symbol.Index>) in 
-                facts.featuresAssumingConcreteType()
+                facts.predicates.featuresAssumingConcreteType()
             {
                 self[index].groups.insert(
                     diacritic: .init(host: host, culture: culture ?? host.module), 

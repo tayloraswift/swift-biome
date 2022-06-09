@@ -100,7 +100,7 @@ struct Package:Identifiable, Sendable
     var dependencies:Keyframe<Set<Module.Index>>.Buffer, 
         declarations:Keyframe<Symbol.Declaration>.Buffer
     private(set)
-    var facts:Keyframe<Symbol.Facts>.Buffer,
+    var facts:Keyframe<Symbol.Predicates>.Buffer,
         opinions:Keyframe<Symbol.Traits>.Buffer
     private(set)
     var documentation:Keyframe<Documentation>.Buffer
@@ -244,9 +244,10 @@ struct Package:Identifiable, Sendable
         {
             if let heads:Symbol.Heads = self[host]?.heads
             {
-                if  let facts:Symbol.Facts = self.facts.at(version, head: heads.facts), 
+                if  let predicates:Symbol.Predicates = self.facts.at(version, 
+                        head: heads.facts), 
                     let traits:Symbol.Traits = composite.culture == host.module ? 
-                        facts.internal : facts.external[composite.culture]
+                        predicates.internal : predicates.external[composite.culture]
                 {
                     return traits.features.contains(composite.base)
                 }
@@ -320,13 +321,22 @@ extension Package
     }
     
     mutating 
+    func assignShapes(_ facts:[Symbol.Index: Symbol.Facts])
+    {
+        for (index, facts):(Symbol.Index, Symbol.Facts) in facts
+        {
+            self.symbols[local: index].shape = facts.shape
+        }
+    }
+    
+    mutating 
     func updateFacts(_ facts:[Symbol.Index: Symbol.Facts])
     {
         for (index, facts):(Symbol.Index, Symbol.Facts) in facts
         {
             self.facts.update(head: &self.symbols[local: index].heads.facts, 
                 to: self.latest, 
-                with: facts)
+                with: facts.predicates)
         }
     }
     mutating 
