@@ -97,7 +97,8 @@ struct Package:Identifiable, Sendable
     private(set)
     var external:[Symbol.Diacritic: Keyframe<Symbol.Traits>.Buffer.Index]
     private(set)
-    var dependencies:Keyframe<Set<Module.Index>>.Buffer, 
+    var toplevels:Keyframe<Set<Symbol.Index>>.Buffer, 
+        dependencies:Keyframe<Set<Module.Index>>.Buffer, 
         declarations:Keyframe<Symbol.Declaration>.Buffer
     private(set)
     var facts:Keyframe<Symbol.Predicates>.Buffer,
@@ -131,6 +132,7 @@ struct Package:Identifiable, Sendable
         self.articles = .init()
         self.external = [:]
         
+        self.toplevels = .init()
         self.dependencies = .init()
         self.declarations = .init()
         
@@ -308,7 +310,24 @@ extension Package
             return try symbols.mapValues { try .init($0, scope: scope) }
         }
         self.updateDeclarations(declarations)
-        return declarations.map(\.keys)
+        
+        let positions:[Dictionary<Symbol.Index, Symbol.Declaration>.Keys] = 
+            declarations.map(\.keys)
+        // also update module toplevels 
+        for (scope, symbols):(Symbol.Scope, Dictionary<Symbol.Index, Symbol.Declaration>.Keys) 
+            in zip(scopes, positions)
+        {
+            var toplevel:Set<Symbol.Index> = [] 
+            for symbol:Symbol.Index in symbols where self[local: symbol].path.prefix.isEmpty
+            {
+                // a symbol is toplevel if it has a single path component. this 
+                // is not the same thing as having a `nil` shape.
+                toplevel.insert(symbol)
+            }
+            self.toplevels.update(head: &self.modules[local: scope.culture].heads.toplevel, 
+                to: self.latest, with: toplevel)
+        }
+        return positions
     }
     private mutating 
     func updateDeclarations(_ declarations:[[Symbol.Index: Symbol.Declaration]]) 
