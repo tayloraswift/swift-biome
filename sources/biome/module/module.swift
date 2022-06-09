@@ -68,6 +68,15 @@ struct Module:Identifiable, Sendable
         self.heads = .init()
     }
     
+    var fragments:[(text:String, color:Fragment.Color, link:Symbol.Index?)] 
+    {
+        [
+            ("import",     color: .keywordText, link: nil),
+            (" ",          color: .text,        link: nil),
+            (self.name,    color: .identifier,  link: nil),
+        ]
+    }
+    
     /// all symbols declared by this module, including symbols in other namespaces 
     /* var symbols:Symbol.IndexRange
     {

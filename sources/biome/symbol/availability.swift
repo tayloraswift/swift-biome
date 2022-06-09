@@ -1,4 +1,4 @@
-enum Platform:String, Hashable, Sendable 
+enum Platform:String, CaseIterable, Hashable, Sendable 
 {
     case iOS 
     case macOS
@@ -13,20 +13,6 @@ enum Platform:String, Hashable, Sendable
     case macCatalystApplicationExtension
     case tvOSApplicationExtension
     case watchOSApplicationExtension
-    
-    /* static 
-    var platforms:[Self]
-    {
-        [
-            Self.iOS ,
-            Self.macOS,
-            Self.macCatalyst,
-            Self.tvOS,
-            Self.watchOS,
-            Self.windows,
-            Self.openBSD,
-        ]
-    } */
 }
 
 enum AvailabilityError:Error 

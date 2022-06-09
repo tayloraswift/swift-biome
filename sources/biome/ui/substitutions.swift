@@ -1,5 +1,30 @@
 import HTML
 
+/* extension Ecosystem 
+{
+    func navigator(for symbol:Symbol, in scope:Int?) -> HTML.Element<Index>
+    {
+        var breadcrumbs:[Element]   = [ Element[.li] { symbol.title } ]
+        var next:Int?               = scope ?? symbol.parent
+        while let index:Int         = next
+        {
+            breadcrumbs.append(Element[.li]
+            {
+                Element.link(self.biome.symbols[index].title, to: self.format(uri: self.uri(witness: index, victim: nil)), internal: true)
+            })
+            next = self.biome.symbols[index].parent
+        }
+        return Element[.ol] 
+        {
+            ["breadcrumbs-container"]
+        }
+        content:
+        {
+            breadcrumbs.reversed()
+        }
+    }
+} */
+
 public
 struct Page 
 {
@@ -387,140 +412,6 @@ struct Page
     }
     
     private 
-    func navigator(for symbol:Symbol, in scope:Int?) -> Element
-    {
-        var breadcrumbs:[Element]   = [ Element[.li] { symbol.title } ]
-        var next:Int?               = scope ?? symbol.parent
-        while let index:Int         = next
-        {
-            breadcrumbs.append(Element[.li]
-            {
-                Element.link(self.biome.symbols[index].title, to: self.format(uri: self.uri(witness: index, victim: nil)), internal: true)
-            })
-            next = self.biome.symbols[index].parent
-        }
-        return Element[.ol] 
-        {
-            ["breadcrumbs-container"]
-        }
-        content:
-        {
-            breadcrumbs.reversed()
-        }
-    }
-    
-    private static 
-    func declaration(for module:Module) -> Element
-    {
-        Element[.section]
-        {
-            ["declaration"]
-        }
-        content:
-        {
-            Element[.pre]
-            {
-                Element[.code] 
-                {
-                    ["swift"]
-                }
-                content: 
-                {
-                    Element.highlight("import", .keywordText)
-                    Element.highlight(" ", .text)
-                    Element.highlight(module.id.string, .identifier)
-                }
-            }
-        }
-    }
-    private 
-    func declaration(for symbol:Symbol) -> Element
-    {
-        Element[.section]
-        {
-            ["declaration"]
-        }
-        content:
-        {
-            Element[.pre]
-            {
-                Element[.code] 
-                {
-                    ["swift"]
-                }
-                content: 
-                {
-                    symbol.declaration.map(self.highlight(_:_:link:))
-                }
-            }
-        }
-    }
-    
-    private static
-    func platforms(availability:[Biome.Domain: Symbol.Availability]) -> Element?
-    {
-        var platforms:[Element] = []
-        for platform:Biome.Domain in Biome.Domain.platforms 
-        {
-            if let availability:Symbol.Availability = availability[platform]
-            {
-                if availability.unavailable 
-                {
-                    platforms.append(Element[.li]
-                    {
-                        "\(platform.rawValue) unavailable"
-                    })
-                }
-                else if case nil? = availability.deprecated 
-                {
-                    platforms.append(Element[.li]
-                    {
-                        "\(platform.rawValue) deprecated"
-                    })
-                }
-                else if case let version?? = availability.deprecated 
-                {
-                    platforms.append(Element[.li]
-                    {
-                        "\(platform.rawValue) deprecated since "
-                        Element.span("\(version.description)")
-                        {
-                            ["version"]
-                        }
-                    })
-                }
-                else if let version:Package.Version = availability.introduced 
-                {
-                    platforms.append(Element[.li]
-                    {
-                        "\(platform.rawValue) "
-                        Element.span("\(version.description)+")
-                        {
-                            ["version"]
-                        }
-                    })
-                }
-            }
-        }
-        guard !platforms.isEmpty
-        else 
-        {
-            return nil
-        }
-        return Element[.section]
-        {
-            ["platforms"]
-        }
-        content: 
-        {
-            Element[.ul]
-            {
-                platforms
-            }
-        }
-    }
-
-    private 
     func link(package:Int) -> Element
     {
         .link(self.biome.packages[package].name, to: self.format(uri: self.uri(package: package)), internal: true)
@@ -531,64 +422,6 @@ struct Page
         .link(self.biome.modules[module].title, to: self.format(uri: self.uri(module: module)), internal: true)
     }
     
-    static 
-    func availability(_ availability:(unconditional:Symbol.UnconditionalAvailability?, swift:Symbol.SwiftAvailability?)) -> [Element]
-    {
-        var availabilities:[Element] = []
-        if let availability:Symbol.UnconditionalAvailability = availability.unconditional
-        {
-            if availability.unavailable 
-            {
-                availabilities.append(Self.availability("Unavailable"))
-            }
-            else if availability.deprecated 
-            {
-                availabilities.append(Self.availability("Deprecated"))
-            }
-        }
-        if let availability:Symbol.SwiftAvailability = availability.swift
-        {
-            if let version:Package.Version = availability.obsoleted 
-            {
-                availabilities.append(Self.availability("Obsolete", since: ("Swift", version)))
-            } 
-            else if let version:Package.Version = availability.deprecated 
-            {
-                availabilities.append(Self.availability("Deprecated", since: ("Swift", version)))
-            }
-            else if let version:Package.Version = availability.introduced
-            {
-                availabilities.append(Self.availability("Available", since: ("Swift", version)))
-            }
-        }
-        return availabilities
-    }
-    private static 
-    func availability(_ adjective:String, since:(domain:String, version:Package.Version)? = nil) -> Element
-    {
-        return Element[.li]
-        {
-            Element[.p]
-            {
-                Element[.strong]
-                {
-                    adjective
-                }
-                if let (domain, version):(String, Package.Version) = since 
-                {
-                    " since \(domain) "
-                    Element.span(version.description)
-                    {
-                        ["version"]
-                    }
-                }
-            }
-        }
-    }
-    
-
-
-
     private 
     func highlight(_ text:String, _ color:Fragment.Color, link:Int?) -> Element
     {

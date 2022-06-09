@@ -86,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-structured-document",
       "state" : {
-        "revision" : "4ef2c5dec47a5123c7a9380e0765d493859638f2",
-        "version" : "0.3.0"
+        "revision" : "c42b1122e2c77311a386e6db6e5691caf3663a26",
+        "version" : "0.3.1"
       }
     },
     {
