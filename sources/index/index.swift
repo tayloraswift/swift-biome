@@ -73,9 +73,9 @@ extension Package
                     // always 3 components 
                     let numbers:[Substring] = string.split(separator: ".")
                     if  numbers.count == 3, 
-                        let major:Int = .init(numbers[0]),
-                        let minor:Int = .init(numbers[1]),
-                        let patch:Int = .init(numbers[2])
+                        let major:UInt16 = .init(numbers[0]),
+                        let minor:UInt16 = .init(numbers[1]),
+                        let patch:UInt16 = .init(numbers[2])
                     {
                         self.pins[id] = .tag(major, (minor, (patch, nil)))
                     }
@@ -87,9 +87,9 @@ extension Package
                         words[0] == "swift", 
                         words[1] == "DEVELOPMENT", 
                         words[2] == "SNAPSHOT", 
-                        let year:Int = .init(words[3]), 
-                        let month:Int = .init(words[4]), 
-                        let day:Int = .init(words[5]), 
+                        let year:UInt16 = .init(words[3]), 
+                        let month:UInt16 = .init(words[4]), 
+                        let day:UInt16 = .init(words[5]), 
                         let letter:Unicode.Scalar = words[6].unicodeScalars.first,
                         "a" ... "z" ~= letter
                     {

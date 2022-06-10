@@ -2,21 +2,47 @@ import JSON
 // FIXME: this is full of security vulnerabilities!
 @frozen public 
 struct Version:Hashable, CustomStringConvertible, Sendable
-{
-    typealias Date  = (year:Int, month:Int, day:Int, letter:Unicode.Scalar)
-    typealias Tag   = (major:Int, (minor:Int, (patch:Int, edition:Int?)?)?)
-    
-    enum Format 
-    {
-        case date(Date)
-        case tag(Tag)
-        case latest
-    }
-    
+{    
     public 
     var bitPattern:UInt64
     
-    @usableFromInline
+    var isSemantic:Bool 
+    {
+        self.bitPattern & 0x8000_0000_0000_0000 == 0 
+    }
+    
+    private static 
+    let x:UInt64 = 0x0000_ffff_ffff_ffff, 
+        y:UInt64 = 0xffff_0000_ffff_ffff,
+        z:UInt64 = 0xffff_ffff_0000_ffff,
+        w:UInt64 = 0xffff_ffff_ffff_0000
+    
+    private 
+    var x:UInt16 
+    {
+        get     { .init(                     self.bitPattern                  >> 48) }
+        set(x)  { self.bitPattern = Self.x & self.bitPattern | UInt64.init(x) << 48  }
+    }
+    private 
+    var y:UInt16 
+    {
+        get     { .init(truncatingIfNeeded:  self.bitPattern                  >> 32) }
+        set(y)  { self.bitPattern = Self.y & self.bitPattern | UInt64.init(y) << 32  }
+    }
+    private 
+    var z:UInt16 
+    {
+        get     { .init(truncatingIfNeeded:  self.bitPattern                  >> 16) }
+        set(z)  { self.bitPattern = Self.z & self.bitPattern | UInt64.init(z) << 16  }
+    }
+    private 
+    var w:UInt16 
+    {
+        get     { .init(truncatingIfNeeded:  self.bitPattern) }
+        set(w)  { self.bitPattern = Self.w & self.bitPattern | UInt64.init(w) }
+    }
+    
+    private 
     init(bitPattern:UInt64)
     {
         self.bitPattern = bitPattern
@@ -36,39 +62,39 @@ struct Version:Hashable, CustomStringConvertible, Sendable
     public static 
     let latest:Self = .init(bitPattern: 0xffff_ffff_ffff_ffff)
     
-    @inlinable public static 
-    func tag(_ major:Int, _ minor:(Int, (patch:Int, edition:Int?)?)?) -> Self 
+    public static 
+    func tag(_ major:UInt16, _ minor:(UInt16, (patch:UInt16, edition:UInt16?)?)?) -> Self 
     {
+        precondition(major < 0x8000)
+        
         var version:Self = .latest 
-        precondition(major < 0xffff)
-        version.bitPattern &= UInt64.init(major) << 48 | 0x0000_ffff_ffff_ffff
+        version.x = major
         guard case let (minor, patch)? = minor 
         else 
         {
             return version
         }
-        precondition(minor < 0xffff)
-        version.bitPattern &= UInt64.init(minor) << 32 | 0xffff_0000_ffff_ffff
+        version.y = minor
         guard case let (patch, edition)? = patch 
         else 
         {
             return version
         }
-        precondition(patch < 0xffff)
-        version.bitPattern &= UInt64.init(patch) << 16 | 0xffff_ffff_0000_ffff
-        guard let edition:Int = edition 
+        version.z = patch
+        guard let edition:UInt16 = edition 
         else 
         {
             return version
         }
-        precondition(edition < 0xffff)
-        version.bitPattern &= UInt64.init(edition)     | 0xffff_ffff_ffff_0000
+        version.w = edition
+        
         return version
     }
-    @inlinable public static  
-    func date(year:Int, month:Int, day:Int, letter:Unicode.Scalar) -> Self 
+    
+    public static  
+    func date(year:UInt16, month:UInt16, day:UInt16, letter:Unicode.Scalar) -> Self 
     {
-        precondition(year < 0x7fff)
+        precondition(year < 0x8000)
         precondition( 0  ...  12 ~= month)
         precondition( 0  ...  31 ~= day)
         precondition("a" ... "z" ~= letter)
@@ -79,77 +105,57 @@ struct Version:Hashable, CustomStringConvertible, Sendable
             UInt64.init(letter.value) as UInt64 )
     } 
     
-    var format:Format 
+    public 
+    var description:String 
     {
-        guard self.bitPattern & 0x8000_0000_0000_0000 == 0 
+        guard self.isSemantic
         else 
         {
-            let year:Int    = .init(self.bitPattern >> 48 & 0x7fff),
-                month:Int   = .init(self.bitPattern >> 32 & 0xffff),
-                day:Int     = .init(self.bitPattern >> 16 & 0xffff),
-                letter:UInt8 = .init(truncatingIfNeeded: self.bitPattern)
-            return .date((year, month, day, Unicode.Scalar.init(letter)))
+            // not zero-padded, and probably unsuitable for generating 
+            // links to toolchains.
+            let letter:Unicode.Scalar = .init(UInt8.init(truncatingIfNeeded: self.w))
+            return "\(self.x & 0x7fff)-\(self.y)-\(self.z)-\(letter)"
         }
-        let major:Int   = .init(self.bitPattern >> 48),
-            minor:Int   = .init(self.bitPattern >> 32 & 0xffff),
-            patch:Int   = .init(self.bitPattern >> 16 & 0xffff),
-            edition:Int = .init(self.bitPattern       & 0xffff)
+        
+        let major:UInt16    = self.x,
+            minor:UInt16    = self.y,
+            patch:UInt16    = self.z,
+            edition:UInt16  = self.w
+        
         guard major != 0xffff 
         else 
         {
-            return .latest
+            return "latest"
         }
         guard minor != 0xffff 
         else 
         {
-            return .tag((major, nil))
+            return "\(major)"
         }
         guard patch != 0xffff 
         else 
         {
-            return .tag((major, (minor, nil)))
+            return "\(major).\(minor)"
         }
         guard edition != 0xffff 
         else 
         {
-            return .tag((major, (minor, (patch, nil))))
-        }
-        return .tag((major, (minor, (patch, edition))))
-    }
-    
-    public 
-    var description:String 
-    {
-        switch self.format
-        {
-        case .date((let year, let month, let day, letter: let letter)):
-            // not zero-padded, and probably unsuitable for generating 
-            // links to toolchains.
-            return "\(year)-\(month)-\(day)-\(letter)"
-        case .latest:
-            return "latest"
-        case .tag((let major, nil)):
-            return "\(major)"
-        case .tag((let major, (let minor, nil)?)):
-            return "\(major).\(minor)"
-        case .tag((let major, (let minor, (let patch, nil)?)?)):
             return "\(major).\(minor).\(patch)"
-        case .tag((let major, (let minor, (let patch, let edition?)?)?)):
-            return "\(major).\(minor).\(patch).\(edition)"
         }
+        return "\(major).\(minor).\(patch).\(edition)"
     }
     
     init(from json:JSON) throws 
     {
         self = try json.lint 
         {
-            let major:Int = try $0.remove("major", as: Int.self)
-            guard let minor:Int = try $0.pop("minor", as: Int.self)
+            let major:UInt16 = try $0.remove("major", as: UInt16.self)
+            guard let minor:UInt16 = try $0.pop("minor", as: UInt16.self)
             else 
             {
                 return .tag(major, nil)
             }
-            guard let patch:Int = try $0.pop("patch", as: Int.self)
+            guard let patch:UInt16 = try $0.pop("patch", as: UInt16.self)
             else 
             {
                 return .tag(major, (minor, nil))
@@ -170,7 +176,7 @@ extension Version.Rule
 {
     private 
     typealias Integer = Grammar.UnsignedIntegerLiteral<
-                        Grammar.DecimalDigitScalar<Location, Int>>
+                        Grammar.DecimalDigitScalar<Location, UInt16>>
     
     private 
     enum ToolchainOrdinal:TerminalRule
@@ -194,14 +200,14 @@ extension Version.Rule
         throws -> Version
         where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
     {
-        let first:Int = try input.parse(as: Integer.self)
+        let first:UInt16 = try input.parse(as: Integer.self)
         guard case nil = input.parse(as: Encoding.Hyphen?.self)
         else 
         {
             // parse a date 
-            let month:Int = try input.parse(as: Integer.self)
+            let month:UInt16 = try input.parse(as: Integer.self)
             try input.parse(as: Encoding.Hyphen.self)
-            let day:Int = try input.parse(as: Integer.self)
+            let day:UInt16 = try input.parse(as: Integer.self)
             try input.parse(as: Encoding.Hyphen.self)
             let letter:Unicode.Scalar = try input.parse(as: ToolchainOrdinal.self)
             return .date(year: first, month: month, day: day, letter: letter)
