@@ -8,7 +8,7 @@ struct Version:Hashable, CustomStringConvertible, Sendable
     
     var isSemantic:Bool 
     {
-        self.bitPattern & 0x8000_0000_0000_0000 == 0 
+        self.bitPattern & 0x8000_0000_0000_0000 != 0 
     }
     
     private static 
@@ -68,7 +68,7 @@ struct Version:Hashable, CustomStringConvertible, Sendable
         precondition(major < 0x8000)
         
         var version:Self = .latest 
-        version.x = major
+        version.x = major | 0x8000
         guard case let (minor, patch)? = minor 
         else 
         {
@@ -98,7 +98,7 @@ struct Version:Hashable, CustomStringConvertible, Sendable
         precondition( 0  ...  12 ~= month)
         precondition( 0  ...  31 ~= day)
         precondition("a" ... "z" ~= letter)
-        return .init(bitPattern: 0x8000_0000_0000_0000 as UInt64 |
+        return .init(bitPattern: 
             UInt64.init(year)   << 48 as UInt64 |
             UInt64.init(month)  << 32 as UInt64 |
             UInt64.init(day)    << 16 as UInt64 |
@@ -114,15 +114,15 @@ struct Version:Hashable, CustomStringConvertible, Sendable
             // not zero-padded, and probably unsuitable for generating 
             // links to toolchains.
             let letter:Unicode.Scalar = .init(UInt8.init(truncatingIfNeeded: self.w))
-            return "\(self.x & 0x7fff)-\(self.y)-\(self.z)-\(letter)"
+            return "\(self.x)-\(self.y)-\(self.z)-\(letter)"
         }
         
-        let major:UInt16    = self.x,
+        let major:UInt16    = self.x & 0x7fff,
             minor:UInt16    = self.y,
             patch:UInt16    = self.z,
             edition:UInt16  = self.w
         
-        guard major != 0xffff 
+        guard major != 0x7fff 
         else 
         {
             return "latest"
