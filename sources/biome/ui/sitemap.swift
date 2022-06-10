@@ -1,5 +1,29 @@
+extension Biome 
+{
+    func uri(of index:Ecosystem.Index, at version:Version) -> URI
+    {
+        let prefix:String 
+        let location:Link.Reference<[String]>
+        switch index 
+        {
+        case .composite(let composite):
+            prefix = self.prefixes.master
+            location = self.ecosystem.location(of: composite, at: version)
+        
+        case .module(let module):
+            prefix = self.prefixes.master
+            location = self.ecosystem.location(of: module, at: version)
+        
+        default: 
+            fatalError("unimplemented")
+        }
+        return .init(prefix: prefix, location)
+    }
+}
+
 extension Ecosystem 
 {
+    fileprivate 
     func location(of namespace:Module.Index, at version:Version) 
         -> Link.Reference<[String]>
     {
@@ -15,6 +39,7 @@ extension Ecosystem
         return location
     }
     
+    fileprivate 
     func location(of composite:Symbol.Composite, at version:Version) 
         -> Link.Reference<[String]>
     {
@@ -79,28 +104,5 @@ extension Ecosystem
             location.query.lens = (culture.id, culture.latest != version ? version : nil)
         }
         return location
-    }
-}
-
-extension Biome 
-{
-    func location(of index:Ecosystem.Index, at version:Version) -> URI
-    {
-        let prefix:String 
-        let location:Link.Reference<[String]>
-        switch index 
-        {
-        case .composite(let composite):
-            prefix = self.prefixes.master
-            location = self.ecosystem.location(of: composite, at: version)
-        
-        case .module(let module):
-            prefix = self.prefixes.master
-            location = self.ecosystem.location(of: module, at: version)
-        
-        default: 
-            fatalError("unimplemented")
-        }
-        return .init(prefix: prefix, location)
     }
 }

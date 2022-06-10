@@ -23,7 +23,7 @@ extension Article
         static 
         var empty:Self 
         {
-            .init(errors: [], summary: .empty, discussion: .empty)
+            .init(errors: [], summary: .init(), discussion: .init())
         }
         
         init(errors:[Error], 

@@ -594,7 +594,7 @@ struct Extension
         }
         else 
         {
-            summary = .empty
+            summary = .init()
         }
         return .init(errors: renderer.errors, summary: summary, discussion: discussion)
     }

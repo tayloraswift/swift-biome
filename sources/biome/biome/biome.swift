@@ -55,10 +55,10 @@ struct Biome
     }
     
     public 
-    subscript(uri:String, referrer referrer:Never?) -> StaticResponse?
+    subscript(request:String, referrer referrer:Never?) -> StaticResponse?
     {
-        guard   let uri:URI = try? .init(absolute: uri), 
-                let link:Link.Expression = try? .init(normalizing: uri)
+        guard   let request:URI = try? .init(absolute: request), 
+                let link:Link.Expression = try? .init(normalizing: request)
         else 
         {
             return nil 
@@ -75,18 +75,22 @@ struct Biome
             return .matched(canonical: "", .text("\(version): \(selection.possibilities)"))
         }
         
-        let location:URI = self.location(of: index, at: version)
-        if  location ~= uri 
+        let uri:URI = self.uri(of: index, at: version)
+        if  uri ~= request 
         {
-            return .matched(canonical: "", .text("success!"))
+            let page:[Page.Anchor: [UInt8]] = self.page(for: index, at: version)
+            let utf8:[UInt8] = self.template.rendered(as: [UInt8].self, 
+                substituting: _move(page))
+            return .matched(canonical: "", 
+                .utf8(encoded: _move(utf8), type: .html, tag: nil))
         }
         else if redirected 
         {
-            return .maybe(canonical: "", at: location.description)
+            return .maybe(canonical: "", at: uri.description)
         }
         else 
         {
-            return .found(canonical: "", at: location.description)
+            return .found(canonical: "", at: uri.description)
         }
     }
     

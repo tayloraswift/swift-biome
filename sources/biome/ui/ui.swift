@@ -9,14 +9,14 @@ extension DOM.Element where Domain == HTML
     {
         if let anchor:Anchor = anchor
         {
-            return .a(.highlight(escaping: string, .type))
+            return .a(.highlight(escaping: string, color))
             {
                 ("href", .anchor(anchor))
             }
         }
         else 
         {
-            return .highlight(escaping: string, .type)
+            return .highlight(escaping: string, color)
         }
     }
 }
