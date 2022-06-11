@@ -47,25 +47,61 @@ extension Biome
         let fixed:[Page.Anchor: DOM.Template<Ecosystem.Index, [UInt8]>] = 
             self.ecosystem.generateFixedElements(for: composite, at: version)
         
-        var uris:[Ecosystem.Index: String.UTF8View] = [:] 
+        var referenced:Set<Ecosystem.Index> = [] 
         for template:DOM.Template<Ecosystem.Index, [UInt8]> in fixed.values 
         {
             for (key, _):(Ecosystem.Index, Int) in template.anchors 
-                where !uris.keys.contains(key)
             {
-                // let uri:URI = self.location(of: key)
-                // uris[key] = uri.description
+                referenced.insert(key)
             }
         }
         
-        if  let template:Article.Template<Link> = 
+        let article:Article.Template<Link>? = 
             self.ecosystem.template(for: composite.base, at: version)
+        
+        if let template:DOM.Template<Link, [UInt8]> = article?.summary
         {
+            for (link, _):(Link, Int) in template.anchors 
+            {
+                if case .resolved(let key, visible: _) = link
+                {
+                    referenced.insert(key)
+                }
+            }
+        }
+        if let template:DOM.Template<Link, [UInt8]> = article?.discussion
+        {
+            for (link, _):(Link, Int) in template.anchors 
+            {
+                if case .resolved(let key, visible: _) = link
+                {
+                    referenced.insert(key)
+                }
+            }
         }
         
-        return fixed.mapValues 
+        let uris:[Ecosystem.Index: String.UTF8View] = [:]
+        
+        var page:[Page.Anchor: [UInt8]] = 
+            fixed.mapValues 
         {
-            $0.rendered(as: [UInt8].self, substituting: uris)
+            $0.rendered(substituting: uris)
         }
+        if let template:DOM.Template<Link, [UInt8]> = article?.summary
+        {
+            page[.summary] = template.rendered
+            {
+                _ in nil as String.UTF8View?
+            }
+        }
+        if let template:DOM.Template<Link, [UInt8]> = article?.discussion
+        {
+            page[.discussion] = template.rendered
+            {
+                _ in nil as String.UTF8View?
+            }
+        }
+        
+        return page
     }
 }
