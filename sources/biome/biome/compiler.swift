@@ -1,8 +1,8 @@
-enum Documentation:Equatable
+/* enum Documentation:Equatable
 {
     case template(Article.Template<Link>)
-    case shared(Keyframe<Self>.Buffer.Index)
-}
+    case shared(Package.Index, Keyframe<Self>.Buffer.Index)
+} */
 
 extension Ecosystem 
 {
@@ -13,7 +13,7 @@ extension Ecosystem
         scopes:[Module.Scope], 
         pins:Package.Pins,
         keys:Route.Keys)
-        -> [Index: Documentation]
+        -> [Index: Article.Template<Link>]
     {
         //  build lexical scopes for each module culture. 
         //  we can store entire packages in the lenses because this method 
@@ -75,17 +75,17 @@ extension Ecosystem
     func compile(comments:[Symbol.Index: String], 
         peripherals:[[Index: Extension]], 
         lexica:[Lexicon])
-        -> [Index: Documentation]
+        -> [Index: Article.Template<Link>]
     {
-        let comments:[Index: Documentation] = 
+        let comments:[Index: Article.Template<Link>] = 
             self.compile(comments: comments, lexica: lexica)
-        let peripherals:[Index: Documentation] = 
+        let peripherals:[Index: Article.Template<Link>] = 
             self.compile(peripherals: peripherals, lexica: lexica)
         return comments.merging(peripherals) { $1 }
     }
     private
     func compile(comments:[Symbol.Index: String], lexica:[Lexicon])
-        -> [Index: Documentation]
+        -> [Index: Article.Template<Link>]
     {
         //  always import the standard library
         let implicit:Set<Module.Index> = self.standardLibrary
@@ -94,7 +94,7 @@ extension Ecosystem
         let lexica:[Module.Index: Lexicon] = 
             .init(uniqueKeysWithValues: lexica.map { ($0.namespaces.culture, $0) })
         
-        var documentation:[Index: Documentation] = 
+        var templates:[Index: Article.Template<Link>] = 
             .init(minimumCapacity: comments.count)
         for (symbol, comment):(Symbol.Index, String) in comments
         {
@@ -116,18 +116,18 @@ extension Ecosystem
                     imports: imports, 
                     nest: nest)
             }
-            documentation[.symbol(symbol)] = .template(resolved)
+            templates[.symbol(symbol)] = resolved
         } 
-        return documentation
+        return templates
     }
     private
     func compile(peripherals:[[Index: Extension]], lexica:[Lexicon])
-        -> [Index: Documentation]
+        -> [Index: Article.Template<Link>]
     {
         //  always import the standard library
         let implicit:Set<Module.Index> = self.standardLibrary
         
-        var documentation:[Index: Documentation] = 
+        var templates:[Index: Article.Template<Link>] = 
             .init(minimumCapacity: peripherals.reduce(0) { $0 + $1.count })
         for (lexicon, assigned):(Lexicon, [Index: Extension]) in zip(lexica, peripherals)
         {
@@ -144,10 +144,10 @@ extension Ecosystem
                         imports: imports, 
                         nest: nest)
                 }
-                documentation[target] = .template(resolved)
+                templates[target] = resolved
             } 
         }
-        return documentation
+        return templates
     }
     private 
     func nest(_ target:Index) -> Symbol.Nest?
@@ -173,51 +173,44 @@ extension Ecosystem
 {
     mutating 
     func updateDocumentation(in culture:Package.Index, 
-        compiled:[Index: Documentation],
+        compiled:[Index: Article.Template<Link>],
         hints:[Symbol.Index: Symbol.Index], 
         pins:Package.Pins)
     {
-        let sponsors:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = 
-            self[culture].updateDocumentation(compiled)
-        let migrants:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = 
-            self.recruitMigrants(in: culture, 
-                sponsors: _move(sponsors), 
-                hints: hints, 
-                pins: pins)
-        self[culture].distributeDocumentation(_move(migrants))
+        self[culture].updateDocumentation(compiled)
+        self[culture].spreadDocumentation(self.recruitMigrants(in: culture, 
+            sponsors: compiled, 
+            hints: hints, 
+            pins: pins))
     }
     // `culture` parameter not strictly needed, but we use it to make sure 
     // that ``generateRhetoric(graphs:scopes:)`` did not return ``hints``
     // about other packages
     private 
     func recruitMigrants(in culture:Package.Index,
-        sponsors:[Symbol.Index: Keyframe<Documentation>.Buffer.Index],
+        sponsors:[Index: Article.Template<Link>],
         hints:[Symbol.Index: Symbol.Index],
         pins:Package.Pins) 
-        -> [Symbol.Index: Keyframe<Documentation>.Buffer.Index]
+        -> [Symbol.Index: Article.Template<Link>]
     {
-        var migrants:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = [:]
+        var migrants:[Symbol.Index: Article.Template<Link>] = [:]
         for (member, sponsor):(Symbol.Index, Symbol.Index) in hints
-            where !sponsors.keys.contains(member)
+            where !sponsors.keys.contains(.symbol(member))
         {
             assert(member.module.package == culture)
             // if a symbol did not have documentation of its own, 
-            // check if it has a sponsor 
-            if let sponsor:Keyframe<Documentation>.Buffer.Index = sponsors[sponsor]
+            // check if it has a sponsor. article templates are copy-on-write 
+            // types, so this will not (eagarly) copy storage
+            if  let template:Article.Template<Link> = sponsors[.symbol(sponsor)] 
             {
-                migrants[member] = sponsor 
+                migrants[member] = template
             }
-            else if culture != sponsor.module.package
+            // note: empty doccomments are omitted from the template buffer
+            else if culture != sponsor.module.package,
+                let template:Article.Template<Link> = 
+                self.template(for: sponsor, at: pins[sponsor.module.package])
             {
-                // note: empty doccomments are omitted from the documentation buffer
-                guard let sponsor:Keyframe<Documentation>.Buffer.Index = 
-                    self.findDocumentation(for: sponsor, 
-                        at: pins[sponsor.module.package])
-                else 
-                {
-                    continue 
-                }
-                migrants[member] = sponsor
+                migrants[member] = template
             }
         }
         return migrants

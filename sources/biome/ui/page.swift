@@ -44,12 +44,11 @@ extension Biome
     func page(for composite:Symbol.Composite, at version:Version) 
         -> [Page.Anchor: [UInt8]]
     {
-        let templates:[Page.Anchor: DOM.Template<Ecosystem.Index, [UInt8]>] = 
-            self.ecosystem.substitutions(for: composite, at: version)
-            .mapValues(DOM.Template<Ecosystem.Index, [UInt8]>.init(freezing:))
+        let fixed:[Page.Anchor: DOM.Template<Ecosystem.Index, [UInt8]>] = 
+            self.ecosystem.generateFixedElements(for: composite, at: version)
         
         var uris:[Ecosystem.Index: String.UTF8View] = [:] 
-        for template:DOM.Template<Ecosystem.Index, [UInt8]> in templates.values 
+        for template:DOM.Template<Ecosystem.Index, [UInt8]> in fixed.values 
         {
             for (key, _):(Ecosystem.Index, Int) in template.anchors 
                 where !uris.keys.contains(key)
@@ -59,7 +58,12 @@ extension Biome
             }
         }
         
-        return templates.mapValues 
+        if  let template:Article.Template<Link> = 
+            self.ecosystem.template(for: composite.base, at: version)
+        {
+        }
+        
+        return fixed.mapValues 
         {
             $0.rendered(as: [UInt8].self, substituting: uris)
         }

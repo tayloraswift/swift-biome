@@ -29,8 +29,9 @@ extension Ecosystem
         crumbs.reverse()
         return .ol(items: crumbs) { ("class", "breadcrumbs-container") }
     }
-    func substitutions(for composite:Symbol.Composite, at version:Version) 
-        -> [Page.Anchor: HTML.Element<Index>]
+    
+    func generateFixedElements(for composite:Symbol.Composite, at version:Version) 
+        -> [Page.Anchor: DOM.Template<Index, [UInt8]>]
     {
         // let dynamic:(sections:[Element], cards:Set<Int>) = self.dynamicContent(witness: witness)
         
@@ -72,7 +73,7 @@ extension Ecosystem
             declaration.availability.general
         ))
         
-        return substitutions
+        return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
         
         /* if case nil = substitutions.index(forKey: .summary)
         {

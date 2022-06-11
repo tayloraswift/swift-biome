@@ -240,24 +240,17 @@ extension Ecosystem
 }
 extension Ecosystem 
 {
-    func findDocumentation(for symbol:Symbol.Index, at version:Version)
-        -> Keyframe<Documentation>.Buffer.Index?
-    {
-        self[symbol.module.package].documentation
-            .find(version, head: self[symbol].heads.documentation)
-    }
-    
-    func documentation(for symbol:Symbol.Index, at version:Version)
-    -> Documentation?
-    {
-        self[symbol.module.package].documentation
-            .at(version, head: self[symbol].heads.documentation)
-    }
     func declaration(for symbol:Symbol.Index, at version:Version)
         -> Symbol.Declaration?
     {
         self[symbol.module.package].declarations
             .at(version, head: self[symbol].heads.declaration)
+    }
+    func template(for symbol:Symbol.Index, at version:Version)
+        -> Article.Template<Link>?
+    {
+        self[symbol.module.package].templates
+            .at(version, head: self[symbol].heads.template) 
     }
     func facts(for symbol:Symbol.Index, at version:Version)
         -> Symbol.Predicates?

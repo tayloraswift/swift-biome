@@ -66,12 +66,12 @@ struct Package:Identifiable, Sendable
     
     struct Heads 
     {
-        @Keyframe<Documentation>.Head
-        var documentation:Keyframe<Documentation>.Buffer.Index?
+        @Keyframe<Article.Template<Link>>.Head
+        var template:Keyframe<Article.Template<Link>>.Buffer.Index?
         
         init() 
         {
-            self._documentation = .init()
+            self._template = .init()
         }
     }
     
@@ -104,7 +104,7 @@ struct Package:Identifiable, Sendable
     var facts:Keyframe<Symbol.Predicates>.Buffer,
         opinions:Keyframe<Symbol.Traits>.Buffer
     private(set)
-    var documentation:Keyframe<Documentation>.Buffer
+    var templates:Keyframe<Article.Template<Link>>.Buffer
     
     var groups:Symbol.Groups
     
@@ -139,7 +139,7 @@ struct Package:Identifiable, Sendable
         self.facts = .init()
         self.opinions = .init()
         
-        self.documentation = .init()
+        self.templates = .init()
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -364,11 +364,9 @@ extension Package
     }
 
     mutating 
-    func updateDocumentation(_ compiled:[Ecosystem.Index: Documentation])
-        -> [Symbol.Index: Keyframe<Documentation>.Buffer.Index]
+    func updateDocumentation(_ compiled:[Ecosystem.Index: Article.Template<Link>])
     {
-        var sponsors:[Symbol.Index: Keyframe<Documentation>.Buffer.Index] = [:]
-        for (index, documentation):(Ecosystem.Index, Documentation) in compiled 
+        for (index, template):(Ecosystem.Index, Article.Template<Link>) in compiled 
         {
             switch index 
             {
@@ -378,34 +376,32 @@ extension Package
                 {
                     fatalError("unimplemented")
                 }
-                self.documentation.update(head: &self.symbols[local: composite.base].heads.documentation, 
-                    to: self.latest, with: documentation)
-                sponsors[composite.base] = self.symbols[local: composite.base].heads.documentation
+                self.templates.update(head: &self.symbols[local: composite.base].heads.template, 
+                    to: self.latest, with: template)
                 
             case .article(let index): 
-                self.documentation.update(head: &self.articles[local: index].heads.documentation, 
-                    to: self.latest, with: documentation)
+                self.templates.update(head: &self.articles[local: index].heads.template, 
+                    to: self.latest, with: template)
                 
             case .module(let index): 
-                self.documentation.update(head: &self.modules[local: index].heads.documentation, 
-                    to: self.latest, with: documentation)
+                self.templates.update(head: &self.modules[local: index].heads.template, 
+                    to: self.latest, with: template)
             case .package(self.index): 
-                self.documentation.update(head: &self.heads.documentation, 
-                    to: self.latest, with: documentation)
+                self.templates.update(head: &self.heads.template, 
+                    to: self.latest, with: template)
             
             case .package(_): 
                 fatalError("unreachable")
             }
         }
-        return sponsors
     }
     mutating 
-    func distributeDocumentation(_ migrants:[Symbol.Index: Keyframe<Documentation>.Buffer.Index]) 
+    func spreadDocumentation(_ migrants:[Symbol.Index: Article.Template<Link>]) 
     {
-        for (migrant, sponsor):(Symbol.Index, Keyframe<Documentation>.Buffer.Index) in migrants 
+        for (migrant, template):(Symbol.Index, Article.Template<Link>) in migrants 
         {
-            self.documentation.update(head: &self.symbols[local: migrant].heads.documentation, 
-                to: self.latest, with: .shared(sponsor))
+            self.templates.update(head: &self.symbols[local: migrant].heads.template, 
+                to: self.latest, with: template)
         }
     }
 }

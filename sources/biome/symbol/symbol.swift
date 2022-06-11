@@ -92,17 +92,17 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     
     struct Heads 
     {
-        @Keyframe<Documentation>.Head
-        var documentation:Keyframe<Documentation>.Buffer.Index?
         @Keyframe<Declaration>.Head
         var declaration:Keyframe<Declaration>.Buffer.Index?
+        @Keyframe<Article.Template<Link>>.Head
+        var template:Keyframe<Article.Template<Link>>.Buffer.Index?
         @Keyframe<Predicates>.Head
         var facts:Keyframe<Predicates>.Buffer.Index?
         
         init() 
         {
-            self._documentation = .init()
             self._declaration = .init()
+            self._template = .init()
             self._facts = .init()
         }
     }

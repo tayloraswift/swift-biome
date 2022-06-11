@@ -30,12 +30,12 @@ struct Article:Identifiable
     
     struct Heads 
     {
-        @Keyframe<Documentation>.Head
-        var documentation:Keyframe<Documentation>.Buffer.Index?
+        @Keyframe<Article.Template<Link>>.Head
+        var template:Keyframe<Article.Template<Link>>.Buffer.Index?
         
         init() 
         {
-            self._documentation = .init()
+            self._template = .init()
         }
     }
     

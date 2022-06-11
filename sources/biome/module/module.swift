@@ -32,14 +32,14 @@ struct Module:Identifiable, Sendable
         var dependencies:Keyframe<Set<Index>>.Buffer.Index?
         @Keyframe<Set<Symbol.Index>>.Head
         var toplevel:Keyframe<Set<Symbol.Index>>.Buffer.Index?
-        @Keyframe<Documentation>.Head
-        var documentation:Keyframe<Documentation>.Buffer.Index?
+        @Keyframe<Article.Template<Link>>.Head
+        var template:Keyframe<Article.Template<Link>>.Buffer.Index?
         
         init() 
         {
             self._dependencies = .init()
             self._toplevel = .init()
-            self._documentation = .init()
+            self._template = .init()
         }
     }
     

@@ -160,7 +160,7 @@ struct Biome
         
         let comments:[Symbol.Index: String] = 
             Self.comments(from: _move(symbols), pruning: hints)
-        let documentation:[Ecosystem.Index: Documentation] = 
+        let templates:[Ecosystem.Index: Article.Template<Link>] = 
             self.ecosystem.compileDocumentation(for: index, 
                 extensions: _move(extensions),
                 articles: _move(articles),
@@ -169,7 +169,7 @@ struct Biome
                 pins: pins, 
                 keys: self.keys)
         self.ecosystem.updateDocumentation(in: index, 
-            compiled: _move(documentation), 
+            compiled: _move(templates), 
             hints: _move(hints), 
             pins: _move(pins))
     }
