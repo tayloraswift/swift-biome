@@ -110,8 +110,8 @@ extension Ecosystem
         }
         if case let (selection, redirected: redirected)? = 
             self.selectWithRedirect(from: route, 
-                lens: .init(localized.package, at: localized.pins.version), 
-                disambiguator: implicit.disambiguator)
+                in: .init(localized.package, at: localized.pins.version), 
+                by: implicit.disambiguator)
         {
             return (selection, localized.pins, redirected)
         }
@@ -218,8 +218,7 @@ extension Ecosystem
         // reference. 
         if  case nil = implicit.query.lens, lexicon.namespaces.contains(namespace), 
             let selection:Selection = 
-            self.selectWithRedirect(from: route, lexicon: lexicon, 
-                disambiguator: implicit.disambiguator)
+            self.selectWithRedirect(from: route, in: lexicon, by: implicit.disambiguator)
         {
             return selection
         }
@@ -231,8 +230,8 @@ extension Ecosystem
             return nil
         }
         if case let (selection, _)? = self.selectWithRedirect(from: route, 
-            lens: .init(localized.package, at: localized.pins.version), 
-            disambiguator: implicit.disambiguator)
+            in: .init(localized.package, at: localized.pins.version), 
+            by: implicit.disambiguator)
         {
             return selection
         }
@@ -360,24 +359,24 @@ extension Ecosystem
         {
             return nil
         }
-        return self.select(from: route, lexicon: lexicon, 
-            disambiguator: link.disambiguator)
+        return self.select(from: route, in: lexicon, by: link.disambiguator)
     }
 }
 extension Ecosystem
 {
     private 
-    func selectWithRedirect(from route:Route, lens:Package.Pinned, disambiguator:Link.Disambiguator) 
+    func selectWithRedirect(from route:Route, in pinned:Package.Pinned, 
+        by disambiguator:Link.Disambiguator) 
         -> (selection:Selection, redirected:Bool)?
     {
         if  let selection:Selection = 
-            self.select(from: route, lens: lens, disambiguator: disambiguator)
+            self.select(from: route, in: pinned, by: disambiguator)
         {
             return (selection, false)
         }
         else if let route:Route = route.outed, 
             let selection:Selection = 
-            self.select(from: route, lens: lens, disambiguator: disambiguator)
+            self.select(from: route, in: pinned, by: disambiguator)
         {
             return (selection, true)
         }
@@ -387,27 +386,29 @@ extension Ecosystem
         }
     }
     private 
-    func select(from route:Route, lens:Package.Pinned, disambiguator:Link.Disambiguator) 
+    func select(from route:Route, in pinned:Package.Pinned, 
+        by disambiguator:Link.Disambiguator) 
         -> Selection?
     {
-        self.select(from: route, lenses: CollectionOfOne<Package.Pinned>.init(lens))
+        self.select(from: route, in: CollectionOfOne<Package.Pinned>.init(pinned))
         {
             self.filter($0, by: disambiguator)
         }
     }
     
     private 
-    func selectWithRedirect(from route:Route, lexicon:Lexicon, disambiguator:Link.Disambiguator) 
+    func selectWithRedirect(from route:Route, in lexicon:Lexicon, 
+        by disambiguator:Link.Disambiguator) 
         -> Selection?
     {
         if  let selection:Selection = 
-            self.select(from: route, lexicon: lexicon, disambiguator: disambiguator)
+            self.select(from: route, in: lexicon, by: disambiguator)
         {
             return selection
         }
         else if let route:Route = route.outed, 
             let selection:Selection = 
-            self.select(from: route, lexicon: lexicon, disambiguator: disambiguator)
+            self.select(from: route, in: lexicon, by: disambiguator)
         {
             return selection
         }
@@ -417,10 +418,11 @@ extension Ecosystem
         }
     }
     private 
-    func select(from route:Route, lexicon:Lexicon, disambiguator:Link.Disambiguator) 
+    func select(from route:Route, in lexicon:Lexicon, 
+        by disambiguator:Link.Disambiguator) 
         -> Selection?
     {
-        self.select(from: route, lenses: lexicon.lenses)
+        self.select(from: route, in: lexicon.lenses)
         {
             lexicon.namespaces.contains($0.culture) && 
             self.filter($0, by: disambiguator)
@@ -428,17 +430,18 @@ extension Ecosystem
     }
     
     private 
-    func select<Lenses>(from route:Route, lenses:Lenses, disambiguator:Link.Disambiguator) 
+    func select<Lenses>(from route:Route, in lenses:Lenses, 
+        by disambiguator:Link.Disambiguator) 
         -> Selection?
         where Lenses:Sequence, Lenses.Element == Package.Pinned
     {
-        self.select(from: route, lenses: lenses)
+        self.select(from: route, in: lenses)
         {
             self.filter($0, by: disambiguator)
         }
     }
     private 
-    func select<Lenses>(from route:Route, lenses:Lenses, 
+    func select<Lenses>(from route:Route, in lenses:Lenses, 
         where predicate:(Symbol.Composite) throws -> Bool) 
         rethrows -> Selection?
         where Lenses:Sequence, Lenses.Element == Package.Pinned

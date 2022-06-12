@@ -1,7 +1,5 @@
 extension Ecosystem 
 {
-    // typealias Opinions = [Package.Index: [Symbol.Index: [Symbol.Trait]]]
-    
     mutating 
     func updateImplicitSymbols<Symbols>(in index:Package.Index, 
         fromExplicit symbols:[Symbols],
