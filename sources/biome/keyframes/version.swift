@@ -59,6 +59,47 @@ struct Version:Hashable, CustomStringConvertible, Sendable
         lhs.bitPattern < rhs.bitPattern 
     }
     
+    var floored:Self 
+    {
+        guard self.isSemantic 
+        else 
+        {
+            return self 
+        }
+        
+        var version:Self = self 
+        if  version.x == .max 
+        {
+            version.x = 0x8000
+            version.y = 0
+            version.z = 0
+            version.w = 0
+            return version
+        }
+        if  version.y == .max 
+        {
+            version.y = 0
+            version.z = 0
+            version.w = 0
+            return version
+        }
+        if  version.z == .max 
+        {
+            version.z = 0
+            version.w = 0
+            return version
+        }
+        if  version.w == .max 
+        {
+            version.w = 0
+            return version
+        }
+        else 
+        {
+            return version
+        }
+    }
+    
     public static 
     let latest:Self = .init(bitPattern: 0xffff_ffff_ffff_ffff)
     

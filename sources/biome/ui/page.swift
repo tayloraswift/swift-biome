@@ -82,8 +82,7 @@ extension Biome
         
         let uris:[Ecosystem.Index: String.UTF8View] = [:]
         
-        var page:[Page.Anchor: [UInt8]] = 
-            fixed.mapValues 
+        var page:[Page.Anchor: [UInt8]] = fixed.mapValues 
         {
             $0.rendered(substituting: uris)
         }

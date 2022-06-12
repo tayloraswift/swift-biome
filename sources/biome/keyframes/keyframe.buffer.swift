@@ -105,15 +105,13 @@ extension Keyframe
                 {
                     return current
                 }
-                if  current < keyframe.previous 
-                {
-                    current = keyframe.previous 
-                }
+                guard keyframe.previous < current
                 else 
                 {
                     // end of the line
                     return nil
                 }
+                current = keyframe.previous 
             }
         }
     }
@@ -123,8 +121,23 @@ extension Keyframe.Buffer where Value:Equatable
     mutating 
     func update(head:inout Index?, to version:Version, with new:Value) 
     {
-        let current:Index = self.endIndex
-        self.storage.append(.init(new, version: version, previous: head ?? current))
-        head = current
+        guard let previous:Index = head 
+        else 
+        {
+            let current:Index = self.endIndex
+            self.storage.append(.init(new, version: version, previous: current))
+            head = current 
+            return
+        }
+        if  self[previous].value != new 
+        {
+            let current:Index = self.endIndex
+            self.storage.append(.init(new, version: version, previous: previous))
+            head = current 
+        }
+        else 
+        {
+            self[previous].last = .latest
+        }
     }
 }

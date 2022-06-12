@@ -123,7 +123,7 @@ struct Biome
     public mutating 
     func updatePackage(_ graph:Package.Graph, era:[Package.ID: Version]) throws 
     {
-        let version:Version = era[graph.id] ?? .latest 
+        let version:Version = (era[graph.id] ?? .latest).floored
         
         let index:Package.Index = 
             try self.ecosystem.updatePackageRegistration(for: graph.id, to: version)
@@ -172,6 +172,14 @@ struct Biome
             compiled: _move(templates), 
             hints: _move(hints), 
             pins: _move(pins))
+        
+        
+        func bold(_ string:String) -> String
+        {
+            "\u{1B}[1m\(string)\u{1B}[0m"
+        }
+        
+        print(bold("updated \(self.ecosystem[index].id) to version \(self.ecosystem[index].latest)"))
     }
     
     private static

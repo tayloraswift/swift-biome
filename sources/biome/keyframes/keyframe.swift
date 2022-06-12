@@ -8,9 +8,9 @@ struct Keyframe<Value>
     init(_ value:Value, version:Version, previous:Buffer.Index)
     {
         self.value = value 
-        self.previous = previous
+        self.previous = previous 
         self.first = version 
-        self.last = version 
+        self.last = .latest 
     }
 }
 extension Keyframe 
