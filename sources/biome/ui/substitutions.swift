@@ -30,11 +30,24 @@ extension Ecosystem
         return .ol(items: crumbs) { ("class", "breadcrumbs-container") }
     }
     
+    func generateDynamicElements(for composite:Symbol.Composite, at version:Version) 
+        -> [Page.Anchor: DOM.Template<Index, [UInt8]>]
+    {
+        guard let facts:Symbol.Predicates = self.facts(for: composite.base, at: version)
+        else 
+        {
+            return [:]
+        }
+        for pin:Module.Pin in self[composite.base].pollen
+        {
+            let _:Symbol.Traits? = self.opinions(of: composite.base, from: pin)
+        }
+        
+        return [:]
+    }
     func generateFixedElements(for composite:Symbol.Composite, at version:Version) 
         -> [Page.Anchor: DOM.Template<Index, [UInt8]>]
     {
-        // let dynamic:(sections:[Element], cards:Set<Int>) = self.dynamicContent(witness: witness)
-        
         let base:Symbol = self[composite.base]
         
         guard let declaration:Symbol.Declaration = 

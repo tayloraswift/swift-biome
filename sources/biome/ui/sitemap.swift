@@ -30,7 +30,7 @@ extension Ecosystem
         let package:Package = self[namespace.package]
         
         var location:Link.Reference<[String]> = package.root
-        if  package.latest != version
+        if let version:Version = package.abbreviate(version)
         {
             location.path.append(version.description)
         }
@@ -50,7 +50,8 @@ extension Ecosystem
         var location:Link.Reference<[String]> = self[host.namespace.package].root
         
         let culture:Package = self[composite.culture.package]
-        if  culture.index == host.namespace.package, culture.latest != version
+        if  culture.index == host.namespace.package, 
+            let version:Version = culture.abbreviate(version)
         {
             location.path.append(version.description)
         }

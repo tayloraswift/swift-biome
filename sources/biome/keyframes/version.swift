@@ -99,6 +99,18 @@ struct Version:Hashable, CustomStringConvertible, Sendable
             return version
         }
     }
+    var editionless:Self 
+    {
+        .init(bitPattern: self.bitPattern | 0x0000_0000_0000_ffff)
+    }
+    var patchless:Self 
+    {
+        .init(bitPattern: self.bitPattern | 0x0000_0000_ffff_ffff)
+    }
+    var minorless:Self 
+    {
+        .init(bitPattern: self.bitPattern | 0x0000_ffff_ffff_ffff)
+    }
     
     public static 
     let latest:Self = .init(bitPattern: 0xffff_ffff_ffff_ffff)

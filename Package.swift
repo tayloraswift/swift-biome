@@ -13,19 +13,19 @@ let package = Package(
     dependencies: 
     [
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
-        .package(url: "https://github.com/kelvin13/swift-highlight",            from: "0.1.3"),
-        .package(url: "https://github.com/kelvin13/swift-resource",             from: "0.2.1"),
-        .package(url: "https://github.com/kelvin13/swift-structured-document",  from: "0.3.3"),
+        .package(url: "https://github.com/kelvin13/swift-highlight",            exact: "0.1.3"),
+        .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.2.1"),
+        .package(url: "https://github.com/kelvin13/swift-structured-document",  exact: "0.3.4"),
         
         .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-05-31-a"),
         .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-05-31-a"),
         
         // only used by the index target
-        .package(url: "https://github.com/apple/swift-system.git",              from: "1.1.1"),
+        .package(url: "https://github.com/apple/swift-system.git",              exact: "1.2.1"),
         // only used by the previewer target
-        .package(url: "https://github.com/apple/swift-nio.git",                 from: "2.40.0"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git",     from: "1.1.2"),
-        .package(url: "https://github.com/swift-server/swift-backtrace.git",    from: "1.3.1"),
+        .package(url: "https://github.com/apple/swift-nio.git",                 exact: "2.40.0"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git",     exact: "1.1.2"),
+        .package(url: "https://github.com/swift-server/swift-backtrace.git",    exact: "1.3.2"),
     ],
     targets: 
     [

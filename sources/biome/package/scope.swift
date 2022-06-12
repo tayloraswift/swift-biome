@@ -48,7 +48,7 @@ extension Module
             self.filter.insert(namespace)
         }
         
-        func packages() -> Set<Package.Index>
+        func upstream() -> Set<Package.Index>
         {
             var packages:Set<Package.Index> = .init(self.filter.map(\.package))
                 packages.remove(self.culture.package)

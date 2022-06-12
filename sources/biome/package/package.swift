@@ -36,41 +36,44 @@ struct Package:Identifiable, Sendable
         var culture:Index 
         var version:Version
     }
-    struct Pins 
+    struct Pins:Equatable, Sendable 
     {
-        let versions:[Index: Version]
+        let version:Version
+        let upstream:[Index: Version]
         
-        private 
-        init(versions:[Index: Version])
+        init(version:Version, upstream:[Index: Version])
         {
-            self.versions = versions 
+            self.version = version
+            self.upstream = upstream
         }
-        init<Indices>(dependencies:Indices, _ pin:(Index) throws -> Version) rethrows
-            where Indices:Sequence, Indices.Element == Index 
+    }
+    struct Pinned:Sendable 
+    {
+        let package:Package 
+        let version:Version
+        
+        init(_ package:Package, at version:Version)
         {
-            self.init(versions: .init(uniqueKeysWithValues: try dependencies.map
-            {
-                (key: $0, value: try pin($0))
-            }))
+            self.version = version  
+            self.package = package
         }
         
-        subscript(dependency:Package.Index) -> Version
+        func contains(_ composite:Symbol.Composite) -> Bool 
         {
-            self.versions[dependency]!
-        }
-        subscript(dependency:Module.Index) -> Version
-        {
-            self.versions[dependency.package]!
+            self.package.contains(composite, at: self.version)
         }
     }
     
     struct Heads 
     {
+        @Keyframe<Pins>.Head
+        var pins:Keyframe<Pins>.Buffer.Index?
         @Keyframe<Article.Template<Link>>.Head
         var template:Keyframe<Article.Template<Link>>.Buffer.Index?
         
         init() 
         {
+            self._pins = .init()
             self._template = .init()
         }
     }
@@ -79,16 +82,10 @@ struct Package:Identifiable, Sendable
     let id:ID
     let index:Index
     
-    /* var pin:Pin 
-    {
-        .init(culture: self.index, version: self.latest)
-    } */
-    
     private
     var heads:Heads
     // private 
     // var tag:Resource.Tag?
-    private(set)
     var latest:Version
     private(set) 
     var modules:CulturalBuffer<Module.Index, Module>, 
@@ -97,7 +94,8 @@ struct Package:Identifiable, Sendable
     private(set)
     var external:[Symbol.Diacritic: Keyframe<Symbol.Traits>.Buffer.Index]
     private(set)
-    var toplevels:Keyframe<Set<Symbol.Index>>.Buffer, 
+    var versions:[Version: Pins], 
+        toplevels:Keyframe<Set<Symbol.Index>>.Buffer, 
         dependencies:Keyframe<Set<Module.Index>>.Buffer, 
         declarations:Keyframe<Symbol.Declaration>.Buffer
     private(set)
@@ -131,7 +129,7 @@ struct Package:Identifiable, Sendable
         self.symbols = .init()
         self.articles = .init()
         self.external = [:]
-        
+        self.versions = [:]
         self.toplevels = .init()
         self.dependencies = .init()
         self.declarations = .init()
@@ -174,6 +172,35 @@ struct Package:Identifiable, Sendable
             return .init(path: []) 
         case .core, .community(_):
             return .init(path: [self.name])
+        }
+    }
+    
+    func abbreviate(_ version:Version) -> Version?
+    {
+        guard version.isSemantic 
+        else 
+        {
+            return version 
+        }
+        if case version? = self.versions[.latest]?.version
+        {
+            return nil 
+        }
+        else if case version? = self.versions[version.minorless]?.version 
+        {
+            return version.minorless 
+        }
+        else if case version? = self.versions[version.patchless]?.version 
+        {
+            return version.patchless
+        }
+        else if case version? = self.versions[version.editionless]?.version 
+        {
+            return version.editionless 
+        }
+        else
+        {
+            return version
         }
     }
     
@@ -274,14 +301,17 @@ struct Package:Identifiable, Sendable
 extension Package 
 {
     mutating 
-    func push(version:Version) throws 
+    func updatePins(_ pins:Pins)
     {
-        guard self.latest < version
-        else 
+        self.versions[self.latest] = pins
+        
+        if  self.latest.isSemantic 
         {
-            throw UpdateError.versionNotIncremented(version, from: self.latest)
+            self.versions[self.latest.editionless] = pins
+            self.versions[self.latest.patchless] = pins
+            self.versions[self.latest.minorless] = pins
+            self.versions[.latest] = pins
         }
-        self.latest = version
     }
 
     mutating 

@@ -169,13 +169,22 @@ struct Ecosystem
     {
         if  let package:Package.Index = self.indices[package]
         {
-            try self[package].push(version: version)
+            let previous:Version = self[package].latest
+            guard previous < version
+            else 
+            {
+                throw Package.UpdateError.versionNotIncremented(version, from: previous)
+            }
+            self[package].latest = version
             return package 
         }
-        let index:Package.Index = .init(offset: self.packages.endIndex)
-        self.packages.append(.init(id: package, index: index, version: version))
-        self.indices[package] = index
-        return index
+        else 
+        {
+            let index:Package.Index = .init(offset: self.packages.endIndex)
+            self.packages.append(.init(id: package, index: index, version: version))
+            self.indices[package] = index
+            return index
+        }
     }
     
     mutating 
@@ -197,17 +206,18 @@ struct Ecosystem
         {
             upstream.insert(target.package)
         }
-        // allows a package update to look up its own version
-        upstream.insert(culture)
-        
-        let pins:Package.Pins = .init(dependencies: upstream)
+        upstream.remove(culture)
+        // only include pins for actual package dependencies, this prevents 
+        // extraneous pins in a Package.resolved from disrupting the version cache.
+        let pins:Package.Pins = .init(version: self[culture].latest,
+            upstream: .init(uniqueKeysWithValues: upstream.map
         {
             let package:Package = self[$0]
-            return $0 == culture ? package.latest : era[package.id] ?? .latest
-        }
+            return ($0, era[package.id] ?? package.latest)
+        }))
         
+        self[culture].updatePins(pins)
         self[culture].updateDependencies(of: cultures, with: dependencies)
-        //self[culture].updatePins(with: pins)
         
         return (pins, self.scopes(of: cultures, dependencies: dependencies))
     }
@@ -232,7 +242,7 @@ extension Ecosystem
         {
             scope.insert(namespace: namespace, id: self[namespace].id)
         }
-        return .init(namespaces: scope, lenses: scope.packages().map 
+        return .init(namespaces: scope, lenses: scope.upstream().map 
         {
             self[$0].symbols.indices
         })
@@ -257,5 +267,12 @@ extension Ecosystem
     {
         self[symbol.module.package].facts
             .at(version, head: self[symbol].heads.facts)
+    }
+    func opinions(of symbol:Symbol.Index, from pin:Module.Pin)
+        -> Symbol.Traits?
+    {
+        let diacritic:Symbol.Diacritic = .init(host: symbol, culture: pin.culture)
+        return self[pin.culture.package].opinions
+            .at(pin.version, head: self[pin.culture.package].external[diacritic])
     }
 }

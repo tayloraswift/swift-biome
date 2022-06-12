@@ -1,7 +1,32 @@
 extension Ecosystem 
 {
+    private 
+    func localize(nation:Package, arrival:Version, lens:(culture:Package.ID, version:Version?)?) 
+        -> (package:Package, pins:Package.Pins)?
+    {
+        if case let (package, departure)? = lens 
+        {
+            if  let package:Package = self[package], 
+                let pins:Package.Pins = package.versions[departure ?? package.latest]
+            {
+                return (package, pins)
+            }
+            else 
+            {
+                return nil
+            }
+        }
+        else if let pins:Package.Pins = nation.versions[arrival]
+        {
+            return (nation, pins)
+        }
+        else 
+        {
+            return nil
+        }
+    }
     func resolve<Tail>(location global:Link.Reference<Tail>, keys:Route.Keys) 
-        -> (selection:Selection, version:Version, redirected:Bool)?
+        -> (selection:Selection, pins:Package.Pins, redirected:Bool)?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         let local:Link.Reference<Tail.SubSequence>
@@ -39,12 +64,17 @@ extension Ecosystem
             arrival = nation.latest
         }
         
-        print(arrival, nation.latest)
-        
         guard let namespace:Module.ID = qualified.namespace 
         else 
         {
-            return explicit ? (.package(nation.index), arrival, false) : nil
+            if explicit, let pins:Package.Pins = nation.versions[arrival]
+            {
+                return (.package(nation.index), pins, false) 
+            }
+            else 
+            {
+                return nil
+            }
         } 
         guard let namespace:Module.Index = nation.modules.indices[namespace]
         else 
@@ -57,20 +87,33 @@ extension Ecosystem
         guard let path:Path = .init(implicit)
         else 
         {
-            return (.module(namespace), arrival, false)
+            if let pins:Package.Pins = nation.versions[arrival]
+            {
+                return (.module(namespace), pins, false)
+            }
+            else 
+            {
+                return nil
+            }
         }
         guard let route:Route = keys[namespace, path, implicit.orientation]
         else 
         {
             return nil
         }
-        let lens:Lexicon.Lens = self.localize(implicit.query.lens) ?? 
-            .init(nation, at: arrival)
+        
+        guard let localized:(package:Package, pins:Package.Pins) = 
+            self.localize(nation: nation, arrival: arrival, lens: implicit.query.lens)
+        else 
+        {
+            return nil
+        }
         if case let (selection, redirected: redirected)? = 
-            self.selectWithRedirect(from: route, lens: lens, 
+            self.selectWithRedirect(from: route, 
+                lens: .init(localized.package, at: localized.pins.version), 
                 disambiguator: implicit.disambiguator)
         {
-            return (selection, lens.version, redirected)
+            return (selection, localized.pins, redirected)
         }
         else 
         {
@@ -180,10 +223,16 @@ extension Ecosystem
         {
             return selection
         }
-        else if case let (selection, _)? = 
-            self.selectWithRedirect(from: route, 
-                lens: self.localize(implicit.query.lens) ?? .init(nation), 
-                disambiguator: implicit.disambiguator)
+        
+        guard let localized:(package:Package, pins:Package.Pins) = 
+            self.localize(nation: nation, arrival: nation.latest, lens: implicit.query.lens)
+        else 
+        {
+            return nil
+        }
+        if case let (selection, _)? = self.selectWithRedirect(from: route, 
+            lens: .init(localized.package, at: localized.pins.version), 
+            disambiguator: implicit.disambiguator)
         {
             return selection
         }
@@ -215,22 +264,6 @@ extension Ecosystem
                 nest: nest)
         {
             return selection
-        }
-        else 
-        {
-            return nil
-        }
-    }
-    
-    private 
-    func localize(_ specifier:(culture:Package.ID, version:Version?)?) -> Lexicon.Lens?
-    {
-        // determine which package contains the actual symbol documentation; 
-        // it may be different from the nation 
-        if case let (culture, departure)? = specifier, 
-                let  culture:Package = self[culture]
-        {
-            return .init(culture, at: departure)
         }
         else 
         {
@@ -334,7 +367,7 @@ extension Ecosystem
 extension Ecosystem
 {
     private 
-    func selectWithRedirect(from route:Route, lens:Lexicon.Lens, disambiguator:Link.Disambiguator) 
+    func selectWithRedirect(from route:Route, lens:Package.Pinned, disambiguator:Link.Disambiguator) 
         -> (selection:Selection, redirected:Bool)?
     {
         if  let selection:Selection = 
@@ -354,10 +387,10 @@ extension Ecosystem
         }
     }
     private 
-    func select(from route:Route, lens:Lexicon.Lens, disambiguator:Link.Disambiguator) 
+    func select(from route:Route, lens:Package.Pinned, disambiguator:Link.Disambiguator) 
         -> Selection?
     {
-        self.select(from: route, lenses: CollectionOfOne<Lexicon.Lens>.init(lens))
+        self.select(from: route, lenses: CollectionOfOne<Package.Pinned>.init(lens))
         {
             self.filter($0, by: disambiguator)
         }
@@ -397,7 +430,7 @@ extension Ecosystem
     private 
     func select<Lenses>(from route:Route, lenses:Lenses, disambiguator:Link.Disambiguator) 
         -> Selection?
-        where Lenses:Sequence, Lenses.Element == Lexicon.Lens
+        where Lenses:Sequence, Lenses.Element == Package.Pinned
     {
         self.select(from: route, lenses: lenses)
         {
@@ -408,18 +441,18 @@ extension Ecosystem
     func select<Lenses>(from route:Route, lenses:Lenses, 
         where predicate:(Symbol.Composite) throws -> Bool) 
         rethrows -> Selection?
-        where Lenses:Sequence, Lenses.Element == Lexicon.Lens
+        where Lenses:Sequence, Lenses.Element == Package.Pinned
     {
         var matches:[Symbol.Composite] = []
-        for lens:Lexicon.Lens in lenses 
+        for pinned:Package.Pinned in lenses 
         {
-            switch lens.package.groups[route]
+            switch pinned.package.groups[route]
             {
             case .none: 
                 continue 
             
             case .one(let composite):
-                if try predicate(composite), lens.contains(composite)
+                if try predicate(composite), pinned.contains(composite)
                 {
                     matches.append(composite)
                 }
@@ -433,7 +466,7 @@ extension Ecosystem
                         continue  
                     case .one(let diacritic):
                         let composite:Symbol.Composite = .init(base, diacritic)
-                        if try predicate(composite), lens.contains(composite)
+                        if try predicate(composite), pinned.contains(composite)
                         {
                             matches.append(composite)
                         }
@@ -441,7 +474,7 @@ extension Ecosystem
                         for diacritic:Symbol.Diacritic in diacritics 
                         {
                             let composite:Symbol.Composite = .init(base, diacritic)
-                            if try predicate(composite), lens.contains(composite)
+                            if try predicate(composite), pinned.contains(composite)
                             {
                                 matches.append(composite)
                             }

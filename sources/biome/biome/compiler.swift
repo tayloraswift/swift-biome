@@ -18,10 +18,10 @@ extension Ecosystem
         //  build lexical scopes for each module culture. 
         //  we can store entire packages in the lenses because this method 
         //  is non-mutating!
-        let lens:Lexicon.Lens = .init(self[culture])
+        let pinned:Package.Pinned = .init(self[culture], at: self[culture].latest)
         var lexica:[Lexicon] = scopes.map 
         {
-            .init(keys: keys, namespaces: $0, lenses: [lens])
+            .init(keys: keys, namespaces: $0, lenses: [pinned])
         }
         
         let peripherals:[[Index: Extension]] = 
@@ -30,10 +30,10 @@ extension Ecosystem
         // add upstream lenses 
         for lexicon:Int in lexica.indices 
         {
-            let packages:Set<Package.Index> = lexica[lexicon].namespaces.packages()
+            let packages:Set<Package.Index> = lexica[lexicon].namespaces.upstream()
             lexica[lexicon].lenses.append(contentsOf: packages.map
             {
-                .init(self[$0], at: pins[$0])
+                .init(self[$0], at: pins.upstream[$0] ?? self[$0].latest)
             })
         }
         
@@ -207,8 +207,8 @@ extension Ecosystem
             }
             // note: empty doccomments are omitted from the template buffer
             else if culture != sponsor.module.package,
-                let template:Article.Template<Link> = 
-                self.template(for: sponsor, at: pins[sponsor.module.package])
+                let version:Version = pins.upstream[sponsor.module.package],
+                let template:Article.Template<Link> = self.template(for: sponsor, at: version)
             {
                 migrants[member] = template
             }

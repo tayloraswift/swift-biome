@@ -44,6 +44,12 @@ extension Biome
     func page(for composite:Symbol.Composite, at version:Version) 
         -> [Page.Anchor: [UInt8]]
     {
+        /* guard let pins:Package.Pins = self.ecosystem[composite.culture.package].pins(at: version)
+        else 
+        {
+            fatalError("no such version \(version)")
+        } */
+        
         let fixed:[Page.Anchor: DOM.Template<Ecosystem.Index, [UInt8]>] = 
             self.ecosystem.generateFixedElements(for: composite, at: version)
         

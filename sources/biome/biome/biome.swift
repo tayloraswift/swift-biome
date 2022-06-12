@@ -64,7 +64,7 @@ struct Biome
             return nil 
         }
         
-        guard case let (selection, version, redirected)? = self.resolve(uri: link.reference)
+        guard case let (selection, pins, redirected)? = self.resolve(uri: link.reference)
         else 
         {
             return nil
@@ -72,13 +72,13 @@ struct Biome
         guard let index:Ecosystem.Index = selection.index 
         else 
         {
-            return .matched(canonical: "", .text("\(version): \(selection.possibilities)"))
+            return .matched(canonical: "", .text("\(pins.version): \(selection.possibilities)"))
         }
         
-        let uri:URI = self.uri(of: index, at: version)
+        let uri:URI = self.uri(of: index, at: pins.version)
         if  uri ~= request 
         {
-            let page:[Page.Anchor: [UInt8]] = self.page(for: index, at: version)
+            let page:[Page.Anchor: [UInt8]] = self.page(for: index, at: pins.version)
             let utf8:[UInt8] = self.template.rendered(as: [UInt8].self, 
                 substituting: _move(page))
             return .matched(canonical: "", 
@@ -95,7 +95,7 @@ struct Biome
     }
     
     func resolve<Tail>(uri:Link.Reference<Tail>) 
-        -> (selection:Ecosystem.Selection, version:Version, redirected:Bool)?
+        -> (selection:Ecosystem.Selection, pins:Package.Pins, redirected:Bool)?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         guard let prefix:String = uri.first?.identifier ?? nil
