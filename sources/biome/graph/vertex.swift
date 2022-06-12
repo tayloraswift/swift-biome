@@ -199,7 +199,7 @@ extension Image
             }
             let comment:String? = try $0.pop("docComment")
             {
-                try $0.lint 
+                try $0.lint(["uri", "module"]) 
                 {
                     try $0.remove("lines")
                     {
