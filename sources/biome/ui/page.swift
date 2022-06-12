@@ -9,49 +9,40 @@ enum Page
         case title 
         case constants 
         
-        case navigator
-        case kind
-        case metropole 
-        case colony 
-        case summary
-        case relationships 
         case availability 
-        
-        case platforms
+        case culture 
+        case discussion
+        case dynamic
         case fragments
-        
         case headline
         case introduction
-        case discussion
-        
-        case dynamic
+        case kind
+        case namespace 
+        case navigator
+        case platforms
+        case relationships 
+        case summary
     } 
 }
 
 extension Biome 
 {
-    func page(for index:Ecosystem.Index, at version:Version) 
+    func page(for index:Ecosystem.Index, pins:Package.Pins) 
         -> [Page.Anchor: [UInt8]]
     {
         switch index 
         {
         case .composite(let composite): 
-            return self.page(for: composite, at: version)
+            return self.page(for: composite, pins: pins)
         case .article(_), .module(_), .package(_):
             return [:]
         }
     }
-    func page(for composite:Symbol.Composite, at version:Version) 
+    func page(for composite:Symbol.Composite, pins:Package.Pins) 
         -> [Page.Anchor: [UInt8]]
     {
-        /* guard let pins:Package.Pins = self.ecosystem[composite.culture.package].pins(at: version)
-        else 
-        {
-            fatalError("no such version \(version)")
-        } */
-        
         let fixed:[Page.Anchor: DOM.Template<Ecosystem.Index, [UInt8]>] = 
-            self.ecosystem.generateFixedElements(for: composite, at: version)
+            self.ecosystem.generateFixedElements(for: composite, pins: pins)
         
         var referenced:Set<Ecosystem.Index> = [] 
         for template:DOM.Template<Ecosystem.Index, [UInt8]> in fixed.values 
@@ -63,7 +54,7 @@ extension Biome
         }
         
         let article:Article.Template<Link>? = 
-            self.ecosystem.template(for: composite.base, at: version)
+            self.ecosystem.template(for: composite.base, at: pins.version)
         
         if let template:DOM.Template<Link, [UInt8]> = article?.summary
         {

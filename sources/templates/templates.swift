@@ -172,8 +172,8 @@ enum DefaultTemplates
                                         }
                                         content: 
                                         {
-                                            Element.anchor(.metropole)
-                                            Element.anchor(.colony)
+                                            Element.anchor(.namespace)
+                                            Element.anchor(.culture)
                                         }
                                     }
                                     

@@ -29,11 +29,22 @@ extension Ecosystem
         crumbs.reverse()
         return .ol(items: crumbs) { ("class", "breadcrumbs-container") }
     }
+    private 
+    func link(package:Package.Index) -> HTML.Element<Index>
+    {
+        .a(self[package].name) { ("href", .anchor(.package(package))) }
+    }
+    private 
+    func link(module:Module.Index) -> HTML.Element<Index>
+    {
+        .a(String.init(self[module].title)) { ("href", .anchor(.module(module))) }
+    }
     
-    func generateDynamicElements(for composite:Symbol.Composite, at version:Version) 
+    func generateDynamicElements(for composite:Symbol.Composite, pins:Package.Pins) 
         -> [Page.Anchor: DOM.Template<Index, [UInt8]>]
     {
-        guard let facts:Symbol.Predicates = self.facts(for: composite.base, at: version)
+        guard let facts:Symbol.Predicates = 
+            self.facts(for: composite.base, at: pins.version)
         else 
         {
             return [:]
@@ -45,13 +56,13 @@ extension Ecosystem
         
         return [:]
     }
-    func generateFixedElements(for composite:Symbol.Composite, at version:Version) 
+    func generateFixedElements(for composite:Symbol.Composite, pins:Package.Pins) 
         -> [Page.Anchor: DOM.Template<Index, [UInt8]>]
     {
         let base:Symbol = self[composite.base]
         
         guard let declaration:Symbol.Declaration = 
-            self.declaration(for: composite.base, at: version)
+            self.declaration(for: composite.base, at: pins.version)
         else 
         {
             return [:]
@@ -66,6 +77,7 @@ extension Ecosystem
             .navigator:     self.navigator(base: base, host: composite.host),
             
             .kind:         .text(escaping: base.color.title),
+            .culture:       self.link(module: composite.culture),
             .fragments:    .render(fragments: declaration.fragments),
             // .dynamic:       Element[.div]
             // {
@@ -77,6 +89,14 @@ extension Ecosystem
             // },
         ]
         
+        if composite.diacritic.host.module != composite.culture 
+        {
+            substitutions[.namespace] = .span(self.link(module: composite.diacritic.host.module))
+            {
+                ("class", "namespace")
+            }
+        }
+        
         substitutions[.platforms] = .render(
             availability: declaration.availability.platforms)
         substitutions[.availability] = .render(
@@ -87,7 +107,6 @@ extension Ecosystem
         ))
         
         return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
-        
         /* if case nil = substitutions.index(forKey: .summary)
         {
             substitutions[.summary]     = Element[.p]
@@ -98,41 +117,6 @@ extension Ecosystem
         for origin:Int in dynamic.cards 
         {
             substitutions[.reference(.symbol(origin, victim: nil))] = self.symbols[origin].summary.map(self.fill(template:))
-        }
-        
-        let metropole:Element?
-        if let module:Int   = symbol.module
-        {
-            if      let victim:Int      = victim, 
-                    let namespace:Int   = self.biome.symbols[victim].namespace, namespace != module
-            {
-                metropole   = self.link(module: namespace)
-            }
-            else if let namespace:Int   =                     symbol.namespace, namespace != module 
-            {
-                metropole   = self.link(module: namespace)
-            }
-            else 
-            {
-                metropole   = nil
-            }
-            substitutions[.colony] = self.link(module: module)
-        }
-        else 
-        {
-            metropole = nil
-            substitutions[.colony] = Element.span("(Mythical)") 
-        }
-        if let metropole:Element = metropole  
-        {
-            substitutions[.metropole] = Element[.span]
-            {
-                ["metropole"]
-            }
-            content:
-            {
-                metropole
-            }
         }
         
         var relationships:[Element] 
@@ -390,18 +374,6 @@ func substitutions(module index:Int, filter:[Package.ID]) -> [Anchor: Element]
     }
     
     return substitutions
-}
-
-
-private 
-func link(package:Int) -> Element
-{
-    .link(self.biome.packages[package].name, to: self.format(uri: self.uri(package: package)), internal: true)
-}
-private 
-func link(module:Int) -> Element
-{
-    .link(self.biome.modules[module].title, to: self.format(uri: self.uri(module: module)), internal: true)
 }
 
 private 

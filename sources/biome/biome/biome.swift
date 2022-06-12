@@ -78,7 +78,7 @@ struct Biome
         let uri:URI = self.uri(of: index, at: pins.version)
         if  uri ~= request 
         {
-            let page:[Page.Anchor: [UInt8]] = self.page(for: index, at: pins.version)
+            let page:[Page.Anchor: [UInt8]] = self.page(for: index, pins: pins)
             let utf8:[UInt8] = self.template.rendered(as: [UInt8].self, 
                 substituting: _move(page))
             return .matched(canonical: "", 
