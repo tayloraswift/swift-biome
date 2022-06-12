@@ -1,0 +1,69 @@
+#!/usr/bin/python3
+
+import os, sys, subprocess, shutil, glob
+
+manifest = '''\
+// swift-tools-version:5.7
+import PackageDescription
+
+let package:Package = .init(
+    name: "consumer",
+    products: 
+    [
+        .library(name: "_Consumer", targets: ["_Consumer"])
+    ],
+    dependencies: 
+    [
+        .package(url: "https://github.com/swift-biome/swift-documentation-extract", from: "0.2.0"),
+        .package(url: "{url}", exact: "{tag}"),
+    ],
+    targets: 
+    [
+        .target(name: "_Consumer", 
+            dependencies: 
+            [
+                {dependencies}
+            ],
+            path: "sources/", 
+            exclude: 
+            [
+            ]),
+    ]
+)
+'''
+
+workspace = '.checkouts'
+
+shutil.rmtree(workspace, ignore_errors = True)
+os.mkdir(workspace)
+os.chdir(workspace)
+
+for url, package in (
+    ('https://github.com/swift-biome/swift-foo', 'swift-foo'),
+    ):
+    for tag in '0.1.0', '0.1.1', '0.2.0', '0.3.0':
+        repository = '{0}@{1}'.format(package, tag)
+        products = 'Foo',
+        modules = 'Foo',
+        
+        dependencies = ','.join('.product(name: "{0}", package: "{1}")'
+            .format(product, package) for product in products)
+        
+        os.mkdir(repository)
+        os.chdir(repository)
+        
+        os.mkdir('sources')
+        
+        with open('sources/_consumer.swift', 'w') as file:
+            file.write('\n')
+        
+        with open('Package.swift', 'w') as file:
+            file.write(manifest.format(url = url, tag = tag, dependencies = dependencies))
+        
+        catalog = subprocess.run(('swift', 'package', 'catalog', * modules ), 
+            capture_output = True).stdout.decode('utf-8')
+        
+        with open('Package.catalog', 'w') as file:
+            file.write(catalog)
+        
+        os.chdir('..')
