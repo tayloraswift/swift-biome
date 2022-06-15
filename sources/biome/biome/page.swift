@@ -10,6 +10,7 @@ enum Page
         case constants 
         
         case availability 
+        case base
         case culture 
         case discussion
         case dynamic

@@ -174,6 +174,7 @@ enum DefaultTemplates
                                         {
                                             Element.anchor(.namespace)
                                             Element.anchor(.culture)
+                                            Element.anchor(.base)
                                         }
                                     }
                                     

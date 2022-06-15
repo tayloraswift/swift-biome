@@ -159,6 +159,13 @@ extension Ecosystem
                 ("class", "namespace")
             }
         }
+        if composite.base.module != composite.culture 
+        {
+            substitutions[.base] = .span(self.link(module: composite.base.module))
+            {
+                ("class", "base")
+            }
+        }
         
         substitutions[.platforms] = .render(
             availability: declaration.availability.platforms)
