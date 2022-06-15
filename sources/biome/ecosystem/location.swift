@@ -1,10 +1,24 @@
 extension Ecosystem 
 {
-    func location(of namespace:Module.Index, pins:[Package.Index: Version]) 
+    func location(of index:Package.Index, pins:[Package.Index: Version]) 
         -> Link.Reference<[String]>
     {
-        let package:Package = self[namespace.package]
-        let version:Version = pins[namespace.package] ?? package.latest
+        let package:Package = self[index]
+        let version:Version = pins[index] ?? package.latest
+        
+        var location:Link.Reference<[String]> = .init(path: [package.name])
+        if let version:Version = package.abbreviate(version)
+        {
+            location.path.append(version.description)
+        }
+        return location
+    }
+    
+    func location(of index:Module.Index, pins:[Package.Index: Version]) 
+        -> Link.Reference<[String]>
+    {
+        let package:Package = self[index.package]
+        let version:Version = pins[index.package] ?? package.latest
         
         var location:Link.Reference<[String]> = package.root
         if let version:Version = package.abbreviate(version)
@@ -12,7 +26,19 @@ extension Ecosystem
             location.path.append(version.description)
         }
         // *not* `id.string` !
-        location.path.append(self[namespace].id.value)
+        location.path.append(self[index].id.value)
+        return location
+    }
+    
+    func location(of index:Article.Index, pins:[Package.Index: Version]) 
+        -> Link.Reference<[String]>
+    {
+        var location:Link.Reference<[String]> = 
+            self.location(of: index.module, pins: pins)
+        for component:String in self[index].path 
+        {
+            location.path.append(component.lowercased())
+        }
         return location
     }
     

@@ -10,12 +10,17 @@ extension Biome
             prefix = self.prefixes.master
             location = self.ecosystem.location(of: composite, pins: pins)
         
+        case .article(let article):
+            prefix = self.prefixes.doc
+            location = self.ecosystem.location(of: article, pins: pins)
+        
         case .module(let module):
             prefix = self.prefixes.master
             location = self.ecosystem.location(of: module, pins: pins)
         
-        default: 
-            fatalError("unimplemented")
+        case .package(let package):
+            prefix = self.prefixes.master
+            location = self.ecosystem.location(of: package, pins: pins)
         }
         return .init(prefix: prefix, location)
     }
