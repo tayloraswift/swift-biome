@@ -1,6 +1,54 @@
 extension Ecosystem 
 {
-    private 
+    enum Selection
+    {
+        case package(Package.Index)
+        case module(Module.Index)
+        case article(Article.Index)
+        case composite(Symbol.Composite)
+        case composites([Symbol.Composite])
+        
+        var index:Index?
+        {
+            switch self 
+            {
+            case .package   (let index):    return .package     (index)
+            case .module    (let index):    return .module      (index)
+            case .article   (let index):    return .article     (index)
+            case .composite (let index):    return .composite   (index)
+            case .composites(_):            return nil
+            }
+        }
+        var possibilities:[Symbol.Composite] 
+        {
+            if case .composites(let possibilities) = self
+            {
+                return possibilities
+            }
+            else 
+            {
+                return []
+            }
+        }
+        
+        init?(_ matches:[Symbol.Composite]) 
+        {
+            guard let first:Symbol.Composite = matches.first 
+            else 
+            {
+                return nil
+            }
+            if matches.count < 2
+            {
+                self = .composite(first)
+            } 
+            else 
+            {
+                self = .composites(matches)
+            }
+        }
+    }
+    
     func localize(nation:Package, arrival:Version, lens:(culture:Package.ID, version:Version?)?) 
         -> (package:Package, pins:Package.Pins)?
     {
@@ -25,159 +73,7 @@ extension Ecosystem
             return nil
         }
     }
-    func resolve<Tail>(location global:Link.Reference<Tail>, keys:Route.Keys) 
-        -> (selection:Selection, pins:Package.Pins, redirected:Bool)?
-        where Tail:BidirectionalCollection, Tail.Element == Link.Component
-    {
-        let local:Link.Reference<Tail.SubSequence>
-        
-        let nation:Package, 
-            explicit:Bool
-        if  let package:Package.ID = global.nation, 
-            let package:Package = self[package]
-        {
-            explicit = true
-            nation = package 
-            local = global.dropFirst()
-        }
-        else if let swift:Package = self[.swift]
-        {
-            explicit = false
-            nation = swift
-            local = global[...]
-        }
-        else 
-        {
-            return nil
-        }
-        
-        let qualified:Link.Reference<Tail.SubSequence>
-        let arrival:Version
-        if let version:Version = local.arrival
-        {
-            qualified = _move(local).dropFirst()
-            arrival = version 
-        }
-        else 
-        {
-            qualified = _move(local) 
-            arrival = nation.latest
-        }
-        
-        guard let namespace:Module.ID = qualified.namespace 
-        else 
-        {
-            if explicit, let pins:Package.Pins = nation.versions[arrival]
-            {
-                return (.package(nation.index), pins, false) 
-            }
-            else 
-            {
-                return nil
-            }
-        } 
-        guard let namespace:Module.Index = nation.modules.indices[namespace]
-        else 
-        {
-            return nil
-        }
-        
-        let implicit:Link.Reference<Tail.SubSequence> = _move(qualified).dropFirst()
-        
-        guard let path:Path = .init(implicit)
-        else 
-        {
-            if let pins:Package.Pins = nation.versions[arrival]
-            {
-                return (.module(namespace), pins, false)
-            }
-            else 
-            {
-                return nil
-            }
-        }
-        guard let route:Route = keys[namespace, path, implicit.orientation]
-        else 
-        {
-            return nil
-        }
-        
-        guard let localized:(package:Package, pins:Package.Pins) = 
-            self.localize(nation: nation, arrival: arrival, lens: implicit.query.lens)
-        else 
-        {
-            return nil
-        }
-        if case let (selection, redirected: redirected)? = 
-            self.selectWithRedirect(from: route, 
-                in: .init(localized.package, at: localized.pins.version), 
-                by: implicit.disambiguator)
-        {
-            return (selection, localized.pins, redirected)
-        }
-        else 
-        {
-            return nil
-        }
-    }
     
-    func resolve(link string:String, lexicon:Lexicon, imports:Set<Module.Index>, nest:Symbol.Nest?) 
-        -> Link
-    {
-        // must attempt to parse absolute first, otherwise 
-        // '/foo' will parse to ["", "foo"]
-        let selection:Selection?
-        let visible:Int
-        if let absolute:Link.Expression = try? .init(absolute: string)
-        {
-            visible = absolute.visible
-            selection = self.selectWithRedirect(globalLink: absolute.reference, 
-                lexicon: lexicon)
-        }
-        else if let relative:Link.Expression = try? .init(relative: string)
-        {
-            visible = relative.visible
-            selection = self.selectWithRedirect(visibleLink: relative.reference, 
-                lexicon: lexicon,
-                imports: imports, 
-                nest: nest)
-        }
-        else 
-        {
-            print(self.describe(.none(string)))
-            return .unresolved(string)
-        }
-        guard let selection:Selection = selection 
-        else 
-        {
-            print(self.describe(.none(string)))
-            return .unresolved(string)
-        }
-        guard let index:Index = selection.index 
-        else 
-        {
-            print(self.describe(.many(string, selection.possibilities)))
-            return .unresolved(string)
-        }
-        
-        return .resolved(index, visible: visible)
-    }
-    func resolve(binding string:String, lexicon:Lexicon) -> Index?
-    {
-        if  let expression:Link.Expression = 
-            try? Link.Expression.init(relative: string),
-            let selection:Selection = 
-            self.selectWithRedirect(visibleLink: expression.reference, lexicon: lexicon)
-        {
-            return selection.index
-        }
-        else 
-        {
-            return nil 
-        }
-    }
-    
-    private 
     func selectWithRedirect<Tail>(globalLink link:Link.Reference<Tail>, lexicon:Lexicon)
         -> Selection?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
@@ -240,7 +136,6 @@ extension Ecosystem
             return nil
         }
     } 
-    private 
     func selectWithRedirect<Tail>(
         visibleLink link:Link.Reference<Tail>, 
         lexicon:Lexicon,
@@ -364,7 +259,6 @@ extension Ecosystem
 }
 extension Ecosystem
 {
-    private 
     func selectWithRedirect(from route:Route, in pinned:Package.Pinned, 
         by disambiguator:Link.Disambiguator) 
         -> (selection:Selection, redirected:Bool)?

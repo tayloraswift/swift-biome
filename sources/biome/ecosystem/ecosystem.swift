@@ -32,54 +32,17 @@ struct Ecosystem
         {
             .composite(.init(natural: natural))
         }
-    }
-    enum Selection
-    {
-        case package(Package.Index)
-        case module(Module.Index)
-        case article(Article.Index)
-        case composite(Symbol.Composite)
-        case composites([Symbol.Composite])
         
-        var index:Index?
+        /* var culture:Package.Index
         {
             switch self 
             {
-            case .package   (let index):    return .package     (index)
-            case .module    (let index):    return .module      (index)
-            case .article   (let index):    return .article     (index)
-            case .composite (let index):    return .composite   (index)
-            case .composites(_):            return nil
+            case .package(let package):     return package
+            case .module(let module):       return module.package 
+            case .article(let article):     return article.module.package
+            case .composite(let composite): return composite.culture.package
             }
-        }
-        var possibilities:[Symbol.Composite] 
-        {
-            if case .composites(let possibilities) = self
-            {
-                return possibilities
-            }
-            else 
-            {
-                return []
-            }
-        }
-        
-        init?(_ matches:[Symbol.Composite]) 
-        {
-            guard let first:Symbol.Composite = matches.first 
-            else 
-            {
-                return nil
-            }
-            if matches.count < 2
-            {
-                self = .composite(first)
-            } 
-            else 
-            {
-                self = .composites(matches)
-            }
-        }
+        } */
     }
     
     func describe(_ error:LinkResolutionError) -> String 
@@ -157,6 +120,13 @@ struct Ecosystem
         _read 
         {
             yield self.packages[symbol.module.package.offset][local: symbol]
+        }
+    } 
+    subscript(article:Article.Index) -> Article
+    {
+        _read 
+        {
+            yield self.packages[article.module.package.offset][local: article]
         }
     } 
     
@@ -250,19 +220,19 @@ extension Ecosystem
 }
 extension Ecosystem 
 {
-    func declaration(for symbol:Symbol.Index, at version:Version)
+    func declaration(_ symbol:Symbol.Index, at version:Version)
         -> Symbol.Declaration?
     {
         self[symbol.module.package].declarations
             .at(version, head: self[symbol].heads.declaration)
     }
-    func template(for symbol:Symbol.Index, at version:Version)
+    func template(_ symbol:Symbol.Index, at version:Version)
         -> Article.Template<Link>?
     {
         self[symbol.module.package].templates
             .at(version, head: self[symbol].heads.template) 
     }
-    func facts(for symbol:Symbol.Index, at version:Version)
+    func facts(_ symbol:Symbol.Index, at version:Version)
         -> Symbol.Predicates?
     {
         self[symbol.module.package].facts
@@ -274,5 +244,23 @@ extension Ecosystem
         let diacritic:Symbol.Diacritic = .init(host: symbol, culture: pin.culture)
         return self[pin.culture.package].opinions
             .at(pin.version, head: self[pin.culture.package].external[diacritic])
+    }
+    
+    func baseDeclaration(_ composite:Symbol.Composite, pins:[Package.Index: Version])
+        -> Symbol.Declaration?
+    {
+        self.declaration(composite.base, at: self.baseVersion(composite, pins: pins))
+    }
+    func baseTemplate(_ composite:Symbol.Composite, pins:[Package.Index: Version])
+        -> Article.Template<Link>?
+    {
+        self.template(composite.base, at: self.baseVersion(composite, pins: pins))
+    }
+    
+    private 
+    func baseVersion(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
+        -> Version
+    {
+        pins[composite.base.module.package] ?? self[composite.base.module.package].latest
     }
 }

@@ -2,6 +2,42 @@ import HTML
 
 extension Ecosystem 
 {
+    func fill(trace:[Index], uris:[Ecosystem.Index: String]) -> HTML.Element<Never>
+    {
+        var crumbs:[HTML.Element<Never>] = []
+            crumbs.reserveCapacity(2 * trace.count - 1)
+        for crumb:Ecosystem.Index in trace.reversed()
+        {
+            if !crumbs.isEmpty 
+            {
+                crumbs.append(.text(escaped: "."))
+            }
+            let text:String 
+            switch crumb 
+            {
+            case .article(let article): 
+                text = self[article].name
+            case .package(let package): 
+                text = self[package].name
+            case .module(let module): 
+                text = self[module].name // not `title`!
+            case .composite(let composite): 
+                text = self[composite.base].name 
+            }
+            if let uri:String = uris[crumb] 
+            {
+                crumbs.append(.a(text) { ("href", uri) })
+            }
+            else 
+            {
+                crumbs.append(.text(escaping: text))
+            }
+        }
+        return .code(crumbs)
+    }
+}
+extension Ecosystem 
+{
     private static 
     func constants(filter:[Package.ID]) -> String
     {
@@ -40,7 +76,34 @@ extension Ecosystem
         .a(String.init(self[module].title)) { ("href", .anchor(.module(module))) }
     }
     
-    func generateDynamicElements(for composite:Symbol.Composite, pins:Package.Pins) 
+    func loadArticle(_ composite:Symbol.Composite, pins:[Package.Index: Version])
+        -> Article.Template<[Index]>?
+    {
+        guard let article:Article.Template<Link> = self.baseTemplate(composite, pins: pins)
+        else 
+        {
+            return nil 
+        }
+        return article.map 
+        {
+            var trace:[Index] = [$0.target]
+            guard case .composite(let composite) = $0.target 
+            else 
+            {
+                return trace
+            }
+            
+            trace.reserveCapacity($0.visible)
+            var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.index
+            while trace.count < $0.visible, let current:Symbol.Index = next 
+            {
+                trace.append(.symbol(current))
+                next = self[current].shape?.index 
+            }
+            return trace
+        }
+    }
+    /* func generateDynamicElements(for composite:Symbol.Composite, pins:[Package.Index: Version]) 
         -> [Page.Anchor: DOM.Template<Index, [UInt8]>]
     {
         guard let facts:Symbol.Predicates = 
@@ -55,14 +118,14 @@ extension Ecosystem
         }
         
         return [:]
-    }
-    func generateFixedElements(for composite:Symbol.Composite, pins:Package.Pins) 
+    } */
+    func generateFixedElements(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
         -> [Page.Anchor: DOM.Template<Index, [UInt8]>]
     {
         let base:Symbol = self[composite.base]
         
         guard let declaration:Symbol.Declaration = 
-            self.declaration(for: composite.base, at: pins.version)
+            self.baseDeclaration(composite, pins: pins)
         else 
         {
             return [:]
@@ -173,64 +236,7 @@ extension Ecosystem
 
 
 /* private 
-func present(reference resolved:ResolvedLink) -> StaticElement
-{
-    let components:[(text:String, uri:URI)], 
-        tail:(text:String, uri:URI)
 
-    switch resolved
-    {
-    case .article(let article): 
-        return StaticElement.link(self.articles[article].conquistador.title, 
-            to: self.format(uri: self.uri(article: article)), 
-            internal: true)
-    
-    case .package(let package):
-        components  = []
-        tail        = 
-        (
-            self.biome.packages[package].name,
-            self.biome.uri(package: package)
-        )
-    
-    case .module(let module):
-        components  = []
-        tail        = 
-        (
-            self.biome.modules[module].title,
-            self.biome.uri(module: module)
-        )
-    case .symbol(let witness, victim: let victim, components: let limit):
-        var reversed:[(text:String, uri:URI)] = []
-        var next:Int?       = victim ?? self.biome.symbols[witness].parent
-        while let index:Int = next, reversed.count < limit - 1
-        {
-            reversed.append(
-                (
-                    self.biome.symbols[index].title, 
-                    self.biome.uri(witness: index, victim: nil, routing: self.routing)
-                ))
-            next    = self.biome.symbols[index].parent
-        }
-        components  = reversed.reversed()
-        tail        = 
-        (
-            self.biome.symbols[witness].title, 
-            self.biome.uri(witness: witness, victim: victim, routing: self.routing)
-        )
-    }
-    return StaticElement[.code]
-    {
-        // unlike in breadcrumbs, we print the dot separators explicitly 
-        // so they look normal when highlighted and copy-pasted 
-        for (text, uri):(String, URI) in components 
-        {
-            StaticElement.link(text, to: self.biome.format(uri:       uri, routing: self.routing), internal: true)
-            StaticElement.text(escaped: ".")
-        }
-        StaticElement.link(tail.text, to: self.biome.format(uri: tail.uri, routing: self.routing), internal: true)
-    }
-}
 private 
 func fill(template:DocumentTemplate<ResolvedLink, [UInt8]>) -> [UInt8] 
 {

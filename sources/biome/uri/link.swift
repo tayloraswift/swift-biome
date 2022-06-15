@@ -1,9 +1,15 @@
 import Grammar
 
-enum Link:Hashable, Sendable
+struct Link:Hashable, Sendable
 {
-    case resolved(Ecosystem.Index, visible:Int)
-    case unresolved(String)
+    let target:Ecosystem.Index 
+    let visible:Int
+    
+    init(_ target:Ecosystem.Index, visible:Int)
+    {
+        self.target = target 
+        self.visible = visible
+    }
 }
 extension Link 
 {

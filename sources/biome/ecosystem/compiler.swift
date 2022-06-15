@@ -1,8 +1,4 @@
-/* enum Documentation:Equatable
-{
-    case template(Article.Template<Link>)
-    case shared(Package.Index, Keyframe<Self>.Buffer.Index)
-} */
+import HTML
 
 extension Ecosystem 
 {
@@ -40,137 +36,6 @@ extension Ecosystem
         return self.compile(comments: comments, peripherals: peripherals, lexica: lexica)
     }
     
-    private 
-    func resolveBindings(of extensions:[[String: Extension]], 
-        articles:[[Article.Index: Extension]],
-        lexica:[Lexicon]) 
-        -> [[Index: Extension]]
-    {
-        zip(lexica, zip(articles, extensions)).map
-        {
-            let (lexicon, ( articles,                          extensions)):
-                (Lexicon, ([Article.Index: Extension], [String: Extension])) = $0
-            
-            var bindings:[Index: Extension] = [:]
-                bindings.reserveCapacity(articles.count + extensions.count)
-            for (index, article):(Article.Index, Extension) in articles 
-            {
-                bindings[.article(index)] = article
-            }
-            for (binding, article):(String, Extension) in extensions
-            {
-                guard let binding:Index = self.resolve(binding: binding, lexicon: lexicon)
-                else 
-                {
-                    fatalError("unimplemented")
-                }
-                // TODO: emit warning for colliding extensions
-                bindings[binding] = article 
-            }
-            return bindings
-        }
-    }
-    
-    private 
-    func compile(comments:[Symbol.Index: String], 
-        peripherals:[[Index: Extension]], 
-        lexica:[Lexicon])
-        -> [Index: Article.Template<Link>]
-    {
-        let comments:[Index: Article.Template<Link>] = 
-            self.compile(comments: comments, lexica: lexica)
-        let peripherals:[Index: Article.Template<Link>] = 
-            self.compile(peripherals: peripherals, lexica: lexica)
-        return comments.merging(peripherals) { $1 }
-    }
-    private
-    func compile(comments:[Symbol.Index: String], lexica:[Lexicon])
-        -> [Index: Article.Template<Link>]
-    {
-        //  always import the standard library
-        let implicit:Set<Module.Index> = self.standardLibrary
-        // need to turn the lexica into something we can select from a flattened 
-        // comments dictionary 
-        let lexica:[Module.Index: Lexicon] = 
-            .init(uniqueKeysWithValues: lexica.map { ($0.namespaces.culture, $0) })
-        
-        var templates:[Index: Article.Template<Link>] = 
-            .init(minimumCapacity: comments.count)
-        for (symbol, comment):(Symbol.Index, String) in comments
-        {
-            guard let lexicon:Lexicon = lexica[symbol.module] 
-            else 
-            {
-                fatalError("unreachable")
-            }
-            
-            let nest:Symbol.Nest? = self[symbol].nest
-            let comment:Extension = .init(markdown: comment)
-            let imports:Set<Module.Index> = 
-                implicit.union(lexicon.resolve(imports: comment.metadata.imports))
-            let unresolved:Article.Template<String> = comment.render()
-            let resolved:Article.Template<Link> = unresolved.map 
-            {
-                self.resolve(link: $0, 
-                    lexicon: lexicon, 
-                    imports: imports, 
-                    nest: nest)
-            }
-            templates[.symbol(symbol)] = resolved
-        } 
-        return templates
-    }
-    private
-    func compile(peripherals:[[Index: Extension]], lexica:[Lexicon])
-        -> [Index: Article.Template<Link>]
-    {
-        //  always import the standard library
-        let implicit:Set<Module.Index> = self.standardLibrary
-        
-        var templates:[Index: Article.Template<Link>] = 
-            .init(minimumCapacity: peripherals.reduce(0) { $0 + $1.count })
-        for (lexicon, assigned):(Lexicon, [Index: Extension]) in zip(lexica, peripherals)
-        {
-            for (target, article):(Index, Extension) in assigned
-            {
-                let nest:Symbol.Nest? = self.nest(target)
-                let imports:Set<Module.Index> = 
-                    implicit.union(lexicon.resolve(imports: article.metadata.imports))
-                let unresolved:Article.Template<String> = article.render()
-                let resolved:Article.Template<Link> = unresolved.map 
-                {
-                    self.resolve(link: $0, 
-                        lexicon: lexicon, 
-                        imports: imports, 
-                        nest: nest)
-                }
-                templates[target] = resolved
-            } 
-        }
-        return templates
-    }
-    private 
-    func nest(_ target:Index) -> Symbol.Nest?
-    {
-        guard case .composite(let composite) = target 
-        else 
-        {
-            return nil 
-        }
-        if  let host:Symbol.Index = composite.host 
-        {
-            let host:Symbol = self[host]
-            return .init(namespace: host.namespace, prefix: [String].init(host.path))
-        }
-        else 
-        {
-            return self[composite.base].nest
-        }
-    }
-}
-
-extension Ecosystem 
-{
     mutating 
     func updateDocumentation(in culture:Package.Index, 
         compiled:[Index: Article.Template<Link>],
@@ -208,11 +73,182 @@ extension Ecosystem
             // note: empty doccomments are omitted from the template buffer
             else if culture != sponsor.module.package,
                 let version:Version = pins.upstream[sponsor.module.package],
-                let template:Article.Template<Link> = self.template(for: sponsor, at: version)
+                let template:Article.Template<Link> = self.template(sponsor, at: version)
             {
                 migrants[member] = template
             }
         }
         return migrants
+    }
+}
+
+extension Ecosystem
+{
+    private 
+    func resolveBindings(of extensions:[[String: Extension]], 
+        articles:[[Article.Index: Extension]],
+        lexica:[Lexicon]) 
+        -> [[Index: Extension]]
+    {
+        zip(lexica, zip(articles, extensions)).map
+        {
+            let (lexicon, ( articles,                          extensions)):
+                (Lexicon, ([Article.Index: Extension], [String: Extension])) = $0
+            
+            var bindings:[Index: Extension] = [:]
+                bindings.reserveCapacity(articles.count + extensions.count)
+            for (index, article):(Article.Index, Extension) in articles 
+            {
+                bindings[.article(index)] = article
+            }
+            for (binding, article):(String, Extension) in extensions
+            {
+                guard let binding:Index = self.resolve(binding: binding, lexicon: lexicon)
+                else 
+                {
+                    fatalError("unimplemented")
+                }
+                // TODO: emit warning for colliding extensions
+                bindings[binding] = article 
+            }
+            return bindings
+        }
+    }
+    private 
+    func resolve(binding string:String, lexicon:Lexicon) -> Index?
+    {
+        if  let expression:Link.Expression = try? Link.Expression.init(relative: string),
+            let selection:Selection = 
+            self.selectWithRedirect(visibleLink: expression.reference, lexicon: lexicon)
+        {
+            return selection.index
+        }
+        else 
+        {
+            return nil 
+        }
+    }
+}
+extension Ecosystem
+{
+    private 
+    func compile(comments:[Symbol.Index: String], 
+        peripherals:[[Index: Extension]], 
+        lexica:[Lexicon])
+        -> [Index: Article.Template<Link>]
+    {
+        let comments:[Index: Article.Template<Link>] = 
+            self.compile(comments: comments, lexica: lexica)
+        let peripherals:[Index: Article.Template<Link>] = 
+            self.compile(peripherals: peripherals, lexica: lexica)
+        return comments.merging(peripherals) { $1 }
+    }
+    private
+    func compile(comments:[Symbol.Index: String], lexica:[Lexicon])
+        -> [Index: Article.Template<Link>]
+    {
+        // need to turn the lexica into something we can select from a flattened 
+        // comments dictionary 
+        let lexica:[Module.Index: Lexicon] = 
+            .init(uniqueKeysWithValues: lexica.map { ($0.namespaces.culture, $0) })
+        
+        var templates:[Index: Article.Template<Link>] = 
+            .init(minimumCapacity: comments.count)
+        for (symbol, comment):(Symbol.Index, String) in comments
+        {
+            guard let lexicon:Lexicon = lexica[symbol.module] 
+            else 
+            {
+                fatalError("unreachable")
+            }
+            
+            let comment:Extension = .init(markdown: comment)
+            let target:Index = .symbol(symbol)
+            
+            templates[target] = self.compile(comment, for: target, lexicon: lexicon)
+        } 
+        return templates
+    }
+    private
+    func compile(peripherals:[[Index: Extension]], lexica:[Lexicon])
+        -> [Index: Article.Template<Link>]
+    {
+        
+        var templates:[Index: Article.Template<Link>] = 
+            .init(minimumCapacity: peripherals.reduce(0) { $0 + $1.count })
+        for (lexicon, assigned):(Lexicon, [Index: Extension]) in zip(lexica, peripherals)
+        {
+            for (target, article):(Index, Extension) in assigned
+            {
+                templates[target] = self.compile(article, for: target, lexicon: lexicon)
+            } 
+        }
+        return templates
+    }
+    private 
+    func compile(_ article:Extension, for target:Index, lexicon:Lexicon)
+        -> Article.Template<Link>
+    {
+        let nest:Symbol.Nest? = self.nest(target)
+        let imports:Set<Module.Index> = self.standardLibrary
+            .union(lexicon.resolve(imports: article.metadata.imports))
+        return article.render().transform 
+        {
+            (string:String, errors:inout [Error]) in 
+            // must attempt to parse absolute first, otherwise 
+            // '/foo' will parse to ["", "foo"]
+            let selection:Selection?
+            let expression:Link.Expression
+            if let absolute:Link.Expression = try? .init(absolute: string)
+            {
+                expression = absolute
+                selection = self.selectWithRedirect(globalLink: absolute.reference, 
+                    lexicon: lexicon)
+            }
+            else if let relative:Link.Expression = try? .init(relative: string)
+            {
+                expression = relative
+                selection = self.selectWithRedirect(visibleLink: relative.reference, 
+                    lexicon: lexicon,
+                    imports: imports, 
+                    nest: nest)
+            }
+            else 
+            {
+                errors.append(LinkResolutionError.none(string))
+                return .segment(HTML.Element<Never>.code(string).rendered(as: [UInt8].self))
+            }
+            guard let selection:Selection = selection 
+            else 
+            {
+                errors.append(LinkResolutionError.none(string))
+                return .segment(HTML.Element<Never>.code(string).rendered(as: [UInt8].self))
+            }
+            guard let target:Index = selection.index 
+            else 
+            {
+                errors.append(LinkResolutionError.many(string, selection.possibilities))
+                return .segment(HTML.Element<Never>.code(string).rendered(as: [UInt8].self))
+            }
+            return .key(.init(target, visible: expression.visible))
+        }
+    }
+    private 
+    func nest(_ target:Index) -> Symbol.Nest?
+    {
+        guard case .composite(let composite) = target 
+        else 
+        {
+            return nil 
+        }
+        if  let host:Symbol.Index = composite.host 
+        {
+            let host:Symbol = self[host]
+            return .init(namespace: host.namespace, prefix: [String].init(host.path))
+        }
+        else 
+        {
+            return self[composite.base].nest
+        }
     }
 }

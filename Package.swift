@@ -15,7 +15,7 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-highlight",            exact: "0.1.3"),
         .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.2.1"),
-        .package(url: "https://github.com/kelvin13/swift-structured-document",  exact: "0.3.4"),
+        .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.3.5"),
         
         .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-05-31-a"),
         .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-05-31-a"),
@@ -33,8 +33,8 @@ let package = Package(
             dependencies: 
             [
                 .product(name: "JSON",              package: "swift-json"),
+                .product(name: "DOM",               package: "swift-dom"),
                 .product(name: "Notebook",          package: "swift-highlight"),
-                .product(name: "DOM",               package: "swift-structured-document"),
                 .product(name: "SwiftSyntaxParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntax",       package: "swift-syntax"),
                 .product(name: "Markdown",          package: "swift-markdown"),
@@ -54,7 +54,7 @@ let package = Package(
             dependencies: 
             [
                 .target(name: "Biome"),
-                .product(name: "DOM",               package: "swift-structured-document"),
+                .product(name: "DOM",               package: "swift-dom"),
             ], 
             path: "sources/templates"),
         

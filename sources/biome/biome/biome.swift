@@ -18,7 +18,6 @@ struct Biome
         master:String,
         doc:String
     )
-    private 
     let keyword:
     (
         master:Route.Stem, 
@@ -30,7 +29,7 @@ struct Biome
     let template:DOM.Template<Page.Anchor, [UInt8]>
     private(set)
     var ecosystem:Ecosystem
-    private 
+    private(set)
     var keys:Route.Keys
     
     public 
@@ -64,27 +63,27 @@ struct Biome
             return nil 
         }
         
-        guard case let (selection, pins, redirected)? = self.resolve(uri: link.reference)
+        guard let resolution:Ecosystem.Resolution = self.resolve(uri: link.reference)
         else 
         {
             return nil
         }
-        guard let index:Ecosystem.Index = selection.index 
+        guard let index:Ecosystem.Index = resolution.selection.index 
         else 
         {
-            return .matched(canonical: "", .text("\(pins.version): \(selection.possibilities)"))
+            return .matched(canonical: "", .text("\(resolution.selection.possibilities)"))
         }
         
-        let uri:URI = self.uri(of: index, at: pins.version)
+        let uri:URI = self.uri(index, pins: resolution.pins)
         if  uri ~= request 
         {
-            let page:[Page.Anchor: [UInt8]] = self.page(for: index, pins: pins)
+            let page:[Page.Anchor: [UInt8]] = self.page(index, pins: resolution.pins)
             let utf8:[UInt8] = self.template.rendered(as: [UInt8].self, 
                 substituting: _move(page))
             return .matched(canonical: "", 
                 .utf8(encoded: _move(utf8), type: .html, tag: nil))
         }
-        else if redirected 
+        else if resolution.temporary 
         {
             return .maybe(canonical: "", at: uri.description)
         }
@@ -92,32 +91,6 @@ struct Biome
         {
             return .found(canonical: "", at: uri.description)
         }
-    }
-    
-    func resolve<Tail>(uri:Link.Reference<Tail>) 
-        -> (selection:Ecosystem.Selection, pins:Package.Pins, redirected:Bool)?
-        where Tail:BidirectionalCollection, Tail.Element == Link.Component
-    {
-        guard let prefix:String = uri.first?.identifier ?? nil
-        else 
-        {
-            return nil
-        }
-        switch self.keys[leaf: prefix]
-        {
-        case self.keyword.master?:
-            return self.ecosystem.resolve(location: uri.dropFirst(), keys: self.keys) 
-            
-        case self.keyword.doc?:
-            break
-        case self.keyword.lunr?:
-            break
-        case self.keyword.sitemaps?:
-            break
-        default:
-            break
-        }
-        return nil
     }
 
     public mutating 

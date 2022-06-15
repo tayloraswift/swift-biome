@@ -46,6 +46,13 @@ struct Package:Identifiable, Sendable
             self.version = version
             self.upstream = upstream
         }
+        
+        func isotropic(culture:Index) -> [Index: Version]
+        {
+            var isotropic:[Index: Version] = self.upstream 
+            isotropic[culture] = self.version 
+            return isotropic
+        }
     }
     struct Pinned:Sendable 
     {
@@ -154,6 +161,13 @@ struct Package:Identifiable, Sendable
             yield self.symbols[local: symbol]
         }
     } 
+    subscript(local article:Article.Index) -> Article
+    {
+        _read 
+        {
+            yield self.articles[local: article]
+        }
+    } 
     
     subscript(module:Module.Index) -> Module?
     {
@@ -162,6 +176,10 @@ struct Package:Identifiable, Sendable
     subscript(symbol:Symbol.Index) -> Symbol?
     {
         self.index == symbol.module.package ? self[local: symbol] : nil
+    }
+    subscript(article:Article.Index) -> Article?
+    {
+        self.index == article.module.package ? self[local: article] : nil
     }
     
     var root:Link.Reference<[String]> 

@@ -1,33 +1,10 @@
-extension Biome 
-{
-    func uri(of index:Ecosystem.Index, at version:Version) -> URI
-    {
-        let prefix:String 
-        let location:Link.Reference<[String]>
-        switch index 
-        {
-        case .composite(let composite):
-            prefix = self.prefixes.master
-            location = self.ecosystem.location(of: composite, at: version)
-        
-        case .module(let module):
-            prefix = self.prefixes.master
-            location = self.ecosystem.location(of: module, at: version)
-        
-        default: 
-            fatalError("unimplemented")
-        }
-        return .init(prefix: prefix, location)
-    }
-}
-
 extension Ecosystem 
 {
-    fileprivate 
-    func location(of namespace:Module.Index, at version:Version) 
+    func location(of namespace:Module.Index, pins:[Package.Index: Version]) 
         -> Link.Reference<[String]>
     {
         let package:Package = self[namespace.package]
+        let version:Version = pins[namespace.package] ?? package.latest
         
         var location:Link.Reference<[String]> = package.root
         if let version:Version = package.abbreviate(version)
@@ -39,8 +16,7 @@ extension Ecosystem
         return location
     }
     
-    fileprivate 
-    func location(of composite:Symbol.Composite, at version:Version) 
+    func location(of composite:Symbol.Composite, pins:[Package.Index: Version]) 
         -> Link.Reference<[String]>
     {
         // same as host if composite is natural
@@ -50,6 +26,7 @@ extension Ecosystem
         var location:Link.Reference<[String]> = self[host.namespace.package].root
         
         let culture:Package = self[composite.culture.package]
+        let version:Version = pins[composite.culture.package] ?? culture.latest
         if  culture.index == host.namespace.package, 
             let version:Version = culture.abbreviate(version)
         {
