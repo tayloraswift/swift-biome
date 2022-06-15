@@ -3,11 +3,6 @@ import HTML
 
 extension Extension
 {
-    /* enum LinkResolutionError:Error 
-    {
-        case ambiguous(UnresolvedLink)
-        case undefined(UnresolvedLink)
-    } */
     /* enum RenderingError:Error 
     {
         case emptyImageSource
@@ -111,11 +106,8 @@ extension Extension
                 self.append([list], under: "Parameters", classes: "parameters")
                 
             }
-            if !sections.returns.isEmpty
-            {
-                self.append(nodes: sections.returns.map(Node.block(_:)), 
-                    under: "Returns", classes: "returns")
-            }
+            self.append(nodes: sections.returns.map(Node.block(_:)), 
+                under: "Returns", classes: "returns")
         }
         mutating 
         func append<Nodes>(nodes:Nodes, under heading:String, classes:String)
@@ -123,7 +115,10 @@ extension Extension
         {
             var elements:[Element] = []
             self.render(nodes: nodes, into: &elements)
-            self.append(elements, under: heading, classes: classes)
+            if !elements.isEmpty 
+            {
+                self.append(elements, under: heading, classes: classes)
+            }
         }
         mutating 
         func append<Nodes>(nodes:Nodes)
