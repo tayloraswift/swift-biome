@@ -21,24 +21,24 @@ extension Symbol
     struct Predicates:Equatable, Sendable 
     {
         let roles:Roles?
-        var `internal`:Traits
-        var  external:[Module.Index: Traits]
+        var primary:Traits
+        var accepted:[Module.Index: Traits]
         
         init(roles:Roles?)
         {
             self.roles = roles 
-            self.internal = .init()
-            self.external = [:]
+            self.primary = .init()
+            self.accepted = [:]
         }
         
         func featuresAssumingConcreteType() -> [(perpetrator:Module.Index?, features:Set<Index>)]
         {
             var features:[(perpetrator:Module.Index?, features:Set<Index>)] = []
-            if !self.internal.features.isEmpty
+            if !self.primary.features.isEmpty
             {
-                features.append((nil, self.internal.features))
+                features.append((nil, self.primary.features))
             }
-            for (perpetrator, traits):(Module.Index, Traits) in self.external 
+            for (perpetrator, traits):(Module.Index, Traits) in self.accepted
                 where !traits.features.isEmpty
             {
                 features.append((perpetrator, traits.features))
@@ -91,7 +91,7 @@ extension Symbol
                 superclass: superclass, 
                 shape: self.shape, 
                 as: color))
-            self.predicates.internal.update(with: traits, 
+            self.predicates.primary.update(with: traits, 
                 as: color)
         }
     }

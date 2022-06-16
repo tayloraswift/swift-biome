@@ -12,9 +12,9 @@ extension Symbol
         case subclass(Index)
         case override(Index)
         // conformers
-        case conformer(Index, where:Set<Generic.Constraint<Index>>)
+        case conformer(Conditional)
         // conformances
-        case conformance(Index, where:Set<Generic.Constraint<Index>>)
+        case conformance(Conditional)
         
         var feature:Index? 
         {
@@ -173,8 +173,8 @@ extension Symbol
                     case .refinement(let downstream):
                         self.downstream.insert(downstream)
                     //  [3] conforming types (``conformers``)
-                    case .conformer(let conformer, where: let conditions):
-                        self.conformers[conformer] = conditions
+                    case .conformer(let conformer):
+                        self.conformers[conformer.index] = conformer.conditions
                     default: 
                         fatalError("unreachable")
                     }
@@ -201,8 +201,8 @@ extension Symbol
                     case .subclass(let downstream):
                         self.downstream.insert(downstream)
                     //  [3] protocol conformances (``conformances``)
-                    case .conformance(let conformance, where: let conditions):
-                        self.conformances[conformance] = conditions
+                    case .conformance(let conformance):
+                        self.conformances[conformance.index] = conformance.conditions
                     default: 
                         fatalError("unreachable")
                     }

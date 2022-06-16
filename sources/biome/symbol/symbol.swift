@@ -90,6 +90,18 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         }
     }
     
+    struct Conditional:Hashable, Sendable 
+    {
+        let index:Index 
+        let conditions:Set<Generic.Constraint<Index>>
+        
+        init(_ index:Index, where constraints:Set<Generic.Constraint<Index>> = [])
+        {
+            self.index = index 
+            self.conditions = constraints
+        }
+    }
+    
     struct Heads 
     {
         @Keyframe<Declaration>.Head

@@ -103,22 +103,40 @@ extension Ecosystem
             return trace
         }
     }
-    /* func generateDynamicElements(for composite:Symbol.Composite, pins:[Package.Index: Version]) 
+    func generateDynamicElements(for composite:Symbol.Composite, pins:[Package.Index: Version]) 
         -> [Page.Anchor: DOM.Template<Index, [UInt8]>]
     {
-        guard let facts:Symbol.Predicates = 
-            self.facts(for: composite.base, at: pins.version)
+        guard let host:Symbol.Index = composite.natural 
         else 
         {
+            // no dynamics for synthesized features
             return [:]
         }
-        for pin:Module.Pin in self[composite.base].pollen
-        {
-            let _:Symbol.Traits? = self.opinions(of: composite.base, from: pin)
-        }
         
+        var topics:Topics = .init()
+        
+        if let facts:Symbol.Predicates = self.facts(host, 
+            at: pins[host.module.package] ?? self[host.module.package].latest)
+        {
+            self.organize(topics: &topics, 
+                host: host, traits: facts.primary, culture: .primary)
+            
+            for (culture, traits):(Module.Index, Symbol.Traits) in facts.accepted
+            {
+                self.organize(topics: &topics, 
+                    host: host, traits: traits, culture: .accepted(culture))
+            }
+        }
+        for source:Module.Pin in self[host].pollen 
+        {
+            if let traits:Symbol.Traits = self.opinions(of: host, from: source)
+            {
+                self.organize(topics: &topics, 
+                    host: host, traits: traits, culture: .international(source)) 
+            }
+        }
         return [:]
-    } */
+    }
     func generateFixedElements(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
         -> [Page.Anchor: DOM.Template<Index, [UInt8]>]
     {

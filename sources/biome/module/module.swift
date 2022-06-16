@@ -20,6 +20,13 @@ struct Module:Identifiable, Sendable
         }
     }
     
+    enum Culture:Hashable, Sendable 
+    {
+        case primary 
+        case accepted(Index)
+        case international(Pin)
+    }
+    
     struct Pin:Hashable, Sendable 
     {
         var culture:Index 

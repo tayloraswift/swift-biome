@@ -149,9 +149,36 @@ extension Symbol
             case .callable(.typeMethod):        return "Type Method"
             case .callable(.instanceMethod):    return "Instance Method"
             case .callable(.typeOperator):      return "Type Operator"
-            case .global(.operator):            return "Global Operator"
-            case .global(.func):                return "Global Function"
-            case .global(.var):                 return "Global Variable"
+            case .global(.operator):            return "Operator"
+            case .global(.func):                return "Function"
+            case .global(.var):                 return "Variable"
+            }
+        }
+        
+        var plural:String 
+        {
+            switch self 
+            {
+            case .associatedtype:               return "Associated Types"
+            case .protocol:                     return "Protocols"
+            case .typealias:                    return "Typealiases"
+            case .concretetype(.enum):          return "Enumerations"
+            case .concretetype(.struct):        return "Structures"
+            case .concretetype(.class):         return "Classes"
+            case .concretetype(.actor):         return "Actors"
+            case .callable(.case):              return "Enumeration Cases"
+            case .callable(.initializer):       return "Initializers"
+            case .callable(.deinitializer):     return "Deinitializers"
+            case .callable(.typeSubscript):     return "Type Subscripts"
+            case .callable(.instanceSubscript): return "Instance Subscripts"
+            case .callable(.typeProperty):      return "Type Properties"
+            case .callable(.instanceProperty):  return "Instance Properties"
+            case .callable(.typeMethod):        return "Type Methods"
+            case .callable(.instanceMethod):    return "Instance Methods"
+            case .callable(.typeOperator):      return "Type Operators"
+            case .global(.operator):            return "Operators"
+            case .global(.func):                return "Functions"
+            case .global(.var):                 return "Variables"
             }
         }
     }

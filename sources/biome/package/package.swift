@@ -288,7 +288,7 @@ struct Package:Identifiable, Sendable
                 if  let predicates:Symbol.Predicates = self.facts.at(version, 
                         head: heads.facts), 
                     let traits:Symbol.Traits = composite.culture == host.module ? 
-                        predicates.internal : predicates.external[composite.culture]
+                        predicates.primary : predicates.accepted[composite.culture]
                 {
                     return traits.features.contains(composite.base)
                 }

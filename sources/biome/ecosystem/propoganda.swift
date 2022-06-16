@@ -95,7 +95,7 @@ extension Ecosystem
                 facts.index(forKey: diacritic.host)
             {
                 assert(diacritic.host.module != diacritic.culture)
-                facts.values[index].predicates.external[diacritic.culture] = traits 
+                facts.values[index].predicates.accepted[diacritic.culture] = traits 
             }
         }
         
@@ -212,8 +212,8 @@ extension Ecosystem
         case    (.concretetype(_),  is: .conformer,             of: .protocol,          unconditional: _):
             return 
                 (
-                    (source, .has(.conformance(target, where: constraints))), 
-                    (target, .has(  .conformer(source, where: constraints)))
+                    (source, .has(.conformance(.init(target, where: constraints)))), 
+                    (target, .has(  .conformer(.init(source, where: constraints))))
                 )
          
         case    (.protocol,         is: .conformer,             of: .protocol,          unconditional: true):
