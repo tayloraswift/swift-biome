@@ -223,58 +223,6 @@ extension Documentation
     }
     
     private 
-    func list<S>(types:S, heading:String) -> Element?
-        where S:Sequence, S.Element == (index:Int, conditions:[SwiftConstraint<Int>])
-    {
-        let list:[Element] = types.map 
-        {
-            (item:(index:Int, conditions:[SwiftConstraint<Int>])) in 
-            Element[.li]
-            {
-                Element[.code]
-                {
-                    ["signature"]
-                }
-                content: 
-                {
-                    self.item(symbol: item.index)
-                }
-                if !item.conditions.isEmpty
-                {
-                    Element[.p]
-                    {
-                        ["relationship"]
-                    }
-                    content: 
-                    {
-                        "When "
-                        self.constraints(item.conditions)
-                    }
-                }
-            }
-        }
-        guard !list.isEmpty
-        else
-        {
-            return nil 
-        }
-        return Element[.section]
-        {
-            ["relationships"]
-        }
-        content: 
-        {
-            Element[.h2]
-            {
-                heading
-            }
-            Element[.ul]
-            {
-                list
-            }
-        }
-    }
-    private 
     func topics<S>(_ topics:S, heading:String) -> Element?
         where S:Sequence, S.Element == (heading:Topic, symbols:[(witness:Int, victim:Int?)])
     {

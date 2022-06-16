@@ -26,14 +26,14 @@ struct Biome
         sitemaps:Route.Stem
     )
     private 
-    let template:DOM.Template<Page.Anchor, [UInt8]>
+    let template:DOM.Template<PageKey, [UInt8]>
     private(set)
     var ecosystem:Ecosystem
     private(set)
     var keys:Route.Keys
     
     public 
-    init(prefixes:[URI.Prefix: String] = [:], template:DOM.Template<Page.Anchor, [UInt8]>) 
+    init(prefixes:[URI.Prefix: String] = [:], template:DOM.Template<PageKey, [UInt8]>) 
     {
         self.ecosystem = .init()
         self.keys = .init()
@@ -77,7 +77,7 @@ struct Biome
         let uri:URI = self.uri(index, pins: resolution.pins)
         if  uri ~= request 
         {
-            let page:[Page.Anchor: [UInt8]] = self.page(index, pins: resolution.pins)
+            let page:[PageKey: [UInt8]] = self.page(index, pins: resolution.pins)
             let utf8:[UInt8] = self.template.rendered(as: [UInt8].self, 
                 substituting: _move(page))
             return .matched(canonical: "", 

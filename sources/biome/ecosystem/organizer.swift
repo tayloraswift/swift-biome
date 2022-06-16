@@ -1,7 +1,34 @@
 extension Ecosystem 
 {
+    func organizeTopics(forHost host:Symbol.Index, pins:[Package.Index: Version]) 
+        -> Topics 
+    {
+        var topics:Topics = .init()
+        if let facts:Symbol.Predicates = self.facts(host, 
+            at: pins[host.module.package] ?? self[host.module.package].latest)
+        {
+            self.organize(topics: &topics, 
+                forHost: host, traits: facts.primary, culture: .primary)
+            
+            for (culture, traits):(Module.Index, Symbol.Traits) in facts.accepted
+            {
+                self.organize(topics: &topics, 
+                    forHost: host, traits: traits, culture: .accepted(culture))
+            }
+        }
+        for source:Module.Pin in self[host].pollen 
+        {
+            if let traits:Symbol.Traits = self.opinions(of: host, from: source)
+            {
+                self.organize(topics: &topics, 
+                    forHost: host, traits: traits, culture: .international(source)) 
+            }
+        }
+        return topics
+    }
+    private 
     func organize(topics:inout Topics, 
-        host:Symbol.Index, 
+        forHost host:Symbol.Index, 
         traits:Symbol.Traits, 
         culture:Module.Culture)
     {

@@ -75,70 +75,58 @@ extension Ecosystem
     {
         .a(String.init(self[module].title)) { ("href", .anchor(.module(module))) }
     }
-    
-    func loadArticle(_ composite:Symbol.Composite, pins:[Package.Index: Version])
-        -> Article.Template<[Index]>?
+
+    func generateArticle(_ composite:Symbol.Composite, pins:[Package.Index: Version])
+        -> Article.Template<[Index]>
     {
-        guard let article:Article.Template<Link> = self.baseTemplate(composite, pins: pins)
-        else 
-        {
-            return nil 
-        }
-        return article.map 
-        {
-            var trace:[Index] = [$0.target]
-            guard case .composite(let composite) = $0.target 
-            else 
-            {
-                return trace
-            }
-            
-            trace.reserveCapacity($0.visible)
-            var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.index
-            while trace.count < $0.visible, let current:Symbol.Index = next 
-            {
-                trace.append(.symbol(current))
-                next = self[current].shape?.index 
-            }
-            return trace
+        self.baseTemplate(composite, pins: pins).map 
+        { 
+            $0.map(self.expand(link:)) 
+        } ?? .init()
+    }
+    func generateExcerpt(_ composite:Symbol.Composite, pins:[Package.Index: Version])
+        -> DOM.Template<[Index], [UInt8]>?
+    {
+        self.baseTemplate(composite, pins: pins).flatMap
+        { 
+            $0.summary.isEmpty ? nil : $0.summary.map(self.expand(link:)) 
         }
     }
-    func generateDynamicElements(for composite:Symbol.Composite, pins:[Package.Index: Version]) 
-        -> [Page.Anchor: DOM.Template<Index, [UInt8]>]
+    func generateCards(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
+        -> DOM.Template<CardKey, [UInt8]>?
     {
         guard let host:Symbol.Index = composite.natural 
         else 
         {
             // no dynamics for synthesized features
-            return [:]
+            return nil
         }
         
-        var topics:Topics = .init()
+        let topics:Topics = self.organizeTopics(forHost: host, pins: pins)
+        var sections:[HTML.Element<CardKey>] = []
         
-        if let facts:Symbol.Predicates = self.facts(host, 
-            at: pins[host.module.package] ?? self[host.module.package].latest)
+        /* for heading:Topics.List in 
+        [
+            .refinements,
+            .implementations,
+            .restatements, 
+            .overrides,
+        ]
         {
-            self.organize(topics: &topics, 
-                host: host, traits: facts.primary, culture: .primary)
-            
-            for (culture, traits):(Module.Index, Symbol.Traits) in facts.accepted
+            if let list:[Module.Culture: [Symbol.Conditional]] = topics.lists[heading]
             {
-                self.organize(topics: &topics, 
-                    host: host, traits: traits, culture: .accepted(culture))
+                sections.append(self.generateSection(list, heading: heading.rawValue))
             }
-        }
-        for source:Module.Pin in self[host].pollen 
+        } */
+
+        if sections.isEmpty 
         {
-            if let traits:Symbol.Traits = self.opinions(of: host, from: source)
-            {
-                self.organize(topics: &topics, 
-                    host: host, traits: traits, culture: .international(source)) 
-            }
+            return nil 
         }
-        return [:]
+        return .init(freezing: .div(sections) { ("class", "lower-container") })
     }
-    func generateFixedElements(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
-        -> [Page.Anchor: DOM.Template<Index, [UInt8]>]
+    func generateFields(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
+        -> [PageKey: DOM.Template<Index, [UInt8]>]
     {
         let base:Symbol = self[composite.base]
         
@@ -149,7 +137,7 @@ extension Ecosystem
             return [:]
         }
         
-        var substitutions:[Page.Anchor: HTML.Element<Index>] = 
+        var substitutions:[PageKey: HTML.Element<Index>] = 
         [
             .title:        .text(escaping: base.name), 
             .headline:     .h1(base.name), 
@@ -160,14 +148,6 @@ extension Ecosystem
             .kind:         .text(escaping: base.color.title),
             .culture:       self.link(module: composite.culture),
             .fragments:    .render(fragments: declaration.fragments),
-            // .dynamic:       Element[.div]
-            // {
-            //     ["lower-container"]
-            // }
-            // content:
-            // {
-            //     dynamic.sections
-            // },
         ]
         
         if composite.diacritic.host.module != composite.culture 

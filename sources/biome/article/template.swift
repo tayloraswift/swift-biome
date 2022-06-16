@@ -20,12 +20,12 @@ extension Article
             self.discussion.hash(into: &hasher)
         }
         
-        static 
-        var empty:Self 
+        init() 
         {
-            .init(errors: [], summary: .init(), discussion: .init())
+            self.errors = []
+            self.summary = .init()
+            self.discussion = .init()
         }
-        
         init(errors:[Error], 
             summary:DOM.Template<Key, [UInt8]>, 
             discussion:DOM.Template<Key, [UInt8]>) 

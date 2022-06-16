@@ -4,16 +4,16 @@ struct Topics
     {
         case color(Symbol.Color)
     }
-    enum List:Hashable, Sendable 
+    enum List:String, Hashable, Sendable 
     {
-        case conformers
-        case conformances
-        case subclasses
-        case implies
-        case refinements
-        case implementations
-        case restatements 
-        case overrides
+        case conformers         = "Conforming Types"
+        case conformances       = "Conforms To"
+        case subclasses         = "Subclasses"
+        case implies            = "Implies"
+        case refinements        = "Refinements"
+        case implementations    = "Default Implementations"
+        case restatements       = "Restated By"
+        case overrides          = "Overridden By"
     }
     
     var requirements:[Sublist: [Module.Culture: [Symbol.Composite]]]

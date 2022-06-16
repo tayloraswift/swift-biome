@@ -130,6 +130,25 @@ struct Ecosystem
         }
     } 
     
+    // returns the components in reversed order
+    func expand(link:Link) -> [Index]
+    {
+        var trace:[Index] = [link.target]
+        guard case .composite(let composite) = link.target
+        else 
+        {
+            return trace
+        }
+        
+        trace.reserveCapacity(link.visible)
+        var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.index
+        while trace.count < link.visible, let current:Symbol.Index = next 
+        {
+            trace.append(.symbol(current))
+            next = self[current].shape?.index 
+        }
+        return trace
+    }
 
     /// returns the index of the entry for the given package, creating it if it 
     /// does not already exist.

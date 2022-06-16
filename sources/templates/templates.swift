@@ -5,10 +5,10 @@ import HTML
 public 
 enum DefaultTemplates 
 {
-    typealias Element = HTML.Element<Page.Anchor>
+    typealias Element = HTML.Element<PageKey>
     
     public static
-    var documentation:HTML.Root<Page.Anchor>
+    var documentation:HTML.Root<PageKey>
     {
         .init 
         {
@@ -200,7 +200,7 @@ enum DefaultTemplates
                     }
                     content: 
                     {
-                        Element.anchor(.dynamic)
+                        Element.anchor(.cards)
                     }
                 }
             }
