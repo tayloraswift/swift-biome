@@ -4,7 +4,8 @@ import Notebook
 extension DOM.Element where Domain == HTML
 {
     static 
-    func highlight<Fragments, Link>(_ fragments:Fragments, _ anchor:(Link) throws -> Anchor) 
+    func highlight<Fragments, Link>(_ fragments:Fragments, 
+        _ anchor:(Link) throws -> Anchor) 
         rethrows -> [Self]
         where   Fragments:Sequence, 
                 Fragments.Element == Notebook<Highlight, Link>.Fragment
@@ -97,7 +98,7 @@ extension DOM.Element where Domain == HTML
         where   Fragments:Sequence, 
                 Fragments.Element == Notebook<Highlight, Never>.Fragment
     {
-        return .code(Self.highlight(signature) { _ in fatalError("unreachable") })
+        return .code(Self.highlight(signature) { (_:Never) -> Anchor in })
     }
 }
 
