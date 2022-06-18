@@ -17,8 +17,8 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.2.2"),
         .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.3.7"),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-05-31-a"),
-        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-05-31-a"),
+        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-06-16-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-06-16-a"),
         
         // only used by the index target
         .package(url: "https://github.com/apple/swift-system.git",              exact: "1.2.1"),
@@ -39,7 +39,12 @@ let package = Package(
                 .product(name: "SwiftSyntax",       package: "swift-syntax"),
                 .product(name: "Markdown",          package: "swift-markdown"),
             ], 
-            path: "sources/biome"),
+            path: "sources/biome", 
+            swiftSettings: 
+            [
+                .unsafeFlags(["-Xfrontend", "-enable-experimental-bound-generic-extensions"]), 
+                //.unsafeFlags(["-Xfrontend", "-enable-parametrized-protocol-types"]),
+            ]),
         
         .target(name: "BiomeIndex", 
             dependencies: 
