@@ -50,7 +50,7 @@ extension Symbol
         }
     }
     
-    enum Color:Sendable, Hashable, RawRepresentable
+    enum Color:Hashable, CaseIterable, RawRepresentable, Sendable
     {
         case `associatedtype`
         case  concretetype(ConcreteType)
@@ -181,5 +181,30 @@ extension Symbol
             case .global(.var):                 return "Variables"
             }
         }
+        
+        static 
+        let allCases:[Self] = 
+        [
+            .callable(.case),
+            .associatedtype,
+            .typealias,
+            .callable(.initializer),
+            .callable(.deinitializer),
+            .callable(.typeSubscript),
+            .callable(.instanceSubscript),
+            .callable(.typeProperty),
+            .callable(.instanceProperty),
+            .callable(.typeMethod),
+            .callable(.instanceMethod),
+            .global(.var),
+            .global(.func),
+            .global(.operator),
+            .callable(.typeOperator),
+            .concretetype(.enum),
+            .concretetype(.struct),
+            .concretetype(.class),
+            .concretetype(.actor),
+            .protocol,
+        ]
     }
 }

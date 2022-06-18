@@ -87,13 +87,13 @@ extension Symbol
         var downstream:Set<Index>
         
         private 
-        var conditional:[Index: Set<Generic.Constraint<Index>>]
+        var conditional:[Index: [Generic.Constraint<Index>]]
         /// if a protocol, concrete types that implement this protocol.
         /// 
         /// this shares backing storage with ``conformances``. concrete types 
         /// should access ``conformances`` instead. requirements and witnesses 
         /// must not access this property.
-        var conformers:[Index: Set<Generic.Constraint<Index>>]
+        var conformers:[Index: [Generic.Constraint<Index>]]
         {
             _read 
             {
@@ -109,7 +109,7 @@ extension Symbol
         /// this shares backing storage with ``conformers``. protocols 
         /// should access ``conformers`` instead. requirements and witnesses 
         /// must not access this property.
-        var conformances:[Index: Set<Generic.Constraint<Index>>]
+        var conformances:[Index: [Generic.Constraint<Index>]]
         {
             _read 
             {

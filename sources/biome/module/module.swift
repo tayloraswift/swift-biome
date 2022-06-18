@@ -24,7 +24,7 @@ struct Module:Identifiable, Sendable
     {
         case primary 
         case accepted(Index)
-        case international(Pin)
+        case international(Index)
     }
     
     struct Pin:Hashable, Sendable 

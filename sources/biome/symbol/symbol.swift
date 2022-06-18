@@ -92,10 +92,12 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     
     struct Conditional:Hashable, Sendable 
     {
+        // not a ``Set``, because of 
+        // https://github.com/apple/swift/blob/main/docs/ABI/GenericSignature.md
+        let conditions:[Generic.Constraint<Index>]
         let index:Index 
-        let conditions:Set<Generic.Constraint<Index>>
         
-        init(_ index:Index, where constraints:Set<Generic.Constraint<Index>> = [])
+        init(_ index:Index, where constraints:[Generic.Constraint<Index>] = [])
         {
             self.index = index 
             self.conditions = constraints

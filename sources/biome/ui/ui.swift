@@ -4,6 +4,17 @@ import Notebook
 extension DOM.Element where Domain == HTML
 {
     static 
+    func highlight<Fragments, Link>(_ fragments:Fragments, _ anchor:(Link) throws -> Anchor) 
+        rethrows -> [Self]
+        where   Fragments:Sequence, 
+                Fragments.Element == Notebook<Highlight, Link>.Fragment
+    {
+        try fragments.map 
+        {
+            .highlight(escaping: $0.text, $0.color, href: try $0.link.map(anchor))
+        }
+    }
+    static 
     func highlight(escaping string:String, _ color:Highlight, href anchor:Anchor?) 
         -> Self
     {
@@ -68,27 +79,50 @@ extension DOM.Element where Domain == HTML
     } 
 }
 
-extension DOM.Element where Domain == HTML, Anchor == Ecosystem.Index 
+extension DOM.Element where Domain == HTML
 {
     static 
-    func render<Fragments>(fragments:Fragments) -> Self
+    func render<Fragments, Link>(fragments:Fragments, 
+        _ anchor:(Link) throws -> Anchor) 
+        rethrows -> Self
         where   Fragments:Sequence, 
-                Fragments.Element == Notebook<Highlight, Symbol.Index>.Fragment
+                Fragments.Element == Notebook<Highlight, Link>.Fragment
     {
-        let fragments:[Self] = fragments.map 
-        {
-            .highlight(escaping: $0.text, $0.color, href: $0.link.map(Ecosystem.Index.symbol(_:)))
-        }
+        let fragments:[Self] = try Self.highlight(fragments, anchor)
         let code:Self = .code(fragments) { ("class", "swift") }
         return .section(.pre(code)) { ("class", "declaration") }
     }
+    static 
+    func render<Fragments>(signature:Fragments) -> Self
+        where   Fragments:Sequence, 
+                Fragments.Element == Notebook<Highlight, Never>.Fragment
+    {
+        return .code(Self.highlight(signature) { _ in fatalError("unreachable") })
+    }
 }
 
-extension HTML 
+extension DOM.Element where Domain == HTML
 {
     static 
-    func render(constraints:[Generic.Constraint<Symbol.Index>]) 
-        -> [Element<Ecosystem.Index>] 
+    func render(path:Path) -> Self
+    {
+        var components:[Self] = []
+            components.reserveCapacity(2 * path.count - 1)
+        for component:String in path.prefix
+        {
+            components.append(.highlight(escaping: component, .identifier))
+            components.append(.highlight(.text(escaped: "."), .text))
+        }
+        components.append(.highlight(escaping: path.last, .identifier))
+        return .code(components)
+    }
+}
+extension DOM.Element where Domain == HTML
+{
+    static 
+    func render(_ prefix:Self, constraints:[Generic.Constraint<Symbol.Index>], 
+        _ anchor:(Symbol.Index) throws -> Anchor) 
+        rethrows -> Self
     {
         guard let ultimate:Generic.Constraint<Symbol.Index> = constraints.last 
         else 
@@ -98,32 +132,32 @@ extension HTML
         guard let penultimate:Generic.Constraint<Symbol.Index> = constraints.dropLast().last
         else 
         {
-            return Self.render(constraint: ultimate)
+            return .p(try [prefix] + Self.render(constraint: ultimate, anchor))
         }
-        var elements:[Element<Ecosystem.Index>]
+        var elements:[Self] 
         if constraints.count < 3 
         {
-            elements =                  Self.render(constraint: penultimate)
+            elements = try [prefix] + Self.render(constraint: penultimate, anchor)
             elements.append(.text(escaped: " and "))
-            elements.append(contentsOf: Self.render(constraint: ultimate))
+            elements.append(contentsOf: try Self.render(constraint: ultimate, anchor))
         }
         else 
         {
             elements = []
             for constraint:Generic.Constraint<Symbol.Index> in constraints.dropLast(2)
             {
-                elements.append(contentsOf: Self.render(constraint: constraint))
+                elements.append(contentsOf: try Self.render(constraint: constraint, anchor))
                 elements.append(.text(escaped: ", "))
             }
-            elements.append(contentsOf: Self.render(constraint: penultimate))
+            elements.append(contentsOf: try Self.render(constraint: penultimate, anchor))
             elements.append(.text(escaped: ", and "))
-            elements.append(contentsOf: Self.render(constraint: ultimate))
+            elements.append(contentsOf: try Self.render(constraint: ultimate, anchor))
         }
-        return elements
+        return .p(elements)
     }
     static 
-    func render(constraint:Generic.Constraint<Symbol.Index>) 
-        -> [Element<Ecosystem.Index>]
+    func render(constraint:Generic.Constraint<Symbol.Index>, 
+        _ anchor:(Symbol.Index) throws -> Anchor) rethrows -> [Self]
     {
         let verb:String
         switch constraint.verb
@@ -135,16 +169,14 @@ extension HTML
         case .is:
             verb = " is "
         }
-        let subject:Element<Ecosystem.Index> = 
-            .code(.highlight(escaping: constraint.subject, .type))
-        let object:Element<Ecosystem.Index> =
-            .code(.highlight(escaping: constraint.subject, .type, 
-                href: constraint.link.map(Ecosystem.Index.symbol(_:))))
+        let subject:Self = .code(.highlight(escaping: constraint.subject, .type))
+        let object:Self = .code(.highlight(escaping: constraint.object, .type, 
+            href: try constraint.link.map(anchor)))
         return [subject, .text(escaped: verb), object]
     }
 }
 
-extension DOM.Element where Domain == HTML, Anchor == Ecosystem.Index 
+extension DOM.Element where Domain == HTML
 {
     private static 
     func render(availability:UnversionedAvailability?) -> Self?

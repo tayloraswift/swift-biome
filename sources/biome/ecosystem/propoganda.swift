@@ -116,10 +116,10 @@ extension Ecosystem
                 statements.reserveCapacity(graph.edges.reduce(0) { $0 + $1.count })
             for edge:Edge in graph.edges.joined()
             {
-                var constraints:Set<Generic.Constraint<Symbol.Index>> = []
-                for constraint:Generic.Constraint<Symbol.ID> in edge.constraints
+                let constraints:[Generic.Constraint<Symbol.Index>] = 
+                    try edge.constraints.map
                 {
-                    constraints.insert(try constraint.map(scope.index(of:)))
+                    try $0.map(scope.index(of:))
                 }
                 let (source, target):(Symbol.Index, Symbol.Index) = 
                 (
@@ -179,7 +179,7 @@ extension Ecosystem
     private 
     func generateStatements(
         when source:Symbol.Index, is label:Edge.Kind, of target:Symbol.Index, 
-        where constraints:Set<Generic.Constraint<Symbol.Index>>)
+        where constraints:[Generic.Constraint<Symbol.Index>])
         throws -> (source:Symbol.Statement?, target:Symbol.Statement)
     {
         switch  

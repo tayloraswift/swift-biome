@@ -9,9 +9,15 @@ struct Package:Identifiable, Sendable
         case versionNotIncremented(Version, from:Version)
     }
     /// A globally-unique index referencing a package. 
-    struct Index:Hashable, Sendable 
+    struct Index:Hashable, Comparable, Sendable 
     {
         let bits:UInt16
+        
+        static 
+        func < (lhs:Self, rhs:Self) -> Bool 
+        {
+            lhs.bits < rhs.bits
+        }
         
         var offset:Int 
         {

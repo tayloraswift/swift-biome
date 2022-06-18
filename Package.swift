@@ -15,7 +15,7 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-highlight",            exact: "0.1.3"),
         .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.2.2"),
-        .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.3.6"),
+        .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.3.7"),
         
         .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-05-31-a"),
         .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-05-31-a"),

@@ -1,8 +1,19 @@
 struct Topics 
 {
-    enum Sublist:Hashable, Sendable
+    enum Sublist:Hashable, CaseIterable, Sendable
     {
         case color(Symbol.Color)
+        
+        var heading:String 
+        {
+            switch self 
+            {
+            case .color(let color): return color.plural
+            }
+        }
+        
+        static 
+        let allCases:[Self] = Symbol.Color.allCases.map(Self.color(_:))
     }
     enum List:String, Hashable, Sendable 
     {
@@ -11,7 +22,7 @@ struct Topics
         case subclasses         = "Subclasses"
         case implies            = "Implies"
         case refinements        = "Refinements"
-        case implementations    = "Default Implementations"
+        case implementations    = "Implemented By"
         case restatements       = "Restated By"
         case overrides          = "Overridden By"
     }

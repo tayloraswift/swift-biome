@@ -16,9 +16,10 @@ extension Ecosystem
                     forHost: host, traits: traits, culture: .accepted(culture))
             }
         }
-        for source:Module.Pin in self[host].pollen 
+        for source:Module.Index in 
+            Set<Module.Index>.init(self[host].pollen.lazy.map(\.culture))
         {
-            if let traits:Symbol.Traits = self.opinions(of: host, from: source)
+            if let traits:Symbol.Traits = self.currentOpinions(of: host, from: source)
             {
                 self.organize(topics: &topics, 
                     forHost: host, traits: traits, culture: .international(source)) 
@@ -39,15 +40,15 @@ extension Ecosystem
             diacritic = .init(host: host, culture: host.module)
         case .accepted(let culture):
             diacritic = .init(host: host, culture: culture)
-        case .international(let pin):
-            diacritic = .init(host: host, culture: pin.culture)
+        case .international(let culture):
+            diacritic = .init(host: host, culture: culture)
         }
         
         let host:Symbol = self[host]
         switch (host.color, host.shape) 
         {
         case (.concretetype(_), _): 
-            for (index, constraints):(Symbol.Index, Set<Generic.Constraint<Symbol.Index>>) in 
+            for (index, constraints):(Symbol.Index, [Generic.Constraint<Symbol.Index>]) in 
                 traits.conformances
             {
                 topics.lists[.conformances, default: [:]][culture, default: []]

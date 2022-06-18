@@ -23,8 +23,8 @@ enum PageKey:Hashable, Sendable
 } 
 enum CardKey:Hashable, Sendable 
 {
-    case uri(Symbol.Composite)
     case excerpt(Symbol.Composite)
+    case uri(Ecosystem.Index)
 }
 
 extension Biome 
@@ -59,8 +59,7 @@ extension Biome
             {
                 switch key 
                 {
-                case .uri(let composite):
-                    let key:Ecosystem.Index = .composite(composite)
+                case .uri(let key):
                     if !uris.keys.contains(key)
                     {
                         uris[key] = self.uri(key, pins: pins).description 
@@ -112,8 +111,8 @@ extension Biome
             {
                 switch $0 
                 {
-                case .uri(let composite):
-                    return [UInt8].init(uris[.composite(composite)]!.utf8)
+                case .uri(let key):
+                    return [UInt8].init(uris[key]!.utf8)
                 case .excerpt(let composite):
                     return excerpts[composite]?.rendered 
                     {

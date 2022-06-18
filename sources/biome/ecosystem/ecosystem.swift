@@ -32,17 +32,6 @@ struct Ecosystem
         {
             .composite(.init(natural: natural))
         }
-        
-        /* var culture:Package.Index
-        {
-            switch self 
-            {
-            case .package(let package):     return package
-            case .module(let module):       return module.package 
-            case .article(let article):     return article.module.package
-            case .composite(let composite): return composite.culture.package
-            }
-        } */
     }
     
     func describe(_ error:LinkResolutionError) -> String 
@@ -257,12 +246,20 @@ extension Ecosystem
         self[symbol.module.package].facts
             .at(version, head: self[symbol].heads.facts)
     }
-    func opinions(of symbol:Symbol.Index, from pin:Module.Pin)
+    /* func opinions(of symbol:Symbol.Index, from pin:Module.Pin)
         -> Symbol.Traits?
     {
         let diacritic:Symbol.Diacritic = .init(host: symbol, culture: pin.culture)
         return self[pin.culture.package].opinions
             .at(pin.version, head: self[pin.culture.package].external[diacritic])
+    } */
+    func currentOpinions(of symbol:Symbol.Index, from culture:Module.Index)
+        -> Symbol.Traits?
+    {
+        self[culture.package].external[.init(host: symbol, culture: culture)].map 
+        {
+            self[culture.package].opinions[$0].value
+        }
     }
     
     func baseDeclaration(_ composite:Symbol.Composite, pins:[Package.Index: Version])
