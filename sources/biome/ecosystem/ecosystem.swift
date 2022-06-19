@@ -229,22 +229,27 @@ extension Ecosystem
 extension Ecosystem 
 {
     func declaration(_ symbol:Symbol.Index, at version:Version)
-        -> Symbol.Declaration?
+        -> Symbol.Declaration
     {
+        // `nil` case should be unreachable in practice
         self[symbol.module.package].declarations
-            .at(version, head: self[symbol].heads.declaration)
+            .at(version, head: self[symbol].heads.declaration) ?? 
+            .init(fallback: "<unavailable>")
     }
     func template(_ symbol:Symbol.Index, at version:Version)
-        -> Article.Template<Link>?
+        -> Article.Template<Link>
     {
         self[symbol.module.package].templates
-            .at(version, head: self[symbol].heads.template) 
+            .at(version, head: self[symbol].heads.template) ?? 
+            .init()
     }
     func facts(_ symbol:Symbol.Index, at version:Version)
-        -> Symbol.Predicates?
+        -> Symbol.Predicates
     {
+        // `nil` case should be unreachable in practice
         self[symbol.module.package].facts
-            .at(version, head: self[symbol].heads.facts)
+            .at(version, head: self[symbol].heads.facts) ?? 
+            .init(roles: nil)
     }
     /* func opinions(of symbol:Symbol.Index, from pin:Module.Pin)
         -> Symbol.Traits?
@@ -263,14 +268,14 @@ extension Ecosystem
     }
     
     func baseDeclaration(_ composite:Symbol.Composite, pins:[Package.Index: Version])
-        -> Symbol.Declaration?
+        -> Symbol.Declaration
     {
         self.declaration(composite.base, at: self.baseVersion(composite, pins: pins))
     }
     func baseTemplate(_ composite:Symbol.Composite, pins:[Package.Index: Version])
-        -> Article.Template<Link>?
+        -> Article.Template<Link>
     {
-        self.template(composite.base, at: self.baseVersion(composite, pins: pins))
+        self.template(composite.base, at: self.baseVersion(composite, pins: pins)) 
     }
     
     private 

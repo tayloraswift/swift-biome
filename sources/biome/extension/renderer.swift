@@ -253,7 +253,7 @@ extension Extension
             case .swift:
                 for (text, color):(String, Highlight) in Self.highlight(code)
                 {
-                    fragments.append(.highlight(escaping: text, color))
+                    fragments.append(.highlight(text, color))
                 }
             }
             
@@ -289,7 +289,7 @@ extension Extension
                 case .swift:
                     for (text, color):(String, Highlight) in Self.highlight(code)
                     {
-                        Element.highlight(escaping: text, color)
+                        Element.highlight(text, color)
                     }
                 }
             }

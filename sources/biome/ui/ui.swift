@@ -5,37 +5,51 @@ extension DOM.Element where Domain == HTML
 {
     static 
     func highlight<Fragments, Link>(_ fragments:Fragments, 
-        _ anchor:(Link) throws -> Anchor) 
+        transform:(Link) throws -> Anchor) 
         rethrows -> [Self]
         where   Fragments:Sequence, 
                 Fragments.Element == Notebook<Highlight, Link>.Fragment
     {
         try fragments.map 
         {
-            .highlight(escaping: $0.text, $0.color, href: try $0.link.map(anchor))
+            .highlight($0.text, $0.color, href: try $0.link.map(transform))
         }
     }
     static 
-    func highlight(escaping string:String, _ color:Highlight, href anchor:Anchor?) 
+    func highlight(escaped string:String, _ color:Highlight, href anchor:Anchor?) 
+        -> Self
+    {
+        self.highlight(.text(escaped: string), color, href: anchor)
+    }
+    static 
+    func highlight(_ string:String, _ color:Highlight, href anchor:Anchor?) 
+        -> Self
+    {
+        self.highlight(.text(escaping: string), color, href: anchor)
+    }
+    static 
+    func highlight(_ child:Self, _ color:Highlight, href anchor:Anchor?) 
         -> Self
     {
         if let anchor:Anchor = anchor
         {
-            return .a(.highlight(escaping: string, color))
-            {
-                ("href", .anchor(anchor))
-            }
+            return .a(.highlight(child, color)) { ("href", .anchor(anchor)) }
         }
         else 
         {
-            return .highlight(escaping: string, color)
+            return .highlight(child, color)
         }
     }
 }
 extension DOM.Element where Domain == HTML 
 {
     static 
-    func highlight(escaping string:String, _ color:Highlight) -> Self
+    func highlight(escaped string:String, _ color:Highlight) -> Self
+    {
+        Self.highlight(.text(escaped: string), color)
+    }
+    static 
+    func highlight(_ string:String, _ color:Highlight) -> Self
     {
         Self.highlight(.text(escaping: string), color)
     }
@@ -84,12 +98,12 @@ extension DOM.Element where Domain == HTML
 {
     static 
     func render<Fragments, Link>(fragments:Fragments, 
-        _ anchor:(Link) throws -> Anchor) 
+        transform:(Link) throws -> Anchor) 
         rethrows -> Self
         where   Fragments:Sequence, 
                 Fragments.Element == Notebook<Highlight, Link>.Fragment
     {
-        let fragments:[Self] = try Self.highlight(fragments, anchor)
+        let fragments:[Self] = try Self.highlight(fragments, transform: transform)
         let code:Self = .code(fragments) { ("class", "swift") }
         return .section(.pre(code)) { ("class", "declaration") }
     }
@@ -111,10 +125,10 @@ extension DOM.Element where Domain == HTML
             components.reserveCapacity(2 * path.count - 1)
         for component:String in path.prefix
         {
-            components.append(.highlight(escaping: component, .identifier))
-            components.append(.highlight(.text(escaped: "."), .text))
+            components.append(.highlight(component, .identifier))
+            components.append(.highlight(escaped: ".", .text))
         }
-        components.append(.highlight(escaping: path.last, .identifier))
+        components.append(.highlight(path.last, .identifier))
         return .code(components)
     }
 }
@@ -122,43 +136,51 @@ extension DOM.Element where Domain == HTML
 {
     static 
     func render(_ prefix:Self, constraints:[Generic.Constraint<Symbol.Index>], 
-        _ anchor:(Symbol.Index) throws -> Anchor) 
-        rethrows -> Self
+        transform:(Symbol.Index) throws -> Anchor) 
+        rethrows -> Self?
     {
         guard let ultimate:Generic.Constraint<Symbol.Index> = constraints.last 
         else 
         {
-            fatalError("cannot call \(#function) with empty constraints array")
+            return nil
         }
-        guard let penultimate:Generic.Constraint<Symbol.Index> = constraints.dropLast().last
+        guard let penultimate:Generic.Constraint<Symbol.Index> = 
+            constraints.dropLast().last
         else 
         {
-            return .p(try [prefix] + Self.render(constraint: ultimate, anchor))
+            return .p(try [prefix] + Self.render(constraint: ultimate, 
+                transform: transform))
         }
         var elements:[Self] 
         if constraints.count < 3 
         {
-            elements = try [prefix] + Self.render(constraint: penultimate, anchor)
+            elements = try [prefix] + Self.render(constraint: penultimate, 
+                transform: transform)
             elements.append(.text(escaped: " and "))
-            elements.append(contentsOf: try Self.render(constraint: ultimate, anchor))
+            elements.append(contentsOf: try Self.render(constraint: ultimate, 
+                transform: transform))
         }
         else 
         {
             elements = []
-            for constraint:Generic.Constraint<Symbol.Index> in constraints.dropLast(2)
+            for constraint:Generic.Constraint<Symbol.Index> in 
+                constraints.dropLast(2)
             {
-                elements.append(contentsOf: try Self.render(constraint: constraint, anchor))
+                elements.append(contentsOf: try Self.render(constraint: constraint, 
+                    transform: transform))
                 elements.append(.text(escaped: ", "))
             }
-            elements.append(contentsOf: try Self.render(constraint: penultimate, anchor))
+            elements.append(contentsOf: try Self.render(constraint: penultimate, 
+                transform: transform))
             elements.append(.text(escaped: ", and "))
-            elements.append(contentsOf: try Self.render(constraint: ultimate, anchor))
+            elements.append(contentsOf: try Self.render(constraint: ultimate, 
+                transform: transform))
         }
         return .p(elements)
     }
     static 
     func render(constraint:Generic.Constraint<Symbol.Index>, 
-        _ anchor:(Symbol.Index) throws -> Anchor) rethrows -> [Self]
+        transform:(Symbol.Index) throws -> Anchor) rethrows -> [Self]
     {
         let verb:String
         switch constraint.verb
@@ -170,9 +192,9 @@ extension DOM.Element where Domain == HTML
         case .is:
             verb = " is "
         }
-        let subject:Self = .code(.highlight(escaping: constraint.subject, .type))
-        let object:Self = .code(.highlight(escaping: constraint.object, .type, 
-            href: try constraint.link.map(anchor)))
+        let subject:Self = .code(.highlight(constraint.subject, .type))
+        let object:Self = .code(.highlight(constraint.object, .type, 
+            href: try constraint.link.map(transform)))
         return [subject, .text(escaped: verb), object]
     }
 }

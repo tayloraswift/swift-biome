@@ -157,6 +157,16 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         self.path.prefix.isEmpty ? 
             nil : .init(namespace: self.namespace, prefix: self.path.prefix)
     }
+    var type:Index?
+    {
+        switch self.color 
+        {
+        case .associatedtype, .callable(_):
+            return self.shape?.index 
+        default: 
+            return nil
+        }
+    }
     var orientation:Route.Orientation
     {
         self.color.orientation

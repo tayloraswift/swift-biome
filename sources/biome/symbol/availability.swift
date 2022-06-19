@@ -27,6 +27,24 @@ struct Availability:Equatable, Sendable
     var general:UnversionedAvailability?
     var platforms:[Platform: VersionedAvailability]
     
+    var isUsable:Bool 
+    {
+        if  let generally:UnversionedAvailability = self.general, 
+                generally.unavailable || generally.deprecated
+        {
+            return false 
+        }
+        if  let currently:SwiftAvailability = self.swift, 
+               !currently.isUsable
+        {
+            return false 
+        }
+        else 
+        {
+            return true
+        }
+    }
+    
     init()
     {
         self.swift = nil 
@@ -81,6 +99,22 @@ struct SwiftAvailability:Equatable, Sendable
     var obsoleted:Version?
     var renamed:String?
     var message:String?
+    
+    var isUsable:Bool 
+    {
+        if case _? = self.deprecated
+        {
+            return false 
+        }
+        if case _? = self.obsoleted 
+        {
+            return false 
+        }
+        else 
+        {
+            return true
+        }
+    }
     
     init(_ versioned:VersionedAvailability)
     {

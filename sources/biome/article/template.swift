@@ -20,6 +20,11 @@ extension Article
             self.discussion.hash(into: &hasher)
         }
         
+        var isEmpty:Bool 
+        {
+            self.summary.isEmpty && self.discussion.isEmpty
+        }
+        
         init() 
         {
             self.errors = []

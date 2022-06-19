@@ -74,7 +74,7 @@ enum DefaultTemplates
                     } 
                     content: 
                     {
-                        Element.anchor(.navigator)
+                        Element.anchor(.breadcrumbs)
                     }
                     Element[.div]
                     {
@@ -182,7 +182,7 @@ enum DefaultTemplates
                                     
                                     Element.anchor(.summary)
                                     
-                                    Element.anchor(.relationships)
+                                    Element.anchor(.notes)
                                     Element.anchor(.availability)
                                 }
                                 

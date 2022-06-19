@@ -8,6 +8,7 @@ enum PageKey:Hashable, Sendable
     
     case availability 
     case base
+    case breadcrumbs
     case cards
     case culture 
     case discussion
@@ -16,9 +17,8 @@ enum PageKey:Hashable, Sendable
     case introduction
     case kind
     case namespace 
-    case navigator
+    case notes 
     case platforms
-    case relationships 
     case summary
 } 
 enum CardKey:Hashable, Sendable 
@@ -43,12 +43,36 @@ extension Biome
     func page(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
         -> [PageKey: [UInt8]]
     {
+        let topics:Topics
+        let facts:Symbol.Predicates
+        
+        if let host:Symbol.Index = composite.natural 
+        {
+            let version:Version = pins[host.module.package] ?? 
+                self.ecosystem[host.module.package].latest
+            facts = self.ecosystem.facts(host, at: version)
+            topics = self.ecosystem.organize(facts: facts, pins: pins, host: host)
+        }
+        else 
+        {
+            // no dynamics for synthesized features
+            facts = .init(roles: nil)
+            topics = .init()
+        }
+        
+        let declaration:Symbol.Declaration = 
+            self.ecosystem.baseDeclaration(composite, pins: pins) 
         let article:Article.Template<[Ecosystem.Index]> = 
-            self.ecosystem.generateArticle(composite, pins: pins)
+            self.ecosystem.baseTemplate(composite, pins: pins)
+                .map(self.ecosystem.expand(link:)) 
+        
         let fields:[PageKey: DOM.Template<Ecosystem.Index, [UInt8]>] = 
-            self.ecosystem.generateFields(composite, pins: pins)
+            self.ecosystem.generateFields(for: composite, 
+                declaration: declaration,
+                facts: facts)
+        
         let cards:DOM.Template<CardKey, [UInt8]>? = 
-            self.ecosystem.generateCards(composite, pins: pins)
+            self.ecosystem.generateCards(topics)
         
         var excerpts:[Symbol.Composite: DOM.Template<[Ecosystem.Index], [UInt8]>] = [:]
         var uris:[Ecosystem.Index: String] = [:] 
@@ -66,7 +90,7 @@ extension Biome
                     }
                 case .excerpt(let composite):
                     if  let excerpt:DOM.Template<[Ecosystem.Index], [UInt8]> = 
-                        self.ecosystem.generateExcerpt(composite, pins: pins)
+                        self.ecosystem.generateExcerpt(for: composite, pins: pins)
                     {
                         excerpts[composite] = excerpt
                     }

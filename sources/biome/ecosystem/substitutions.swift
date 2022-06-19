@@ -35,203 +35,6 @@ extension Ecosystem
         }
         return .code(crumbs)
     }
-}
-extension Ecosystem 
-{
-    func generateArticle(_ composite:Symbol.Composite, pins:[Package.Index: Version])
-        -> Article.Template<[Index]>
-    {
-        self.baseTemplate(composite, pins: pins).map 
-        { 
-            $0.map(self.expand(link:)) 
-        } ?? .init()
-    }
-    
-    func generateExcerpt(_ composite:Symbol.Composite, pins:[Package.Index: Version])
-        -> DOM.Template<[Index], [UInt8]>?
-    {
-        self.baseTemplate(composite, pins: pins).flatMap
-        { 
-            $0.summary.isEmpty ? nil : $0.summary.map(self.expand(link:)) 
-        }
-    }
-}
-extension Ecosystem
-{
-    func generateCards(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
-        -> DOM.Template<CardKey, [UInt8]>?
-    {
-        guard let host:Symbol.Index = composite.natural 
-        else 
-        {
-            // no dynamics for synthesized features
-            return nil
-        }
-        
-        let topics:Topics = self.organizeTopics(forHost: host, pins: pins)
-        var sections:[HTML.Element<CardKey>] = []
-        
-        for heading:Topics.List in 
-        [
-            .refinements,
-            .implementations,
-            .restatements, 
-            .overrides,
-        ]
-        {
-            if let segregated:[Module.Culture: [Symbol.Conditional]] = topics.lists[heading]
-            {
-                sections.append(self.generateSection(segregated, heading: heading.rawValue))
-            }
-        }
-        
-        if !topics.requirements.isEmpty
-        {
-            sections.append(self.generateSection(topics.requirements, 
-                heading: "Requirements", 
-                pins: pins))
-        }
-        if !topics.members.isEmpty
-        {
-            sections.append(self.generateSection(topics.members, 
-                heading: "Members", 
-                pins: pins))
-        }
-        
-        for heading:Topics.List in 
-        [
-            .conformers,
-            .conformances,
-            .subclasses,
-            .implies,
-        ]
-        {
-            if let list:[Module.Culture: [Symbol.Conditional]] = topics.lists[heading]
-            {
-                sections.append(self.generateSection(list, heading: heading.rawValue))
-            }
-        }
-        
-        return sections.isEmpty ? nil : 
-            .init(freezing: .div(sections) { ("class", "lower-container") })
-    }
-    
-    private 
-    func generateSection(_ segregated:[Module.Culture: [Symbol.Conditional]], heading:String)
-        -> HTML.Element<CardKey>
-    {
-        var elements:[HTML.Element<CardKey>] = []
-            elements.reserveCapacity(2 * segregated.count + 1)
-            elements.append(.h2(heading))
-        for (culture, targets):(Module.Culture, [Symbol.Conditional]) in self.sort(segregated)
-        {
-            if let culture:HTML.Element<CardKey> = self.generateCultureHeading(culture)
-            {
-                elements.append(.h3(culture))
-            }
-            let items:[HTML.Element<CardKey>] = targets.map 
-            {
-                (target:Symbol.Conditional) -> (target:Symbol.Conditional, host:Symbol.Index) in 
-                
-                if  case .callable(_) = self[target.index].color, 
-                    let host:Symbol.Index = self[target.index].shape?.index 
-                {
-                    return (target: target, host: host)
-                }
-                else 
-                {
-                    return (target: target, host: target.index)
-                }
-            }
-            .sorted 
-            {
-                self[$0.host].path.lexicographicallyPrecedes(self[$1.host].path)
-            }
-            .map 
-            {
-                let (target, host):(Symbol.Conditional, Symbol.Index) = $0
-                let signature:HTML.Element<CardKey> = .a(.render(path: self[host].path))
-                {
-                    ("href", .anchor(.uri(.symbol(target.index))))
-                    ("class", "signature")
-                }
-                if target.conditions.isEmpty
-                {
-                    return .li(signature)
-                }
-                else 
-                {
-                    let constraints:HTML.Element<CardKey> = 
-                        .render(.text(escaped: "When"), constraints: target.conditions) 
-                    { 
-                        .uri(.symbol($0)) 
-                    } 
-                    return .li([signature, constraints])
-                }
-            }
-            
-            elements.append(.ul(items: items))
-        }
-        return .section(elements) { ("class", "related") }
-    }
-    private 
-    func generateSection(_ segregated:[Topics.Sublist: [Module.Culture: [Symbol.Composite]]], 
-        heading:String, 
-        pins:[Package.Index: Version])
-        -> HTML.Element<CardKey>
-    {
-        var elements:[HTML.Element<CardKey>] = [.h2(heading)]
-        for sublist:Topics.Sublist in Topics.Sublist.allCases
-        {
-            if let segregated:[Module.Culture: [Symbol.Composite]] = segregated[sublist]
-            {
-                elements.append(self.generateSubsection(segregated, heading: sublist.heading, pins: pins))
-            }
-        }
-        return .section(elements) { ("class", "topics") }
-    }
-    private 
-    func generateSubsection(_ segregated:[Module.Culture: [Symbol.Composite]], 
-        heading:String, 
-        pins:[Package.Index: Version])
-        -> HTML.Element<CardKey>
-    {
-        var elements:[HTML.Element<CardKey>] = []
-            elements.reserveCapacity(2 * segregated.count + 1)
-            elements.append(.h3(heading))
-        for (culture, composites):(Module.Culture, [Symbol.Composite]) in 
-            self.sort(segregated)
-        {
-            if let culture:HTML.Element<CardKey> = self.generateCultureHeading(culture)
-            {
-                elements.append(.h4(culture))
-            }
-            let items:[HTML.Element<CardKey>] = self.sort(composites).map 
-            {
-                (composite:Symbol.Composite) in 
-                
-                let fragments:HTML.Element<CardKey> 
-                if  let declaration:Symbol.Declaration = 
-                    self.baseDeclaration(composite, pins: pins)
-                {
-                    fragments = .render(signature: declaration.signature)
-                }
-                else 
-                {
-                    // should be unreachable in practice
-                    fragments = .code("<unavailable>")
-                }
-                let signature:HTML.Element<CardKey> = .a(fragments)
-                {
-                    ("href", .anchor(.uri(.composite(composite))))
-                    ("class", "signature")
-                }
-                return .li([signature, .anchor(.excerpt(composite))])
-            }
-            elements.append(.ul(items: items))
-        }
-        return .section(elements) 
-    }
     
     private 
     func sort<Value>(_ segregated:[Module.Culture: Value]) 
@@ -259,13 +62,51 @@ extension Ecosystem
         }
     }
     private 
-    func sort(_ composites:[Symbol.Composite]) -> [Symbol.Composite]
+    func sort(_ targets:[Symbol.Conditional]) -> [(target:Symbol.Conditional, host:Symbol.Index)]
     {
-        composites.sorted 
+        targets.map 
+        {
+            (target:Symbol.Conditional) -> (target:Symbol.Conditional, host:Symbol.Index) in 
+            (target: target, host: self[target.index].type ?? target.index)
+        }
+        .sorted 
+        {
+            self[$0.host].path.lexicographicallyPrecedes(self[$1.host].path)
+        }
+    }
+    private 
+    func sort(_ roles:Symbol.Roles?) -> [(target:Symbol.Index, host:Symbol.Index)]
+    {
+        switch roles 
+        {
+        case nil: 
+            return []
+        case .one(let target): 
+            return [(target, self[target].type ?? target)]
+        case .many(let targets):
+            return targets.map 
+            {
+                (target:Symbol.Index) -> (target:Symbol.Index, host:Symbol.Index) in 
+                (target: target, host: self[target].type ?? target)
+            }
+            .sorted 
+            {
+                self[$0.host].path.lexicographicallyPrecedes(self[$1.host].path)
+            }
+        }
+    }
+    private 
+    func sort(_ cards:[Symbol.Card]) -> [Symbol.Card]
+    {
+        cards.sorted 
         {
             // this lexicographic ordering sorts by last path component first, 
             // and *then* by vending protocol (if applicable)
-            let base:(Symbol, Symbol) = (self[$0.base], self[$1.base])
+            let base:(Symbol, Symbol) = 
+            (
+                self[$0.composite.base], 
+                self[$1.composite.base]
+            )
             if  base.0.name < base.1.name 
             {
                 return true 
@@ -280,6 +121,157 @@ extension Ecosystem
                 return false 
             }
         }
+    }
+}
+extension Ecosystem
+{
+    func generateExcerpt(for composite:Symbol.Composite, pins:[Package.Index: Version])
+        -> DOM.Template<[Index], [UInt8]>?
+    {
+        let article:Article.Template<Link> = self.baseTemplate(composite, pins: pins)
+        return article.summary.isEmpty ? nil : article.summary.map(self.expand(link:)) 
+    }
+    
+    func generateCards(_ topics:Topics) -> DOM.Template<CardKey, [UInt8]>?
+    {
+        if topics.isEmpty 
+        {
+            return nil 
+        }
+        
+        var sections:[HTML.Element<CardKey>] = []
+        for heading:Topics.List in 
+        [
+            .refinements,
+            .implementations,
+            .restatements, 
+            .overrides,
+        ]
+        {
+            if let segregated:[Module.Culture: [Symbol.Conditional]] = topics.lists[heading]
+            {
+                sections.append(self.generateSection(segregated, heading: heading.rawValue))
+            }
+        }
+        
+        if !topics.requirements.isEmpty
+        {
+            let requirements:[Topics.Sublist: [Module.Culture: [Symbol.Card]]] = 
+                topics.requirements.mapValues { [.primary: $0] }
+            sections.append(self.generateSection(requirements, heading: "Requirements"))
+        }
+        if !topics.members.isEmpty
+        {
+            sections.append(self.generateSection(topics.members, heading: "Members"))
+        }
+        
+        for heading:Topics.List in 
+        [
+            .conformers,
+            .conformances,
+            .subclasses,
+            .implications,
+        ]
+        {
+            if let list:[Module.Culture: [Symbol.Conditional]] = topics.lists[heading]
+            {
+                sections.append(self.generateSection(list, heading: heading.rawValue))
+            }
+        }
+        
+        if !topics.removed.isEmpty
+        {
+            sections.append(self.generateSection(topics.removed, 
+                heading: "Removed Members"))
+        }
+        
+        return sections.isEmpty ? nil : 
+            .init(freezing: .div(sections) { ("class", "lower-container") })
+    }
+    
+    private 
+    func generateSection(_ segregated:[Module.Culture: [Symbol.Conditional]], 
+        heading:String)
+        -> HTML.Element<CardKey>
+    {
+        var elements:[HTML.Element<CardKey>] = []
+            elements.reserveCapacity(2 * segregated.count + 1)
+            elements.append(.h2(heading))
+        for (culture, targets):(Module.Culture, [Symbol.Conditional]) in self.sort(segregated)
+        {
+            if let culture:HTML.Element<CardKey> = self.generateCultureHeading(culture)
+            {
+                elements.append(.h3(culture))
+            }
+            let items:[HTML.Element<CardKey>] = self.sort(targets).map 
+            {
+                let (target, host):(Symbol.Conditional, Symbol.Index) = $0
+                let signature:HTML.Element<CardKey> = .a(.render(path: self[host].path))
+                {
+                    ("href", .anchor(.uri(.symbol(target.index))))
+                    ("class", "signature")
+                }
+                if  let constraints:HTML.Element<CardKey> = .render(.text(escaped: "When"), 
+                    constraints: target.conditions, 
+                    transform: { .uri(.symbol($0)) }) 
+                {
+                    return .li([signature, constraints])
+                }
+                else 
+                {
+                    return .li(signature)
+                }
+            }
+            
+            elements.append(.ul(items: items))
+        }
+        return .section(elements) { ("class", "related") }
+    }
+    private 
+    func generateSection(_ segregated:[Topics.Sublist: [Module.Culture: [Symbol.Card]]], 
+        heading:String)
+        -> HTML.Element<CardKey>
+    {
+        var elements:[HTML.Element<CardKey>] = [.h2(heading)]
+        for sublist:Topics.Sublist in Topics.Sublist.allCases
+        {
+            if let segregated:[Module.Culture: [Symbol.Card]] = segregated[sublist]
+            {
+                elements.append(self.generateSubsection(segregated, heading: sublist.heading))
+            }
+        }
+        return .section(elements) { ("class", "topics") }
+    }
+    private 
+    func generateSubsection(_ segregated:[Module.Culture: [Symbol.Card]], 
+        heading:String)
+        -> HTML.Element<CardKey>
+    {
+        var elements:[HTML.Element<CardKey>] = []
+            elements.reserveCapacity(2 * segregated.count + 1)
+            elements.append(.h3(heading))
+        for (culture, cards):(Module.Culture, [Symbol.Card]) in 
+            self.sort(segregated)
+        {
+            if let culture:HTML.Element<CardKey> = self.generateCultureHeading(culture)
+            {
+                elements.append(.h4(culture))
+            }
+            let items:[HTML.Element<CardKey>] = self.sort(cards).map 
+            {
+                (card:Symbol.Card) in 
+                
+                let signature:HTML.Element<CardKey> = 
+                    .a(.render(signature: card.declaration.signature))
+                {
+                    ("href", .anchor(.uri(.composite(card.composite))))
+                    ("class", "signature")
+                }
+                return .li([signature, .anchor(.excerpt(card.composite))])
+            }
+            elements.append(.ul(items: items))
+        }
+        return .section(elements) 
     }
     
     private 
@@ -299,45 +291,29 @@ extension Ecosystem
 }
 extension Ecosystem
 {
-    func generateFields(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
+    func generateFields(for composite:Symbol.Composite, 
+        declaration:Symbol.Declaration, 
+        facts:Symbol.Predicates) 
         -> [PageKey: DOM.Template<Index, [UInt8]>]
     {
         let base:Symbol = self[composite.base]
-        
-        guard let declaration:Symbol.Declaration = 
-            self.baseDeclaration(composite, pins: pins)
-        else 
-        {
-            return [:]
-        }
-        
         var substitutions:[PageKey: HTML.Element<Index>] = 
         [
             .title:        .text(escaping: base.name), 
             .headline:     .h1(base.name), 
-            .constants:    .text(escaped: Self.constants(filter: [])),
-            
-            .navigator:     self.navigator(base: base, host: composite.host),
-            
             .kind:         .text(escaping: base.color.title),
+            .fragments:    .render(fragments: declaration.fragments, 
+                transform: Index.symbol(_:)),
+            
             .culture:       self.link(module: composite.culture),
-            .fragments:    .render(fragments: declaration.fragments, Ecosystem.Index.symbol(_:)),
+            
+            .constants:     Self.generateScript(filter: []),
+            .breadcrumbs:   self.generateBreadcrumbs(for: composite),
         ]
         
-        if composite.diacritic.host.module != composite.culture 
-        {
-            substitutions[.namespace] = .span(self.link(module: composite.diacritic.host.module))
-            {
-                ("class", "namespace")
-            }
-        }
-        if composite.base.module != composite.culture 
-        {
-            substitutions[.base] = .span(self.link(module: composite.base.module))
-            {
-                ("class", "base")
-            }
-        }
+        substitutions[.notes] = self.generateNotes(for: composite, 
+            declaration: declaration, 
+            facts: facts)
         
         substitutions[.platforms] = .render(
             availability: declaration.availability.platforms)
@@ -348,88 +324,125 @@ extension Ecosystem
             declaration.availability.general
         ))
         
+        if composite.diacritic.host.module != composite.culture 
+        {
+            substitutions[.namespace] = 
+                .span(self.link(module: composite.diacritic.host.module))
+            {
+                ("class", "namespace")
+            }
+        }
+        if composite.base.module != composite.culture 
+        {
+            substitutions[.base] = 
+                .span(self.link(module: composite.base.module))
+            {
+                ("class", "base")
+            }
+        }
+        
         return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
-        /* if case nil = substitutions.index(forKey: .summary)
-        {
-            substitutions[.summary]     = Element[.p]
-            {
-                "No overview available."
-            }
-        }
-        for origin:Int in dynamic.cards 
-        {
-            substitutions[.reference(.symbol(origin, victim: nil))] = self.symbols[origin].summary.map(self.fill(template:))
-        }
-        
-        var relationships:[Element] 
-        if case _? = symbol.relationships.requirementOf
-        {
-            relationships = 
-            [
-                Element[.li] 
-                {
-                    Element[.p]
-                    {
-                        ["required"]
-                    }
-                    content:
-                    {
-                        "Required."
-                    }
-                }
-            ]
-        }
-        else 
-        {
-            relationships = []
-        }
-        
-        if !symbol.extensionConstraints.isEmpty
-        {
-            relationships.append(Element[.li] 
-            {
-                Element[.p]
-                {
-                    "Available when "
-                    self.constraints(symbol.extensionConstraints)
-                }
-            })
-        }
-        if !relationships.isEmpty 
-        {
-            substitutions[.relationships] = Element[.ul]
-            {
-                ["relationships-list"]
-            }
-            content: 
-            {
-                relationships
-            }
-        }
-        
-        let article:Article.Rendered<ResolvedLink>.Content = self.symbols[symbol.sponsor ?? witness]
-        substitutions[.summary]     = article.summary.map(self.fill(template:))
-        substitutions[.discussion]  = article.discussion.map(self.fill(template:)) */
     }
     
-    private static 
-    func constants(filter:[Package.ID]) -> String
-    {
-        // package name is alphanumeric, we should enforce this in 
-        // `Package.ID`, otherwise this could be a security hole
-        """
-        includedPackages = [\(filter.map { "'\($0.string)'" }.joined(separator: ","))];
-        """
-    }
     private 
-    func navigator(base:Symbol, host:Symbol.Index?) -> HTML.Element<Index>
+    func generateNotes(for composite:Symbol.Composite,
+        declaration:Symbol.Declaration, 
+        facts:Symbol.Predicates) 
+        -> HTML.Element<Index>?
     {
+        let base:Symbol = self[composite.base]
+        
+        var items:[HTML.Element<Index>] = []
+        switch (base.shape, composite.host)
+        {        
+        case (.member(of: let interface)?, let host?):
+            let subject:HTML.Element<Index> = 
+                .highlight(escaped: "Self", .type, href: .symbol(host))
+            let object:HTML.Element<Index> = 
+                .highlight(self[interface].name, .type, href: .symbol(composite.base))
+            let sentence:[HTML.Element<Index>] = 
+            [
+                .text(escaped: "Available because "),
+                .code(subject),
+                .text(escaped: " conforms to "),
+                .code(object),
+                .text(escaped: "."),
+            ]
+            items.append(.li(.p(sentence)))
+        
+        case (.member(of: _)?, nil): 
+            guard case .callable(_) = base.color 
+            else 
+            {
+                break 
+            }
+            for upstream:(target:Symbol.Index, host:Symbol.Index) in 
+                self.sort(facts.roles)
+            {
+                let type:Symbol = self[upstream.host]
+                let prose:String 
+                switch type.color 
+                {
+                case .protocol: 
+                    prose = "Implements requirement of "
+                case .class: 
+                    prose = "Overrides member of "
+                default: 
+                    continue 
+                }
+                let object:HTML.Element<Index> = 
+                    .highlight(type.name, .type, href: .symbol(upstream.target))
+                let sentence:[HTML.Element<Index>] = 
+                [
+                    .text(escaped: prose),
+                    .code(object),
+                    .text(escaped: "."),
+                ]
+                items.append(.li(.p(sentence)))
+            } 
+        
+        case (.requirement(of: _)?, _):
+            items.append(.li(.p("Required.") { ("class", "required") }))
+            
+            for requirement:(target:Symbol.Index, host:Symbol.Index) in 
+                self.sort(facts.roles)
+            {
+                let object:HTML.Element<Index> = 
+                    .highlight(self[requirement.host].name, .type, 
+                        href: .symbol(requirement.target))
+                let sentence:[HTML.Element<Index>] = 
+                [
+                    .text(escaped: "Restates requirement of "),
+                    .code(object),
+                    .text(escaped: "."),
+                ]
+                items.append(.li(.p(sentence)))
+            }
+        case (nil, _): 
+            break
+        }
+        
+        if let constraints:HTML.Element<Index> = .render(.text(escaped: "Available when"), 
+            constraints: declaration.extensionConstraints, 
+            transform: Index.symbol(_:)) 
+        {
+            items.append(.li(constraints))
+        }
+        
+        return items.isEmpty ? nil : .ul(items: items) { ("class", "notes") }
+    }
+    
+    private 
+    func generateBreadcrumbs(for composite:Symbol.Composite) -> HTML.Element<Index>
+    {
+        let base:Symbol = self[composite.base]
+        
         var crumbs:[HTML.Element<Index>] = [.li(base.name)]
-        var next:Symbol.Index? = host ?? base.shape?.index
+        var next:Symbol.Index? = composite.host ?? base.shape?.index
         while let index:Symbol.Index = next
         {
             let current:Symbol = self[index]
-            let crumb:HTML.Element<Index> = .a(.highlight(escaping: current.name, .type))
+            let crumb:HTML.Element<Index> = .a(.highlight(current.name, .type))
             {
                 ("href", .anchor(.symbol(index)))
             }
@@ -439,6 +452,19 @@ extension Ecosystem
         crumbs.reverse()
         return .ol(items: crumbs) { ("class", "breadcrumbs-container") }
     }
+    
+    private static 
+    func generateScript(filter:[Package.ID]) -> HTML.Element<Index>
+    {
+        // package name is alphanumeric, we should enforce this in 
+        // `Package.ID`, otherwise this could be a security hole
+        let source:String =
+        """
+        includedPackages = [\(filter.map { "'\($0.string)'" }.joined(separator: ","))];
+        """
+        return .text(escaped: source)
+    }
+
     private 
     func link(package:Package.Index) -> HTML.Element<Index>
     {
