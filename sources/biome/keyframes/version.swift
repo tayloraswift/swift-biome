@@ -48,6 +48,7 @@ struct Version:Hashable, CustomStringConvertible, Sendable
         self.bitPattern = bitPattern
     }
     
+    // we have `<` and `<=`, yet `Self` is not ``Comparable``...
     static 
     func <= (lhs:Self, rhs:Self) -> Bool 
     {

@@ -450,7 +450,7 @@ extension Ecosystem
             next = current.shape?.index
         }
         crumbs.reverse()
-        return .ol(items: crumbs) { ("class", "breadcrumbs-container") }
+        return .ol(items: crumbs) 
     }
     
     private static 

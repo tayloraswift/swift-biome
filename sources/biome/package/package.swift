@@ -108,11 +108,11 @@ struct Package:Identifiable, Sendable
     var external:[Symbol.Diacritic: Keyframe<Symbol.Traits>.Buffer.Index]
     private(set)
     var versions:[Version: Pins], 
-        toplevels:Keyframe<Set<Symbol.Index>>.Buffer, 
-        dependencies:Keyframe<Set<Module.Index>>.Buffer, 
-        declarations:Keyframe<Symbol.Declaration>.Buffer
+        toplevels:Keyframe<Set<Symbol.Index>>.Buffer, // always populated 
+        dependencies:Keyframe<Set<Module.Index>>.Buffer, // always populated 
+        declarations:Keyframe<Symbol.Declaration>.Buffer // always populated 
     private(set)
-    var facts:Keyframe<Symbol.Predicates>.Buffer,
+    var facts:Keyframe<Symbol.Predicates>.Buffer, // always populated
         opinions:Keyframe<Symbol.Traits>.Buffer
     private(set)
     var templates:Keyframe<Article.Template<Link>>.Buffer
@@ -206,7 +206,7 @@ struct Package:Identifiable, Sendable
         {
             return version 
         }
-        if case version? = self.versions[.latest]?.version
+        if      case version? = self.versions[.latest]?.version
         {
             return nil 
         }
@@ -285,6 +285,52 @@ struct Package:Identifiable, Sendable
         return explicit
     }
     
+    func availableVersions(_ composite:Symbol.Composite) -> Set<Version> 
+    {
+        self.availableVersions { self.contains(composite, at: $0) }
+    }
+    func availableVersions(_ module:Module.Index) -> Set<Version> 
+    {
+        self.availableVersions { self.contains(module, at: $0) }
+    }
+    func availableVersions() -> Set<Version> 
+    {
+        .init(self.versions.values.lazy.map(\.version))
+    }
+    private 
+    func availableVersions(where predicate:(Version) throws -> Bool) 
+        rethrows -> Set<Version> 
+    {
+        var versions:Set<Version> = []
+        // ``Set.contains(_:)`` check helps avoid extra 
+        // ``Package.contains(_:at:)`` queries
+        for pins:Pins in self.versions.values 
+            where try !versions.contains(pins.version) && predicate(pins.version)
+        {
+            versions.insert(pins.version)
+        }
+        return versions
+    }
+    // we don’t use this quite the same as `contains(_:at:)` for ``Symbol.Composite``, 
+    // because we still allow accessing module pages outside their availability ranges. 
+    // 
+    // we mainly use this to limit the results in the version menu dropdown.
+    // FIXME: the complexity of this becomes quadratic-ish if we test *every* 
+    // package version with this method.
+    func contains(_ module:Module.Index, at version:Version) -> Bool 
+    {
+        if case _? = self.dependencies.at(version, 
+            head: self[local: module].heads.dependencies)
+        {
+            return true 
+        }
+        else 
+        {
+            return false 
+        }
+    }
+    // FIXME: the complexity of this becomes quadratic-ish if we test *every* 
+    // package version with this method, which we do for the version menu dropdowns
     func contains(_ composite:Symbol.Composite, at version:Version) -> Bool 
     {
         if let host:Symbol.Index = composite.host

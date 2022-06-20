@@ -6,6 +6,7 @@ import NIO
 
 import BiomeIndex
 import BiomeTemplates
+import HTML
 
 @main 
 struct Main:AsyncParsableCommand 
@@ -24,6 +25,9 @@ struct Main:AsyncParsableCommand
     var git:String = "/usr/bin/git"
     @Option(name: [.customShort("b"), .customLong("resources")], help: "path to a copy of the 'swift-biome-resources' repository")
     var resources:String = "resources"
+    
+    @Option(name: [.customLong("merge-stylesheets")], help: "merge stylesheets into a single file")
+    var mergeStylesheets:Bool = true
     
     @Argument(help: "path(s) to project repositories")
     var projects:[String] 
@@ -46,8 +50,32 @@ struct Main:AsyncParsableCommand
     {
         Backtrace.install()
         
+        let stylesheets:[String: [FilePath]]
+        if  self.mergeStylesheets 
+        {
+            stylesheets = 
+            [
+                "/biome-common.css": 
+                [
+                    "default-dark/biome-header.css",
+                    "default-dark/biome-body.css",
+                    "default-dark/common.css", 
+                ],
+            ]
+        }
+        else 
+        {
+            stylesheets = 
+            [
+                "/biome-header.css":    ["default-dark/biome-header.css"],
+                "/biome-body.css":      ["default-dark/biome-body.css"],
+                "/common.css":          ["default-dark/common.css"],
+            ]
+        }
+        
         let preview:Preview = try await .init(projects: self.projects.map(FilePath.init(_:)), 
-            controller: .init(git: .init(self.git), repository: .init(self.resources)))
+            controller: .init(git: .init(self.git), repository: .init(self.resources)),
+            stylesheets: stylesheets)
         
         let host:String = self.host 
         let port:Int = self.port
@@ -100,8 +128,29 @@ struct Preview:ServiceBackend
     let resources:[String: Resource]
     var biome:Biome
     
-    init(projects:[FilePath], controller:VersionController) async throws 
+    init(projects:[FilePath], controller:VersionController, stylesheets:[String: [FilePath]]) 
+        async throws 
     {
+        var resources:[String: Resource] = 
+        [
+            "/search.js"        : try await controller.read(concatenating: ["lunr.js", "search.js"], type: .javascript), 
+            
+            "/text-45.ttf"      : try await controller.read(from: "fonts/literata/Literata-Regular.ttf",          type: .ttf), 
+            "/text-47.ttf"      : try await controller.read(from: "fonts/literata/Literata-RegularItalic.ttf",    type: .ttf), 
+            "/text-65.ttf"      : try await controller.read(from: "fonts/literata/Literata-SemiBold.ttf",         type: .ttf), 
+            "/text-67.ttf"      : try await controller.read(from: "fonts/literata/Literata-SemiBoldItalic.ttf",   type: .ttf), 
+            
+            "/text-45.woff2"    : try await controller.read(from: "fonts/literata/Literata-Regular.woff2",        type: .woff2), 
+            "/text-47.woff2"    : try await controller.read(from: "fonts/literata/Literata-RegularItalic.woff2",  type: .woff2), 
+            "/text-65.woff2"    : try await controller.read(from: "fonts/literata/Literata-SemiBold.woff2",       type: .woff2), 
+            "/text-67.woff2"    : try await controller.read(from: "fonts/literata/Literata-SemiBoldItalic.woff2", type: .woff2), 
+        ]
+        for (uri, sources):(String, [FilePath]) in stylesheets 
+        {
+            resources[uri] = try await controller.read(concatenating: sources, type: .css)
+        }
+        self.resources = _move(resources)
+        
         let pins:[Package.ID: Version] = 
         [
             .swift: .tag(5, (7, nil)),
@@ -114,7 +163,7 @@ struct Preview:ServiceBackend
             core:       try controller.read(package: .core)
         )
         self.biome = .init(prefixes: [.master: "reference", .doc: "learn"], 
-            template: .init(freezing: DefaultTemplates.documentation))
+            template: .init(freezing: DefaultTemplates.documentation(stylesheets: stylesheets.keys)))
         // load the standard and core libraries
         try self.biome.updatePackage(try await library.standard.load(with: controller).graph(), era: pins)
         try self.biome.updatePackage(try await     library.core.load(with: controller).graph(), era: pins)
@@ -138,22 +187,6 @@ struct Preview:ServiceBackend
                 try self.biome.updatePackage(graph, era: pins)
             }
         }
-        
-        self.resources = 
-        [
-            "/biome.css"        : try await controller.read(concatenating: "default-dark/common.css", "default-dark/biome.css", type: .css), 
-            "/search.js"        : try await controller.read(concatenating: "lunr.js", "search.js", type: .javascript), 
-            
-            "/text-45.ttf"      : try await controller.read(from: "fonts/literata/Literata-Regular.ttf",          type: .ttf), 
-            "/text-47.ttf"      : try await controller.read(from: "fonts/literata/Literata-RegularItalic.ttf",    type: .ttf), 
-            "/text-65.ttf"      : try await controller.read(from: "fonts/literata/Literata-SemiBold.ttf",         type: .ttf), 
-            "/text-67.ttf"      : try await controller.read(from: "fonts/literata/Literata-SemiBoldItalic.ttf",   type: .ttf), 
-            
-            "/text-45.woff2"    : try await controller.read(from: "fonts/literata/Literata-Regular.woff2",        type: .woff2), 
-            "/text-47.woff2"    : try await controller.read(from: "fonts/literata/Literata-RegularItalic.woff2",  type: .woff2), 
-            "/text-65.woff2"    : try await controller.read(from: "fonts/literata/Literata-SemiBold.woff2",       type: .woff2), 
-            "/text-67.woff2"    : try await controller.read(from: "fonts/literata/Literata-SemiBoldItalic.woff2", type: .woff2), 
-        ]
     }
     
     func request(_:Never, continuation _:EventLoopPromise<StaticResponse>) 

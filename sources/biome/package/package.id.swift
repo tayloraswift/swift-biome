@@ -17,6 +17,15 @@ extension Package
         public static 
         let core:Self = .init(kind: .core)
         
+        var title:String 
+        {
+            switch self.kind
+            {
+            case .swift:                return "swift"
+            case .core:                 return "swift-core"
+            case .community(let name):  return name 
+            }
+        }
         public 
         var string:String 
         {

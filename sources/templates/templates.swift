@@ -8,7 +8,8 @@ enum DefaultTemplates
     typealias Element = HTML.Element<PageKey>
     
     public static
-    var documentation:HTML.Root<PageKey>
+    func documentation<Stylesheets>(stylesheets:Stylesheets) -> HTML.Root<PageKey>
+        where Stylesheets:Sequence, Stylesheets.Element == String
     {
         .init 
         {
@@ -42,11 +43,13 @@ enum DefaultTemplates
                     ("src",     "/search.js")
                     ("defer",   true)
                 }
-                
-                Element[.link]
+                for stylesheet:String in stylesheets 
                 {
-                    ("href",    "/biome.css")
-                    ("rel",     "stylesheet")
+                    Element[.link]
+                    {
+                        ("href",    stylesheet)
+                        ("rel",     "stylesheet")
+                    }
                 }
                 Element[.link]
                 {
@@ -62,13 +65,9 @@ enum DefaultTemplates
             }
             Element[.body]
             {
-                ("class", "documentation")
-            }
-            content: 
-            {
-                Element[.nav]
+                Element[.header]
                 {
-                    Element[.div]
+                    Element[.nav]
                     {
                         ("class", "breadcrumbs")
                     } 
@@ -76,9 +75,10 @@ enum DefaultTemplates
                     {
                         Element.anchor(.breadcrumbs)
                     }
+                    
                     Element[.div]
                     {
-                        ("class", "search-bar")
+                        ("class", "toolbar")
                     } 
                     content: 
                     {
@@ -89,39 +89,38 @@ enum DefaultTemplates
                         }
                         content: 
                         {
-                            Element[.div]
+                            Element[.input]
                             {
-                                ("class", "input-container")
-                            }
-                            content: 
-                            {
-                                Element[.div]
-                                {
-                                    ("class", "bevel")
-                                }
-                                Element[.div]
-                                {
-                                    ("class", "rectangle")
-                                }
-                                content: 
-                                {
-                                    Element[.input]
-                                    {
-                                        ("id",              "search-input")
-                                        ("type",            "search")
-                                        ("placeholder",     "search symbols")
-                                        ("autocomplete",    "off")
-                                    }
-                                }
-                                Element[.div]
-                                {
-                                    ("class", "bevel")
-                                }
+                                ("id",              "search-input")
+                                ("type",            "search")
+                                ("placeholder",     "search symbols")
+                                ("autocomplete",    "off")
                             }
                             Element[.ol]
                             {
                                 ("id", "search-results")
                             }
+                        }
+                        Element[.div]
+                        {
+                            ("class", "versions")
+                        }
+                        content: 
+                        {
+                            Element[.input]
+                            {
+                                ("id",      "version-menu-input")
+                                ("type",    "checkbox")
+                            }
+                            Element[.label]
+                            {
+                                ("for",     "version-menu-input")
+                            }
+                            content: 
+                            {
+                                Element.anchor(.pin)
+                            }
+                            Element.anchor(.versions)
                         }
                     }
                 }

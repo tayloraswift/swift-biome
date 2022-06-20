@@ -2,25 +2,29 @@ extension Biome
 {
     func uri(_ index:Ecosystem.Index, pins:[Package.Index: Version]) -> URI
     {
+        self.uri(index, at: pins[index.culture] ?? self.ecosystem[index.culture].latest)
+    }
+    func uri(_ index:Ecosystem.Index, at version:Version) -> URI
+    {
         let prefix:String 
         let location:Link.Reference<[String]>
         switch index 
         {
         case .composite(let composite):
             prefix = self.prefixes.master
-            location = self.ecosystem.location(of: composite, pins: pins)
+            location = self.ecosystem.location(of: composite, at: version)
         
         case .article(let article):
             prefix = self.prefixes.doc
-            location = self.ecosystem.location(of: article, pins: pins)
+            location = self.ecosystem.location(of: article, at: version)
         
         case .module(let module):
             prefix = self.prefixes.master
-            location = self.ecosystem.location(of: module, pins: pins)
+            location = self.ecosystem.location(of: module, at: version)
         
         case .package(let package):
             prefix = self.prefixes.master
-            location = self.ecosystem.location(of: package, pins: pins)
+            location = self.ecosystem.location(of: package, at: version)
         }
         return .init(prefix: prefix, location)
     }

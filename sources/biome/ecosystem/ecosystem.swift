@@ -32,6 +32,17 @@ struct Ecosystem
         {
             .composite(.init(natural: natural))
         }
+        
+        var culture:Package.Index 
+        {
+            switch self 
+            {
+            case .package(let package):     return package 
+            case .module(let module):       return module.package 
+            case .article(let article):     return article.module.package 
+            case .composite(let composite): return composite.culture.package 
+            }
+        }
     }
     
     func describe(_ error:LinkResolutionError) -> String 

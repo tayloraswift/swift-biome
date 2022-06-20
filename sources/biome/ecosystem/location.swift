@@ -1,10 +1,9 @@
 extension Ecosystem 
 {
-    func location(of index:Package.Index, pins:[Package.Index: Version]) 
+    func location(of index:Package.Index, at version:Version) 
         -> Link.Reference<[String]>
     {
         let package:Package = self[index]
-        let version:Version = pins[index] ?? package.latest
         
         var location:Link.Reference<[String]> = .init(path: [package.name])
         if let version:Version = package.abbreviate(version)
@@ -14,11 +13,10 @@ extension Ecosystem
         return location
     }
     
-    func location(of index:Module.Index, pins:[Package.Index: Version]) 
+    func location(of index:Module.Index, at version:Version) 
         -> Link.Reference<[String]>
     {
         let package:Package = self[index.package]
-        let version:Version = pins[index.package] ?? package.latest
         
         var location:Link.Reference<[String]> = package.root
         if let version:Version = package.abbreviate(version)
@@ -30,11 +28,11 @@ extension Ecosystem
         return location
     }
     
-    func location(of index:Article.Index, pins:[Package.Index: Version]) 
+    func location(of index:Article.Index, at version:Version) 
         -> Link.Reference<[String]>
     {
         var location:Link.Reference<[String]> = 
-            self.location(of: index.module, pins: pins)
+            self.location(of: index.module, at: version)
         for component:String in self[index].path 
         {
             location.path.append(component.lowercased())
@@ -42,17 +40,15 @@ extension Ecosystem
         return location
     }
     
-    func location(of composite:Symbol.Composite, pins:[Package.Index: Version]) 
+    func location(of composite:Symbol.Composite, at version:Version) 
         -> Link.Reference<[String]>
     {
+        let culture:Package = self[composite.culture.package]
         // same as host if composite is natural
         let base:Symbol = self[composite.base]
         let host:Symbol = self[composite.diacritic.host] 
         
         var location:Link.Reference<[String]> = self[host.namespace.package].root
-        
-        let culture:Package = self[composite.culture.package]
-        let version:Version = pins[composite.culture.package] ?? culture.latest
         if  culture.index == host.namespace.package, 
             let version:Version = culture.abbreviate(version)
         {

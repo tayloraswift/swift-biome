@@ -1,4 +1,4 @@
-import DOM
+import HTML
 
 @frozen public 
 enum PageKey:Hashable, Sendable
@@ -18,8 +18,10 @@ enum PageKey:Hashable, Sendable
     case kind
     case namespace 
     case notes 
+    case pin 
     case platforms
     case summary
+    case versions
 } 
 enum CardKey:Hashable, Sendable 
 {
@@ -32,14 +34,66 @@ extension Biome
     func page(_ index:Ecosystem.Index, pins:[Package.Index: Version]) 
         -> [PageKey: [UInt8]]
     {
+        let culture:Package = self.ecosystem[index.culture]
+        let precise:Set<Version>
+        
+        var page:[PageKey: [UInt8]]
         switch index 
         {
         case .composite(let composite): 
-            return self.page(composite, pins: pins)
-        case .article(_), .module(_), .package(_):
-            return [:]
+            precise = culture.availableVersions(composite)
+            page = self.page(composite, pins: pins)
+        case .article(_): 
+            precise = []
+            page = [:]
+        case .module(let module): 
+            precise = culture.availableVersions(module)
+            page = [:]
+        case .package(_):
+            precise = culture.availableVersions()
+            page = [:]
         }
+        
+        let current:Version = pins[culture.index] ?? culture.latest
+        let patches:[Version: [Version]] = .init(grouping: precise, by: \.editionless)
+        let abbreviations:[(display:Version, precise:Version)] = patches.flatMap 
+        {
+            $0.value.count == 1 ? [(display: $0.key, precise: $0.value[0])] :
+                $0.value.map    {  (display: $0,     precise: $0)  }
+        }.sorted 
+        {
+            $1.precise < $0.precise
+        }
+        
+        var display:Version = current 
+        let versions:[HTML.Element<Never>] = abbreviations.map 
+        {
+            let link:HTML.Element<Never> 
+            if  $0.precise == current
+            {
+                display = $0.display
+                link = .span($0.display.description) { ("class", "current") }
+            }
+            else 
+            {
+                let uri:URI = self.uri(index, at: $0.precise)
+                link = .a($0.display.description) { ("href", uri.description) }
+            }
+            return .li(link)
+        }
+        
+        let menu:HTML.Element<Never> = .ol(items: versions)
+        let label:(HTML.Element<Never>, HTML.Element<Never>) = 
+        (
+            .span(culture.id.title)    { ("class", "package") },
+            .span(display.description) { ("class", "version") }
+        )
+        page[.versions] = menu.rendered(as: [UInt8].self)
+        page[.pin] = label.0.rendered(as: [UInt8].self) + label.1.rendered(as: [UInt8].self)
+        
+        return page 
     }
+    private 
     func page(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
         -> [PageKey: [UInt8]]
     {
@@ -145,7 +199,6 @@ extension Biome
                 }
             }
         }
-        
         return page
     }
     
