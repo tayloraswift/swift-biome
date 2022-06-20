@@ -7,19 +7,19 @@ extension Ecosystem
     {
         var topics:Topics = .init()
         
-        if case .protocol = self[host].color,
-            let version:Version = pins[host.module.package]
+        if case .protocol = self[host].color
         {
+            let pinned:Package.Pinned = self[host.module.package].pinned(pins)
             switch facts.roles 
             {
             case nil: 
                 break 
             case .one(let role)?:
-                self.add(role: role, at: version, to: &topics)
+                self.add(role: role, to: &topics, pinned: pinned)
             case .many(let roles)?:
                 for role:Symbol.Index in roles 
                 {
-                    self.add(role: role, at: version, to: &topics)
+                    self.add(role: role, to: &topics, pinned: pinned)
                 }
             }
         }
@@ -41,7 +41,8 @@ extension Ecosystem
         for source:Module.Index in 
             Set<Module.Index>.init(self[host].pollen.lazy.map(\.culture))
         {
-            if let traits:Symbol.Traits = self.currentOpinions(of: host, from: source)
+            let diacritic:Symbol.Diacritic = .init(host: host, culture: source)
+            if let traits:Symbol.Traits = self[source.package].currentOpinion(diacritic)
             {
                 self.organize(topics: &topics, 
                     culture: .international(source),
@@ -146,8 +147,9 @@ extension Ecosystem
         pins:[Package.Index: Version])
     {
         let sublist:Topics.Sublist = .color(self[composite.base].color)
-        let declaration:Symbol.Declaration = self.baseDeclaration(composite, 
-            pins: pins) 
+        let declaration:Symbol.Declaration = self[composite.base.module.package]
+            .pinned(pins)
+            .declaration(composite.base)
         if  declaration.availability.isUsable 
         {
             topics.members[sublist, default: [:]][culture, default: []]
@@ -160,8 +162,9 @@ extension Ecosystem
         }
     }
     private 
-    func add(role:Symbol.Index, at version:Version, to topics:inout Topics)
+    func add(role:Symbol.Index, to topics:inout Topics, pinned:Package.Pinned)
     {
+        // protocol roles may originate from a different package
         switch self[role].color 
         {
         case .protocol:
@@ -169,7 +172,10 @@ extension Ecosystem
                 .append(.init(role))
         case let color:
             let sublist:Topics.Sublist = .color(color)
-            let declaration:Symbol.Declaration = self.declaration(role, at: version)
+            // this is always valid, because non-protocol roles are always 
+            // requirements, and requirements always live in the same package as 
+            // the protocol they are part of.
+            let declaration:Symbol.Declaration = pinned.declaration(role)
             topics.requirements[sublist, default: []]
                 .append((.init(natural: role), declaration))
         }

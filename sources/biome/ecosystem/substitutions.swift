@@ -125,13 +125,6 @@ extension Ecosystem
 }
 extension Ecosystem
 {
-    func generateExcerpt(for composite:Symbol.Composite, pins:[Package.Index: Version])
-        -> DOM.Template<[Index], [UInt8]>?
-    {
-        let article:Article.Template<Link> = self.baseTemplate(composite, pins: pins)
-        return article.summary.isEmpty ? nil : article.summary.map(self.expand(link:)) 
-    }
-    
     func generateCards(_ topics:Topics) -> DOM.Template<CardKey, [UInt8]>?
     {
         if topics.isEmpty 

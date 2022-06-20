@@ -50,6 +50,8 @@ extension Symbol
     ///     protocol requirements *always* have the same culture as the protocol 
     ///     itself.
     /// 
+    ///     note: ``Ecosystem.add(role:to:pinned:)`` relies on this assumption!
+    /// 
     /// -   classes can have a single role if they have a superclass.
     /// 
     /// -   other kinds of symbols never have roles.

@@ -60,33 +60,14 @@ struct Package:Identifiable, Sendable
             return isotropic
         }
     }
-    struct Pinned:Sendable 
-    {
-        let package:Package 
-        let version:Version
-        
-        init(_ package:Package, at version:Version)
-        {
-            self.version = version  
-            self.package = package
-        }
-        
-        func contains(_ composite:Symbol.Composite) -> Bool 
-        {
-            self.package.contains(composite, at: self.version)
-        }
-    }
     
     struct Heads 
     {
-        @Keyframe<Pins>.Head
-        var pins:Keyframe<Pins>.Buffer.Index?
         @Keyframe<Article.Template<Link>>.Head
         var template:Keyframe<Article.Template<Link>>.Buffer.Index?
         
         init() 
         {
-            self._pins = .init()
             self._template = .init()
         }
     }
@@ -95,7 +76,7 @@ struct Package:Identifiable, Sendable
     let id:ID
     let index:Index
     
-    private
+    private(set)
     var heads:Heads
     // private 
     // var tag:Resource.Tag?
@@ -186,6 +167,11 @@ struct Package:Identifiable, Sendable
     subscript(article:Article.Index) -> Article?
     {
         self.index == article.module.package ? self[local: article] : nil
+    }
+    
+    func pinned(_ pins:[Index: Version]) -> Pinned 
+    {
+        .init(self, at: pins[self.index] ?? self.latest)
     }
     
     var root:Link.Reference<[String]> 
@@ -365,6 +351,11 @@ struct Package:Identifiable, Sendable
     func pollinate(local symbol:Symbol.Index, from pin:Module.Pin)
     {
         self.symbols[local: symbol].pollen.insert(pin)
+    }
+    
+    func currentOpinion(_ diacritic:Symbol.Diacritic) -> Symbol.Traits?
+    {
+        self.external[diacritic].map { self.opinions[$0].value }
     }
 }
 

@@ -71,10 +71,11 @@ extension Ecosystem
                 migrants[member] = template
             }
             // note: empty doccomments are omitted from the template buffer
-            else if culture != sponsor.module.package,
-                let version:Version = pins.upstream[sponsor.module.package]
+            else if culture != sponsor.module.package
             {
-                let template:Article.Template<Link> = self.template(sponsor, at: version)
+                let template:Article.Template<Link> = self[sponsor.module.package]
+                    .pinned(pins.upstream)
+                    .template(sponsor)
                 if !template.isEmpty
                 {
                     migrants[member] = template

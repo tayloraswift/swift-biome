@@ -21,8 +21,7 @@ extension Package
         {
             switch self.kind
             {
-            case .swift:                return "swift"
-            case .core:                 return "swift-core"
+            case .swift, .core:         return "swift"
             case .community(let name):  return name 
             }
         }
