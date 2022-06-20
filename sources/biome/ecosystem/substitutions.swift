@@ -284,6 +284,25 @@ extension Ecosystem
 }
 extension Ecosystem
 {
+    func generateFields(for index:Module.Index) 
+        -> [PageKey: DOM.Template<Index, [UInt8]>]
+    {
+        let module:Module = self[index]
+        let title:String = .init(module.title)
+        let substitutions:[PageKey: HTML.Element<Index>] = 
+        [
+            .title:        .text(escaping: title), 
+            .headline:     .h1(title), 
+            .kind:         .text(escaped: "Module"),
+            .fragments:    .render(fragments: module.fragments) { (_:Never) -> Index in },
+            
+            .culture:       self.link(package: index.package),
+            
+            .constants:     Self.generateScript(filter: []),
+            .breadcrumbs:   .ol(items: [.li(title)]) ,
+        ]
+        return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
+    }
     func generateFields(for composite:Symbol.Composite, 
         declaration:Symbol.Declaration, 
         facts:Symbol.Predicates) 

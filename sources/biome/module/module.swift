@@ -80,7 +80,7 @@ struct Module:Identifiable, Sendable
         self.heads = .init()
     }
     
-    var fragments:[Notebook<Highlight, Symbol.Index>.Fragment] 
+    var fragments:[Notebook<Highlight, Never>.Fragment] 
     {
         [
             .init("import",     color: .keywordText),

@@ -1,5 +1,19 @@
 extension Ecosystem 
 {
+    func organize(toplevel:Set<Symbol.Index>, 
+        pins:[Package.Index: Version]) 
+        -> Topics 
+    {
+        var topics:Topics = .init()
+        for index:Symbol.Index in toplevel
+        {
+            // all toplevel symbols are natural and of the module’s primary culture
+            self.add(member: .init(natural: index), to: &topics, 
+                culture: .primary, 
+                pins: pins)
+        }
+        return topics
+    }
     func organize(facts:Symbol.Predicates, 
         pins:[Package.Index: Version],
         host:Symbol.Index) 

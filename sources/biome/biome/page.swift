@@ -42,7 +42,7 @@ extension Biome
         case .article(_): 
             page = [:]
         case .module(let module): 
-            page = [:]
+            page = self.page(module, pins: pins)
         case .package(_):
             page = [:]
         }
@@ -53,7 +53,22 @@ extension Biome
     func page(_ module:Module.Index, pins:[Package.Index: Version]) 
         -> [PageKey: [UInt8]]
     {
-        [:]
+        let pinned:Package.Pinned = self.ecosystem[module.package].pinned(pins)
+        let topics:Topics = self.ecosystem.organize(toplevel: pinned.toplevel(module), 
+            pins: pins)
+        
+        var page:[PageKey: [UInt8]] = self.page(
+            article: pinned.template(module).map(self.ecosystem.expand(link:)), 
+            fields: self.ecosystem.generateFields(for: module), 
+            cards: self.ecosystem.generateCards(topics), 
+            pins: pins)
+        
+        self.fillPageWithAvailableVersions(&page, 
+            versions: pinned.package.availableVersions(module), 
+            pinned: pinned, 
+            index: .module(module))
+        
+        return page
     }
     private 
     func page(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
@@ -86,17 +101,32 @@ extension Biome
         
         let declaration:Symbol.Declaration = 
             pinned.base.declaration(composite.base)
-        let article:Article.Template<[Ecosystem.Index]> = 
-            pinned.base.template(composite.base).map(self.ecosystem.expand(link:)) 
         
-        let fields:[PageKey: DOM.Template<Ecosystem.Index, [UInt8]>] = 
-            self.ecosystem.generateFields(for: composite, 
+        var page:[PageKey: [UInt8]] = self.page(
+            article: pinned.base.template(composite.base)
+                .map(self.ecosystem.expand(link:)), 
+            fields: self.ecosystem.generateFields(for: composite, 
                 declaration: declaration,
-                facts: facts)
+                facts: facts), 
+            cards: self.ecosystem.generateCards(topics), 
+            pins: pins)
         
-        let cards:DOM.Template<CardKey, [UInt8]>? = 
-            self.ecosystem.generateCards(topics)
+        self.fillPageWithAvailableVersions(&page, 
+            versions: pinned.culture.package.availableVersions(composite), 
+            pinned: pinned.culture, 
+            index: .composite(composite))
         
+        return page
+    }
+    
+    private 
+    func page(
+        article:Article.Template<[Ecosystem.Index]>,
+        fields:[PageKey: DOM.Template<Ecosystem.Index, [UInt8]>], 
+        cards:DOM.Template<CardKey, [UInt8]>?, 
+        pins:[Package.Index: Version])
+        -> [PageKey: [UInt8]]
+    {
         var uris:[Ecosystem.Index: String] = [:] 
 
         let excerpts:[Symbol.Composite: DOM.Template<[Ecosystem.Index], [UInt8]>] = 
@@ -125,11 +155,6 @@ extension Biome
             cards: cards, 
             excerpts: excerpts, 
             uris: uris)
-        self.fillPageWithAvailableVersions(&page, 
-            versions: pinned.culture.package.availableVersions(composite), 
-            pinned: pinned.culture, 
-            index: .composite(composite))
-        
         return page
     }
     private 
@@ -221,7 +246,7 @@ extension Biome
     }
 }
 extension Biome 
-{
+{    
     private 
     func generateURIs(_ uris:inout [Ecosystem.Index: String], 
         for template:DOM.Template<Ecosystem.Index, [UInt8]>, 
@@ -247,6 +272,7 @@ extension Biome
             }
         }
     }
+    
     private 
     func generateExcerpts(uris:inout [Ecosystem.Index: String], 
         for cards:DOM.Template<CardKey, [UInt8]>?, 
