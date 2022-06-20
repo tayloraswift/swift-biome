@@ -97,35 +97,12 @@ extension Biome
         let cards:DOM.Template<CardKey, [UInt8]>? = 
             self.ecosystem.generateCards(topics)
         
-        var excerpts:[Symbol.Composite: DOM.Template<[Ecosystem.Index], [UInt8]>] = [:]
         var uris:[Ecosystem.Index: String] = [:] 
-        
-        if let cards
-        {
-            for (key, _):(CardKey, Int) in cards.anchors 
-            {
-                switch key 
-                {
-                case .uri(let key):
-                    if !uris.keys.contains(key)
-                    {
-                        uris[key] = self.uri(key, pins: pins).description 
-                    }
-                case .excerpt(let composite):
-                    let excerpt:Article.Template<Link> = 
-                        self.ecosystem[composite.base.module.package].pinned(pins)
-                            .template(composite.base)
-                    if !excerpt.summary.isEmpty
-                    {
-                        excerpts[composite] = 
-                            excerpt.summary.map(self.ecosystem.expand(link:)) 
-                    }
-                }
-            }
-        }
-        
-        self.generateURIs(&uris, for: article.summary,    pins: pins)
-        self.generateURIs(&uris, for: article.discussion, pins: pins)
+
+        let excerpts:[Symbol.Composite: DOM.Template<[Ecosystem.Index], [UInt8]>] = 
+            self.generateExcerpts(uris: &uris, for: cards,              pins: pins)
+        self.generateURIs              (&uris, for: article.summary,    pins: pins)
+        self.generateURIs              (&uris, for: article.discussion, pins: pins)
         
         for field:DOM.Template<Ecosystem.Index, [UInt8]> in fields.values 
         {
@@ -141,20 +118,46 @@ extension Biome
             // always populated
             $0.rendered { uris[$0]!.utf8 }
         }
-        if !article.summary.isEmpty
+        self.fillPageWithRenderedSummaryAndDiscussion(&page, 
+            template: article, 
+            uris: uris)
+        self.fillPageWithRenderedCards(&page, 
+            cards: cards, 
+            excerpts: excerpts, 
+            uris: uris)
+        self.fillPageWithAvailableVersions(&page, 
+            versions: pinned.culture.package.availableVersions(composite), 
+            pinned: pinned.culture, 
+            index: .composite(composite))
+        
+        return page
+    }
+    private 
+    func fillPageWithRenderedSummaryAndDiscussion(_ page:inout [PageKey: [UInt8]], 
+        template:Article.Template<[Ecosystem.Index]>, 
+        uris:[Ecosystem.Index: String])
+    {
+        if !template.summary.isEmpty
         {
-            page[.summary] = article.summary.rendered
+            page[.summary] = template.summary.rendered
             {
                 self.ecosystem.fill(trace: $0, uris: uris).rendered(as: [UInt8].self)
             }
         }
-        if !article.discussion.isEmpty
+        if !template.discussion.isEmpty
         {
-            page[.discussion] = article.discussion.rendered
+            page[.discussion] = template.discussion.rendered
             {
                 self.ecosystem.fill(trace: $0, uris: uris).rendered(as: [UInt8].self)
             }
         }
+    }
+    private 
+    func fillPageWithRenderedCards(_ page:inout [PageKey: [UInt8]], 
+        cards:DOM.Template<CardKey, [UInt8]>?,
+        excerpts:[Symbol.Composite: DOM.Template<[Ecosystem.Index], [UInt8]>], 
+        uris:[Ecosystem.Index: String])
+    {
         if let cards 
         {
             page[.cards] = cards.rendered 
@@ -171,19 +174,12 @@ extension Biome
                 }
             }
         }
-        
-        self.fill(&page, 
-            pinned: pinned.culture, 
-            withAvailableVersions: pinned.culture.package.availableVersions(composite), 
-            of: .composite(composite))
-        
-        return page
     }
     private 
-    func fill(_ page:inout [PageKey: [UInt8]], 
+    func fillPageWithAvailableVersions(_ page:inout [PageKey: [UInt8]], 
+        versions:Set<Version>, 
         pinned:Package.Pinned, 
-        withAvailableVersions versions:Set<Version>, 
-        of index:Ecosystem.Index)
+        index:Ecosystem.Index)
     {
         let patches:[MaskedVersion: [Version]] = .init(grouping: versions)
         {
@@ -227,28 +223,62 @@ extension Biome
 extension Biome 
 {
     private 
-    func generateURIs(_ map:inout [Ecosystem.Index: String], 
+    func generateURIs(_ uris:inout [Ecosystem.Index: String], 
         for template:DOM.Template<Ecosystem.Index, [UInt8]>, 
         pins:[Package.Index: Version])
     {
         for (key, _):(Ecosystem.Index, Int) in template.anchors 
-            where !map.keys.contains(key)
+            where !uris.keys.contains(key)
         {
-            map[key] = self.uri(key, pins: pins).description 
+            uris[key] = self.uri(key, pins: pins).description 
         }
     }
     private 
-    func generateURIs(_ map:inout [Ecosystem.Index: String], 
+    func generateURIs(_ uris:inout [Ecosystem.Index: String], 
         for template:DOM.Template<[Ecosystem.Index], [UInt8]>, 
         pins:[Package.Index: Version])
     {
         for (trace, _):([Ecosystem.Index], Int) in template.anchors 
         {
             for key:Ecosystem.Index in trace 
-                where !map.keys.contains(key)
+                where !uris.keys.contains(key)
             {
-                map[key] = self.uri(key, pins: pins).description 
+                uris[key] = self.uri(key, pins: pins).description 
             }
         }
+    }
+    private 
+    func generateExcerpts(uris:inout [Ecosystem.Index: String], 
+        for cards:DOM.Template<CardKey, [UInt8]>?, 
+        pins:[Package.Index: Version])
+        -> [Symbol.Composite: DOM.Template<[Ecosystem.Index], [UInt8]>]
+    {
+        guard let cards
+        else 
+        {
+            return [:]
+        }
+        var excerpts:[Symbol.Composite: DOM.Template<[Ecosystem.Index], [UInt8]>] = [:]
+        for (key, _):(CardKey, Int) in cards.anchors 
+        {
+            switch key 
+            {
+            case .uri(let key):
+                if !uris.keys.contains(key)
+                {
+                    uris[key] = self.uri(key, pins: pins).description 
+                }
+            case .excerpt(let composite):
+                let excerpt:Article.Template<Link> = 
+                    self.ecosystem[composite.base.module.package].pinned(pins)
+                        .template(composite.base)
+                if !excerpt.summary.isEmpty
+                {
+                    excerpts[composite] = 
+                        excerpt.summary.map(self.ecosystem.expand(link:)) 
+                }
+            }
+        }
+        return excerpts
     }
 }
