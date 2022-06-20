@@ -94,9 +94,9 @@ struct Availability:Equatable, Sendable
 struct SwiftAvailability:Equatable, Sendable
 {
     // unconditionals not allowed 
-    var deprecated:Version?
-    var introduced:Version?
-    var obsoleted:Version?
+    var deprecated:MaskedVersion?
+    var introduced:MaskedVersion?
+    var obsoleted:MaskedVersion?
     var renamed:String?
     var message:String?
     
@@ -144,9 +144,9 @@ struct VersionedAvailability:Equatable, Sendable
 {
     var unavailable:Bool 
     // .some(nil) represents unconditional deprecation
-    var deprecated:Version??
-    var introduced:Version?
-    var obsoleted:Version?
+    var deprecated:MaskedVersion??
+    var introduced:MaskedVersion?
+    var obsoleted:MaskedVersion?
     var renamed:String?
     var message:String?
     

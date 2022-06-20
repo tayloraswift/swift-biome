@@ -67,7 +67,7 @@ extension Link
         
         var base:Symbol.ID?
         var host:Symbol.ID?
-        var lens:(culture:Package.ID, version:Version?)?
+        var lens:(culture:Package.ID, version:MaskedVersion?)?
         
         init() 
         {
@@ -94,8 +94,8 @@ extension Link
                     }
                     let id:Package.ID = .init(first)
                     if  let second:Substring = components.dropFirst().first, 
-                        let version:Version = try? Grammar.parse(second.unicodeScalars, 
-                            as: Version.Rule<String.Index>.self)
+                        let version:MaskedVersion = try? Grammar.parse(second.unicodeScalars, 
+                            as: MaskedVersion.Rule<String.Index>.self)
                     {
                         self.lens = (id, version)
                     }
@@ -137,7 +137,7 @@ extension Link.Reference where Path.Element == Link.Component
     {
         self.path.first?.identifier.map(Package.ID.init(_:))
     }
-    var arrival:Version? 
+    var arrival:MaskedVersion? 
     {
         self.path.first?.version ?? nil
     }

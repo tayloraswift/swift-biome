@@ -94,9 +94,9 @@ struct Biome
     }
 
     public mutating 
-    func updatePackage(_ graph:Package.Graph, era:[Package.ID: Version]) throws 
+    func updatePackage(_ graph:Package.Graph, era:[Package.ID: MaskedVersion]) throws 
     {
-        let version:Version = (era[graph.id] ?? .latest).floored
+        let version:Version = .init(era[graph.id])
         
         let index:Package.Index = 
             try self.ecosystem.updatePackageRegistration(for: graph.id, to: version)

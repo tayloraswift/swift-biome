@@ -6,7 +6,7 @@ extension Ecosystem
         let package:Package = self[index]
         
         var location:Link.Reference<[String]> = .init(path: [package.name])
-        if let version:Version = package.abbreviate(version)
+        if let version:MaskedVersion = package.abbreviate(version)
         {
             location.path.append(version.description)
         }
@@ -19,7 +19,7 @@ extension Ecosystem
         let package:Package = self[index.package]
         
         var location:Link.Reference<[String]> = package.root
-        if let version:Version = package.abbreviate(version)
+        if let version:MaskedVersion = package.abbreviate(version)
         {
             location.path.append(version.description)
         }
@@ -50,7 +50,7 @@ extension Ecosystem
         
         var location:Link.Reference<[String]> = self[host.namespace.package].root
         if  culture.index == host.namespace.package, 
-            let version:Version = culture.abbreviate(version)
+            let version:MaskedVersion = culture.abbreviate(version)
         {
             location.path.append(version.description)
         }
@@ -101,7 +101,7 @@ extension Ecosystem
         
         if composite.culture.package != host.namespace.package
         {
-            location.query.lens = (culture.id, culture.latest != version ? version : nil)
+            location.query.lens = (culture.id, culture.abbreviate(version))
         }
         return location
     }

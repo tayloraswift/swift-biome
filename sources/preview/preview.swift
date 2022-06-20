@@ -151,10 +151,10 @@ struct Preview:ServiceBackend
         }
         self.resources = _move(resources)
         
-        let pins:[Package.ID: Version] = 
+        let pins:[Package.ID: MaskedVersion] = 
         [
-            .swift: .tag(5, (7, nil)),
-            .core:  .tag(5, (7, nil)),
+            .swift: .minor(5, 7),
+            .core:  .minor(5, 7),
         ]
         // load the names of the swift standard library modules. 
         let library:(standard:Package.Descriptor, core:Package.Descriptor) = 
@@ -174,7 +174,7 @@ struct Preview:ServiceBackend
                 try File.read(from: project.appending("Package.catalog")))
             let resolved:Package.Resolved = try .init(parsing: 
                 try File.read(from: project.appending("Package.resolved")))
-            let pins:[Package.ID: Version] = pins.merging(resolved.pins) { $1 }
+            let pins:[Package.ID: MaskedVersion] = pins.merging(resolved.pins) { $1 }
             for package:Package.Descriptor in packages 
             {
                 // user-specified catalogs should contain absolute paths (since that is 

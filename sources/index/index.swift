@@ -40,7 +40,7 @@ extension Package
         }
         
         public
-        var pins:[ID: Version]
+        var pins:[ID: MaskedVersion]
         
         public
         init(parsing file:[UInt8]) throws 
@@ -77,7 +77,7 @@ extension Package
                         let minor:UInt16 = .init(numbers[1]),
                         let patch:UInt16 = .init(numbers[2])
                     {
-                        self.pins[id] = .tag(major, (minor, (patch, nil)))
+                        self.pins[id] = .patch(major, minor, patch)
                     }
                 }
                 else if let string:String = pin.state.branch
@@ -93,7 +93,8 @@ extension Package
                         let letter:Unicode.Scalar = words[6].unicodeScalars.first,
                         "a" ... "z" ~= letter
                     {
-                        self.pins[id] = .date(year: year, month: month, day: day, letter: letter)
+                        self.pins[id] = .date(year: year, month: month, day: day, 
+                            letter: .init(ascii: letter))
                     }
                 }
             }

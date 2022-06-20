@@ -185,18 +185,19 @@ extension Biome
         withAvailableVersions versions:Set<Version>, 
         of index:Ecosystem.Index)
     {
-        //let current:Version = pins[pinned.package.index] ?? pinned.package.latest
-        let patches:[Version: [Version]] = .init(grouping: versions, by: \.editionless)
-        let abbreviations:[(display:Version, version:Version)] = patches.flatMap 
+        let patches:[MaskedVersion: [Version]] = .init(grouping: versions)
         {
-            $0.value.count == 1 ? [(display: $0.key, version: $0.value[0])] :
-                $0.value.map    {  (display: $0,     version: $0)  }
+            $0.semantic.map { .patch($0.major, $0.minor, $0.patch) } ?? $0.precise
+        }
+        let abbreviations:[(display:MaskedVersion, version:Version)] = patches.flatMap 
+        {
+            $0.value.count == 1 ? [($0.key, $0.value[0])] : $0.value.map { ($0.precise, $0) }
         }.sorted 
         {
             $1.version < $0.version
         }
         
-        var display:Version = pinned.version 
+        var display:MaskedVersion?
         let items:[HTML.Element<Never>] = abbreviations.map 
         {
             let link:HTML.Element<Never> 
@@ -216,8 +217,8 @@ extension Biome
         let menu:HTML.Element<Never> = .ol(items: items)
         let label:(HTML.Element<Never>, HTML.Element<Never>) = 
         (
-            .span(pinned.package.id.title)  { ("class", "package") },
-            .span(display.description)      { ("class", "version") }
+            .span(pinned.package.id.title)                         { ("class", "package") },
+            .span((display ?? pinned.version.precise).description) { ("class", "version") }
         )
         page[.versions] = menu.rendered(as: [UInt8].self)
         page[.pin] = label.0.rendered(as: [UInt8].self) + label.1.rendered(as: [UInt8].self)

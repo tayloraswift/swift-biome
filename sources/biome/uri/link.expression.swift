@@ -104,7 +104,7 @@ extension Link
     enum ComponentSegmentation<Location> where Location:Comparable
     {
         case opaque(Location) // end index
-        case version(Version)
+        case version(MaskedVersion)
         case big
         case little(Location) // start index 
         case reveal(big:Location, little:Location) // end index, start index
@@ -435,7 +435,7 @@ extension Link.Rule
                 return .little(start)
             }
             
-            return .version(try input.parse(as: Version.Rule<Location>.self))
+            return .version(try input.parse(as: MaskedVersion.Rule<Location>.self))
         }
     }
 }

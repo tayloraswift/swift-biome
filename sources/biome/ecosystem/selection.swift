@@ -49,13 +49,15 @@ extension Ecosystem
         }
     }
     
-    func localize(nation:Package, arrival:Version, lens:(culture:Package.ID, version:Version?)?) 
+    func localize(nation:Package, 
+        arrival:MaskedVersion?, 
+        lens:(culture:Package.ID, version:MaskedVersion?)?) 
         -> (package:Package, pins:Package.Pins)?
     {
         if case let (package, departure)? = lens 
         {
             if  let package:Package = self[package], 
-                let pins:Package.Pins = package.versions[departure ?? package.latest]
+                let pins:Package.Pins = package.versions[departure]
             {
                 return (package, pins)
             }
@@ -120,7 +122,7 @@ extension Ecosystem
         }
         
         guard let localized:(package:Package, pins:Package.Pins) = 
-            self.localize(nation: nation, arrival: nation.latest, lens: implicit.query.lens)
+            self.localize(nation: nation, arrival: nil, lens: implicit.query.lens)
         else 
         {
             return nil

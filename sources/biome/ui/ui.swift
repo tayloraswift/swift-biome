@@ -234,17 +234,17 @@ extension DOM.Element where Domain == HTML
         }
         let adjective:String 
         let toolchain:Self
-        if let version:Version = availability.obsoleted 
+        if let version:MaskedVersion = availability.obsoleted 
         {
             adjective = "Obsolete"
             toolchain = .span(version.description) { ("class", "version") }
         } 
-        else if let version:Version = availability.deprecated 
+        else if let version:MaskedVersion = availability.deprecated 
         {
             adjective = "Deprecated"
             toolchain = .span(version.description) { ("class", "version") }
         }
-        else if let version:Version = availability.introduced
+        else if let version:MaskedVersion = availability.introduced
         {
             adjective = "Available"
             toolchain = .span(version.description) { ("class", "version") }
@@ -297,7 +297,7 @@ extension DOM.Element where Domain == HTML
             {
                 platforms.append(.li("\(platform.rawValue) deprecated since \(version.description)"))
             }
-            else if let version:Version = availability.introduced 
+            else if let version:MaskedVersion = availability.introduced 
             {
                 platforms.append(.li("\(platform.rawValue) \(version.description)+"))
             }

@@ -88,7 +88,7 @@ struct Package:Identifiable, Sendable
     private(set)
     var external:[Symbol.Diacritic: Keyframe<Symbol.Traits>.Buffer.Index]
     private(set)
-    var versions:[Version: Pins], 
+    var versions:[MaskedVersion?: Pins], 
         toplevels:Keyframe<Set<Symbol.Index>>.Buffer, // always populated 
         dependencies:Keyframe<Set<Module.Index>>.Buffer, // always populated 
         declarations:Keyframe<Symbol.Declaration>.Buffer // always populated 
@@ -185,32 +185,32 @@ struct Package:Identifiable, Sendable
         }
     }
     
-    func abbreviate(_ version:Version) -> Version?
+    func abbreviate(_ version:Version) -> MaskedVersion?
     {
-        guard version.isSemantic 
+        guard case let (major, minor, patch, edition)? = version.semantic 
         else 
         {
-            return version 
+            return version.precise
         }
-        if      case version? = self.versions[.latest]?.version
+        if version == self.latest
         {
             return nil 
         }
-        else if case version? = self.versions[version.minorless]?.version 
+        else if case version? = self.versions[.major(major)]?.version 
         {
-            return version.minorless 
+            return .major(major)
         }
-        else if case version? = self.versions[version.patchless]?.version 
+        else if case version? = self.versions[.minor(major, minor)]?.version 
         {
-            return version.patchless
+            return .minor(major, minor)
         }
-        else if case version? = self.versions[version.editionless]?.version 
+        else if case version? = self.versions[.patch(major, minor, patch)]?.version 
         {
-            return version.editionless 
+            return .patch(major, minor, patch)
         }
         else
         {
-            return version
+            return .edition(major, minor, patch, edition)
         }
     }
     
@@ -364,14 +364,17 @@ extension Package
     mutating 
     func updatePins(_ pins:Pins)
     {
-        self.versions[self.latest] = pins
-        
-        if  self.latest.isSemantic 
+        if case let (major, minor, patch, edition)? = self.latest.semantic 
         {
-            self.versions[self.latest.editionless] = pins
-            self.versions[self.latest.patchless] = pins
-            self.versions[self.latest.minorless] = pins
-            self.versions[.latest] = pins
+            self.versions[.edition(major, minor, patch, edition)] = pins
+            self.versions[  .patch(major, minor, patch)] = pins
+            self.versions[  .minor(major, minor)] = pins
+            self.versions[  .major(major)] = pins
+            self.versions[   nil] = pins
+        }
+        else 
+        {
+            self.versions[self.latest.precise] = pins
         }
     }
 

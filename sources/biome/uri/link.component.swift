@@ -5,9 +5,9 @@ extension Link
     enum Component 
     {
         case identifier(String, hyphen:String.Index? = nil)
-        case version(Version)
+        case version(MaskedVersion)
         
-        var version:Version?
+        var version:MaskedVersion?
         {
             switch self 
             {

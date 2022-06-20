@@ -137,7 +137,7 @@ extension Keyframe.Buffer where Value:Equatable
         }
         else 
         {
-            self[previous].last = .latest
+            self[previous].last = .max
         }
     }
 }

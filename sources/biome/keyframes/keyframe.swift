@@ -10,7 +10,7 @@ struct Keyframe<Value>
         self.value = value 
         self.previous = previous 
         self.first = version 
-        self.last = .latest 
+        self.last = .max 
     }
 }
 extension Keyframe 

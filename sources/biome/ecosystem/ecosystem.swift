@@ -179,7 +179,7 @@ struct Ecosystem
     mutating 
     func updateModuleRegistrations(in culture:Package.Index,
         graphs:[Module.Graph], 
-        era:[Package.ID: Version])
+        era:[Package.ID: MaskedVersion])
         throws -> (pins:Package.Pins, scopes:[Symbol.Scope])
     {
         // create modules, if they do not exist already.
@@ -202,7 +202,7 @@ struct Ecosystem
             upstream: .init(uniqueKeysWithValues: upstream.map
         {
             let package:Package = self[$0]
-            return ($0, era[package.id] ?? package.latest)
+            return ($0, era[package.id].map(Version.init(_:)) ?? package.latest)
         }))
         
         self[culture].updatePins(pins)

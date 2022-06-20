@@ -41,8 +41,8 @@ extension Ecosystem
         }
         
         let qualified:Link.Reference<Tail.SubSequence>
-        let arrival:Version
-        if let version:Version = local.arrival
+        let arrival:MaskedVersion?
+        if let version:MaskedVersion = local.arrival
         {
             qualified = _move(local).dropFirst()
             arrival = version 
@@ -50,7 +50,7 @@ extension Ecosystem
         else 
         {
             qualified = _move(local) 
-            arrival = nation.latest
+            arrival = nil
         }
         
         guard let namespace:Module.ID = qualified.namespace 
