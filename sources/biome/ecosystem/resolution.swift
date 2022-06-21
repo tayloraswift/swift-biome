@@ -20,24 +20,17 @@ extension Ecosystem
     {
         let local:Link.Reference<Tail.SubSequence>
         
-        let nation:Package, 
-            explicit:Bool
+        let root:Package?
         if  let package:Package.ID = global.nation, 
             let package:Package = self[package]
         {
-            explicit = true
-            nation = package 
+            root = package 
             local = global.dropFirst()
-        }
-        else if let swift:Package = self[.swift]
-        {
-            explicit = false
-            nation = swift
-            local = global[...]
         }
         else 
         {
-            return nil
+            root = nil
+            local = global[...]
         }
         
         let qualified:Link.Reference<Tail.SubSequence>
@@ -53,10 +46,11 @@ extension Ecosystem
             arrival = nil
         }
         
-        guard let namespace:Module.ID = qualified.namespace 
+        guard let module:Module.ID = qualified.namespace 
         else 
         {
-            if explicit, let pins:Package.Pins = nation.versions[arrival]
+            if  let nation:Package = root, 
+                let pins:Package.Pins = nation.versions[arrival]
             {
                 return .init(.package(nation.index), 
                     pins: pins.isotropic(culture: nation.index)) 
@@ -66,7 +60,28 @@ extension Ecosystem
                 return nil
             }
         } 
-        guard let namespace:Module.Index = nation.modules.indices[namespace]
+        
+        let nation:Package
+        let namespace:Module.Index
+        if let root:Package 
+        {
+            guard let module:Module.Index = root.modules.indices[module]
+            else 
+            {
+                return nil
+            }
+            (nation, namespace) = (root, module)
+        }
+        else if let swift:Package = self[.swift], 
+                let module:Module.Index = swift.modules.indices[module]
+        {
+            (nation, namespace) = (swift, module)
+        }
+        else if let core:Package = self[.core], 
+                let module:Module.Index = core.modules.indices[module]
+        {
+            (nation, namespace) = (core, module)
+        }
         else 
         {
             return nil

@@ -178,9 +178,9 @@ struct Package:Identifiable, Sendable
     {
         switch self.kind
         {
-        case .swift: 
+        case .swift, .core: 
             return .init(path: []) 
-        case .core, .community(_):
+        case .community(_):
             return .init(path: [self.name])
         }
     }

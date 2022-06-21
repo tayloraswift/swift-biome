@@ -61,6 +61,8 @@ extension Package
                     "swift-stdlib",
                     "stdlib":
                 self.init(kind: .swift)
+            case    "swift-core-libraries":
+                self.init(kind: .core)
             case let name:
                 self.init(kind: .community(name))
             }
