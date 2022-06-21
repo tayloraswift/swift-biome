@@ -1,10 +1,35 @@
 extension Biome 
 {
-    func uri(_ index:Ecosystem.Index, pins:[Package.Index: Version]) -> URI
+    func uri(of resolution:Ecosystem.Resolution) -> URI 
     {
-        self.uri(index, at: pins[index.culture] ?? self.ecosystem[index.culture].latest)
+        let prefix:String 
+        let location:Link.Reference<[String]>
+        switch resolution 
+        {        
+        case .selection(   .index(let index), let pins):
+            return self.uri(of: index, pins: pins)
+        
+        case .selection(.composites(let all), let pins):
+            // `first` should always exist, if not, something has gone seriously 
+            // wrong in swift-biome...
+            guard let exemplar:Symbol.Composite = all.first 
+            else 
+            {
+                fatalError("empty disambiguation group")
+            }
+            let version:Version = pins[exemplar.culture.package] ?? 
+                self.ecosystem[exemplar.culture.package].latest
+            
+            location = self.ecosystem.location(of: exemplar, at: version, group: true)
+            prefix = self.prefixes.master
+        
+        case .searchIndex(let package): 
+            location = .init(path: [self.ecosystem[package].name, "types"])
+            prefix = self.prefixes.lunr
+        }
+        return .init(prefix: prefix, location)
     }
-    func uri(_ index:Ecosystem.Index, at version:Version) -> URI
+    func uri(of index:Ecosystem.Index, at version:Version) -> URI
     {
         let prefix:String 
         let location:Link.Reference<[String]>
@@ -28,29 +53,31 @@ extension Biome
         }
         return .init(prefix: prefix, location)
     }
+    func uri(of index:Ecosystem.Index, pins:[Package.Index: Version]) -> URI
+    {
+        self.uri(of: index, at: pins[index.culture] ?? self.ecosystem[index.culture].latest)
+    }
     
-    func resolve<Tail>(uri:Link.Reference<Tail>) -> Ecosystem.Resolution?
+    func resolve<Tail>(uri:Link.Reference<Tail>) 
+        -> (resolution:Ecosystem.Resolution, redirected:Bool)?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
-        guard let prefix:String = uri.first?.identifier ?? nil
+        guard let first:String = uri.first?.identifier ?? nil
         else 
         {
             return nil
         }
-        switch self.keys[leaf: prefix]
+        let prefix:URI.Prefix 
+        switch self.keys[leaf: first]
         {
-        case self.keyword.master?:
-            return self.ecosystem.resolve(location: uri.dropFirst(), keys: self.keys) 
-            
-        case self.keyword.doc?:
-            break
-        case self.keyword.lunr?:
-            break
-        case self.keyword.sitemaps?:
-            break
+        case self.keyword.master?:  prefix = .master
+        case self.keyword.doc?:     prefix = .doc
+        case self.keyword.lunr?:    prefix = .lunr 
         default:
-            break
+            return nil 
         }
-        return nil
+        return self.ecosystem.resolve(prefix: prefix, 
+            global: uri.dropFirst(), 
+            keys: self.keys) 
     }
 }

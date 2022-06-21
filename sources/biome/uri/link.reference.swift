@@ -133,7 +133,7 @@ extension Link
 
 extension Link.Reference where Path.Element == Link.Component 
 {
-    var nation:Package.ID? 
+    var package:Package.ID? 
     {
         self.path.first?.identifier.map(Package.ID.init(_:))
     }
@@ -141,7 +141,7 @@ extension Link.Reference where Path.Element == Link.Component
     {
         self.path.first?.version ?? nil
     }
-    var namespace:Module.ID? 
+    var module:Module.ID? 
     {
         guard case .identifier(let module, hyphen: nil)? = self.path.first
         else 

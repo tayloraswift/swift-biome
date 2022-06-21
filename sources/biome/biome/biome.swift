@@ -45,7 +45,7 @@ struct Biome
         (
             master: prefixes[.master,   default: "reference"],
             doc:    prefixes[.doc,      default: "learn"],
-            lunr:   prefixes[.lunr,      default: "lunr"]
+            lunr:   prefixes[.lunr,     default: "lunr"]
         )
         self.keyword = 
         (
@@ -66,33 +66,40 @@ struct Biome
             return nil 
         }
         
-        guard let resolution:Ecosystem.Resolution = self.resolve(uri: link.reference)
+        guard case let (resolution, temporary)? = self.resolve(uri: link.reference)
         else 
         {
             return nil
         }
-        guard let index:Ecosystem.Index = resolution.selection.index 
-        else 
-        {
-            return .matched(canonical: "", .text("\(resolution.selection.possibilities)"))
-        }
         
-        let uri:URI = self.uri(index, pins: resolution.pins)
-        if  uri ~= request 
+        let uri:URI = self.uri(of: resolution)
+
+        if uri ~= request 
         {
-            let page:[PageKey: [UInt8]] = self.page(index, pins: resolution.pins)
-            let utf8:[UInt8] = self.template.rendered(as: [UInt8].self, 
-                substituting: _move(page))
-            return .matched(canonical: "", 
-                .utf8(encoded: _move(utf8), type: .html, tag: nil))
+            return .matched(canonical: uri.description, 
+                self.generateResponse(for: resolution))
         }
-        else if resolution.temporary 
+        else  
         {
-            return .maybe(canonical: "", at: uri.description)
+            let uri:String = uri.description
+            return temporary ? 
+                .maybe(canonical: uri, at: uri) : 
+                .found(canonical: uri, at: uri)
         }
-        else 
+    }
+    
+    private 
+    func generateResponse(for resolution:Ecosystem.Resolution) -> Resource 
+    {
+        switch resolution 
         {
-            return .found(canonical: "", at: uri.description)
+        case .searchIndex(let index): 
+            return .text("[]", type: .json, tag: nil)
+        
+        case .selection(let selection, pins: let pins): 
+            let bytes:[UInt8] = self.template.rendered(as: [UInt8].self, 
+                substituting: self.generatePage(for: selection, pins: pins))
+            return .utf8(encoded: bytes, type: .html, tag: nil)
         }
     }
 

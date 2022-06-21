@@ -31,18 +31,32 @@ enum CardKey:Hashable, Sendable
 
 extension Biome 
 {
-    func page(_ index:Ecosystem.Index, pins:[Package.Index: Version]) 
+    func generatePage(for selection:Ecosystem.Selection, pins:[Package.Index: Version]) 
         -> [PageKey: [UInt8]]
-    {        
+    {
+        switch selection
+        {        
+        case .index(let index):
+            return self.generatePage(for: index, pins: pins)
+        
+        case .composites(let all):
+            fatalError("unimplemented")
+        }
+    }
+    
+    private 
+    func generatePage(for index:Ecosystem.Index, pins:[Package.Index: Version]) 
+        -> [PageKey: [UInt8]]
+    {
         var page:[PageKey: [UInt8]]
         switch index 
         {
         case .composite(let composite): 
-            page = self.page(composite, pins: pins)
+            page = self.generatePage(for: composite, pins: pins)
         case .article(_): 
             page = [:]
         case .module(let module): 
-            page = self.page(module, pins: pins)
+            page = self.generatePage(for: module, pins: pins)
         case .package(_):
             page = [:]
         }
@@ -50,14 +64,14 @@ extension Biome
         return page 
     }
     private 
-    func page(_ module:Module.Index, pins:[Package.Index: Version]) 
+    func generatePage(for module:Module.Index, pins:[Package.Index: Version]) 
         -> [PageKey: [UInt8]]
     {
         let pinned:Package.Pinned = self.ecosystem[module.package].pinned(pins)
         let topics:Topics = self.ecosystem.organize(toplevel: pinned.toplevel(module), 
             pins: pins)
         
-        var page:[PageKey: [UInt8]] = self.page(
+        var page:[PageKey: [UInt8]] = self.generatePage(
             article: pinned.template(module).map(self.ecosystem.expand(link:)), 
             fields: self.ecosystem.generateFields(for: module), 
             cards: self.ecosystem.generateCards(topics), 
@@ -71,7 +85,7 @@ extension Biome
         return page
     }
     private 
-    func page(_ composite:Symbol.Composite, pins:[Package.Index: Version]) 
+    func generatePage(for composite:Symbol.Composite, pins:[Package.Index: Version]) 
         -> [PageKey: [UInt8]]
     {
         //  up to three pinned packages involved for a composite: 
@@ -102,7 +116,7 @@ extension Biome
         let declaration:Symbol.Declaration = 
             pinned.base.declaration(composite.base)
         
-        var page:[PageKey: [UInt8]] = self.page(
+        var page:[PageKey: [UInt8]] = self.generatePage(
             article: pinned.base.template(composite.base)
                 .map(self.ecosystem.expand(link:)), 
             fields: self.ecosystem.generateFields(for: composite, 
@@ -120,7 +134,7 @@ extension Biome
     }
     
     private 
-    func page(
+    func generatePage(
         article:Article.Template<[Ecosystem.Index]>,
         fields:[PageKey: DOM.Template<Ecosystem.Index, [UInt8]>], 
         cards:DOM.Template<CardKey, [UInt8]>?, 
@@ -229,7 +243,7 @@ extension Biome
             }
             else 
             {
-                let uri:URI = self.uri(index, at: $0.version)
+                let uri:URI = self.uri(of: index, at: $0.version)
                 link = .a($0.display.description) { ("href", uri.description) }
             }
             return .li(link)
@@ -251,7 +265,7 @@ extension Biome
         // `Package.ID`, otherwise this could be a security hole
         let uris:[String] = self.ecosystem.indices.keys.map 
         { 
-            "'\(self.prefixes.lunr)/\($0.string).json'" 
+            "'/\(self.prefixes.lunr)/\($0.string)/types'" 
         }
         let source:String =
         """
@@ -270,7 +284,7 @@ extension Biome
         for (key, _):(Ecosystem.Index, Int) in template.anchors 
             where !uris.keys.contains(key)
         {
-            uris[key] = self.uri(key, pins: pins).description 
+            uris[key] = self.uri(of: key, pins: pins).description 
         }
     }
     private 
@@ -283,7 +297,7 @@ extension Biome
             for key:Ecosystem.Index in trace 
                 where !uris.keys.contains(key)
             {
-                uris[key] = self.uri(key, pins: pins).description 
+                uris[key] = self.uri(of: key, pins: pins).description 
             }
         }
     }
@@ -307,7 +321,7 @@ extension Biome
             case .uri(let key):
                 if !uris.keys.contains(key)
                 {
-                    uris[key] = self.uri(key, pins: pins).description 
+                    uris[key] = self.uri(of: key, pins: pins).description 
                 }
             case .excerpt(let composite):
                 let excerpt:Article.Template<Link> = 

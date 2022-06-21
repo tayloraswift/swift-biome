@@ -2,23 +2,30 @@ extension Ecosystem
 {
     enum Selection
     {
-        case package(Package.Index)
-        case module(Module.Index)
-        case article(Article.Index)
-        case composite(Symbol.Composite)
+        case index(Index)
         case composites([Symbol.Composite])
         
-        var index:Index?
+        static 
+        func package(_ package:Package.Index) -> Self 
         {
-            switch self 
-            {
-            case .package   (let index):    return .package     (index)
-            case .module    (let index):    return .module      (index)
-            case .article   (let index):    return .article     (index)
-            case .composite (let index):    return .composite   (index)
-            case .composites(_):            return nil
-            }
+            .index(.package(package))
         }
+        static 
+        func module(_ module:Module.Index) -> Self 
+        {
+            .index(.module(module))
+        }
+        static 
+        func article(_ article:Article.Index) -> Self 
+        {
+            .index(.article(article))
+        }
+        static 
+        func composite(_ composite:Symbol.Composite) -> Self 
+        {
+            .index(.composite(composite))
+        }
+        
         var possibilities:[Symbol.Composite] 
         {
             if case .composites(let possibilities) = self
@@ -49,7 +56,7 @@ extension Ecosystem
         }
     }
     
-    func localize(nation:Package, 
+    func localize(destination:Package, 
         arrival:MaskedVersion?, 
         lens:(culture:Package.ID, version:MaskedVersion?)?) 
         -> (package:Package, pins:Package.Pins)?
@@ -66,9 +73,9 @@ extension Ecosystem
                 return nil
             }
         }
-        else if let pins:Package.Pins = nation.versions[arrival]
+        else if let pins:Package.Pins = destination.versions[arrival]
         {
-            return (nation, pins)
+            return (destination, pins)
         }
         else 
         {
@@ -80,8 +87,8 @@ extension Ecosystem
         -> Selection?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
-        guard   let nation:Package.ID = link.nation, 
-                let nation:Package = self[nation]
+        guard   let destination:Package.ID = link.package, 
+                let destination:Package = self[destination]
         else 
         {
             return nil 
@@ -89,12 +96,12 @@ extension Ecosystem
         
         let qualified:Link.Reference<Tail.SubSequence> = link.dropFirst()
         
-        guard let namespace:Module.ID = qualified.namespace 
+        guard let namespace:Module.ID = qualified.module 
         else 
         {
-            return .package(nation.index)
+            return .package(destination.index)
         }
-        guard let namespace:Module.Index = nation.modules.indices[namespace]
+        guard let namespace:Module.Index = destination.modules.indices[namespace]
         else 
         {
             return nil
@@ -122,7 +129,8 @@ extension Ecosystem
         }
         
         guard let localized:(package:Package, pins:Package.Pins) = 
-            self.localize(nation: nation, arrival: nil, lens: implicit.query.lens)
+            self.localize(destination: destination, arrival: nil, 
+                lens: implicit.query.lens)
         else 
         {
             return nil
@@ -225,7 +233,7 @@ extension Ecosystem
         // as its own culture, or one of its dependencies. 
         
         // ``modulename/typename.membername(_:)``
-        if  let namespace:Module.ID = link.namespace, 
+        if  let namespace:Module.ID = link.module, 
             let namespace:Module.Index = lexicon.namespaces[namespace]
         {
             return self.select(relativeLink: link.dropFirst(), 

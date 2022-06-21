@@ -40,7 +40,7 @@ extension Ecosystem
         return location
     }
     
-    func location(of composite:Symbol.Composite, at version:Version) 
+    func location(of composite:Symbol.Composite, at version:Version, group:Bool = false) 
         -> Link.Reference<[String]>
     {
         let culture:Package = self[composite.culture.package]
@@ -62,38 +62,41 @@ extension Ecosystem
             location.path.append(component.lowercased())
         }
         
-        if composite.base != composite.diacritic.host
+        if !group 
         {
-            location.path.append(base.name.lowercased())
-            
-            guard let stem:Route.Stem = host.kind.path
+            if composite.base != composite.diacritic.host
+            {
+                location.path.append(base.name.lowercased())
+                
+                guard let stem:Route.Stem = host.kind.path
+                else 
+                {
+                    fatalError("unreachable: (host: \(host), base: \(base))")
+                }
+                
+                let route:Route = .init(host.namespace, stem, base.route.leaf)
+                switch culture.depth(of: composite, at: version, route: route)
+                {
+                case (host: false, base: false): 
+                    break 
+                
+                case (host: true,  base: _): 
+                    location.query.host = host.id
+                    fallthrough 
+                    
+                case (host: false, base: true): 
+                    location.query.base = base.id
+                }
+            }
             else 
             {
-                fatalError("unreachable: (host: \(host), base: \(base))")
-            }
-            
-            let route:Route = .init(host.namespace, stem, base.route.leaf)
-            switch culture.depth(of: composite, at: version, route: route)
-            {
-            case (host: false, base: false): 
-                break 
-            
-            case (host: true,  base: _): 
-                location.query.host = host.id
-                fallthrough 
-                
-            case (host: false, base: true): 
-                location.query.base = base.id
-            }
-        }
-        else 
-        {
-            switch culture.depth(of: composite, at: version, route: base.route)
-            {
-            case (host: _, base: false): 
-                break 
-            case (host: _, base: true): 
-                location.query.base = base.id
+                switch culture.depth(of: composite, at: version, route: base.route)
+                {
+                case (host: _, base: false): 
+                    break 
+                case (host: _, base: true): 
+                    location.query.base = base.id
+                }
             }
         }
         

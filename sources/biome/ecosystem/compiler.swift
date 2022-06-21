@@ -122,10 +122,10 @@ extension Ecosystem
     func resolve(binding string:String, lexicon:Lexicon) -> Index?
     {
         if  let expression:Link.Expression = try? Link.Expression.init(relative: string),
-            let selection:Selection = 
+            case .index(let index)? = 
             self.selectWithRedirect(visibleLink: expression.reference, lexicon: lexicon)
         {
-            return selection.index
+            return index
         }
         else 
         {
@@ -222,19 +222,19 @@ extension Ecosystem
                 errors.append(LinkResolutionError.none(string))
                 return .segment(HTML.Element<Never>.code(string).rendered(as: [UInt8].self))
             }
-            guard let selection:Selection = selection 
-            else 
+            switch selection 
             {
+            case nil:
                 errors.append(LinkResolutionError.none(string))
                 return .segment(HTML.Element<Never>.code(string).rendered(as: [UInt8].self))
-            }
-            guard let target:Index = selection.index 
-            else 
-            {
-                errors.append(LinkResolutionError.many(string, selection.possibilities))
+            
+            case .index(let target)?:
+                return .key(.init(target, visible: expression.visible))
+            
+            case .composites(let possibilities)?:
+                errors.append(LinkResolutionError.many(string, possibilities))
                 return .segment(HTML.Element<Never>.code(string).rendered(as: [UInt8].self))
             }
-            return .key(.init(target, visible: expression.visible))
         }
     }
     private 

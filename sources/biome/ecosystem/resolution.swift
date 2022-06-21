@@ -1,27 +1,76 @@
 extension Ecosystem 
 {
-    struct Resolution
+    enum Resolution
     {
-        let pins:[Package.Index: Version]
-        let selection:Selection
-        let temporary:Bool
-        
-        init(_ selection:Selection, pins:[Package.Index: Version], temporary:Bool = false)
-        {
-            self.selection = selection 
-            self.temporary = temporary
-            self.pins = pins 
-        }
+        case selection(Selection, pins:[Package.Index: Version])
+        case searchIndex(Package.Index)
     }
     
-    func resolve<Tail>(location global:Link.Reference<Tail>, keys:Route.Keys) 
-        -> Resolution?
+    func resolve<Tail>(prefix:URI.Prefix, global:Link.Reference<Tail>, keys:Route.Keys) 
+        -> (resolution:Resolution, redirected:Bool)?
+        where Tail:BidirectionalCollection, Tail.Element == Link.Component
+    {
+        switch prefix 
+        {
+        case .lunr: 
+            guard   let package:Package.ID = global.package, 
+                    let package:Package.Index = self.indices[package],
+                    case "types"? = global.dropFirst().first?.identifier
+            else 
+            {
+                return nil 
+            }
+            return (.searchIndex(package), false) 
+        
+        case .doc: 
+            return self.resolveRoute(global, keys: keys)
+            {
+                (
+                    destination:Package, 
+                    arrival:MaskedVersion?, 
+                    route:Route, 
+                    suffix:Link.Reference<Tail.SubSequence>
+                ) in 
+                
+                if let article:Article.Index = destination.articles.indices[route]
+                {
+                    guard let pins:[Package.Index: Version] = destination
+                        .versions[arrival]?.isotropic(culture: destination.index)
+                    else 
+                    {
+                        return nil
+                    }
+                    return (.selection(.article(article), pins: pins), false)
+                }
+                else if let resolution:Resolution = 
+                    self.resolveSuffix(destination, arrival, route, suffix)?.resolution
+                {
+                    return (resolution, true)
+                }
+                else 
+                {
+                    return nil 
+                }
+            } 
+        
+        case .master:
+            return self.resolveRoute(global, keys: keys, 
+                then: self.resolveSuffix(_:_:_:_:))
+        }
+
+    }
+
+    private 
+    func resolveRoute<Tail>(_ global:Link.Reference<Tail>, keys:Route.Keys, 
+        then select:(Package, MaskedVersion?, Route, Link.Reference<Tail.SubSequence>) 
+        throws   -> (resolution:Resolution, redirected:Bool)?) 
+        rethrows -> (resolution:Resolution, redirected:Bool)?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
         let local:Link.Reference<Tail.SubSequence>
         
         let root:Package?
-        if  let package:Package.ID = global.nation, 
+        if  let package:Package.ID = global.package, 
             let package:Package = self[package]
         {
             root = package 
@@ -46,14 +95,15 @@ extension Ecosystem
             arrival = nil
         }
         
-        guard let module:Module.ID = qualified.namespace 
+        guard let module:Module.ID = qualified.module 
         else 
         {
-            if  let nation:Package = root, 
-                let pins:Package.Pins = nation.versions[arrival]
+            if  let destination:Package = root, 
+                let pins:Package.Pins = destination.versions[arrival]
             {
-                return .init(.package(nation.index), 
-                    pins: pins.isotropic(culture: nation.index)) 
+                let pins:[Package.Index: Version] = 
+                    pins.isotropic(culture: destination.index)
+                return (.selection(.package(destination.index), pins: pins), false)
             }
             else 
             {
@@ -61,7 +111,7 @@ extension Ecosystem
             }
         } 
         
-        let nation:Package
+        let destination:Package
         let namespace:Module.Index
         if let root:Package 
         {
@@ -70,17 +120,17 @@ extension Ecosystem
             {
                 return nil
             }
-            (nation, namespace) = (root, module)
+            (destination, namespace) = (root, module)
         }
         else if let swift:Package = self[.swift], 
                 let module:Module.Index = swift.modules.indices[module]
         {
-            (nation, namespace) = (swift, module)
+            (destination, namespace) = (swift, module)
         }
         else if let core:Package = self[.core], 
                 let module:Module.Index = core.modules.indices[module]
         {
-            (nation, namespace) = (core, module)
+            (destination, namespace) = (core, module)
         }
         else 
         {
@@ -92,10 +142,11 @@ extension Ecosystem
         guard let path:Path = .init(implicit)
         else 
         {
-            if let pins:Package.Pins = nation.versions[arrival]
+            if let pins:Package.Pins = destination.versions[arrival]
             {
-                return .init(.module(namespace), 
-                    pins: pins.isotropic(culture: nation.index))
+                let pins:[Package.Index: Version] = 
+                    pins.isotropic(culture: destination.index)
+                return (.selection(.module(namespace), pins: pins), false)
             }
             else 
             {
@@ -108,8 +159,20 @@ extension Ecosystem
             return nil
         }
         
+        return try select(destination, arrival, route, implicit)
+    }
+    private 
+    func resolveSuffix<Tail>(
+        _ destination:Package, 
+        _ arrival:MaskedVersion?, 
+        _ route:Route, 
+        _ suffix:Link.Reference<Tail>)
+        -> (resolution:Resolution, redirected:Bool)?
+        where Tail:BidirectionalCollection, Tail.Element == Link.Component
+    {
         guard let localized:(package:Package, pins:Package.Pins) = 
-            self.localize(nation: nation, arrival: arrival, lens: implicit.query.lens)
+            self.localize(destination: destination, arrival: arrival, 
+                lens: suffix.query.lens)
         else 
         {
             return nil
@@ -117,11 +180,11 @@ extension Ecosystem
         if case let (selection, redirected: redirected)? = 
             self.selectWithRedirect(from: route, 
                 in: .init(localized.package, at: localized.pins.version), 
-                by: implicit.disambiguator)
+                by: suffix.disambiguator)
         {
-            return .init(selection, 
-                pins: localized.pins.isotropic(culture: localized.package.index), 
-                temporary: redirected)
+            let pins:[Package.Index: Version] = 
+                localized.pins.isotropic(culture: localized.package.index)
+            return (.selection(selection, pins: pins), redirected)
         }
         else 
         {
