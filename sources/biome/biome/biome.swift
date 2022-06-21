@@ -8,6 +8,7 @@ extension URI
     {
         case master
         case doc
+        case lunr
     }
 }
 public
@@ -16,7 +17,8 @@ struct Biome
     let prefixes:
     (
         master:String,
-        doc:String
+        doc:String,
+        lunr:String
     )
     let keyword:
     (
@@ -42,13 +44,14 @@ struct Biome
         self.prefixes = 
         (
             master: prefixes[.master,   default: "reference"],
-            doc:    prefixes[.doc,      default: "learn"]
+            doc:    prefixes[.doc,      default: "learn"],
+            lunr:   prefixes[.lunr,      default: "lunr"]
         )
         self.keyword = 
         (
             master:     self.keys.register(component: self.prefixes.master),
             doc:        self.keys.register(component: self.prefixes.doc),
-            lunr:       self.keys.register(component: "lunr"),
+            lunr:       self.keys.register(component: self.prefixes.lunr),
             sitemaps:   self.keys.register(component: "sitemaps")
         )
     }
@@ -152,7 +155,7 @@ struct Biome
             "\u{1B}[1m\(string)\u{1B}[0m"
         }
         
-        print(bold("updated \(self.ecosystem[index].id) to version \(self.ecosystem[index].latest)"))
+        print(bold("updated \(self.ecosystem[index].id) to version \(self.ecosystem[index].latest.precise)"))
     }
     
     private static

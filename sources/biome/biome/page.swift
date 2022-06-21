@@ -46,7 +46,7 @@ extension Biome
         case .package(_):
             page = [:]
         }
-        
+        self.addScriptConstants(to: &page)
         return page 
     }
     private 
@@ -63,7 +63,7 @@ extension Biome
             cards: self.ecosystem.generateCards(topics), 
             pins: pins)
         
-        self.fillPageWithAvailableVersions(&page, 
+        self.addAvailableVersions(to: &page, 
             versions: pinned.package.availableVersions(module), 
             pinned: pinned, 
             index: .module(module))
@@ -111,7 +111,7 @@ extension Biome
             cards: self.ecosystem.generateCards(topics), 
             pins: pins)
         
-        self.fillPageWithAvailableVersions(&page, 
+        self.addAvailableVersions(to: &page, 
             versions: pinned.culture.package.availableVersions(composite), 
             pinned: pinned.culture, 
             index: .composite(composite))
@@ -148,17 +148,17 @@ extension Biome
             // always populated
             $0.rendered { uris[$0]!.utf8 }
         }
-        self.fillPageWithRenderedSummaryAndDiscussion(&page, 
+        self.addRenderedSummaryAndDiscussion(to: &page, 
             template: article, 
             uris: uris)
-        self.fillPageWithRenderedCards(&page, 
+        self.addRenderedCards(to: &page, 
             cards: cards, 
             excerpts: excerpts, 
             uris: uris)
         return page
     }
     private 
-    func fillPageWithRenderedSummaryAndDiscussion(_ page:inout [PageKey: [UInt8]], 
+    func addRenderedSummaryAndDiscussion(to page:inout [PageKey: [UInt8]], 
         template:Article.Template<[Ecosystem.Index]>, 
         uris:[Ecosystem.Index: String])
     {
@@ -178,7 +178,7 @@ extension Biome
         }
     }
     private 
-    func fillPageWithRenderedCards(_ page:inout [PageKey: [UInt8]], 
+    func addRenderedCards(to page:inout [PageKey: [UInt8]], 
         cards:DOM.Template<CardKey, [UInt8]>?,
         excerpts:[Symbol.Composite: DOM.Template<[Ecosystem.Index], [UInt8]>], 
         uris:[Ecosystem.Index: String])
@@ -201,7 +201,7 @@ extension Biome
         }
     }
     private 
-    func fillPageWithAvailableVersions(_ page:inout [PageKey: [UInt8]], 
+    func addAvailableVersions(to page:inout [PageKey: [UInt8]], 
         versions:Set<Version>, 
         pinned:Package.Pinned, 
         index:Ecosystem.Index)
@@ -243,6 +243,21 @@ extension Biome
         )
         page[.versions] = menu.rendered(as: [UInt8].self)
         page[.pin] = label.0.rendered(as: [UInt8].self) + label.1.rendered(as: [UInt8].self)
+    }
+    private  
+    func addScriptConstants(to page:inout [PageKey: [UInt8]]) 
+    {
+        // package name is alphanumeric, we should enforce this in 
+        // `Package.ID`, otherwise this could be a security hole
+        let uris:[String] = self.ecosystem.indices.keys.map 
+        { 
+            "'\(self.prefixes.lunr)/\($0.string).json'" 
+        }
+        let source:String =
+        """
+        searchIndices = [\(uris.joined(separator: ","))];
+        """
+        page[.constants] = [UInt8].init(source.utf8)
     }
 }
 extension Biome 

@@ -24,7 +24,7 @@ extension Ecosystem
             location.path.append(version.description)
         }
         // *not* `id.string` !
-        location.path.append(self[index].id.value)
+        location.path.append(package[local: index].id.value)
         return location
     }
     

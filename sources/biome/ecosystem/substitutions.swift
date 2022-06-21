@@ -298,7 +298,6 @@ extension Ecosystem
             
             .culture:       self.link(package: index.package),
             
-            .constants:     Self.generateScript(filter: []),
             .breadcrumbs:   .ol(items: [.li(title)]) ,
         ]
         return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
@@ -319,7 +318,6 @@ extension Ecosystem
             
             .culture:       self.link(module: composite.culture),
             
-            .constants:     Self.generateScript(filter: []),
             .breadcrumbs:   self.generateBreadcrumbs(for: composite),
         ]
         
@@ -465,18 +463,6 @@ extension Ecosystem
         return .ol(items: crumbs) 
     }
     
-    private static 
-    func generateScript(filter:[Package.ID]) -> HTML.Element<Index>
-    {
-        // package name is alphanumeric, we should enforce this in 
-        // `Package.ID`, otherwise this could be a security hole
-        let source:String =
-        """
-        includedPackages = [\(filter.map { "'\($0.string)'" }.joined(separator: ","))];
-        """
-        return .text(escaped: source)
-    }
-
     private 
     func link(package:Package.Index) -> HTML.Element<Index>
     {
