@@ -88,17 +88,4 @@ struct Module:Identifiable, Sendable
             .init(self.name,    color: .identifier),
         ]
     }
-    
-    /// all symbols declared by this module, including symbols in other namespaces 
-    /* var symbols:Symbol.IndexRange
-    {
-        if let last:Symbol.ColonialRange = self.colonies.last 
-        {
-            return .init(self.core.module, bits: self.core.bits.lowerBound ..< last.bits.upperBound)
-        }
-        else 
-        {
-            return self.core 
-        }
-    } */
 }

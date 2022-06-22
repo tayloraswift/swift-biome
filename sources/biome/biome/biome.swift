@@ -33,6 +33,8 @@ struct Biome
     var ecosystem:Ecosystem
     private(set)
     var keys:Route.Keys
+    private 
+    var searchIndexCache:[Package.Index: Resource]
     
     public 
     init(prefixes:[URI.Prefix: String] = [:], template:DOM.Template<PageKey, [UInt8]>) 
@@ -54,6 +56,7 @@ struct Biome
             lunr:       self.keys.register(component: self.prefixes.lunr),
             sitemaps:   self.keys.register(component: "sitemaps")
         )
+        self.searchIndexCache = [:]
     }
     
     public 
@@ -94,7 +97,16 @@ struct Biome
         switch resolution 
         {
         case .searchIndex(let index): 
-            return .text("[]", type: .json, tag: nil)
+            if let cached:Resource = self.searchIndexCache[index]
+            {
+                return cached 
+            }
+            else 
+            {
+                let package:Package = self.ecosystem[index]
+                print("warning: generating uncached search index (for package '\(package.id)') may have poor performance")
+                return self.generateSearchIndexOfTypes(in: package)
+            }
         
         case .selection(let selection, pins: let pins): 
             let bytes:[UInt8] = self.template.rendered(as: [UInt8].self, 
@@ -103,6 +115,16 @@ struct Biome
         }
     }
 
+    public mutating 
+    func regenerateSearchIndexCache() 
+    {
+        self.searchIndexCache = [:]
+        for package:Package in self.ecosystem.packages 
+        {
+            self.searchIndexCache[package.index] = 
+                self.generateSearchIndexOfTypes(in: package)
+        }
+    }
     public mutating 
     func updatePackage(_ graph:Package.Graph, era:[Package.ID: MaskedVersion]) throws 
     {

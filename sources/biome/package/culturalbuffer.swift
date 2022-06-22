@@ -13,6 +13,14 @@ struct CulturalBuffer<Index, Element> where Index:CulturalIndex, Element:Identif
     private(set)
     var indices:[Element.ID: Index]
     
+    var all:[Element]
+    {
+        _read 
+        {
+            yield self.storage
+        }
+    }
+    
     init() 
     {
         self.storage = []

@@ -71,6 +71,7 @@ struct Ecosystem
         }
     }
     
+    private(set)
     var packages:[Package], 
         indices:[Package.ID: Package.Index]
     

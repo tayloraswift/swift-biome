@@ -187,6 +187,8 @@ struct Preview:ServiceBackend
                 try self.biome.updatePackage(graph, era: pins)
             }
         }
+        
+        self.biome.regenerateSearchIndexCache()
     }
     
     func request(_:Never, continuation _:EventLoopPromise<StaticResponse>) 
