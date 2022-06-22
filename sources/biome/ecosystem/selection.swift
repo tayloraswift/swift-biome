@@ -59,12 +59,12 @@ extension Ecosystem
     func localize(destination:Package, 
         arrival:MaskedVersion?, 
         lens:(culture:Package.ID, version:MaskedVersion?)?) 
-        -> (package:Package, pins:Package.Pins)?
+        -> (package:Package, pins:Package.Pins<Version>)?
     {
         if case let (package, departure)? = lens 
         {
             if  let package:Package = self[package], 
-                let pins:Package.Pins = package.versions[departure]
+                let pins:Package.Pins<Version> = package.versions[departure]
             {
                 return (package, pins)
             }
@@ -73,7 +73,7 @@ extension Ecosystem
                 return nil
             }
         }
-        else if let pins:Package.Pins = destination.versions[arrival]
+        else if let pins:Package.Pins<Version> = destination.versions[arrival]
         {
             return (destination, pins)
         }
@@ -128,7 +128,7 @@ extension Ecosystem
             return selection
         }
         
-        guard let localized:(package:Package, pins:Package.Pins) = 
+        guard let localized:(package:Package, pins:Package.Pins<Version>) = 
             self.localize(destination: destination, arrival: nil, 
                 lens: implicit.query.lens)
         else 
@@ -136,7 +136,7 @@ extension Ecosystem
             return nil
         }
         if case let (selection, _)? = self.selectWithRedirect(from: route, 
-            in: .init(localized.package, at: localized.pins.version), 
+            in: .init(localized.package, at: localized.pins.local), 
             by: implicit.disambiguator)
         {
             return selection

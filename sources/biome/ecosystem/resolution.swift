@@ -99,7 +99,7 @@ extension Ecosystem
         else 
         {
             if  let destination:Package = root, 
-                let pins:Package.Pins = destination.versions[arrival]
+                let pins:Package.Pins<Version> = destination.versions[arrival]
             {
                 let pins:[Package.Index: Version] = 
                     pins.isotropic(culture: destination.index)
@@ -142,7 +142,7 @@ extension Ecosystem
         guard let path:Path = .init(implicit)
         else 
         {
-            if let pins:Package.Pins = destination.versions[arrival]
+            if let pins:Package.Pins<Version> = destination.versions[arrival]
             {
                 let pins:[Package.Index: Version] = 
                     pins.isotropic(culture: destination.index)
@@ -170,7 +170,7 @@ extension Ecosystem
         -> (resolution:Resolution, redirected:Bool)?
         where Tail:BidirectionalCollection, Tail.Element == Link.Component
     {
-        guard let localized:(package:Package, pins:Package.Pins) = 
+        guard let localized:(package:Package, pins:Package.Pins<Version>) = 
             self.localize(destination: destination, arrival: arrival, 
                 lens: suffix.query.lens)
         else 
@@ -179,7 +179,7 @@ extension Ecosystem
         }
         if case let (selection, redirected: redirected)? = 
             self.selectWithRedirect(from: route, 
-                in: .init(localized.package, at: localized.pins.version), 
+                in: .init(localized.package, at: localized.pins.local), 
                 by: suffix.disambiguator)
         {
             let pins:[Package.Index: Version] = 

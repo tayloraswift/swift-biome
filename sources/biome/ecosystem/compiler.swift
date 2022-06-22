@@ -7,14 +7,14 @@ extension Ecosystem
         articles:[[Article.Index: Extension]], 
         comments:[Symbol.Index: String], 
         scopes:[Module.Scope], 
-        pins:Package.Pins,
+        pins:Package.Pins<Version>,
         keys:Route.Keys)
         -> [Index: Article.Template<Link>]
     {
         //  build lexical scopes for each module culture. 
         //  we can store entire packages in the lenses because this method 
         //  is non-mutating!
-        let pinned:Package.Pinned = .init(self[culture], at: self[culture].latest)
+        let pinned:Package.Pinned = .init(self[culture], at: pins.local)
         var lexica:[Lexicon] = scopes.map 
         {
             .init(keys: keys, namespaces: $0, lenses: [pinned])
@@ -29,7 +29,7 @@ extension Ecosystem
             let packages:Set<Package.Index> = lexica[lexicon].namespaces.upstream()
             lexica[lexicon].lenses.append(contentsOf: packages.map
             {
-                .init(self[$0], at: pins.upstream[$0] ?? self[$0].latest)
+                self[$0].pinned(pins.upstream)
             })
         }
         
@@ -38,24 +38,24 @@ extension Ecosystem
     
     mutating 
     func updateDocumentation(in culture:Package.Index, 
+        upstream:[Package.Index: Version], 
         compiled:[Index: Article.Template<Link>],
-        hints:[Symbol.Index: Symbol.Index], 
-        pins:Package.Pins)
+        hints:[Symbol.Index: Symbol.Index])
     {
         self[culture].updateDocumentation(compiled)
         self[culture].spreadDocumentation(self.recruitMigrants(in: culture, 
+            upstream: upstream, 
             sponsors: compiled, 
-            hints: hints, 
-            pins: pins))
+            hints: hints))
     }
     // `culture` parameter not strictly needed, but we use it to make sure 
     // that ``generateRhetoric(graphs:scopes:)`` did not return ``hints``
     // about other packages
     private 
     func recruitMigrants(in culture:Package.Index,
+        upstream:[Package.Index: Version], 
         sponsors:[Index: Article.Template<Link>],
-        hints:[Symbol.Index: Symbol.Index],
-        pins:Package.Pins) 
+        hints:[Symbol.Index: Symbol.Index]) 
         -> [Symbol.Index: Article.Template<Link>]
     {
         var migrants:[Symbol.Index: Article.Template<Link>] = [:]
@@ -74,7 +74,7 @@ extension Ecosystem
             else if culture != sponsor.module.package
             {
                 let template:Article.Template<Link> = self[sponsor.module.package]
-                    .pinned(pins.upstream)
+                    .pinned(upstream)
                     .template(sponsor)
                 if !template.isEmpty
                 {

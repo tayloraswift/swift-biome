@@ -4,10 +4,6 @@ import Grammar
 public 
 struct Package:Identifiable, Sendable
 {
-    enum UpdateError:Error 
-    {
-        case versionNotIncremented(Version, from:Version)
-    }
     /// A globally-unique index referencing a package. 
     struct Index:Hashable, Comparable, Sendable 
     {
@@ -37,30 +33,6 @@ struct Package:Identifiable, Sendable
         case community(String)
     }
     
-    struct Pin:Hashable, Sendable 
-    {
-        var culture:Index 
-        var version:Version
-    }
-    struct Pins:Equatable, Sendable 
-    {
-        let version:Version
-        let upstream:[Index: Version]
-        
-        init(version:Version, upstream:[Index: Version])
-        {
-            self.version = version
-            self.upstream = upstream
-        }
-        
-        func isotropic(culture:Index) -> [Index: Version]
-        {
-            var isotropic:[Index: Version] = self.upstream 
-            isotropic[culture] = self.version 
-            return isotropic
-        }
-    }
-    
     struct Heads 
     {
         @Keyframe<Article.Template<Link>>.Head
@@ -80,7 +52,13 @@ struct Package:Identifiable, Sendable
     var heads:Heads
     // private 
     // var tag:Resource.Tag?
+    @available(*, deprecated)
     var latest:Version
+    {
+        self.versions.latest 
+    }
+    private(set)
+    var versions:Versions
     private(set) 
     var modules:CulturalBuffer<Module.Index, Module>, 
         symbols:CulturalBuffer<Symbol.Index, Symbol>,
@@ -88,8 +66,7 @@ struct Package:Identifiable, Sendable
     private(set)
     var external:[Symbol.Diacritic: Keyframe<Symbol.Traits>.Buffer.Index]
     private(set)
-    var versions:[MaskedVersion?: Pins], 
-        toplevels:Keyframe<Set<Symbol.Index>>.Buffer, // always populated 
+    var toplevels:Keyframe<Set<Symbol.Index>>.Buffer, // always populated 
         dependencies:Keyframe<Set<Module.Index>>.Buffer, // always populated 
         declarations:Keyframe<Symbol.Declaration>.Buffer // always populated 
     private(set)
@@ -109,21 +86,19 @@ struct Package:Identifiable, Sendable
         self.id.kind
     }
     
-    init(id:ID, index:Index, version:Version)
+    init(id:ID, index:Index)
     {
         self.id = id 
         self.index = index
         
         self.heads = .init()
+        self.versions = .init()
         
-        // self.tag = "2.0.0"
-        self.latest = version
         self.groups = .init()
         self.modules = .init()
         self.symbols = .init()
         self.articles = .init()
         self.external = [:]
-        self.versions = [:]
         self.toplevels = .init()
         self.dependencies = .init()
         self.declarations = .init()
@@ -171,7 +146,7 @@ struct Package:Identifiable, Sendable
     
     func pinned(_ pins:[Index: Version]) -> Pinned 
     {
-        .init(self, at: pins[self.index] ?? self.latest)
+        .init(self, at: pins[self.index] ?? self.versions.latest)
     }
     
     var root:Link.Reference<[String]> 
@@ -182,35 +157,6 @@ struct Package:Identifiable, Sendable
             return .init(path: []) 
         case .community(_):
             return .init(path: [self.name])
-        }
-    }
-    
-    func abbreviate(_ version:Version) -> MaskedVersion?
-    {
-        guard case let (major, minor, patch, edition)? = version.semantic 
-        else 
-        {
-            return version.precise
-        }
-        if version == self.latest
-        {
-            return nil 
-        }
-        else if case version? = self.versions[.major(major)]?.version 
-        {
-            return .major(major)
-        }
-        else if case version? = self.versions[.minor(major, minor)]?.version 
-        {
-            return .minor(major, minor)
-        }
-        else if case version? = self.versions[.patch(major, minor, patch)]?.version 
-        {
-            return .patch(major, minor, patch)
-        }
-        else
-        {
-            return .edition(major, minor, patch, edition)
         }
     }
     
@@ -271,32 +217,19 @@ struct Package:Identifiable, Sendable
         return explicit
     }
     
-    func availableVersions(_ composite:Symbol.Composite) -> Set<Version> 
+    func allVersions(of composite:Symbol.Composite) -> [Version]
     {
-        self.availableVersions { self.contains(composite, at: $0) }
+        self.versions.filter { self.contains(composite, at: $0) }
     }
-    func availableVersions(_ module:Module.Index) -> Set<Version> 
+    func allVersions(of module:Module.Index) -> [Version]
     {
-        self.availableVersions { self.contains(module, at: $0) }
-    }
-    func availableVersions() -> Set<Version> 
+        self.versions.filter { self.contains(module, at: $0) }
+    } 
+    func allVersions() -> [Version]
     {
-        .init(self.versions.values.lazy.map(\.version))
-    }
-    private 
-    func availableVersions(where predicate:(Version) throws -> Bool) 
-        rethrows -> Set<Version> 
-    {
-        var versions:Set<Version> = []
-        // ``Set.contains(_:)`` check helps avoid extra 
-        // ``Package.contains(_:at:)`` queries
-        for pins:Pins in self.versions.values 
-            where try !versions.contains(pins.version) && predicate(pins.version)
-        {
-            versions.insert(pins.version)
-        }
-        return versions
-    }
+        self.versions.filter { _ in true }
+    } 
+
     // we don’t use this quite the same as `contains(_:at:)` for ``Symbol.Composite``, 
     // because we still allow accessing module pages outside their availability ranges. 
     // 
@@ -362,29 +295,19 @@ struct Package:Identifiable, Sendable
 extension Package 
 {
     mutating 
-    func updatePins(_ pins:Pins)
+    func updateVersion(_ version:PreciseVersion, upstream:[Index: Version]) 
+        -> Package.Pins<Version>
     {
-        if case let (major, minor, patch, edition)? = self.latest.semantic 
-        {
-            self.versions[.edition(major, minor, patch, edition)] = pins
-            self.versions[  .patch(major, minor, patch)] = pins
-            self.versions[  .minor(major, minor)] = pins
-            self.versions[  .major(major)] = pins
-            self.versions[   nil] = pins
-        }
-        else 
-        {
-            self.versions[self.latest.precise] = pins
-        }
+        self.versions.push(version, upstream: upstream)
     }
-
     mutating 
     func updateDependencies(of cultures:[Module.Index], with dependencies:[Set<Module.Index>])
     {
+        let current:Version = self.versions.latest
         for (index, dependencies):(Module.Index, Set<Module.Index>) in zip(cultures, dependencies)
         {
             self.dependencies.update(head: &self.modules[local: index].heads.dependencies, 
-                to: self.latest, with: dependencies)
+                to: current, with: dependencies)
         }
     }
     
@@ -402,6 +325,7 @@ extension Package
         let positions:[Dictionary<Symbol.Index, Symbol.Declaration>.Keys] = 
             declarations.map(\.keys)
         // also update module toplevels 
+        let current:Version = self.versions.latest
         for (scope, symbols):(Symbol.Scope, Dictionary<Symbol.Index, Symbol.Declaration>.Keys) 
             in zip(scopes, positions)
         {
@@ -413,17 +337,18 @@ extension Package
                 toplevel.insert(symbol)
             }
             self.toplevels.update(head: &self.modules[local: scope.culture].heads.toplevel, 
-                to: self.latest, with: toplevel)
+                to: current, with: toplevel)
         }
         return positions
     }
     private mutating 
     func updateDeclarations(_ declarations:[[Symbol.Index: Symbol.Declaration]]) 
     {
+        let current:Version = self.versions.latest
         for (index, declaration):(Symbol.Index, Symbol.Declaration) in declarations.joined() 
         {
             self.declarations.update(head: &self.symbols[local: index].heads.declaration, 
-                to: self.latest, with: declaration)
+                to: current, with: declaration)
         }
     }
     
@@ -439,27 +364,28 @@ extension Package
     mutating 
     func updateFacts(_ facts:[Symbol.Index: Symbol.Facts])
     {
+        let current:Version = self.versions.latest
         for (index, facts):(Symbol.Index, Symbol.Facts) in facts
         {
             self.facts.update(head: &self.symbols[local: index].heads.facts, 
-                to: self.latest, 
-                with: facts.predicates)
+                to: current, with: facts.predicates)
         }
     }
     mutating 
     func updateOpinions(_ opinions:[Symbol.Diacritic: Symbol.Traits])
     {
+        let current:Version = self.versions.latest
         for (diacritic, traits):(Symbol.Diacritic, Symbol.Traits) in opinions 
         {
             self.opinions.update(head: &self.external[diacritic], 
-                to: self.latest, 
-                with: traits)
+                to: current, with: traits)
         }
     }
 
     mutating 
     func updateDocumentation(_ compiled:[Ecosystem.Index: Article.Template<Link>])
     {
+        let current:Version = self.versions.latest
         for (index, template):(Ecosystem.Index, Article.Template<Link>) in compiled 
         {
             switch index 
@@ -471,18 +397,18 @@ extension Package
                     fatalError("unimplemented")
                 }
                 self.templates.update(head: &self.symbols[local: composite.base].heads.template, 
-                    to: self.latest, with: template)
+                    to: current, with: template)
                 
             case .article(let index): 
                 self.templates.update(head: &self.articles[local: index].heads.template, 
-                    to: self.latest, with: template)
+                    to: current, with: template)
                 
             case .module(let index): 
                 self.templates.update(head: &self.modules[local: index].heads.template, 
-                    to: self.latest, with: template)
+                    to: current, with: template)
             case .package(self.index): 
                 self.templates.update(head: &self.heads.template, 
-                    to: self.latest, with: template)
+                    to: current, with: template)
             
             case .package(_): 
                 fatalError("unreachable")
@@ -492,10 +418,11 @@ extension Package
     mutating 
     func spreadDocumentation(_ migrants:[Symbol.Index: Article.Template<Link>]) 
     {
+        let current:Version = self.versions.latest
         for (migrant, template):(Symbol.Index, Article.Template<Link>) in migrants 
         {
             self.templates.update(head: &self.symbols[local: migrant].heads.template, 
-                to: self.latest, with: template)
+                to: current, with: template)
         }
     }
 }

@@ -18,7 +18,7 @@ extension Biome
                 fatalError("empty disambiguation group")
             }
             let version:Version = pins[exemplar.culture.package] ?? 
-                self.ecosystem[exemplar.culture.package].latest
+                self.ecosystem[exemplar.culture.package].versions.latest
             
             location = self.ecosystem.location(of: exemplar, at: version, group: true)
             prefix = self.prefixes.master
@@ -55,7 +55,8 @@ extension Biome
     }
     func uri(of index:Ecosystem.Index, pins:[Package.Index: Version]) -> URI
     {
-        self.uri(of: index, at: pins[index.culture] ?? self.ecosystem[index.culture].latest)
+        self.uri(of: index, 
+            at: pins[index.culture] ?? self.ecosystem[index.culture].versions.latest)
     }
     
     func resolve<Tail>(uri:Link.Reference<Tail>) 

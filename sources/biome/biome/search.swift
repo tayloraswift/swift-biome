@@ -5,7 +5,7 @@ extension Biome
 {
     func generateSearchIndexOfTypes(in package:Package) -> Resource
     {
-        let current:Package.Pinned = .init(package, at: package.latest)
+        let current:Package.Pinned = .init(package, at: package.versions.latest)
         let modules:[JSON] = current.package.modules.all.map 
         {
             var types:[JSON] = []

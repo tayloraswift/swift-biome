@@ -128,14 +128,15 @@ struct Biome
     public mutating 
     func updatePackage(_ graph:Package.Graph, era:[Package.ID: MaskedVersion]) throws 
     {
-        let version:Version = .init(era[graph.id])
+        let version:PreciseVersion = .init(era[graph.id])
         
         let index:Package.Index = 
-            try self.ecosystem.updatePackageRegistration(for: graph.id, to: version)
+            try self.ecosystem.updatePackageRegistration(for: graph.id)
         // initialize symbol id scopes for upstream packages only
-        let pins:Package.Pins ; var scopes:[Symbol.Scope] ; (pins, scopes) = 
+        let pins:Package.Pins<Version> ; var scopes:[Symbol.Scope] ; (pins, scopes) = 
             try self.ecosystem.updateModuleRegistrations(in: index, 
                 graphs: graph.modules, 
+                version: version,
                 era: era)
         
         let (articles, extensions):([[Article.Index: Extension]], [[String: Extension]]) = 
@@ -174,9 +175,9 @@ struct Biome
                 pins: pins, 
                 keys: self.keys)
         self.ecosystem.updateDocumentation(in: index, 
+            upstream: _move(pins).upstream,
             compiled: _move(templates), 
-            hints: _move(hints), 
-            pins: _move(pins))
+            hints: _move(hints))
         
         
         func bold(_ string:String) -> String
@@ -184,7 +185,7 @@ struct Biome
             "\u{1B}[1m\(string)\u{1B}[0m"
         }
         
-        print(bold("updated \(self.ecosystem[index].id) to version \(self.ecosystem[index].latest.precise)"))
+        print(bold("updated \(self.ecosystem[index].id) to version \(version)"))
     }
     
     private static

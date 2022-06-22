@@ -93,7 +93,7 @@ extension Package
                         let letter:Unicode.Scalar = words[6].unicodeScalars.first,
                         "a" ... "z" ~= letter
                     {
-                        self.pins[id] = .date(year: year, month: month, day: day, 
+                        self.pins[id] = .hourly(year: year, month: month, day: day, 
                             letter: .init(ascii: letter))
                     }
                 }

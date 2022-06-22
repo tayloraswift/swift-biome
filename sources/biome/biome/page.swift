@@ -78,7 +78,7 @@ extension Biome
             pins: pins)
         
         self.addAvailableVersions(to: &page, 
-            versions: pinned.package.availableVersions(module), 
+            versions: pinned.package.allVersions(of: module), 
             pinned: pinned, 
             index: .module(module))
         
@@ -126,7 +126,7 @@ extension Biome
             pins: pins)
         
         self.addAvailableVersions(to: &page, 
-            versions: pinned.culture.package.availableVersions(composite), 
+            versions: pinned.culture.package.allVersions(of: composite), 
             pinned: pinned.culture, 
             index: .composite(composite))
         
@@ -216,35 +216,42 @@ extension Biome
     }
     private 
     func addAvailableVersions(to page:inout [PageKey: [UInt8]], 
-        versions:Set<Version>, 
+        versions:[Version], 
         pinned:Package.Pinned, 
         index:Ecosystem.Index)
     {
-        let patches:[MaskedVersion: [Version]] = .init(grouping: versions)
+        var counts:[MaskedVersion: Int] = [:]
+        for version:Version in versions 
         {
-            $0.semantic.map { .patch($0.major, $0.minor, $0.patch) } ?? $0.precise
-        }
-        let abbreviations:[(display:MaskedVersion, version:Version)] = patches.flatMap 
-        {
-            $0.value.count == 1 ? [($0.key, $0.value[0])] : $0.value.map { ($0.precise, $0) }
-        }.sorted 
-        {
-            $1.version < $0.version
+            counts[pinned.package.versions[version].triplet, default: 0] += 1
         }
         
-        var display:MaskedVersion?
-        let items:[HTML.Element<Never>] = abbreviations.map 
+        func display(_ version:Version) -> MaskedVersion
         {
-            let link:HTML.Element<Never> 
-            if  $0.version == pinned.version
+            let precise:PreciseVersion = pinned.package.versions[version]
+            let triplet:MaskedVersion = precise.triplet
+            if case 1? = counts[triplet] 
             {
-                display = $0.display
-                link = .span($0.display.description) { ("class", "current") }
+                return triplet
             }
             else 
             {
-                let uri:URI = self.uri(of: index, at: $0.version)
-                link = .a($0.display.description) { ("href", uri.description) }
+                return precise.quadruplet
+            }
+        }
+        
+        let items:[HTML.Element<Never>] = versions.reversed().map 
+        {
+            let display:MaskedVersion = display($0)
+            let link:HTML.Element<Never> 
+            if  $0 == pinned.version
+            {
+                link = .span(display.description) { ("class", "current") }
+            }
+            else 
+            {
+                let uri:URI = self.uri(of: index, at: $0)
+                link = .a(display.description) { ("href", uri.description) }
             }
             return .li(link)
         }
@@ -252,8 +259,8 @@ extension Biome
         let menu:HTML.Element<Never> = .ol(items: items)
         let label:(HTML.Element<Never>, HTML.Element<Never>) = 
         (
-            .span(pinned.package.id.title)                         { ("class", "package") },
-            .span((display ?? pinned.version.precise).description) { ("class", "version") }
+            .span(pinned.package.id.title)              { ("class", "package") },
+            .span(display(pinned.version).description)  { ("class", "version") }
         )
         page[.versions] = menu.rendered(as: [UInt8].self)
         page[.pin] = label.0.rendered(as: [UInt8].self) + label.1.rendered(as: [UInt8].self)

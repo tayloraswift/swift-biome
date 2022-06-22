@@ -154,24 +154,17 @@ struct Ecosystem
     /// returns the index of the entry for the given package, creating it if it 
     /// does not already exist.
     mutating 
-    func updatePackageRegistration(for package:Package.ID, to version:Version)
+    func updatePackageRegistration(for package:Package.ID)
         throws -> Package.Index
     {
-        if  let package:Package.Index = self.indices[package]
+        if let package:Package.Index = self.indices[package]
         {
-            let previous:Version = self[package].latest
-            guard previous < version
-            else 
-            {
-                throw Package.UpdateError.versionNotIncremented(version, from: previous)
-            }
-            self[package].latest = version
             return package 
         }
         else 
         {
             let index:Package.Index = .init(offset: self.packages.endIndex)
-            self.packages.append(.init(id: package, index: index, version: version))
+            self.packages.append(.init(id: package, index: index))
             self.indices[package] = index
             return index
         }
@@ -180,8 +173,9 @@ struct Ecosystem
     mutating 
     func updateModuleRegistrations(in culture:Package.Index,
         graphs:[Module.Graph], 
+        version:PreciseVersion,
         era:[Package.ID: MaskedVersion])
-        throws -> (pins:Package.Pins, scopes:[Symbol.Scope])
+        throws -> (pins:Package.Pins<Version>, scopes:[Symbol.Scope])
     {
         // create modules, if they do not exist already.
         // note: module indices are *not* necessarily contiguous, 
@@ -191,22 +185,22 @@ struct Ecosystem
         let dependencies:[Set<Module.Index>] = 
             try self.computeDependencies(of: cultures, graphs: graphs)
         
-        var upstream:Set<Package.Index> = []
+        var packages:Set<Package.Index> = []
         for target:Module.Index in dependencies.joined()
         {
-            upstream.insert(target.package)
+            packages.insert(target.package)
         }
-        upstream.remove(culture)
+        packages.remove(culture)
         // only include pins for actual package dependencies, this prevents 
         // extraneous pins in a Package.resolved from disrupting the version cache.
-        let pins:Package.Pins = .init(version: self[culture].latest,
-            upstream: .init(uniqueKeysWithValues: upstream.map
+        let upstream:[Package.Index: Version] = 
+            .init(uniqueKeysWithValues: packages.map
         {
-            let package:Package = self[$0]
-            return ($0, era[package.id].map(Version.init(_:)) ?? package.latest)
-        }))
-        
-        self[culture].updatePins(pins)
+            ($0, self[$0].versions.snap(era[self[$0].id]))
+        })
+        // must call this *before* `updateDependencies`
+        let pins:Package.Pins<Version> = 
+            self[culture].updateVersion(version, upstream: upstream)
         self[culture].updateDependencies(of: cultures, with: dependencies)
         
         return (pins, self.scopes(of: cultures, dependencies: dependencies))

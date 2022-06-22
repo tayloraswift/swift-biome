@@ -24,7 +24,7 @@ extension Ecosystem
         self.updateCompositeGroups(in: index, facts: _move(facts), opinions: opinions)
         
         // pollinate opinions 
-        let current:Version = self[index].latest
+        let current:Version = self[index].versions.latest
         for diacritic:Symbol.Diacritic in opinions.keys 
         {
             let pin:Module.Pin = .init(culture: diacritic.culture, version: current)
