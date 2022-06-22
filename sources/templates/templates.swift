@@ -78,49 +78,56 @@ enum DefaultTemplates
                     
                     Element[.div]
                     {
-                        ("class", "toolbar")
+                        ("class", "toolbar-container")
                     } 
                     content: 
                     {
-                        Element[.form] 
-                        {
-                            ("role",    "search")
-                            ("id",      "search")
-                        }
-                        content: 
-                        {
-                            Element[.input]
-                            {
-                                ("id",              "search-input")
-                                ("type",            "search")
-                                ("placeholder",     "search symbols")
-                                ("autocomplete",    "off")
-                            }
-                            Element[.ol]
-                            {
-                                ("id", "search-results")
-                            }
-                        }
                         Element[.div]
                         {
-                            ("class", "versions")
+                            ("class", "toolbar")
                         }
                         content: 
                         {
-                            Element[.input]
+                            Element[.form] 
                             {
-                                ("id",      "version-menu-input")
-                                ("type",    "checkbox")
-                            }
-                            Element[.label]
-                            {
-                                ("for",     "version-menu-input")
+                                ("role",    "search")
+                                ("id",      "search")
                             }
                             content: 
                             {
-                                Element.anchor(.pin)
+                                Element[.input]
+                                {
+                                    ("id",              "search-input")
+                                    ("type",            "search")
+                                    ("placeholder",     "search symbols")
+                                    ("autocomplete",    "off")
+                                }
                             }
-                            Element.anchor(.versions)
+                            Element[.nav]
+                            {
+                                ("class", "versions")
+                            }
+                            content: 
+                            {
+                                Element[.input]
+                                {
+                                    ("id",      "version-menu-input")
+                                    ("type",    "checkbox")
+                                }
+                                Element[.label]
+                                {
+                                    ("for",     "version-menu-input")
+                                }
+                                content: 
+                                {
+                                    Element.anchor(.pin)
+                                }
+                                Element.anchor(.versions)
+                            }
+                        }
+                        Element[.ol]
+                        {
+                            ("id", "search-results")
                         }
                     }
                 }
