@@ -35,8 +35,8 @@ struct Package:Identifiable, Sendable
     
     struct Heads 
     {
-        @Keyframe<Article.Template<Link>>.Head
-        var template:Keyframe<Article.Template<Link>>.Buffer.Index?
+        @Keyframe<Article.Template<Ecosystem.Link>>.Head
+        var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
         
         init() 
         {
@@ -73,7 +73,7 @@ struct Package:Identifiable, Sendable
     var facts:Keyframe<Symbol.Predicates>.Buffer, // always populated
         opinions:Keyframe<Symbol.Traits>.Buffer
     private(set)
-    var templates:Keyframe<Article.Template<Link>>.Buffer
+    var templates:Keyframe<Article.Template<Ecosystem.Link>>.Buffer
     
     var groups:Symbol.Groups
     
@@ -149,14 +149,12 @@ struct Package:Identifiable, Sendable
         .init(self, at: pins[self.index] ?? self.versions.latest)
     }
     
-    var root:Link.Reference<[String]> 
+    var root:Ecosystem.Location
     {
         switch self.kind
         {
-        case .swift, .core: 
-            return .init(path: []) 
-        case .community(_):
-            return .init(path: [self.name])
+        case .swift, .core:         return .init(path: [])
+        case .community(let name):  return .init(path: [name])
         }
     }
     
@@ -383,10 +381,10 @@ extension Package
     }
 
     mutating 
-    func updateDocumentation(_ compiled:[Ecosystem.Index: Article.Template<Link>])
+    func updateDocumentation(_ compiled:[Ecosystem.Index: Article.Template<Ecosystem.Link>])
     {
         let current:Version = self.versions.latest
-        for (index, template):(Ecosystem.Index, Article.Template<Link>) in compiled 
+        for (index, template):(Ecosystem.Index, Article.Template<Ecosystem.Link>) in compiled 
         {
             switch index 
             {
@@ -416,10 +414,10 @@ extension Package
         }
     }
     mutating 
-    func spreadDocumentation(_ migrants:[Symbol.Index: Article.Template<Link>]) 
+    func spreadDocumentation(_ migrants:[Symbol.Index: Article.Template<Ecosystem.Link>]) 
     {
         let current:Version = self.versions.latest
-        for (migrant, template):(Symbol.Index, Article.Template<Link>) in migrants 
+        for (migrant, template):(Symbol.Index, Article.Template<Ecosystem.Link>) in migrants 
         {
             self.templates.update(head: &self.symbols[local: migrant].heads.template, 
                 to: current, with: template)
@@ -468,7 +466,7 @@ extension Package
                 extensions[binding] = article 
                 continue 
             }
-            // article namespace is always its culture
+            // article namespace is always its culture. 
             guard let path:Path = article.metadata.path
             else 
             {

@@ -331,7 +331,7 @@ extension Biome
                     uris[key] = self.uri(of: key, pins: pins).description 
                 }
             case .excerpt(let composite):
-                let excerpt:Article.Template<Link> = 
+                let excerpt:Article.Template<Ecosystem.Link> = 
                     self.ecosystem[composite.base.module.package].pinned(pins)
                         .template(composite.base)
                 if !excerpt.summary.isEmpty

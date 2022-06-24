@@ -117,7 +117,7 @@ extension Symbol
             }
         }
         
-        var orientation:Route.Orientation 
+        var orientation:Link.Orientation 
         {
             switch self
             {

@@ -1,11 +1,24 @@
 extension Ecosystem 
 {
+    struct Location 
+    {
+        var path:[String]
+        var query:Symbol.Link.Query 
+        var orientation:Symbol.Link.Orientation
+        
+        init(path:[String])
+        {
+            self.path = path
+            self.query = .init()
+            self.orientation = .straight
+        }
+    }
     func location(of index:Package.Index, at version:Version) 
-        -> Link.Reference<[String]>
+        -> Location
     {
         let package:Package = self[index]
         
-        var location:Link.Reference<[String]> = .init(path: [package.name])
+        var location:Location = .init(path: [package.name])
         if let version:MaskedVersion = package.versions.abbreviate(version)
         {
             location.path.append(version.description)
@@ -14,11 +27,11 @@ extension Ecosystem
     }
     
     func location(of index:Module.Index, at version:Version) 
-        -> Link.Reference<[String]>
+        -> Location
     {
         let package:Package = self[index.package]
         
-        var location:Link.Reference<[String]> = package.root
+        var location:Location = package.root
         if let version:MaskedVersion = package.versions.abbreviate(version)
         {
             location.path.append(version.description)
@@ -29,10 +42,9 @@ extension Ecosystem
     }
     
     func location(of index:Article.Index, at version:Version) 
-        -> Link.Reference<[String]>
+        -> Location
     {
-        var location:Link.Reference<[String]> = 
-            self.location(of: index.module, at: version)
+        var location:Location = self.location(of: index.module, at: version)
         for component:String in self[index].path 
         {
             location.path.append(component.lowercased())
@@ -41,14 +53,14 @@ extension Ecosystem
     }
     
     func location(of composite:Symbol.Composite, at version:Version, group:Bool = false) 
-        -> Link.Reference<[String]>
+        -> Location
     {
         let culture:Package = self[composite.culture.package]
         // same as host if composite is natural
         let base:Symbol = self[composite.base]
         let host:Symbol = self[composite.diacritic.host] 
         
-        var location:Link.Reference<[String]> = self[host.namespace.package].root
+        var location:Location = self[host.namespace.package].root
         if  culture.index == host.namespace.package, 
             let version:MaskedVersion = culture.versions.abbreviate(version)
         {

@@ -39,8 +39,8 @@ struct Module:Identifiable, Sendable
         var dependencies:Keyframe<Set<Index>>.Buffer.Index?
         @Keyframe<Set<Symbol.Index>>.Head
         var toplevel:Keyframe<Set<Symbol.Index>>.Buffer.Index?
-        @Keyframe<Article.Template<Link>>.Head
-        var template:Keyframe<Article.Template<Link>>.Buffer.Index?
+        @Keyframe<Article.Template<Ecosystem.Link>>.Head
+        var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
         
         init() 
         {

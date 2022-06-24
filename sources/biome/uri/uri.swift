@@ -1,5 +1,41 @@
 import Grammar
 
+extension Collection where Element == URI.Vector?
+{
+    var normalized:(components:[String], fold:Int)
+    {
+        // ii. lexical normalization 
+        //
+        // ['', 'foo', 'bar', < nil >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', ''] becomes 
+        // [    'foo', 'bar',                                   'baz.bar', '.Foo', '..']
+        //                                                      ^~~~~~~~~~~~~~~~~~~~~~~
+        //                                                      (visible = 3)
+        //  if `Self` components would erase past the beginning of the components list, 
+        //  the extra `Self` components are ignored.
+        //  redirects generated from this step are PERMANENT. 
+        //  paths containing `nil` and empty components always generate redirects.
+        //  however, the presence and location of an empty component can be meaningful 
+        //  in a symbollink.    
+        var components:[String] = []
+            components.reserveCapacity(self.underestimatedCount)
+        var fold:Int = components.endIndex
+        for vector:URI.Vector? in self
+        {
+            switch vector 
+            {
+            case .pop?:
+                let _:String? = components.popLast()
+                fallthrough
+            case nil: 
+                fold = components.endIndex
+            case .push(let component): 
+                components.append(component)
+            }
+        }
+        return (components, fold)
+    }
+}
+
 public
 struct URI 
 {
@@ -88,56 +124,56 @@ struct URI
         self.path = path 
         self.query = query
     }
-    init(absolute string:String) throws 
+    init<S>(absolute string:S) throws where S:StringProtocol
     {
         self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Absolute.self)
     }
-    init(relative string:String) throws 
+    init<S>(relative string:S) throws where S:StringProtocol
     {
         self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Relative.self)
     }
     
-    init(prefix:String, _ link:Link.Reference<[String]>)
+    init(prefix:String, _ location:Ecosystem.Location)
     {
         self.path = []
-        if case .gay = link.orientation, link.path.count >= 2
+        if case .gay = location.orientation, location.path.count >= 2
         {
-            self.path.reserveCapacity(link.path.count)
+            self.path.reserveCapacity(location.path.count)
             self.path.append(.push(prefix))
-            for component:String in link.path.dropLast(2)
+            for component:String in location.path.dropLast(2)
             {
                 self.path.append(.push(component))
             }
-            let penultimate:String = link.path[link.path.endIndex - 2]
-            let    ultimate:String = link.path[link.path.endIndex - 1]
+            let penultimate:String = location.path[location.path.endIndex - 2]
+            let    ultimate:String = location.path[location.path.endIndex - 1]
             self.path.append(.push("\(penultimate).\(ultimate)"))
         }
         else 
         {
-            self.path.reserveCapacity(link.path.count + 1)
+            self.path.reserveCapacity(location.path.count + 1)
             self.path.append(.push(prefix))
-            for component:String in link.path
+            for component:String in location.path
             {
                 self.path.append(.push(component))
             }
         }
         self.query = nil
-        if let base:Symbol.ID = link.query.base
+        if let base:Symbol.ID = location.query.base
         {
-            self.insert((Link.Query.base, base.string))
+            self.insert((Symbol.Link.Query.base, base.string))
         }
-        if let host:Symbol.ID = link.query.host
+        if let host:Symbol.ID = location.query.host
         {
-            self.insert((Link.Query.host, host.string))
+            self.insert((Symbol.Link.Query.host, host.string))
         }
-        switch link.query.lens
+        switch location.query.lens
         {
         case nil: 
             break 
         case (let culture, nil)?:
-            self.insert((Link.Query.lens,    culture.string))
+            self.insert((Symbol.Link.Query.lens,    culture.string))
         case (let culture, let version?)?:
-            self.insert((Link.Query.lens, "\(culture.string)/\(version.description)"))
+            self.insert((Symbol.Link.Query.lens, "\(culture.string)/\(version.description)"))
         }
     }
     

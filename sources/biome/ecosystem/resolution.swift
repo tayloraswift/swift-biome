@@ -6,16 +6,19 @@ extension Ecosystem
         case searchIndex(Package.Index)
     }
     
-    func resolve<Tail>(prefix:URI.Prefix, global:Link.Reference<Tail>, keys:Route.Keys) 
+    func resolve<Path>(_ path:Path, 
+        prefix:URI.Prefix, 
+        query:[URI.Parameter], 
+        keys:Route.Keys) 
         -> (resolution:Resolution, redirected:Bool)?
-        where Tail:BidirectionalCollection, Tail.Element == Link.Component
+        where Path:BidirectionalCollection, Path.Element:StringProtocol
     {
         switch prefix 
         {
         case .lunr: 
-            guard   let package:Package.ID = global.package, 
+            guard   let package:Package.ID = path.first.map(Package.ID.init(_:)), 
                     let package:Package.Index = self.indices[package],
-                    case "types"? = global.dropFirst().first?.identifier
+                    case "types"? = path.dropFirst().first
             else 
             {
                 return nil 
@@ -23,27 +26,26 @@ extension Ecosystem
             return (.searchIndex(package), false) 
         
         case .doc: 
-            return self.resolveRoute(global, keys: keys)
+            return self.resolveNamespace(path)
             {
-                (
-                    destination:Package, 
-                    arrival:MaskedVersion?, 
-                    route:Route, 
-                    suffix:Link.Reference<Tail.SubSequence>
-                ) in 
+                (path:Path.SubSequence, namespace:Module.Index, arrival:MaskedVersion?) in 
                 
-                if let article:Article.Index = destination.articles.indices[route]
+                if  let route:Route = keys[namespace, path],
+                    let article:Article.Index = 
+                        self[namespace.package].articles.indices[route]
                 {
-                    guard let pins:[Package.Index: Version] = destination
-                        .versions[arrival]?.isotropic(culture: destination.index)
+                    guard let pins:[Package.Index: Version] = self[namespace.package]
+                        .versions[arrival]?.isotropic(culture: namespace.package)
                     else 
                     {
                         return nil
                     }
                     return (.selection(.article(article), pins: pins), false)
                 }
-                else if let resolution:Resolution = 
-                    self.resolveSuffix(destination, arrival, route, suffix)?.resolution
+                else if case (let resolution, _)? = 
+                    self.resolveSymbol(path, namespace: namespace, arrival: arrival, 
+                        query: query, 
+                        keys: keys)
                 {
                     return (resolution, true)
                 }
@@ -54,37 +56,40 @@ extension Ecosystem
             } 
         
         case .master:
-            return self.resolveRoute(global, keys: keys, 
-                then: self.resolveSuffix(_:_:_:_:))
+            return self.resolveNamespace(path)
+            {
+                self.resolveSymbol($0, namespace: $1, arrival: $2, 
+                    query: query, 
+                    keys: keys)
+            }
         }
-
     }
 
     private 
-    func resolveRoute<Tail>(_ global:Link.Reference<Tail>, keys:Route.Keys, 
-        then select:(Package, MaskedVersion?, Route, Link.Reference<Tail.SubSequence>) 
+    func resolveNamespace<Path>(_ path:Path, 
+        then select:(Path.SubSequence, Module.Index, MaskedVersion?) 
         throws   -> (resolution:Resolution, redirected:Bool)?) 
         rethrows -> (resolution:Resolution, redirected:Bool)?
-        where Tail:BidirectionalCollection, Tail.Element == Link.Component
+        where Path:Collection, Path.Element:StringProtocol
     {
-        let local:Link.Reference<Tail.SubSequence>
+        let local:Path.SubSequence
         
         let root:Package?
-        if  let package:Package.ID = global.package, 
+        if  let package:Package.ID = path.first.map(Package.ID.init(_:)), 
             let package:Package = self[package]
         {
             root = package 
-            local = global.dropFirst()
+            local = path.dropFirst()
         }
         else 
         {
             root = nil
-            local = global[...]
+            local = path[...]
         }
         
-        let qualified:Link.Reference<Tail.SubSequence>
+        let qualified:Path.SubSequence
         let arrival:MaskedVersion?
-        if let version:MaskedVersion = local.arrival
+        if let version:MaskedVersion = local.first.flatMap(MaskedVersion.init(_:))
         {
             qualified = _move(local).dropFirst()
             arrival = version 
@@ -95,7 +100,7 @@ extension Ecosystem
             arrival = nil
         }
         
-        guard let module:Module.ID = qualified.module 
+        guard let module:Module.ID = qualified.first.map(Module.ID.init(_:)) 
         else 
         {
             if  let destination:Package = root, 
@@ -111,7 +116,6 @@ extension Ecosystem
             }
         } 
         
-        let destination:Package
         let namespace:Module.Index
         if let root:Package 
         {
@@ -120,32 +124,29 @@ extension Ecosystem
             {
                 return nil
             }
-            (destination, namespace) = (root, module)
+            namespace = module
         }
-        else if let swift:Package = self[.swift], 
-                let module:Module.Index = swift.modules.indices[module]
+        else if let module:Module.Index = self[.swift]?.modules.indices[module]
         {
-            (destination, namespace) = (swift, module)
+            namespace = module
         }
-        else if let core:Package = self[.core], 
-                let module:Module.Index = core.modules.indices[module]
+        else if let module:Module.Index = self[.core]?.modules.indices[module]
         {
-            (destination, namespace) = (core, module)
+            namespace = module
         }
         else 
         {
             return nil
         }
         
-        let implicit:Link.Reference<Tail.SubSequence> = _move(qualified).dropFirst()
-        
-        guard let path:Path = .init(implicit)
-        else 
+        let implicit:Path.SubSequence = _move(qualified).dropFirst()
+        if  implicit.isEmpty
         {
-            if let pins:Package.Pins<Version> = destination.versions[arrival]
+            if  let pins:Package.Pins<Version> = 
+                self[namespace.package].versions[arrival]
             {
                 let pins:[Package.Index: Version] = 
-                    pins.isotropic(culture: destination.index)
+                    pins.isotropic(culture: namespace.package)
                 return (.selection(.module(namespace), pins: pins), false)
             }
             else 
@@ -153,37 +154,33 @@ extension Ecosystem
                 return nil
             }
         }
-        guard let route:Route = keys[namespace, path, implicit.orientation]
         else 
         {
-            return nil
+            return try select(implicit, namespace, arrival)
         }
-        
-        return try select(destination, arrival, route, implicit)
     }
     private 
-    func resolveSuffix<Tail>(
-        _ destination:Package, 
-        _ arrival:MaskedVersion?, 
-        _ route:Route, 
-        _ suffix:Link.Reference<Tail>)
+    func resolveSymbol<Path>(_ path:Path, 
+        namespace:Module.Index, 
+        arrival:MaskedVersion?, 
+        query:[URI.Parameter], 
+        keys:Route.Keys)
         -> (resolution:Resolution, redirected:Bool)?
-        where Tail:BidirectionalCollection, Tail.Element == Link.Component
-    {
-        guard let localized:(package:Package, pins:Package.Pins<Version>) = 
-            self.localize(destination: destination, arrival: arrival, 
-                lens: suffix.query.lens)
-        else 
+        where Path:Collection, Path.Element:StringProtocol
+    {        
+        if  let link:Symbol.Link = 
+                try? .init(path: (path, path.startIndex), query: query), 
+            case let (package, pins)? = 
+                self.localize(destination: namespace.package, 
+                    arrival: arrival, 
+                    lens: link.query.lens),
+            let route:Route = keys[namespace, link.revealed], 
+            case let (selection, redirected: redirected)? = 
+                self.selectWithRedirect(from: route, 
+                    lens: .init(package, at: pins.local), 
+                    by: link.disambiguator)
         {
-            return nil
-        }
-        if case let (selection, redirected: redirected)? = 
-            self.selectWithRedirect(from: route, 
-                in: .init(localized.package, at: localized.pins.local), 
-                by: suffix.disambiguator)
-        {
-            let pins:[Package.Index: Version] = 
-                localized.pins.isotropic(culture: localized.package.index)
+            let pins:[Package.Index: Version] = pins.isotropic(culture: package.index)
             return (.selection(selection, pins: pins), redirected)
         }
         else 

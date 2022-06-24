@@ -1,117 +1,263 @@
 import Grammar 
 
-extension Link 
+extension Symbol 
 {
-    struct Expression
+    struct Disambiguator 
     {
-        private(set)
-        var reference:Reference<[Component]>, 
-            visible:Int
-        
-        init(absolute string:String) throws 
+        let host:ID?
+        let base:ID?
+        let suffix:Link.Suffix?
+    }
+    struct Link:RandomAccessCollection
+    {
+        fileprivate 
+        enum ComponentSegmentation<Location> where Location:Comparable
         {
-            try self.init(normalizing: try .init(absolute: string))
+            case opaque(Location) // end index
+            case big
+            case little(Location) // start index 
+            case reveal(big:Location, little:Location) // end index, start index
         }
-        init(relative string:String) throws 
+        // warning: do not make ``Equatable``, unless we enforce the correctness 
+        // of the `hyphen` field!
+        struct Component 
         {
-            try self.init(normalizing: try .init(relative: string))
-        }
-        
-        init(normalizing uri:URI) throws
-        {
-            // ii. lexical normalization 
-            //
-            // ['', 'foo', 'bar', < nil >, 'bax.qux', < Self >, '', 'baz.bar', '.Foo', '..', '', ''] becomes 
-            // [    'foo', 'bar',                                   'baz.bar', '.Foo', '..']
-            //                                                      ^~~~~~~~~~~~~~~~~~~~~~~
-            //                                                      (visible = 3)
-            //  if `Self` components would erase past the beginning of the components list, 
-            //  the extra `Self` components are ignored.
-            //  redirects generated from this step are PERMANENT. 
-            //  paths containing `nil` and empty components always generate redirects.
-            //  however, the presence and location of an empty component can be meaningful 
-            //  in a symbollink.    
-            var components:[String] = []
-                components.reserveCapacity(uri.path.count)
-            var fold:Int = components.endIndex
-            for vector:URI.Vector? in uri.path
+            let string:String 
+            let hyphen:String.Index?
+            
+            init(_ string:String, hyphen:String.Index? = nil)
             {
-                switch vector 
+                self.string = string 
+                self.hyphen = hyphen
+            }
+            
+            var suffix:Suffix?
+            {
+                self.hyphen.flatMap { .init(self.string[$0...].dropFirst()) }
+            }
+        }
+        enum Orientation:Unicode.Scalar
+        {
+            case gay        = "."
+            case straight   = "/"
+        }
+        enum Suffix 
+        {
+            case color(Color)
+            case fnv(hash:UInt32)
+            
+            init?<S>(_ string:S) where S:StringProtocol 
+            {
+                // will never collide with symbol colors, since they always contain 
+                // a period ('.')
+                // https://github.com/apple/swift-docc/blob/d94139a5e64e9ecf158214b1cded2a2880fc1b02/Sources/SwiftDocC/Utility/FoundationExtensions/String%2BHashing.swift
+                if let hash:UInt32 = .init(string, radix: 36)
                 {
-                case .pop?:
-                    let _:String? = components.popLast()
-                    fallthrough
-                case nil: 
-                    fold = components.endIndex
-                case .push(let component): 
-                    components.append(component)
+                    self = .fnv(hash: hash)
+                }
+                else if let color:Color = .init(rawValue: String.init(string))
+                {
+                    self = .color(color)
+                }
+                else 
+                {
+                    return nil
                 }
             }
+        }
+        struct Query 
+        {
+            static 
+            let base:String = "overload", 
+                host:String = "self", 
+                lens:String = "from"
+            
+            var base:ID?
+            var host:ID?
+            var lens:(culture:Package.ID, version:MaskedVersion?)?
+            
+            init() 
+            {
+                self.base = nil 
+                self.host = nil
+                self.lens = nil 
+            }
+            init(_ parameters:[URI.Parameter]) throws 
+            {
+                self.init()
+                try self.update(with: parameters)
+            }
+            mutating 
+            func update(with parameters:[URI.Parameter]) throws 
+            {
+                for (key, value):(String, String) in parameters 
+                {
+                    switch key
+                    {
+                    case Self.lens:
+                        // either 'from=swift-foo' or 'from=swift-foo/0.1.2'. 
+                        // we do not tolerate missing slashes
+                        let components:[Substring] = value.split(separator: "/")
+                        guard let first:Substring = components.first
+                        else 
+                        {
+                            continue  
+                        }
+                        let id:Package.ID = .init(first)
+                        if  let second:Substring = components.dropFirst().first, 
+                            let version:MaskedVersion = try? Grammar.parse(second.unicodeScalars, 
+                                as: MaskedVersion.Rule<String.Index>.self)
+                        {
+                            self.lens = (id, version)
+                        }
+                        else 
+                        {
+                            self.lens = (id, nil)
+                        }
+                    
+                    case Self.host:
+                        // if the mangled name contained a colon ('SymbolGraphGen style'), 
+                        // the parsing rule will remove it.
+                        self.host  = try Grammar.parse(value.utf8, as: USR.Rule<String.Index>.OpaqueName.self)
+                    
+                    case Self.base: 
+                        switch         try Grammar.parse(value.utf8, as: USR.Rule<String.Index>.self) 
+                        {
+                        case .natural(let base):
+                            self.base = base
+                        
+                        case .synthesized(from: let base, for: let host):
+                            // this is supported for backwards-compatibility, 
+                            // but the `::SYNTHESIZED::` infix is deprecated, 
+                            // so this will end up causing a redirect 
+                            self.host = host
+                            self.base = base 
+                        }
+
+                    default: 
+                        continue  
+                    }
+                }
+            }
+        }
+        
+        private
+        var path:[Component]
+        private(set)
+        var query:Query,
+            orientation:Orientation
+        
+        private(set)
+        var startIndex:Int
+        var endIndex:Int 
+        {
+            self.path.endIndex
+        }
+        subscript(index:Int) -> Component
+        {
+            _read 
+            {
+                yield self.path[index]
+            }
+        }
+        
+        func prefix(prepending prefix:[String]) -> [String]
+        {
+            prefix.isEmpty ? self.dropLast().map(\.string) : 
+                    prefix + self.dropLast().lazy.map(\.string)
+        }
+        var suffix:Self?
+        {
+            var suffix:Self = self 
+                suffix.startIndex += 1
+            return suffix.isEmpty ? nil : suffix 
+        }
+        
+        var revealed:Self 
+        {
+            .init(path: self.path, query: self.query, orientation: self.orientation)
+        }
+        var outed:Self? 
+        {
+            switch self.orientation 
+            {
+            case .gay: 
+                return nil 
+            case .straight: 
+                var outed:Self = self 
+                    outed.orientation = .gay 
+                return outed 
+            }
+        }
+        var disambiguator:Disambiguator 
+        {
+            .init(
+                host: self.query.host, 
+                base: self.query.base, 
+                suffix: self.path.last?.suffix)
+        }
+        
+        private 
+        init(path:[Component], query:Query, orientation:Orientation = .straight) 
+        {
+            self.startIndex = path.startIndex 
+            self.path = path 
+            self.query = query 
+            self.orientation = orientation
+        }
+        init<Path>(path:(components:Path, fold:Path.Index), query:[URI.Parameter]) 
+            throws
+            where Path:Collection, Path.Element:StringProtocol
+        {
             // iii. semantic segmentation 
             //
             // [     'foo',       'bar',       'baz.bar',                     '.Foo',          '..'] becomes
             // [.big("foo"), .big("bar"), .big("baz"), .little("bar"), .little("Foo"), .little("..")] 
             //                                                                         ^~~~~~~~~~~~~~~
             //                                                                          (visible = 1)
-            self.reference = .init(path: [])
-            self.visible = 0
-            for (index, component):(Int, String) in zip(components.indices, components)
+            self.init(path: [], query: try .init(query))
+            self.path.reserveCapacity(path.components.underestimatedCount)
+            if path.fold != path.components.startIndex 
             {
-                let appended:Int 
-                switch try Grammar.parse(component.unicodeScalars, as: Rule<String.Index>.Component.self)
+                try self.append(components: path.components[..<path.fold])
+                self.startIndex = self.path.endIndex
+            }
+            try self.append(components: path.components[path.fold...])
+        }
+        mutating 
+        func append<Path>(components:Path) throws 
+            where Path:Sequence, Path.Element:StringProtocol 
+        {
+            for component:Path.Element in components
+            {
+                switch try Grammar.parse(component.unicodeScalars, 
+                    as: Rule<String.Index>.Component.self)
                 {
                 case .opaque(let hyphen): 
-                    self.reference.path.append(.identifier(component, hyphen: hyphen))
-                    self.reference.orientation = .straight 
-                    appended = 1
+                    self.path.append(.init(String.init(component), hyphen: hyphen))
+                    self.orientation = .straight 
                 case .big:
-                    self.reference.path.append(.identifier(component))
-                    self.reference.orientation = .straight 
-                    appended = 1
+                    self.path.append(.init(String.init(component)))
+                    self.orientation = .straight 
                 
                 case .little                      (let start):
                     // an isolated little-component implies an empty big-predecessor, 
                     // and therefore resets the visibility counter
-                    self.visible = 0
-                    self.reference.path.append(.identifier(String.init(component[start...])))
-                    self.reference.orientation = .gay 
-                    appended = 1
+                    self.startIndex = self.path.endIndex
+                    self.path.append(.init(String.init(component[start...])))
+                    self.orientation = .gay 
                 
                 case .reveal(big: let end, little: let start):
-                    self.reference.path.append(.identifier(String.init(component[..<end])))
-                    self.reference.path.append(.identifier(String.init(component[start...])))
-                    self.reference.orientation = .gay 
-                    appended = 2
-                    
-                case .version(let version):
-                    self.reference.path.append(.version(version))
-                    self.reference.orientation = .straight 
-                    appended = 1
+                    self.path.append(.init(String.init(component[..<end])))
+                    self.path.append(.init(String.init(component[start...])))
+                    self.orientation = .gay 
                 }
-                if fold <= index 
-                {
-                    self.visible += appended
-                }
-            }
-            if let query:[URI.Parameter] = uri.query 
-            {
-                try self.reference.query.update(normalizing: query)
             }
         }
     }
-    
-    fileprivate 
-    enum ComponentSegmentation<Location> where Location:Comparable
-    {
-        case opaque(Location) // end index
-        case version(MaskedVersion)
-        case big
-        case little(Location) // start index 
-        case reveal(big:Location, little:Location) // end index, start index
-    }
 }
 // parsing rules 
-extension Link 
+extension Symbol.Link 
 {
     fileprivate 
     enum Rule<Location>
@@ -120,7 +266,7 @@ extension Link
         typealias Encoding = Grammar.Encoding<Location, Terminal>
     }
 }
-extension Link.Rule 
+extension Symbol.Link.Rule 
 {
     //  Arguments ::= '(' ( IdentifierBase ':' ) + ')'
     private 
@@ -365,7 +511,7 @@ extension Link.Rule
         typealias Terminal = Unicode.Scalar
         static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
-            throws -> Link.ComponentSegmentation<Location>
+            throws -> Symbol.Link.ComponentSegmentation<Location>
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
         {
             let start:Location = input.index 
@@ -428,14 +574,9 @@ extension Link.Rule
                     return .little(start)
                 }
             }
-            guard case nil = input.parse(as: DotlessOperatorLeaf?.self)
-            else 
-            {
-                //  /<(_:_:)  -> ['', '<(_:_:)']
-                return .little(start)
-            }
-            
-            return .version(try input.parse(as: MaskedVersion.Rule<Location>.self))
+            //  /<(_:_:)  -> ['', '<(_:_:)']
+            try input.parse(as: DotlessOperatorLeaf.self)
+            return .little(start)
         }
     }
 }

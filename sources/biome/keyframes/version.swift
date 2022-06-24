@@ -113,6 +113,18 @@ enum MaskedVersion:Hashable, CustomStringConvertible, Sendable
 }
 extension MaskedVersion 
 {
+    init?<S>(_ string:S) where S:StringProtocol
+    {
+        if  let version:Self = 
+            try? Grammar.parse(string.unicodeScalars, as: Rule<String.Index>.self)
+        {
+            self = version 
+        }
+        else 
+        {
+            return nil 
+        }
+    }
     init(from json:JSON) throws 
     {
         self = try json.lint 

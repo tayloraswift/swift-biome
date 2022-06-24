@@ -17,19 +17,31 @@ extension Module
         var filter:Set<Index>
         let culture:Index
         
-        init(culture:Index, id:ID)
-        {
-            self.namespaces = [id: culture]
-            self.filter = [culture]
-            self.culture = culture 
-        }
-        
         subscript(namespace:ID) -> Index?
         {
             _read 
             {
                 yield self.namespaces[namespace]
             }
+        }
+        
+        private 
+        init(culture:Index, namespaces:[ID: Index])
+        {
+            self.culture = culture 
+            self.namespaces = namespaces 
+            self.filter = .init(namespaces.values)
+        }
+        init(culture:Index, id:ID)
+        {
+            self.init(culture: culture, namespaces: [id: culture])
+        }
+        
+        mutating 
+        func insert(namespace:Index, id:ID)
+        {
+            self.namespaces[id] = namespace
+            self.filter.insert(namespace)
         }
         
         func contains(_ namespace:ID) -> Bool
@@ -41,18 +53,19 @@ extension Module
             self.filter.contains(namespace)
         }
         
-        mutating 
-        func insert(namespace:Index, id:ID)
-        {
-            self.namespaces[id] = namespace
-            self.filter.insert(namespace)
-        }
-        
         func upstream() -> Set<Package.Index>
         {
             var packages:Set<Package.Index> = .init(self.filter.map(\.package))
                 packages.remove(self.culture.package)
             return packages
+        }
+        
+        func `import`(_ modules:Set<ID>) -> Self 
+        {
+            .init(culture: self.culture, namespaces: self.namespaces.filter 
+            {
+                $0.value == self.culture || modules.contains($0.key)
+            })
         }
     }
 }

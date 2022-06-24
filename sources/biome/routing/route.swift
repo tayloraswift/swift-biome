@@ -1,10 +1,5 @@
 struct Route:Hashable, Sendable, CustomStringConvertible 
 {
-    enum Orientation:Unicode.Scalar
-    {
-        case gay        = "."
-        case straight   = "/"
-    }
     // the lsb is reserved to encode orientation
     struct Stem:Hashable 
     {
@@ -40,12 +35,12 @@ struct Route:Hashable, Sendable, CustomStringConvertible
             let outed:Self = .init(bitPattern: self.stem.bitPattern)
             return outed == self ? nil : outed
         }
-        var orientation:Orientation 
+        var orientation:Symbol.Link.Orientation 
         {
             self.bitPattern & 1 == 0 ? .gay : .straight
         }
         
-        init(_ stem:Stem, orientation:Orientation) 
+        init(_ stem:Stem, orientation:Symbol.Link.Orientation) 
         {
             switch orientation 
             {
@@ -79,7 +74,7 @@ struct Route:Hashable, Sendable, CustomStringConvertible
         """
     }
     
-    init(_ namespace:Module.Index, _ stem:Stem, _ leaf:Stem, orientation:Orientation)
+    init(_ namespace:Module.Index, _ stem:Stem, _ leaf:Stem, orientation:Symbol.Link.Orientation)
     {
         self.init(namespace, stem, .init(leaf, orientation: orientation))
     }

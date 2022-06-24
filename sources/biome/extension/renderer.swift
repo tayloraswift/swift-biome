@@ -455,29 +455,26 @@ extension Extension
                     return self.render(span: link, as: .span)
                 }
             }
-            // if the link has content, assume it is external. at some point 
+            if destination.starts(with: "doc:")
+            {
+                return .anchor(destination)
+            }
+            // assume link is external. at some point 
             // we want to be smarter about nofollow/noopener
             let content:[Element] = link.inlineChildren.map
             {
                 self.render(inline: $0)
             }
-            if content.isEmpty 
+            return Element[.a]
             {
-                return .anchor(destination)
+                ("href",    destination)
+                ("target",  "_blank")
+                ("rel",     "nofollow")
             }
-            else 
+            content:
             {
-                return Element[.a]
-                {
-                    ("href",    destination)
-                    ("target",  "_blank")
-                    ("rel",     "nofollow")
-                }
-                content:
-                {
-                    content
-                } 
-            }
+                content
+            } 
         }
         private mutating 
         func render(link:SymbolLink) -> Element

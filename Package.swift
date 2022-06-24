@@ -24,7 +24,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-system.git",              exact: "1.2.1"),
         // only used by the previewer target
         .package(url: "https://github.com/apple/swift-nio.git",                 exact: "2.40.0"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git",     exact: "1.1.2"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git",     exact: "1.1.3"),
         .package(url: "https://github.com/swift-server/swift-backtrace.git",    exact: "1.3.2"),
     ],
     targets: 

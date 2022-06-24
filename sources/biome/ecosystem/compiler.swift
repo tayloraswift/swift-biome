@@ -15,25 +15,21 @@ extension Ecosystem
         //  we can store entire packages in the lenses because this method 
         //  is non-mutating!
         let pinned:Package.Pinned = .init(self[culture], at: pins.local)
-        var lexica:[Lexicon] = scopes.map 
-        {
-            .init(keys: keys, namespaces: $0, lenses: [pinned])
-        }
-        
         let peripherals:[[Index: Extension]] = 
-            self.resolveBindings(of: extensions, articles: articles, lexica: lexica)
-        
+            self.resolveBindings(of: extensions, 
+                articles: articles, 
+                pinned: pinned,
+                scopes: scopes, 
+                keys: keys)
         // add upstream lenses 
-        for lexicon:Int in lexica.indices 
+        let lenses:[[Package.Pinned]] = scopes.map 
         {
-            let packages:Set<Package.Index> = lexica[lexicon].namespaces.upstream()
-            lexica[lexicon].lenses.append(contentsOf: packages.map
-            {
-                self[$0].pinned(pins.upstream)
-            })
+            [pinned] + $0.upstream().map { self[$0].pinned(pins.upstream) }
         }
-        
-        return self.compile(comments: comments, peripherals: peripherals, lexica: lexica)
+        return self.compile(comments: comments, peripherals: peripherals, 
+            lenses: lenses, 
+            scopes: scopes, 
+            keys: keys)
     }
     
     mutating 
@@ -91,13 +87,15 @@ extension Ecosystem
     private 
     func resolveBindings(of extensions:[[String: Extension]], 
         articles:[[Article.Index: Extension]],
-        lexica:[Lexicon]) 
+        pinned:Package.Pinned,
+        scopes:[Module.Scope], 
+        keys:Route.Keys) 
         -> [[Index: Extension]]
     {
-        zip(lexica, zip(articles, extensions)).map
+        zip(scopes, zip(articles, extensions)).map
         {
-            let (lexicon, ( articles,                          extensions)):
-                (Lexicon, ([Article.Index: Extension], [String: Extension])) = $0
+            let (       scope, ( articles,                           extensions)):
+                (Module.Scope, ([Article.Index: Extension], [String: Extension])) = $0
             
             var bindings:[Index: Extension] = [:]
                 bindings.reserveCapacity(articles.count + extensions.count)
@@ -107,7 +105,10 @@ extension Ecosystem
             }
             for (binding, article):(String, Extension) in extensions
             {
-                guard let binding:Index = self.resolve(binding: binding, lexicon: lexicon)
+                guard let binding:Index = self.resolveWithRedirect(binding: binding, 
+                    pinned: pinned,
+                    scope: scope, 
+                    keys: keys)
                 else 
                 {
                     fatalError("unimplemented")
@@ -119,13 +120,20 @@ extension Ecosystem
         }
     }
     private 
-    func resolve(binding string:String, lexicon:Lexicon) -> Index?
+    func resolveWithRedirect(binding string:String, 
+        pinned:Package.Pinned,
+        scope:Module.Scope,
+        keys:Route.Keys) 
+        -> Index?
     {
-        if  let expression:Link.Expression = try? Link.Expression.init(relative: string),
-            case .index(let index)? = 
-            self.selectWithRedirect(visibleLink: expression.reference, lexicon: lexicon)
+        if  let uri:URI = try? .init(relative: string), 
+            case (.index(let index), _)? = try? self.resolveWithRedirect(
+                visibleLink: uri,
+                lenses: [pinned], 
+                scope: scope, 
+                keys: keys)
         {
-            return index
+            return index 
         }
         else 
         {
@@ -138,29 +146,40 @@ extension Ecosystem
     private 
     func compile(comments:[Symbol.Index: String], 
         peripherals:[[Index: Extension]], 
-        lexica:[Lexicon])
+        lenses:[[Package.Pinned]],
+        scopes:[Module.Scope], 
+        keys:Route.Keys)
         -> [Index: Article.Template<Link>]
     {
-        let comments:[Index: Article.Template<Link>] = 
-            self.compile(comments: comments, lexica: lexica)
-        let peripherals:[Index: Article.Template<Link>] = 
-            self.compile(peripherals: peripherals, lexica: lexica)
+        let comments:[Index: Article.Template<Link>] = self.compile(
+            comments: comments, 
+            lenses: lenses, 
+            scopes: scopes, 
+            keys: keys)
+        let peripherals:[Index: Article.Template<Link>] = self.compile(
+            peripherals: peripherals, 
+            lenses: lenses, 
+            scopes: scopes, 
+            keys: keys)
         return comments.merging(peripherals) { $1 }
     }
     private
-    func compile(comments:[Symbol.Index: String], lexica:[Lexicon])
+    func compile(comments:[Symbol.Index: String], 
+        lenses:[[Package.Pinned]],
+        scopes:[Module.Scope], 
+        keys:Route.Keys)
         -> [Index: Article.Template<Link>]
     {
         // need to turn the lexica into something we can select from a flattened 
         // comments dictionary 
-        let lexica:[Module.Index: Lexicon] = 
-            .init(uniqueKeysWithValues: lexica.map { ($0.namespaces.culture, $0) })
+        let contexts:[Module.Index: Int] = 
+            .init(uniqueKeysWithValues: zip(scopes.lazy.map(\.culture), scopes.indices))
         
         var templates:[Index: Article.Template<Link>] = 
             .init(minimumCapacity: comments.count)
         for (symbol, comment):(Symbol.Index, String) in comments
         {
-            guard let lexicon:Lexicon = lexica[symbol.module] 
+            guard let context:Int = contexts[symbol.module] 
             else 
             {
                 fatalError("unreachable")
@@ -169,70 +188,98 @@ extension Ecosystem
             let comment:Extension = .init(markdown: comment)
             let target:Index = .symbol(symbol)
             
-            templates[target] = self.compile(comment, for: target, lexicon: lexicon)
+            templates[target] = self.compile(comment, for: target, 
+                lenses: lenses[context], 
+                scope: scopes[context], 
+                keys: keys)
         } 
         return templates
     }
     private
-    func compile(peripherals:[[Index: Extension]], lexica:[Lexicon])
+    func compile(peripherals:[[Index: Extension]], 
+        lenses:[[Package.Pinned]],
+        scopes:[Module.Scope], 
+        keys:Route.Keys)
         -> [Index: Article.Template<Link>]
     {
-        
         var templates:[Index: Article.Template<Link>] = 
             .init(minimumCapacity: peripherals.reduce(0) { $0 + $1.count })
-        for (lexicon, assigned):(Lexicon, [Index: Extension]) in zip(lexica, peripherals)
+        for ((lenses, scope), assigned):(([Package.Pinned], Module.Scope), [Index: Extension]) in 
+            zip(zip(lenses, scopes), peripherals)
         {
             for (target, article):(Index, Extension) in assigned
             {
-                templates[target] = self.compile(article, for: target, lexicon: lexicon)
+                templates[target] = self.compile(article, for: target, 
+                    lenses: lenses, 
+                    scope: scope, 
+                    keys: keys)
             } 
         }
         return templates
     }
     private 
-    func compile(_ article:Extension, for target:Index, lexicon:Lexicon)
+    func compile(_ article:Extension, for target:Index, 
+        lenses:[Package.Pinned],
+        scope:Module.Scope,
+        keys:Route.Keys)
         -> Article.Template<Link>
     {
         let nest:Symbol.Nest? = self.nest(target)
-        let imports:Set<Module.Index> = self.standardLibrary
-            .union(lexicon.resolve(imports: article.metadata.imports))
+        let scope:Module.Scope = scope.import(article.metadata.imports)
         return article.render().transform 
         {
-            (string:String, errors:inout [Error]) in 
-            // must attempt to parse absolute first, otherwise 
-            // '/foo' will parse to ["", "foo"]
-            let selection:Selection?
-            let expression:Link.Expression
-            if let absolute:Link.Expression = try? .init(absolute: string)
+            (string:String, errors:inout [Error]) -> DOM.Substitution<Link, [UInt8]> in 
+            
+            let doclink:Bool
+            let suffix:Substring 
+            if  let start:String.Index = 
+                    string.index(string.startIndex, offsetBy: 4, limitedBy: string.endIndex), 
+                string[..<start] == "doc:"
             {
-                expression = absolute
-                selection = self.selectWithRedirect(globalLink: absolute.reference, 
-                    lexicon: lexicon)
-            }
-            else if let relative:Link.Expression = try? .init(relative: string)
-            {
-                expression = relative
-                selection = self.selectWithRedirect(visibleLink: relative.reference, 
-                    lexicon: lexicon,
-                    imports: imports, 
-                    nest: nest)
+                doclink = true 
+                suffix = string[start...]
             }
             else 
             {
-                errors.append(LinkResolutionError.none(string))
-                return .segment(HTML.Element<Never>.code(string).rendered(as: [UInt8].self))
+                doclink = false 
+                suffix = string[...]
             }
-            switch selection 
+            do 
             {
-            case nil:
-                errors.append(LinkResolutionError.none(string))
-                return .segment(HTML.Element<Never>.code(string).rendered(as: [UInt8].self))
-            
-            case .index(let target)?:
-                return .key(.init(target, visible: expression.visible))
-            
-            case .composites(let possibilities)?:
-                errors.append(LinkResolutionError.many(string, possibilities))
+                // must attempt to parse absolute first, otherwise 
+                // '/foo' will parse to ["", "foo"]
+                let resolved:(selection:Selection, visible:Int)?
+                // global "doc:" links not supported yet
+                if !doclink, let uri:URI = try? .init(absolute: suffix)
+                {
+                    resolved = try self.resolveWithRedirect(globalLink: uri, 
+                        lenses: lenses, 
+                        scope: scope, 
+                        keys: keys)
+                }
+                else 
+                {
+                    let uri:URI = try .init(relative: suffix)
+                    
+                    resolved = try self.resolveWithRedirect(visibleLink: uri, nest: nest,
+                        doclink: doclink,
+                        lenses: lenses, 
+                        scope: scope, 
+                        keys: keys)
+                }
+                switch resolved
+                {
+                case nil:
+                    throw LinkResolutionError.none(string)
+                case (.index(let target), let visible)?:
+                    return .key(.init(target, visible: visible))
+                case (.composites(let possibilities), _)?:
+                    throw LinkResolutionError.many(string, possibilities)
+                }
+            }
+            catch let error 
+            {
+                errors.append(error)
                 return .segment(HTML.Element<Never>.code(string).rendered(as: [UInt8].self))
             }
         }
@@ -253,6 +300,189 @@ extension Ecosystem
         else 
         {
             return self[composite.base].nest
+        }
+    }
+    
+    private 
+    func resolveWithRedirect(globalLink uri:URI, 
+        lenses:[Package.Pinned], 
+        scope:Module.Scope,
+        keys:Route.Keys) 
+        throws -> (selection:Selection, visible:Int)? 
+    {
+        let (global, fold):([String], Int) = uri.path.normalized
+        
+        guard   let destination:Package.ID = global.first.map(Package.ID.init(_:)), 
+                let destination:Package.Index = self.indices[destination]
+        else 
+        {
+            return nil 
+        }
+        
+        let qualified:ArraySlice<String> = _move(global).dropFirst()
+        
+        guard let namespace:Module.ID = qualified.first.map(Module.ID.init(_:)) 
+        else 
+        {
+            return (.package(destination), 1)
+        }
+        guard let namespace:Module.Index = self[destination].modules.indices[namespace]
+        else 
+        {
+            return nil
+        }
+        
+        let implicit:ArraySlice<String> = _move(qualified).dropFirst()
+        if  implicit.isEmpty 
+        {
+            return (.module(namespace), 1)
+        }
+        
+        let link:Symbol.Link = try .init(path: (implicit, fold), query: uri.query ?? [])
+        
+        if  case let (package, pins)? = self.localize(destination: destination, 
+                lens: link.query.lens),
+            let route:Route = keys[namespace, link.revealed],
+            case let (selection, _)? = self.selectWithRedirect(from: route, 
+                lens: .init(package, at: pins.local), 
+                by: link.disambiguator)
+        {
+            return (selection, link.count)
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    private 
+    func resolveWithRedirect(visibleLink uri:URI, 
+        nest:Symbol.Nest? = nil, 
+        doclink:Bool = false, 
+        lenses:[Package.Pinned],
+        scope:Module.Scope,
+        keys:Route.Keys) 
+        throws -> (selection:Selection, visible:Int)? 
+    {
+        let (path, fold):([String], Int) = uri.path.normalized 
+        if  doclink,  
+            let route:Route = keys[scope.culture, path],
+            let article:Article.Index = 
+                self[scope.culture.package].articles.indices[route]
+        {
+            return (.article(article), path.endIndex - fold)
+        }
+        let expression:Symbol.Link = 
+            try .init(path: (path, fold), query: uri.query ?? [])
+        if      let selection:Selection = self.resolve(
+                    visibleLink: expression.revealed, nest: nest, 
+                    lenses: lenses, 
+                    scope: scope, 
+                    keys: keys)
+        {
+            return (selection, expression.count)
+        }
+        else if let outed:Symbol.Link = expression.revealed.outed,
+                let selection:Selection = self.resolve(
+                    visibleLink: outed, nest: nest, 
+                    lenses: lenses, 
+                    scope: scope, 
+                    keys: keys)
+        {
+            return (selection, expression.count)
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    private 
+    func resolve(visibleLink link:Symbol.Link, 
+        nest:Symbol.Nest? = nil, 
+        lenses:[Package.Pinned],
+        scope:Module.Scope,
+        keys:Route.Keys) 
+        -> Selection? 
+    {
+        //  check if the first component refers to a module. it can be the same 
+        //  as its own culture, or one of its dependencies. 
+        //  we can store a module id in a ``Symbol/Link``, because every 
+        //  ``Module/ID`` is a valid ``Symbol/Link/Component``.
+        if  let namespace:Module.ID = (link.first?.string).map(Module.ID.init(_:)), 
+            let namespace:Module.Index = scope[namespace]
+        {
+            if  let implicit:Symbol.Link = link.suffix 
+            {
+                return self.resolve(relativeLink: implicit, 
+                    namespace: namespace, 
+                    lenses: lenses,
+                    scope: scope, 
+                    keys: keys)
+            }
+            else 
+            {
+                return .module(namespace)
+            }
+        }
+        
+        if  let nest:Symbol.Nest,
+            let relative:Selection = self.resolve(relativeLink: link, 
+                namespace: nest.namespace, 
+                prefix: nest.prefix, 
+                lenses: lenses, 
+                scope: scope, 
+                keys: keys)
+        {
+            return relative
+        }
+        // primary culture takes precedence
+        if  let absolute:Selection = self.resolve(relativeLink: link, 
+                namespace: scope.culture, 
+                lenses: lenses, 
+                scope: scope, 
+                keys: keys) 
+        {
+            return absolute
+        }
+        var imported:Selection? = nil 
+        for namespace:Module.Index in scope.filter where namespace != scope.culture 
+        {
+            if  let absolute:Selection = self.resolve(relativeLink: link, 
+                    namespace: namespace, 
+                    lenses: lenses, 
+                    scope: scope, 
+                    keys: keys) 
+            {
+                if case nil = imported 
+                {
+                    imported = absolute
+                }
+                else 
+                {
+                    // name collision
+                    return nil 
+                }
+            }
+        }
+        return imported
+    }
+    private 
+    func resolve(relativeLink link:Symbol.Link, 
+        namespace:Module.Index, 
+        prefix:[String] = [], 
+        lenses:[Package.Pinned], 
+        scope:Module.Scope,
+        keys:Route.Keys) 
+        -> Selection?
+    {
+        guard let route:Route = keys[namespace, prefix, link]
+        else 
+        {
+            return nil
+        }
+        let disambiguator:Symbol.Disambiguator = link.disambiguator
+        return self.select(from: route, lenses: lenses)
+        {
+            scope.contains($0.culture) && self.filter($0, by: disambiguator)
         }
     }
 }

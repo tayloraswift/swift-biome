@@ -108,8 +108,8 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     {
         @Keyframe<Declaration>.Head
         var declaration:Keyframe<Declaration>.Buffer.Index?
-        @Keyframe<Article.Template<Link>>.Head
-        var template:Keyframe<Article.Template<Link>>.Buffer.Index?
+        @Keyframe<Article.Template<Ecosystem.Link>>.Head
+        var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
         @Keyframe<Predicates>.Head
         var facts:Keyframe<Predicates>.Buffer.Index?
         
@@ -167,7 +167,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
             return nil
         }
     }
-    var orientation:Route.Orientation
+    var orientation:Link.Orientation
     {
         self.color.orientation
     }

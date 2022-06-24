@@ -11,18 +11,18 @@ extension Package
             self.package = package
         }
         
-        func template() -> Article.Template<Link>
+        func template() -> Article.Template<Ecosystem.Link>
         {
             self.package.templates.at(self.version, head: self.package.heads.template) ?? 
                 .init()
         }
-        func template(_ module:Module.Index) -> Article.Template<Link>
+        func template(_ module:Module.Index) -> Article.Template<Ecosystem.Link>
         {
             self.package.templates
                 .at(self.version, head: self.package[local: module].heads.template) ?? 
                 .init()
         }
-        func template(_ symbol:Symbol.Index) -> Article.Template<Link>
+        func template(_ symbol:Symbol.Index) -> Article.Template<Ecosystem.Link>
         {
             self.package.templates
                 .at(self.version, head: self.package[local: symbol].heads.template) ?? 

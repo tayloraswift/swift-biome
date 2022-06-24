@@ -62,14 +62,13 @@ struct Biome
     public 
     subscript(request:String, referrer referrer:Never?) -> StaticResponse?
     {
-        guard   let request:URI = try? .init(absolute: request), 
-                let link:Link.Expression = try? .init(normalizing: request)
+        guard let request:URI = try? .init(absolute: request)
         else 
         {
             return nil 
         }
         
-        guard case let (resolution, temporary)? = self.resolve(uri: link.reference)
+        guard case let (resolution, temporary)? = self.resolve(uri: request)
         else 
         {
             return nil
@@ -166,7 +165,7 @@ struct Biome
         
         let comments:[Symbol.Index: String] = 
             Self.comments(from: _move(symbols), pruning: hints)
-        let templates:[Ecosystem.Index: Article.Template<Link>] = 
+        let templates:[Ecosystem.Index: Article.Template<Ecosystem.Link>] = 
             self.ecosystem.compileDocumentation(for: index, 
                 extensions: _move(extensions),
                 articles: _move(articles),

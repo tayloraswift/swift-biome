@@ -82,7 +82,8 @@ struct Extension
         }
         if case nil = self.metadata.path
         {
-            self.metadata.path = .init(last: name)
+            // replace spaces in the article name with hyphens
+            self.metadata.path = .init(last: .init(name.map { $0 == " " ? "-" : $0 }))
         }
     }
     init(markdown string:String)

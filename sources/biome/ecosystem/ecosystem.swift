@@ -45,6 +45,18 @@ struct Ecosystem
         }
     }
     
+    struct Link:Hashable, Sendable
+    {
+        let target:Index 
+        let visible:Int
+        
+        init(_ target:Index, visible:Int)
+        {
+            self.target = target 
+            self.visible = visible
+        }
+    }
+    
     func describe(_ error:LinkResolutionError) -> String 
     {
         switch error 

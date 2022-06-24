@@ -30,8 +30,8 @@ struct Article:Identifiable
     
     struct Heads 
     {
-        @Keyframe<Article.Template<Link>>.Head
-        var template:Keyframe<Article.Template<Link>>.Buffer.Index?
+        @Keyframe<Article.Template<Ecosystem.Link>>.Head
+        var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
         
         init() 
         {

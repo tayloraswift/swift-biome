@@ -3,7 +3,7 @@ extension Biome
     func uri(of resolution:Ecosystem.Resolution) -> URI 
     {
         let prefix:String 
-        let location:Link.Reference<[String]>
+        let location:Ecosystem.Location
         switch resolution 
         {        
         case .selection(   .index(let index), let pins):
@@ -32,7 +32,7 @@ extension Biome
     func uri(of index:Ecosystem.Index, at version:Version) -> URI
     {
         let prefix:String 
-        let location:Link.Reference<[String]>
+        let location:Ecosystem.Location
         switch index 
         {
         case .composite(let composite):
@@ -59,11 +59,10 @@ extension Biome
             at: pins[index.culture] ?? self.ecosystem[index.culture].versions.latest)
     }
     
-    func resolve<Tail>(uri:Link.Reference<Tail>) 
-        -> (resolution:Ecosystem.Resolution, redirected:Bool)?
-        where Tail:BidirectionalCollection, Tail.Element == Link.Component
+    func resolve(uri:URI) -> (resolution:Ecosystem.Resolution, redirected:Bool)?
     {
-        guard let first:String = uri.first?.identifier ?? nil
+        let path:[String] = uri.path.normalized.components
+        guard let first:String = path.first
         else 
         {
             return nil
@@ -77,8 +76,9 @@ extension Biome
         default:
             return nil 
         }
-        return self.ecosystem.resolve(prefix: prefix, 
-            global: uri.dropFirst(), 
+        return self.ecosystem.resolve(path.dropFirst(), 
+            prefix: prefix, 
+            query: uri.query ?? [], 
             keys: self.keys) 
     }
 }

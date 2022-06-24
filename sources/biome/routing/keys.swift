@@ -48,22 +48,58 @@ extension Route
             where Component:StringProtocol 
         {
             self.table[Self.subpath(component)]
-        }        
+        }
+        private 
         subscript<Path>(stem components:Path) -> Stem? 
             where Path:Sequence, Path.Element:StringProtocol 
         {
             self.table[Self.subpath(components)]
         }
+
         
-        subscript(namespace:Module.Index, path:Path, orientation:Orientation) -> Route? 
+        private 
+        subscript(leaf component:Symbol.Link.Component) -> Stem? 
         {
-            guard   let stem:Stem = self[stem: path.prefix],
-                    let leaf:Stem = self[leaf: path.last]
+            if let hyphen:String.Index = component.hyphen 
+            {
+                return self[leaf: component.string[..<hyphen]]
+            }
+            else 
+            {
+                return self[leaf: component.string]
+            }
+        }
+
+        subscript<Path>(namespace:Module.Index, infix:Path) -> Route? 
+            where Path:BidirectionalCollection, Path.Element:StringProtocol 
+        {
+            if  let leaf:Path.Element = infix.last,
+                let leaf:Stem = self[leaf: leaf],
+                let stem:Stem = self[stem: infix.dropLast()]
+            {
+                return .init(namespace, stem, leaf, orientation: .straight)
+            }
             else 
             {
                 return nil
             }
-            return .init(namespace, stem, leaf, orientation: orientation)
+        }
+        subscript(namespace:Module.Index, infix:[String], suffix:Symbol.Link) -> Route? 
+        {
+            if  let leaf:Symbol.Link.Component = suffix.last,
+                let leaf:Stem = self[leaf: leaf],
+                let stem:Stem = self[stem: suffix.prefix(prepending: infix)]
+            {
+                return .init(namespace, stem, leaf, orientation: suffix.orientation)
+            }
+            else 
+            {
+                return nil
+            }
+        }
+        subscript(namespace:Module.Index, suffix:Symbol.Link) -> Route? 
+        {
+            self[namespace, [], suffix]
         }
         
         private mutating 
