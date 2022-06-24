@@ -28,6 +28,12 @@ extension Package
                 .at(self.version, head: self.package[local: symbol].heads.template) ?? 
                 .init()
         }
+        func template(_ article:Article.Index) -> Article.Template<Ecosystem.Link>
+        {
+            self.package.templates
+                .at(self.version, head: self.package[local: article].heads.template) ?? 
+                .init()
+        }
         
         func dependencies(_ module:Module.Index) -> Set<Module.Index>
         {

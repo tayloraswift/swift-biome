@@ -53,8 +53,8 @@ extension Biome
         {
         case .composite(let composite): 
             page = self.generatePage(for: composite, pins: pins)
-        case .article(_): 
-            page = [:]
+        case .article(let article): 
+            page = self.generatePage(for: article, pins: pins)
         case .module(let module): 
             page = self.generatePage(for: module, pins: pins)
         case .package(_):
@@ -130,6 +130,37 @@ extension Biome
             pinned: pinned.culture, 
             index: .composite(composite))
         
+        return page
+    }
+    private 
+    func generatePage(for article:Article.Index, pins:[Package.Index: Version]) 
+        -> [PageKey: [UInt8]]
+    {
+        let pinned:Package.Pinned = self.ecosystem[article.module.package].pinned(pins)
+        let template:Article.Template<[Ecosystem.Index]> = 
+            pinned.template(article).map(self.ecosystem.expand(link:))
+        
+        var uris:[Ecosystem.Index: String] = [:] 
+        
+        self.generateURIs              (&uris, for: template.summary,    pins: pins)
+        self.generateURIs              (&uris, for: template.discussion, pins: pins)
+        // cannot use `addRenderedSummaryAndDiscussion`, because we want the 
+        // summary to appear under the fold
+        var page:[PageKey: [UInt8]] = 
+        [
+            .introduction: template.summary.rendered
+            {
+                self.ecosystem.fill(trace: $0, uris: uris).rendered(as: [UInt8].self)
+            }, 
+            .discussion: template.discussion.rendered
+            {
+                self.ecosystem.fill(trace: $0, uris: uris).rendered(as: [UInt8].self)
+            }
+        ]
+        self.addAvailableVersions(to: &page, 
+            versions: pinned.package.allVersions(of: article), 
+            pinned: pinned, 
+            index: .article(article))
         return page
     }
     

@@ -219,6 +219,10 @@ struct Package:Identifiable, Sendable
     {
         self.versions.filter { self.contains(composite, at: $0) }
     }
+    func allVersions(of article:Article.Index) -> [Version]
+    {
+        self.versions.filter { self.contains(article, at: $0) }
+    } 
     func allVersions(of module:Module.Index) -> [Version]
     {
         self.versions.filter { self.contains(module, at: $0) }
@@ -238,6 +242,18 @@ struct Package:Identifiable, Sendable
     {
         if case _? = self.dependencies.at(version, 
             head: self[local: module].heads.dependencies)
+        {
+            return true 
+        }
+        else 
+        {
+            return false 
+        }
+    }
+    func contains(_ article:Article.Index, at version:Version) -> Bool 
+    {
+        if case _? = self.templates.at(version, 
+            head: self[local: article].heads.template)
         {
             return true 
         }
