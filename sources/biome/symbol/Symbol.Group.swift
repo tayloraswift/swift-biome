@@ -1,43 +1,27 @@
 extension Symbol 
 {
-    struct Groups 
+    enum Subgroup 
     {
-        private
-        var table:[Route: Group]
+        case none 
         
-        var _count:Int 
-        {
-            self.table.count
-        }
-        
-        init()
-        {
-            self.table = [:]
-        }
-        
-        subscript(route:Route) -> Group
-        {
-            self.table[route] ?? .none
-        }
-        /* subscript(namespace:Module.Index, stem:Route.Stem, leaf:Route.Leaf) -> Group
-        {
-            self[.init(namespace, stem, leaf)]
-        } */
+        case one     (Diacritic)
+        case many(Set<Diacritic>)
         
         mutating 
-        func insert(natural:Index, at route:Route)
+        func insert(_ next:Diacritic)
         {
-            self.table[route, default: .none].insert(.init(natural: natural))
-        }
-        mutating 
-        func insert(diacritic:Diacritic, 
-            features:[(base:Index, leaf:Route.Leaf)],
-            under host:(namespace:Module.Index, path:Route.Stem))
-        {
-            for (base, leaf):(Index, Route.Leaf) in features 
+            switch self 
             {
-                let route:Route = .init(host.namespace, host.path, leaf)
-                self.table[route, default: .none].insert(.init(base, diacritic))
+            case .none: 
+                self = .one(next)
+            case .one(next): 
+                break
+            case .one(let first): 
+                self = .many([first, next])
+            case .many(var diacritics):
+                self = .none 
+                diacritics.insert(next)
+                self = .many(diacritics)
             }
         }
     }
@@ -82,28 +66,45 @@ extension Symbol
             }
         }
     }
-    enum Subgroup 
+    
+    struct Groups 
     {
-        case none 
+        private
+        var table:[Route: Group]
         
-        case one     (Diacritic)
-        case many(Set<Diacritic>)
+        var _count:Int 
+        {
+            self.table.count
+        }
+        
+        init()
+        {
+            self.table = [:]
+        }
+        
+        subscript(route:Route) -> Group
+        {
+            self.table[route] ?? .none
+        }
+        /* subscript(namespace:Module.Index, stem:Route.Stem, leaf:Route.Leaf) -> Group
+        {
+            self[.init(namespace, stem, leaf)]
+        } */
         
         mutating 
-        func insert(_ next:Diacritic)
+        func insert(natural:Index, at route:Route)
         {
-            switch self 
+            self.table[route, default: .none].insert(.init(natural: natural))
+        }
+        mutating 
+        func insert(diacritic:Diacritic, 
+            features:[(base:Index, leaf:Route.Leaf)],
+            under host:(namespace:Module.Index, path:Route.Stem))
+        {
+            for (base, leaf):(Index, Route.Leaf) in features 
             {
-            case .none: 
-                self = .one(next)
-            case .one(next): 
-                break
-            case .one(let first): 
-                self = .many([first, next])
-            case .many(var diacritics):
-                self = .none 
-                diacritics.insert(next)
-                self = .many(diacritics)
+                let route:Route = .init(host.namespace, host.path, leaf)
+                self.table[route, default: .none].insert(.init(base, diacritic))
             }
         }
     }
