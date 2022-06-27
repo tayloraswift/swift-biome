@@ -1,39 +1,89 @@
-extension Ecosystem 
+struct Topics 
 {
-    func organize(toplevel:Set<Symbol.Index>, 
-        pins:[Package.Index: Version]) 
-        -> Topics 
+    enum Key:Hashable, Sendable 
+    {
+        case excerpt(Symbol.Composite)
+        case uri(Ecosystem.Index)
+    }
+    
+    enum Sublist:Hashable, CaseIterable, Sendable
+    {
+        case color(Symbol.Color)
+        
+        var heading:String 
+        {
+            switch self 
+            {
+            case .color(let color): return color.plural
+            }
+        }
+        
+        static 
+        let allCases:[Self] = Symbol.Color.allCases.map(Self.color(_:))
+    }
+    enum List:String, Hashable, Sendable 
+    {
+        case conformers         = "Conforming Types"
+        case conformances       = "Conforms To"
+        case subclasses         = "Subclasses"
+        case implications       = "Implies"
+        case refinements        = "Refinements"
+        case implementations    = "Implemented By"
+        case restatements       = "Restated By"
+        case overrides          = "Overridden By"
+    }
+    
+    var requirements:[Sublist: [Symbol.Card]]
+    var members:[Sublist: [Module.Culture: [Symbol.Card]]]
+    var removed:[Sublist: [Module.Culture: [Symbol.Card]]]
+    var lists:[List: [Module.Culture: [Symbol.Conditional]]]
+    
+    var isEmpty:Bool 
+    {
+        self.requirements.isEmpty && 
+        self.members.isEmpty && 
+        self.removed.isEmpty && 
+        self.lists.isEmpty 
+    }
+    
+    init() 
+    {
+        self.requirements = [:]
+        self.members = [:]
+        self.removed = [:]
+        self.lists = [:]
+    }
+}
+
+extension Ecosystem.Pinned 
+{
+    func organize(toplevel:Set<Symbol.Index>) -> Topics 
     {
         var topics:Topics = .init()
         for index:Symbol.Index in toplevel
         {
             // all toplevel symbols are natural and of the module’s primary culture
-            self.add(member: .init(natural: index), to: &topics, 
-                culture: .primary, 
-                pins: pins)
+            self.add(member: .init(natural: index), culture: .primary, to: &topics)
         }
         return topics
     }
-    func organize(facts:Symbol.Predicates, 
-        pins:[Package.Index: Version],
-        host:Symbol.Index) 
-        -> Topics 
+    func organize(facts:Symbol.Predicates, host:Symbol.Index) -> Topics 
     {
         var topics:Topics = .init()
         
-        if case .protocol = self[host].color
+        if case .protocol = self.ecosystem[host].color
         {
-            let pinned:Package.Pinned = self[host.module.package].pinned(pins)
+            let pinned:Package.Pinned = self.pin(host.module.package)
             switch facts.roles 
             {
             case nil: 
                 break 
             case .one(let role)?:
-                self.add(role: role, to: &topics, pinned: pinned)
+                self.add(role: role, pinned: pinned, to: &topics)
             case .many(let roles)?:
                 for role:Symbol.Index in roles 
                 {
-                    self.add(role: role, to: &topics, pinned: pinned)
+                    self.add(role: role, pinned: pinned, to: &topics)
                 }
             }
         }
@@ -41,7 +91,6 @@ extension Ecosystem
         self.organize(topics: &topics, 
             culture: .primary, 
             traits: facts.primary,
-            pins: pins,
             host: host)
         
         for (culture, traits):(Module.Index, Symbol.Traits) in facts.accepted
@@ -49,19 +98,18 @@ extension Ecosystem
             self.organize(topics: &topics, 
                 culture: .accepted(culture),
                 traits: traits,
-                pins: pins,
                 host: host)
         }
         for source:Module.Index in 
-            Set<Module.Index>.init(self[host].pollen.lazy.map(\.culture))
+            Set<Module.Index>.init(self.ecosystem[host].pollen.lazy.map(\.culture))
         {
             let diacritic:Symbol.Diacritic = .init(host: host, culture: source)
-            if let traits:Symbol.Traits = self[source.package].currentOpinion(diacritic)
+            if  let traits:Symbol.Traits = 
+                self.ecosystem[source.package].currentOpinion(diacritic)
             {
                 self.organize(topics: &topics, 
                     culture: .international(source),
                     traits: traits,
-                    pins: pins,
                     host: host)  
             }
         }
@@ -71,7 +119,6 @@ extension Ecosystem
     func organize(topics:inout Topics, 
         culture:Module.Culture, 
         traits:Symbol.Traits, 
-        pins:[Package.Index: Version],
         host:Symbol.Index)
     {
         let diacritic:Symbol.Diacritic 
@@ -85,7 +132,7 @@ extension Ecosystem
             diacritic = .init(host: host, culture: culture)
         }
         
-        let host:Symbol = self[host]
+        let host:Symbol = self.ecosystem[host]
         switch (host.color, host.shape) 
         {
         case (_, .requirement(of: _)?):
@@ -114,9 +161,7 @@ extension Ecosystem
             }
             for index:Symbol.Index in traits.members
             {
-                self.add(member: .init(natural: index), to: &topics, 
-                    culture: culture, 
-                    pins: pins)
+                self.add(member: .init(natural: index), culture: culture, to: &topics)
             }
         
         case (.concretetype(_), _): 
@@ -133,15 +178,11 @@ extension Ecosystem
             }
             for index:Symbol.Index in traits.members
             {
-                self.add(member: .init(natural: index), to: &topics, 
-                    culture: culture, 
-                    pins: pins)
+                self.add(member: .init(natural: index), culture: culture, to: &topics)
             }
             for index:Symbol.Index in traits.features
             {
-                self.add(member: .init(index, diacritic), to: &topics, 
-                    culture: culture, 
-                    pins: pins)
+                self.add(member: .init(index, diacritic), culture: culture, to: &topics)
             }
         
         case (.callable(_), _):
@@ -156,14 +197,11 @@ extension Ecosystem
         }
     }
     private 
-    func add(member composite:Symbol.Composite, to topics:inout Topics, 
-        culture:Module.Culture, 
-        pins:[Package.Index: Version])
+    func add(member composite:Symbol.Composite, culture:Module.Culture, to topics:inout Topics)
     {
-        let sublist:Topics.Sublist = .color(self[composite.base].color)
-        let declaration:Symbol.Declaration = self[composite.base.module.package]
-            .pinned(pins)
-            .declaration(composite.base)
+        let sublist:Topics.Sublist = .color(self.ecosystem[composite.base].color)
+        let declaration:Symbol.Declaration = 
+            self.pin(composite.base.module.package).declaration(composite.base)
         if  declaration.availability.isUsable 
         {
             topics.members[sublist, default: [:]][culture, default: []]
@@ -176,10 +214,10 @@ extension Ecosystem
         }
     }
     private 
-    func add(role:Symbol.Index, to topics:inout Topics, pinned:Package.Pinned)
+    func add(role:Symbol.Index, pinned:Package.Pinned, to topics:inout Topics)
     {
         // protocol roles may originate from a different package
-        switch self[role].color 
+        switch self.ecosystem[role].color 
         {
         case .protocol:
             topics.lists[.implications, default: [:]][.primary, default: []]

@@ -32,21 +32,18 @@ struct Ecosystem
         {
             .composite(.init(natural: natural))
         }
-        
-        var culture:Package.Index 
-        {
-            switch self 
-            {
-            case .package(let package):     return package 
-            case .module(let module):       return module.package 
-            case .article(let article):     return article.module.package 
-            case .composite(let composite): return composite.culture.package 
-            }
-        }
     }
     
     struct Link:Hashable, Sendable
     {
+        enum Expansion:Hashable, Sendable 
+        {
+            case package(Package.Index)
+            case article(Article.Index)
+            case module(Module.Index, [Symbol.Composite] = [])
+            case composite           ([Symbol.Composite])
+        }
+        
         let target:Index 
         let visible:Int
         
@@ -83,27 +80,31 @@ struct Ecosystem
         }
     }
     
+    let prefix:
+    (    
+        master:String,
+        doc:String,
+        lunr:String
+    )
     private(set)
     var packages:[Package], 
         indices:[Package.ID: Package.Index]
-    
-    var standardLibrary:Set<Module.Index>
+        
+    func pinned(_ pins:[Package.Index: Version]) -> Pinned 
     {
-        if let swift:Package = self[.swift]
-        {
-            return .init(swift.modules.indices.values)
-        }
-        else 
-        {
-            // must register standard library before any other packages 
-            fatalError("first package must be the swift standard library")
-        }
+        .init(self, pins: pins)
     }
-    
-    init()
+
+    init(prefixes:[URI.Prefix: String])
     {
-        self.packages = []
+        self.prefix = 
+        (
+            master: prefixes[.master,   default: "reference"],
+            doc:    prefixes[.doc,      default: "learn"],
+            lunr:   prefixes[.lunr,     default: "lunr"]
+        )
         self.indices = [:]
+        self.packages = []
     }
     
     subscript(package:Package.ID) -> Package?
@@ -143,24 +144,93 @@ struct Ecosystem
         }
     } 
     
-    // returns the components in reversed order
-    func expand(link:Link) -> [Index]
+    var standardLibrary:Set<Module.Index>
     {
-        var trace:[Index] = [link.target]
-        guard case .composite(let composite) = link.target
+        if let swift:Package = self[.swift]
+        {
+            return .init(swift.modules.indices.values)
+        }
         else 
         {
-            return trace
+            // must register standard library before any other packages 
+            fatalError("first package must be the swift standard library")
         }
-        
-        trace.reserveCapacity(link.visible)
-        var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.index
-        while trace.count < link.visible, let current:Symbol.Index = next 
+    }
+    
+    func uri(of resolution:Resolution) -> URI 
+    {
+        switch resolution 
+        {        
+        case .selection(let selection, let pins):
+            return self.pinned(pins).uri(of: selection)
+        case .searchIndex(let package): 
+            return .init(prefix: self.prefix.lunr, 
+                path: [self[package].name, "types"])
+        }
+    }
+    func uri(of index:Index, in pinned:Package.Pinned) -> URI
+    {
+        switch index 
         {
-            trace.append(.symbol(current))
-            next = self[current].shape?.index 
+        case .composite(let composite):
+            return self.uri(of: composite, in: pinned)
+        case .article(let article):
+            return self.uri(of: article, in: pinned)
+        case .module(let module):
+            return self.uri(of: module, in: pinned)
+        case .package(_):
+            return self.uri(of: pinned)
         }
-        return trace
+    }
+    func uri(of pinned:Package.Pinned) -> URI
+    {
+        .init(prefix: self.prefix.master, path: pinned.path())
+    }
+    func uri(of module:Module.Index, in pinned:Package.Pinned) -> URI
+    {
+        .init(prefix: self.prefix.master, path: pinned.path(to: module))
+    }
+    func uri(of article:Article.Index, in pinned:Package.Pinned) -> URI
+    {
+        .init(prefix: self.prefix.doc, path: pinned.path(to: article))
+    }
+    func uri(of composite:Symbol.Composite, in pinned:Package.Pinned) -> URI
+    {
+        .init(prefix: self.prefix.master, 
+            path: pinned.path(to: composite, ecosystem: self), 
+            query: pinned.query(to: composite, ecosystem: self), 
+            orientation: self[composite.base].orientation)
+    }
+    
+    func expand(_ link:Link) -> Link.Expansion
+    {
+        switch link.target 
+        {
+        case .package(let package): 
+            return .package(package)
+        case .module(let module): 
+            return .module(module)
+        case .article(let article): 
+            return .article(article)
+        case .composite(let composite):
+            var trace:[Symbol.Composite] = []
+                trace.reserveCapacity(link.visible)
+                trace.append(composite)
+            var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.index
+            while trace.count < link.visible
+            {
+                guard let current:Symbol.Index = next 
+                else 
+                {
+                    let namespace:Module.Index = self[composite.diacritic.host].namespace
+                    return .module(namespace, trace.reversed())
+                }
+                
+                trace.append(.init(natural: current))
+                next = self[current].shape?.index 
+            }
+            return .composite(trace.reversed())
+        }
     }
 
     /// returns the index of the entry for the given package, creating it if it 

@@ -162,8 +162,10 @@ struct Preview:ServiceBackend
             standard:   try controller.read(package: .swift),
             core:       try controller.read(package: .core)
         )
+        let template:DOM.Template<Page.Key, [UInt8]> = 
+            .init(freezing: DefaultTemplates.documentation(stylesheets: stylesheets.keys))
         self.biome = .init(prefixes: [.master: "reference", .doc: "learn"], 
-            template: .init(freezing: DefaultTemplates.documentation(stylesheets: stylesheets.keys)))
+            template: template)
         // load the standard and core libraries
         try self.biome.updatePackage(try await library.standard.load(with: controller).graph(), era: pins)
         try self.biome.updatePackage(try await     library.core.load(with: controller).graph(), era: pins)
@@ -198,7 +200,7 @@ struct Preview:ServiceBackend
     {
         if let resource:Resource = self.resources[uri]
         {
-            return .immediate(.matched(canonical: uri, resource))
+            return .immediate(.matched(resource, canonical: uri))
         }
         else if let response:StaticResponse = self.biome[uri, referrer: nil]
         {

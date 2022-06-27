@@ -5,10 +5,10 @@ import HTML
 public 
 enum DefaultTemplates 
 {
-    typealias Element = HTML.Element<PageKey>
+    typealias Element = HTML.Element<Page.Key>
     
     public static
-    func documentation<Stylesheets>(stylesheets:Stylesheets) -> HTML.Root<PageKey>
+    func documentation<Stylesheets>(stylesheets:Stylesheets) -> HTML.Root<Page.Key>
         where Stylesheets:Sequence, Stylesheets.Element == String
     {
         .init 
@@ -206,7 +206,7 @@ enum DefaultTemplates
                     }
                     content: 
                     {
-                        Element.anchor(.cards)
+                        Element.anchor(.topics)
                     }
                 }
             }

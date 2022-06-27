@@ -133,40 +133,54 @@ struct URI
         self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Relative.self)
     }
     
-    init(prefix:String, _ location:Ecosystem.Location)
+    init(prefix:String, 
+        path:[String], 
+        orientation:Symbol.Link.Orientation = .straight)
     {
         self.path = []
-        if case .gay = location.orientation, location.path.count >= 2
+        if case .gay = orientation, path.count >= 2
         {
-            self.path.reserveCapacity(location.path.count)
+            self.path.reserveCapacity(path.count)
             self.path.append(.push(prefix))
-            for component:String in location.path.dropLast(2)
+            for component:String in path.dropLast(2)
             {
                 self.path.append(.push(component))
             }
-            let penultimate:String = location.path[location.path.endIndex - 2]
-            let    ultimate:String = location.path[location.path.endIndex - 1]
+            let penultimate:String = path[path.endIndex - 2]
+            let    ultimate:String = path[path.endIndex - 1]
             self.path.append(.push("\(penultimate).\(ultimate)"))
         }
         else 
         {
-            self.path.reserveCapacity(location.path.count + 1)
+            self.path.reserveCapacity(path.count + 1)
             self.path.append(.push(prefix))
-            for component:String in location.path
+            for component:String in path
             {
                 self.path.append(.push(component))
             }
         }
         self.query = nil
-        if let base:Symbol.ID = location.query.base
+    }
+    init(prefix:String, 
+        path:[String], 
+        query:Symbol.Link.Query = .init(), 
+        orientation:Symbol.Link.Orientation = .straight)
+    {
+        self.init(prefix: prefix, path: path, orientation: orientation)
+        self.insert(query)
+    }
+    private mutating 
+    func insert(_ query:Symbol.Link.Query)
+    {
+        if let base:Symbol.ID = query.base
         {
             self.insert((Symbol.Link.Query.base, base.string))
         }
-        if let host:Symbol.ID = location.query.host
+        if let host:Symbol.ID = query.host
         {
             self.insert((Symbol.Link.Query.host, host.string))
         }
-        switch location.query.lens
+        switch query.lens
         {
         case nil: 
             break 
@@ -176,7 +190,6 @@ struct URI
             self.insert((Symbol.Link.Query.lens, "\(culture.string)/\(version.description)"))
         }
     }
-    
     private mutating 
     func insert(_ parameter:Parameter) 
     {

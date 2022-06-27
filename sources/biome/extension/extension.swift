@@ -10,41 +10,6 @@ struct Extension
         case block(any BlockMarkup)
         case aside(Keyword.Aside, [any BlockMarkup])
     }
-    enum Headline 
-    {
-        case implicit
-        case explicit(Heading)
-        
-        var rank:Int 
-        {
-            switch self
-            {
-            case .implicit: return 1
-            case .explicit: return 0
-            }
-        }
-        var level:Int 
-        {
-            switch self 
-            {
-            case .implicit:                 return 1 
-            case .explicit(let heading):    return heading.level
-            }
-        }
-        
-        /* func rendered() -> Documentation.Element? 
-        {
-            guard case .explicit(let headline) = self
-            else 
-            {
-                return nil
-            }
-            // FIXME: we should really be populating an outer `errors`
-            // array, but a compiler crash prevents this method 
-            // from taking any `inout` arguments.
-            return .bytes(utf8: Extension.render(recurring: headline, as: .h1).rendered(as: [UInt8].self))
-        } */
-    }
     
     private(set)
     var metadata:Metadata
@@ -254,62 +219,4 @@ struct Extension
         }
         return .init(errors: renderer.errors, summary: summary, discussion: discussion)
     }
-    // `RecurringInlineMarkup` is not a useful abstraction
-    /* private static 
-    func render(recurring inline:any InlineMarkup) -> StaticElement
-    {
-        switch inline
-        {
-        case is LineBreak:
-            return StaticElement[.br]
-        case is SoftBreak:
-            return StaticElement.text(escaped: " ")
-        
-        case let span as CustomInline: 
-            return StaticElement.text(escaping: span.text)
-        case let text as Text:
-            return StaticElement.text(escaping: text.string)
-        case let span as InlineHTML:
-            return StaticElement.text(escaped: span.rawHTML)
-        case let span as InlineCode: 
-            return StaticElement[.code] { span.code }
-        case let span as Emphasis:
-            return Self.render(recurring: span, as: .em)
-        case let span as Strikethrough:
-            return Self.render(recurring: span, as: .s)
-        case let span as Strong:
-            return Self.render(recurring: span, as: .strong)
-        case let image as Image: 
-            return Self.flatten(recurring: image)
-        case let link as Link: 
-            return Self.flatten(recurring: link)
-        case let link as SymbolLink: 
-            return StaticElement[.code] { link.destination ?? "" }
-        default: 
-            fatalError("unreachable")
-        }
-    }
-    private static 
-    func render<Span>(recurring span:Span, as container:HTML.Container) -> StaticElement
-        where Span:InlineContainer
-    {
-        StaticElement[container]
-        {
-            for span:any InlineMarkup in span.inlineChildren
-            {
-                Self.render(recurring: span)
-            }
-        }
-    }
-    private static 
-    func flatten<Span>(recurring span:Span) -> StaticElement
-        where Span:InlineContainer
-    {
-        var bytes:[UInt8] = []
-        for span:any InlineMarkup in span.inlineChildren
-        {
-            Self.render(recurring: span).rendered(into: &bytes)
-        }
-        return .bytes(utf8: bytes)
-    }  */
 }

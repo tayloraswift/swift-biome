@@ -73,7 +73,8 @@ struct Package:Identifiable, Sendable
     var facts:Keyframe<Symbol.Predicates>.Buffer, // always populated
         opinions:Keyframe<Symbol.Traits>.Buffer
     private(set)
-    var templates:Keyframe<Article.Template<Ecosystem.Link>>.Buffer
+    var templates:Keyframe<Article.Template<Ecosystem.Link>>.Buffer, 
+        headlines:Keyframe<Article.Headline>.Buffer
     
     var groups:Symbol.Groups
     
@@ -107,6 +108,7 @@ struct Package:Identifiable, Sendable
         self.opinions = .init()
         
         self.templates = .init()
+        self.headlines = .init()
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -149,12 +151,12 @@ struct Package:Identifiable, Sendable
         .init(self, at: pins[self.index] ?? self.versions.latest)
     }
     
-    var root:Ecosystem.Location
+    var root:[String]
     {
         switch self.kind
         {
-        case .swift, .core:         return .init(path: [])
-        case .community(let name):  return .init(path: [name])
+        case .swift, .core:         return []
+        case .community(let name):  return [name]
         }
     }
     
@@ -397,10 +399,11 @@ extension Package
     }
 
     mutating 
-    func updateDocumentation(_ compiled:[Ecosystem.Index: Article.Template<Ecosystem.Link>])
+    func updateDocumentation(_ compiled:Ecosystem.Documentation)
     {
         let current:Version = self.versions.latest
-        for (index, template):(Ecosystem.Index, Article.Template<Ecosystem.Link>) in compiled 
+        for (index, template):(Ecosystem.Index, Article.Template<Ecosystem.Link>) in 
+            compiled.templates 
         {
             switch index 
             {
@@ -427,6 +430,12 @@ extension Package
             case .package(_): 
                 fatalError("unreachable")
             }
+        }
+        for (index, headline):(Article.Index, Article.Headline) in 
+            compiled.headlines
+        {
+            self.headlines.update(head: &self.articles[local: index].heads.headline, 
+                to: current, with: headline)
         }
     }
     mutating 

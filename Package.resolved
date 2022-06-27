@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-dom",
       "state" : {
-        "revision" : "3f453de967d0ae108e74c07de5d2d16e6c76e090",
-        "version" : "0.3.8"
+        "revision" : "c77db294a819c91fdcf1b242525ef39f9b1de155",
+        "version" : "0.3.9"
       }
     },
     {
@@ -86,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-resource",
       "state" : {
-        "revision" : "7f7b3877fa54c0ad5ee783776c6983164141dbd7",
-        "version" : "0.2.3"
+        "revision" : "3f0eaf249bfd79b65db2a43881bbe18b4a144169",
+        "version" : "0.2.4"
       }
     },
     {

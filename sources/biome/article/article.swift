@@ -30,11 +30,14 @@ struct Article:Identifiable
     
     struct Heads 
     {
+        @Keyframe<Article.Headline>.Head
+        var headline:Keyframe<Article.Headline>.Buffer.Index?
         @Keyframe<Article.Template<Ecosystem.Link>>.Head
         var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
         
         init() 
         {
+            self._headline = .init()
             self._template = .init()
         }
     }
@@ -57,30 +60,4 @@ struct Article:Identifiable
         self.route = route
         self.heads = .init()
     }
-    
-    /* public
-    struct Rendered<Anchor> where Anchor:Hashable
-    {
-        typealias Element = HTML.Element<Anchor> 
-        
-
-        
-        public
-        let title:String, 
-            path:[String]
-        public 
-        let snippet:String
-        let headline:Documentation.Element?
-        var content:Content
-        
-        /* var stem:[[UInt8]]
-        {
-            //self.path.map { URI.encode(component: $0.utf8) }
-            self.path.suffix(1).map { Documentation.URI.encode(component: $0.utf8) }
-        }
-        var leaf:[UInt8]
-        {
-            []
-        } */
-    } */
 }

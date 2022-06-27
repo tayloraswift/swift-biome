@@ -1,4 +1,4 @@
-import DOM
+import HTML
 import Resource
 
 extension URI 
@@ -14,47 +14,46 @@ extension URI
 public
 struct Biome 
 {
-    let prefixes:
-    (
-        master:String,
-        doc:String,
-        lunr:String
-    )
-    let keyword:
-    (
-        master:Route.Stem, 
-        doc:Route.Stem,
-        lunr:Route.Stem,
-        sitemaps:Route.Stem
-    )
-    private 
-    let template:DOM.Template<PageKey, [UInt8]>
+    let template:DOM.Template<Page.Key, [UInt8]>, 
+        logo:[UInt8]
     private(set)
     var ecosystem:Ecosystem
     private(set)
     var keys:Route.Keys
     private 
+    let stem:
+    (
+        master:Route.Stem, 
+        doc:Route.Stem,
+        lunr:Route.Stem
+    )
+    private 
     var searchIndexCache:[Package.Index: Resource]
     
     public 
-    init(prefixes:[URI.Prefix: String] = [:], template:DOM.Template<PageKey, [UInt8]>) 
+    init(prefixes:[URI.Prefix: String] = [:], template:DOM.Template<Page.Key, [UInt8]>) 
     {
-        self.ecosystem = .init()
+        self.ecosystem = .init(prefixes: prefixes)
         self.keys = .init()
         
+        let logo:HTML.Element<Never> = .ol(items: [.li(.a(
+        [
+            .text(escaped: "swift"), 
+            .container(.i, content: [.text(escaped: "init")])
+        ]) 
+        { 
+            ("class", "logo") 
+            ("href", "/")
+        })])
+        
+        self.logo = logo.rendered(as: [UInt8].self)
         self.template = template 
-        self.prefixes = 
+        
+        self.stem = 
         (
-            master: prefixes[.master,   default: "reference"],
-            doc:    prefixes[.doc,      default: "learn"],
-            lunr:   prefixes[.lunr,     default: "lunr"]
-        )
-        self.keyword = 
-        (
-            master:     self.keys.register(component: self.prefixes.master),
-            doc:        self.keys.register(component: self.prefixes.doc),
-            lunr:       self.keys.register(component: self.prefixes.lunr),
-            sitemaps:   self.keys.register(component: "sitemaps")
+            master:     self.keys.register(component: self.ecosystem.prefix.master),
+            doc:        self.keys.register(component: self.ecosystem.prefix.doc),
+            lunr:       self.keys.register(component: self.ecosystem.prefix.lunr)
         )
         self.searchIndexCache = [:]
     }
@@ -67,62 +66,87 @@ struct Biome
         {
             return nil 
         }
-        
         guard case let (resolution, temporary)? = self.resolve(uri: request)
         else 
         {
             return nil
         }
         
-        let uri:URI = self.uri(of: resolution)
-
-        if uri ~= request 
+        let uri:URI = self.ecosystem.uri(of: resolution)
+        if  uri ~= request 
         {
-            return .matched(canonical: uri.description, 
-                self.generateResponse(for: resolution))
+            return self.response(for: uri, resolution: resolution)
         }
         else  
         {
             let uri:String = uri.description
             return temporary ? 
-                .maybe(canonical: uri, at: uri) : 
-                .found(canonical: uri, at: uri)
+                .maybe(at: uri, canonical: uri) : 
+                .found(at: uri, canonical: uri)
         }
     }
-    
     private 
-    func generateResponse(for resolution:Ecosystem.Resolution) -> Resource 
+    func resolve(uri:URI) -> (resolution:Ecosystem.Resolution, redirected:Bool)?
+    {
+        let path:[String] = uri.path.normalized.components
+        guard let first:String = path.first
+        else 
+        {
+            return nil
+        }
+        let prefix:URI.Prefix 
+        switch self.keys[leaf: first]
+        {
+        case self.stem.master?: prefix = .master
+        case self.stem.doc?:    prefix = .doc
+        case self.stem.lunr?:   prefix = .lunr 
+        default:
+            return nil 
+        }
+        return self.ecosystem.resolve(path.dropFirst(), 
+            prefix: prefix, 
+            query: uri.query ?? [], 
+            keys: self.keys) 
+    }
+    private 
+    func response(for uri:URI, resolution:Ecosystem.Resolution) -> StaticResponse 
     {
         switch resolution 
         {
-        case .searchIndex(let index): 
-            if let cached:Resource = self.searchIndexCache[index]
+        case .selection(let selection, pins: let pins): 
+            var page:Page = .init(self.ecosystem.pinned(pins), logo: self.logo)
+            switch selection 
             {
-                return cached 
-            }
-            else 
-            {
-                let package:Package = self.ecosystem[index]
-                print("warning: generating uncached search index (for package '\(package.id)') may have poor performance")
-                return self.generateSearchIndexOfTypes(in: package)
+            case .composites(let choices):
+                page.generate(for: choices)
+                return .multiple(.utf8(encoded: self.template.rendered(as: [UInt8].self, 
+                        substituting: _move(page).substitutions), 
+                        type: .html, 
+                        tag: nil))
+            
+            case .index(let index):
+                page.generate(for: index)
+                return .matched(.utf8(encoded: self.template.rendered(as: [UInt8].self, 
+                        substituting: _move(page).substitutions), 
+                        type: .html, 
+                        tag: nil), 
+                    canonical: uri.description)
             }
         
-        case .selection(let selection, pins: let pins): 
-            let bytes:[UInt8] = self.template.rendered(as: [UInt8].self, 
-                substituting: self.generatePage(for: selection, pins: pins))
-            return .utf8(encoded: bytes, type: .html, tag: nil)
+        case .searchIndex(let index): 
+            guard let cached:Resource = self.searchIndexCache[index]
+            else 
+            {
+                return .error(.text("search index cache for '\(self.ecosystem[index].id)' not available"))
+            }
+            return .matched(cached, canonical: uri.description) 
         }
     }
-
     public mutating 
     func regenerateSearchIndexCache() 
     {
         self.searchIndexCache = [:]
-        for package:Package in self.ecosystem.packages 
-        {
-            self.searchIndexCache[package.index] = 
-                self.generateSearchIndexOfTypes(in: package)
-        }
+        self.searchIndexCache = self.ecosystem.generateSearchIndexCache()
     }
     public mutating 
     func updatePackage(_ graph:Package.Graph, era:[Package.ID: MaskedVersion]) throws 
@@ -165,7 +189,7 @@ struct Biome
         
         let comments:[Symbol.Index: String] = 
             Self.comments(from: _move(symbols), pruning: hints)
-        let templates:[Ecosystem.Index: Article.Template<Ecosystem.Link>] = 
+        let documentation:Ecosystem.Documentation = 
             self.ecosystem.compileDocumentation(for: index, 
                 extensions: _move(extensions),
                 articles: _move(articles),
@@ -175,9 +199,8 @@ struct Biome
                 keys: self.keys)
         self.ecosystem.updateDocumentation(in: index, 
             upstream: _move(pins).upstream,
-            compiled: _move(templates), 
+            compiled: _move(documentation), 
             hints: _move(hints))
-        
         
         func bold(_ string:String) -> String
         {

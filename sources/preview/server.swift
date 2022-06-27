@@ -104,8 +104,10 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
         return headers
     }
     private 
-    func response(canonical:String?, containing resource:Resource, cached:Bool = false, 
-        allocator:ByteBufferAllocator) 
+    func response(canonical:String? = nil, 
+        containing resource:Resource, 
+        allocator:ByteBufferAllocator,
+        cached:Bool = false) 
         -> (headers:HTTPHeaders, body:ByteBuffer?) 
     {
         var headers:HTTPHeaders = self.headers(canonical: canonical)
@@ -135,33 +137,45 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
         through context:ChannelHandlerContext, 
         ifNoneMatch tag:Resource.Tag?)
     {
+        let status:HTTPResponseStatus
+        let headers:HTTPHeaders, 
+            body:ByteBuffer?
         switch response
         {
         case .none(let display):
-            self.respond(with: self.response(canonical: nil, 
-                    containing: display, 
-                    allocator: context.channel.allocator), 
-                status: .notFound, 
-                through: context)
+            (headers, body) = self.response(containing: display, 
+                allocator: context.channel.allocator)
+            status = .notFound
         
-        case .maybe(canonical: let canonical, at: let uri):
-            self.respond(with: (self.headers(canonical: canonical, location: uri), nil), 
-                status: .temporaryRedirect,
-                through: context)
-        case .found(canonical: let canonical, at: let uri):
-            self.respond(with: (self.headers(canonical: canonical, location: uri), nil), 
-                status: .permanentRedirect,
-                through: context)
+        case .error(let display):
+            (headers, body) = self.response(containing: display, 
+                allocator: context.channel.allocator)
+            status = .internalServerError
         
-        case .matched(canonical: let canonical, let resource):
+        case .multiple(let display):
+            (headers, body) = self.response(containing: display, 
+                allocator: context.channel.allocator)
+            status = .multipleChoices
+        
+        case .maybe(at: let uri, canonical: let canonical):
+            headers = self.headers(canonical: canonical, location: uri) 
+            status = .temporaryRedirect
+            body = nil 
+        
+        case .found(at: let uri, canonical: let canonical):
+            headers = self.headers(canonical: canonical, location: uri)
+            status = .permanentRedirect
+            body = nil
+        
+        case .matched(let resource, canonical: let canonical):
             let cached:Bool = resource.tag =~= tag 
-            self.respond(with: self.response(canonical: canonical, 
-                    containing: resource, 
-                    cached:     cached, 
-                    allocator:  context.channel.allocator), 
-                status:  cached ? .notModified : .ok, 
-                through: context)
+            (headers, body) = self.response(canonical: canonical, 
+                containing: resource, 
+                allocator:  context.channel.allocator,
+                cached:     cached)
+            status = cached ? .notModified : .ok
         }
+        self.respond(with: (headers, body), status: status, through: context)
     }
     private 
     func respond(with response:(headers:HTTPHeaders, body:ByteBuffer?), 

@@ -2,6 +2,18 @@ import HTML
 
 extension Ecosystem 
 {
+    struct Documentation 
+    {
+        var headlines:[Article.Index: Article.Headline]
+        var templates:[Index: Article.Template<Link>]
+        
+        init(minimumCapacity capacity:Int)
+        {
+            self.headlines = [:]
+            self.templates = .init(minimumCapacity: capacity)
+        }
+    }
+    
     func compileDocumentation(for culture:Package.Index,
         extensions:[[String: Extension]],
         articles:[[Article.Index: Extension]], 
@@ -9,7 +21,7 @@ extension Ecosystem
         scopes:[Module.Scope], 
         pins:Package.Pins<Version>,
         keys:Route.Keys)
-        -> [Index: Article.Template<Link>]
+        -> Documentation
     {
         //  build lexical scopes for each module culture. 
         //  we can store entire packages in the lenses because this method 
@@ -35,14 +47,14 @@ extension Ecosystem
     mutating 
     func updateDocumentation(in culture:Package.Index, 
         upstream:[Package.Index: Version], 
-        compiled:[Index: Article.Template<Link>],
+        compiled:Documentation,
         hints:[Symbol.Index: Symbol.Index])
     {
         self[culture].updateDocumentation(compiled)
-        self[culture].spreadDocumentation(self.recruitMigrants(in: culture, 
-            upstream: upstream, 
-            sponsors: compiled, 
-            hints: hints))
+        self[culture].spreadDocumentation(
+            self.recruitMigrants(in: culture, upstream: upstream, 
+                sponsors: compiled.templates, 
+                hints: hints))
     }
     // `culture` parameter not strictly needed, but we use it to make sure 
     // that ``generateRhetoric(graphs:scopes:)`` did not return ``hints``
@@ -149,34 +161,59 @@ extension Ecosystem
         lenses:[[Package.Pinned]],
         scopes:[Module.Scope], 
         keys:Route.Keys)
-        -> [Index: Article.Template<Link>]
+        -> Documentation
     {
-        let comments:[Index: Article.Template<Link>] = self.compile(
-            comments: comments, 
-            lenses: lenses, 
-            scopes: scopes, 
-            keys: keys)
-        let peripherals:[Index: Article.Template<Link>] = self.compile(
+        var documentation:Documentation = .init(minimumCapacity: comments.count + 
+            peripherals.reduce(0) { $0 + $1.count })
+        self.compile(&documentation,
             peripherals: peripherals, 
             lenses: lenses, 
             scopes: scopes, 
             keys: keys)
-        return comments.merging(peripherals) { $1 }
+        self.compile(&documentation,
+            comments: comments, 
+            lenses: lenses, 
+            scopes: scopes, 
+            keys: keys)
+        return documentation
     }
     private
-    func compile(comments:[Symbol.Index: String], 
+    func compile(_ documentation:inout Documentation, 
+        peripherals:[[Index: Extension]], 
         lenses:[[Package.Pinned]],
         scopes:[Module.Scope], 
         keys:Route.Keys)
-        -> [Index: Article.Template<Link>]
+    {
+        for ((lenses, scope), assigned):(([Package.Pinned], Module.Scope), [Index: Extension]) in 
+            zip(zip(lenses, scopes), peripherals)
+        {
+            for (target, article):(Index, Extension) in assigned
+            {
+                documentation.templates[target] = self.compile(article, for: target, 
+                    lenses: lenses, 
+                    scope: scope, 
+                    keys: keys)
+                
+                if case .article(let index) = target 
+                {
+                    documentation.headlines[index] = .init(
+                        formatted: article.headline.rendered(as: [UInt8].self),
+                        plain: article.headline.plainText)
+                }
+            } 
+        }
+    }
+    private
+    func compile(_ documentation:inout Documentation, 
+        comments:[Symbol.Index: String], 
+        lenses:[[Package.Pinned]],
+        scopes:[Module.Scope], 
+        keys:Route.Keys)
     {
         // need to turn the lexica into something we can select from a flattened 
         // comments dictionary 
         let contexts:[Module.Index: Int] = 
             .init(uniqueKeysWithValues: zip(scopes.lazy.map(\.culture), scopes.indices))
-        
-        var templates:[Index: Article.Template<Link>] = 
-            .init(minimumCapacity: comments.count)
         for (symbol, comment):(Symbol.Index, String) in comments
         {
             guard let context:Int = contexts[symbol.module] 
@@ -188,35 +225,13 @@ extension Ecosystem
             let comment:Extension = .init(markdown: comment)
             let target:Index = .symbol(symbol)
             
-            templates[target] = self.compile(comment, for: target, 
+            documentation.templates[target] = self.compile(comment, for: target, 
                 lenses: lenses[context], 
                 scope: scopes[context], 
                 keys: keys)
         } 
-        return templates
     }
-    private
-    func compile(peripherals:[[Index: Extension]], 
-        lenses:[[Package.Pinned]],
-        scopes:[Module.Scope], 
-        keys:Route.Keys)
-        -> [Index: Article.Template<Link>]
-    {
-        var templates:[Index: Article.Template<Link>] = 
-            .init(minimumCapacity: peripherals.reduce(0) { $0 + $1.count })
-        for ((lenses, scope), assigned):(([Package.Pinned], Module.Scope), [Index: Extension]) in 
-            zip(zip(lenses, scopes), peripherals)
-        {
-            for (target, article):(Index, Extension) in assigned
-            {
-                templates[target] = self.compile(article, for: target, 
-                    lenses: lenses, 
-                    scope: scope, 
-                    keys: keys)
-            } 
-        }
-        return templates
-    }
+
     private 
     func compile(_ article:Extension, for target:Index, 
         lenses:[Package.Pinned],

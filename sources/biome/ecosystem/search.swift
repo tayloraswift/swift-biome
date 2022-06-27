@@ -1,8 +1,16 @@
 import JSON 
 import Resource
 
-extension Biome 
+extension Ecosystem 
 {
+    func generateSearchIndexCache() -> [Package.Index: Resource]
+    {
+        .init(uniqueKeysWithValues: self.packages.map 
+        {
+            ($0.index, self.generateSearchIndexOfTypes(in: $0))
+        })
+    }
+    private 
     func generateSearchIndexOfTypes(in package:Package) -> Resource
     {
         let current:Package.Pinned = .init(package, at: package.versions.latest)
@@ -25,7 +33,7 @@ extension Biome
                     }
                     
                     let declaration:Symbol.Declaration = current.declaration(index)
-                    let uri:URI = self.uri(of: .symbol(index), at: current.version)
+                    let uri:URI = self.uri(of: .symbol(index), in: current)
                     let keywords:[JSON] = declaration.signature.compactMap
                     {
                         switch $0.color 

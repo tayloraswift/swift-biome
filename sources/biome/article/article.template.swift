@@ -2,7 +2,23 @@ import HTML
 
 extension Article 
 {
-    struct Template<Key>:Hashable where Key:Hashable
+    struct Headline:Equatable 
+    {
+        let formatted:[UInt8]
+        let plain:String
+        
+        init(_ plain:String)
+        {
+            self.init(formatted: .init(plain.utf8), plain: plain)
+        }
+        init(formatted:[UInt8], plain:String)
+        {
+            self.formatted = formatted 
+            self.plain = plain 
+        }
+    }
+    
+    struct Template<Key>:Equatable where Key:Equatable
     {
         let errors:[Error]
         let summary:DOM.Template<Key, [UInt8]>
@@ -13,11 +29,6 @@ extension Article
         func == (lhs:Self, rhs:Self) -> Bool 
         {
             lhs.summary == rhs.summary && lhs.discussion == rhs.discussion
-        }
-        func hash(into hasher:inout Hasher) 
-        {
-            self.summary.hash(into: &hasher)
-            self.discussion.hash(into: &hasher)
         }
         
         var isEmpty:Bool 
