@@ -6,11 +6,11 @@ extension Ecosystem
         case searchIndex(Package.Index)
     }
     
-    func resolve<Path>(_ path:Path, prefix:URI.Prefix, query:[URI.Parameter], stems:Stems) 
+    func resolve<Path>(_ path:Path, root:Root, query:[URI.Parameter], stems:Stems) 
         -> (resolution:Resolution, redirected:Bool)?
         where Path:BidirectionalCollection, Path.Element:StringProtocol
     {
-        switch prefix 
+        switch root 
         {
         case .lunr: 
             guard   let package:Package.ID = path.first.map(Package.ID.init(_:)), 

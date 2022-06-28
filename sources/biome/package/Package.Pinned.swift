@@ -36,7 +36,7 @@ extension Package.Pinned
     }
     func path(to index:Module.Index) -> [String]
     {
-        var path:[String] = self.package.root
+        var path:[String] = self.package.trunk
         if let version:MaskedVersion = self.abbreviatedVersion
         {
             path.append(version.description)
@@ -60,7 +60,7 @@ extension Package.Pinned
         let base:Symbol = ecosystem[composite.base]
         let host:Symbol = ecosystem[composite.diacritic.host] 
         
-        var path:[String] = ecosystem[host.namespace.package].root
+        var path:[String] = ecosystem[host.namespace.package].trunk
         if  composite.culture.package == host.namespace.package, 
             let version:MaskedVersion = self.abbreviatedVersion
         {

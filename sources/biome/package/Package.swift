@@ -155,7 +155,7 @@ struct Package:Identifiable, Sendable
         .init(self, at: pins[self.index] ?? self.versions.latest)
     }
     
-    var root:[String]
+    var trunk:[String]
     {
         switch self.kind
         {

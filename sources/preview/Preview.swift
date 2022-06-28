@@ -62,7 +62,7 @@ struct Preview:ServiceBackend
         )
         let template:DOM.Template<Page.Key, [UInt8]> = 
             .init(freezing: DefaultTemplates.documentation(stylesheets: stylesheets.keys))
-        self.biome = .init(prefixes: [.master: "reference", .doc: "learn"], 
+        self.biome = .init(roots: [.master: "reference", .doc: "learn"], 
             template: template)
         // load the standard and core libraries
         try self.biome.updatePackage(try await library.standard.load(with: controller).graph(), era: pins)

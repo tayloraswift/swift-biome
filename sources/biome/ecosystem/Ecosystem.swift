@@ -80,7 +80,7 @@ struct Ecosystem
         }
     }
     
-    let prefix:
+    let root:
     (    
         master:String,
         doc:String,
@@ -95,13 +95,13 @@ struct Ecosystem
         .init(self, pins: pins)
     }
 
-    init(prefixes:[URI.Prefix: String])
+    init(roots:[Root: String])
     {
-        self.prefix = 
+        self.root = 
         (
-            master: prefixes[.master,   default: "reference"],
-            doc:    prefixes[.doc,      default: "learn"],
-            lunr:   prefixes[.lunr,     default: "lunr"]
+            master: roots[.master,   default: "reference"],
+            doc:    roots[.doc,      default: "learn"],
+            lunr:   roots[.lunr,     default: "lunr"]
         )
         self.indices = [:]
         self.packages = []
@@ -164,7 +164,7 @@ struct Ecosystem
         case .selection(let selection, let pins):
             return self.pinned(pins).uri(of: selection)
         case .searchIndex(let package): 
-            return .init(prefix: self.prefix.lunr, 
+            return .init(root: self.root.lunr, 
                 path: [self[package].name, "types"])
         }
     }
@@ -184,19 +184,19 @@ struct Ecosystem
     }
     func uri(of pinned:Package.Pinned) -> URI
     {
-        .init(prefix: self.prefix.master, path: pinned.path())
+        .init(root: self.root.master, path: pinned.path())
     }
     func uri(of module:Module.Index, in pinned:Package.Pinned) -> URI
     {
-        .init(prefix: self.prefix.master, path: pinned.path(to: module))
+        .init(root: self.root.master, path: pinned.path(to: module))
     }
     func uri(of article:Article.Index, in pinned:Package.Pinned) -> URI
     {
-        .init(prefix: self.prefix.doc, path: pinned.path(to: article))
+        .init(root: self.root.doc, path: pinned.path(to: article))
     }
     func uri(of composite:Symbol.Composite, in pinned:Package.Pinned) -> URI
     {
-        .init(prefix: self.prefix.master, 
+        .init(root: self.root.master, 
             path: pinned.path(to: composite, ecosystem: self), 
             query: pinned.query(to: composite, ecosystem: self), 
             orientation: self[composite.base].orientation)

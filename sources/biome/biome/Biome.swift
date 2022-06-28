@@ -1,16 +1,6 @@
 import HTML
 import Resource
 
-extension URI 
-{
-    public 
-    enum Prefix:Hashable, Sendable 
-    {
-        case master
-        case doc
-        case lunr
-    }
-}
 public
 struct Biome 
 {
@@ -21,19 +11,19 @@ struct Biome
     private(set)
     var stems:Stems
     private 
-    let stem:
+    let root:
     (
         master:Stem, 
-        doc:Stem,
-        lunr:Stem
+        lunr:Stem,
+        doc:Stem
     )
     private 
     var search:SearchIndexCache
     
     public 
-    init(prefixes:[URI.Prefix: String] = [:], template:DOM.Template<Page.Key, [UInt8]>) 
+    init(roots:[Root: String] = [:], template:DOM.Template<Page.Key, [UInt8]>) 
     {
-        self.ecosystem = .init(prefixes: prefixes)
+        self.ecosystem = .init(roots: roots)
         self.search = .init()
         self.stems = .init()
         
@@ -50,11 +40,11 @@ struct Biome
         self.logo = logo.rendered(as: [UInt8].self)
         self.template = template 
         
-        self.stem = 
+        self.root = 
         (
-            master:     self.stems.register(component: self.ecosystem.prefix.master),
-            doc:        self.stems.register(component: self.ecosystem.prefix.doc),
-            lunr:       self.stems.register(component: self.ecosystem.prefix.lunr)
+            master:     self.stems.register(component: self.ecosystem.root.master),
+            lunr:       self.stems.register(component: self.ecosystem.root.lunr),
+            doc:        self.stems.register(component: self.ecosystem.root.doc)
         )
     }
     
@@ -94,17 +84,17 @@ struct Biome
         {
             return nil
         }
-        let prefix:URI.Prefix 
+        let root:Root 
         switch self.stems[leaf: first]
         {
-        case self.stem.master?: prefix = .master
-        case self.stem.doc?:    prefix = .doc
-        case self.stem.lunr?:   prefix = .lunr 
+        case self.root.master?: root = .master
+        case self.root.doc?:    root = .doc
+        case self.root.lunr?:   root = .lunr 
         default:
             return nil 
         }
         return self.ecosystem.resolve(path.dropFirst(), 
-            prefix: prefix, 
+            root: root, 
             query: uri.query ?? [], 
             stems: self.stems) 
     }

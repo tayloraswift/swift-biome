@@ -31,7 +31,7 @@ extension Ecosystem
                     fatalError("empty disambiguation group")
                 }
                 let pinned:Package.Pinned = self.pin(exemplar.culture.package)
-                return .init(prefix: self.ecosystem.prefix.master, 
+                return .init(root: self.ecosystem.root.master, 
                     path: pinned.path(to: exemplar, ecosystem: self.ecosystem), 
                     orientation: self.ecosystem[exemplar.base].orientation)
             }
