@@ -1,44 +1,11 @@
-import JSON
+import Grammar 
 
-extension Symbol 
+enum USR:Hashable, Sendable 
 {
-    enum USR:Hashable, Sendable 
-    {
-        case natural(ID)
-        case synthesized(from:ID, for:ID)
-    }
+    case natural(Symbol.ID)
+    case synthesized(from:Symbol.ID, for:Symbol.ID)
 }
-extension Symbol.ID 
-{
-    init(from json:JSON) throws 
-    {
-        let string:String = try json.as(String.self)
-        self = try Grammar.parse(string.utf8, as: Symbol.USR.Rule<String.Index>.OpaqueName.self)
-    }
-    
-    var interface:(culture:Module.ID, protocol:(name:String, id:Self))?
-    {
-        // if a vertex is non-canonical, the symbol id of its generic base 
-        // always starts with a mangled protocol name. 
-        // note that our demangling implementation cannot handle “known” 
-        // protocols like 'Swift.Equatable'. but this is fine because we 
-        // are only using this to detect symbols that are defined in extensions 
-        // on underscored protocols.
-        var input:ParsingInput<Grammar.NoDiagnostics> = .init(self.string.utf8)
-        guard case let (namespace, name)? = 
-            input.parse(as: Symbol.USR.Rule<String.Index>.MangledProtocolName?.self)
-        else 
-        {
-            return nil 
-        }
-        // parsing input shares indices with `self.string`
-        let id:Self = .init(string: .init(self.string[..<input.index]))
-        let culture:Module.ID = 
-            input.parse(as: Symbol.USR.Rule<String.Index>.MangledExtensionContext?.self) ?? namespace
-        return (culture, (name, id))
-    }
-}
-extension Symbol.USR 
+extension USR 
 {
     enum Rule<Location>
     {
@@ -47,7 +14,7 @@ extension Symbol.USR
     }
 }
 // it would be really nice if this were generic over ``ASCIITerminal``
-extension Symbol.USR.Rule:ParsingRule 
+extension USR.Rule:ParsingRule 
 {
     private 
     enum Synthesized:LiteralRule 
@@ -125,7 +92,7 @@ extension Symbol.USR.Rule:ParsingRule
         
     // USR  ::= <Mangled Name> ( '::SYNTHESIZED::' <Mangled Name> ) ?
     static 
-    func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> Symbol.USR
+    func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> USR
         where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
     {
         let first:Symbol.ID = try input.parse(as: OpaqueName.self)
@@ -138,7 +105,7 @@ extension Symbol.USR.Rule:ParsingRule
         return .synthesized(from: first, for: second)
     }
 }
-extension Symbol.USR.Rule 
+extension USR.Rule 
 {
     // example 1: 'ss8_PointerPsE11predecessorxyF'
     // 

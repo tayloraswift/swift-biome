@@ -88,7 +88,7 @@ extension Package.Pinned
         var query:Symbol.Link.Query = .init()
         if composite.base != composite.diacritic.host
         {
-            guard let stem:Route.Stem = host.kind.path
+            guard let stem:Stem = host.kind.path
             else 
             {
                 fatalError("unreachable: (host: \(host), base: \(base))")

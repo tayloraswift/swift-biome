@@ -47,10 +47,10 @@ extension Edge
                     try $0.remove("identifier", Symbol.ID.init(from:))
                 }
             }
-            let usr:Symbol.USR = try $0.remove("source")
+            let usr:USR = try $0.remove("source")
             {
                 let text:String = try $0.as(String.self)
-                return try Grammar.parse(text.utf8, as: Symbol.USR.Rule<String.Index>.self)
+                return try Grammar.parse(text.utf8, as: USR.Rule<String.Index>.self)
             }
             let source:Symbol.ID
             switch (kind, usr)

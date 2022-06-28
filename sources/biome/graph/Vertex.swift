@@ -84,7 +84,7 @@ extension Image
                 {
                     try $0.remove("precise", as: String.self)
                 }
-                switch try Grammar.parse(string.utf8, as: Symbol.USR.Rule<String.Index>.self)
+                switch try Grammar.parse(string.utf8, as: USR.Rule<String.Index>.self)
                 {
                 case .natural(let id): 
                     return (.natural, id)

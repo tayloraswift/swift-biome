@@ -281,7 +281,7 @@ extension Ecosystem
             
             self[index].groups.insert(natural: host, at: symbol.route)
             
-            guard let path:Route.Stem = symbol.kind.path
+            guard let path:Stem = symbol.kind.path
             else 
             {
                 continue 
@@ -301,7 +301,7 @@ extension Ecosystem
             
             let symbol:Symbol = self[diacritic.host]
             
-            guard let path:Route.Stem = symbol.kind.path
+            guard let path:Stem = symbol.kind.path
             else 
             {
                 // can have external traits that do not have to do with features

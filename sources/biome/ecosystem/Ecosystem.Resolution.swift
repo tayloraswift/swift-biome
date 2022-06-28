@@ -6,10 +6,7 @@ extension Ecosystem
         case searchIndex(Package.Index)
     }
     
-    func resolve<Path>(_ path:Path, 
-        prefix:URI.Prefix, 
-        query:[URI.Parameter], 
-        keys:Route.Keys) 
+    func resolve<Path>(_ path:Path, prefix:URI.Prefix, query:[URI.Parameter], stems:Stems) 
         -> (resolution:Resolution, redirected:Bool)?
         where Path:BidirectionalCollection, Path.Element:StringProtocol
     {
@@ -30,7 +27,7 @@ extension Ecosystem
             {
                 (path:Path.SubSequence, namespace:Module.Index, arrival:MaskedVersion?) in 
                 
-                if  let route:Route = keys[namespace, path],
+                if  let route:Route = stems[namespace, path],
                     let article:Article.Index = 
                         self[namespace.package].articles.indices[route]
                 {
@@ -45,7 +42,7 @@ extension Ecosystem
                 else if case (let resolution, _)? = 
                     self.resolveSymbol(path, namespace: namespace, arrival: arrival, 
                         query: query, 
-                        keys: keys)
+                        stems: stems)
                 {
                     return (resolution, true)
                 }
@@ -60,7 +57,7 @@ extension Ecosystem
             {
                 self.resolveSymbol($0, namespace: $1, arrival: $2, 
                     query: query, 
-                    keys: keys)
+                    stems: stems)
             }
         }
     }
@@ -164,7 +161,7 @@ extension Ecosystem
         namespace:Module.Index, 
         arrival:MaskedVersion?, 
         query:[URI.Parameter], 
-        keys:Route.Keys)
+        stems:Stems)
         -> (resolution:Resolution, redirected:Bool)?
         where Path:Collection, Path.Element:StringProtocol
     {        
@@ -174,7 +171,7 @@ extension Ecosystem
                 self.localize(destination: namespace.package, 
                     arrival: arrival, 
                     lens: link.query.lens),
-            let route:Route = keys[namespace, link.revealed], 
+            let route:Route = stems[namespace, link.revealed], 
             case let (selection, redirected: redirected)? = 
                 self.selectWithRedirect(from: route, 
                     lens: .init(package, at: pins.local), 

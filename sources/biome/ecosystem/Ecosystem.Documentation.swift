@@ -19,8 +19,8 @@ extension Ecosystem
         articles:[[Article.Index: Extension]], 
         comments:[Symbol.Index: String], 
         scopes:[Module.Scope], 
-        pins:Package.Pins<Version>,
-        keys:Route.Keys)
+        stems:Stems, 
+        pins:Package.Pins<Version>)
         -> Documentation
     {
         //  build lexical scopes for each module culture. 
@@ -32,7 +32,7 @@ extension Ecosystem
                 articles: articles, 
                 pinned: pinned,
                 scopes: scopes, 
-                keys: keys)
+                stems: stems)
         // add upstream lenses 
         let lenses:[[Package.Pinned]] = scopes.map 
         {
@@ -41,7 +41,7 @@ extension Ecosystem
         return self.compile(comments: comments, peripherals: peripherals, 
             lenses: lenses, 
             scopes: scopes, 
-            keys: keys)
+            stems: stems)
     }
     
     mutating 
@@ -101,7 +101,7 @@ extension Ecosystem
         articles:[[Article.Index: Extension]],
         pinned:Package.Pinned,
         scopes:[Module.Scope], 
-        keys:Route.Keys) 
+        stems:Stems) 
         -> [[Index: Extension]]
     {
         zip(scopes, zip(articles, extensions)).map
@@ -120,7 +120,7 @@ extension Ecosystem
                 guard let binding:Index = self.resolveWithRedirect(binding: binding, 
                     pinned: pinned,
                     scope: scope, 
-                    keys: keys)
+                    stems: stems)
                 else 
                 {
                     fatalError("unimplemented")
@@ -135,7 +135,7 @@ extension Ecosystem
     func resolveWithRedirect(binding string:String, 
         pinned:Package.Pinned,
         scope:Module.Scope,
-        keys:Route.Keys) 
+        stems:Stems) 
         -> Index?
     {
         if  let uri:URI = try? .init(relative: string), 
@@ -143,7 +143,7 @@ extension Ecosystem
                 visibleLink: uri,
                 lenses: [pinned], 
                 scope: scope, 
-                keys: keys)
+                stems: stems)
         {
             return index 
         }
@@ -160,7 +160,7 @@ extension Ecosystem
         peripherals:[[Index: Extension]], 
         lenses:[[Package.Pinned]],
         scopes:[Module.Scope], 
-        keys:Route.Keys)
+        stems:Stems)
         -> Documentation
     {
         var documentation:Documentation = .init(minimumCapacity: comments.count + 
@@ -169,12 +169,12 @@ extension Ecosystem
             peripherals: peripherals, 
             lenses: lenses, 
             scopes: scopes, 
-            keys: keys)
+            stems: stems)
         self.compile(&documentation,
             comments: comments, 
             lenses: lenses, 
             scopes: scopes, 
-            keys: keys)
+            stems: stems)
         return documentation
     }
     private
@@ -182,7 +182,7 @@ extension Ecosystem
         peripherals:[[Index: Extension]], 
         lenses:[[Package.Pinned]],
         scopes:[Module.Scope], 
-        keys:Route.Keys)
+        stems:Stems)
     {
         for ((lenses, scope), assigned):(([Package.Pinned], Module.Scope), [Index: Extension]) in 
             zip(zip(lenses, scopes), peripherals)
@@ -192,7 +192,7 @@ extension Ecosystem
                 documentation.templates[target] = self.compile(article, for: target, 
                     lenses: lenses, 
                     scope: scope, 
-                    keys: keys)
+                    stems: stems)
                 
                 if case .article(let index) = target 
                 {
@@ -208,7 +208,7 @@ extension Ecosystem
         comments:[Symbol.Index: String], 
         lenses:[[Package.Pinned]],
         scopes:[Module.Scope], 
-        keys:Route.Keys)
+        stems:Stems)
     {
         // need to turn the lexica into something we can select from a flattened 
         // comments dictionary 
@@ -228,7 +228,7 @@ extension Ecosystem
             documentation.templates[target] = self.compile(comment, for: target, 
                 lenses: lenses[context], 
                 scope: scopes[context], 
-                keys: keys)
+                stems: stems)
         } 
     }
 
@@ -236,7 +236,7 @@ extension Ecosystem
     func compile(_ article:Extension, for target:Index, 
         lenses:[Package.Pinned],
         scope:Module.Scope,
-        keys:Route.Keys)
+        stems:Stems)
         -> Article.Template<Link>
     {
         let nest:Symbol.Nest? = self.nest(target)
@@ -270,7 +270,7 @@ extension Ecosystem
                     resolved = try self.resolveWithRedirect(globalLink: uri, 
                         lenses: lenses, 
                         scope: scope, 
-                        keys: keys)
+                        stems: stems)
                 }
                 else 
                 {
@@ -280,7 +280,7 @@ extension Ecosystem
                         doclink: doclink,
                         lenses: lenses, 
                         scope: scope, 
-                        keys: keys)
+                        stems: stems)
                 }
                 switch resolved
                 {
@@ -322,7 +322,7 @@ extension Ecosystem
     func resolveWithRedirect(globalLink uri:URI, 
         lenses:[Package.Pinned], 
         scope:Module.Scope,
-        keys:Route.Keys) 
+        stems:Stems) 
         throws -> (selection:Selection, visible:Int)? 
     {
         let (global, fold):([String], Int) = uri.path.normalized
@@ -357,7 +357,7 @@ extension Ecosystem
         
         if  case let (package, pins)? = self.localize(destination: destination, 
                 lens: link.query.lens),
-            let route:Route = keys[namespace, link.revealed],
+            let route:Route = stems[namespace, link.revealed],
             case let (selection, _)? = self.selectWithRedirect(from: route, 
                 lens: .init(package, at: pins.local), 
                 by: link.disambiguator)
@@ -375,12 +375,12 @@ extension Ecosystem
         doclink:Bool = false, 
         lenses:[Package.Pinned],
         scope:Module.Scope,
-        keys:Route.Keys) 
+        stems:Stems) 
         throws -> (selection:Selection, visible:Int)? 
     {
         let (path, fold):([String], Int) = uri.path.normalized 
         if  doclink,  
-            let route:Route = keys[scope.culture, path],
+            let route:Route = stems[scope.culture, path],
             let article:Article.Index = 
                 self[scope.culture.package].articles.indices[route]
         {
@@ -392,7 +392,7 @@ extension Ecosystem
                     visibleLink: expression.revealed, nest: nest, 
                     lenses: lenses, 
                     scope: scope, 
-                    keys: keys)
+                    stems: stems)
         {
             return (selection, expression.count)
         }
@@ -401,7 +401,7 @@ extension Ecosystem
                     visibleLink: outed, nest: nest, 
                     lenses: lenses, 
                     scope: scope, 
-                    keys: keys)
+                    stems: stems)
         {
             return (selection, expression.count)
         }
@@ -415,7 +415,7 @@ extension Ecosystem
         nest:Symbol.Nest? = nil, 
         lenses:[Package.Pinned],
         scope:Module.Scope,
-        keys:Route.Keys) 
+        stems:Stems) 
         -> Selection? 
     {
         //  check if the first component refers to a module. it can be the same 
@@ -431,7 +431,7 @@ extension Ecosystem
                     namespace: namespace, 
                     lenses: lenses,
                     scope: scope, 
-                    keys: keys)
+                    stems: stems)
             }
             else 
             {
@@ -445,7 +445,7 @@ extension Ecosystem
                 prefix: nest.prefix, 
                 lenses: lenses, 
                 scope: scope, 
-                keys: keys)
+                stems: stems)
         {
             return relative
         }
@@ -454,7 +454,7 @@ extension Ecosystem
                 namespace: scope.culture, 
                 lenses: lenses, 
                 scope: scope, 
-                keys: keys) 
+                stems: stems) 
         {
             return absolute
         }
@@ -465,7 +465,7 @@ extension Ecosystem
                     namespace: namespace, 
                     lenses: lenses, 
                     scope: scope, 
-                    keys: keys) 
+                    stems: stems) 
             {
                 if case nil = imported 
                 {
@@ -486,10 +486,10 @@ extension Ecosystem
         prefix:[String] = [], 
         lenses:[Package.Pinned], 
         scope:Module.Scope,
-        keys:Route.Keys) 
+        stems:Stems) 
         -> Selection?
     {
-        guard let route:Route = keys[namespace, prefix, link]
+        guard let route:Route = stems[namespace, prefix, link]
         else 
         {
             return nil

@@ -1,19 +1,33 @@
 import JSON 
 import Resource
 
-extension Ecosystem 
+struct SearchIndexCache 
 {
-    func generateSearchIndexCache() -> [Package.Index: Resource]
+    private(set)
+    var indices:[Package.Index: Resource]
+    
+    init()
     {
-        .init(uniqueKeysWithValues: self.packages.map 
-        {
-            ($0.index, self.generateSearchIndexOfTypes(in: $0))
-        })
+        self.indices = [:]
     }
-    private 
-    func generateSearchIndexOfTypes(in package:Package) -> Resource
+    mutating 
+    func regenerate(from ecosystem:Ecosystem)
     {
-        let current:Package.Pinned = .init(package, at: package.versions.latest)
+        self.indices.removeAll()
+        for package:Package.Index in ecosystem.indices.values 
+        {
+            self.regenerate(for: package, from: ecosystem)
+        }
+    }
+    private mutating 
+    func regenerate(for package:Package.Index, from ecosystem:Ecosystem)
+    {
+        self.indices[package] = Self.generate(for: package, from: ecosystem)
+    }
+    private static 
+    func generate(for package:Package.Index, from ecosystem:Ecosystem) -> Resource
+    {
+        let current:Package.Pinned = ecosystem[package].pinned()
         let modules:[JSON] = current.package.modules.all.map 
         {
             var types:[JSON] = []
@@ -33,7 +47,7 @@ extension Ecosystem
                     }
                     
                     let declaration:Symbol.Declaration = current.declaration(index)
-                    let uri:URI = self.uri(of: .symbol(index), in: current)
+                    let uri:URI = ecosystem.uri(of: .symbol(index), in: current)
                     let keywords:[JSON] = declaration.signature.compactMap
                     {
                         switch $0.color 
@@ -55,9 +69,10 @@ extension Ecosystem
             let module:String = .init($0.title)
             return .object([("module", .string(module)), ("symbols", .array(types))])
         }
-        let tag:String = "lunr:0.1.0/\(package.name)"
+        let tag:String = "lunr:0.1.0/\(current.package.name)"
         let json:JSON = .array(_move(modules))
         let bytes:[UInt8] = .init(_move(json).description.utf8)
+        
         return .utf8(encoded: bytes, type: .json, tag: .init(tag))
     }
 }

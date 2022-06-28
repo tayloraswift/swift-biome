@@ -86,10 +86,6 @@ extension Symbol
         {
             self.table[route] ?? .none
         }
-        /* subscript(namespace:Module.Index, stem:Route.Stem, leaf:Route.Leaf) -> Group
-        {
-            self[.init(namespace, stem, leaf)]
-        } */
         
         mutating 
         func insert(natural:Index, at route:Route)
@@ -98,10 +94,10 @@ extension Symbol
         }
         mutating 
         func insert(diacritic:Diacritic, 
-            features:[(base:Index, leaf:Route.Leaf)],
-            under host:(namespace:Module.Index, path:Route.Stem))
+            features:[(base:Index, leaf:Leaf)],
+            under host:(namespace:Module.Index, path:Stem))
         {
-            for (base, leaf):(Index, Route.Leaf) in features 
+            for (base, leaf):(Index, Leaf) in features 
             {
                 let route:Route = .init(host.namespace, host.path, leaf)
                 self.table[route, default: .none].insert(.init(base, diacritic))

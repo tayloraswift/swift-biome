@@ -146,6 +146,10 @@ struct Package:Identifiable, Sendable
         self.index == article.module.package ? self[local: article] : nil
     }
     
+    func pinned() -> Pinned 
+    {
+        .init(self, at: self.versions.latest)
+    }
     func pinned(_ pins:[Index: Version]) -> Pinned 
     {
         .init(self, at: pins[self.index] ?? self.versions.latest)
@@ -462,7 +466,7 @@ extension Package
     }
     
     mutating 
-    func addExtensions(in cultures:[Module.Index], graphs:[Module.Graph], keys:inout Route.Keys) 
+    func addExtensions(in cultures:[Module.Index], graphs:[Module.Graph], stems:inout Stems) 
         -> (articles:[[Article.Index: Extension]], extensions:[[String: Extension]])
     {
         var articles:[[Article.Index: Extension]] = []
@@ -472,14 +476,14 @@ extension Package
         for (culture, graph):(Module.Index, Module.Graph) in zip(cultures, graphs)
         {
             let column:(articles:[Article.Index: Extension], extensions:[String: Extension]) =
-                self.addExtensions(in: culture, graph: graph, keys: &keys)
+                self.addExtensions(in: culture, graph: graph, stems: &stems)
             extensions.append(column.extensions)
             articles.append(column.articles)
         }
         return (articles, extensions)
     }
     private mutating 
-    func addExtensions(in culture:Module.Index, graph:Module.Graph, keys:inout Route.Keys) 
+    func addExtensions(in culture:Module.Index, graph:Module.Graph, stems:inout Stems) 
         -> (articles:[Article.Index: Extension], extensions:[String: Extension])
     {
         var articles:[Article.Index: Extension] = [:]
@@ -499,8 +503,8 @@ extension Package
                 fatalError("unreachable")
             }
             let id:Route = .init(culture, 
-                      keys.register(components: path.prefix), 
-                .init(keys.register(component:  path.last), 
+                      stems.register(components: path.prefix), 
+                .init(stems.register(component:  path.last), 
                 orientation: .straight))
             let index:Article.Index = self.articles.insert(id, culture: culture)
             {
@@ -513,14 +517,14 @@ extension Package
     }
     
     mutating 
-    func addSymbols(through scopes:[Symbol.Scope], graphs:[Module.Graph], keys:inout Route.Keys) 
+    func addSymbols(through scopes:[Symbol.Scope], graphs:[Module.Graph], stems:inout Stems) 
         -> [[Symbol.Index: Vertex.Frame]]
     {
         let extant:Int = self.symbols.count
         
         let symbols:[[Symbol.Index: Vertex.Frame]] = zip(scopes, graphs).map
         {
-            self.addSymbols(through: $0.0, graph: $0.1, keys: &keys)
+            self.addSymbols(through: $0.0, graph: $0.1, stems: &stems)
         }
         
         let updated:Int = symbols.reduce(0) { $0 + $1.count }
@@ -528,7 +532,7 @@ extension Package
         return symbols
     }
     private mutating 
-    func addSymbols(through scope:Symbol.Scope, graph:Module.Graph, keys:inout Route.Keys) 
+    func addSymbols(through scope:Symbol.Scope, graph:Module.Graph, stems:inout Stems) 
         -> [Symbol.Index: Vertex.Frame]
     {            
         var updates:[Symbol.Index: Vertex.Frame] = [:]
@@ -555,8 +559,8 @@ extension Package
                 {
                     (id:Symbol.ID, _:Symbol.Index) in 
                     let route:Route = .init(namespace, 
-                              keys.register(components: vertex.path.prefix), 
-                        .init(keys.register(component:  vertex.path.last), 
+                              stems.register(components: vertex.path.prefix), 
+                        .init(stems.register(component:  vertex.path.last), 
                         orientation: vertex.color.orientation))
                     // if the symbol could inherit features, generate a stem 
                     // for its children from its full path. this stem will only 
@@ -569,7 +573,7 @@ extension Package
                         kind = .associatedtype 
                     case .concretetype(let concrete): 
                         kind = .concretetype(concrete, path: vertex.path.prefix.isEmpty ? 
-                            route.leaf.stem : keys.register(components: vertex.path))
+                            route.leaf.stem : stems.register(components: vertex.path))
                     case .callable(let callable): 
                         kind = .callable(callable)
                     case .global(let global): 

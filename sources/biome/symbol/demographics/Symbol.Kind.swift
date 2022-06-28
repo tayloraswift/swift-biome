@@ -4,13 +4,13 @@ extension Symbol
     enum Kind:Sendable, Hashable 
     {
         case `associatedtype`
-        case  concretetype(ConcreteType, path:Route.Stem)
+        case  concretetype(ConcreteType, path:Stem)
         case  callable(Callable)
         case  global(Global)
         case `protocol`
         case `typealias`
         
-        var path:Route.Stem?
+        var path:Stem?
         {
             if case .concretetype(_, path: let path) = self 
             {
