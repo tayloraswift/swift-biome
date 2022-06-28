@@ -2,6 +2,7 @@ public
 enum Root:Hashable, Sendable 
 {
     case master
-    case doc
-    case lunr
+    case article
+    case sitemap
+    case searchIndex 
 }

@@ -54,8 +54,8 @@ struct Module:Identifiable, Sendable
     let id:ID
     let index:Index 
     
-    var matrix:[Symbol.ColonialRange]
-    var toplevel:[Symbol.Index]
+    var symbols:[Symbol.ColonialRange]
+    var articles:[Range<Int>]
     
     var heads:Heads
     
@@ -78,8 +78,8 @@ struct Module:Identifiable, Sendable
     {
         self.id = id 
         self.index = index
-        self.matrix = []
-        self.toplevel = []
+        self.symbols = []
+        self.articles = []
         
         self.heads = .init()
     }

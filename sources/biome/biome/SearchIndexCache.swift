@@ -1,28 +1,27 @@
 import JSON 
 import Resource
 
-struct SearchIndexCache 
+struct SearchIndexCache:Cache 
 {
-    private(set)
-    var indices:[Package.Index: Resource]
+    private
+    var cache:[Package.Index: Resource]
+    
+    subscript(package:Package.Index) -> Resource?
+    {
+        _read 
+        {
+            yield self.cache[package]
+        }
+    }
     
     init()
     {
-        self.indices = [:]
+        self.cache = [:]
     }
     mutating 
-    func regenerate(from ecosystem:Ecosystem)
-    {
-        self.indices.removeAll()
-        for package:Package.Index in ecosystem.indices.values 
-        {
-            self.regenerate(for: package, from: ecosystem)
-        }
-    }
-    private mutating 
     func regenerate(for package:Package.Index, from ecosystem:Ecosystem)
     {
-        self.indices[package] = Self.generate(for: package, from: ecosystem)
+        self.cache[package] = Self.generate(for: package, from: ecosystem)
     }
     private static 
     func generate(for package:Package.Index, from ecosystem:Ecosystem) -> Resource
@@ -31,7 +30,7 @@ struct SearchIndexCache
         let modules:[JSON] = current.package.modules.all.map 
         {
             var types:[JSON] = []
-            for colony:Symbol.ColonialRange in $0.matrix 
+            for colony:Symbol.ColonialRange in $0.symbols 
             {
                 for offset:Int in colony.offsets 
                 {
@@ -69,7 +68,12 @@ struct SearchIndexCache
             let module:String = .init($0.title)
             return .object([("module", .string(module)), ("symbols", .array(types))])
         }
-        let tag:String = "lunr:0.1.0/\(current.package.name)"
+        let tag:String = 
+        """
+        lunr:0.1.0/\
+        \(current.package.name)/\
+        \(current.package.versions[current.version])
+        """
         let json:JSON = .array(_move(modules))
         let bytes:[UInt8] = .init(_move(json).description.utf8)
         

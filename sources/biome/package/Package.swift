@@ -488,6 +488,8 @@ extension Package
     {
         var articles:[Article.Index: Extension] = [:]
         var extensions:[String: Extension] = [:] 
+        
+        let start:Int = self.articles.count
         for article:Extension in graph.articles
         {
             if let binding:String = article.binding 
@@ -512,6 +514,11 @@ extension Package
                 .init(path: path, route: route)
             }
             articles[index] = article
+        }
+        let end:Int = self.articles.count 
+        if start < end
+        {
+            self.modules[local: culture].articles.append(start ..< end)
         }
         return (articles, extensions)
     }
@@ -547,7 +554,7 @@ extension Package
                 continue 
             }
             
-            let offset:Int = self.symbols.count
+            let start:Int = self.symbols.count
             for (id, vertex):(Symbol.ID, Vertex) in colony.vertices 
             {
                 if scope.contains(id) 
@@ -588,9 +595,12 @@ extension Package
                 
                 updates[index] = vertex.frame
             }
-            
-            self.modules[local: scope.culture].matrix.append(Symbol.ColonialRange.init(
-                namespace: namespace, offsets: offset ..< self.symbols.count))
+            let end:Int = self.symbols.count 
+            if start < end
+            {
+                self.modules[local: scope.culture].symbols.append(Symbol.ColonialRange.init(
+                    namespace: namespace, offsets: start ..< end))
+            }
         }
         return updates
     }

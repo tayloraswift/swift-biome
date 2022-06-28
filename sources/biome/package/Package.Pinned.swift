@@ -19,6 +19,7 @@ extension Package.Pinned
     {
         self.package.versions.abbreviate(self.version)
     }
+    
     private 
     func depth(of composite:Symbol.Composite, route:Route) -> (host:Bool, base:Bool)
     {

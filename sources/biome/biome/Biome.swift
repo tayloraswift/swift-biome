@@ -14,17 +14,20 @@ struct Biome
     let root:
     (
         master:Stem, 
-        lunr:Stem,
-        doc:Stem
+        article:Stem,
+        sitemap:Stem,
+        searchIndex:Stem
     )
     private 
-    var search:SearchIndexCache
+    var sitemaps:SiteMapCache, 
+        searchIndices:SearchIndexCache
     
     public 
     init(roots:[Root: String] = [:], template:DOM.Template<Page.Key, [UInt8]>) 
     {
         self.ecosystem = .init(roots: roots)
-        self.search = .init()
+        self.searchIndices = .init()
+        self.sitemaps = .init()
         self.stems = .init()
         
         let logo:HTML.Element<Never> = .ol(items: [.li(.a(
@@ -42,9 +45,10 @@ struct Biome
         
         self.root = 
         (
-            master:     self.stems.register(component: self.ecosystem.root.master),
-            lunr:       self.stems.register(component: self.ecosystem.root.lunr),
-            doc:        self.stems.register(component: self.ecosystem.root.doc)
+            master:         self.stems.register(component: self.ecosystem.root.master),
+            article:        self.stems.register(component: self.ecosystem.root.article),
+            sitemap:        self.stems.register(component: self.ecosystem.root.sitemap),
+            searchIndex:    self.stems.register(component: self.ecosystem.root.searchIndex)
         )
     }
     
@@ -87,9 +91,10 @@ struct Biome
         let root:Root 
         switch self.stems[leaf: first]
         {
-        case self.root.master?: root = .master
-        case self.root.doc?:    root = .doc
-        case self.root.lunr?:   root = .lunr 
+        case self.root.master?:         root = .master
+        case self.root.article?:        root = .article
+        case self.root.sitemap?:        root = .sitemap
+        case self.root.searchIndex?:    root = .searchIndex
         default:
             return nil 
         }
@@ -124,18 +129,27 @@ struct Biome
             }
         
         case .searchIndex(let package): 
-            guard let cached:Resource = self.search.indices[package]
+            guard let cached:Resource = self.searchIndices[package]
             else 
             {
-                return .error(.text("search index cache for '\(self.ecosystem[package].id)' not available"))
+                return .error(.text("search index for '\(self.ecosystem[package].id)' not available"))
+            }
+            return .matched(cached, canonical: uri.description) 
+        
+        case .sitemap(let package): 
+            guard let cached:Resource = self.sitemaps[package]
+            else 
+            {
+                return .error(.text("sitemap for '\(self.ecosystem[package].id)' not available"))
             }
             return .matched(cached, canonical: uri.description) 
         }
     }
     public mutating 
-    func regenerateSearchIndexCache() 
+    func regenerateCaches() 
     {
-        self.search.regenerate(from: self.ecosystem)
+        self.searchIndices.regenerate(from: self.ecosystem)
+        self.sitemaps.regenerate(from: self.ecosystem)
     }
     public mutating 
     func updatePackage(_ graph:Package.Graph, era:[Package.ID: MaskedVersion]) throws 

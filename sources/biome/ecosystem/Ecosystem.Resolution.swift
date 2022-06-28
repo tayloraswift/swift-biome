@@ -3,7 +3,9 @@ extension Ecosystem
     enum Resolution
     {
         case selection(Selection, pins:[Package.Index: Version])
+        
         case searchIndex(Package.Index)
+        case sitemap(Package.Index)
     }
     
     func resolve<Path>(_ path:Path, root:Root, query:[URI.Parameter], stems:Stems) 
@@ -12,7 +14,17 @@ extension Ecosystem
     {
         switch root 
         {
-        case .lunr: 
+        case .sitemap: 
+            guard   let components:[Path.Element.SubSequence] = path.first?.split(separator: "."),
+                    let package:Package.ID = components.first.map(Package.ID.init(_:)), 
+                    let package:Package.Index = self.indices[package]
+            else 
+            {
+                return nil 
+            }
+            return (.sitemap(package), false) 
+        
+        case .searchIndex: 
             guard   let package:Package.ID = path.first.map(Package.ID.init(_:)), 
                     let package:Package.Index = self.indices[package],
                     case "types"? = path.dropFirst().first
@@ -22,7 +34,7 @@ extension Ecosystem
             }
             return (.searchIndex(package), false) 
         
-        case .doc: 
+        case .article: 
             return self.resolveNamespace(path)
             {
                 (path:Path.SubSequence, namespace:Module.Index, arrival:MaskedVersion?) in 

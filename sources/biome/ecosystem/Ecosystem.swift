@@ -83,8 +83,9 @@ struct Ecosystem
     let root:
     (    
         master:String,
-        doc:String,
-        lunr:String
+        article:String,
+        sitemap:String,
+        searchIndex:String
     )
     private(set)
     var packages:[Package], 
@@ -99,9 +100,10 @@ struct Ecosystem
     {
         self.root = 
         (
-            master: roots[.master,   default: "reference"],
-            doc:    roots[.doc,      default: "learn"],
-            lunr:   roots[.lunr,     default: "lunr"]
+            master:         roots[.master,      default: "reference"],
+            article:        roots[.article,     default: "learn"],
+            sitemap:        roots[.sitemap,     default: "sitemaps"],
+            searchIndex:   roots[.searchIndex,  default: "lunr"]
         )
         self.indices = [:]
         self.packages = []
@@ -164,8 +166,11 @@ struct Ecosystem
         case .selection(let selection, let pins):
             return self.pinned(pins).uri(of: selection)
         case .searchIndex(let package): 
-            return .init(root: self.root.lunr, 
+            return .init(root: self.root.searchIndex, 
                 path: [self[package].name, "types"])
+        case .sitemap(let package): 
+            return .init(root: self.root.sitemap, 
+                path: ["\(self[package].name).txt"])
         }
     }
     func uri(of index:Index, in pinned:Package.Pinned) -> URI
@@ -192,7 +197,7 @@ struct Ecosystem
     }
     func uri(of article:Article.Index, in pinned:Package.Pinned) -> URI
     {
-        .init(root: self.root.doc, path: pinned.path(to: article))
+        .init(root: self.root.article, path: pinned.path(to: article))
     }
     func uri(of composite:Symbol.Composite, in pinned:Package.Pinned) -> URI
     {
