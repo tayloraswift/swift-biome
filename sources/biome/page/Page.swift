@@ -71,10 +71,25 @@ extension Page
             self.generate(for: article)
         case .module(let module): 
             self.generate(for: module)
-        case .package(_):
-            break
+        case .package(let package):
+            self.generate(for: package)
         }
         self.add(scriptConstants: era.ecosystem.indices.values)
+    }
+    private mutating 
+    func generate(for package:Package.Index) 
+    {
+        let pinned:Package.Pinned = self.era.pin(package)
+        
+        self.add(fields: self.ecosystem.renderFields(for: package))
+        self.add(topics: self.ecosystem.render(modulelist: pinned.package.modules.all))
+        self.add(versions: self.ecosystem.render(
+            availableVersions: pinned.package.allVersions(), 
+            currentVersion: pinned.version,
+            of: pinned.package)
+        {
+            self.ecosystem.uri(of: $0)
+        })
     }
     private mutating 
     func generate(for module:Module.Index) 

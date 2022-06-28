@@ -2,6 +2,18 @@ import HTML
 
 extension Ecosystem
 {
+    func renderFields(for index:Package.Index) 
+        -> [Page.Key: DOM.Template<Index, [UInt8]>]
+    {
+        let package:Package = self[index]
+        let substitutions:[Page.Key: HTML.Element<Index>] = 
+        [
+            .title:        .text(escaping: package.id.string), 
+            .headline:     .h1(package.id.string), 
+            .kind:         .text(escaped: "Package")
+        ]
+        return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
+    }
     func renderFields(for index:Module.Index) 
         -> [Page.Key: DOM.Template<Index, [UInt8]>]
     {
@@ -262,6 +274,27 @@ extension Ecosystem
 
 extension Ecosystem
 {
+    func render(modulelist:[Module]) -> DOM.Template<Topics.Key, [UInt8]>
+    {
+        let items:[HTML.Element<Topics.Key>] = 
+            modulelist.sorted(by: { $0.id.value < $1.id.value }).map
+        {
+            (module:Module) in 
+            
+            let signature:HTML.Element<Topics.Key> = 
+                .a(.render(path: module.path))
+            {
+                ("href", .anchor(.uri(.module(module.index))))
+                ("class", "signature")
+            }
+            return .li(signature)
+        }
+        let list:HTML.Element<Topics.Key> = .ul(items: items)
+        let heading:HTML.Element<Topics.Key> = .h2("Modules")
+        let section:HTML.Element<Topics.Key> = 
+            .section([heading, list]) { ("class", "related") }
+        return .init(freezing: .div(section) { ("class", "lower-container") })
+    }
     func render(topics:Topics) -> DOM.Template<Topics.Key, [UInt8]>?
     {
         if topics.isEmpty 

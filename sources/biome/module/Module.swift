@@ -69,6 +69,10 @@ struct Module:Identifiable, Sendable
     {
         self.id.title
     }
+    var path:Path 
+    {
+        .init(last: self.id.string)
+    }
     
     init(id:ID, index:Index)
     {
