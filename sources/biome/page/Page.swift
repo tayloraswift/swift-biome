@@ -58,6 +58,7 @@ extension Page
     mutating 
     func generate(for choices:[Symbol.Composite])
     {
+        self.substitutions[.kind] = [UInt8].init("Disambiguation Page".utf8)
         self.add(scriptConstants: era.ecosystem.indices.values)
     }
     mutating 

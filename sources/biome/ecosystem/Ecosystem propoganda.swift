@@ -267,7 +267,6 @@ extension Ecosystem
 
 extension Ecosystem 
 {
-    // also updates the symbol groups
     mutating 
     func updateCompositeGroups(in index:Package.Index, 
         facts:[Symbol.Index: Symbol.Facts], 
