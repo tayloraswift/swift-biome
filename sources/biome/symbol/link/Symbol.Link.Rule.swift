@@ -11,7 +11,7 @@ extension Symbol.Link
 }
 extension Symbol.Link.Rule 
 {
-    //  Arguments ::= '(' ( IdentifierBase ':' ) + ')'
+    //  Arguments ::= '(' ( IdentifierBase ':' ) * ')'
     private 
     enum Arguments:ParsingRule 
     {
@@ -21,12 +21,14 @@ extension Symbol.Link.Rule
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
         {
             try input.parse(as: Encoding.ParenthesisLeft.self)
-            try input.parse(as: IdentifierBase.self)
-            try input.parse(as: Encoding.Colon.self)
-            // note: parse as tuple, otherwise we may accidentally accept something 
-            // like 'foo(bar:baz)', which is missing the trailing colon
-            while let _:(Void, Void) = try? input.parse(as: (IdentifierBase, Encoding.Colon).self)
+            if  let _:Void = input.parse(as: IdentifierBase?.self)
             {
+                try input.parse(as: Encoding.Colon.self)
+                // note: parse as tuple, otherwise we may accidentally accept something 
+                // like 'foo(bar:baz)', which is missing the trailing colon
+                while let _:(Void, Void) = try? input.parse(as: (IdentifierBase, Encoding.Colon).self)
+                {
+                }
             }
             try input.parse(as: Encoding.ParenthesisRight.self)
         }
