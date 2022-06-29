@@ -57,13 +57,40 @@ for url, package, tags in (
         )
     ),
     (
-        'https://github.com/apple/swift-markdown', 
-        'swift-markdown',
+        'https://github.com/swift-biome/swift-bar', 
+        'swift-bar', 
         (
-            ('swift-DEVELOPMENT-SNAPSHOT-2022-03-13-a', (('Markdown', 'Markdown'),)),
-            ('swift-DEVELOPMENT-SNAPSHOT-2022-06-20-a', (('Markdown', 'Markdown'),)),
+            (semver('0.1.0'),  (('Bar', 'Bar'),)), 
+            (semver('0.2.0'),  (('Bar', 'Bar'),)), 
+            (       '0.2.0.1', (('Bar', 'Bar'),)), 
         )
     ),
+    (
+        'https://github.com/swift-biome/swift-baz', 
+        'swift-baz', 
+        (
+            (semver('0.1.0'),  (('Baz', 'Baz'),)), 
+            (semver('0.2.0'),  (('Baz', 'Baz'),)), 
+        )
+    ),
+    (
+        'https://github.com/swift-biome/swift-qux', 
+        'swift-qux', 
+        (
+            (semver('0.1.0'),  (('Qux', 'Qux'),)), 
+            (semver('0.1.1'),  (('Qux', 'Qux'),)), 
+            (semver('0.2.0'),  (('Qux', 'Qux'),)), 
+            (semver('0.3.0'),  (('Qux', 'Qux'),)), 
+        )
+    ),
+    #(
+    #    'https://github.com/apple/swift-markdown', 
+    #    'swift-markdown',
+    #    (
+    #        ('swift-DEVELOPMENT-SNAPSHOT-2022-03-13-a', (('Markdown', 'Markdown'),)),
+    #        ('swift-DEVELOPMENT-SNAPSHOT-2022-06-20-a', (('Markdown', 'Markdown'),)),
+    #    )
+    #),
     ):
     for (tag, targets) in tags:
         (products, modules) = zip( * targets )
