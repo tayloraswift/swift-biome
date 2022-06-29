@@ -189,9 +189,10 @@ extension Ecosystem
         {
             for (target, article):(Index, Extension) in assigned
             {
-                documentation.templates[target] = self.compile(article, for: target, 
+                documentation.templates[target] = self.compile(article, 
                     lenses: lenses, 
                     scope: scope, 
+                    nest: self.nest(target),
                     stems: stems)
                 
                 if case .article(let index) = target 
@@ -225,21 +226,21 @@ extension Ecosystem
             let comment:Extension = .init(markdown: comment)
             let target:Index = .symbol(symbol)
             
-            documentation.templates[target] = self.compile(comment, for: target, 
+            documentation.templates[target] = self.compile(comment, 
                 lenses: lenses[context], 
                 scope: scopes[context], 
+                nest: self.nest(target),
                 stems: stems)
         } 
     }
-
     private 
-    func compile(_ article:Extension, for target:Index, 
+    func compile(_ article:Extension, 
         lenses:[Package.Pinned],
         scope:Module.Scope,
+        nest:Symbol.Nest?,
         stems:Stems)
         -> Article.Template<Link>
     {
-        let nest:Symbol.Nest? = self.nest(target)
         let scope:Module.Scope = scope.import(article.metadata.imports)
         return article.render().transform 
         {
