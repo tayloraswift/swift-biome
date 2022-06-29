@@ -1,0 +1,222 @@
+import Markdown
+import Resource 
+import HTML
+
+struct Extension 
+{
+    enum Node 
+    {
+        case section(Heading, [Self])
+        case block(any BlockMarkup)
+        case aside(Keyword.Aside, [any BlockMarkup])
+    }
+    
+    private(set)
+    var metadata:Metadata
+    
+    let headline:Headline
+    let nodes:[Node]
+    var sections:Sections
+    
+    var snippet:String 
+    {
+        self.summary?.plainText ?? ""
+    }
+    private 
+    var summary:Paragraph? 
+    {
+        if case .block(let paragraph as Paragraph)? = self.nodes.first
+        {
+            return paragraph
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    
+    init(from resource:Resource, name:String) 
+    {
+        // TODO: handle versioning
+        switch resource.payload
+        {
+        case    .text   (let text,  type: _):
+            self.init(markdown: text)
+        case    .binary (let bytes, type: _):
+            self.init(markdown: String.init(decoding: bytes, as: Unicode.UTF8.self))
+        }
+        if case nil = self.metadata.path
+        {
+            // replace spaces in the article name with hyphens
+            self.metadata.path = .init(last: .init(name.map { $0 == " " ? "-" : $0 }))
+        }
+    }
+    init(markdown string:String)
+    {
+        let root:Markdown.Document = .init(parsing: string, 
+            options: [ .parseBlockDirectives, .parseSymbolLinks ])
+        self.init(root: root)
+    }
+    private  
+    init(root:Markdown.Document)
+    {
+        // `level` may skip levels
+        typealias StackFrame = (heading:Headline, nodes:[Node])
+        
+        // partition the top level blocks by heading, and whether they are 
+        // a block directive 
+        var directives:[BlockDirective] = []
+        var blocks:LazyMapSequence<MarkupChildren, BlockMarkup>.Iterator = 
+            root.blockChildren.makeIterator()
+        
+        while let block:any BlockMarkup = blocks.next()
+        {
+            guard let directive:BlockDirective = block as? BlockDirective
+            else 
+            {
+                var stack:(base:[StackFrame], top:StackFrame) 
+                stack.top.nodes = []
+                stack.base      = []
+                var next:(any BlockMarkup)?
+                if let heading:Heading = block as? Heading, heading.level <= 1
+                {
+                    stack.top.heading = .explicit(heading)
+                    next = blocks.next() 
+                }
+                else 
+                {
+                    stack.top.heading = .implicit
+                    next = block 
+                }
+                
+                while let current:any BlockMarkup = next 
+                {
+                    next = blocks.next()
+                    
+                    guard let heading:Heading = current as? Heading 
+                    else 
+                    {
+                        stack.top.nodes.append(.block(current))
+                        continue 
+                    }
+                    // for example, an `h3` will own everything until the next `h3`.
+                    while case .explicit(let authority) = stack.top.heading,
+                            heading.level <= authority.level, 
+                        // it’s possible for this to return nil, if the article had 
+                        // an explicit title, and there is another `h1` somewhere inside 
+                        // it. in this case, the root will behave like an ‘h0’ and 
+                        // the `h1`s will become children.
+                        var top:StackFrame = stack.base.popLast()
+                    {
+                        top.nodes.append(.section(authority, stack.top.nodes))
+                        stack.top = top
+                    }
+                    // push the new heading onto the stack, which makes it the 
+                    // current authority. the level of the new heading is not necessarily 
+                    // the level of the previous authority incremented by 1.
+                    // it can skip levels, and it can also have the same level, 
+                    // if the document contains multiple `h1`s.
+                    stack.base.append(stack.top)
+                    stack.top.heading   = .explicit(heading)
+                    stack.top.nodes     = []
+                }
+                // conclude the survey by pretending the document ends with 
+                // an imaginary `h0` footer.
+                while case .explicit(let authority) = stack.top.heading,
+                    var top:StackFrame = stack.base.popLast()
+                {
+                    top.nodes.append(.section(authority, stack.top.nodes))
+                    stack.top = top
+                }
+                // `case implicit` can only appear in the first element of the stack 
+                // base, so `stack.base` is guaranteed to be empty at this point
+                assert(stack.base.isEmpty)
+                
+                self.init(directives: directives, 
+                    headline: stack.top.heading, nodes: stack.top.nodes)
+                return
+            }
+            directives.append(directive)
+        }
+        self.init(directives: directives, headline: .implicit, nodes: [])
+    }
+    private 
+    init(directives:[BlockDirective], headline:Headline, nodes:[Node])
+    {
+        self.metadata = .init(directives: directives)
+        self.headline = headline
+        self.sections = .init()
+        
+        if case .implicit = self.headline 
+        {
+            self.nodes = self.sections.recognize(nodes: nodes)
+        }
+        else 
+        {
+            self.nodes = nodes
+        }
+    }
+    
+    var binding:String?
+    {
+        guard case .explicit(let headline) = self.headline 
+        else 
+        {
+            return nil 
+        }
+        var spans:LazyMapSequence<MarkupChildren, InlineMarkup>.Iterator = 
+            headline.inlineChildren.makeIterator()
+        if  let owner:any InlineMarkup  = spans.next(), 
+            case nil                    = spans.next(), 
+            let owner:SymbolLink    = owner as? SymbolLink,
+            let owner:String        = owner.destination, !owner.isEmpty
+        {
+            return owner
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    
+    func render() -> Article.Template<String>
+    {
+        var renderer:Renderer = .init(rank: self.headline.rank)
+        // note: we *never* render the top-level heading. this will either be 
+        // auto-generated (for owned symbols), or stored as plain text by the 
+        // caller of this function.
+        let first:HTML.Element<String>?, 
+            remaining:ArraySlice<Node>
+        if let paragraph:Paragraph = self.summary
+        {
+            first = renderer.render(span: paragraph, as: .p)
+            remaining = self.nodes.dropFirst()
+        }
+        else 
+        {
+            first = nil 
+            remaining = self.nodes[...]
+        }
+        
+        if case .implicit = self.headline 
+        {
+            renderer.append(sections: self.sections)
+            renderer.append(nodes: remaining, under: "Overview", classes: "discussion")
+        }
+        else 
+        {
+            renderer.append(nodes: remaining)
+        }
+        let discussion:DOM.Template<String, [UInt8]> = .init(freezing: renderer.elements)
+        let summary:DOM.Template<String, [UInt8]>
+        if let first:HTML.Element<String> = first 
+        {
+            summary = .init(freezing: first)
+        }
+        else 
+        {
+            summary = .init()
+        }
+        return .init(errors: renderer.errors, summary: summary, discussion: discussion)
+    }
+}

@@ -1,4 +1,4 @@
-// swift-tools-version:5.6
+// swift-tools-version:5.7
 import PackageDescription
 
 let package = Package(
@@ -13,41 +13,45 @@ let package = Package(
     dependencies: 
     [
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
-        .package(url: "https://github.com/kelvin13/swift-highlight",            from:   "0.1.0"),
-        .package(url: "https://github.com/kelvin13/swift-resource",             branch: "master"),
-        .package(url: "https://github.com/kelvin13/swift-structured-document",  branch: "master"),
+        .package(url: "https://github.com/kelvin13/swift-highlight",            exact: "0.1.4"),
+        .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.2.4"),
+        .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.3.9"),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",            branch: "main"),
-        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-04-04-a"),
+        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-06-16-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-06-16-a"),
         
         // only used by the index target
-        .package(url: "https://github.com/apple/swift-system.git",              branch: "main"),
+        .package(url: "https://github.com/apple/swift-system.git",              exact: "1.2.1"),
         // only used by the previewer target
-        .package(url: "https://github.com/apple/swift-nio.git",                 from: "2.39.0"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git",     from: "1.1.1"),
-        .package(url: "https://github.com/swift-server/swift-backtrace.git",    from: "1.3.1"),
+        .package(url: "https://github.com/apple/swift-nio.git",                 exact: "2.40.0"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git",     exact: "1.1.3"),
+        .package(url: "https://github.com/swift-server/swift-backtrace.git",    exact: "1.3.2"),
     ],
     targets: 
     [
         .target(name: "Biome", 
             dependencies: 
             [
-                .product(name: "JSON",                  package: "swift-json"),
-                .product(name: "Highlight",             package: "swift-highlight"),
-                .product(name: "StructuredDocument",    package: "swift-structured-document"),
-                .product(name: "SwiftSyntaxParser",     package: "swift-syntax"),
-                .product(name: "SwiftSyntax",           package: "swift-syntax"),
-                .product(name: "Markdown",              package: "swift-markdown"),
+                .product(name: "JSON",              package: "swift-json"),
+                .product(name: "DOM",               package: "swift-dom"),
+                .product(name: "Notebook",          package: "swift-highlight"),
+                .product(name: "SwiftSyntaxParser", package: "swift-syntax"),
+                .product(name: "SwiftSyntax",       package: "swift-syntax"),
+                .product(name: "Markdown",          package: "swift-markdown"),
             ], 
-            path: "sources/biome"),
+            path: "sources/biome", 
+            swiftSettings: 
+            [
+                .unsafeFlags(["-Xfrontend", "-enable-experimental-bound-generic-extensions"]), 
+                //.unsafeFlags(["-Xfrontend", "-enable-parametrized-protocol-types"]),
+            ]),
         
         .target(name: "BiomeIndex", 
             dependencies: 
             [
                 .target(name: "Biome"),
-                .product(name: "JSON",                  package: "swift-json"),
-                .product(name: "Bureaucrat",            package: "swift-resource"),
-                .product(name: "SystemPackage",         package: "swift-system"),
+                .product(name: "JSON",              package: "swift-json"),
+                .product(name: "VersionControl",    package: "swift-resource"),
             ], 
             path: "sources/index"),
         
@@ -55,7 +59,7 @@ let package = Package(
             dependencies: 
             [
                 .target(name: "Biome"),
-                .product(name: "StructuredDocument",    package: "swift-structured-document"),
+                .product(name: "DOM",               package: "swift-dom"),
             ], 
             path: "sources/templates"),
         
@@ -66,11 +70,11 @@ let package = Package(
                 .target(name: "BiomeIndex"),
                 .target(name: "BiomeTemplates"),
                 
-                .product(name: "NIO",                   package: "swift-nio"),
-                .product(name: "NIOHTTP1",              package: "swift-nio"),
-                .product(name: "Backtrace",             package: "swift-backtrace"),
-                .product(name: "SystemPackage",         package: "swift-system"),
-                .product(name: "ArgumentParser",        package: "swift-argument-parser"),
+                .product(name: "NIO",               package: "swift-nio"),
+                .product(name: "NIOHTTP1",          package: "swift-nio"),
+                .product(name: "Backtrace",         package: "swift-backtrace"),
+                .product(name: "SystemPackage",     package: "swift-system"),
+                .product(name: "ArgumentParser",    package: "swift-argument-parser"),
             ], 
             path: "sources/preview"),
     ]

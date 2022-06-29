@@ -1,0 +1,128 @@
+#!/usr/bin/python3
+
+import os, sys, subprocess, shutil, glob
+
+class semver:
+    def __init__(self, string):
+        self.version = string
+    
+    def __str__(self): 
+        return self.version
+
+manifest = '''\
+// swift-tools-version:5.7
+import PackageDescription
+
+let package:Package = .init(
+    name: "consumer",
+    products: 
+    [
+        .library(name: "_Consumer", targets: ["_Consumer"])
+    ],
+    dependencies: 
+    [
+        .package(url: "https://github.com/swift-biome/swift-documentation-extract", from: "0.2.0"),
+        .package(url: "{url}", {tag}),
+    ],
+    targets: 
+    [
+        .target(name: "_Consumer", 
+            dependencies: 
+            [
+                {dependencies}
+            ],
+            path: "sources/", 
+            exclude: 
+            [
+            ]),
+    ]
+)
+'''
+
+workspace = '.checkouts'
+
+shutil.rmtree(workspace, ignore_errors = True)
+os.mkdir(workspace)
+os.chdir(workspace)
+
+for url, package, tags in (
+    (
+        'https://github.com/swift-biome/swift-foo', 
+        'swift-foo', 
+        (
+            (semver('0.1.0'), (('Foo', 'Foo'),)), 
+            (semver('0.1.1'), (('Foo', 'Foo'),)), 
+            (semver('0.2.0'), (('Foo', 'Foo'),)), 
+            (semver('0.3.0'), (('Foo', 'Foo'),)),
+        )
+    ),
+    (
+        'https://github.com/swift-biome/swift-bar', 
+        'swift-bar', 
+        (
+            (semver('0.1.0'),  (('Bar', 'Bar'),)), 
+            (semver('0.2.0'),  (('Bar', 'Bar'),)), 
+            (       '0.2.0.1', (('Bar', 'Bar'),)), 
+        )
+    ),
+    (
+        'https://github.com/swift-biome/swift-baz', 
+        'swift-baz', 
+        (
+            (semver('0.1.0'),  (('Baz', 'Baz'),)), 
+            (semver('0.2.0'),  (('Baz', 'Baz'),)), 
+        )
+    ),
+    (
+        'https://github.com/swift-biome/swift-qux', 
+        'swift-qux', 
+        (
+            (semver('0.1.0'),  (('Qux', 'Qux'),)), 
+            (semver('0.1.1'),  (('Qux', 'Qux'),)), 
+            (semver('0.2.0'),  (('Qux', 'Qux'),)), 
+            (semver('0.3.0'),  (('Qux', 'Qux'),)), 
+        )
+    ),
+    #(
+    #    'https://github.com/apple/swift-markdown', 
+    #    'swift-markdown',
+    #    (
+    #        ('swift-DEVELOPMENT-SNAPSHOT-2022-03-13-a', (('Markdown', 'Markdown'),)),
+    #        ('swift-DEVELOPMENT-SNAPSHOT-2022-06-20-a', (('Markdown', 'Markdown'),)),
+    #    )
+    #),
+    ):
+    for (tag, targets) in tags:
+        (products, modules) = zip( * targets )
+        repository = '{0}@{1}'.format(package, tag)
+        
+        dependencies = ','.join('.product(name: "{0}", package: "{1}")'
+            .format(product, package) for product in products)
+        
+        os.mkdir(repository)
+        os.chdir(repository)
+        
+        os.mkdir('sources')
+        
+        with open('sources/_consumer.swift', 'w') as file:
+            file.write('\n')
+        
+        with open('Package.swift', 'w') as file:
+            file.write(manifest.format(url = url, 
+                tag =   'exact: "{0}"'.format(tag) if type(tag) is semver else 
+                        'revision: "{0}"'.format(tag), 
+                dependencies = dependencies))
+        
+        output = subprocess.run(('swift', 'package', 'catalog', * modules ), 
+            capture_output = True)
+        if output.returncode == 0:
+            catalog = output.stdout.decode('utf-8')
+            with open('Package.catalog', 'w') as file:
+                file.write(catalog) 
+            print('generated documentation for {0}'.format(repository))
+        else:
+            print(output.stderr.decode('utf-8'))
+            print('failed to generate documentation for {0}'.format(repository))
+        
+        os.chdir('..')
+        
