@@ -94,6 +94,18 @@ extension Package
                     {
                         self.pins[id] = .hourly(year: year, month: month, day: day, 
                             letter: .init(ascii: letter))
+                        continue 
+                    }
+                    
+                    let numbers:[Substring] = string.split(separator: ".")
+                    if  numbers.count == 4, 
+                        let major:UInt16 = .init(numbers[0]),
+                        let minor:UInt16 = .init(numbers[1]),
+                        let patch:UInt16 = .init(numbers[2]),
+                        let edition:UInt16 = .init(numbers[3])
+                    {
+                        self.pins[id] = .edition(major, minor, patch, edition)
+                        continue 
                     }
                 }
             }
