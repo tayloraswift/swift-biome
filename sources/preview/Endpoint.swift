@@ -12,7 +12,7 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
     
     private 
     var responding:Bool, 
-        keep:Bool
+        keepAlive:Bool
     private 
     let host:String, 
         port:Int
@@ -22,7 +22,7 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
     init(backend:Backend, host:String, port:Int) 
     {
         self.responding = false
-        self.keep       = false
+        self.keepAlive  = false
         self.host       = host
         self.port       = port
         self.backend    = backend 
@@ -34,20 +34,22 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
         {
             return 
         }
-        self.keep = request.isKeepAlive
+        self.keepAlive = request.isKeepAlive
         switch request.method
         {
         case .GET:
             switch self.backend.request(request.uri)
             {
             case .immediate(let response):
-                let etag:Resource.Tag? = request.headers["if-none-match"].first.flatMap(Resource.Tag.init(etag:))
+                let etag:Resource.Tag? = request.headers["if-none-match"].first
+                    .flatMap(Resource.Tag.init(etag:))
                 self.respond(with: response, through: context, ifNoneMatch: etag)
             case .enqueue(to: _): 
                 fatalError("unreachable")
             }
         default: 
-            self.respond(with: self.response(canonical: nil, containing: .utf8(encoded: []), 
+            self.respond(with: self.response(canonical: nil, 
+                    containing: .utf8(encoded: []), 
                     allocator: context.channel.allocator),
                 status: .methodNotAllowed, 
                 through: context)
@@ -67,7 +69,7 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
             context.fireUserInboundEventTriggered(event)
             return 
         }
-        self.keep = false 
+        self.keepAlive = false 
         guard self.responding 
         else 
         {
@@ -184,25 +186,29 @@ class Endpoint<Backend>:ChannelInboundHandler, RemovableChannelHandler
     {
         self.responding = true 
         
-        let head:HTTPResponseHead       = .init(version: .http1_1, status: status, headers: response.headers)
+        let head:HTTPResponseHead = .init(version: .http1_1, status: status, 
+            headers: response.headers)
         let sent:EventLoopPromise<Void> = context.eventLoop.makePromise(of: Void.self)
             sent.futureResult.whenComplete 
         {
             (_:Result<Void, Error>) in 
             self.responding = false 
-            guard self.keep 
+            guard self.keepAlive 
             else 
             {
                 context.channel.close(promise: nil)
                 return 
             }
         }
-        context.write        (self.wrapOutboundOut(HTTPServerResponsePart.head(head)), promise: nil)
-        if let buffer:ByteBuffer    = response.body 
+        context.write(self.wrapOutboundOut(HTTPServerResponsePart.head(head)), 
+            promise: nil)
+        if let buffer:ByteBuffer = response.body 
         {
-            let body:IOData         = .byteBuffer(buffer)
-            context.write    (self.wrapOutboundOut(HTTPServerResponsePart.body(body)), promise: nil)
+            let body:IOData = .byteBuffer(buffer)
+            context.write(self.wrapOutboundOut(HTTPServerResponsePart.body(body)), 
+                promise: nil)
         }
-        context.writeAndFlush(self.wrapOutboundOut(HTTPServerResponsePart.end (nil )), promise: sent)
+        context.writeAndFlush(self.wrapOutboundOut(HTTPServerResponsePart.end(nil)), 
+            promise: sent)
     }
 }

@@ -8,8 +8,7 @@ enum DefaultTemplates
     typealias Element = HTML.Element<Page.Key>
     
     public static
-    func documentation<Stylesheets>(stylesheets:Stylesheets) -> HTML.Root<Page.Key>
-        where Stylesheets:Sequence, Stylesheets.Element == String
+    var documentation:HTML.Root<Page.Key>
     {
         .init 
         {
@@ -43,13 +42,10 @@ enum DefaultTemplates
                     ("src",     "/search.js")
                     ("defer",   true)
                 }
-                for stylesheet:String in stylesheets 
+                Element[.link]
                 {
-                    Element[.link]
-                    {
-                        ("href",    stylesheet)
-                        ("rel",     "stylesheet")
-                    }
+                    ("href",    "/biome.css")
+                    ("rel",     "stylesheet")
                 }
                 Element[.link]
                 {

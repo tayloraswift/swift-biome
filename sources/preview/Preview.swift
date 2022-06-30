@@ -26,12 +26,13 @@ struct Preview:ServiceBackend
     let resources:[String: Resource]
     var biome:Biome
     
-    init(projects:[FilePath], controller:VersionController, stylesheets:[String: [FilePath]]) 
+    init(projects:[FilePath], controller:VersionController) 
         async throws 
     {
-        var resources:[String: Resource] = 
+        self.resources = 
         [
             "/search.js"        : try await controller.read(concatenating: ["lunr.js", "search.js"], type: .javascript), 
+            "/biome.css"        : try await controller.read(from: "css/biome.css", type: .css), 
             
             "/text-45.ttf"      : try await controller.read(from: "fonts/literata/Literata-Regular.ttf",          type: .ttf), 
             "/text-47.ttf"      : try await controller.read(from: "fonts/literata/Literata-RegularItalic.ttf",    type: .ttf), 
@@ -43,12 +44,6 @@ struct Preview:ServiceBackend
             "/text-65.woff2"    : try await controller.read(from: "fonts/literata/Literata-SemiBold.woff2",       type: .woff2), 
             "/text-67.woff2"    : try await controller.read(from: "fonts/literata/Literata-SemiBoldItalic.woff2", type: .woff2), 
         ]
-        for (uri, sources):(String, [FilePath]) in stylesheets 
-        {
-            resources[uri] = try await controller.read(concatenating: sources, type: .css)
-        }
-        self.resources = _move(resources)
-        
         let pins:[Package.ID: MaskedVersion] = 
         [
             .swift: .minor(5, 7),
@@ -61,7 +56,7 @@ struct Preview:ServiceBackend
             core:       try controller.read(package: .core)
         )
         let template:DOM.Template<Page.Key, [UInt8]> = 
-            .init(freezing: DefaultTemplates.documentation(stylesheets: stylesheets.keys))
+            .init(freezing: DefaultTemplates.documentation)
         self.biome = .init(roots: [.master: "reference", .article: "learn"], 
             template: template)
         // load the standard and core libraries
