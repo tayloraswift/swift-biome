@@ -17,8 +17,8 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.2.4"),
         .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.3.9"),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-06-16-a"),
-        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-06-16-a"),
+        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-06-26-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-06-26-a"),
         
         // only used by the index target
         .package(url: "https://github.com/apple/swift-system.git",              exact: "1.2.1"),

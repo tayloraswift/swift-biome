@@ -68,7 +68,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-markdown.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-06-16-a",
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-06-26-a",
         "revision" : "573e9a307799a2a683899bf1b702c308ef35660b"
       }
     },
@@ -95,8 +95,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-syntax.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-06-16-a",
-        "revision" : "e6e1e3e7aa5af9fe8b6b1e79ff4d68ab78983a29"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-06-26-a",
+        "revision" : "1e728eb1bd7597c139c42c900ee2c398f4bae2cd"
       }
     },
     {
