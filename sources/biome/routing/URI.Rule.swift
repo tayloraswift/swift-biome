@@ -220,7 +220,7 @@ extension URI.Rule:ParsingRule
         }
     }
     
-    // always contains at least one vector ('/' -> [.push("")])
+    // always contains at least one vector ('/' -> [nil])
     public 
     enum Absolute:ParsingRule 
     {

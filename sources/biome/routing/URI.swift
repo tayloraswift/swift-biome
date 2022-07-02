@@ -128,7 +128,7 @@ struct URI:CustomStringConvertible, Sendable
     @inlinable public
     init(path:[Vector?] = [], query:[Parameter]? = nil)
     {
-        self.path = path 
+        self.path = path == [nil] ? [] : path
         self.query = query
     }
     @inlinable public
