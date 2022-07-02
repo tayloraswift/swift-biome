@@ -60,7 +60,7 @@ struct URI:CustomStringConvertible, Sendable
     @inlinable public 
     var description:String 
     {
-        var string:String = ""
+        var string:String = self.path.isEmpty ? "/" : ""
         for vector:Vector? in self.path
         {
             switch vector
