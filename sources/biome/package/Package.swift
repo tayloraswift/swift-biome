@@ -5,11 +5,12 @@ public
 struct Package:Identifiable, Sendable
 {
     /// A globally-unique index referencing a package. 
+    @usableFromInline 
     struct Index:Hashable, Comparable, Sendable 
     {
         let bits:UInt16
         
-        static 
+        @usableFromInline static 
         func < (lhs:Self, rhs:Self) -> Bool 
         {
             lhs.bits < rhs.bits
@@ -504,14 +505,14 @@ extension Package
                 // should have been checked earlier
                 fatalError("unreachable")
             }
-            let id:Route = .init(culture, 
+            let route:Route = .init(culture, 
                       stems.register(components: path.prefix), 
                 .init(stems.register(component:  path.last), 
                 orientation: .straight))
-            let index:Article.Index = self.articles.insert(id, culture: culture)
+            let index:Article.Index = 
+                self.articles.insert(.init(route), culture: culture)
             {
-                (route:Route, _:Article.Index) in 
-                .init(path: path, route: route)
+                (id:Article.ID, _:Article.Index) in .init(id: id, path: path)
             }
             articles[index] = article
         }

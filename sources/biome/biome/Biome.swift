@@ -6,7 +6,7 @@ struct Biome
 {
     let template:DOM.Template<Page.Key, [UInt8]>, 
         logo:[UInt8]
-    private(set)
+    @usableFromInline private(set)
     var ecosystem:Ecosystem
     private(set)
     var stems:Stems
@@ -52,15 +52,12 @@ struct Biome
         )
     }
     
-    public 
-    subscript(uri request:String) -> StaticResponse?
+    @inlinable public 
+    subscript(uri request:URI) -> StaticResponse?
     {
-        guard let request:URI = try? .init(absolute: request)
-        else 
-        {
-            return nil 
-        }
-        guard case let (resolution, temporary)? = self.resolve(uri: request)
+        guard case let (resolution, temporary)? = self.resolve(
+            path: request.path.normalized.components, 
+            query: request.query ?? [])
         else 
         {
             return nil
@@ -79,10 +76,10 @@ struct Biome
                 .found(at: uri, canonical: uri)
         }
     }
-    private 
-    func resolve(uri:URI) -> (resolution:Ecosystem.Resolution, redirected:Bool)?
+    @usableFromInline 
+    func resolve(path:[String], query:[URI.Parameter]) 
+        -> (resolution:Ecosystem.Resolution, redirected:Bool)?
     {
-        let path:[String] = uri.path.normalized.components
         guard let first:String = path.first
         else 
         {
@@ -99,11 +96,9 @@ struct Biome
             return nil 
         }
         return self.ecosystem.resolve(path.dropFirst(), 
-            root: root, 
-            query: uri.query ?? [], 
-            stems: self.stems) 
+            root: root, query: query, stems: self.stems) 
     }
-    private 
+    @usableFromInline 
     func response(for uri:URI, resolution:Ecosystem.Resolution) -> StaticResponse 
     {
         switch resolution 
@@ -145,6 +140,7 @@ struct Biome
             return .matched(cached, canonical: uri.description) 
         }
     }
+    
     public mutating 
     func regenerateCaches() 
     {

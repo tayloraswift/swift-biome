@@ -5,6 +5,8 @@ extension Symbol
         case c      = "c"
         case swift  = "s"
     }
+    
+    @usableFromInline 
     struct ID:Hashable, CustomStringConvertible, Sendable 
     {
         let string:String 
@@ -29,6 +31,7 @@ extension Symbol
             return language 
         }
         
+        @usableFromInline 
         var description:String
         {
             Demangle[self.string]

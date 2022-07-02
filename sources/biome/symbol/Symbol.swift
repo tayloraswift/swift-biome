@@ -1,9 +1,11 @@
+@usableFromInline 
 struct Symbol:Sendable, Identifiable, CustomStringConvertible  
 {
     /// A globally-unique index referencing a symbol. 
     /// 
     /// A symbol index encodes the module it belongs to, which makes it possible 
     /// to query module membership based on the index alone.
+    @usableFromInline 
     struct Index:CulturalIndex, Hashable, Sendable
     {
         let module:Module.Index
@@ -128,6 +130,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     }
     
     // these stored properties are constant with respect to symbol identity. 
+    @usableFromInline 
     let id:ID
     //  TODO: see if small-array optimizations here are beneficial, since this could 
     //  often be a single-element array
@@ -171,6 +174,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     {
         self.color.orientation
     }
+    @usableFromInline 
     var description:String 
     {
         self.path.description

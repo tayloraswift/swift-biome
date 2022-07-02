@@ -91,11 +91,12 @@ struct Preview:ServiceBackend
     }
     func request(_ uri:String) -> DynamicResponse<Never> 
     {
-        if let resource:Resource = self.resources[uri]
+        if      let resource:Resource = self.resources[uri]
         {
             return .immediate(.matched(resource, canonical: uri))
         }
-        else if let response:StaticResponse = self.biome[uri: uri]
+        else if let uri:URI = try? .init(absolute: uri), 
+                let response:StaticResponse = self.biome[uri: uri]
         {
             
             return .immediate(response)

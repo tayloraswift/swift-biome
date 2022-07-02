@@ -1,5 +1,6 @@
 extension Symbol 
 {
+    @usableFromInline 
     struct Diacritic:Hashable, Sendable
     {
         let host:Index 

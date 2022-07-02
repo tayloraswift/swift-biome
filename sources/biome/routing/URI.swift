@@ -2,6 +2,7 @@ import Grammar
 
 extension Collection where Element == URI.Vector?
 {
+    @inlinable public
     var normalized:(components:[String], fold:Int)
     {
         // ii. lexical normalization 
@@ -36,8 +37,10 @@ extension Collection where Element == URI.Vector?
     }
 }
 
-struct URI:CustomStringConvertible 
+@frozen public 
+struct URI:CustomStringConvertible, Sendable
 {
+    @frozen public 
     enum Vector:Hashable, Sendable
     {
         /// '..'
@@ -46,11 +49,15 @@ struct URI:CustomStringConvertible
         /// of the dots was percent-encoded.
         case push(String)
     }
+    public 
     typealias Parameter = (key:String, value:String)
     
+    public 
     var path:[Vector?]
+    public 
     var query:[Parameter]?
     
+    @inlinable public 
     var description:String 
     {
         var string:String = ""
@@ -77,7 +84,7 @@ struct URI:CustomStringConvertible
         return string
     }
     
-    static 
+    @inlinable public static 
     func ~= (lhs:Self, rhs:Self) -> Bool 
     {
         guard lhs.path == rhs.path 
@@ -118,20 +125,85 @@ struct URI:CustomStringConvertible
         }
     }
     
-    init(path:[Vector?], query:[Parameter]?)
+    @inlinable public
+    init(path:[Vector?] = [], query:[Parameter]? = nil)
     {
         self.path = path 
         self.query = query
     }
+    @inlinable public
+    init<Path>(path:Path, query:[Parameter]? = nil)
+        where Path:Sequence, Path.Element == String
+    {
+        self.init(path: path.map(Vector.push(_:)), query: query)
+    }
+    @inlinable public
     init<S>(absolute string:S) throws where S:StringProtocol
     {
         self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Absolute.self)
     }
+    @inlinable public
     init<S>(relative string:S) throws where S:StringProtocol
     {
         self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Relative.self)
     }
     
+    @inlinable public static 
+    func encode<UTF8>(utf8 bytes:UTF8) -> String
+        where UTF8:Sequence, UTF8.Element == UInt8
+    {
+        var utf8:[UInt8] = []
+            utf8.reserveCapacity(bytes.underestimatedCount)
+        for byte:UInt8 in bytes
+        {
+            if let byte:UInt8 = Self.filter(byte: byte)
+            {
+                utf8.append(byte)
+            }
+            else 
+            {
+                // percent-encode
+                utf8.append(0x25) // '%'
+                utf8.append(Self.hex(uppercasing: byte >> 4))
+                utf8.append(Self.hex(uppercasing: byte & 0x0f))
+            }
+        }
+        return .init(unsafeUninitializedCapacity: utf8.count) 
+        { 
+            $0.initialize(from: utf8).1 - $0.startIndex
+        }
+    }
+    @inlinable public static 
+    func filter(byte:UInt8) -> UInt8?
+    {
+        switch byte 
+        {
+        case    0x30 ... 0x39,  // [0-9]
+                0x41 ... 0x5a,  // [A-Z]
+                0x61 ... 0x7a,  // [a-z]
+                0x2d,           // '-'
+                0x2e,           // '.'
+                // not technically a URL character, but browsers won’t render '%3A' 
+                // in the URL bar, and ':' is so common in Swift it is not worth 
+                // percent-encoding. 
+                // the ':' character also appears in legacy USRs.
+                0x3a,           // ':' 
+                0x5f,           // '_'
+                0x7e:           // '~'
+            return byte 
+        default: 
+            return nil 
+        }
+    }
+    @inlinable public static 
+    func hex(uppercasing value:UInt8) -> UInt8
+    {
+        (value < 10 ? 0x30 : 0x37) + value 
+    }
+}
+
+extension URI 
+{
     init(root:String, 
         path:[String], 
         orientation:Symbol.Link.Orientation = .straight)
@@ -201,58 +273,5 @@ struct URI:CustomStringConvertible
             parameters.append(parameter)
             self.query = parameters
         }
-    }
-    
-    private static 
-    func encode<UTF8>(utf8 bytes:UTF8) -> String
-        where UTF8:Sequence, UTF8.Element == UInt8
-    {
-        var utf8:[UInt8] = []
-            utf8.reserveCapacity(bytes.underestimatedCount)
-        for byte:UInt8 in bytes
-        {
-            if let byte:UInt8 = Self.filter(byte: byte)
-            {
-                utf8.append(byte)
-            }
-            else 
-            {
-                // percent-encode
-                utf8.append(0x25) // '%'
-                utf8.append(Self.hex(uppercasing: byte >> 4))
-                utf8.append(Self.hex(uppercasing: byte & 0x0f))
-            }
-        }
-        return .init(unsafeUninitializedCapacity: utf8.count) 
-        { 
-            $0.initialize(from: utf8).1 - $0.startIndex
-        }
-    }
-    private static 
-    func filter(byte:UInt8) -> UInt8?
-    {
-        switch byte 
-        {
-        case    0x30 ... 0x39,  // [0-9]
-                0x41 ... 0x5a,  // [A-Z]
-                0x61 ... 0x7a,  // [a-z]
-                0x2d,           // '-'
-                0x2e,           // '.'
-                // not technically a URL character, but browsers won’t render '%3A' 
-                // in the URL bar, and ':' is so common in Swift it is not worth 
-                // percent-encoding. 
-                // the ':' character also appears in legacy USRs.
-                0x3a,           // ':' 
-                0x5f,           // '_'
-                0x7e:           // '~'
-            return byte 
-        default: 
-            return nil 
-        }
-    }
-    private static 
-    func hex(uppercasing value:UInt8) -> UInt8
-    {
-        (value < 10 ? 0x30 : 0x37) + value 
     }
 }

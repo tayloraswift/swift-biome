@@ -4,6 +4,7 @@ public
 struct Module:Identifiable, Sendable
 {
     /// A globally-unique index referencing a module. 
+    @usableFromInline 
     struct Index:CulturalIndex, Hashable, Sendable 
     {
         let package:Package.Index 

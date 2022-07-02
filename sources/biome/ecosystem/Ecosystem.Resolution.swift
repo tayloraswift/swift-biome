@@ -1,5 +1,6 @@
 extension Ecosystem 
 {
+    @usableFromInline
     enum Resolution
     {
         case selection(Selection, pins:[Package.Index: Version])
@@ -39,9 +40,10 @@ extension Ecosystem
             {
                 (path:Path.SubSequence, namespace:Module.Index, arrival:MaskedVersion?) in 
                 
-                if  let route:Route = stems[namespace, path],
+                if  let article:Article.ID = 
+                        stems[namespace, path].map(Article.ID.init(_:)),
                     let article:Article.Index = 
-                        self[namespace.package].articles.indices[route]
+                        self[namespace.package].articles.indices[article]
                 {
                     guard let pins:[Package.Index: Version] = self[namespace.package]
                         .versions[arrival]?.isotropic(culture: namespace.package)

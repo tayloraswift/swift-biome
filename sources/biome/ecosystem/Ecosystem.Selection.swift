@@ -1,5 +1,6 @@
 extension Ecosystem 
 {
+    @usableFromInline
     enum Selection
     {
         case index(Index)

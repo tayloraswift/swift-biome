@@ -1,5 +1,6 @@
 import JSON
 
+@usableFromInline
 struct Version:Hashable, Comparable, Sendable
 {
     let offset:Int 
@@ -7,7 +8,7 @@ struct Version:Hashable, Comparable, Sendable
     static 
     let max:Self = .init(offset: .max)
     
-    static 
+    @usableFromInline static 
     func < (lhs:Self, rhs:Self) -> Bool 
     {
         lhs.offset < rhs.offset 

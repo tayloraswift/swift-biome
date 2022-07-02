@@ -1,6 +1,7 @@
 extension Symbol 
 {
     // 20 B size, 24 B stride
+    @usableFromInline 
     struct Composite:Hashable, Sendable
     {
         //  there are up to three cultures that come into play here:

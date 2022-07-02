@@ -2,20 +2,26 @@ import Grammar
 
 extension URI 
 {
+    public 
     enum Rule<Location>
     {
+        public 
         typealias Terminal = UInt8
+        public 
         typealias Encoding = Grammar.Encoding<Location, Terminal>
     }
-    private
+    public
     enum EncodedString<UnencodedByte>:ParsingRule 
     where   UnencodedByte:ParsingRule, 
             UnencodedByte.Terminal == UInt8,
             UnencodedByte.Construction == Void
     {
+        public 
         typealias Location = UnencodedByte.Location 
+        public 
         typealias Terminal = UnencodedByte.Terminal
-        static 
+        
+        @inlinable public static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> (string:String, unencoded:Bool)
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
@@ -38,11 +44,13 @@ extension URI
 }
 extension URI.Rule:ParsingRule 
 {
-    fileprivate 
+    public 
     enum EncodedByte:ParsingRule
     {
+        public
         typealias Terminal = UInt8
-        static 
+        
+        @inlinable public static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> UInt8
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
@@ -54,14 +62,18 @@ extension URI.Rule:ParsingRule
     } 
 
     // `Vector` and `Query` can only be defined for UInt8 because we are decoding UTF-8 to a String    
-    private
+    public
     enum Vector:ParsingRule 
     {
+        public
         enum Separator:TerminalRule
         {
+            public
             typealias Terminal = UInt8
+            public
             typealias Construction = Void
-            static 
+            
+            @inlinable public static 
             func parse(terminal:Terminal) -> Void? 
             {
                 switch terminal 
@@ -73,11 +85,15 @@ extension URI.Rule:ParsingRule
             }
         }
         /// Matches a UTF-8 code unit that is allowed to appear inline in URL path component. 
+        public
         enum UnencodedByte:TerminalRule
         {
+            public
             typealias Terminal = UInt8
+            public
             typealias Construction = Void 
-            static 
+            
+            @inlinable public static 
             func parse(terminal:UInt8) -> Void? 
             {
                 switch terminal 
@@ -90,11 +106,13 @@ extension URI.Rule:ParsingRule
                 }
             }
         } 
-        
+        public
         enum Component:ParsingRule 
         {
+            public
             typealias Terminal = UInt8
-            static 
+            
+            @inlinable public static 
             func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.Vector?
                 where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
             {
@@ -113,9 +131,11 @@ extension URI.Rule:ParsingRule
                 }
             }
         }
-
+        
+        public
         typealias Terminal = UInt8
-        static 
+        
+        @inlinable public static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.Vector?
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
@@ -123,14 +143,18 @@ extension URI.Rule:ParsingRule
             return try input.parse(as: Component.self)
         }
     }
-    private 
+    public 
     enum Parameter:ParsingRule 
     {
+        public
         enum Separator:TerminalRule 
         {
+            public
             typealias Terminal = UInt8
+            public
             typealias Construction = Void 
-            static 
+            
+            @inlinable public static 
             func parse(terminal:Terminal) -> Void?
             {
                 switch terminal
@@ -143,11 +167,15 @@ extension URI.Rule:ParsingRule
                 }
             }
         }
+        public
         enum UnencodedByte:TerminalRule 
         {
+            public 
             typealias Terminal = UInt8
+            public 
             typealias Construction = Void 
-            static 
+            
+            @inlinable public static 
             func parse(terminal:Terminal) -> Void?
             {
                 switch terminal
@@ -161,8 +189,10 @@ extension URI.Rule:ParsingRule
             }
         }
         
+        public
         typealias Terminal = UInt8
-        static 
+        
+        @inlinable public static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI.Parameter
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
@@ -174,11 +204,13 @@ extension URI.Rule:ParsingRule
     }
 
     // always begins with '?', but may be empty 
-    private
+    public
     enum ParameterList:ParsingRule 
     {
+        public 
         typealias Terminal = UInt8
-        static 
+        
+        @inlinable public static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
             throws -> [URI.Parameter]
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
@@ -189,11 +221,13 @@ extension URI.Rule:ParsingRule
     }
     
     // always contains at least one vector ('/' -> [.push("")])
+    public 
     enum Absolute:ParsingRule 
     {
+        public
         typealias Terminal = UInt8
 
-        static 
+        @inlinable public static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
@@ -211,10 +245,13 @@ extension URI.Rule:ParsingRule
         }
     }
     // always contains at least one vector, but it may be empty
+    public 
     enum Relative:ParsingRule 
     {
+        public
         typealias Terminal = UInt8
-        static 
+        
+        @inlinable public static 
         func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> URI
             where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
         {
@@ -228,7 +265,7 @@ extension URI.Rule:ParsingRule
         }
     }
     
-    static 
+    @inlinable public static 
     func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
         throws -> (absolute:Bool, uri:URI)
         where Grammar.Parsable<Location, Terminal, Diagnostics>:Any

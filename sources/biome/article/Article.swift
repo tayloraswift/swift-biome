@@ -1,11 +1,13 @@
 import HTML
 
+@usableFromInline 
 struct Article:Identifiable 
 {
     /// A globally-unique index referencing an article. 
     /// 
     /// An article index encodes the module it belongs to, whichs makes it possible 
     /// to query module membership based on the index alone.
+    @usableFromInline 
     struct Index:CulturalIndex, Hashable, Sendable
     {
         let module:Module.Index
@@ -42,9 +44,21 @@ struct Article:Identifiable
         }
     }
     
-    var id:Route 
+    @usableFromInline 
+    struct ID:Hashable, Sendable 
     {
-        self.route
+        let route:Route 
+        
+        init(_ route:Route)
+        {
+            self.route = route
+        }
+    }
+    
+    @usableFromInline 
+    var id:ID 
+    {
+        .init(self.route)
     }
     let path:Path
     var name:String 
@@ -54,10 +68,10 @@ struct Article:Identifiable
     let route:Route
     var heads:Heads
     
-    init(path:Path, route:Route)
+    init(id:ID, path:Path)
     {
         self.path = path
-        self.route = route
+        self.route = id.route
         self.heads = .init()
     }
 }

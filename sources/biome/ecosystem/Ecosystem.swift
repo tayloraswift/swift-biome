@@ -3,6 +3,7 @@
 /// 
 /// ecosystem views are mainly useful for providing an immutable context for 
 /// accessing foreign packages.
+@usableFromInline
 struct Ecosystem 
 {
     enum DependencyError:Error 
@@ -20,6 +21,7 @@ struct Ecosystem
         case many(String, [Symbol.Composite])
     }
     
+    @usableFromInline 
     enum Index:Hashable, Sendable
     {
         case package(Package.Index)
@@ -159,6 +161,7 @@ struct Ecosystem
         }
     }
     
+    @usableFromInline
     func uri(of resolution:Resolution) -> URI 
     {
         switch resolution 
