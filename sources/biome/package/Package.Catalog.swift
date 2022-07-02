@@ -1,7 +1,7 @@
 extension Package 
 {
     public 
-    struct Catalog
+    struct Catalog:Sendable
     {
         public 
         let id:ID 

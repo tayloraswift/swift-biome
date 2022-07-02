@@ -53,7 +53,7 @@ struct Biome
     }
     
     public 
-    subscript(request:String, referrer referrer:Never?) -> StaticResponse?
+    subscript(uri request:String) -> StaticResponse?
     {
         guard let request:URI = try? .init(absolute: request)
         else 
@@ -154,6 +154,8 @@ struct Biome
     public mutating 
     func updatePackage(_ graph:Package.Graph, era:[Package.ID: MaskedVersion]) throws 
     {
+        try Task.checkCancellation()
+        
         let version:PreciseVersion = .init(era[graph.id])
         
         let index:Package.Index = 

@@ -95,7 +95,7 @@ struct Preview:ServiceBackend
         {
             return .immediate(.matched(resource, canonical: uri))
         }
-        else if let response:StaticResponse = self.biome[uri, referrer: nil]
+        else if let response:StaticResponse = self.biome[uri: uri]
         {
             
             return .immediate(response)

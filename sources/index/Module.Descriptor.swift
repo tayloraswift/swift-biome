@@ -4,7 +4,7 @@ import VersionControl
 extension Module 
 {
     public 
-    struct Descriptor:Decodable 
+    struct Descriptor:Decodable, Sendable 
     {
         public
         let id:ID
@@ -29,6 +29,8 @@ extension Module
         
         func load(with controller:VersionController? = nil) async throws -> Catalog
         {
+            try Task.checkCancellation()
+            
             var locations:
             (
                 articles:[(name:String, source:FilePath)],

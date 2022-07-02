@@ -5,7 +5,7 @@ import JSON
 extension Package 
 {
     public 
-    struct Descriptor:Decodable 
+    struct Descriptor:Decodable, Sendable 
     {
         public
         enum CodingKeys:String, CodingKey 
@@ -36,6 +36,8 @@ extension Package
         func load(with controller:VersionController?) 
             async throws -> Package.Catalog
         {
+            // don’t check for task cancellation, because each constituent 
+            // call to `Module.Descriptor.load(with:)` checks for it
             guard self.toolsVersion == Self.toolsVersion
             else 
             {

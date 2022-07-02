@@ -3,7 +3,7 @@ import Resource
 extension Module 
 {
     public 
-    struct Catalog
+    struct Catalog:Sendable
     {
         public 
         let id:ID, 
