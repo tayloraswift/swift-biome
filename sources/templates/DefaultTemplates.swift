@@ -118,13 +118,13 @@ enum DefaultTemplates
                                 {
                                     Element.anchor(.pin)
                                 }
-                                Element.anchor(.versions)
                             }
                         }
                         Element[.ol]
                         {
                             ("id", "search-results")
                         }
+                        Element.anchor(.versions)
                     }
                 }
                 Element[.main]
