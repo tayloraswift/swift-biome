@@ -109,6 +109,7 @@ enum DefaultTemplates
                                 {
                                     ("id",      "version-menu-input")
                                     ("type",    "checkbox")
+                                    ("checked", "false")
                                 }
                                 Element[.label]
                                 {
