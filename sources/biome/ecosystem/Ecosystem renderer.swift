@@ -256,7 +256,7 @@ extension Ecosystem
                 items.append(.li(.a(text) { ("href", uri.description) }))
             }
         }
-        let menu:HTML.Element<Never> = .ol(items: items)
+        let menu:HTML.Element<Never> = .ol(items: items) { ("id", "version-menu") } 
         let label:(HTML.Element<Never>, HTML.Element<Never>) = 
         (
             .span(package.id.title)        { ("class", "package") },
