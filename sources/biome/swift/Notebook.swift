@@ -1,7 +1,7 @@
 import JSON 
 import Notebook
 
-extension Notebook<Highlight, Symbol.ID>.Fragment
+extension Notebook.Fragment where Color == Highlight, Link == Symbol.ID
 {
     init(from json:JSON) throws 
     {

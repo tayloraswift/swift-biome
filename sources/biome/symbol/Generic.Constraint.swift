@@ -39,7 +39,7 @@ extension Generic.Constraint:Sendable where Link:Sendable {}
 extension Generic.Constraint:Hashable where Link:Hashable {}
 extension Generic.Constraint:Equatable where Link:Equatable {}
 
-extension Generic.Constraint<Symbol.ID>
+extension Generic.Constraint where Link == Symbol.ID
 {
     init(from json:JSON) throws
     {

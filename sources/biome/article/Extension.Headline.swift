@@ -54,7 +54,7 @@ extension Extension
     }
 }
 
-extension DOM.Element<HTML, Never>
+extension DOM.Element where Domain == HTML, Anchor == Never
 {
     // `RecurringInlineMarkup` is not a useful abstraction
     fileprivate static 

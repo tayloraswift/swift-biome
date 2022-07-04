@@ -99,7 +99,7 @@ enum DefaultTemplates
                                     ("autocomplete",    "off")
                                 }
                             }
-                            Element[.nav]
+                            Element[.label]
                             {
                                 ("class", "versions")
                             }
@@ -111,14 +111,7 @@ enum DefaultTemplates
                                     ("type",            "checkbox")
                                     ("autocomplete",    "off")
                                 }
-                                Element[.label]
-                                {
-                                    ("for",     "version-menu-input")
-                                }
-                                content: 
-                                {
-                                    Element.anchor(.pin)
-                                }
+                                Element.anchor(.pin)
                             }
                         }
                         Element[.ol]

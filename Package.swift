@@ -39,12 +39,7 @@ let package = Package(
                 .product(name: "SwiftSyntax",       package: "swift-syntax"),
                 .product(name: "Markdown",          package: "swift-markdown"),
             ], 
-            path: "sources/biome", 
-            swiftSettings: 
-            [
-                .unsafeFlags(["-Xfrontend", "-enable-experimental-bound-generic-extensions"]), 
-                //.unsafeFlags(["-Xfrontend", "-enable-parametrized-protocol-types"]),
-            ]),
+            path: "sources/biome"),
         
         .target(name: "BiomeIndex", 
             dependencies: 
