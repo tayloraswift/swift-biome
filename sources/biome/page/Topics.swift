@@ -202,14 +202,17 @@ extension Ecosystem.Pinned
         let sublist:Topics.Sublist = .color(self.ecosystem[composite.base].color)
         let declaration:Symbol.Declaration = 
             self.pin(composite.base.module.package).declaration(composite.base)
+        // every sublist has a sub-sublist for the primary culture, even if it 
+        // is empty. this is more css-grid friendly.
+        var empty:[Module.Culture: [Symbol.Card]] { [.primary: []] }
         if  declaration.availability.isUsable 
         {
-            topics.members[sublist, default: [:]][culture, default: []]
+            topics.members[sublist, default: empty][culture, default: []]
                 .append((composite, declaration))
         }
         else 
         {
-            topics.removed[sublist, default: [:]][culture, default: []]
+            topics.removed[sublist, default: empty][culture, default: []]
                 .append((composite, declaration))
         }
     }
