@@ -6,11 +6,18 @@ extension Ecosystem
         -> [Page.Key: DOM.Template<Index, [UInt8]>]
     {
         let package:Package = self[index]
+        let kind:String 
+        switch package.kind 
+        {
+        case .swift:        kind = "Standard Library"
+        case .core:         kind = "Core Library"
+        case .community:    kind = "Package"
+        }
         let substitutions:[Page.Key: HTML.Element<Index>] = 
         [
             .title:        .text(escaping: package.id.string), 
             .headline:     .h1(package.id.string), 
-            .kind:         .text(escaped: "Package")
+            .kind:         .text(escaped: kind)
         ]
         return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
     }
@@ -547,44 +554,3 @@ extension Ecosystem
         }
     }
 }
-/*  
-func substitutions(package index:Int, filter:[Package.ID]) -> [Anchor: Element] 
-{
-    let package:Package = self.biome.packages[index]
-    var substitutions:[Anchor: Element] = 
-    [
-        .title:     .text(escaping: package.name), 
-        .headline:  Element[.h1] { package.name }, 
-        .constants: .text(escaped: Self.constants(filter: filter)), 
-        .navigator: Element[.ol] 
-        {
-            ["breadcrumbs-container"]
-        }
-        content:
-        {
-            Element[.li] 
-            { 
-                package.name 
-            }
-        }, 
-        .dynamic:   Element[.div]
-        {
-            ["lower-container"]
-        }
-        content:
-        {
-            self.dynamicContent(package: index)
-        },
-    ]
-    
-    if case .swift = package.id.kind 
-    {
-        substitutions[.kind] = .text(escaped: "Standard Library")
-    }
-    else 
-    {
-        substitutions[.kind] = .text(escaped: "Package")
-    }
-    return substitutions
-}
-*/
