@@ -3,15 +3,7 @@ import Resource
 import JSON 
 
 extension Module 
-{
-    public 
-    enum GraphError:Error 
-    {
-        // this is thrown by the BiomeIndex module
-        case missing(id:ID)
-        case culture(id:ID, expected:ID)
-    }
-    
+{    
     public 
     struct Graph:Sendable 
     {
@@ -89,7 +81,7 @@ extension Module
                 guard module == culture
                 else 
                 {
-                    throw GraphError.culture(id: module, expected: culture)
+                    throw SubgraphDecodingError.mismatchedCulture(module, expected: culture)
                 }
                 return (images, edges)
             }

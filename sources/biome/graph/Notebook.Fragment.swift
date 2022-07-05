@@ -31,7 +31,7 @@ extension Notebook.Fragment where Color == Highlight, Link == Symbol.ID
                 case "externalParam":       return .argument
                 case "text":                return .text
                 case let color:
-                    throw HighlightError.undefined(color: color)
+                    throw Module.SubgraphDecodingError.invalidFragmentColor(color)
                 }
             }
             return .init(text, color: color, link: link)

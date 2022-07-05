@@ -1,3 +1,4 @@
+public 
 enum Platform:String, CaseIterable, Hashable, Sendable 
 {
     case iOS 
@@ -14,14 +15,48 @@ enum Platform:String, CaseIterable, Hashable, Sendable
     case tvOSApplicationExtension
     case watchOSApplicationExtension
 }
-
-enum AvailabilityError:Error 
-{
-    case duplicate(domain:AvailabilityDomain)
-}
-
+public 
 struct Availability:Equatable, Sendable
 {
+    // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/AvailabilityMixin.cpp
+    public 
+    enum Domain:RawRepresentable
+    {
+        case general
+        case swift
+        case tools
+        case platform(Platform)
+        
+        public 
+        init?(rawValue:String)
+        {
+            switch rawValue 
+            {
+            case "*":       self = .general
+            case "Swift":   self = .swift
+            case "SwiftPM": self = .tools
+            default: 
+                guard let platform:Platform = .init(rawValue: rawValue)
+                else 
+                {
+                    return nil 
+                }
+                self = .platform(platform)
+            }
+        }
+        public 
+        var rawValue:String 
+        {
+            switch self 
+            {
+            case .general:                  return "*"
+            case .swift:                    return "Swift"
+            case .tools:                    return "SwiftPM"
+            case .platform(let platform):   return platform.rawValue
+            }
+        }
+    }
+    
     var swift:SwiftAvailability?
     //let tools:SwiftAvailability?
     var general:UnversionedAvailability?
@@ -50,45 +85,6 @@ struct Availability:Equatable, Sendable
         self.swift = nil 
         self.general = nil 
         self.platforms = [:]
-    }
-    init(_ items:[(key:AvailabilityDomain, value:VersionedAvailability)]) throws
-    {
-        self.init()
-        for (key, value):(AvailabilityDomain, VersionedAvailability) in items
-        {
-            switch key 
-            {
-            case .general:
-                if case nil = self.general
-                {
-                    self.general = .init(value)
-                }
-                else 
-                {
-                    throw AvailabilityError.duplicate(domain: key)
-                }
-            
-            case .swift:
-                if case nil = self.swift 
-                {
-                    self.swift = .init(value)
-                }
-                else 
-                {
-                    throw AvailabilityError.duplicate(domain: key)
-                }
-            
-            case .tools:
-                fatalError("unimplemented (yet)")
-            
-            case .platform(let platform):
-                guard case nil = self.platforms.updateValue(value, forKey: platform)
-                else 
-                {
-                    throw AvailabilityError.duplicate(domain: key)
-                }
-            }
-        }
     }
 }
 struct SwiftAvailability:Equatable, Sendable
@@ -159,42 +155,6 @@ struct VersionedAvailability:Equatable, Sendable
         else 
         {
             return false 
-        }
-    }
-}
-
-// https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/AvailabilityMixin.cpp
-enum AvailabilityDomain:RawRepresentable
-{
-    case general
-    case swift
-    case tools
-    case platform(Platform)
-    
-    init?(rawValue:String)
-    {
-        switch rawValue 
-        {
-        case "*":       self = .general
-        case "Swift":   self = .swift
-        case "SwiftPM": self = .tools
-        default: 
-            guard let platform:Platform = .init(rawValue: rawValue)
-            else 
-            {
-                return nil 
-            }
-            self = .platform(platform)
-        }
-    }
-    var rawValue:String 
-    {
-        switch self 
-        {
-        case .general:                  return "*"
-        case .swift:                    return "Swift"
-        case .tools:                    return "SwiftPM"
-        case .platform(let platform):   return platform.rawValue
         }
     }
 }

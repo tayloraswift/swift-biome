@@ -1,17 +1,5 @@
 extension Symbol 
 {
-    public 
-    struct ScopeResolutionError:Error, Hashable 
-    {
-        var id:Symbol.ID 
-        
-        public 
-        var description:String 
-        {
-            "could not resolve symbol '\(self.id.string)' (\(self.id.description))"
-        }
-    }
-    
     struct Scope
     {
         var culture:Module.Index 
@@ -36,7 +24,7 @@ extension Symbol
             }
             else 
             {
-                throw ScopeResolutionError.init(id: id)
+                throw LookupError.unknownID(id)
             } 
         }
         func contains(_ id:Symbol.ID) -> Bool

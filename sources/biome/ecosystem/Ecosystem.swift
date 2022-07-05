@@ -5,22 +5,7 @@
 /// accessing foreign packages.
 @usableFromInline
 struct Ecosystem 
-{
-    enum DependencyError:Error 
-    {
-        case packageNotFound(Package.ID)
-        case targetNotFound(Module.ID, in:Package.ID)
-    }
-    enum AuthorityError:Error
-    {
-        case externalSymbol(Symbol.Index, is:Symbol.Role, accordingTo:Module.Index)
-    }
-    enum LinkResolutionError:Error 
-    {
-        case none(String)
-        case many(String, [Symbol.Composite])
-    }
-    
+{    
     @usableFromInline 
     enum Index:Hashable, Sendable
     {

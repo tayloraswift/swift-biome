@@ -2,17 +2,6 @@ extension Symbol
 {
     typealias Statement = (subject:Index, predicate:Predicate)
     
-    enum ColorError:Error 
-    {
-        case miscegenation(Color, is:Edge.Kind, of:Color)
-    }
-    enum ShapeError:Error 
-    {
-        case conflict   (is:Shape, and:Shape)
-        case subclass   (of:Index, and:Index)
-        case requirement(of:Index, is:Role)
-    }
-    
     enum Predicate 
     {
         case `is`(Role)

@@ -168,7 +168,7 @@ extension Image
             let availability:Availability? = 
                 try $0.pop("availability", as: [JSON]?.self)
             {
-                let availability:[(key:AvailabilityDomain, value:VersionedAvailability)] = 
+                let availability:[(key:Availability.Domain, value:VersionedAvailability)] = 
                 try $0.map 
                 {
                     try $0.lint
@@ -188,9 +188,9 @@ extension Image
                             obsoleted: try $0.pop("obsoleted", MaskedVersion.init(from:)), 
                             renamed: try $0.pop("renamed", as: String?.self),
                             message: try $0.pop("message", as: String?.self))
-                        let domain:AvailabilityDomain = try $0.remove("domain") 
+                        let domain:Availability.Domain = try $0.remove("domain") 
                         { 
-                            try $0.case(of: AvailabilityDomain.self) 
+                            try $0.case(of: Availability.Domain.self) 
                         }
                         return (key: domain, value: availability)
                     }
@@ -222,6 +222,48 @@ extension Image
                 extensionConstraints:  `extension`?.constraints ?? [], 
                 comment:                comment ?? "")
             return (id, kind, .init(path: path, color: color, frame: frame))
+        }
+    }
+}
+extension Availability 
+{
+    init(_ items:[(key:Availability.Domain, value:VersionedAvailability)]) throws
+    {
+        self.init()
+        for (key, value):(Availability.Domain, VersionedAvailability) in items
+        {
+            switch key 
+            {
+            case .general:
+                if case nil = self.general
+                {
+                    self.general = .init(value)
+                }
+                else 
+                {
+                    throw Module.SubgraphDecodingError.duplicateAvailabilityDomain(key)
+                }
+            
+            case .swift:
+                if case nil = self.swift 
+                {
+                    self.swift = .init(value)
+                }
+                else 
+                {
+                    throw Module.SubgraphDecodingError.duplicateAvailabilityDomain(key)
+                }
+            
+            case .tools:
+                fatalError("unimplemented (yet)")
+            
+            case .platform(let platform):
+                guard case nil = self.platforms.updateValue(value, forKey: platform)
+                else 
+                {
+                    throw Module.SubgraphDecodingError.duplicateAvailabilityDomain(key)
+                }
+            }
         }
     }
 }

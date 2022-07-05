@@ -4,6 +4,27 @@ import VersionControl
 extension Module 
 {
     public 
+    enum SubgraphLoadingError:Error, CustomStringConvertible 
+    {
+        case invalidName(String)
+        case duplicateSubgraph(ID)
+        case missingCoreSubgraph(ID)
+        
+        public 
+        var description:String 
+        {
+            switch self 
+            {
+            case .invalidName(let string): 
+                return "invalid subgraph name '\(string)'"
+            case .duplicateSubgraph(let id): 
+                return "duplicate subgraphs for primary culture '\(id)'"
+            case .missingCoreSubgraph(let id): 
+                return "missing subgraph for primary culture '\(id)'"
+            }
+        }
+    }
+    public 
     struct Descriptor:Decodable, Sendable 
     {
         public
@@ -54,7 +75,7 @@ extension Module
                     root = include
                 }
                 
-                root.walk
+                try root.walk
                 {
                     (path:FilePath) in 
                     
@@ -81,8 +102,7 @@ extension Module
                         guard case self.id? = identifiers.first.map(ID.init(_:))
                         else 
                         {
-                            print("warning: ignored symbolgraph with invalid name '\(reduced.stem)'")
-                            break 
+                            throw SubgraphLoadingError.invalidName(reduced.stem)
                         }
                         switch (identifiers.count, locations.core)
                         {
@@ -114,7 +134,7 @@ extension Module
             }
             else 
             {
-                throw GraphError.missing(id: self.id)
+                throw SubgraphLoadingError.missingCoreSubgraph(self.id)
             }
             var colonies:[(ID, Resource)] = []
                 colonies.reserveCapacity(locations.colonies.count)
