@@ -334,7 +334,6 @@ extension Ecosystem
         {
             return nil 
         }
-        
         guard let link:Symbol.Link = 
             try? .init(path: (_move(global).dropFirst(), fold), query: uri.query ?? [])
         else 

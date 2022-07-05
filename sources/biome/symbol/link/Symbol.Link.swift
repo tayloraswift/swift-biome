@@ -153,8 +153,12 @@ extension Symbol
             {
                 try self.append(components: path.components[..<path.fold])
                 self.startIndex = self.path.endIndex
+                try self.append(components: path.components[path.fold...])
             }
-            try self.append(components: path.components[path.fold...])
+            else 
+            {
+                try self.append(components: path.components)
+            }
         }
         mutating 
         func append<Path>(components:Path) throws 
