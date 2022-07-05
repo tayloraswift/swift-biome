@@ -307,7 +307,7 @@ extension Ecosystem
         let heading:HTML.Element<Topics.Key> = .h2("Modules")
         let section:HTML.Element<Topics.Key> = 
             .section([heading, list]) { ("class", "related") }
-        return .init(freezing: .div(section) { ("class", "lower-container") })
+        return .init(freezing: .div(section))
     }
     func render(topics:Topics) -> DOM.Template<Topics.Key, [UInt8]>?
     {
@@ -335,11 +335,15 @@ extension Ecosystem
         {
             let requirements:[Topics.Sublist: [Module.Culture: [Symbol.Card]]] = 
                 topics.requirements.mapValues { [.primary: $0] }
-            sections.append(self.render(section: requirements, heading: "Requirements"))
+            sections.append(self.render(section: requirements, 
+                heading: "Requirements", 
+                class: "requirements"))
         }
         if !topics.members.isEmpty
         {
-            sections.append(self.render(section: topics.members, heading: "Members"))
+            sections.append(self.render(section: topics.members, 
+                heading: "Members", 
+                class: "members"))
         }
         
         for heading:Topics.List in 
@@ -359,11 +363,12 @@ extension Ecosystem
         if !topics.removed.isEmpty
         {
             sections.append(self.render(section: topics.removed, 
-                heading: "Removed Members"))
+                heading: "Removed Members", 
+                class: "removed"))
         }
         
         return sections.isEmpty ? nil : 
-            .init(freezing: .div(sections) { ("class", "lower-container") })
+            .init(freezing: .div(sections))
     }
     
     private 
@@ -436,7 +441,8 @@ extension Ecosystem
     private 
     func render(
         section segregated:[Topics.Sublist: [Module.Culture: [Symbol.Card]]], 
-        heading:String)
+        heading:String, 
+        class:String)
         -> HTML.Element<Topics.Key>
     {
         var elements:[HTML.Element<Topics.Key>] = [.h2(heading)]
@@ -447,7 +453,7 @@ extension Ecosystem
                 elements.append(self.render(subsection: segregated, heading: sublist.heading))
             }
         }
-        return .section(elements) { ("class", "topics") }
+        return .section(elements) { ("class", "topics \(`class`)") }
     }
     private 
     func renderHeading(_ culture:Module.Culture) -> HTML.Element<Topics.Key>?
