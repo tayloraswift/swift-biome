@@ -36,12 +36,15 @@ extension Ecosystem
             return (.searchIndex(package), false) 
         
         case .article: 
-            return self.resolveNamespace(path)
+            return self.resolveNamespace(path: path, query: query)
             {
-                (path:Path.SubSequence, namespace:Module.Index, arrival:MaskedVersion?) in 
+                (implicit:Symbol.Link, namespace:Module.Index, arrival:MaskedVersion?) in 
                 
+                // passing a symbol link to ``Stems.subscript(_:_:)`` directly will 
+                // strip the characters after the first hyphen in each component. 
+                // so we need to manually re-extract the path components.
                 if  let article:Article.ID = 
-                        stems[namespace, path].map(Article.ID.init(_:)),
+                        stems[namespace, implicit.map(\.string)].map(Article.ID.init(_:)),
                     let article:Article.Index = 
                         self[namespace.package].articles.indices[article]
                 {
@@ -54,8 +57,9 @@ extension Ecosystem
                     return (.selection(.article(article), pins: pins), false)
                 }
                 else if case (let resolution, _)? = 
-                    self.resolveSymbol(path, namespace: namespace, arrival: arrival, 
-                        query: query, 
+                    self.resolveSymbolLink(implicit, 
+                        namespace: namespace, 
+                        arrival: arrival, 
                         stems: stems)
                 {
                     return (resolution, true)
@@ -67,18 +71,16 @@ extension Ecosystem
             } 
         
         case .master:
-            return self.resolveNamespace(path)
+            return self.resolveNamespace(path: path, query: query)
             {
-                self.resolveSymbol($0, namespace: $1, arrival: $2, 
-                    query: query, 
-                    stems: stems)
+                self.resolveSymbolLink($0, namespace: $1, arrival: $2, stems: stems)
             }
         }
     }
 
     private 
-    func resolveNamespace<Path>(_ path:Path, 
-        then select:(Path.SubSequence, Module.Index, MaskedVersion?) 
+    func resolveNamespace<Path>(path:Path, query:[URI.Parameter],
+        then select:(Symbol.Link, Module.Index, MaskedVersion?) 
         throws   -> (resolution:Resolution, redirected:Bool)?) 
         rethrows -> (resolution:Resolution, redirected:Bool)?
         where Path:Collection, Path.Element:StringProtocol
@@ -110,8 +112,20 @@ extension Ecosystem
             qualified = _move(local) 
             arrival = nil
         }
-        
-        guard let module:Module.ID = qualified.first.map(Module.ID.init(_:)) 
+        // we must parse the symbol link *now*, otherwise references to things 
+        // like global vars (`Swift.min(_:_:)`) won’t work
+        guard let link:Symbol.Link = 
+            try? .init(path: _move(qualified), query: query).revealed
+        else 
+        {
+            // every article path is a valid symbol link (just with extra 
+            // interceding hyphens). so if parsing failed, it was not a valid 
+            // article path either.
+            return nil 
+        }
+        //  we can store a module id in a ``Symbol/Link``, because every 
+        //  ``Module/ID`` is a valid ``Symbol/Link/Component``.
+        guard let module:Module.ID = (link.first?.string).map(Module.ID.init(_:)) 
         else 
         {
             if  let destination:Package = root, 
@@ -150,8 +164,8 @@ extension Ecosystem
             return nil
         }
         
-        let implicit:Path.SubSequence = _move(qualified).dropFirst()
-        if  implicit.isEmpty
+        guard let implicit:Symbol.Link = _move(link).suffix
+        else 
         {
             if  let pins:Package.Pins<Version> = 
                 self[namespace.package].versions[arrival]
@@ -165,31 +179,24 @@ extension Ecosystem
                 return nil
             }
         }
-        else 
-        {
-            return try select(implicit, namespace, arrival)
-        }
+        return try select(implicit, namespace, arrival)
     }
     private 
-    func resolveSymbol<Path>(_ path:Path, 
+    func resolveSymbolLink(_ implicit:Symbol.Link, 
         namespace:Module.Index, 
         arrival:MaskedVersion?, 
-        query:[URI.Parameter], 
         stems:Stems)
         -> (resolution:Resolution, redirected:Bool)?
-        where Path:Collection, Path.Element:StringProtocol
     {        
-        if  let link:Symbol.Link = 
-                try? .init(path: (path, path.startIndex), query: query), 
-            case let (package, pins)? = 
+        if  case let (package, pins)? = 
                 self.localize(destination: namespace.package, 
                     arrival: arrival, 
-                    lens: link.query.lens),
-            let route:Route = stems[namespace, link.revealed], 
+                    lens: implicit.query.lens),
+            let route:Route = stems[namespace, implicit], 
             case let (selection, redirected: redirected)? = 
                 self.selectWithRedirect(from: route, 
                     lens: .init(package, at: pins.local), 
-                    by: link.disambiguator)
+                    by: implicit.disambiguator)
         {
             let pins:[Package.Index: Version] = pins.isotropic(culture: package.index)
             return (.selection(selection, pins: pins), redirected)

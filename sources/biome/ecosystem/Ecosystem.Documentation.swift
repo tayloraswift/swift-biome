@@ -335,9 +335,13 @@ extension Ecosystem
             return nil 
         }
         
-        let qualified:ArraySlice<String> = _move(global).dropFirst()
-        
-        guard let namespace:Module.ID = qualified.first.map(Module.ID.init(_:)) 
+        guard let link:Symbol.Link = 
+            try? .init(path: (_move(global).dropFirst(), fold), query: uri.query ?? [])
+        else 
+        {
+            return nil
+        }
+        guard let namespace:Module.ID = (link.first?.string).map(Module.ID.init(_:)) 
         else 
         {
             return (.package(destination), 1)
@@ -347,23 +351,20 @@ extension Ecosystem
         {
             return nil
         }
-        
-        let implicit:ArraySlice<String> = _move(qualified).dropFirst()
-        if  implicit.isEmpty 
+        guard let implicit:Symbol.Link = _move(link).suffix 
+        else 
         {
             return (.module(namespace), 1)
         }
         
-        let link:Symbol.Link = try .init(path: (implicit, fold), query: uri.query ?? [])
-        
         if  case let (package, pins)? = self.localize(destination: destination, 
-                lens: link.query.lens),
-            let route:Route = stems[namespace, link.revealed],
+                lens: implicit.query.lens),
+            let route:Route = stems[namespace, implicit.revealed],
             case let (selection, _)? = self.selectWithRedirect(from: route, 
                 lens: .init(package, at: pins.local), 
-                by: link.disambiguator)
+                by: implicit.disambiguator)
         {
-            return (selection, link.count)
+            return (selection, implicit.count)
         }
         else 
         {
@@ -422,8 +423,6 @@ extension Ecosystem
     {
         //  check if the first component refers to a module. it can be the same 
         //  as its own culture, or one of its dependencies. 
-        //  we can store a module id in a ``Symbol/Link``, because every 
-        //  ``Module/ID`` is a valid ``Symbol/Link/Component``.
         if  let namespace:Module.ID = (link.first?.string).map(Module.ID.init(_:)), 
             let namespace:Module.Index = scope[namespace]
         {

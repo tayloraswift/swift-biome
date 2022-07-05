@@ -129,6 +129,12 @@ extension Symbol
             self.query = query 
             self.orientation = orientation
         }
+        init<Path>(path:Path, query:[URI.Parameter]) 
+            throws
+            where Path:Collection, Path.Element:StringProtocol
+        {
+            try self.init(path: (path, path.startIndex), query: query)
+        }
         init<Path>(path:(components:Path, fold:Path.Index), query:[URI.Parameter]) 
             throws
             where Path:Collection, Path.Element:StringProtocol
@@ -141,7 +147,9 @@ extension Symbol
             //                                                                          (visible = 1)
             self.init(path: [], query: try .init(query))
             self.path.reserveCapacity(path.components.underestimatedCount)
-            if path.fold != path.components.startIndex 
+            // it is valid to pass an index for `fold` that is outside the bounds of 
+            // the components collection!
+            if path.components.startIndex < path.fold
             {
                 try self.append(components: path.components[..<path.fold])
                 self.startIndex = self.path.endIndex
