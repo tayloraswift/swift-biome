@@ -171,7 +171,7 @@ extension Ecosystem
             break
         }
         
-        if let constraints:HTML.Element<Index> = .render(.text(escaped: "Available when"), 
+        if let constraints:HTML.Element<Index> = .render(.text(escaped: "Available when "), 
             constraints: declaration.extensionConstraints, 
             transform: Index.symbol(_:)) 
         {
@@ -226,7 +226,7 @@ extension Ecosystem
         {
             counts[package.versions[version].triplet, default: 0] += 1
         }
-        
+        // if any of the versions is written with 4 digits
         func display(_ version:Version) -> String
         {
             let precise:PreciseVersion = package.versions[version]
@@ -240,15 +240,22 @@ extension Ecosystem
                 return precise.quadruplet.description
             }
         }
+        // need to right-pad the strings, since the version menu if left-aligned 
+        let strings:[String] = availableVersions.map(display(_:))
+        let width:Int = strings.lazy.map(\.count).max() ?? 0
         
         var items:[HTML.Element<Never>] = []
             items.reserveCapacity(availableVersions.count)
-        for version:Version in availableVersions.reversed()
+        for (version, text):(Version, String) in 
+            zip(availableVersions, strings).reversed()
         {
-            let text:String = display(version)
+            let fill:Int = width - text.count
+            let text:String = fill > 0 ? 
+                text + repeatElement(" ", count: fill) : text
+            
             if  version == currentVersion
             {
-                items.append(.li(.span(text) { ("class", "current") }))
+                items.append(.li(.span(text)) { ("class", "current") })
             }
             else 
             {
@@ -256,7 +263,7 @@ extension Ecosystem
                 items.append(.li(.a(text) { ("href", uri.description) }))
             }
         }
-        let menu:HTML.Element<Never> = .ol(items: items) { ("id", "version-menu") } 
+        let menu:HTML.Element<Never> = .ol(items: items) 
         let label:(HTML.Element<Never>, HTML.Element<Never>) = 
         (
             .span(package.id.title)        { ("class", "package") },
@@ -373,7 +380,7 @@ extension Ecosystem
                     ("href", .anchor(.uri(.symbol(target.index))))
                     ("class", "signature")
                 }
-                if  let constraints:HTML.Element<Topics.Key> = .render(.text(escaped: "When"), 
+                if  let constraints:HTML.Element<Topics.Key> = .render(.text(escaped: "When "), 
                     constraints: target.conditions, 
                     transform: { .uri(.symbol($0)) }) 
                 {

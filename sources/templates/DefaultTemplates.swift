@@ -99,18 +99,19 @@ enum DefaultTemplates
                                     ("autocomplete",    "off")
                                 }
                             }
+                            Element[.input]
+                            {
+                                ("id",              "version-menu-toggle")
+                                ("type",            "checkbox")
+                                ("autocomplete",    "off")
+                            }
                             Element[.label]
                             {
-                                ("class", "versions")
+                                ("id",  "version")
+                                ("for", "version-menu-toggle")
                             }
                             content: 
                             {
-                                Element[.input]
-                                {
-                                    ("id",              "version-menu-input")
-                                    ("type",            "checkbox")
-                                    ("autocomplete",    "off")
-                                }
                                 Element.anchor(.pin)
                             }
                         }
@@ -118,7 +119,14 @@ enum DefaultTemplates
                         {
                             ("id", "search-results")
                         }
-                        Element.anchor(.versions)
+                        Element[.div]
+                        {
+                            ("id", "version-menu")
+                        }
+                        content: 
+                        {
+                            Element.anchor(.versions)
+                        }
                     }
                 }
                 Element[.main]
