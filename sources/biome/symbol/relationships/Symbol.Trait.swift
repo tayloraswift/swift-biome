@@ -227,5 +227,29 @@ extension Symbol
                 }
             }
         }
+        
+        mutating 
+        func subtract(_ other:Self) 
+        {
+            self.members.subtract(other.members)
+            self.downstream.subtract(other.downstream)
+            self.unconditional.subtract(other.unconditional)
+            for (symbol, conditions):(Index, [Generic.Constraint<Index>]) in 
+                other.conditional
+            {
+                if  let counterpart:Dictionary<Index, [Generic.Constraint<Index>]>.Index = 
+                    self.conditional.index(forKey: symbol), 
+                    self.conditional.values[counterpart] == conditions 
+                {
+                    self.conditional.remove(at: counterpart)
+                }
+            }
+        }
+        func subtracting(_ other:Self) -> Self
+        {
+            var traits:Self = self 
+            traits.subtract(other)
+            return traits
+        }
     }
 }

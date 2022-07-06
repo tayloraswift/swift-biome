@@ -95,7 +95,8 @@ extension Ecosystem
                 facts.index(forKey: diacritic.host)
             {
                 assert(diacritic.host.module != diacritic.culture)
-                facts.values[index].predicates.accepted[diacritic.culture] = traits 
+                facts.values[index].predicates.updateAcceptedTraits(traits, 
+                    culture: diacritic.culture)
             }
         }
         

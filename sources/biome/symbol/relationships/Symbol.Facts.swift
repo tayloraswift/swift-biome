@@ -10,14 +10,21 @@ extension Symbol
     struct Predicates:Equatable, Sendable 
     {
         let roles:Roles?
-        var primary:Traits
+        let primary:Traits
+        private(set)
         var accepted:[Module.Index: Traits]
         
-        init(roles:Roles?)
+        init(roles:Roles?, primary:Traits = .init())
         {
             self.roles = roles 
-            self.primary = .init()
+            self.primary = primary
             self.accepted = [:]
+        }
+        
+        mutating 
+        func updateAcceptedTraits(_ traits:Traits, culture:Module.Index)
+        {
+            self.accepted[culture] = traits.subtracting(self.primary)
         }
         
         func featuresAssumingConcreteType() -> [(perpetrator:Module.Index?, features:Set<Index>)]
@@ -40,14 +47,13 @@ extension Symbol
         var shape:Shape?
         var predicates:Predicates
         
-        init(traits:[Trait], roles combined:[Role], as color:Color) throws 
+        init(traits:[Trait], roles:[Role], as color:Color) throws 
         {
-            // partition relationships buffer 
-            var roles:[Role] = []
-            var superclass:Index? = nil 
-            
             self.shape = nil 
-            for role:Role in combined
+            // partition relationships buffer 
+            var superclass:Index? = nil 
+            var residuals:[Role] = []
+            for role:Role in roles
             {
                 switch (self.shape, role) 
                 {
@@ -72,16 +78,16 @@ extension Symbol
                     }
                     
                 default: 
-                    roles.append(role)
+                    residuals.append(role)
                 }
             }
             
-            self.predicates = .init(roles: try .init(roles, 
+            let roles:Roles? = try .init(residuals, 
                 superclass: superclass, 
                 shape: self.shape, 
-                as: color))
-            self.predicates.primary.update(with: traits, 
                 as: color)
+            self.predicates = .init(roles: roles, 
+                primary: .init(traits, as: color))
         }
     }
 }
