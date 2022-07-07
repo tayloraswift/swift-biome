@@ -151,18 +151,17 @@ extension DOM.Element where Domain == HTML
             return .p(try [prefix] + Self.render(constraint: ultimate, 
                 transform: transform))
         }
-        var elements:[Self] 
+        var elements:[Self] = [prefix]
         if constraints.count < 3 
         {
-            elements = try [prefix] + Self.render(constraint: penultimate, 
-                transform: transform)
+            elements.append(contentsOf: try Self.render(constraint: penultimate, 
+                transform: transform))
             elements.append(.text(escaped: " and "))
             elements.append(contentsOf: try Self.render(constraint: ultimate, 
                 transform: transform))
         }
         else 
         {
-            elements = []
             for constraint:Generic.Constraint<Symbol.Index> in 
                 constraints.dropLast(2)
             {
