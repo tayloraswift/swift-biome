@@ -169,16 +169,20 @@ extension Module
                 {
                     continue 
                 }
-                var description:String 
-                {
-                    "\(`protocol`.name).\(image.vertex.path.joined(separator: "."))"
-                }
+                
+                let base:Path = .init(prefix: [`protocol`.name], last: image.vertex.path.last)
+                var host:String { image.vertex.path.prefix.joined(separator: ".") }
+                
+                // fix the first path component of the vertex, so that it points 
+                // to the protocol and not the concrete type we discovered it in 
+                vertices[image.id]?.path = base
+                
                 if case true? = image.vertex.frame.availability.general?.unavailable
                 {
                     // if the symbol is unconditionally unavailable, generate 
                     // an edge for it:
                     self.edges.append(.init(image.id, is: .member, of: `protocol`.id))
-                    print("note: naturalized unavailable protocol member '\(description)'")
+                    print("note: naturalized protocol member '\(base)' from host '\(host)'")
                 }
                 else if case "_"? = `protocol`.name.first
                 {
@@ -187,7 +191,7 @@ extension Module
                     self.edges.append(.init(image.id, is: .member, of: `protocol`.id))
                     // make a note of the protocol name and identifier
                     protocols[`protocol`.id] = `protocol`.name
-                    print("note: naturalized underscored protocol member '\(description)'")
+                    print("note: naturalized protocol member '\(base)' from host '\(host)'")
                 }
             }
             

@@ -179,19 +179,19 @@ extension Ecosystem
     
     private 
     func generateStatements(
-        when source:Symbol.Index, is label:Edge.Kind, of target:Symbol.Index, 
+        when source:Symbol.Index, is relation:Edge.Kind?, of target:Symbol.Index, 
         where constraints:[Generic.Constraint<Symbol.Index>])
         throws -> (source:Symbol.Statement?, target:Symbol.Statement)
     {
         switch  
         (
                 self[source].color,
-            is: label,
+            is: relation,
             of: self[target].color,
             unconditional: constraints.isEmpty
         ) 
         {
-        case    (.callable(_),      is: .feature,               of: .concretetype(_),   unconditional: true):
+        case    (.callable(_),      is: nil,                    of: .concretetype(_),   unconditional: true):
             return
                 (
                     nil,

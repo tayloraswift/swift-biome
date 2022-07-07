@@ -46,7 +46,7 @@ extension Symbol
     public 
     enum ColorError:Error 
     {
-        case miscegenation(Color, is:Edge.Kind, of:Color)
+        case miscegenation(Color, is:Edge.Kind?, of:Color)
     }
     public 
     enum ShapeError:Error 

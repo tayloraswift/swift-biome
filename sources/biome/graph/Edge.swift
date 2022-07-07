@@ -6,7 +6,6 @@ struct Edge:Hashable, Sendable
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
     enum Kind:String, Sendable
     {
-        case feature                = "_featureOf"
         case member                 = "memberOf"
         case conformer              = "conformsTo"
         case subclass               = "inheritsFrom"
@@ -16,7 +15,7 @@ struct Edge:Hashable, Sendable
         case defaultImplementation  = "defaultImplementationOf"
     }
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.cpp
-    var kind:Kind
+    var kind:Kind?
     var source:Symbol.ID
     var target:Symbol.ID
     var origin:Symbol.ID?
@@ -38,7 +37,7 @@ extension Edge
         (self.kind, self.origin, source: self.source, target: self.target, self.constraints) = 
             try json.lint(["targetFallback"])
         {
-            var kind:Edge.Kind = try $0.remove("kind") { try $0.case(of: Edge.Kind.self) }
+            var kind:Edge.Kind? = try $0.remove("kind") { try $0.case(of: Edge.Kind.self) }
             let target:Symbol.ID = try $0.remove("target", Symbol.ID.init(from:))
             let origin:Symbol.ID? = try $0.pop("sourceOrigin")
             {
@@ -60,7 +59,7 @@ extension Edge
             // synthesized symbols can only be members of the type in their id
             case (.member, .synthesized(from: let generic, for: target)):
                 source  = generic 
-                kind    = .feature 
+                kind    = nil 
             case (_, _):
                 fatalError("unimplemented")
                 //throw SymbolError.synthetic(resolution: invalid)
