@@ -74,7 +74,7 @@ extension Ecosystem
             return self.resolveNamespace(path: path, query: query)
             {
                 self.resolveSymbolLink($0, namespace: $1, arrival: $2, stems: stems)
-            }
+            } ?? (try? self.resolveAnyMatching(.init(query)))
         }
     }
 
@@ -205,5 +205,65 @@ extension Ecosystem
         {
             return nil
         }
+    }
+}
+// brute force id-based resolution 
+extension Ecosystem 
+{
+    func resolveAnyMatching(_ query:Symbol.Link.Query) 
+        -> (resolution:Resolution, redirected:Bool)?
+    {
+        guard let composite:Symbol.Composite = self.findAnyMatching(query)
+        else 
+        {
+            return nil
+        }
+        if  case let (package, pins)? = 
+            self.localize(destination: composite.culture.package, lens: query.lens), 
+            package.contains(composite, at: pins.local)
+        {
+            let pins:[Package.Index: Version] = pins.isotropic(culture: package.index)
+            return (.selection(.composite(composite), pins: pins), false)
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    private 
+    func findAnyMatching(_ query:Symbol.Link.Query) -> Symbol.Composite?
+    {
+        guard   let base:Symbol.ID = query.base, 
+                let base:Symbol.Index = self.findAnyMatching(base)
+        else 
+        {
+            return nil 
+        }
+        guard   let host:Symbol.ID = query.host 
+        else 
+        {
+            return .init(natural: base)
+        }
+        guard   let host:Symbol.Index = self.findAnyMatching(host)
+        else 
+        {
+            return nil 
+        }
+        // a (base, host) pair is actually still not enough to uniquely 
+        // disambiguate a symbol, since symbols can still overload on culture. 
+        // for now, assume the culture is the same as the host’s culture.
+        return .init(base, .init(natural: host))
+    }
+    private 
+    func findAnyMatching(_ id:Symbol.ID) -> Symbol.Index?
+    {
+        for package:Package in self.packages 
+        {
+            if let index:Symbol.Index = package.symbols.indices[id]
+            {
+                return index 
+            }
+        }
+        return nil 
     }
 }
