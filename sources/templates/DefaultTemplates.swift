@@ -183,9 +183,8 @@ enum DefaultTemplates
                                     }
                                     
                                     Element.anchor(.headline)
-                                    
+                                    Element.anchor(.notices)
                                     Element.anchor(.summary)
-                                    
                                     Element.anchor(.notes)
                                     Element.anchor(.availability)
                                 }

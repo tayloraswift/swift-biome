@@ -57,59 +57,46 @@ extension Keyframe
             self.storage = []
         }
         
-        func at(_ version:Version, head:Index?) -> Value?
+        func through(_ version:Version, head:Index?) -> Value?
         {
-            guard let head:Index = head 
-            else 
-            {
-                return nil
-            }
-            return self.at(version, head: head)
+            self.at(version, head: head)?.value
         }
-        func find(_ version:Version, head:Index?) -> Index?
+        func at(_ version:Version, head:Index?) -> (value:Value, extancy:Extancy)?
         {
-            guard let head:Index = head 
-            else 
-            {
-                return nil
-            }
-            return self.find(version, head: head)
+            head.flatMap { self.at(version, head: $0) }
+        }
+        func find(_ version:Version, head:Index?) -> (index:Index, extancy:Extancy)?
+        {
+            head.flatMap { self.find(version, head: $0) }
         }
         
         private 
-        func at(_ version:Version, head:Index) -> Value?
+        func at(_ version:Version, head:Index) -> (value:Value, extancy:Extancy)?
         {
-            if let index:Index = self.find(version, head: head)
-            {
-                return self[index].value
-            }
-            else 
-            {
-                return nil
-            }
+            self.find(version, head: head).map { (self[$0.index].value, $0.extancy) }
         }
         private 
-        func find(_ version:Version, head:Index) -> Index?
+        func find(_ version:Version, head:Index) -> (index:Index, extancy:Extancy)?
         {
             var current:Index = head
             while true 
             {
                 let keyframe:Keyframe<Value> = self[current]
-                guard version <= keyframe.last 
+                guard version < keyframe.disappeared 
                 else 
                 {
-                    return nil
+                    return (current, .extinct(since: keyframe.disappeared))
                 }
-                guard version < keyframe.first
+                guard version < keyframe.appeared
                 else 
                 {
-                    return current
+                    return (current, .extant)
                 }
                 guard keyframe.previous < current
                 else 
                 {
                     // end of the line
-                    return nil
+                    return (current, .unavailable(until: keyframe.appeared))
                 }
                 current = keyframe.previous 
             }
@@ -118,6 +105,15 @@ extension Keyframe
 }
 extension Keyframe.Buffer where Value:Equatable 
 {
+    mutating 
+    func push(_ version:Version, head:Index?)
+    {
+        if  let head:Index,
+            self[head].disappeared > version
+        {
+            self[head].disappeared = version
+        }
+    }
     mutating 
     func update(head:inout Index?, to version:Version, with new:Value) 
     {
@@ -137,7 +133,7 @@ extension Keyframe.Buffer where Value:Equatable
         }
         else 
         {
-            self[previous].last = .max
+            self[previous].disappeared = .max
         }
     }
 }

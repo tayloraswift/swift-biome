@@ -66,16 +66,23 @@ struct Package:Identifiable, Sendable
         articles:CulturalBuffer<Article.Index, Article>
     private(set)
     var external:[Symbol.Diacritic: Keyframe<Symbol.Traits>.Buffer.Index]
+    // per-module buffers
     private(set)
-    var toplevels:Keyframe<Set<Symbol.Index>>.Buffer, // always populated 
-        dependencies:Keyframe<Set<Module.Index>>.Buffer, // always populated 
-        declarations:Keyframe<Symbol.Declaration>.Buffer // always populated 
+    var dependencies:Keyframe<Set<Module.Index>>.Buffer, // always populated 
+        toplevels:Keyframe<Set<Symbol.Index>>.Buffer // always populated 
+    // per-article buffers
     private(set)
-    var facts:Keyframe<Symbol.Predicates>.Buffer, // always populated
-        opinions:Keyframe<Symbol.Traits>.Buffer
+    var headlines:Keyframe<Article.Headline>.Buffer
+    // per-symbol buffers 
     private(set)
-    var templates:Keyframe<Article.Template<Ecosystem.Link>>.Buffer, 
-        headlines:Keyframe<Article.Headline>.Buffer
+    var declarations:Keyframe<Symbol.Declaration>.Buffer, // always populated 
+        facts:Keyframe<Symbol.Predicates>.Buffer // always populated
+    // per-(external) host buffers 
+    private(set)
+    var opinions:Keyframe<Symbol.Traits>.Buffer
+    // shared buffer. 
+    private(set) 
+    var templates:Keyframe<Article.Template<Ecosystem.Link>>.Buffer
     
     var groups:Symbol.Groups
     
@@ -238,6 +245,37 @@ struct Package:Identifiable, Sendable
     {
         self.versions.filter { _ in true }
     } 
+    
+    //  each ecosystem entity has a type of versioned node that stores 
+    //  evolutionary information. 
+    // 
+    //  - modules: self.dependencies 
+    //  - articles: self.templates 
+    //  - local symbols: self.facts 
+    //  - external symbols: self.opinions 
+    mutating 
+    func updateVersion(_ version:PreciseVersion, upstream:[Index: Version]) 
+        -> Package.Pins<Version>
+    {
+        let pins:Package.Pins<Version> = self.versions.push(version, upstream: upstream)
+        for module:Module in self.modules.all 
+        {
+            self.dependencies.push(pins.local, head: module.heads.dependencies)
+        }
+        for article:Article in self.articles.all 
+        {
+            self.templates.push(pins.local, head: article.heads.template)
+        }
+        for symbol:Symbol in self.symbols.all 
+        {
+            self.facts.push(pins.local, head: symbol.heads.facts)
+        }
+        for host:Keyframe<Symbol.Traits>.Buffer.Index in self.external.values 
+        {
+            self.opinions.push(pins.local, head: host)
+        }
+        return pins 
+    }
 
     // we don’t use this quite the same as `contains(_:at:)` for ``Symbol.Composite``, 
     // because we still allow accessing module pages outside their availability ranges. 
@@ -247,7 +285,7 @@ struct Package:Identifiable, Sendable
     // package version with this method.
     func contains(_ module:Module.Index, at version:Version) -> Bool 
     {
-        if case _? = self.dependencies.at(version, 
+        if case (_, .extant)? = self.dependencies.at(version, 
             head: self[local: module].heads.dependencies)
         {
             return true 
@@ -259,7 +297,7 @@ struct Package:Identifiable, Sendable
     }
     func contains(_ article:Article.Index, at version:Version) -> Bool 
     {
-        if case _? = self.templates.at(version, 
+        if case (_, .extant)? = self.templates.at(version, 
             head: self[local: article].heads.template)
         {
             return true 
@@ -273,32 +311,45 @@ struct Package:Identifiable, Sendable
     // package version with this method, which we do for the version menu dropdowns
     func contains(_ composite:Symbol.Composite, at version:Version) -> Bool 
     {
-        if let host:Symbol.Index = composite.host
+        guard let host:Symbol.Index = composite.host
+        else 
         {
-            if let heads:Symbol.Heads = self[host]?.heads
+            // natural symbol 
+            if case (_, .extant)? = self.facts.at(version, 
+                head: self.symbols[local: composite.base].heads.facts)
             {
-                if  let predicates:Symbol.Predicates = self.facts.at(version, 
-                        head: heads.facts), 
-                    let traits:Symbol.Traits = composite.culture == host.module ? 
-                        predicates.primary : predicates.accepted[composite.culture]
-                {
-                    return traits.features.contains(composite.base)
-                }
+                return true 
             }
-            //  external host
-            else if let traits:Symbol.Traits = 
-                self.opinions.at(version, head: self.external[composite.diacritic])
+            else 
+            {
+                return false 
+            }
+        }
+        if let heads:Symbol.Heads = self[host]?.heads
+        {
+            // local host (primary or accepted culture)
+            if case (let predicates, .extant)? = 
+                    self.facts.at(version, head: heads.facts), 
+                let traits:Symbol.Traits = composite.culture == host.module ? 
+                    predicates.primary : predicates.accepted[composite.culture]
             {
                 return traits.features.contains(composite.base)
             }
+            else 
+            {
+                return false 
+            }
         }
-        else if case _? = self.facts.at(version, 
-            head: self.symbols[local: composite.base].heads.facts)
+        // external host
+        else if case (let traits, .extant)? = 
+            self.opinions.at(version, head: self.external[composite.diacritic])
         {
-            return true 
+            return traits.features.contains(composite.base)
         }
-        
-        return false 
+        else 
+        {
+            return false 
+        }
     }
     
     mutating 
@@ -315,12 +366,6 @@ struct Package:Identifiable, Sendable
 
 extension Package 
 {
-    mutating 
-    func updateVersion(_ version:PreciseVersion, upstream:[Index: Version]) 
-        -> Package.Pins<Version>
-    {
-        self.versions.push(version, upstream: upstream)
-    }
     mutating 
     func updateDependencies(of cultures:[Module.Index], with dependencies:[Set<Module.Index>])
     {

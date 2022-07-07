@@ -131,31 +131,32 @@ extension Package.Pinned
 {
     func template() -> Article.Template<Ecosystem.Link>
     {
-        self.package.templates.at(self.version, head: self.package.heads.template) ?? 
+        self.package.templates
+            .through(self.version, head: self.package.heads.template) ?? 
             .init()
     }
     func template(_ module:Module.Index) -> Article.Template<Ecosystem.Link>
     {
         self.package.templates
-            .at(self.version, head: self.package[local: module].heads.template) ?? 
+            .through(self.version, head: self.package[local: module].heads.template) ?? 
             .init()
     }
     func template(_ symbol:Symbol.Index) -> Article.Template<Ecosystem.Link>
     {
         self.package.templates
-            .at(self.version, head: self.package[local: symbol].heads.template) ?? 
+            .through(self.version, head: self.package[local: symbol].heads.template) ?? 
             .init()
     }
     func template(_ article:Article.Index) -> Article.Template<Ecosystem.Link>
     {
         self.package.templates
-            .at(self.version, head: self.package[local: article].heads.template) ?? 
+            .through(self.version, head: self.package[local: article].heads.template) ?? 
             .init()
     }
     func headline(_ article:Article.Index) -> Article.Headline
     {
         self.package.headlines
-            .at(self.version, head: self.package[local: article].heads.headline) ?? 
+            .through(self.version, head: self.package[local: article].heads.headline) ?? 
             .init("Untitled")
     }
     
@@ -163,27 +164,27 @@ extension Package.Pinned
     {
         // `nil` case should be unreachable in practice
         self.package.dependencies
-            .at(self.version, head: self.package[local: module].heads.dependencies) ?? []
+            .through(self.version, head: self.package[local: module].heads.dependencies) ?? []
     }
     func toplevel(_ module:Module.Index) -> Set<Symbol.Index>
     {
         // `nil` case should be unreachable in practice
         self.package.toplevels
-            .at(self.version, head: self.package[local: module].heads.toplevel) ?? []
+            .through(self.version, head: self.package[local: module].heads.toplevel) ?? []
     }
     
     func declaration(_ symbol:Symbol.Index) -> Symbol.Declaration
     {
         // `nil` case should be unreachable in practice
         self.package.declarations
-            .at(self.version, head: self.package[local: symbol].heads.declaration) ?? 
+            .through(self.version, head: self.package[local: symbol].heads.declaration) ?? 
             .init(fallback: "<unavailable>")
     }
     func facts(_ symbol:Symbol.Index) -> Symbol.Predicates 
     {
         // `nil` case should be unreachable in practice
         self.package.facts
-            .at(self.version, head: self.package[local: symbol].heads.facts) ?? 
+            .through(self.version, head: self.package[local: symbol].heads.facts) ?? 
             .init(roles: nil)
     }
     

@@ -2,15 +2,15 @@ struct Keyframe<Value>
 {
     let value:Value
     var previous:Buffer.Index
-    let first:Version
-    var last:Version
+    let appeared:Version
+    var disappeared:Version
     
     init(_ value:Value, version:Version, previous:Buffer.Index)
     {
         self.value = value 
         self.previous = previous 
-        self.first = version 
-        self.last = .max 
+        self.appeared = version 
+        self.disappeared = .max 
     }
 }
 extension Keyframe 

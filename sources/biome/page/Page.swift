@@ -20,6 +20,7 @@ struct Page
         case kind
         case namespace 
         case notes 
+        case notices
         case pin 
         case platforms
         case summary
@@ -96,13 +97,12 @@ extension Page
         
         self.add(fields: self.ecosystem.renderFields(for: package))
         self.add(topics: self.ecosystem.render(modulelist: pinned.package.modules.all))
-        self.add(versions: self.ecosystem.render(
-            availableVersions: pinned.package.allVersions(), 
+        self.add(availableVersions: pinned.package.allVersions(), 
             currentVersion: pinned.version,
             of: pinned.package)
         {
-            self.ecosystem.uri(of: $0)
-        })
+            $0.uri(of: $1)
+        }
     }
     private mutating 
     func generate(for module:Module.Index) 
@@ -113,13 +113,12 @@ extension Page
         self.add(fields: self.ecosystem.renderFields(for: module))
         self.add(topics: self.ecosystem.render(topics: topics))
         self.add(article: pinned.template(module))
-        self.add(versions: self.ecosystem.render(
-            availableVersions: pinned.package.allVersions(of: module), 
+        self.add(availableVersions: pinned.package.allVersions(of: module), 
             currentVersion: pinned.version,
             of: pinned.package)
         {
-            self.ecosystem.uri(of: module, in: $0)
-        })
+            $0.uri(of: module, in: $1)
+        }
     }
     private mutating
     func generate(for article:Article.Index)
@@ -129,13 +128,12 @@ extension Page
         self.add(fields: self.ecosystem.renderFields(for: article, 
             headline: pinned.headline(article)))
         self.add(article: pinned.template(article))
-        self.add(versions: self.ecosystem.render(
-            availableVersions: pinned.package.allVersions(of: article), 
+        self.add(availableVersions: pinned.package.allVersions(of: article), 
             currentVersion: pinned.version,
             of: pinned.package)
         {
-            self.ecosystem.uri(of: article, in: $0)
-        })
+            $0.uri(of: article, in: $1)
+        }
     }
     private mutating 
     func generate(for composite:Symbol.Composite) 
@@ -166,13 +164,12 @@ extension Page
             facts: facts))
         self.add(topics: self.ecosystem.render(topics: topics))
         self.add(article: base.template(composite.base))
-        self.add(versions: self.ecosystem.render(
-            availableVersions: pinned.package.allVersions(of: composite), 
+        self.add(availableVersions: pinned.package.allVersions(of: composite), 
             currentVersion: pinned.version,
             of: pinned.package)
         {
-            self.ecosystem.uri(of: composite, in: $0)
-        })
+            $0.uri(of: composite, in: $1)
+        }
     }
 }
 extension Page 
@@ -281,11 +278,109 @@ extension Page
             }
         }
     }
+    // this takes separate ``Version`` and ``Package`` arguments instead of a 
+    // combined `Package.Pinned` argument to avoid confusion
     private mutating 
-    func add(versions:(current:[UInt8], menu:[UInt8]))
+    func add(availableVersions:[Version], 
+        currentVersion:Version, 
+        of package:Package, 
+        _ uri:(Ecosystem, Package.Pinned) throws -> URI) rethrows 
     {
-        self.substitutions[.pin] = versions.current
-        self.substitutions[.versions] = versions.menu
+        var counts:[MaskedVersion: Int] = [:]
+        for version:Version in availableVersions 
+        {
+            counts[package.versions[version].triplet, default: 0] += 1
+        }
+        let strings:[String] = availableVersions.map
+        {
+            let precise:PreciseVersion = package.versions[$0]
+            let triplet:MaskedVersion = precise.triplet
+            return counts[triplet, default: 1] == 1 ? 
+                triplet.description : precise.quadruplet.description
+        }
+        // need to right-pad the strings, since the version menu is left-aligned 
+        let width:Int = strings.lazy.map(\.count).max() ?? 0
+        
+        var current:String? = nil
+        var items:[HTML.StaticElement] = []
+            items.reserveCapacity(availableVersions.count)
+        for (version, text):(Version, String) in 
+            zip(availableVersions, strings).reversed()
+        {
+            let fill:Int = width - text.count
+            let text:String = fill > 0 ? 
+                text + repeatElement(" ", count: fill) : text
+            
+            if  version == currentVersion
+            {
+                current = text 
+                items.append(.li(.span(text)) { ("class", "current") })
+            }
+            else 
+            {
+                let uri:URI = try uri(self.ecosystem, .init(package, at: version))
+                items.append(.li(.a(text) { ("href", uri.description) }))
+            }
+        }
+        
+        let menu:HTML.StaticElement = .ol(items: items) 
+        self.substitutions[.versions] = menu.rendered(as: [UInt8].self)
+        
+        let name:HTML.StaticElement = .span(package.id.title) 
+        { 
+            ("class", "package") 
+        }
+        if  let current:String 
+        {
+            let current:HTML.StaticElement = .span(current) 
+            { 
+                ("class", "version") 
+            }
+            self.substitutions[.pin] = name.rendered(as: [UInt8].self) + 
+                current.rendered(as: [UInt8].self)
+        }
+        else 
+        {
+            self.substitutions[.pin] = name.rendered(as: [UInt8].self) 
+            
+            let snapped:Int = availableVersions.lastIndex { $0 < currentVersion } ?? 
+                availableVersions.startIndex
+            let uri:URI = try uri(self.ecosystem, 
+                .init(package, at: availableVersions[snapped]))
+            
+            let notice:HTML.StaticElement = HTML.StaticElement[.div]
+            {
+                ("class", "notice extinct")
+            }
+            content: 
+            {
+                HTML.StaticElement[.div]
+                {
+                    HTML.StaticElement.p([])
+                }
+                HTML.StaticElement[.div]
+                {
+                    HTML.StaticElement[.p]
+                    {
+                        "This symbol does not exist in the requested version of "
+                        name
+                        "."
+                    }
+                    HTML.StaticElement[.p]
+                    {
+                        "The documentation from version "
+                        HTML.StaticElement.a(strings[snapped - availableVersions.startIndex])
+                        {
+                            ("href",    uri.description)
+                            ("class",   "version")
+                        }
+                        " is shown below."
+                    }
+                }
+            }
+            
+            self.substitutions[.notices] = notice.rendered(as: [UInt8].self) 
+        }
     }
     private mutating 
     func add<Constants>(scriptConstants:Constants) 

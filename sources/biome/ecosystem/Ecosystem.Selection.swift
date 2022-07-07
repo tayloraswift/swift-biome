@@ -110,7 +110,27 @@ extension Ecosystem
         rethrows -> Selection?
         where Lenses:Sequence, Lenses.Element == Package.Pinned
     {
-        var matches:[Symbol.Composite] = []
+        // search for an extant symbol/composite, and if one is not found, 
+        // return any matching symbol/composite regardless of extancy
+        var any:[Symbol.Composite] = [], 
+            extant:[Symbol.Composite] = []
+        try self.iterate(through: route, lenses: lenses)
+        {
+            (pinned:Package.Pinned, composite:Symbol.Composite) in 
+            if try predicate(composite)
+            {
+                pinned.contains(composite) ? 
+                    extant.append(composite) : any.append(composite)
+            }
+        }
+        return .init(extant) ?? .init(any)
+    }
+    private 
+    func iterate<Lenses>(through route:Route, lenses:Lenses, 
+        _ body:(Package.Pinned, Symbol.Composite) throws -> ()) 
+        rethrows 
+        where Lenses:Sequence, Lenses.Element == Package.Pinned
+    {
         for pinned:Package.Pinned in lenses 
         {
             switch pinned.package.groups[route]
@@ -119,10 +139,7 @@ extension Ecosystem
                 continue 
             
             case .one(let composite):
-                if try predicate(composite), pinned.contains(composite)
-                {
-                    matches.append(composite)
-                }
+                try body(pinned, composite)
             
             case .many(let composites):
                 for (base, diacritics):(Symbol.Index, Symbol.Subgroup) in composites 
@@ -131,26 +148,19 @@ extension Ecosystem
                     {
                     case .none: 
                         continue  
+                    
                     case .one(let diacritic):
-                        let composite:Symbol.Composite = .init(base, diacritic)
-                        if try predicate(composite), pinned.contains(composite)
-                        {
-                            matches.append(composite)
-                        }
+                        try body(pinned, .init(base, diacritic))
+                    
                     case .many(let diacritics):
                         for diacritic:Symbol.Diacritic in diacritics 
                         {
-                            let composite:Symbol.Composite = .init(base, diacritic)
-                            if try predicate(composite), pinned.contains(composite)
-                            {
-                                matches.append(composite)
-                            }
+                            try body(pinned, .init(base, diacritic))
                         }
                     }
                 }
             }
         }
-        return .init(matches)
     }
     
     func filter(_ composite:Symbol.Composite, by disambiguator:Symbol.Disambiguator) 

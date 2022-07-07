@@ -57,7 +57,7 @@ extension Ecosystem
                     return (.selection(.article(article), pins: pins), false)
                 }
                 else if case (let resolution, _)? = 
-                    self.resolveSymbolLink(implicit, 
+                    self.resolveSymbol(link: implicit, 
                         namespace: namespace, 
                         arrival: arrival, 
                         stems: stems)
@@ -73,8 +73,8 @@ extension Ecosystem
         case .master:
             return self.resolveNamespace(path: path, query: query)
             {
-                self.resolveSymbolLink($0, namespace: $1, arrival: $2, stems: stems)
-            } ?? (try? self.resolveAnyMatching(.init(query)))
+                self.resolveSymbol(link: $0, namespace: $1, arrival: $2, stems: stems)
+            } ?? (try? self.resolveAnySymbol(matching: .init(query)))
         }
     }
 
@@ -182,7 +182,7 @@ extension Ecosystem
         return try select(implicit, namespace, arrival)
     }
     private 
-    func resolveSymbolLink(_ implicit:Symbol.Link, 
+    func resolveSymbol(link implicit:Symbol.Link, 
         namespace:Module.Index, 
         arrival:MaskedVersion?, 
         stems:Stems)
@@ -210,10 +210,10 @@ extension Ecosystem
 // brute force id-based resolution 
 extension Ecosystem 
 {
-    func resolveAnyMatching(_ query:Symbol.Link.Query) 
+    func resolveAnySymbol(matching query:Symbol.Link.Query) 
         -> (resolution:Resolution, redirected:Bool)?
     {
-        guard let composite:Symbol.Composite = self.findAnyMatching(query)
+        guard let composite:Symbol.Composite = self.findAnySymbol(matching: query)
         else 
         {
             return nil
@@ -231,10 +231,10 @@ extension Ecosystem
         }
     }
     private 
-    func findAnyMatching(_ query:Symbol.Link.Query) -> Symbol.Composite?
+    func findAnySymbol(matching query:Symbol.Link.Query) -> Symbol.Composite?
     {
         guard   let base:Symbol.ID = query.base, 
-                let base:Symbol.Index = self.findAnyMatching(base)
+                let base:Symbol.Index = self.findAnySymbol(matching: base)
         else 
         {
             return nil 
@@ -244,7 +244,7 @@ extension Ecosystem
         {
             return .init(natural: base)
         }
-        guard   let host:Symbol.Index = self.findAnyMatching(host)
+        guard   let host:Symbol.Index = self.findAnySymbol(matching: host)
         else 
         {
             return nil 
@@ -255,7 +255,7 @@ extension Ecosystem
         return .init(base, .init(natural: host))
     }
     private 
-    func findAnyMatching(_ id:Symbol.ID) -> Symbol.Index?
+    func findAnySymbol(matching id:Symbol.ID) -> Symbol.Index?
     {
         for package:Package in self.packages 
         {
