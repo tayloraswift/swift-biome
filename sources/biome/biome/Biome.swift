@@ -108,7 +108,7 @@ struct Biome
             switch selection 
             {
             case .composites(let choices):
-                page.generate(for: choices)
+                page.generate(for: choices, uri: uri)
                 return .multiple(.utf8(encoded: self.template.rendered(as: [UInt8].self, 
                         substituting: _move(page).substitutions), 
                         type: .html, 

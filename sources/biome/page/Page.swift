@@ -56,9 +56,21 @@ struct Page
 extension Page 
 {
     mutating 
-    func generate(for choices:[Symbol.Composite])
+    func generate(for choices:[Symbol.Composite], uri:URI)
     {
-        self.substitutions[.kind] = [UInt8].init("Disambiguation Page (unimplemented)".utf8)
+        let segregated:[Module.Index: [Symbol.Card]] = 
+            [Module.Index: [Symbol.Composite]]
+            .init(grouping: choices, by: \.culture)
+            .mapValues 
+        {
+            $0.map 
+            {
+                ($0, self.era.pin($0.base.module.package).declaration($0.base))
+            }
+        }
+        self.substitutions.merge(
+            self.ecosystem.renderFields(for: choices, uri: uri)) { $1 }
+        self.add(topics: self.ecosystem.render(choices: segregated))
         self.add(scriptConstants: era.ecosystem.indices.values)
     }
     mutating 

@@ -99,6 +99,32 @@ extension Ecosystem
         
         return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
     }
+    func renderFields(for choices:[Symbol.Composite], uri:URI) -> [Page.Key: [UInt8]]
+    {
+        // does not use percent-encoding
+        var name:String = ""
+        // trim the root
+        for vector:URI.Vector? in uri.path.dropFirst()
+        {
+            switch vector
+            {
+            case  nil: 
+                name += "/."
+            case .pop?: 
+                name += "/.."
+            case .push(let component)?: 
+                name += "/\(component)"
+            }
+        }
+        let substitutions:[Page.Key: HTML.StaticElement] = 
+        [
+            .title:        .text(escaped: "Disambiguation Page"), 
+            .headline:     .h1(name), 
+            .kind:         .text(escaped: "Disambiguation Page"),
+            .summary:      .p("This link could refer to multiple symbols."),
+        ]
+        return substitutions.mapValues { $0.rendered(as: [UInt8].self) }
+    }
     
     private 
     func renderNotes(for composite:Symbol.Composite,
@@ -288,6 +314,18 @@ extension Ecosystem
 
 extension Ecosystem
 {
+    func render(choices segregated:[Module.Index: [Symbol.Card]]) 
+        -> DOM.Template<Topics.Key, [UInt8]>
+    {
+        var elements:[HTML.Element<Topics.Key>] = []
+            elements.reserveCapacity(2 * segregated.count)
+        for (culture, cards):(Module.Index, [Symbol.Card]) in self.sort(segregated)
+        {
+            elements.append(.h4(self.renderHeading(culture)))
+            elements.append(self.render(cards: cards))
+        }
+        return .init(freezing: .div(.section(elements) { ("class", "topics choices") }))
+    }
     func render(modulelist:[Module]) -> DOM.Template<Topics.Key, [UInt8]>
     {
         let items:[HTML.Element<Topics.Key>] = 
@@ -415,26 +453,13 @@ extension Ecosystem
         var elements:[HTML.Element<Topics.Key>] = []
             elements.reserveCapacity(2 * segregated.count + 1)
             elements.append(.h3(heading))
-        for (culture, cards):(Module.Culture, [Symbol.Card]) in 
-            self.sort(segregated)
+        for (culture, cards):(Module.Culture, [Symbol.Card]) in self.sort(segregated)
         {
             if let culture:HTML.Element<Topics.Key> = self.renderHeading(culture)
             {
                 elements.append(.h4(culture))
             }
-            let items:[HTML.Element<Topics.Key>] = self.sort(cards).map 
-            {
-                (card:Symbol.Card) in 
-                
-                let signature:HTML.Element<Topics.Key> = 
-                    .a(.render(signature: card.declaration.signature))
-                {
-                    ("href", .anchor(.uri(.composite(card.composite))))
-                    ("class", "signature")
-                }
-                return .li([signature, .anchor(.excerpt(card.composite))])
-            }
-            elements.append(.ul(items: items))
+            elements.append(self.render(cards: cards))
         }
         return .section(elements) 
     }
@@ -456,6 +481,23 @@ extension Ecosystem
         return .section(elements) { ("class", "topics \(`class`)") }
     }
     private 
+    func render(cards:[Symbol.Card]) -> HTML.Element<Topics.Key>
+    {
+        let items:[HTML.Element<Topics.Key>] = self.sort(cards).map 
+        {
+            (card:Symbol.Card) in 
+            
+            let signature:HTML.Element<Topics.Key> = 
+                .a(.render(signature: card.declaration.signature))
+            {
+                ("href", .anchor(.uri(.composite(card.composite))))
+                ("class", "signature")
+            }
+            return .li([signature, .anchor(.excerpt(card.composite))])
+        }
+        return .ul(items: items)
+    }
+    private 
     func renderHeading(_ culture:Module.Culture) -> HTML.Element<Topics.Key>?
     {
         switch culture 
@@ -463,16 +505,30 @@ extension Ecosystem
         case .primary: 
             return nil
         case .accepted(let culture), .international(let culture):
-            return .a(String.init(self[culture].title)) 
-            { 
-                ("href", .anchor(.uri(.module(culture)))) 
-            }
+            return self.renderHeading(culture)
+        }
+    }
+    private 
+    func renderHeading(_ culture:Module.Index) -> HTML.Element<Topics.Key>
+    {
+        .a(String.init(self[culture].title)) 
+        { 
+            ("href", .anchor(.uri(.module(culture)))) 
         }
     }
 }
 
 extension Ecosystem 
 {    
+    private 
+    func sort<Value>(_ segregated:[Module.Index: Value]) 
+        -> [(key:Module.Index, value:Value)]
+    {
+        segregated.sorted 
+        {
+            ($0.key.package, self[$0.key].name) < ($1.key.package, self[$1.key].name)
+        }
+    }
     private 
     func sort<Value>(_ segregated:[Module.Culture: Value]) 
         -> [(key:Module.Culture, value:Value)]
