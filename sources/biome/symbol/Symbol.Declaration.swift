@@ -40,7 +40,7 @@ extension Symbol
             self.availability = vertex.availability 
             self.generics = vertex.generics
             self.signature = vertex.signature
-            // even with mythical symbol inference, it is still possible or 
+            // even with mythical symbol inference, it is still possible for 
             // declarations to reference non-existent USRs, e.g. 'ss14_UnicodeParserP8EncodingQa'
             // (Swift._UnicodeParser.Encoding)
             self.fragments = vertex.declaration.compactMap 
@@ -52,10 +52,10 @@ extension Symbol
                 catch let error 
                 {
                     print("warning: \(error)")
+                    print("note: while generating symbol declaration")
                     return nil 
                 }
             }
-            // self.declaration    = try node.vertex.declaration.map(scope.index(of:))
             self.genericConstraints = try vertex.genericConstraints.map
             {
                 try $0.map(scope.index(of:))

@@ -117,16 +117,24 @@ extension Ecosystem
                 statements.reserveCapacity(graph.edges.reduce(0) { $0 + $1.count })
             for edge:Edge in graph.edges.joined()
             {
-                let constraints:[Generic.Constraint<Symbol.Index>] = 
-                    try edge.constraints.map
+                let constraints:[Generic.Constraint<Symbol.Index>], 
+                    source:Symbol.Index, 
+                    target:Symbol.Index
+                do 
                 {
-                    try $0.map(scope.index(of:))
+                    constraints = try edge.constraints.map
+                    {
+                        try $0.map(scope.index(of:))
+                    }
+                    source = try scope.index(of: edge.source)
+                    target = try scope.index(of: edge.target)
+                } 
+                catch let error 
+                {
+                    print(error)
+                    print("note: while processing edge in '\(graph.core.namespace)'")
+                    continue
                 }
-                let (source, target):(Symbol.Index, Symbol.Index) = 
-                (
-                    try scope.index(of: edge.source),
-                    try scope.index(of: edge.target)
-                )
                 
                 switch try self.generateStatements(
                     when: source, is: edge.kind, of: target, where: constraints)
