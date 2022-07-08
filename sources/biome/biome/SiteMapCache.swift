@@ -32,7 +32,7 @@ struct SiteMapCache:Cache
         var sitemap:[UInt8] = []
         for module:Module in current.package.modules.all 
         {
-            let uri:URI = ecosystem.uri(of: .module(module.index), in: current)
+            let uri:URI = ecosystem.uri(of: module.index, in: current)
             sitemap += domain
             sitemap += uri.description.utf8
             sitemap.append(0x0a) // '\n'
@@ -42,7 +42,7 @@ struct SiteMapCache:Cache
             for offset:Int in module.articles.joined() 
             {
                 let index:Article.Index = .init(module.index, offset: offset)
-                let uri:URI = ecosystem.uri(of: .article(index), in: current)
+                let uri:URI = ecosystem.uri(of: index, in: current)
                 sitemap += domain
                 sitemap += uri.description.utf8
                 sitemap.append(0x0a) // '\n'
@@ -52,7 +52,8 @@ struct SiteMapCache:Cache
                 for offset:Int in colony.offsets 
                 {
                     let index:Symbol.Index = .init(module.index, offset: offset)
-                    let uri:URI = ecosystem.uri(of: .symbol(index), in: current)
+                    let uri:URI = ecosystem.uri(of: .init(natural: index), 
+                        in: current)
                     sitemap += domain
                     sitemap += uri.description.utf8
                     sitemap.append(0x0a) // '\n'

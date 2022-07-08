@@ -46,7 +46,7 @@ struct SearchIndexCache:Cache
                     }
                     
                     let declaration:Symbol.Declaration = current.declaration(index)
-                    let uri:URI = ecosystem.uri(of: .symbol(index), in: current)
+                    let uri:URI = ecosystem.uri(of: .init(natural: index), in: current)
                     let keywords:[JSON] = declaration.signature.compactMap
                     {
                         switch $0.color 

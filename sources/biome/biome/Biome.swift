@@ -63,17 +63,18 @@ struct Biome
             return nil
         }
         
-        let uri:URI = self.ecosystem.uri(of: resolution)
-        if  uri ~= request 
+        let (uri, canonical):(URI, URI?) = self.ecosystem.uri(of: resolution)
+        
+        if uri ~= request 
         {
-            return self.response(for: uri, resolution: resolution)
+            return self.response(for: resolution, canonical: canonical ?? uri)
         }
         else  
         {
             let uri:String = uri.description
             return temporary ? 
-                .maybe(at: uri, canonical: uri) : 
-                .found(at: uri, canonical: uri)
+                .maybe(at: uri, canonical: canonical?.description ?? uri) : 
+                .found(at: uri, canonical: canonical?.description ?? uri)
         }
     }
     @usableFromInline 
@@ -99,7 +100,7 @@ struct Biome
             root: root, query: query, stems: self.stems) 
     }
     @usableFromInline 
-    func response(for uri:URI, resolution:Ecosystem.Resolution) -> StaticResponse 
+    func response(for resolution:Ecosystem.Resolution, canonical uri:URI) -> StaticResponse 
     {
         switch resolution 
         {

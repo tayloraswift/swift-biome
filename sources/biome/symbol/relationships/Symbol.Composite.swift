@@ -15,13 +15,17 @@ extension Symbol
         {
             self.diacritic.culture
         }
+        var isNatural:Bool 
+        {
+            self.base == self.diacritic.host
+        }
         var host:Index? 
         {
-            self.base == self.diacritic.host ? nil : self.diacritic.host 
+            self.isNatural ? nil : self.diacritic.host 
         }
         var natural:Index? 
         {
-            self.base == self.diacritic.host ? self.base : nil
+            self.isNatural ? self.base : nil
         }
         
         init(natural:Index) 

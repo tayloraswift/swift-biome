@@ -147,23 +147,71 @@ struct Ecosystem
     }
     
     @usableFromInline
-    func uri(of resolution:Resolution) -> URI 
+    func uri(of resolution:Resolution) 
+        -> (exact:URI, canonical:URI?) 
     {
         switch resolution 
         {        
         case .index(let index, let pins, exhibit: let exhibit):
-            return self.pinned(pins).uri(of: index, exhibit: exhibit)
+            return self.uri(of: index, pins: pins, exhibit: exhibit)
+            
         case .choices(let choices, let pins):
-            return self.pinned(pins).uri(of: choices)
+            return (self.uri(of: choices, pins: pins), nil)
+        
         case .searchIndex(let package): 
-            return .init(root: self.root.searchIndex, 
-                path: [self[package].name, "types"])
+            return (self.uriOfSearchIndex(for: package), nil)
+        
         case .sitemap(let package): 
-            return .init(root: self.root.sitemap, 
-                path: ["\(self[package].name).txt"])
+            return (self.uriOfSiteMap(for: package), nil)
         }
     }
-    func uri(of index:Index, in pinned:Package.Pinned) -> URI
+    private 
+    func uri(of index:Index, pins:[Package.Index: Version], exhibit:Version?) 
+        -> (exact:URI, canonical:URI?) 
+    {
+        let uri:URI
+        let pinned:Package.Pinned
+        switch index 
+        {
+        case .composite(let composite):
+            pinned = self[composite.culture.package].pinned(pins, exhibit: exhibit)
+            uri = self.uri(of: composite, in: pinned)
+            guard composite.isNatural 
+            else 
+            {
+                // if this is a synthetic feature, set the canonical page to 
+                // its generic base (which may be in a completely different package)
+                let canonical:URI = self.uri(of: .init(natural: composite.base), 
+                    in: self[composite.base.module.package].pinned())
+                return (exact: uri, canonical: canonical)
+            }
+        
+        case .article(let article):
+            pinned = self[article.module.package].pinned(pins, exhibit: exhibit)
+            uri = self.uri(of: article, in: pinned)
+            
+        case .module(let module):
+            pinned = self[module.package].pinned(pins, exhibit: exhibit)
+            uri = self.uri(of: module, in: pinned)
+        
+        case .package(let package):
+            pinned = self[package].pinned(pins, exhibit: exhibit)
+            uri = self.uri(of: pinned)
+        }
+        
+        if pinned.version == pinned.package.versions.latest 
+        {
+            return (exact: uri, nil)
+        }
+        else
+        {
+            // if this is an old version, set the canonical version to 
+            // the latest version 
+            return (exact: uri, self.uri(of: index, in: pinned.package.pinned()))
+        }
+    }
+    private 
+    func uri(of index:Index, in pinned:Package.Pinned) -> URI 
     {
         switch index 
         {
@@ -177,6 +225,7 @@ struct Ecosystem
             return self.uri(of: pinned)
         }
     }
+
     func uri(of pinned:Package.Pinned) -> URI
     {
         .init(root: self.root.master, path: pinned.path())
@@ -195,6 +244,28 @@ struct Ecosystem
             path: pinned.path(to: composite, ecosystem: self), 
             query: pinned.query(to: composite, ecosystem: self), 
             orientation: self[composite.base].orientation)
+    }
+    func uri(of choices:[Symbol.Composite], pins:[Package.Index: Version]) -> URI
+    {
+        // `first` should always exist, if not, something has gone seriously 
+        // wrong in swift-biome...
+        guard let exemplar:Symbol.Composite = choices.first 
+        else 
+        {
+            fatalError("empty disambiguation group")
+        }
+        let pinned:Package.Pinned = self[exemplar.culture.package].pinned(pins)
+        return .init(root: self.root.master, 
+            path: pinned.path(to: exemplar, ecosystem: self), 
+            orientation: self[exemplar.base].orientation)
+    }
+    func uriOfSearchIndex(for package:Package.Index) -> URI 
+    {
+        .init(root: self.root.searchIndex, path: [self[package].name, "types"])
+    }
+    func uriOfSiteMap(for package:Package.Index) -> URI 
+    {
+        .init(root: self.root.sitemap, path: ["\(self[package].name).txt"])
     }
     
     func expand(_ link:Link) -> Link.Expansion

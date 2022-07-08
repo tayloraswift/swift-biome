@@ -332,7 +332,8 @@ extension Page
         }
         if  let current:String 
         {
-            let current:HTML.StaticElement = .span(current) 
+            let current:HTML.StaticElement = 
+                .span(currentVersion == package.versions.latest ? "latest" : current) 
             { 
                 ("class", "version") 
             }
@@ -392,7 +393,7 @@ extension Page
         """
         searchIndices = [\(scriptConstants.map 
         { 
-            "'\(self.ecosystem.uri(of: .searchIndex($0)))'"
+            "'\(self.ecosystem.uriOfSearchIndex(for: $0))'"
         }.joined(separator: ","))];
         """
         self.substitutions[.constants] = [UInt8].init(source.utf8)

@@ -5,9 +5,9 @@ extension Ecosystem
         let ecosystem:Ecosystem 
         let pins:[Package.Index: Version]
         
-        func pin(_ package:Package.Index, exhibit:Version? = nil) -> Package.Pinned 
+        func pin(_ package:Package.Index) -> Package.Pinned 
         {
-            self.ecosystem[package].pinned(self.pins, exhibit: exhibit)
+            self.ecosystem[package].pinned(self.pins)
         }
         
         init(_ ecosystem:Ecosystem, pins:[Package.Index: Version])
@@ -16,51 +16,31 @@ extension Ecosystem
             self.pins = pins
         }
         
-        func uri(of choices:[Symbol.Composite]) -> URI
-        {
-            // `first` should always exist, if not, something has gone seriously 
-            // wrong in swift-biome...
-            guard let exemplar:Symbol.Composite = choices.first 
-            else 
-            {
-                fatalError("empty disambiguation group")
-            }
-            let pinned:Package.Pinned = self.pin(exemplar.culture.package)
-            return .init(root: self.ecosystem.root.master, 
-                path: pinned.path(to: exemplar, ecosystem: self.ecosystem), 
-                orientation: self.ecosystem[exemplar.base].orientation)
-        }
-        func uri(of index:Index, exhibit:Version? = nil) -> URI
-        {
-            switch index 
-            {
-            case .composite(let composite):
-                return self.ecosystem.uri(of: composite, 
-                    in: self.pin(composite.culture.package, exhibit: exhibit))
-            case .article(let article):
-                return self.ecosystem.uri(of: article, 
-                    in: self.pin(article.module.package, exhibit: exhibit))
-            case .module(let module):
-                return self.ecosystem.uri(of: module, 
-                    in: self.pin(module.package, exhibit: exhibit))
-            case .package(let package):
-                return self.ecosystem.uri(
-                    of: self.pin(package, exhibit: exhibit))
-            }
-        }
-        func uri(of index:Index, cache:inout [Index: String]) 
-            -> String
+        func uri(of index:Index, cache:inout [Index: String]) -> String
         {
             if let cached:String = cache[index] 
             {
                 return cached 
             }
-            else 
+            let uri:URI 
+            switch index 
             {
-                let uri:String = self.uri(of: index).description 
-                cache[index] = uri 
-                return uri
+            case .composite(let composite):
+                uri = self.ecosystem.uri(of: composite, 
+                    in: self.pin(composite.culture.package))
+            case .article(let article):
+                uri = self.ecosystem.uri(of: article, 
+                    in: self.pin(article.module.package))
+            case .module(let module):
+                uri = self.ecosystem.uri(of: module, 
+                    in: self.pin(module.package))
+            case .package(let package):
+                uri = self.ecosystem.uri(
+                    of: self.pin(package))
             }
+            let string:String = uri.description 
+            cache[index] = string
+            return string
         }
         func headline(of article:Article.Index, cache:inout [Article.Index: [UInt8]]) 
             -> [UInt8]
