@@ -3,10 +3,22 @@ extension Ecosystem
     @usableFromInline
     enum Resolution
     {
-        case selection(Selection, pins:[Package.Index: Version])
+        case index(Index, pins:[Package.Index: Version], exhibit:Version? = nil)
+        case choices([Symbol.Composite], pins:[Package.Index: Version])
         
         case searchIndex(Package.Index)
         case sitemap(Package.Index)
+        
+        init(_ selection:Selection, pins:[Package.Index: Version])
+        {
+            switch selection 
+            {
+            case .one(let composite): 
+                self = .index(.composite(composite), pins: pins)
+            case .many(let composites):
+                self = .choices(composites, pins: pins)
+            }
+        }
     }
     
     func resolve<Path>(_ path:Path, root:Root, query:[URI.Parameter], stems:Stems) 
@@ -54,7 +66,7 @@ extension Ecosystem
                     {
                         return nil
                     }
-                    return (.selection(.article(article), pins: pins), false)
+                    return (.index(.article(article), pins: pins), false)
                 }
                 else if case (let resolution, _)? = 
                     self.resolveSymbol(link: implicit, 
@@ -133,7 +145,7 @@ extension Ecosystem
             {
                 let pins:[Package.Index: Version] = 
                     pins.isotropic(culture: destination.index)
-                return (.selection(.package(destination.index), pins: pins), false)
+                return (.index(.package(destination.index), pins: pins), false)
             }
             else 
             {
@@ -172,7 +184,7 @@ extension Ecosystem
             {
                 let pins:[Package.Index: Version] = 
                     pins.isotropic(culture: namespace.package)
-                return (.selection(.module(namespace), pins: pins), false)
+                return (.index(.module(namespace), pins: pins), false)
             }
             else 
             {
@@ -187,24 +199,49 @@ extension Ecosystem
         arrival:MaskedVersion?, 
         stems:Stems)
         -> (resolution:Resolution, redirected:Bool)?
-    {        
-        if  case let (package, pins)? = 
+    {
+        guard   case let (package, pins)? = 
                 self.localize(destination: namespace.package, 
                     arrival: arrival, 
                     lens: implicit.query.lens),
-            let route:Route = stems[namespace, implicit], 
-            case let (selection, redirected: redirected)? = 
-                self.selectWithRedirect(from: route, 
+                let route:Route = stems[namespace, implicit]
+        else 
+        {
+            return nil 
+        }
+        // each “select” call is currently O(n^2), but we could make it 
+        // O(n log(n)) with some effort
+        if case (let selection, redirected: let redirected)? = 
+                self.selectExtantWithRedirect(from: route, 
                     lens: .init(package, at: pins.local), 
                     by: implicit.disambiguator)
         {
             let pins:[Package.Index: Version] = pins.isotropic(culture: package.index)
-            return (.selection(selection, pins: pins), redirected)
+            return (.init(selection, pins: pins), redirected)
         }
-        else 
+        else if case (.one(let composite), redirected: let redirected)? = 
+                self.selectHistoricalWithRedirect(from: route, lens: package, 
+                    by: implicit.disambiguator)
         {
-            return nil
+            // we have no idea what version any of the historical selections 
+            // came from. to determine this, travel backwards through all 
+            // lens-package versions until we find one that contains the selection. 
+            // to keep the complexity from becoming cubic; only do this for 
+            // unambiguous references...
+            for version:Version in package.versions.indices.reversed() 
+            {
+                if package.contains(composite, at: version) 
+                {
+                    let exhibit:Version = pins.local 
+                    let pins:[Package.Index: Version] = 
+                        package.versions[version].isotropic(culture: package.index)
+                    let resolution:Resolution = 
+                        .index(.composite(composite), pins: pins, exhibit: exhibit)
+                    return (resolution, redirected)
+                }
+            }
         }
+        return nil
     }
 }
 // brute force id-based resolution 
@@ -219,11 +256,11 @@ extension Ecosystem
             return nil
         }
         if  case let (package, pins)? = 
-            self.localize(destination: composite.culture.package, lens: query.lens), 
-            package.contains(composite, at: pins.local)
+            self.localize(destination: composite.culture.package, lens: query.lens)//, 
+            //package.contains(composite, at: pins.local)
         {
             let pins:[Package.Index: Version] = pins.isotropic(culture: package.index)
-            return (.selection(.composite(composite), pins: pins), false)
+            return (.index(.composite(composite), pins: pins), false)
         }
         else 
         {

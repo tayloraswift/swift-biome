@@ -63,7 +63,7 @@ struct SiteMapCache:Cache
         """
         sitemaps:0.1.0/\
         \(current.package.name)/\
-        \(current.package.versions[current.version])
+        \(current.package.versions.precise(current.version))
         """
         return .utf8(encoded: sitemap, type: .plain, tag: .init(tag))
     }

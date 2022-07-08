@@ -103,25 +103,22 @@ struct Biome
     {
         switch resolution 
         {
-        case .selection(let selection, pins: let pins): 
+        case .index(let index, pins: let pins, exhibit: let exhibit): 
             var page:Page = .init(self.ecosystem.pinned(pins), logo: self.logo)
-            switch selection 
-            {
-            case .composites(let choices):
+                page.generate(for: index, exhibit: exhibit)
+            return .matched(.utf8(encoded: self.template.rendered(as: [UInt8].self, 
+                    substituting: _move(page).substitutions), 
+                    type: .html, 
+                    tag: nil), 
+                canonical: uri.description)
+        
+        case .choices(let choices, pins: let pins): 
+            var page:Page = .init(self.ecosystem.pinned(pins), logo: self.logo)
                 page.generate(for: choices, uri: uri)
-                return .multiple(.utf8(encoded: self.template.rendered(as: [UInt8].self, 
-                        substituting: _move(page).substitutions), 
-                        type: .html, 
-                        tag: nil))
-            
-            case .index(let index):
-                page.generate(for: index)
-                return .matched(.utf8(encoded: self.template.rendered(as: [UInt8].self, 
-                        substituting: _move(page).substitutions), 
-                        type: .html, 
-                        tag: nil), 
-                    canonical: uri.description)
-            }
+            return .multiple(.utf8(encoded: self.template.rendered(as: [UInt8].self, 
+                    substituting: _move(page).substitutions), 
+                    type: .html, 
+                    tag: nil))
         
         case .searchIndex(let package): 
             guard let cached:Resource = self.searchIndices[package]

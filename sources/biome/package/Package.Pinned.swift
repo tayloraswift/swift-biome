@@ -4,11 +4,16 @@ extension Package
     {
         let package:Package 
         let version:Version
+        // exhibited version can be different from true version, due to 
+        // implementation of historical pages. this is only used by the top-level 
+        // url redirection system, content links do not use exhibitions
+        let exhibit:Version?
         
-        init(_ package:Package, at version:Version)
+        init(_ package:Package, at version:Version, exhibit:Version? = nil)
         {
             self.version = version  
             self.package = package
+            self.exhibit = exhibit
         }
     }
 }
@@ -17,7 +22,7 @@ extension Package.Pinned
     private 
     var abbreviatedVersion:MaskedVersion? 
     {
-        self.package.versions.abbreviate(self.version)
+        self.package.versions.abbreviate(self.exhibit ?? self.version)
     }
     
     private 

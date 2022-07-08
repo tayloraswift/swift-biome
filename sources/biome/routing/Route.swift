@@ -29,4 +29,21 @@ struct Route:Hashable, Sendable, CustomStringConvertible
         self.stem = stem
         self.leaf = leaf
     }
+    
+    func first<T>(where transform:(Self) throws -> T?) rethrows -> (T, redirected:Bool)? 
+    {
+        if      let result:T = try transform(self)
+        {
+            return (result, false)
+        }
+        else if let outed:Self = self.outed, 
+                let result:T = try transform(outed)
+        {
+            return (result, true)
+        }
+        else 
+        {
+            return nil
+        }
+    }
 }

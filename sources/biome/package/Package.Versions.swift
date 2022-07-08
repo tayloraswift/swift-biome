@@ -1,7 +1,9 @@
 extension Package 
 {
-    struct Versions:Sendable 
+    struct Versions:RandomAccessCollection, Sendable 
     {
+        typealias Element = Pins<Version>
+        
         var latest:Version
         {
             .init(offset: self.storage.endIndex - 1)
@@ -11,19 +13,27 @@ extension Package
         var storage:[Pins<PreciseVersion>], 
             mapping:[MaskedVersion?: Version]
         
-        subscript(version:Version) -> PreciseVersion
+        var startIndex:Version 
         {
-            _read 
-            {
-                yield self.storage[version.offset].local
-            }
+            .init(offset: self.storage.startIndex)
+        }
+        var endIndex:Version 
+        {
+            .init(offset: self.storage.endIndex)
+        }
+        
+        subscript(version:Version) -> Pins<Version>
+        {
+            .init(local: version, upstream: self.storage[version.offset].upstream)
         }
         subscript(masked:MaskedVersion?) -> Pins<Version>?
         {
-            self.mapping[masked].map 
-            {
-                .init(local: $0, upstream: self.storage[$0.offset].upstream)
-            }
+            self.mapping[masked].map { self[$0] }
+        }
+        
+        func precise(_ version:Version) -> PreciseVersion
+        {
+            self.storage[version.offset].local
         }
         
         func snap(_ masked:MaskedVersion?) -> Version
@@ -38,7 +48,7 @@ extension Package
         }
         
         mutating 
-        func push(_ precise:PreciseVersion, upstream:[Index: Version])
+        func push(_ precise:PreciseVersion, upstream:[Package.Index: Version])
             -> Pins<Version>
         {
             self.storage.append(.init(local: precise, upstream: upstream))
@@ -95,11 +105,6 @@ extension Package
                     return .hourly(year: year, month: month, day: day, letter: letter)
                 }
             }
-        }
-        
-        func filter(_ predicate:(Version) throws -> Bool) rethrows -> [Version]
-        {
-            try self.storage.indices.lazy.map(Version.init(offset:)).filter(predicate) 
         }
     }
 }

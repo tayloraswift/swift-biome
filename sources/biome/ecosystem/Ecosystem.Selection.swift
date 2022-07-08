@@ -3,30 +3,9 @@ extension Ecosystem
     @usableFromInline
     enum Selection
     {
-        case index(Index)
-        case composites([Symbol.Composite])
-        
-        static 
-        func package(_ package:Package.Index) -> Self 
-        {
-            .index(.package(package))
-        }
-        static 
-        func module(_ module:Module.Index) -> Self 
-        {
-            .index(.module(module))
-        }
-        static 
-        func article(_ article:Article.Index) -> Self 
-        {
-            .index(.article(article))
-        }
-        static 
-        func composite(_ composite:Symbol.Composite) -> Self 
-        {
-            .index(.composite(composite))
-        }
-        
+        case one(Symbol.Composite)
+        case many([Symbol.Composite])
+                
         init?(_ matches:[Symbol.Composite]) 
         {
             guard let first:Symbol.Composite = matches.first 
@@ -36,11 +15,22 @@ extension Ecosystem
             }
             if matches.count < 2
             {
-                self = .composite(first)
+                self = .one(first)
             } 
             else 
             {
-                self = .composites(matches)
+                self = .many(matches)
+            }
+        }
+        
+        func composite() throws -> Symbol.Composite 
+        {
+            switch self 
+            {
+            case .one(let composite):
+                return composite 
+            case .many(let composites): 
+                throw SelectionError.many(composites)
             }
         }
     }
@@ -73,94 +63,64 @@ extension Ecosystem
 }
 
 extension Ecosystem
-{
-    func selectWithRedirect(from route:Route, lens:Package.Pinned, 
+{    
+    func selectExtantWithRedirect(from route:Route, lens:Package.Pinned, 
         by disambiguator:Symbol.Disambiguator) 
         -> (selection:Selection, redirected:Bool)?
     {
-        if  let selection:Selection = 
-            self.select(from: route, lens: lens, by: disambiguator)
+        route.first 
         {
-            return (selection, false)
-        }
-        else if let route:Route = route.outed, 
-            let selection:Selection = 
-            self.select(from: route, lens: lens, by: disambiguator)
-        {
-            return (selection, true)
-        }
-        else 
-        {
-            return nil
+            self.selectExtant(from: $0, lenses: CollectionOfOne<Package.Pinned>.init(lens))
+            {
+                self.filter($0, by: disambiguator)
+            }
         }
     }
-    private 
-    func select(from route:Route, lens:Package.Pinned, 
-        by disambiguator:Symbol.Disambiguator) 
-        -> Selection?
-    {
-        self.select(from: route, lenses: CollectionOfOne<Package.Pinned>.init(lens))
-        {
-            self.filter($0, by: disambiguator)
-        }
-    }
-    
-    func select<Lenses>(from route:Route, lenses:Lenses, 
+    func selectExtant<Lenses>(from route:Route, lenses:Lenses, 
         where predicate:(Symbol.Composite) throws -> Bool) 
         rethrows -> Selection?
         where Lenses:Sequence, Lenses.Element == Package.Pinned
     {
-        // search for an extant symbol/composite, and if one is not found, 
-        // return any matching symbol/composite regardless of extancy
-        var any:[Symbol.Composite] = [], 
-            extant:[Symbol.Composite] = []
-        try self.iterate(through: route, lenses: lenses)
-        {
-            (pinned:Package.Pinned, composite:Symbol.Composite) in 
-            if try predicate(composite)
-            {
-                pinned.contains(composite) ? 
-                    extant.append(composite) : any.append(composite)
-            }
-        }
-        return .init(extant) ?? .init(any)
-    }
-    private 
-    func iterate<Lenses>(through route:Route, lenses:Lenses, 
-        _ body:(Package.Pinned, Symbol.Composite) throws -> ()) 
-        rethrows 
-        where Lenses:Sequence, Lenses.Element == Package.Pinned
-    {
+        var matches:[Symbol.Composite] = []
         for pinned:Package.Pinned in lenses 
         {
-            switch pinned.package.groups[route]
+            try pinned.package.groups[route].forEach 
             {
-            case .none: 
-                continue 
-            
-            case .one(let composite):
-                try body(pinned, composite)
-            
-            case .many(let composites):
-                for (base, diacritics):(Symbol.Index, Symbol.Subgroup) in composites 
+                if try predicate($0), pinned.contains($0)
                 {
-                    switch diacritics
-                    {
-                    case .none: 
-                        continue  
-                    
-                    case .one(let diacritic):
-                        try body(pinned, .init(base, diacritic))
-                    
-                    case .many(let diacritics):
-                        for diacritic:Symbol.Diacritic in diacritics 
-                        {
-                            try body(pinned, .init(base, diacritic))
-                        }
-                    }
+                    matches.append($0)
                 }
             }
         }
+        return .init(matches)
+    }
+    
+    func selectHistoricalWithRedirect(from route:Route, lens:Package, 
+        by disambiguator:Symbol.Disambiguator) 
+        -> (selection:Selection, redirected:Bool)?
+    {
+        route.first 
+        {
+            self.selectHistorical(from: $0, lens: lens)
+            {
+                self.filter($0, by: disambiguator)
+            }
+        }
+    }
+    private
+    func selectHistorical(from route:Route, lens:Package, 
+        where predicate:(Symbol.Composite) throws -> Bool) 
+        rethrows -> Selection?
+    {
+        var matches:[Symbol.Composite] = []
+        try lens.groups[route].forEach 
+        {
+            if try predicate($0)
+            {
+                matches.append($0)
+            }
+        }
+        return .init(matches)
     }
     
     func filter(_ composite:Symbol.Composite, by disambiguator:Symbol.Disambiguator) 

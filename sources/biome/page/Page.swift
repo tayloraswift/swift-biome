@@ -75,37 +75,37 @@ extension Page
         self.add(scriptConstants: era.ecosystem.indices.values)
     }
     mutating 
-    func generate(for index:Ecosystem.Index)
+    func generate(for index:Ecosystem.Index, exhibit:Version?)
     {
         switch index 
         {
         case .composite(let composite): 
-            self.generate(for: composite)
+            self.generate(for: composite, exhibit: exhibit)
         case .article(let article): 
-            self.generate(for: article)
+            self.generate(for: article, exhibit: exhibit)
         case .module(let module): 
-            self.generate(for: module)
+            self.generate(for: module, exhibit: exhibit)
         case .package(let package):
-            self.generate(for: package)
+            self.generate(for: package, exhibit: exhibit)
         }
         self.add(scriptConstants: era.ecosystem.indices.values)
     }
     private mutating 
-    func generate(for package:Package.Index) 
+    func generate(for package:Package.Index, exhibit:Version?) 
     {
         let pinned:Package.Pinned = self.era.pin(package)
         
         self.add(fields: self.ecosystem.renderFields(for: package))
         self.add(topics: self.ecosystem.render(modulelist: pinned.package.modules.all))
         self.add(availableVersions: pinned.package.allVersions(), 
-            currentVersion: pinned.version,
+            currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
         {
             $0.uri(of: $1)
         }
     }
     private mutating 
-    func generate(for module:Module.Index) 
+    func generate(for module:Module.Index, exhibit:Version?) 
     {
         let pinned:Package.Pinned = self.era.pin(module.package)
         let topics:Topics = self.era.organize(toplevel: pinned.toplevel(module))
@@ -114,14 +114,14 @@ extension Page
         self.add(topics: self.ecosystem.render(topics: topics))
         self.add(article: pinned.template(module))
         self.add(availableVersions: pinned.package.allVersions(of: module), 
-            currentVersion: pinned.version,
+            currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
         {
             $0.uri(of: module, in: $1)
         }
     }
     private mutating
-    func generate(for article:Article.Index)
+    func generate(for article:Article.Index, exhibit:Version?)
     {
         let pinned:Package.Pinned = self.era.pin(article.module.package)
         
@@ -129,14 +129,14 @@ extension Page
             headline: pinned.headline(article)))
         self.add(article: pinned.template(article))
         self.add(availableVersions: pinned.package.allVersions(of: article), 
-            currentVersion: pinned.version,
+            currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
         {
             $0.uri(of: article, in: $1)
         }
     }
     private mutating 
-    func generate(for composite:Symbol.Composite) 
+    func generate(for composite:Symbol.Composite, exhibit:Version?) 
     {
         //  up to three pinned packages involved for a composite: 
         //  1. host package (optional)
@@ -165,7 +165,7 @@ extension Page
         self.add(topics: self.ecosystem.render(topics: topics))
         self.add(article: base.template(composite.base))
         self.add(availableVersions: pinned.package.allVersions(of: composite), 
-            currentVersion: pinned.version,
+            currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
         {
             $0.uri(of: composite, in: $1)
@@ -289,11 +289,11 @@ extension Page
         var counts:[MaskedVersion: Int] = [:]
         for version:Version in availableVersions 
         {
-            counts[package.versions[version].triplet, default: 0] += 1
+            counts[package.versions.precise(version).triplet, default: 0] += 1
         }
         let strings:[String] = availableVersions.map
         {
-            let precise:PreciseVersion = package.versions[$0]
+            let precise:PreciseVersion = package.versions.precise($0)
             let triplet:MaskedVersion = precise.triplet
             return counts[triplet, default: 1] == 1 ? 
                 triplet.description : precise.quadruplet.description

@@ -11,10 +11,17 @@ extension Ecosystem
     {
         case externalSymbol(Symbol.Index, is:Symbol.Role, accordingTo:Module.Index)
     }
-    enum LinkResolutionError:Error 
+    public 
+    struct LinkResolutionError:Error 
     {
-        case none(String)
-        case many(String, [Symbol.Composite])
+        let link:String
+        let error:Error
+    }
+    public 
+    enum SelectionError:Error 
+    {
+        case none 
+        case many([Symbol.Composite])
     }
 }
 extension Module 

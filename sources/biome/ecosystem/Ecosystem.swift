@@ -41,7 +41,7 @@ struct Ecosystem
         }
     }
     
-    func describe(_ error:LinkResolutionError) -> String 
+    /* func describe(_ error:LinkResolutionError) -> String 
     {
         switch error 
         {
@@ -65,7 +65,7 @@ struct Ecosystem
                 }.joined(separator: "\n"))
                 """
         }
-    }
+    } */
     
     let root:
     (    
@@ -151,8 +151,10 @@ struct Ecosystem
     {
         switch resolution 
         {        
-        case .selection(let selection, let pins):
-            return self.pinned(pins).uri(of: selection)
+        case .index(let index, let pins, exhibit: let exhibit):
+            return self.pinned(pins).uri(of: index, exhibit: exhibit)
+        case .choices(let choices, let pins):
+            return self.pinned(pins).uri(of: choices)
         case .searchIndex(let package): 
             return .init(root: self.root.searchIndex, 
                 path: [self[package].name, "types"])

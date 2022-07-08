@@ -158,9 +158,9 @@ struct Package:Identifiable, Sendable
     {
         .init(self, at: self.versions.latest)
     }
-    func pinned(_ pins:[Index: Version]) -> Pinned 
+    func pinned(_ pins:[Index: Version], exhibit:Version? = nil) -> Pinned 
     {
-        .init(self, at: pins[self.index] ?? self.versions.latest)
+        .init(self, at: pins[self.index] ?? self.versions.latest, exhibit: exhibit)
     }
     
     var trunk:[String]
@@ -231,19 +231,19 @@ struct Package:Identifiable, Sendable
     
     func allVersions(of composite:Symbol.Composite) -> [Version]
     {
-        self.versions.filter { self.contains(composite, at: $0) }
+        self.versions.indices.filter { self.contains(composite, at: $0) }
     }
     func allVersions(of article:Article.Index) -> [Version]
     {
-        self.versions.filter { self.contains(article, at: $0) }
+        self.versions.indices.filter { self.contains(article, at: $0) }
     } 
     func allVersions(of module:Module.Index) -> [Version]
     {
-        self.versions.filter { self.contains(module, at: $0) }
+        self.versions.indices.filter { self.contains(module, at: $0) }
     } 
     func allVersions() -> [Version]
     {
-        self.versions.filter { _ in true }
+        .init(self.versions.indices)
     } 
     
     //  each ecosystem entity has a type of versioned node that stores 

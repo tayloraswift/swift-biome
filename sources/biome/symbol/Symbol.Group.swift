@@ -65,6 +65,37 @@ extension Symbol
                 self = .many(subgroups)
             }
         }
+        
+        func forEach(_ body:(Composite) throws -> ()) rethrows 
+        {
+            switch self
+            {
+            case .none: 
+                return 
+            
+            case .one(let composite):
+                try body(composite)
+            
+            case .many(let composites):
+                for (base, diacritics):(Index, Subgroup) in composites 
+                {
+                    switch diacritics
+                    {
+                    case .none: 
+                        continue  
+                    
+                    case .one(let diacritic):
+                        try body(.init(base, diacritic))
+                    
+                    case .many(let diacritics):
+                        for diacritic:Diacritic in diacritics 
+                        {
+                            try body(.init(base, diacritic))
+                        }
+                    }
+                }
+            }
+        }
     }
     
     struct Groups 

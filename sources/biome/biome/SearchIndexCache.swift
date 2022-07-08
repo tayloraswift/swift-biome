@@ -72,7 +72,7 @@ struct SearchIndexCache:Cache
         """
         lunr:0.1.0/\
         \(current.package.name)/\
-        \(current.package.versions[current.version])
+        \(current.package.versions.precise(current.version))
         """
         let json:JSON = .array(_move(modules))
         let bytes:[UInt8] = .init(_move(json).description.utf8)

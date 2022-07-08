@@ -139,13 +139,13 @@ extension Ecosystem
         -> Index?
     {
         if  let uri:URI = try? .init(relative: string), 
-            case (.index(let index), _)? = try? self.resolveWithRedirect(
+            let link:Link = try? self.resolveWithRedirect(
                 visibleLink: uri,
                 lenses: [pinned], 
                 scope: scope, 
                 stems: stems)
         {
-            return index 
+            return link.target
         }
         else 
         {
@@ -264,7 +264,7 @@ extension Ecosystem
             {
                 // must attempt to parse absolute first, otherwise 
                 // '/foo' will parse to ["", "foo"]
-                let resolved:(selection:Selection, visible:Int)?
+                let resolved:Link?
                 // global "doc:" links not supported yet
                 if !doclink, let uri:URI = try? .init(absolute: suffix)
                 {
@@ -283,19 +283,18 @@ extension Ecosystem
                         scope: scope, 
                         stems: stems)
                 }
-                switch resolved
+                if let resolved:Link
                 {
-                case nil:
-                    throw LinkResolutionError.none(string)
-                case (.index(let target), let visible)?:
-                    return .key(.init(target, visible: visible))
-                case (.composites(let possibilities), _)?:
-                    throw LinkResolutionError.many(string, possibilities)
+                    return .key(resolved)
+                }
+                else 
+                {
+                    throw SelectionError.none
                 }
             }
             catch let error 
             {
-                errors.append(error)
+                errors.append(LinkResolutionError.init(link: string, error: error))
                 return .segment(HTML.Element<Never>.code(string).rendered(as: [UInt8].self))
             }
         }
@@ -324,7 +323,7 @@ extension Ecosystem
         lenses:[Package.Pinned], 
         scope:Module.Scope,
         stems:Stems) 
-        throws -> (selection:Selection, visible:Int)? 
+        throws -> Link? 
     {
         let (global, fold):([String], Int) = uri.path.normalized
         
@@ -343,7 +342,7 @@ extension Ecosystem
         guard let namespace:Module.ID = (link.first?.string).map(Module.ID.init(_:)) 
         else 
         {
-            return (.package(destination), 1)
+            return .init(.package(destination), visible: 1)
         }
         guard let namespace:Module.Index = self[destination].modules.indices[namespace]
         else 
@@ -353,17 +352,17 @@ extension Ecosystem
         guard let implicit:Symbol.Link = _move(link).suffix 
         else 
         {
-            return (.module(namespace), 1)
+            return .init(.module(namespace), visible: 1)
         }
         
         if  case let (package, pins)? = self.localize(destination: destination, 
                 lens: implicit.query.lens),
             let route:Route = stems[namespace, implicit.revealed],
-            case let (selection, _)? = self.selectWithRedirect(from: route, 
+            case let (selection, _)? = self.selectExtantWithRedirect(from: route, 
                 lens: .init(package, at: pins.local), 
                 by: implicit.disambiguator)
         {
-            return (selection, implicit.count)
+            return .init(.composite(try selection.composite()), visible: implicit.count)
         }
         else 
         {
@@ -377,7 +376,7 @@ extension Ecosystem
         lenses:[Package.Pinned],
         scope:Module.Scope,
         stems:Stems) 
-        throws -> (selection:Selection, visible:Int)? 
+        throws -> Link? 
     {
         let (path, fold):([String], Int) = uri.path.normalized 
         if  doclink,  
@@ -386,26 +385,26 @@ extension Ecosystem
             let article:Article.Index = 
                 self[scope.culture.package].articles.indices[article]
         {
-            return (.article(article), path.endIndex - fold)
+            return .init(.article(article), visible: path.endIndex - fold)
         }
         let expression:Symbol.Link = 
             try .init(path: (path, fold), query: uri.query ?? [])
-        if      let selection:Selection = self.resolve(
+        if      let index:Index = try self.resolve(
                     visibleLink: expression.revealed, nest: nest, 
                     lenses: lenses, 
                     scope: scope, 
                     stems: stems)
         {
-            return (selection, expression.count)
+            return .init(index, visible: expression.count)
         }
         else if let outed:Symbol.Link = expression.revealed.outed,
-                let selection:Selection = self.resolve(
+                let index:Index = try self.resolve(
                     visibleLink: outed, nest: nest, 
                     lenses: lenses, 
                     scope: scope, 
                     stems: stems)
         {
-            return (selection, expression.count)
+            return .init(index, visible: expression.count)
         }
         else 
         {
@@ -418,7 +417,7 @@ extension Ecosystem
         lenses:[Package.Pinned],
         scope:Module.Scope,
         stems:Stems) 
-        -> Selection? 
+        throws -> Index? 
     {
         //  check if the first component refers to a module. it can be the same 
         //  as its own culture, or one of its dependencies. 
@@ -427,7 +426,7 @@ extension Ecosystem
         {
             if  let implicit:Symbol.Link = link.suffix 
             {
-                return self.resolve(relativeLink: implicit, 
+                return try self.resolve(relativeLink: implicit, 
                     namespace: namespace, 
                     lenses: lenses,
                     scope: scope, 
@@ -440,7 +439,7 @@ extension Ecosystem
         }
         
         if  let nest:Symbol.Nest,
-            let relative:Selection = self.resolve(relativeLink: link, 
+            let relative:Index = try self.resolve(relativeLink: link, 
                 namespace: nest.namespace, 
                 prefix: nest.prefix, 
                 lenses: lenses, 
@@ -450,7 +449,7 @@ extension Ecosystem
             return relative
         }
         // primary culture takes precedence
-        if  let absolute:Selection = self.resolve(relativeLink: link, 
+        if  let absolute:Index = try self.resolve(relativeLink: link, 
                 namespace: scope.culture, 
                 lenses: lenses, 
                 scope: scope, 
@@ -458,10 +457,10 @@ extension Ecosystem
         {
             return absolute
         }
-        var imported:Selection? = nil 
+        var imported:Index? = nil 
         for namespace:Module.Index in scope.filter where namespace != scope.culture 
         {
-            if  let absolute:Selection = self.resolve(relativeLink: link, 
+            if  let absolute:Index = try self.resolve(relativeLink: link, 
                     namespace: namespace, 
                     lenses: lenses, 
                     scope: scope, 
@@ -487,7 +486,7 @@ extension Ecosystem
         lenses:[Package.Pinned], 
         scope:Module.Scope,
         stems:Stems) 
-        -> Selection?
+        throws -> Index?
     {
         guard let route:Route = stems[namespace, prefix, link]
         else 
@@ -495,9 +494,10 @@ extension Ecosystem
             return nil
         }
         let disambiguator:Symbol.Disambiguator = link.disambiguator
-        return self.select(from: route, lenses: lenses)
+        let selection:Selection? = self.selectExtant(from: route, lenses: lenses)
         {
             scope.contains($0.culture) && self.filter($0, by: disambiguator)
         }
+        return (try selection?.composite()).map(Index.composite(_:))
     }
 }

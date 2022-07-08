@@ -1,7 +1,7 @@
 import JSON
 
 @usableFromInline
-struct Version:Hashable, Comparable, Sendable
+struct Version:Hashable, Strideable, Sendable
 {
     let offset:Int 
     
@@ -12,6 +12,16 @@ struct Version:Hashable, Comparable, Sendable
     func < (lhs:Self, rhs:Self) -> Bool 
     {
         lhs.offset < rhs.offset 
+    }
+    @usableFromInline
+    func advanced(by offset:Int) -> Self
+    {
+        .init(offset: self.offset.advanced(by: offset))
+    }
+    @usableFromInline
+    func distance(to other:Self) -> Int
+    {
+        self.offset.distance(to: other.offset)
     }
 }
 
