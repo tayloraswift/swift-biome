@@ -127,7 +127,7 @@ extension Module
                 // underscored protocols and associatedtypes
                 for constraint:Generic.Constraint<Symbol.ID> in image.constraints
                 {
-                    guard let id:Symbol.ID = constraint.link 
+                    guard let id:Symbol.ID = constraint.target
                     else 
                     {
                         continue 

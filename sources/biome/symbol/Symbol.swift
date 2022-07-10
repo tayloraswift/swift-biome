@@ -92,20 +92,6 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         }
     }
     
-    struct Conditional:Hashable, Sendable 
-    {
-        // not a ``Set``, because of 
-        // https://github.com/apple/swift/blob/main/docs/ABI/GenericSignature.md
-        let conditions:[Generic.Constraint<Index>]
-        let index:Index 
-        
-        init(_ index:Index, where constraints:[Generic.Constraint<Index>] = [])
-        {
-            self.index = index 
-            self.conditions = constraints
-        }
-    }
-    
     struct Heads 
     {
         @Keyframe<Declaration>.Head
@@ -137,7 +123,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     let path:Path
     let kind:Kind
     let route:Route
-    var shape:Shape?
+    var shape:Shape<Index>?
     var heads:Heads
     var pollen:Set<Module.Pin>
     
@@ -165,7 +151,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         switch self.color 
         {
         case .associatedtype, .callable(_):
-            return self.shape?.index 
+            return self.shape?.target 
         default: 
             return nil
         }

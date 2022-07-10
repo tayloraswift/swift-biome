@@ -51,8 +51,7 @@ extension Symbol
                 }
                 catch let error 
                 {
-                    print("warning: \(error)")
-                    print("note: while generating symbol declaration")
+                    print("warning: \(error) while generating symbol declaration")
                     return nil 
                 }
             }

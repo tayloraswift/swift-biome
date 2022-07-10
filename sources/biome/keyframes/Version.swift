@@ -102,7 +102,7 @@ enum MaskedVersion:Hashable, CustomStringConvertible, Sendable
     case nightly(year:UInt16, month:UInt16, day:UInt16)
     case hourly(year:UInt16, month:UInt16, day:UInt16, letter:UInt8)
     
-    public 
+    @inlinable public 
     var description:String 
     {
         switch self 
@@ -124,6 +124,7 @@ enum MaskedVersion:Hashable, CustomStringConvertible, Sendable
 }
 extension MaskedVersion 
 {
+    @inlinable public
     init?<S>(_ string:S) where S:StringProtocol
     {
         if  let version:Self = 
@@ -157,24 +158,28 @@ extension MaskedVersion
 }
 extension MaskedVersion 
 {
+    public 
     struct Rule<Location>:ParsingRule 
     {
+        public 
         typealias Terminal = Unicode.Scalar
+        public 
         typealias Encoding = Grammar.Encoding<Location, Terminal>
     }
 }
 extension MaskedVersion.Rule 
 {
-    private 
+    public 
     typealias Integer = Grammar.UnsignedIntegerLiteral<
                         Grammar.DecimalDigitScalar<Location, UInt16>>
-    
-    private 
+    public 
     enum Hour:TerminalRule
     {
+        public 
         typealias Terminal = Unicode.Scalar
+        public 
         typealias Construction = UInt8
-        static 
+        @inlinable public static 
         func parse(terminal:Terminal) -> UInt8?
         {
             switch terminal 
@@ -186,7 +191,7 @@ extension MaskedVersion.Rule
         }
     }
     
-    static 
+    @inlinable public static 
     func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
         throws -> MaskedVersion
         where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 

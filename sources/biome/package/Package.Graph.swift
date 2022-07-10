@@ -1,7 +1,7 @@
 extension Package 
 {
     public
-    struct Graph 
+    struct Graph:Sendable
     {
         let id:ID 
         let modules:[Module.Graph]

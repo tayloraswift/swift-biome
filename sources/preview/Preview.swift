@@ -7,15 +7,23 @@ import BiomeTemplates
 
 extension VersionController 
 {
-    func read(package:Package.ID) throws -> Package.Descriptor
+    fileprivate
+    func loadSwiftToolchainDirectories(from path:FilePath) 
+        throws -> [Substring]
     {
-        let modules:[Module.ID] = try self.read(from: FilePath.init("\(package.string).txt"))
+        try self.read(from: path).split(whereSeparator: \.isWhitespace)
+    }
+    fileprivate
+    func loadSwiftToolchainDescriptor(_ package:Package.ID, from directory:FilePath) 
+        throws -> Package.Descriptor
+    {
+        let modules:[Module.ID] = try self.read(from: directory.appending(package.string))
             .split(whereSeparator: \.isWhitespace)
             .map(Module.ID.init(_:))
         return .init(id: package, modules: modules.map 
         {
             // use a relative path, since this is from a git repository. 
-            .init(id: $0, include: ["\(package.string)/\($0.string)"], dependencies: [])
+            .init(id: $0, include: [directory.appending($0.string).description], dependencies: [])
         })
     }
 }
@@ -44,31 +52,41 @@ struct Preview:ServiceBackend
             "/text-65.woff2"    : try await controller.read(from: "fonts/literata/Literata-SemiBold.woff2",       type: .woff2), 
             "/text-67.woff2"    : try await controller.read(from: "fonts/literata/Literata-SemiBoldItalic.woff2", type: .woff2), 
         ]
-        let pins:[Package.ID: MaskedVersion] = 
-        [
-            .swift: .minor(5, 7),
-            .core:  .minor(5, 7),
-        ]
-        // load the names of the swift standard library modules. 
-        let library:(standard:Package.Descriptor, core:Package.Descriptor) = 
-        (
-            standard:   try controller.read(package: .swift),
-            core:       try controller.read(package: .core)
-        )
-        let template:DOM.Template<Page.Key, [UInt8]> = 
-            .init(freezing: DefaultTemplates.documentation)
         self.biome = .init(roots: [.master: "reference", .article: "learn"], 
-            template: template)
-        // load the standard and core libraries
-        try self.biome.updatePackage(try await library.standard.load(with: controller).graph(), era: pins)
-        try self.biome.updatePackage(try await     library.core.load(with: controller).graph(), era: pins)
+            template: .init(freezing: DefaultTemplates.documentation))
+        
+        var pins:[Package.ID: MaskedVersion] = [:]
+        // load standard library
+        for directory:Substring in try controller.loadSwiftToolchainDirectories(
+            from: .init(root: nil, components: "swift", "swift-versions"))
+        {
+            guard   let version:MaskedVersion = .init(directory), 
+                    let component:FilePath.Component = .init(String.init(directory))
+            else 
+            {
+                continue 
+            }
+            let directory:FilePath = .init(root: nil, components: "swift", component)
+            // load the names of the swift standard library modules. 
+            let standardLibrary:Package.Descriptor = 
+                try controller.loadSwiftToolchainDescriptor(.swift, from: directory)
+            let coreLibraries:Package.Descriptor = 
+                try controller.loadSwiftToolchainDescriptor(.core, from: directory)
+            
+            pins = [.swift: version, .core: version]
+            
+            try self.biome.updatePackage(
+                try await standardLibrary.loadGraph(with: controller), era: pins)
+            try self.biome.updatePackage(
+                try await   coreLibraries.loadGraph(with: controller), era: pins)
+        }
         
         for project:FilePath in projects 
         {
-            let packages:[Package.Descriptor] = try Package.descriptors(parsing: 
-                try File.read(from: project.appending("Package.catalog")))
             let resolved:Package.Resolved = try .init(parsing: 
                 try File.read(from: project.appending("Package.resolved")))
+            let packages:[Package.Descriptor] = try Package.descriptors(parsing: 
+                try File.read(from: project.appending("Package.catalog")))
             let pins:[Package.ID: MaskedVersion] = pins.merging(resolved.pins) { $1 }
             for package:Package.Descriptor in packages 
             {
@@ -76,10 +94,7 @@ struct Preview:ServiceBackend
                 // what `swift package catalog` emits), and this preview tool does not 
                 // support intelligent caching for user-specified package documentation. 
                 // so we do not load them through the version controller
-                let catalog:Package.Catalog = try await package.load(with: nil), 
-                    graph:Package.Graph = try catalog.graph()
-                
-                try self.biome.updatePackage(graph, era: pins)
+                try self.biome.updatePackage(try await package.loadGraph(), era: pins)
             }
         }
         

@@ -7,9 +7,22 @@ extension Ecosystem
         case targetNotFound(Module.ID, in:Package.ID)
     }
     public 
-    enum AuthorityError:Error
+    enum PoliticalError:Error, CustomStringConvertible
     {
-        case externalSymbol(Symbol.Index, is:Symbol.Role, accordingTo:Module.Index)
+        case module(Module.ID, says:Symbol.ID, is:Symbol.Role<Symbol.ID>)
+        case symbol(Symbol.ID, Symbol.PoliticalError<Symbol.ID>)
+        
+        public 
+        var description:String 
+        {
+            switch self 
+            {
+            case .module(let culture, says: let subject, is: let role):
+                return "module '\(culture)' says \(subject) is \(role)"
+            case .symbol(let subject, let predicate):
+                return "symbol '\(subject)' \(predicate)"
+            }
+        }
     }
     public 
     struct LinkResolutionError:Error 
@@ -51,16 +64,34 @@ extension Module
 extension Symbol 
 {
     public 
-    enum ColorError:Error 
+    enum PoliticalError<Target>:Error, CustomStringConvertible 
     {
-        case miscegenation(Color, is:Edge.Kind?, of:Color)
-    }
-    public 
-    enum ShapeError:Error 
-    {
-        case conflict   (is:Shape, and:Shape)
-        case subclass   (of:Index, and:Index)
-        case requirement(of:Index, is:Role)
+        case miscegenation(is:Color, and:Edge.Kind?, of:(adjective:Color, noun:Target))
+        case conflict(is:Role<Target>, and:Role<Target>)
+        
+        func map<T>(_ transform:(Target) throws -> T) rethrows -> PoliticalError<T>
+        {
+            switch self 
+            {
+            case .conflict(is: let first, and: let second):
+                return .conflict(is: try first.map(transform), 
+                    and: try second.map(transform))
+            case .miscegenation(is: let color, and: let relation, of: let object):
+                return .miscegenation(is: color, and: relation, 
+                    of: (object.adjective, try transform(object.noun)))
+            }
+        }
+        public 
+        var description:String 
+        {
+            switch self 
+            {
+            case .conflict(is: let first, and: let second):
+                return "is \(first) and \(second)"
+            case .miscegenation(is: let color, and: let relation, of: let object):
+                return "is \(color) and \(relation?.description ?? "feature") of \(object.adjective) '\(object.noun)'"
+            }
+        }
     }
     public 
     enum LookupError:Error, CustomStringConvertible
@@ -73,7 +104,7 @@ extension Symbol
             switch self 
             {
             case .unknownID(let id):
-                return "could not find symbol with id '\(id.string)' (\(id.description))"
+                return "could not find symbol with id '\(id)'"
             }
         }
     }

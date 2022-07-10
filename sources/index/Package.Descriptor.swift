@@ -33,7 +33,7 @@ extension Package
         }
         
         public 
-        func load(with controller:VersionController?) 
+        func load(with controller:VersionController? = nil) 
             async throws -> Package.Catalog
         {
             // don’t check for task cancellation, because each constituent 
@@ -49,6 +49,12 @@ extension Package
                 modules.append(try await module.load(with: controller))
             }
             return .init(id: self.id, modules: modules)
+        }
+        public 
+        func loadGraph(with controller:VersionController? = nil) 
+            async throws -> Package.Graph
+        {
+            try await self.load(with: controller).graph()
         }
     }
     

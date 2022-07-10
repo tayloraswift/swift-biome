@@ -36,7 +36,7 @@ struct Topics
     var requirements:[Sublist: [Symbol.Card]]
     var members:[Sublist: [Module.Culture: [Symbol.Card]]]
     var removed:[Sublist: [Module.Culture: [Symbol.Card]]]
-    var lists:[List: [Module.Culture: [Symbol.Conditional]]]
+    var lists:[List: [Module.Culture: [Generic.Conditional<Symbol.Index>]]]
     
     var isEmpty:Bool 
     {

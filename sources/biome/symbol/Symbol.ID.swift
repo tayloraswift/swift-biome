@@ -34,7 +34,7 @@ extension Symbol
         @usableFromInline 
         var description:String
         {
-            Demangle[self.string]
+            self.string
         }
     }
 }

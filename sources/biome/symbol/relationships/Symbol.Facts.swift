@@ -4,8 +4,8 @@ extension Symbol
     
     enum Predicate 
     {
-        case `is`(Role)
-        case has(Trait)
+        case `is`(Role<Index>)
+        case has(Trait<Index>)
     }
     struct Predicates:Equatable, Sendable 
     {
@@ -44,37 +44,47 @@ extension Symbol
     }
     struct Facts
     {
-        var shape:Shape?
+        var shape:Shape<Index>?
         var predicates:Predicates
         
-        init(traits:[Trait], roles:[Role], as color:Color) throws 
+        init(traits:[Trait<Index>], roles:[Role<Index>], as color:Color) throws 
         {
             self.shape = nil 
             // partition relationships buffer 
             var superclass:Index? = nil 
-            var residuals:[Role] = []
-            for role:Role in roles
+            var residuals:[Role<Index>] = []
+            for role:Role<Index> in roles
             {
                 switch (self.shape, role) 
                 {
-                case (let shape?,      .member(of: let type)): 
-                    throw ShapeError.conflict(is: shape, and:      .member(of: type))
-                case (let shape?, .requirement(of: let type)): 
-                    throw ShapeError.conflict(is: shape, and: .requirement(of: type))
-                
-                case (nil,             .member(of: let type)): 
+                case  (nil,            .member(of: let type)): 
                     self.shape =       .member(of:     type) 
-                case (nil,        .requirement(of: let type)): 
-                    self.shape =  .requirement(of:     type) 
-                    
-                case (_,             .subclass(of: let type)): 
-                    if let superclass:Index = superclass 
-                    {
-                        throw ShapeError.subclass(of: type, and: superclass)
-                    }
+                case (nil,        .requirement(of: let interface)): 
+                    self.shape =  .requirement(of:     interface) 
+                
+                case (let shape?,      .member(of: let type)):
+                    guard case         .member(of:     type) = shape 
                     else 
                     {
+                        throw PoliticalError.conflict(is: shape.role, 
+                            and: .member(of: type))
+                    }
+                case (let shape?, .requirement(of: let interface)): 
+                    guard case    .requirement(of:     interface) = shape 
+                    else 
+                    {
+                        throw PoliticalError.conflict(is: shape.role, 
+                            and: .requirement(of: interface))
+                    }
+                    
+                case (_,             .subclass(of: let type)): 
+                    switch superclass 
+                    {
+                    case nil, type?:
                         superclass = type
+                    case let superclass?:
+                        throw PoliticalError.conflict(is: .subclass(of: superclass), 
+                            and: .subclass(of: type))
                     }
                     
                 default: 

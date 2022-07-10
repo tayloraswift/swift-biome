@@ -52,14 +52,15 @@ extension Ecosystem
         for (culture, (statements, symbols)):(Module.Index, ([Symbol.Statement], Symbols)) in 
             zip(cultures, zip(speeches, symbols))
         {
-            var traits:[Symbol.Index: [Symbol.Trait]] = [:]
-            var roles:[Symbol.Index: [Symbol.Role]] = [:]
+            var traits:[Symbol.Index: [Symbol.Trait<Symbol.Index>]] = [:]
+            var roles:[Symbol.Index: [Symbol.Role<Symbol.Index>]] = [:]
             for (subject, predicate):Symbol.Statement in statements 
             {
                 switch (culture == subject.module, predicate)
                 {
                 case (false,  .is(let role)):
-                    throw AuthorityError.externalSymbol(subject, is: role, accordingTo: culture)
+                    throw PoliticalError.module(self[culture].id, says: self[subject].id, 
+                        is: role.map { self[$0].id })
                 case (false, .has(let trait)):
                     traits  [subject, default: []].append(trait)
                 case (true,  .has(let trait)):
@@ -70,12 +71,19 @@ extension Ecosystem
             }
             for symbol:Symbol.Index in symbols 
             {
-                facts[symbol] = try .init(
-                    traits: traits.removeValue(forKey: symbol) ?? [],
-                    roles: roles.removeValue(forKey: symbol) ?? [], 
-                    as: self[symbol].color)
+                do 
+                {
+                    facts[symbol] = try .init(
+                        traits: traits.removeValue(forKey: symbol) ?? [],
+                        roles: roles.removeValue(forKey: symbol) ?? [], 
+                        as: self[symbol].color)
+                }
+                catch let error as Symbol.PoliticalError<Symbol.Index>
+                {
+                    throw PoliticalError.symbol(self[symbol].id, error.map { self[$0].id })
+                }
             }
-            for (symbol, traits):(Symbol.Index, [Symbol.Trait]) in traits 
+            for (symbol, traits):(Symbol.Index, [Symbol.Trait<Symbol.Index>]) in traits 
             {
                 let diacritic:Symbol.Diacritic = .init(host: symbol, culture: culture)
                 let traits:Symbol.Traits = .init(traits, as: self[symbol].color)
@@ -135,15 +143,21 @@ extension Ecosystem
                     print("note: while processing edge in '\(graph.core.namespace)'")
                     continue
                 }
-                
-                switch try self.generateStatements(
-                    when: source, is: edge.kind, of: target, where: constraints)
+                do 
                 {
-                case (let source?,  let target):
-                    statements.append(source)
-                    statements.append(target)
-                case (nil,          let target):
-                    statements.append(target)
+                    switch try self.generateStatements(
+                        when: source, is: edge.kind, of: target, where: constraints)
+                    {
+                    case (let source?,  let target):
+                        statements.append(source)
+                        statements.append(target)
+                    case (nil,          let target):
+                        statements.append(target)
+                    }
+                }
+                catch let error as Symbol.PoliticalError<Symbol.Index>
+                {
+                    throw PoliticalError.symbol(edge.source, error.map { self[$0].id })
                 }
                 
                 // don’t care about hints for symbols in other packages
@@ -268,8 +282,8 @@ extension Ecosystem
             // ``Edge.init(from:)`` should have thrown a ``JSON.LintingError`
             fatalError("unreachable")
         
-        case (let source, is: let label, of: let target, unconditional: true):
-            throw Symbol.ColorError.miscegenation(source, is: label, of: target)
+        case (let source, is: let relation, of: let color, unconditional: true):
+            throw Symbol.PoliticalError.miscegenation(is: source, and: relation, of: (color, target))
         }
     }
 }

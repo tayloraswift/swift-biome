@@ -282,7 +282,7 @@ struct Ecosystem
             var trace:[Symbol.Composite] = []
                 trace.reserveCapacity(link.visible)
                 trace.append(composite)
-            var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.index
+            var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.target
             while trace.count < link.visible
             {
                 guard let current:Symbol.Index = next 
@@ -293,7 +293,7 @@ struct Ecosystem
                 }
                 
                 trace.append(.init(natural: current))
-                next = self[current].shape?.index 
+                next = self[current].shape?.target 
             }
             return .composite(trace.reversed())
         }

@@ -1,22 +1,24 @@
+extension Symbol.Trait:Equatable where Target:Equatable {}
+extension Symbol.Trait:Sendable where Target:Sendable {}
 extension Symbol 
 {
-    enum Trait:Equatable
+    enum Trait<Target>
     {
         // members 
-        case member(Index)
-        case feature(Index)
+        case member(Target)
+        case feature(Target)
         // implementations 
-        case implementation(Index)
+        case implementation(Target)
         // downstream
-        case refinement(Index)
-        case subclass(Index)
-        case override(Index)
+        case refinement(Target)
+        case subclass(Target)
+        case override(Target)
         // conformers
-        case conformer(Conditional)
+        case conformer(Generic.Conditional<Target>)
         // conformances
-        case conformance(Conditional)
+        case conformance(Generic.Conditional<Target>)
         
-        var feature:Index? 
+        var feature:Target? 
         {
             if case .feature(let feature) = self 
             {
@@ -25,6 +27,29 @@ extension Symbol
             else 
             {
                 return nil
+            }
+        }
+        
+        func map<T>(_ transform:(Target) throws -> T) rethrows -> Trait<T>
+        {
+            switch self 
+            {
+            case .member(let target): 
+                return .member(try transform(target))
+            case .feature(let target): 
+                return .feature(try transform(target))
+            case .implementation(let target): 
+                return .implementation(try transform(target))
+            case .refinement(let target): 
+                return .refinement(try transform(target))
+            case .subclass(let target): 
+                return .subclass(try transform(target))
+            case .override(let target): 
+                return .override(try transform(target))
+            case .conformer(let target): 
+                return .conformer(try target.map(transform))
+            case .conformance(let target): 
+                return .conformance(try target.map(transform))
             }
         }
     }
@@ -130,7 +155,7 @@ extension Symbol
         }
         
         init<Traits>(_ traits:Traits, as color:Color)
-            where Traits:Sequence, Traits.Element == Trait
+            where Traits:Sequence, Traits.Element == Trait<Index>
         {
             self.init()
             self.update(with: traits, as: color)
@@ -138,12 +163,12 @@ extension Symbol
         
         mutating 
         func update<Traits>(with traits:Traits, as color:Color) 
-            where Traits:Sequence, Traits.Element == Trait
+            where Traits:Sequence, Traits.Element == Trait<Index>
         {
             switch color 
             {
             case .associatedtype:
-                for trait:Trait in traits 
+                for trait:Trait<Index> in traits 
                 {
                     switch trait 
                     {
@@ -161,7 +186,7 @@ extension Symbol
                 }
             
             case .protocol:
-                for trait:Trait in traits 
+                for trait:Trait<Index> in traits 
                 {
                     switch trait 
                     {
@@ -174,20 +199,20 @@ extension Symbol
                         self.downstream.insert(downstream)
                     //  [3] conforming types (``conformers``)
                     case .conformer(let conformer):
-                        self.conformers[conformer.index] = conformer.conditions
+                        self.conformers[conformer.target] = conformer.conditions
                     default: 
                         fatalError("unreachable")
                     }
                 }
             
             case .typealias, .global(_): 
-                for _:Trait in traits 
+                for _:Trait<Index> in traits 
                 {
                     fatalError("unreachable")
                 }
             
             case .concretetype(_):
-                for trait:Trait in traits 
+                for trait:Trait<Index> in traits 
                 {
                     switch trait 
                     {
@@ -202,14 +227,14 @@ extension Symbol
                         self.downstream.insert(downstream)
                     //  [3] protocol conformances (``conformances``)
                     case .conformance(let conformance):
-                        self.conformances[conformance.index] = conformance.conditions
+                        self.conformances[conformance.target] = conformance.conditions
                     default: 
                         fatalError("unreachable")
                     }
                 }
             
             case .callable(_):
-                for trait:Trait in traits 
+                for trait:Trait<Index> in traits 
                 {
                     switch trait 
                     {

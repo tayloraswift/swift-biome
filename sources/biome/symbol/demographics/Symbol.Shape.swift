@@ -1,12 +1,23 @@
+extension Symbol.Shape:Equatable where Target:Equatable {}
+extension Symbol.Shape:Hashable where Target:Hashable {}
+extension Symbol.Shape:Sendable where Target:Sendable {}
 extension Symbol 
 {
     // should have stride of 16 B, as well as `Shape?` and `Shape??`
-    enum Shape:Sendable, Hashable, CustomStringConvertible
+    enum Shape<Target>
     {
-        case member(of:Index)
-        case requirement(of:Index)
+        case member(of:Target)
+        case requirement(of:Target)
         
-        var index:Index 
+        var role:Role<Target>
+        {
+            switch self 
+            {
+            case .member(of: let target):       return .member(of: target)
+            case .requirement(of: let target):  return .requirement(of: target)
+            }
+        }
+        var target:Target 
         {
             switch self 
             {
@@ -14,12 +25,15 @@ extension Symbol
                 return index
             }
         }
-        var description:String 
+        
+        func map<T>(_ transform:(Target) throws -> T) rethrows -> Shape<T>
         {
             switch self 
             {
-            case .member:       return "member"
-            case .requirement:  return "requirement"
+            case .member(of: let target): 
+                return .member(of: try transform(target))
+            case .requirement(of: let target): 
+                return .requirement(of: try transform(target))
             }
         }
     }

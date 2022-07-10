@@ -193,7 +193,7 @@ extension DOM.Element where Domain == HTML
         }
         let subject:Self = .code(.highlight(constraint.subject, .type))
         let object:Self = .code(.highlight(constraint.object, .type, 
-            href: try constraint.link.map(transform)))
+            href: try constraint.target.map(transform)))
         return [subject, .text(escaped: verb), object]
     }
 }

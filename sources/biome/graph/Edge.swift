@@ -4,7 +4,7 @@ import JSON
 struct Edge:Hashable, Sendable
 {
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
-    enum Kind:String, Sendable
+    enum Kind:String, CustomStringConvertible, Sendable
     {
         case member                 = "memberOf"
         case conformer              = "conformsTo"
@@ -13,6 +13,20 @@ struct Edge:Hashable, Sendable
         case requirement            = "requirementOf"
         case optionalRequirement    = "optionalRequirementOf"
         case defaultImplementation  = "defaultImplementationOf"
+        
+        var description:String 
+        {
+            switch self 
+            {
+            case .member:                   return "member"
+            case .conformer:                return "conformer"
+            case .subclass:                 return "subclass"
+            case .override:                 return "override"
+            case .requirement:              return "requirement"
+            case .optionalRequirement:      return "optional requirement"
+            case .defaultImplementation:    return "default implementation"
+            }
+        }
     }
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.cpp
     var kind:Kind?

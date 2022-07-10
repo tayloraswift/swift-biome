@@ -219,7 +219,7 @@ extension Ecosystem
         let base:Symbol = self[composite.base]
         
         var crumbs:[HTML.Element<Index>] = [.li(base.name)]
-        var next:Symbol.Index? = composite.host ?? base.shape?.index
+        var next:Symbol.Index? = composite.host ?? base.shape?.target
         while let index:Symbol.Index = next
         {
             let current:Symbol = self[index]
@@ -228,7 +228,7 @@ extension Ecosystem
                 ("href", .anchor(.symbol(index)))
             }
             crumbs.append(.li(crumb))
-            next = current.shape?.index
+            next = current.shape?.target
         }
         crumbs.reverse()
         return .ol(items: crumbs) 
@@ -297,7 +297,8 @@ extension Ecosystem
             .overrides,
         ]
         {
-            if let segregated:[Module.Culture: [Symbol.Conditional]] = topics.lists[heading]
+            if  let segregated:[Module.Culture: [Generic.Conditional<Symbol.Index>]] = 
+                topics.lists[heading]
             {
                 sections.append(self.render(section: segregated, heading: heading.rawValue))
             }
@@ -326,7 +327,8 @@ extension Ecosystem
             .implications,
         ]
         {
-            if let list:[Module.Culture: [Symbol.Conditional]] = topics.lists[heading]
+            if  let list:[Module.Culture: [Generic.Conditional<Symbol.Index>]] = 
+                topics.lists[heading]
             {
                 sections.append(self.render(section: list, heading: heading.rawValue))
             }
@@ -344,28 +346,29 @@ extension Ecosystem
     }
     
     private 
-    func render(section segregated:[Module.Culture: [Symbol.Conditional]], heading:String)
-        -> HTML.Element<Topics.Key>
+    func render(section segregated:[Module.Culture: [Generic.Conditional<Symbol.Index>]], 
+        heading:String) -> HTML.Element<Topics.Key>
     {
         var elements:[HTML.Element<Topics.Key>] = []
             elements.reserveCapacity(2 * segregated.count + 1)
             elements.append(.h2(heading))
-        for (culture, targets):(Module.Culture, [Symbol.Conditional]) in self.sort(segregated)
+        for (culture, relationships):(Module.Culture, [Generic.Conditional<Symbol.Index>]) in 
+            self.sort(segregated)
         {
             if let culture:HTML.Element<Topics.Key> = self.renderHeading(culture)
             {
                 elements.append(.h3(culture))
             }
-            let items:[HTML.Element<Topics.Key>] = self.sort(targets).map 
+            let items:[HTML.Element<Topics.Key>] = self.sort(relationships).map 
             {
-                let (target, host):(Symbol.Conditional, Symbol.Index) = $0
+                let (relationship, host):(Generic.Conditional<Symbol.Index>, Symbol.Index) = $0
                 let signature:HTML.Element<Topics.Key> = .a(.render(path: self[host].path))
                 {
-                    ("href", .anchor(.uri(.symbol(target.index))))
+                    ("href", .anchor(.uri(.symbol(relationship.target))))
                     ("class", "signature")
                 }
                 if  let constraints:HTML.Element<Topics.Key> = .render(.text(escaped: "When "), 
-                    constraints: target.conditions, 
+                    constraints: relationship.conditions, 
                     transform: { .uri(.symbol($0)) }) 
                 {
                     return .li([signature, constraints])
@@ -489,12 +492,17 @@ extension Ecosystem
         }
     }
     private 
-    func sort(_ targets:[Symbol.Conditional]) -> [(target:Symbol.Conditional, host:Symbol.Index)]
+    func sort(_ relationships:[Generic.Conditional<Symbol.Index>]) 
+        -> [(relationship:Generic.Conditional<Symbol.Index>, host:Symbol.Index)]
     {
-        targets.map 
+        relationships.map 
         {
-            (target:Symbol.Conditional) -> (target:Symbol.Conditional, host:Symbol.Index) in 
-            (target: target, host: self[target.index].type ?? target.index)
+            (relationship:Generic.Conditional<Symbol.Index>) -> 
+            (relationship:Generic.Conditional<Symbol.Index>, host:Symbol.Index) in 
+            (
+                relationship: relationship, 
+                host: self[relationship.target].type ?? relationship.target
+            )
         }
         .sorted 
         {
