@@ -60,11 +60,22 @@ extension Module
             return packages
         }
         
-        func `import`(_ modules:Set<ID>) -> Self 
+        func `import`(_ modules:Set<ID>, swift:Package.Index?) -> Self 
         {
             .init(culture: self.culture, namespaces: self.namespaces.filter 
             {
-                $0.value == self.culture || modules.contains($0.key)
+                if case $0.value.package? = swift
+                {
+                    return true 
+                }
+                else if $0.value == self.culture
+                {
+                    return true 
+                }
+                else 
+                {
+                    return modules.contains($0.key)
+                }
             })
         }
     }

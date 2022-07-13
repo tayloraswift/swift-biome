@@ -184,6 +184,7 @@ extension Ecosystem
         scopes:[Module.Scope], 
         stems:Stems)
     {
+        let swift:Package.Index? = self.indices[.swift]
         for ((lenses, scope), assigned):(([Package.Pinned], Module.Scope), [Index: Extension]) in 
             zip(zip(lenses, scopes), peripherals)
         {
@@ -191,7 +192,7 @@ extension Ecosystem
             {
                 documentation.templates[target] = self.compile(article, 
                     lenses: lenses, 
-                    scope: scope, 
+                    scope: scope.import(article.metadata.imports, swift: swift), 
                     nest: self.nest(target),
                     stems: stems)
                 
@@ -211,6 +212,7 @@ extension Ecosystem
         scopes:[Module.Scope], 
         stems:Stems)
     {
+        let swift:Package.Index? = self.indices[.swift]
         // need to turn the lexica into something we can select from a flattened 
         // comments dictionary 
         let contexts:[Module.Index: Int] = 
@@ -228,7 +230,7 @@ extension Ecosystem
             
             documentation.templates[target] = self.compile(comment, 
                 lenses: lenses[context], 
-                scope: scopes[context], 
+                scope: scopes[context].import(comment.metadata.imports, swift: swift), 
                 nest: self.nest(target),
                 stems: stems)
         } 
@@ -241,8 +243,7 @@ extension Ecosystem
         stems:Stems)
         -> Article.Template<Link>
     {
-        let scope:Module.Scope = scope.import(article.metadata.imports)
-        return article.render().transform 
+        article.render().transform 
         {
             (string:String, errors:inout [Error]) -> DOM.Substitution<Link, [UInt8]> in 
             
