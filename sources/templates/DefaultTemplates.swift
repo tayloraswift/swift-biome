@@ -1,5 +1,5 @@
-import Resource
 import Biome 
+import MIME
 import HTML 
 
 public 
@@ -56,7 +56,7 @@ enum DefaultTemplates
                 {
                     ("href",    "/favicon.ico")
                     ("rel",     "icon")
-                    ("type",    Resource.Binary.icon.rawValue)
+                    ("type",    MIME.icon.rawValue)
                 }
             }
             Element[.body]

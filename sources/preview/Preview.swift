@@ -1,124 +1,171 @@
-import VersionControl
-import HTML
-import NIO
-
 import BiomeIndex
 import BiomeTemplates
+import Resources
+import HTML
+import NIO
+import NIOHTTP1
+import SystemExtras
 
-extension VersionController 
+actor Preview
 {
-    fileprivate
-    func loadSwiftToolchainDirectories(from path:FilePath) 
-        throws -> [Substring]
+    struct Request:ExpressibleByPartialHTTPRequest, Sendable 
     {
-        try self.read(from: path).split(whereSeparator: \.isWhitespace)
-    }
-    fileprivate
-    func loadSwiftToolchainDescriptor(_ package:Package.ID, from directory:FilePath) 
-        throws -> Package.Descriptor
-    {
-        let modules:[Module.ID] = try self.read(from: directory.appending(package.string))
-            .split(whereSeparator: \.isWhitespace)
-            .map(Module.ID.init(_:))
-        return .init(id: package, modules: modules.map 
+        let uri:URI 
+        
+        init?(source _:SocketAddress?, head:HTTPRequestHead)
         {
-            // use a relative path, since this is from a git repository. 
-            .init(id: $0, include: [directory.appending($0.string).description], dependencies: [])
-        })
+            if let uri:URI = try? .init(absolute: head.uri)
+            {
+                self.uri = uri
+            }
+            else 
+            {
+                return nil 
+            }
+        }
     }
-}
-struct Preview:ServiceBackend 
-{
-    typealias Continuation = EventLoopPromise<StaticResponse>
     
-    let resources:[String: Resource]
+    private 
     var biome:Biome
+    private 
+    var resources:[String: Resource]
     
-    init(projects:[FilePath], controller:VersionController) 
-        async throws 
+    init(projects:[FilePath], resources:FilePath) async throws 
     {
-        self.resources = 
-        [
-            "/search.js"        : try await controller.read(concatenating: ["lunr.js", "search.js"], type: .javascript), 
-            "/biome.css"        : try await controller.read(from: "css/biome.css", type: .css), 
-            
-            "/text-45.ttf"      : try await controller.read(from: "fonts/literata/Literata-Regular.ttf",          type: .ttf), 
-            "/text-47.ttf"      : try await controller.read(from: "fonts/literata/Literata-RegularItalic.ttf",    type: .ttf), 
-            "/text-65.ttf"      : try await controller.read(from: "fonts/literata/Literata-SemiBold.ttf",         type: .ttf), 
-            "/text-67.ttf"      : try await controller.read(from: "fonts/literata/Literata-SemiBoldItalic.ttf",   type: .ttf), 
-            
-            "/text-45.woff2"    : try await controller.read(from: "fonts/literata/Literata-Regular.woff2",        type: .woff2), 
-            "/text-47.woff2"    : try await controller.read(from: "fonts/literata/Literata-RegularItalic.woff2",  type: .woff2), 
-            "/text-65.woff2"    : try await controller.read(from: "fonts/literata/Literata-SemiBold.woff2",       type: .woff2), 
-            "/text-67.woff2"    : try await controller.read(from: "fonts/literata/Literata-SemiBoldItalic.woff2", type: .woff2), 
-        ]
+        self.resources = [:]
         self.biome = .init(roots: [.master: "reference", .article: "learn"], 
             template: .init(freezing: DefaultTemplates.documentation))
         
         var pins:[Package.ID: MaskedVersion] = [:]
-        // load standard library
-        for directory:Substring in try controller.loadSwiftToolchainDirectories(
-            from: .init(root: nil, components: "swift", "swift-versions"))
+        try self.loadBuiltinModules(pins: &pins, from: resources.appending("swift"))
+        try self.loadProjects(projects, pins: pins)
+        
+        try self.loadResources(from: resources)
+        
+        self.resources["/biome.css"] = .init(
+            hashing: try resources.appending(["css", "biome.css"]).read(), 
+            type: .utf8(encoded: .css))
+        self.resources["/search.js"] = .init(
+            hashing: try resources.appending(["js", "main.js"]).read(), 
+            type: .utf8(encoded: .javascript))
+    }
+    
+    private  
+    func loadResources(from directory:FilePath) throws 
+    {
+        try Task.checkCancellation()
+        
+        let fonts:[(external:String, internal:String)] = 
+        [
+            ("text-45", "Literata-Regular"),
+            ("text-47", "Literata-RegularItalic"),
+            ("text-65", "Literata-SemiBold"),
+            ("text-67", "Literata-SemiBoldItalic"),
+        ]
+        try self.loadFonts(fonts, .ttf, .woff2, 
+            from: directory.appending(["fonts", "Literata"]))
+    }
+    private  
+    func loadFonts(_ fonts:[(external:String, internal:String)], _ types:MIME..., 
+        from directory:FilePath) throws 
+    {
+        for name:(external:String, internal:String) in fonts 
         {
-            guard   let version:MaskedVersion = .init(directory), 
-                    let component:FilePath.Component = .init(String.init(directory))
+            for type:MIME in types 
+            {
+                let uri:String = "/\(name.external).\(type.extension)"
+                let path:FilePath = directory.appending("\(name.internal).\(type.extension)")
+                self.resources[uri] = .init(hashing: try path.read(), type: type)
+            }
+        }
+    }
+}
+extension Preview 
+{
+    private 
+    func loadBuiltinModules(pins:inout [Package.ID: MaskedVersion], 
+        from directory:FilePath) throws 
+    {
+        try Task.checkCancellation() 
+        
+        // load standard library
+        for version:Substring in try directory.appending("swift-versions").read()
+            .split(whereSeparator: \.isWhitespace)
+        {
+            guard   let component:FilePath.Component = .init(String.init(version)), 
+                    let version:MaskedVersion = .init(version)
             else 
             {
                 continue 
             }
-            let directory:FilePath = .init(root: nil, components: "swift", component)
-            // load the names of the swift standard library modules. 
-            let standardLibrary:Package.Descriptor = 
-                try controller.loadSwiftToolchainDescriptor(.swift, from: directory)
-            let coreLibraries:Package.Descriptor = 
-                try controller.loadSwiftToolchainDescriptor(.core, from: directory)
+            let project:FilePath = directory.appending(component)
+            let catalogs:[Package.Catalog] = 
+                try .init(parsing: try project.appending("Package.catalog").read())
             
             pins = [.swift: version, .core: version]
-            
-            try self.biome.updatePackage(
-                try await standardLibrary.loadGraph(with: controller), era: pins)
-            try self.biome.updatePackage(
-                try await   coreLibraries.loadGraph(with: controller), era: pins)
+            for catalog:Package.Catalog in catalogs
+            {
+                try self.biome.updatePackage(try catalog.loadGraph(relativeTo: project), 
+                    era: pins)
+            }
         }
-        
+    }
+    private 
+    func loadProjects(_ projects:[FilePath], pins:[Package.ID: MaskedVersion]) throws
+    {
         for project:FilePath in projects 
         {
-            let resolved:Package.Resolved = try .init(parsing: 
-                try File.read(from: project.appending("Package.resolved")))
-            let packages:[Package.Descriptor] = try Package.descriptors(parsing: 
-                try File.read(from: project.appending("Package.catalog")))
+            try Task.checkCancellation() 
+            
+            print("loading project '\(project)'...")
+            
+            let resolved:Package.Resolved = 
+                try .init(parsing: try project.appending("Package.resolved").read())
+            let catalogs:[Package.Catalog] = 
+                try .init(parsing: try project.appending("Package.catalog").read())
             let pins:[Package.ID: MaskedVersion] = pins.merging(resolved.pins) { $1 }
-            for package:Package.Descriptor in packages 
+            for catalog:Package.Catalog in catalogs
             {
-                // user-specified catalogs should contain absolute paths (since that is 
-                // what `swift package catalog` emits), and this preview tool does not 
-                // support intelligent caching for user-specified package documentation. 
-                // so we do not load them through the version controller
-                try self.biome.updatePackage(try await package.loadGraph(), era: pins)
+                try self.biome.updatePackage(try catalog.loadGraph(relativeTo: project), 
+                    era: pins)
             }
         }
         
         self.biome.regenerateCaches()
     }
-    
-    func request(_:Never, continuation _:EventLoopPromise<StaticResponse>) 
+}
+
+extension Preview 
+{
+    func serve(_ requests:AsyncStream<Request.Enqueued>) async 
     {
-    }
-    func request(_ uri:String) -> DynamicResponse<Never> 
-    {
-        if      let resource:Resource = self.resources[uri]
+        for await (request, promise):Request.Enqueued in requests 
         {
-            return .immediate(.matched(resource, canonical: uri))
-        }
-        else if let uri:URI = try? .init(absolute: uri), 
-                let response:StaticResponse = self.biome[uri: uri]
-        {
+            if let response:StaticResponse = self.biome[uri: request.uri]
+            {
+                promise.succeed(response)
+                continue 
+            }
             
-            return .immediate(response)
-        }
-        else 
-        {
-            return .immediate(.none(.text("page not found")))
+            let uri:URI = .init(path: request.uri.path.normalized.components)
+            if let resource:Resource = self.resources[uri.description]
+            {
+                if case nil = request.uri.query, uri ~= request.uri 
+                {
+                    promise.succeed(.matched(resource, 
+                        canonical: uri.description))
+                }
+                else 
+                {
+                    promise.succeed(.found(at: uri.description, 
+                        canonical: uri.description))
+                }
+            }
+            else 
+            {
+                promise.succeed(.none(.init("page not found.")))
+                continue 
+            }
         }
     }
 }

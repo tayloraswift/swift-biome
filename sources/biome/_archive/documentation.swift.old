@@ -1,5 +1,5 @@
 import StructuredDocument
-import Resource
+import Resources
 import JSON
 
 public 

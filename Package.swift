@@ -14,11 +14,11 @@ let package = Package(
     [
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-highlight",            exact: "0.1.4"),
-        .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.2.4"),
-        .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.3.9"),
+        .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.3.0"),
+        .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.3.11"),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-06-26-a"),
-        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-06-26-a"),
+        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a"),
         
         // only used by the index target
         .package(url: "https://github.com/apple/swift-system.git",              exact: "1.2.1"),
@@ -32,8 +32,9 @@ let package = Package(
         .target(name: "Biome", 
             dependencies: 
             [
-                .product(name: "JSON",              package: "swift-json"),
                 .product(name: "DOM",               package: "swift-dom"),
+                .product(name: "JSON",              package: "swift-json"),
+                .product(name: "Resources",         package: "swift-resource"),
                 .product(name: "Notebook",          package: "swift-highlight"),
                 .product(name: "SwiftSyntaxParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntax",       package: "swift-syntax"),
@@ -46,7 +47,7 @@ let package = Package(
             [
                 .target(name: "Biome"),
                 .product(name: "JSON",              package: "swift-json"),
-                .product(name: "VersionControl",    package: "swift-resource"),
+                .product(name: "SystemExtras",      package: "swift-resource"),
             ], 
             path: "sources/index"),
         

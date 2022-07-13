@@ -1,5 +1,5 @@
 import Notebook
-import Resource 
+import Resources 
 import JSON 
 
 extension Module 
@@ -25,16 +25,19 @@ extension Module
         
         let core:Subgraph,
             colonies:[Subgraph], 
-            articles:[Extension]
+            articles:[Extension], 
+            dependencies:[Dependency]
         
-        let dependencies:[Dependency]
-        
-        var tag:Resource.Tag? 
+        public 
+        init(core:Subgraph, 
+            colonies:[Subgraph], 
+            articles:[Extension], 
+            dependencies:[Dependency]) 
         {
-            self.colonies.reduce(self.core.tag) 
-            {
-                $0 * $1.tag
-            }
+            self.core = core 
+            self.colonies = colonies 
+            self.articles = articles 
+            self.dependencies = dependencies
         }
         
         var edges:[[Edge]] 
@@ -42,31 +45,24 @@ extension Module
             [self.core.edges] + self.colonies.map(\.edges)
         }
     }
+    public 
     struct Subgraph:Sendable 
     {
         private(set)
         var vertices:[(id:Symbol.ID, vertex:Vertex)]
         private(set)
         var edges:[Edge]
-        let tag:Resource.Tag?
         let namespace:Module.ID
         
-        init(from resource:Resource, culture:Module.ID, namespace:Module.ID? = nil) throws 
+        public 
+        init(parsing json:[UInt8], culture:Module.ID, namespace:Module.ID? = nil) throws 
         {
-            let json:JSON 
-            switch resource.payload
-            {
-            case    .text(let string, type: _):
-                json = try Grammar.parse(string.utf8, as: JSON.Rule<String.Index>.Root.self)
-            case    .binary(let bytes, type: _):
-                json = try Grammar.parse(bytes, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
-            }
-            try self.init(from: json, tag: resource.tag, culture: culture, namespace: namespace)
+            try self.init(from: try Grammar.parse(json, as: JSON.Rule<Int>.Root.self), 
+                culture: culture, namespace: namespace)
         }
         private 
-        init(from json:JSON, tag:Resource.Tag?, culture:Module.ID, namespace:Module.ID?) throws 
+        init(from json:JSON, culture:Module.ID, namespace:Module.ID?) throws 
         {
-            self.tag = tag 
             let (images, edges):([Image], [Edge]) = try json.lint(["metadata"]) 
             {
                 let edges:[Edge]   = try $0.remove("relationships") { try $0.map( Edge.init(from:)) }

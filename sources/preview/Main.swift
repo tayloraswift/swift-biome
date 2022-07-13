@@ -1,7 +1,7 @@
 import ArgumentParser
-import SystemPackage
 import Backtrace
-import NIO
+@preconcurrency import SystemPackage
+@preconcurrency import NIO
 
 @main 
 struct Main:AsyncParsableCommand 
@@ -19,9 +19,6 @@ struct Main:AsyncParsableCommand
         help: "public host name")
     var domain:String = "127.0.0.1" 
     
-    @Option(name: [.customLong("git")], 
-        help: "path to `git`, if different from '/usr/bin/git'")
-    var git:String = "/usr/bin/git"
     @Option(name: [.customLong("resources")], 
         help: "path to a copy of the 'swift-biome-resources' repository")
     var resources:String = "resources"
@@ -47,35 +44,102 @@ struct Main:AsyncParsableCommand
     {
         Backtrace.install()
         
-        let preview:Preview = try await .init(projects: self.projects.map(FilePath.init(_:)), 
-            controller: .init(git: .init(self.git), repository: .init(self.resources)))
+        let group:MultiThreadedEventLoopGroup = .init(numberOfThreads: 2)
+        let port:Int = self.port 
         
-        let domain:String = self.domain 
-        let port:Int = self.port
-        
-        let group:MultiThreadedEventLoopGroup   = .init(numberOfThreads: 4)
-        let bootstrap:ServerBootstrap           = .init(group: group)
-            .serverChannelOption(ChannelOptions.backlog,                        value: 256)
-            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr),    value:   1)
-            .childChannelInitializer 
+        async let preview:Preview = .init(projects: self.projects.map(FilePath.init(_:)), 
+            resources: .init(self.resources))
+
+        let requests:AsyncStream<Preview.Request.Enqueued> = .init 
         { 
-            (channel:Channel) -> EventLoopFuture<Void> in
-            
-            return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true).flatMap 
+            (queue:AsyncStream<Preview.Request.Enqueued>.Continuation) in 
+            Task.init 
             {
-                channel.pipeline.addHandler(Endpoint<Preview>.init(backend: preview, 
-                    host: domain, 
-                    port: port))
+                while true 
+                {
+                    do 
+                    {
+                        try await self.open(port: port, queue: queue, group: group)
+                    }
+                    catch let error 
+                    {
+                        print(error)
+                    }
+                }
             }
         }
-            .childChannelOption(ChannelOptions.socketOption(.so_reuseaddr),     value: 1)
-            .childChannelOption(ChannelOptions.maxMessagesPerRead,              value: 1)
-            .childChannelOption(ChannelOptions.allowRemoteHalfClosure,          value: true)
-
-        let channel:Channel = try await bootstrap.bind(host: self.host, port: port).get()
         
-        print("started server at http://\(domain):\(port)")
+        try await preview.serve(requests)
+    }
+    
+    private 
+    func open(port:Int, 
+        queue:AsyncStream<Preview.Request.Enqueued>.Continuation, 
+        group:MultiThreadedEventLoopGroup) 
+        async throws
+    {
+        let channels:[any Channel] = try await withThrowingTaskGroup(of: (any Channel).self)
+        {
+            (tasks:inout ThrowingTaskGroup<any Channel, Error>) in 
+            
+            tasks.addTask
+            {
+                try await Listener<Preview.Request>.send(to: queue, 
+                    domain: self.domain, 
+                    host: self.host, 
+                    port: port,
+                    group: group)
+            }
+            
+            var channels:[any Channel] = []
+            for try await channel:any Channel in tasks
+            {
+                let address:SocketAddress? = channel.localAddress 
+                print("opened channel on \(address?.description ?? "<unavailable>")")
+                channels.append(channel)
+            }
+            return channels
+        }
         
-        try await channel.closeFuture.get()
+        await withTaskGroup(of: Void.self)
+        {
+            (tasks:inout TaskGroup<Void>) in 
+            
+            for channel:Channel in channels 
+            {
+                tasks.addTask 
+                {
+                    // must capture this before the channel closes, since 
+                    // the local address will be cleared
+                    let address:SocketAddress? = channel.localAddress 
+                    do 
+                    {
+                        try await channel.closeFuture.get()
+                    }
+                    catch let error 
+                    {
+                        print(error)
+                    }
+                    print("closed channel \(address?.description ?? "<unavailable>")")
+                }
+            }
+            
+            await tasks.next()
+            
+            for channel:Channel in channels 
+            {
+                tasks.addTask 
+                {
+                    do 
+                    {
+                        try await channel.pipeline.close(mode: .all)
+                    }
+                    catch let error 
+                    {
+                        print(error)
+                    }
+                }
+            }
+        }
     }
 }

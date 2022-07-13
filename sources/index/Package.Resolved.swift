@@ -7,10 +7,13 @@ extension Package
     struct Resolved
     {
         // needed for compatibility with older spm tools
+        @usableFromInline
         struct Legacy:Decodable
         {
+            @usableFromInline
             let object:Object
         }
+        @usableFromInline
         struct Object:Decodable 
         {
             struct State:Decodable 
@@ -19,6 +22,7 @@ extension Package
                     version:String?, 
                     branch:String?
             }
+            @usableFromInline 
             struct Pin:Decodable 
             {
                 let id:ID?, 
@@ -35,16 +39,18 @@ extension Package
                 }
             }
             
+            @usableFromInline 
             let pins:[Pin]
         }
         
         public
         var pins:[ID: MaskedVersion]
         
-        public
-        init(parsing file:[UInt8]) throws 
+        @inlinable public
+        init<UTF8>(parsing json:UTF8) throws 
+            where UTF8:Collection, UTF8.Element == UInt8
         {
-            let json:JSON = try Grammar.parse(file, as: JSON.Rule<Array<UInt8>.Index>.Root.self)
+            let json:JSON = try Grammar.parse(json, as: JSON.Rule<UTF8.Index>.Root.self)
             if  let object:Object = try? .init(from: json)
             {
                 self.init(pins: object.pins)
@@ -55,6 +61,7 @@ extension Package
                 self.init(pins: wrapper.object.pins)
             }
         }
+        @usableFromInline 
         init(pins:[Object.Pin])
         {
             self.pins = [:]

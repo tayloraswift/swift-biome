@@ -1,14 +1,15 @@
 import Markdown
-import Resource 
+import Resources 
 import HTML
 
-struct Extension 
+public 
+struct Extension:Sendable 
 {
     enum Node 
     {
         case section(Heading, [Self])
         case block(any BlockMarkup)
-        case aside(Keyword.Aside, [any BlockMarkup])
+        case aside(Aside, [any BlockMarkup])
     }
     
     private(set)
@@ -35,16 +36,10 @@ struct Extension
         }
     }
     
-    init(from resource:Resource, name:String) 
+    public 
+    init(parsing markdown:String, name:String) 
     {
-        // TODO: handle versioning
-        switch resource.payload
-        {
-        case    .text   (let text,  type: _):
-            self.init(markdown: text)
-        case    .binary (let bytes, type: _):
-            self.init(markdown: String.init(decoding: bytes, as: Unicode.UTF8.self))
-        }
+        self.init(markdown: markdown)
         if case nil = self.metadata.path
         {
             // replace spaces in the article name with hyphens

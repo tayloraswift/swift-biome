@@ -1,5 +1,6 @@
 import Biome 
-import VersionControl
+import SystemExtras
+@preconcurrency import SystemPackage
 
 extension Module 
 {
@@ -25,11 +26,11 @@ extension Module
         }
     }
     public 
-    struct Descriptor:Decodable, Sendable 
+    struct Catalog:Decodable, Sendable 
     {
         public
         let id:ID
-        var include:[String] 
+        var include:[FilePath] 
         var dependencies:[Graph.Dependency]
         
         public 
@@ -40,42 +41,51 @@ extension Module
             case dependencies
         }
         
+        public
+        init(from decoder:any Decoder) throws 
+        {
+            let container:KeyedDecodingContainer<CodingKeys> = 
+                try decoder.container(keyedBy: CodingKeys.self)
+            
+            self.id = try container.decode(ID.self, forKey: .id)
+            // need to do this manually
+            // https://github.com/apple/swift-system/issues/106
+            self.include = try container.decode([String].self, 
+                forKey: .include).map(FilePath.init(_:))
+            self.dependencies = try container.decode([Graph.Dependency].self, 
+                forKey: .dependencies)
+        }
+        
         public 
-        init(id:ID, include:[String], dependencies:[Graph.Dependency])
+        init(id:ID, include:[FilePath], dependencies:[Graph.Dependency])
         {
             self.id = id 
             self.include = include 
             self.dependencies = dependencies
         }
         
-        func load(with controller:VersionController? = nil) async throws -> Catalog
+        func loadGraph(relativeTo prefix:FilePath?) throws -> Graph
         {
             try Task.checkCancellation()
             
-            var locations:
+            func absolute(_ path:FilePath) -> FilePath 
+            {
+                path.isAbsolute ? path : prefix?.appending(path.components) ?? path
+            }
+            
+            var paths:
             (
                 articles:[(name:String, source:FilePath)],
                 colonies:[(namespace:ID, graph:FilePath)],
                 core:FilePath?
             )
-            locations.articles = []
-            locations.colonies = []
-            locations.core = nil
-            for include:FilePath in self.include.map(FilePath.init(_:))
+            paths.articles = []
+            paths.colonies = []
+            paths.core = nil
+            for include:FilePath in self.include
             {
-                // if the include path is relative, and we are using a version controller, 
-                // prepend the repository base to the path.
-                let root:FilePath 
-                if let prefix:FilePath = controller?.repository 
-                {
-                    root = include.isAbsolute ? include : prefix.appending(include.components)
-                }
-                else 
-                {
-                    root = include
-                }
-                
-                try root.walk
+                let include:FilePath = absolute(include)
+                try include.walk
                 {
                     (path:FilePath) in 
                     
@@ -84,12 +94,13 @@ extension Module
                     {
                         return 
                     }
-                    // this is *relative* if `include` was relative
-                    let location:FilePath = include.appending(path.components)
+                    
+                    let path:FilePath = include.appending(path.components)
+                    
                     switch file.extension
                     {
                     case "md"?:
-                        locations.articles.append((file.stem, location))
+                        paths.articles.append((file.stem, path))
                     
                     case "json"?:
                         guard   let reduced:FilePath.Component = .init(file.stem),
@@ -98,20 +109,21 @@ extension Module
                         {
                             break 
                         }
-                        let identifiers:[Substring] = reduced.stem.split(separator: "@", omittingEmptySubsequences: false)
+                        let identifiers:[Substring] = reduced.stem.split(separator: "@", 
+                            omittingEmptySubsequences: false)
                         guard case self.id? = identifiers.first.map(ID.init(_:))
                         else 
                         {
                             throw SubgraphLoadingError.invalidName(reduced.stem)
                         }
-                        switch (identifiers.count, locations.core)
+                        switch (identifiers.count, paths.core)
                         {
                         case (1, nil): 
-                            locations.core = location
+                            paths.core = path
                         case (1, _?):
                             print("warning: ignored duplicate symbolgraph '\(reduced.stem)'")
                         case (2, _):
-                            locations.colonies.append((ID.init(identifiers[1]), location))
+                            paths.colonies.append((ID.init(identifiers[1]), path))
                         default: 
                             return
                         }
@@ -122,33 +134,22 @@ extension Module
                 }
             }
             
-            func load(_ path:FilePath, _ type:Resource.Text) async throws -> Resource 
-            {
-                try await controller?.read(from: path, type: type) ?? .utf8(encoded: File.read(from: path), type: type)
-            }
-            
-            let core:Resource
-            if let location:FilePath = locations.core 
-            {
-                core = try await load(location, .json)
-            }
+            guard let core:FilePath = paths.core 
             else 
             {
                 throw SubgraphLoadingError.missingCoreSubgraph(self.id)
             }
-            var colonies:[(ID, Resource)] = []
-                colonies.reserveCapacity(locations.colonies.count)
-            for (namespace, location):(ID, FilePath) in locations.colonies 
-            {
-                colonies.append((namespace, try await load(location, .json)))
-            }
-            var articles:[(String, Resource)] = []
-                articles.reserveCapacity(locations.articles.count)
-            for (name, location):(String, FilePath) in locations.articles 
-            {
-                articles.append((name, try await load(location, .markdown)))
-            }
-            return .init(id: self.id, core: core, colonies: colonies, articles: articles, 
+            return .init(
+                core: try .init(parsing: try   core.read([UInt8].self), culture: self.id), 
+                colonies: try paths.colonies.map 
+                {
+                    try .init(parsing: try $0.graph.read([UInt8].self), culture: self.id, 
+                        namespace: $0.namespace)
+                }, 
+                articles: try paths.articles.map 
+                {
+                    .init(parsing: try $0.source.read(String.self), name: $0.name)
+                }, 
                 dependencies: self.dependencies)
         }
     }

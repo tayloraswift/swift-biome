@@ -1,4 +1,4 @@
-import Resource
+import Resources
 
 struct SiteMapCache:Cache 
 {
@@ -60,12 +60,6 @@ struct SiteMapCache:Cache
                 }
             }
         }
-        let tag:String = 
-        """
-        sitemaps:0.1.0/\
-        \(current.package.name)/\
-        \(current.package.versions.precise(current.version))
-        """
-        return .utf8(encoded: sitemap, type: .plain, tag: .init(tag))
+        return .init(hashing: sitemap, type: .utf8(encoded: .plain))
     }
 }

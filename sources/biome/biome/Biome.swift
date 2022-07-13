@@ -1,5 +1,5 @@
 import HTML
-import Resource
+import Resources
 
 public
 struct Biome 
@@ -107,25 +107,23 @@ struct Biome
         case .index(let index, pins: let pins, exhibit: let exhibit): 
             var page:Page = .init(self.ecosystem.pinned(pins), logo: self.logo)
                 page.generate(for: index, exhibit: exhibit)
-            return .matched(.utf8(encoded: self.template.rendered(as: [UInt8].self, 
-                    substituting: _move(page).substitutions), 
-                    type: .html, 
-                    tag: nil), 
+            return .matched(.init(self.template.rendered(as: [UInt8].self, 
+                        substituting: _move(page).substitutions), 
+                    type: .utf8(encoded: .html)), 
                 canonical: uri.description)
         
         case .choices(let choices, pins: let pins): 
             var page:Page = .init(self.ecosystem.pinned(pins), logo: self.logo)
                 page.generate(for: choices, uri: uri)
-            return .multiple(.utf8(encoded: self.template.rendered(as: [UInt8].self, 
-                    substituting: _move(page).substitutions), 
-                    type: .html, 
-                    tag: nil))
+            return .multiple(.init(self.template.rendered(as: [UInt8].self, 
+                        substituting: _move(page).substitutions), 
+                    type: .utf8(encoded: .html)))
         
         case .searchIndex(let package): 
             guard let cached:Resource = self.searchIndices[package]
             else 
             {
-                return .error(.text("search index for '\(self.ecosystem[package].id)' not available"))
+                return .error(.init("search index for '\(self.ecosystem[package].id)' not available"))
             }
             return .matched(cached, canonical: uri.description) 
         
@@ -133,7 +131,7 @@ struct Biome
             guard let cached:Resource = self.sitemaps[package]
             else 
             {
-                return .error(.text("sitemap for '\(self.ecosystem[package].id)' not available"))
+                return .error(.init("sitemap for '\(self.ecosystem[package].id)' not available"))
             }
             return .matched(cached, canonical: uri.description) 
         }

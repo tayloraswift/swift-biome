@@ -169,11 +169,11 @@ extension Extension
         }
 
         private mutating 
-        func render(aside:Keyword.Aside, content:[any BlockMarkup]) -> Element 
+        func render(aside:Aside, content:[any BlockMarkup]) -> Element 
         {
             Element[.aside]
             {
-                ("class", aside.rawValue)
+                ("class", aside.class)
             }
             content:
             {

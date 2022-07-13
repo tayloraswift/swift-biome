@@ -32,8 +32,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-dom",
       "state" : {
-        "revision" : "c77db294a819c91fdcf1b242525ef39f9b1de155",
-        "version" : "0.3.9"
+        "revision" : "0c4c57654555a980f5776c1f464703d4726e69f1",
+        "version" : "0.3.11"
       }
     },
     {
@@ -43,6 +43,15 @@
       "state" : {
         "revision" : "272964fcecfff8b4181251bc9ff8bf76ecacbf57",
         "version" : "0.1.5"
+      }
+    },
+    {
+      "identity" : "swift-hash",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kelvin13/swift-hash.git",
+      "state" : {
+        "revision" : "173dd383d1bfdc3479811623d8a284cacd1c5604",
+        "version" : "0.2.2"
       }
     },
     {
@@ -68,8 +77,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-markdown.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-06-26-a",
-        "revision" : "573e9a307799a2a683899bf1b702c308ef35660b"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a",
+        "revision" : "e7a570d3900ed84a6904fd94088984dd95e1120e"
       }
     },
     {
@@ -86,8 +95,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-resource",
       "state" : {
-        "revision" : "3f0eaf249bfd79b65db2a43881bbe18b4a144169",
-        "version" : "0.2.4"
+        "revision" : "65bc1bed20648767e39662e8fe1839ce469d7738",
+        "version" : "0.3.0"
       }
     },
     {
@@ -95,8 +104,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-syntax.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-06-26-a",
-        "revision" : "1e728eb1bd7597c139c42c900ee2c398f4bae2cd"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a",
+        "revision" : "535b9be8ad051a4487c9466040ecad46dccb05cb"
       }
     },
     {
@@ -106,15 +115,6 @@
       "state" : {
         "revision" : "025bcb1165deab2e20d4eaba79967ce73013f496",
         "version" : "1.2.1"
-      }
-    },
-    {
-      "identity" : "swiftshell",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kareman/SwiftShell",
-      "state" : {
-        "revision" : "99680b2efc7c7dbcace1da0b3979d266f02e213c",
-        "version" : "5.1.0"
       }
     }
   ],

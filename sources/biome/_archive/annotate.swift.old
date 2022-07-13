@@ -1,4 +1,4 @@
-import Resource 
+import Resources 
 import StructuredDocument
 import HTML
 

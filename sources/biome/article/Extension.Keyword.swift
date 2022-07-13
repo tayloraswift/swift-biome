@@ -93,95 +93,6 @@ extension Extension
 {
     enum Keyword
     {
-        enum Aside:String 
-        {
-            case attention              = "attention"
-            case author                 = "author"
-            case authors                = "authors"
-            case bug                    = "bug"
-            case complexity             = "complexity"
-            case copyright              = "copyright"
-            case date                   = "date"
-            case experiment             = "experiment"
-            case important              = "important"
-            case invariant              = "invariant"
-            case mutatingVariant        = "mutatingvariant"
-            case nonMutatingVariant     = "nonmutatingvariant"
-            case note                   = "note"
-            case postcondition          = "postcondition"
-            case precondition           = "precondition"
-            case remark                 = "remark"
-            case requires               = "requires"
-            case seeAlso                = "seealso"
-            case since                  = "since"
-            case `throws`               = "throws"
-            case tip                    = "tip"
-            case todo                   = "todo"
-            case version                = "version"
-            case warning                = "warning"
-            
-            init(_ markdown:Markdown.Aside.Kind)
-            {
-                switch markdown 
-                {
-                    case .attention:            self = .attention
-                    case .author:               self = .author
-                    case .authors:              self = .authors
-                    case .bug:                  self = .bug
-                    case .complexity:           self = .complexity
-                    case .copyright:            self = .copyright
-                    case .date:                 self = .date
-                    case .experiment:           self = .experiment
-                    case .important:            self = .important
-                    case .invariant:            self = .invariant
-                    case .mutatingVariant:      self = .mutatingVariant
-                    case .nonMutatingVariant:   self = .nonMutatingVariant
-                    case .note:                 self = .note
-                    case .postcondition:        self = .postcondition
-                    case .precondition:         self = .precondition
-                    case .remark:               self = .remark
-                    case .requires:             self = .requires
-                    case .since:                self = .since
-                    case .throws:               self = .throws
-                    case .tip:                  self = .tip
-                    case .todo:                 self = .todo
-                    case .version:              self = .version
-                    case .warning:              self = .warning
-                }
-            }
-            
-            var prose:String 
-            {
-                switch self 
-                {
-                    case .attention:            return "Attention"
-                    case .author:               return "Author"
-                    case .authors:              return "Authors"
-                    case .bug:                  return "Bug"
-                    case .complexity:           return "Complexity"
-                    case .copyright:            return "Copyright"
-                    case .date:                 return "Date"
-                    case .experiment:           return "Experiment"
-                    case .important:            return "Important"
-                    case .invariant:            return "Invariant"
-                    case .mutatingVariant:      return "Mutating Variant"
-                    case .nonMutatingVariant:   return "Non-mutating Variant"
-                    case .note:                 return "Note"
-                    case .postcondition:        return "Postcondition"
-                    case .precondition:         return "Precondition"
-                    case .remark:               return "Remark"
-                    case .requires:             return "Requires"
-                    case .seeAlso:              return "See Also"
-                    case .since:                return "Since"
-                    case .throws:               return "Throws"
-                    case .tip:                  return "Tip"
-                    case .todo:                 return "To-do"
-                    case .version:              return "Version"
-                    case .warning:              return "Warning"
-                }
-            }
-        }
-        
         case parameters 
         case parameter(String) 
         case returns
@@ -190,7 +101,7 @@ extension Extension
         
         init?<S>(_ string:S) where S:StringProtocol, S.SubSequence == Substring
         {
-            if let aside:Aside = .init(rawValue: String.init(string.filter(\.isLetter)).lowercased())
+            if let aside:Aside = .init(string)
             {
                 self = .aside(aside)
                 return

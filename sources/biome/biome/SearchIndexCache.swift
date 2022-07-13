@@ -1,5 +1,5 @@
 import JSON 
-import Resource
+import Resources
 
 struct SearchIndexCache:Cache 
 {
@@ -68,15 +68,8 @@ struct SearchIndexCache:Cache
             let module:String = .init($0.title)
             return .object([("module", .string(module)), ("symbols", .array(types))])
         }
-        let tag:String = 
-        """
-        lunr:0.1.0/\
-        \(current.package.name)/\
-        \(current.package.versions.precise(current.version))
-        """
         let json:JSON = .array(_move(modules))
         let bytes:[UInt8] = .init(_move(json).description.utf8)
-        
-        return .utf8(encoded: bytes, type: .json, tag: .init(tag))
+        return .init(hashing: bytes, type: .utf8(encoded: .json))
     }
 }
