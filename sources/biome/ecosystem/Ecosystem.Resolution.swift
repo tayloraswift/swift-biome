@@ -85,7 +85,8 @@ extension Ecosystem
         case .master:
             return self.resolveNamespace(path: path, query: query)
             {
-                self.resolveSymbol(link: $0, namespace: $1, arrival: $2, stems: stems)
+                self.resolveSymbol(link: $0, namespace: $1, arrival: $2, stems: stems) ?? 
+                self.resolveSymbol(legacyLink: $0, namespace: $1, arrival: $2, stems: stems)
             } ?? (try? self.resolveAnySymbol(matching: .init(query)))
         }
     }
@@ -239,6 +240,53 @@ extension Ecosystem
                         .index(.composite(composite), pins: pins, exhibit: exhibit)
                     return (resolution, redirected)
                 }
+            }
+        }
+        return nil
+    }
+}
+// brute force compatibility resolution 
+extension Ecosystem 
+{
+    private 
+    func resolveSymbol(legacyLink implicit:Symbol.Link, 
+        namespace:Module.Index, 
+        arrival:MaskedVersion?, 
+        stems:Stems)
+        -> (resolution:Resolution, redirected:Bool)?
+    {
+        guard   case nil = implicit.query.lens, 
+                let route:Route = stems[namespace, implicit]
+        else 
+        {
+            return nil
+        }
+        for package:Package.ID in 
+        [
+            "swift-nio",
+            "swift-system",
+            "swift-syntax",
+            "swift-markdown",
+            "swift-grammar",
+            "swift-json",
+        ]
+        {
+            guard   let package:Package = self[package], 
+                        package.index != namespace.package,
+                    let pins:Package.Pins<Version> = 
+                        package.versions[nil as MaskedVersion?]
+            else 
+            {
+                continue 
+            }
+            
+            if case (let selection, redirected: let redirected)? = 
+                    self.selectExtantWithRedirect(from: route, 
+                        lens: .init(package, at: pins.local), 
+                        by: implicit.disambiguator)
+            {
+                let pins:[Package.Index: Version] = pins.isotropic(culture: package.index)
+                return (.init(selection, pins: pins), redirected)
             }
         }
         return nil

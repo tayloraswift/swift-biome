@@ -67,7 +67,6 @@ extension Symbol
         
         private
         var path:[Component]
-        private(set)
         var query:Query,
             orientation:Orientation
         
