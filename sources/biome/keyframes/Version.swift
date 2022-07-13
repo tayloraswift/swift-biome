@@ -25,11 +25,13 @@ struct Version:Hashable, Strideable, Sendable
     }
 }
 
+@frozen public 
 enum PreciseVersion:Hashable, CustomStringConvertible, Sendable
 {
     case semantic(UInt16, UInt16, UInt16, UInt16)
     case toolchain(year:UInt16, month:UInt16, day:UInt16, letter:UInt8)
     
+    @inlinable public 
     init(_ masked:MaskedVersion?)
     {
         switch masked 
@@ -72,6 +74,7 @@ enum PreciseVersion:Hashable, CustomStringConvertible, Sendable
         }
     }
     
+    @inlinable public 
     var description:String 
     {
         switch self 
@@ -81,6 +84,54 @@ enum PreciseVersion:Hashable, CustomStringConvertible, Sendable
         case .toolchain(year: let year, month: let month, day: let day, letter: let letter):
             return "\(year)-\(month)-\(day)-\(Unicode.Scalar.init(letter))"
         }
+    }
+    
+    @inlinable public static
+    func ~= (pattern:MaskedVersion?, precise:Self) -> Bool 
+    {
+        switch pattern 
+        {
+        case nil: 
+            break
+        case .major(let major)?:
+            guard case .semantic(major, _, _, _) = precise 
+            else 
+            {
+                return false 
+            }
+        case .minor(let major, let minor)?:
+            guard case .semantic(major, minor, _, _) = precise 
+            else 
+            {
+                return false 
+            }
+        case .patch(let major, let minor, let patch)?:
+            guard case .semantic(major, minor, patch, _) = precise 
+            else 
+            {
+                return false 
+            }
+        case .edition(let major, let minor, let patch, let edition)?:
+            guard case .semantic(major, minor, patch, edition) = precise 
+            else 
+            {
+                return false 
+            }
+        
+        case .nightly(year: let year, month: let month, day: let day)?:
+            guard case .toolchain(year: year, month: month, day: day, letter: _) = precise 
+            else 
+            {
+                return false 
+            }
+        case .hourly(year: let year, month: let month, day: let day, letter: let letter)?:
+            guard case .toolchain(year: year, month: month, day: day, letter: letter) = precise 
+            else 
+            {
+                return false 
+            }
+        }
+        return true
     }
 }
     
@@ -101,7 +152,7 @@ enum MaskedVersion:Hashable, CustomStringConvertible, Sendable
     
     case nightly(year:UInt16, month:UInt16, day:UInt16)
     case hourly(year:UInt16, month:UInt16, day:UInt16, letter:UInt8)
-    
+        
     @inlinable public 
     var description:String 
     {
@@ -120,6 +171,12 @@ enum MaskedVersion:Hashable, CustomStringConvertible, Sendable
         case .hourly(year: let year, month: let month, day: let day, letter: let letter):
             return "\(year)-\(month)-\(day)-\(Unicode.Scalar.init(letter))"
         }
+    }
+    
+    @inlinable public static
+    func ~= (pattern:MaskedVersion?, version:Self) -> Bool 
+    {
+        pattern ~= .init(version)
     }
 }
 extension MaskedVersion 
