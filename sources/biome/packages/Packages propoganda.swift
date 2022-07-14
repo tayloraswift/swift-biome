@@ -1,4 +1,4 @@
-extension Ecosystem 
+extension Packages 
 {
     mutating 
     func updateImplicitSymbols<Symbols>(in index:Package.Index, 
@@ -288,7 +288,7 @@ extension Ecosystem
     }
 }
 
-extension Ecosystem 
+extension Packages 
 {
     mutating 
     func updateCompositeGroups(in index:Package.Index, 

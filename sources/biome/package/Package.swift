@@ -5,12 +5,12 @@ public
 struct Package:Identifiable, Sendable
 {
     /// A globally-unique index referencing a package. 
-    @usableFromInline 
+    public 
     struct Index:Hashable, Comparable, Sendable 
     {
         let bits:UInt16
         
-        @usableFromInline static 
+        public static 
         func < (lhs:Self, rhs:Self) -> Bool 
         {
             lhs.bits < rhs.bits

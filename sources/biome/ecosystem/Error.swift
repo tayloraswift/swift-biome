@@ -1,12 +1,23 @@
 extension Ecosystem 
 {
-    public 
+    struct LinkResolutionError:Error 
+    {
+        let link:String
+        let error:Error
+    }
+}
+extension Packages 
+{
+    enum SelectionError:Error 
+    {
+        case none 
+        case many([Symbol.Composite])
+    }
     enum DependencyError:Error 
     {
         case packageNotFound(Package.ID)
         case targetNotFound(Module.ID, in:Package.ID)
     }
-    public 
     enum PoliticalError:Error, CustomStringConvertible
     {
         case module(Module.ID, says:Symbol.ID, is:Symbol.Role<Symbol.ID>)
@@ -23,18 +34,6 @@ extension Ecosystem
                 return "symbol '\(subject)' \(predicate)"
             }
         }
-    }
-    public 
-    struct LinkResolutionError:Error 
-    {
-        let link:String
-        let error:Error
-    }
-    public 
-    enum SelectionError:Error 
-    {
-        case none 
-        case many([Symbol.Composite])
     }
 }
 extension Module 

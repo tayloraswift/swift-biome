@@ -1,10 +1,8 @@
-/// an ecosystem is a subset of a biome containing packages that are relevant 
-/// (in some user-defined way) to some task. 
-/// 
-/// ecosystem views are mainly useful for providing an immutable context for 
-/// accessing foreign packages.
-@usableFromInline
-struct Ecosystem 
+import DOM
+import Resources
+
+public
+struct Ecosystem:Sendable 
 {    
     @usableFromInline 
     enum Index:Hashable, Sendable
@@ -67,6 +65,11 @@ struct Ecosystem
         }
     } */
     
+    let logo:[UInt8]
+    
+    private(set)
+    var templates:[Root: DOM.Template<Page.Key>], 
+        roots:[Stem: Root]
     let root:
     (    
         master:String,
@@ -74,17 +77,24 @@ struct Ecosystem
         sitemap:String,
         searchIndex:String
     )
+    
     private(set)
-    var packages:[Package], 
-        indices:[Package.ID: Package.Index]
-        
+    var stems:Stems
+    private(set)
+    var caches:[Package.Index: Cache]
+
+    private(set)
+    var packages:Packages 
+    
     func pinned(_ pins:[Package.Index: Version]) -> Pinned 
     {
         .init(self, pins: pins)
     }
-
-    init(roots:[Root: String])
+    
+    public
+    init(roots:[Root: String] = [:], template:DOM.Template<Page.Key>)
     {
+        self.logo = Self.logo
         self.root = 
         (
             master:         roots[.master,      default: "reference"],
@@ -92,60 +102,195 @@ struct Ecosystem
             sitemap:        roots[.sitemap,     default: "sitemaps"],
             searchIndex:   roots[.searchIndex,  default: "lunr"]
         )
-        self.indices = [:]
-        self.packages = []
+        self.caches = [:]
+        self.stems = .init()
+        self.roots = 
+        [
+            self.stems.register(component: self.root.master):       .master,
+            self.stems.register(component: self.root.article):      .article,
+            self.stems.register(component: self.root.sitemap):      .sitemap,
+            self.stems.register(component: self.root.searchIndex):  .searchIndex,
+        ]
+        self.templates = .init(uniqueKeysWithValues: self.roots.values.map 
+        { 
+            ($0, template) 
+        })
+        
+        self.packages = .init()
+    }
+}
+extension Ecosystem 
+{
+    public mutating 
+    func regenerateCaches() 
+    {
+        self.caches.removeAll()
+        for package:Package.Index in self.packages.indices.values 
+        {
+            self.caches[package] = .init(
+                sitemap: self.generateSiteMap(for: package),
+                search: self.generateSearchIndex(for: package))
+        }
     }
     
+    @discardableResult
+    public mutating 
+    func updatePackage(_ graph:Package.Graph, era:[Package.ID: MaskedVersion]) 
+        throws -> Package.Index
+    {
+        try Task.checkCancellation()
+        
+        let version:PreciseVersion = .init(era[graph.id])
+        
+        let index:Package.Index = 
+            try self.packages.updatePackageRegistration(for: graph.id)
+        // initialize symbol id scopes for upstream packages only
+        let pins:Package.Pins<Version> ; var scopes:[Symbol.Scope] ; (pins, scopes) = 
+            try self.packages.updateModuleRegistrations(in: index, 
+                graphs: graph.modules, 
+                version: version,
+                era: era)
+        let cultures:[Module.Index] = scopes.map(\.culture)
+        
+        let (articles, extensions):([[Article.Index: Extension]], [[String: Extension]]) = 
+            self.packages[index].addExtensions(in: cultures, 
+                graphs: graph.modules, 
+                stems: &self.stems)
+        let symbols:[[Symbol.Index: Vertex.Frame]] = 
+            self.packages[index].addSymbols(through: scopes, 
+                graphs: graph.modules, 
+                stems: &self.stems)
+        
+        print("note: key table population: \(self.stems._count), total key size: \(self.stems._memoryFootprint) B")
+        
+        // add the newly-registered symbols to each module scope 
+        for scope:Int in scopes.indices
+        {
+            scopes[scope].lenses.append(self[index].symbols.indices)
+        }
+        
+        let positions:[Dictionary<Symbol.Index, Symbol.Declaration>.Keys] =
+            try self.packages[index].updateDeclarations(scopes: scopes, symbols: symbols)
+            try self.packages[index].updateHeadlines(for: cultures, articles: articles)
+        let hints:[Symbol.Index: Symbol.Index] = 
+            try self.packages.updateImplicitSymbols(in: index, 
+                fromExplicit: _move(positions), 
+                graphs: graph.modules, 
+                scopes: scopes)
+        
+        let comments:[Symbol.Index: String] = 
+            Self.comments(from: _move(symbols), pruning: hints)
+        let documentation:Ecosystem.Documentation = 
+            self.compileDocumentation(for: index, 
+                extensions: _move(extensions),
+                articles: _move(articles),
+                comments: _move(comments), 
+                scopes: _move(scopes).map(\.namespaces),
+                pins: pins)
+        self.packages.updateDocumentation(in: index, 
+            upstream: _move(pins).upstream,
+            compiled: _move(documentation), 
+            hints: _move(hints))
+        
+        func bold(_ string:String) -> String
+        {
+            "\u{1B}[1m\(string)\u{1B}[0m"
+        }
+        
+        print(bold("updated \(self[index].id) to version \(version)"))
+        
+        return index
+    }
+    
+    private static
+    func comments(from symbols:[[Symbol.Index: Vertex.Frame]], 
+        pruning hints:[Symbol.Index: Symbol.Index]) 
+        -> [Symbol.Index: String]
+    {
+        var comments:[Symbol.Index: String] = [:]
+        for (symbol, frame):(Symbol.Index, Vertex.Frame) in symbols.joined()
+            where !frame.comment.isEmpty
+        {
+            comments[symbol] = frame.comment
+        }
+        // delete comments if a hint indicates it is duplicated
+        var pruned:Int = 0
+        for (member, union):(Symbol.Index, Symbol.Index) in hints 
+        {
+            if  let comment:String  = comments[member],
+                let original:String = comments[union],
+                    original == comment 
+            {
+                comments.removeValue(forKey: member)
+                pruned += 1
+            }
+        }
+        return comments
+    }
+}
+    
+extension Ecosystem 
+{
+    @available(*, deprecated)
     subscript(package:Package.ID) -> Package?
     {
-        self.indices[package].map { self[$0] }
+        self.packages[package]
     } 
     subscript(package:Package.Index) -> Package
     {
         _read 
         {
-            yield  self.packages[package.offset]
-        }
-        _modify 
-        {
-            yield &self.packages[package.offset]
+            yield self.packages[package]
         }
     } 
     subscript(module:Module.Index) -> Module
     {
         _read 
         {
-            yield self.packages[       module.package.offset][local: module]
+            yield self.packages[module]
         }
     } 
     subscript(symbol:Symbol.Index) -> Symbol
     {
         _read 
         {
-            yield self.packages[symbol.module.package.offset][local: symbol]
+            yield self.packages[symbol]
         }
     } 
     subscript(article:Article.Index) -> Article
     {
         _read 
         {
-            yield self.packages[article.module.package.offset][local: article]
+            yield self.packages[article]
         }
     } 
     
-    var standardLibrary:Set<Module.Index>
+    @inlinable public 
+    subscript(uri request:URI) -> StaticResponse?
     {
-        if let swift:Package = self[.swift]
-        {
-            return .init(swift.modules.indices.values)
-        }
+        guard case let (resolution, temporary)? = self.resolve(
+            path: request.path.normalized.components, 
+            query: request.query ?? [])
         else 
         {
-            // must register standard library before any other packages 
-            fatalError("first package must be the swift standard library")
+            return nil
+        }
+        
+        let (uri, canonical):(URI, URI?) = self.uri(of: resolution)
+        
+        if uri ~= request 
+        {
+            return self.response(for: resolution, canonical: canonical ?? uri)
+        }
+        else  
+        {
+            let uri:String = uri.description
+            return temporary ? 
+                .maybe(at: uri, canonical: canonical?.description ?? uri) : 
+                .found(at: uri, canonical: canonical?.description ?? uri)
         }
     }
-    
+
     @usableFromInline
     func uri(of resolution:Resolution) 
         -> (exact:URI, canonical:URI?) 
@@ -297,86 +442,5 @@ struct Ecosystem
             }
             return .composite(trace.reversed())
         }
-    }
-
-    /// returns the index of the entry for the given package, creating it if it 
-    /// does not already exist.
-    mutating 
-    func updatePackageRegistration(for package:Package.ID)
-        throws -> Package.Index
-    {
-        if let package:Package.Index = self.indices[package]
-        {
-            return package 
-        }
-        else 
-        {
-            let index:Package.Index = .init(offset: self.packages.endIndex)
-            self.packages.append(.init(id: package, index: index))
-            self.indices[package] = index
-            return index
-        }
-    }
-    
-    mutating 
-    func updateModuleRegistrations(in culture:Package.Index,
-        graphs:[Module.Graph], 
-        version:PreciseVersion,
-        era:[Package.ID: MaskedVersion])
-        throws -> (pins:Package.Pins<Version>, scopes:[Symbol.Scope])
-    {
-        // create modules, if they do not exist already.
-        // note: module indices are *not* necessarily contiguous, 
-        // or even monotonically increasing
-        let cultures:[Module.Index] = self[culture].addModules(graphs)
-        
-        let dependencies:[Set<Module.Index>] = 
-            try self.computeDependencies(of: cultures, graphs: graphs)
-        
-        var packages:Set<Package.Index> = []
-        for target:Module.Index in dependencies.joined()
-        {
-            packages.insert(target.package)
-        }
-        packages.remove(culture)
-        // only include pins for actual package dependencies, this prevents 
-        // extraneous pins in a Package.resolved from disrupting the version cache.
-        let upstream:[Package.Index: Version] = 
-            .init(uniqueKeysWithValues: packages.map
-        {
-            ($0, self[$0].versions.snap(era[self[$0].id]))
-        })
-        // must call this *before* `updateDependencies`
-        let pins:Package.Pins<Version> = 
-            self[culture].updateVersion(version, upstream: upstream)
-        self[culture].updateDependencies(of: cultures, with: dependencies)
-        
-        return (pins, self.scopes(of: cultures, dependencies: dependencies))
-    }
-}
-extension Ecosystem 
-{
-    private 
-    func scopes(of cultures:[Module.Index], dependencies:[Set<Module.Index>])
-        -> [Symbol.Scope]
-    {
-        zip(cultures, dependencies).map 
-        {
-            self.scope(of: $0.0, dependencies: $0.1)
-        }
-    }
-    private 
-    func scope(of culture:Module.Index, dependencies:Set<Module.Index>) 
-        -> Symbol.Scope
-    {
-        var scope:Module.Scope = .init(culture: culture, id: self[culture].id)
-        for namespace:Module.Index in dependencies 
-        {
-            scope.insert(namespace: namespace, id: self[namespace].id)
-        }
-        return .init(namespaces: scope, lenses: scope.upstream().map 
-        {
-            self[$0].symbols.indices
-        })
     }
 }

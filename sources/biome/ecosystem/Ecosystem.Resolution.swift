@@ -9,7 +9,7 @@ extension Ecosystem
         case searchIndex(Package.Index)
         case sitemap(Package.Index)
         
-        init(_ selection:Selection, pins:[Package.Index: Version])
+        init(_ selection:Packages.Selection, pins:[Package.Index: Version])
         {
             switch selection 
             {
@@ -21,7 +21,23 @@ extension Ecosystem
         }
     }
     
-    func resolve<Path>(_ path:Path, root:Root, query:[URI.Parameter], stems:Stems) 
+    @usableFromInline
+    func resolve(path:[String], query:[URI.Parameter]) 
+        -> (resolution:Ecosystem.Resolution, redirected:Bool)?
+    {
+        guard   let root:String = path.first, 
+                let root:Stem = self.stems[leaf: root],
+                let root:Root = self.roots[root]
+        else 
+        {
+            return nil 
+        }
+        return self.resolve(path.dropFirst(), 
+            root: root, query: query) 
+    }
+    
+    private 
+    func resolve<Path>(_ path:Path, root:Root, query:[URI.Parameter]) 
         -> (resolution:Resolution, redirected:Bool)?
         where Path:BidirectionalCollection, Path.Element:StringProtocol
     {
@@ -30,7 +46,7 @@ extension Ecosystem
         case .sitemap: 
             guard   let components:[Path.Element.SubSequence] = path.first?.split(separator: "."),
                     let package:Package.ID = components.first.map(Package.ID.init(_:)), 
-                    let package:Package.Index = self.indices[package]
+                    let package:Package.Index = self.packages.indices[package]
             else 
             {
                 return nil 
@@ -39,7 +55,7 @@ extension Ecosystem
         
         case .searchIndex: 
             guard   let package:Package.ID = path.first.map(Package.ID.init(_:)), 
-                    let package:Package.Index = self.indices[package],
+                    let package:Package.Index = self.packages.indices[package],
                     case "types"? = path.dropFirst().first
             else 
             {
@@ -56,7 +72,7 @@ extension Ecosystem
                 // strip the characters after the first hyphen in each component. 
                 // so we need to manually re-extract the path components.
                 if  let article:Article.ID = 
-                        stems[namespace, implicit.map(\.string)].map(Article.ID.init(_:)),
+                        self.stems[namespace, implicit.map(\.string)].map(Article.ID.init(_:)),
                     let article:Article.Index = 
                         self[namespace.package].articles.indices[article]
                 {
@@ -71,8 +87,7 @@ extension Ecosystem
                 else if case (let resolution, _)? = 
                     self.resolveSymbol(link: implicit, 
                         namespace: namespace, 
-                        arrival: arrival, 
-                        stems: stems)
+                        arrival: arrival)
                 {
                     return (resolution, true)
                 }
@@ -85,9 +100,9 @@ extension Ecosystem
         case .master:
             return self.resolveNamespace(path: path, query: query)
             {
-                self.resolveSymbol(link: $0, namespace: $1, arrival: $2, stems: stems) ?? 
-                self.resolveSymbol(legacyLink: $0, namespace: $1, arrival: $2, stems: stems)
-            } ?? (try? self.resolveAnySymbol(matching: .init(query)))
+                self.resolveSymbol(link: $0, namespace: $1, arrival: $2) ?? 
+                self.resolveSymbol(legacyLink: $0, namespace: $1, arrival: $2)
+            } // ?? (try? self.resolveAnySymbol(matching: .init(query)))
         }
     }
 
@@ -102,7 +117,7 @@ extension Ecosystem
         
         let root:Package?
         if  let package:Package.ID = path.first.map(Package.ID.init(_:)), 
-            let package:Package = self[package]
+            let package:Package = self.packages[package]
         {
             root = package 
             local = path.dropFirst()
@@ -164,11 +179,11 @@ extension Ecosystem
             }
             namespace = module
         }
-        else if let module:Module.Index = self[.swift]?.modules.indices[module]
+        else if let module:Module.Index = self.packages[.swift]?.modules.indices[module]
         {
             namespace = module
         }
-        else if let module:Module.Index = self[.core]?.modules.indices[module]
+        else if let module:Module.Index = self.packages[.core]?.modules.indices[module]
         {
             namespace = module
         }
@@ -197,15 +212,14 @@ extension Ecosystem
     private 
     func resolveSymbol(link implicit:Symbol.Link, 
         namespace:Module.Index, 
-        arrival:MaskedVersion?, 
-        stems:Stems)
+        arrival:MaskedVersion?)
         -> (resolution:Resolution, redirected:Bool)?
     {
         guard   case let (package, pins)? = 
-                self.localize(destination: namespace.package, 
+                self.packages.localize(destination: namespace.package, 
                     arrival: arrival, 
                     lens: implicit.query.lens),
-                let route:Route = stems[namespace, implicit]
+                let route:Route = self.stems[namespace, implicit]
         else 
         {
             return nil 
@@ -213,7 +227,7 @@ extension Ecosystem
         // each “select” call is currently O(n^2), but we could make it 
         // O(n log(n)) with some effort
         if case (let selection, redirected: let redirected)? = 
-                self.selectExtantWithRedirect(from: route, 
+                self.packages.selectExtantWithRedirect(from: route, 
                     lens: .init(package, at: pins.local), 
                     by: implicit.disambiguator)
         {
@@ -221,7 +235,7 @@ extension Ecosystem
             return (.init(selection, pins: pins), redirected)
         }
         else if case (.one(let composite), redirected: let redirected)? = 
-                self.selectHistoricalWithRedirect(from: route, lens: package, 
+                self.packages.selectHistoricalWithRedirect(from: route, lens: package, 
                     by: implicit.disambiguator)
         {
             // we have no idea what version any of the historical selections 
@@ -251,12 +265,11 @@ extension Ecosystem
     private 
     func resolveSymbol(legacyLink implicit:Symbol.Link, 
         namespace:Module.Index, 
-        arrival:MaskedVersion?, 
-        stems:Stems)
+        arrival:MaskedVersion?)
         -> (resolution:Resolution, redirected:Bool)?
     {
         guard   case nil = implicit.query.lens, 
-                let route:Route = stems[namespace, implicit]
+                let route:Route = self.stems[namespace, implicit]
         else 
         {
             return nil
@@ -271,7 +284,7 @@ extension Ecosystem
             "swift-json",
         ]
         {
-            guard   let package:Package = self[package], 
+            guard   let package:Package = self.packages[package], 
                         package.index != namespace.package,
                     let pins:Package.Pins<Version> = 
                         package.versions[nil as MaskedVersion?]
@@ -281,7 +294,7 @@ extension Ecosystem
             }
             
             if case (let selection, redirected: let redirected)? = 
-                    self.selectExtantWithRedirect(from: route, 
+                    self.packages.selectExtantWithRedirect(from: route, 
                         lens: .init(package, at: pins.local), 
                         by: implicit.disambiguator)
             {
@@ -293,7 +306,7 @@ extension Ecosystem
     }
 }
 // brute force id-based resolution 
-extension Ecosystem 
+/* extension Ecosystem 
 {
     func resolveAnySymbol(matching query:Symbol.Link.Query) 
         -> (resolution:Resolution, redirected:Bool)?
@@ -351,4 +364,4 @@ extension Ecosystem
         }
         return nil 
     }
-}
+} */

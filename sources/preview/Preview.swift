@@ -26,14 +26,14 @@ actor Preview
     }
     
     private 
-    var biome:Biome
+    var ecosystem:Ecosystem
     private 
     var resources:[String: Resource]
     
     init(projects:[FilePath], resources:FilePath) async throws 
     {
         self.resources = [:]
-        self.biome = .init(roots: [.master: "reference", .article: "learn"], 
+        self.ecosystem = .init(roots: [.master: "reference", .article: "learn"], 
             template: .init(freezing: DefaultTemplates.documentation))
         
         var pins:[Package.ID: MaskedVersion] = [:]
@@ -105,7 +105,7 @@ extension Preview
             pins = [.swift: version, .core: version]
             for catalog:Package.Catalog in catalogs
             {
-                try self.biome.updatePackage(try catalog.loadGraph(relativeTo: project), 
+                try self.ecosystem.updatePackage(try catalog.loadGraph(relativeTo: project), 
                     era: pins)
             }
         }
@@ -126,12 +126,12 @@ extension Preview
             let pins:[Package.ID: MaskedVersion] = pins.merging(resolved.pins) { $1 }
             for catalog:Package.Catalog in catalogs
             {
-                try self.biome.updatePackage(try catalog.loadGraph(relativeTo: project), 
+                try self.ecosystem.updatePackage(try catalog.loadGraph(relativeTo: project), 
                     era: pins)
             }
         }
         
-        self.biome.regenerateCaches()
+        self.ecosystem.regenerateCaches()
     }
 }
 
@@ -141,7 +141,7 @@ extension Preview
     {
         for await (request, promise):Request.Enqueued in requests 
         {
-            if let response:StaticResponse = self.biome[uri: request.uri]
+            if let response:StaticResponse = self.ecosystem[uri: request.uri]
             {
                 promise.succeed(response)
                 continue 

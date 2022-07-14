@@ -1,4 +1,4 @@
-extension Ecosystem 
+extension Packages 
 {
     @usableFromInline
     enum Selection
@@ -62,7 +62,7 @@ extension Ecosystem
     }
 }
 
-extension Ecosystem
+extension Packages
 {    
     func selectExtantWithRedirect(from route:Route, lens:Package.Pinned, 
         by disambiguator:Symbol.Disambiguator) 

@@ -17,7 +17,6 @@ extension Ecosystem
         articles:[[Article.Index: Extension]], 
         comments:[Symbol.Index: String], 
         scopes:[Module.Scope], 
-        stems:Stems, 
         pins:Package.Pins<Version>)
         -> Documentation
     {
@@ -29,8 +28,7 @@ extension Ecosystem
             self.resolveBindings(of: extensions, 
                 articles: articles, 
                 pinned: pinned,
-                scopes: scopes, 
-                stems: stems)
+                scopes: scopes)
         // add upstream lenses 
         let lenses:[[Package.Pinned]] = scopes.map 
         {
@@ -38,57 +36,7 @@ extension Ecosystem
         }
         return self.compile(comments: comments, peripherals: peripherals, 
             lenses: lenses, 
-            scopes: scopes, 
-            stems: stems)
-    }
-    
-    mutating 
-    func updateDocumentation(in culture:Package.Index, 
-        upstream:[Package.Index: Version], 
-        compiled:Documentation,
-        hints:[Symbol.Index: Symbol.Index])
-    {
-        self[culture].updateDocumentation(compiled)
-        self[culture].spreadDocumentation(
-            self.recruitMigrants(in: culture, upstream: upstream, 
-                sponsors: compiled.templates, 
-                hints: hints))
-    }
-    // `culture` parameter not strictly needed, but we use it to make sure 
-    // that ``generateRhetoric(graphs:scopes:)`` did not return ``hints``
-    // about other packages
-    private 
-    func recruitMigrants(in culture:Package.Index,
-        upstream:[Package.Index: Version], 
-        sponsors:[Index: Article.Template<Link>],
-        hints:[Symbol.Index: Symbol.Index]) 
-        -> [Symbol.Index: Article.Template<Link>]
-    {
-        var migrants:[Symbol.Index: Article.Template<Link>] = [:]
-        for (member, sponsor):(Symbol.Index, Symbol.Index) in hints
-            where !sponsors.keys.contains(.symbol(member))
-        {
-            assert(member.module.package == culture)
-            // if a symbol did not have documentation of its own, 
-            // check if it has a sponsor. article templates are copy-on-write 
-            // types, so this will not (eagarly) copy storage
-            if  let template:Article.Template<Link> = sponsors[.symbol(sponsor)] 
-            {
-                migrants[member] = template
-            }
-            // note: empty doccomments are omitted from the template buffer
-            else if culture != sponsor.module.package
-            {
-                let template:Article.Template<Link> = self[sponsor.module.package]
-                    .pinned(upstream)
-                    .template(sponsor)
-                if !template.isEmpty
-                {
-                    migrants[member] = template
-                }
-            }
-        }
-        return migrants
+            scopes: scopes)
     }
 }
 
@@ -98,8 +46,7 @@ extension Ecosystem
     func resolveBindings(of extensions:[[String: Extension]], 
         articles:[[Article.Index: Extension]],
         pinned:Package.Pinned,
-        scopes:[Module.Scope], 
-        stems:Stems) 
+        scopes:[Module.Scope]) 
         -> [[Index: Extension]]
     {
         zip(scopes, zip(articles, extensions)).map
@@ -117,8 +64,7 @@ extension Ecosystem
             {
                 guard let binding:Index = self.resolveWithRedirect(binding: binding, 
                     pinned: pinned,
-                    scope: scope, 
-                    stems: stems)
+                    scope: scope)
                 else 
                 {
                     fatalError("unimplemented")
@@ -132,16 +78,14 @@ extension Ecosystem
     private 
     func resolveWithRedirect(binding string:String, 
         pinned:Package.Pinned,
-        scope:Module.Scope,
-        stems:Stems) 
+        scope:Module.Scope) 
         -> Index?
     {
         if  let uri:URI = try? .init(relative: string), 
             let link:Link = try? self.resolveWithRedirect(
                 visibleLink: uri,
                 lenses: [pinned], 
-                scope: scope, 
-                stems: stems)
+                scope: scope)
         {
             return link.target
         }
@@ -157,8 +101,7 @@ extension Ecosystem
     func compile(comments:[Symbol.Index: String], 
         peripherals:[[Index: Extension]], 
         lenses:[[Package.Pinned]],
-        scopes:[Module.Scope], 
-        stems:Stems)
+        scopes:[Module.Scope])
         -> Documentation
     {
         var documentation:Documentation = .init(minimumCapacity: comments.count + 
@@ -166,23 +109,20 @@ extension Ecosystem
         self.compile(&documentation,
             peripherals: peripherals, 
             lenses: lenses, 
-            scopes: scopes, 
-            stems: stems)
+            scopes: scopes)
         self.compile(&documentation,
             comments: comments, 
             lenses: lenses, 
-            scopes: scopes, 
-            stems: stems)
+            scopes: scopes)
         return documentation
     }
     private
     func compile(_ documentation:inout Documentation, 
         peripherals:[[Index: Extension]], 
         lenses:[[Package.Pinned]],
-        scopes:[Module.Scope], 
-        stems:Stems)
+        scopes:[Module.Scope])
     {
-        let swift:Package.Index? = self.indices[.swift]
+        let swift:Package.Index? = self.packages.indices[.swift]
         for ((lenses, scope), assigned):(([Package.Pinned], Module.Scope), [Index: Extension]) in 
             zip(zip(lenses, scopes), peripherals)
         {
@@ -191,8 +131,7 @@ extension Ecosystem
                 documentation.templates[target] = self.compile(article, 
                     lenses: lenses, 
                     scope: scope.import(article.metadata.imports, swift: swift), 
-                    nest: self.nest(target),
-                    stems: stems)
+                    nest: self.nest(target))
             } 
         }
     }
@@ -200,10 +139,9 @@ extension Ecosystem
     func compile(_ documentation:inout Documentation, 
         comments:[Symbol.Index: String], 
         lenses:[[Package.Pinned]],
-        scopes:[Module.Scope], 
-        stems:Stems)
+        scopes:[Module.Scope])
     {
-        let swift:Package.Index? = self.indices[.swift]
+        let swift:Package.Index? = self.packages.indices[.swift]
         // need to turn the lexica into something we can select from a flattened 
         // comments dictionary 
         let contexts:[Module.Index: Int] = 
@@ -222,16 +160,14 @@ extension Ecosystem
             documentation.templates[target] = self.compile(comment, 
                 lenses: lenses[context], 
                 scope: scopes[context].import(comment.metadata.imports, swift: swift), 
-                nest: self.nest(target),
-                stems: stems)
+                nest: self.nest(target))
         } 
     }
     private 
     func compile(_ article:Extension, 
         lenses:[Package.Pinned],
         scope:Module.Scope,
-        nest:Symbol.Nest?,
-        stems:Stems)
+        nest:Symbol.Nest?)
         -> Article.Template<Link>
     {
         article.render().transform 
@@ -262,8 +198,7 @@ extension Ecosystem
                 {
                     resolved = try self.resolveWithRedirect(globalLink: uri, 
                         lenses: lenses, 
-                        scope: scope, 
-                        stems: stems)
+                        scope: scope)
                 }
                 else 
                 {
@@ -272,8 +207,7 @@ extension Ecosystem
                     resolved = try self.resolveWithRedirect(visibleLink: uri, nest: nest,
                         doclink: doclink,
                         lenses: lenses, 
-                        scope: scope, 
-                        stems: stems)
+                        scope: scope)
                 }
                 if let resolved:Link
                 {
@@ -281,7 +215,7 @@ extension Ecosystem
                 }
                 else 
                 {
-                    throw SelectionError.none
+                    throw Packages.SelectionError.none
                 }
             }
             catch let error 
@@ -313,14 +247,13 @@ extension Ecosystem
     private 
     func resolveWithRedirect(globalLink uri:URI, 
         lenses:[Package.Pinned], 
-        scope:Module.Scope,
-        stems:Stems) 
+        scope:Module.Scope) 
         throws -> Link? 
     {
         let (global, fold):([String], Int) = uri.path.normalized
         
         guard   let destination:Package.ID = global.first.map(Package.ID.init(_:)), 
-                let destination:Package.Index = self.indices[destination]
+                let destination:Package.Index = self.packages.indices[destination]
         else 
         {
             return nil 
@@ -347,10 +280,10 @@ extension Ecosystem
             return .init(.module(namespace), visible: 1)
         }
         
-        if  case let (package, pins)? = self.localize(destination: destination, 
+        if  case let (package, pins)? = self.packages.localize(destination: destination, 
                 lens: implicit.query.lens),
-            let route:Route = stems[namespace, implicit.revealed],
-            case let (selection, _)? = self.selectExtantWithRedirect(from: route, 
+            let route:Route = self.stems[namespace, implicit.revealed],
+            case let (selection, _)? = self.packages.selectExtantWithRedirect(from: route, 
                 lens: .init(package, at: pins.local), 
                 by: implicit.disambiguator)
         {
@@ -366,14 +299,13 @@ extension Ecosystem
         nest:Symbol.Nest? = nil, 
         doclink:Bool = false, 
         lenses:[Package.Pinned],
-        scope:Module.Scope,
-        stems:Stems) 
+        scope:Module.Scope) 
         throws -> Link? 
     {
         let (path, fold):([String], Int) = uri.path.normalized 
         if  doclink,  
             let article:Article.ID = 
-                stems[scope.culture, path].map(Article.ID.init(_:)),
+                self.stems[scope.culture, path].map(Article.ID.init(_:)),
             let article:Article.Index = 
                 self[scope.culture.package].articles.indices[article]
         {
@@ -384,8 +316,7 @@ extension Ecosystem
         if      let index:Index = try self.resolve(
                     visibleLink: expression.revealed, nest: nest, 
                     lenses: lenses, 
-                    scope: scope, 
-                    stems: stems)
+                    scope: scope)
         {
             return .init(index, visible: expression.count)
         }
@@ -393,8 +324,7 @@ extension Ecosystem
                 let index:Index = try self.resolve(
                     visibleLink: outed, nest: nest, 
                     lenses: lenses, 
-                    scope: scope, 
-                    stems: stems)
+                    scope: scope)
         {
             return .init(index, visible: expression.count)
         }
@@ -407,8 +337,7 @@ extension Ecosystem
     func resolve(visibleLink link:Symbol.Link, 
         nest:Symbol.Nest? = nil, 
         lenses:[Package.Pinned],
-        scope:Module.Scope,
-        stems:Stems) 
+        scope:Module.Scope) 
         throws -> Index? 
     {
         //  check if the first component refers to a module. it can be the same 
@@ -421,8 +350,7 @@ extension Ecosystem
                 return try self.resolve(relativeLink: implicit, 
                     namespace: namespace, 
                     lenses: lenses,
-                    scope: scope, 
-                    stems: stems)
+                    scope: scope)
             }
             else 
             {
@@ -435,8 +363,7 @@ extension Ecosystem
                 namespace: nest.namespace, 
                 prefix: nest.prefix, 
                 lenses: lenses, 
-                scope: scope, 
-                stems: stems)
+                scope: scope)
         {
             return relative
         }
@@ -444,8 +371,7 @@ extension Ecosystem
         if  let absolute:Index = try self.resolve(relativeLink: link, 
                 namespace: scope.culture, 
                 lenses: lenses, 
-                scope: scope, 
-                stems: stems) 
+                scope: scope) 
         {
             return absolute
         }
@@ -455,8 +381,7 @@ extension Ecosystem
             if  let absolute:Index = try self.resolve(relativeLink: link, 
                     namespace: namespace, 
                     lenses: lenses, 
-                    scope: scope, 
-                    stems: stems) 
+                    scope: scope) 
             {
                 if case nil = imported 
                 {
@@ -476,19 +401,19 @@ extension Ecosystem
         namespace:Module.Index, 
         prefix:[String] = [], 
         lenses:[Package.Pinned], 
-        scope:Module.Scope,
-        stems:Stems) 
+        scope:Module.Scope) 
         throws -> Index?
     {
-        guard let route:Route = stems[namespace, prefix, link]
+        guard let route:Route = self.stems[namespace, prefix, link]
         else 
         {
             return nil
         }
         let disambiguator:Symbol.Disambiguator = link.disambiguator
-        let selection:Selection? = self.selectExtant(from: route, lenses: lenses)
+        let selection:Packages.Selection? = 
+            self.packages.selectExtant(from: route, lenses: lenses)
         {
-            scope.contains($0.culture) && self.filter($0, by: disambiguator)
+            scope.contains($0.culture) && self.packages.filter($0, by: disambiguator)
         }
         return (try selection?.composite()).map(Index.composite(_:))
     }
