@@ -3,7 +3,7 @@ extension Page
     enum Card 
     {
         case composite(Symbol.Composite, Symbol.Declaration)
-        case article(Article.Index, Article.Headline)
+        case article(Article.Index, Article.Excerpt)
     }
     
     enum Sublist:Hashable, CaseIterable, Sendable
@@ -94,9 +94,9 @@ extension Ecosystem.Pinned
         var topics:Page.Topics = .init()
         for article:Article.Index in guides
         {
-            let headline:Article.Headline = 
-                self.pin(article.module.package).headline(article)
-            topics.feed.append(.article(article, headline))
+            let excerpt:Article.Excerpt = 
+                self.pin(article.module.package).excerpt(article)
+            topics.feed.append(.article(article, excerpt))
         }
         for symbol:Symbol.Index in toplevel
         {

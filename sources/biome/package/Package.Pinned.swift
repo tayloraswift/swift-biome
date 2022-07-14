@@ -158,10 +158,10 @@ extension Package.Pinned
             .through(self.version, head: self.package[local: article].heads.template) ?? 
             .init()
     }
-    func headline(_ article:Article.Index) -> Article.Headline
+    func excerpt(_ article:Article.Index) -> Article.Excerpt
     {
-        self.package.headlines
-            .through(self.version, head: self.package[local: article].heads.headline) ?? 
+        self.package.excerpts
+            .through(self.version, head: self.package[local: article].heads.excerpt) ?? 
             .init("Untitled")
     }
     

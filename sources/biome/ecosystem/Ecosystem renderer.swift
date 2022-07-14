@@ -34,13 +34,13 @@ extension Ecosystem
         ]
         return substitutions.mapValues(DOM.Template<Index>.init(freezing:))
     }
-    func renderFields(for index:Article.Index, headline:Article.Headline) 
+    func renderFields(for index:Article.Index, excerpt:Article.Excerpt) 
         -> [Page.Key: DOM.Template<Index>]
     {
         let substitutions:[Page.Key: HTML.Element<Index>] = 
         [
-            .title:        .text(escaping: headline.plain), 
-            .headline:     .h1(.bytes(utf8: headline.formatted)), 
+            .title:        .text(escaping: excerpt.title), 
+            .headline:     .h1(.bytes(utf8: excerpt.headline)), 
             .kind:         .text(escaped: "Article"),
             .culture:       self.link(module: index.module),
         ]
@@ -414,9 +414,9 @@ extension Ecosystem
         {
             switch $0 
             {
-            case .article(let article, let headline):
+            case .article(let article, let excerpt):
                 let signature:HTML.Element<Page.Topics.Key> = 
-                    .a(.h2(.bytes(utf8: headline.formatted)))
+                    .a(.h2(.bytes(utf8: excerpt.headline)))
                 {
                     ("href", .anchor(.uri(.article(article))))
                     ("class", "headline")

@@ -73,7 +73,7 @@ struct Package:Identifiable, Sendable
         guides:Keyframe<Set<Article.Index>>.Buffer // *not* always populated
     // per-article buffers
     private(set)
-    var headlines:Keyframe<Article.Headline>.Buffer
+    var excerpts:Keyframe<Article.Excerpt>.Buffer
     // per-symbol buffers 
     private(set)
     var declarations:Keyframe<Symbol.Declaration>.Buffer, // always populated 
@@ -118,7 +118,7 @@ struct Package:Identifiable, Sendable
         self.opinions = .init()
         
         self.templates = .init()
-        self.headlines = .init()
+        self.excerpts = .init()
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -424,11 +424,11 @@ extension Package
         {
             for (index, article):(Article.Index, Extension) in articles
             {
-                let headline:Article.Headline = .init(
-                    formatted: article.headline.rendered(as: [UInt8].self),
-                    plain: article.headline.plainText)
-                self.headlines.update(head: &self.articles[local: index].heads.headline, 
-                    to: current, with: headline)
+                let excerpt:Article.Excerpt = .init(title: article.headline.plainText,
+                    headline: article.headline.rendered(as: [UInt8].self),
+                    snippet: article.snippet)
+                self.excerpts.update(head: &self.articles[local: index].heads.excerpt, 
+                    to: current, with: excerpt)
             }
             
             let guides:Set<Article.Index> = .init(articles.keys)

@@ -51,10 +51,10 @@ extension Ecosystem
             }
             else 
             {
-                let headline:Article.Headline = 
-                    self.pin(article.module.package).headline(article)
-                cache[article] = headline.formatted
-                return headline.formatted
+                let excerpt:Article.Excerpt = 
+                    self.pin(article.module.package).excerpt(article)
+                cache[article] = excerpt.headline
+                return excerpt.headline
             }
         }
     }

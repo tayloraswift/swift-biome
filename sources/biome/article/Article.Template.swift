@@ -1,23 +1,7 @@
 import HTML
 
 extension Article 
-{
-    struct Headline:Equatable 
-    {
-        let formatted:[UInt8]
-        let plain:String
-        
-        init(_ plain:String)
-        {
-            self.init(formatted: .init(plain.utf8), plain: plain)
-        }
-        init(formatted:[UInt8], plain:String)
-        {
-            self.formatted = formatted 
-            self.plain = plain 
-        }
-    }
-    
+{    
     struct Template<Key>:Equatable where Key:Equatable
     {
         let errors:[Error]

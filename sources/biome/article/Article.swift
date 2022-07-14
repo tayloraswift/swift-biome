@@ -32,14 +32,14 @@ struct Article:Identifiable
     
     struct Heads 
     {
-        @Keyframe<Article.Headline>.Head
-        var headline:Keyframe<Article.Headline>.Buffer.Index?
+        @Keyframe<Article.Excerpt>.Head
+        var excerpt:Keyframe<Article.Excerpt>.Buffer.Index?
         @Keyframe<Article.Template<Ecosystem.Link>>.Head
         var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
         
         init() 
         {
-            self._headline = .init()
+            self._excerpt = .init()
             self._template = .init()
         }
     }

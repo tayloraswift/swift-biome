@@ -126,7 +126,7 @@ extension Page
         let pinned:Package.Pinned = self.era.pin(article.module.package)
         
         self.add(fields: self.ecosystem.renderFields(for: article, 
-            headline: pinned.headline(article)))
+            excerpt: pinned.excerpt(article)))
         self.add(article: pinned.template(article))
         self.add(availableVersions: pinned.package.allVersions(of: article), 
             currentVersion: exhibit ?? pinned.version,
