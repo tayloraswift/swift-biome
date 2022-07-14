@@ -59,20 +59,19 @@ extension Page
     mutating 
     func generate(for choices:[Symbol.Composite], uri:URI)
     {
-        let segregated:[Module.Index: [Symbol.Card]] = 
+        let segregated:[Module.Index: [Card]] = 
             [Module.Index: [Symbol.Composite]]
             .init(grouping: choices, by: \.culture)
             .mapValues 
         {
             $0.map 
             {
-                ($0, self.era.pin($0.base.module.package).declaration($0.base))
+                .composite($0, self.era.pin($0.base.module.package).declaration($0.base))
             }
         }
         self.substitutions.merge(
             self.ecosystem.renderFields(for: choices, uri: uri)) { $1 }
         self.add(topics: self.ecosystem.render(choices: segregated))
-        self.add(scriptConstants: era.ecosystem.indices.values)
     }
     mutating 
     func generate(for index:Ecosystem.Index, exhibit:Version?)
@@ -88,7 +87,6 @@ extension Page
         case .package(let package):
             self.generate(for: package, exhibit: exhibit)
         }
-        self.add(scriptConstants: era.ecosystem.indices.values)
     }
     private mutating 
     func generate(for package:Package.Index, exhibit:Version?) 
@@ -108,7 +106,9 @@ extension Page
     func generate(for module:Module.Index, exhibit:Version?) 
     {
         let pinned:Package.Pinned = self.era.pin(module.package)
-        let topics:Topics = self.era.organize(toplevel: pinned.toplevel(module))
+        let topics:Topics = self.era.organize(
+            toplevel: pinned.toplevel(module),
+            guides: pinned.guides(module))
         
         self.add(fields: self.ecosystem.renderFields(for: module))
         self.add(topics: self.ecosystem.render(topics: topics))
@@ -226,17 +226,10 @@ extension Page
         }
         return .code(crumbs)
     }
-    
-    private mutating 
-    func add(fields:[Key: DOM.Template<Ecosystem.Index, [UInt8]>])
-    {
-        self.substitutions.reserveCapacity(self.substitutions.count + fields.count)
-        for (key, field):(Key, DOM.Template<Ecosystem.Index, [UInt8]>) in fields 
-        {
-            self.substitutions[key] = field.rendered { self.uri(of: $0).utf8 }
-        }
-    }
-    private mutating 
+}
+extension Page 
+{
+    mutating 
     func add(article:Article.Template<Ecosystem.Link>)
     {
         if !article.summary.isEmpty
@@ -254,27 +247,41 @@ extension Page
             }
         }
     }
+    
     private mutating 
-    func add(topics:DOM.Template<Topics.Key, [UInt8]>?)
+    func add(fields:[Key: DOM.Template<Ecosystem.Index>])
     {
-        guard let topics:DOM.Template<Topics.Key, [UInt8]>
+        self.substitutions.reserveCapacity(self.substitutions.count + fields.count)
+        for (key, field):(Key, DOM.Template<Ecosystem.Index>) in fields 
+        {
+            self.substitutions[key] = field.rendered { self.uri(of: $0).utf8 }
+        }
+    }
+    private mutating 
+    func add(topics:DOM.Template<Topics.Key>?)
+    {
+        guard let topics:DOM.Template<Topics.Key>
         else 
         {
             return 
         }
         self.substitutions[.topics] = topics.rendered 
         {
+            let template:Article.Template<Ecosystem.Link>
             switch $0 
             {
             case .uri(let index):
                 return [UInt8].init(self.uri(of: index).utf8)
-            case .excerpt(let composite):
-                return self.era.pin(composite.base.module.package)
+            case .article(let article):
+                template = self.era.pin(article.module.package)
+                    .template(article)
+            case .composite(let composite):
+                template = self.era.pin(composite.base.module.package)
                     .template(composite.base)
-                    .summary.rendered 
-                {
-                    self.expand($0).rendered(as: [UInt8].self)
-                }
+            }
+            return template.summary.rendered 
+            {
+                self.expand($0).rendered(as: [UInt8].self)
             }
         }
     }
@@ -383,7 +390,7 @@ extension Page
             self.substitutions[.notices] = notice.rendered(as: [UInt8].self) 
         }
     }
-    private mutating 
+    mutating 
     func add<Constants>(scriptConstants:Constants) 
         where Constants:Sequence, Constants.Element == Package.Index
     {

@@ -30,6 +30,7 @@ struct Image:Sendable
         [self.vertex.frame.genericConstraints, self.vertex.frame.extensionConstraints].joined()
     }
 }
+public
 struct Vertex:Sendable
 {
     struct Frame:Sendable 

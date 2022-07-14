@@ -1,16 +1,22 @@
+@frozen public
 struct Path:Equatable, RandomAccessCollection, CustomStringConvertible, Sendable
 {
+    public 
     var prefix:[String]
+    public 
     var last:String
     
+    @inlinable public
     var startIndex:Int 
     {
         self.prefix.startIndex
     }
+    @inlinable public
     var endIndex:Int 
     {
         self.prefix.endIndex + 1
     }
+    @inlinable public
     subscript(index:Int) -> String
     {
         _read 
@@ -55,6 +61,7 @@ struct Path:Equatable, RandomAccessCollection, CustomStringConvertible, Sendable
         self.prefix = .init(components.dropLast())
     }
     
+    @inlinable public
     var description:String 
     {
         self.joined(separator: ".")

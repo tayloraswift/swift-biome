@@ -1,5 +1,6 @@
 extension Symbol 
 {
+    @frozen public 
     enum ConcreteType:Sendable, Hashable
     {
         case `enum`
@@ -7,6 +8,7 @@ extension Symbol
         case `class`
         case  actor
     }
+    @frozen public 
     enum Callable:Sendable, Hashable
     {
         case `case`
@@ -20,12 +22,14 @@ extension Symbol
         case  instanceMethod
         case  typeOperator
     }
+    @frozen public 
     enum Global:Sendable, Hashable 
     {
         case `var`
         case `func`
         case `operator`
     }
+    @frozen public 
     enum Color:Hashable, CaseIterable, RawRepresentable, Sendable
     {
         case `associatedtype`
@@ -38,6 +42,7 @@ extension Symbol
         static 
         let `class`:Self = .concretetype(.class)
 
+        @inlinable public 
         init?(rawValue:String)
         {
             switch rawValue 
@@ -65,7 +70,7 @@ extension Symbol
             default: return nil
             }
         }
-        
+        @inlinable public 
         var rawValue:String 
         {
             switch self 
@@ -158,7 +163,7 @@ extension Symbol
             }
         }
         
-        static 
+        public static 
         let allCases:[Self] = 
         [
             .callable(.case),

@@ -28,23 +28,32 @@ extension Module
             articles:[Extension], 
             dependencies:[Dependency]
         
+        var edges:[[Edge]] 
+        {
+            [self.core.edges] + self.colonies.map(\.edges)
+        }
+        
+        public 
+        init(id:Module.ID, 
+            articles:[Extension], 
+            dependencies:[Dependency] = [])
+        {
+            self.init(core: .init(namespace: id), articles: articles, 
+                dependencies: dependencies)
+        }
         public 
         init(core:Subgraph, 
-            colonies:[Subgraph], 
-            articles:[Extension], 
-            dependencies:[Dependency]) 
+            colonies:[Subgraph] = [], 
+            articles:[Extension] = [], 
+            dependencies:[Dependency] = []) 
         {
             self.core = core 
             self.colonies = colonies 
             self.articles = articles 
             self.dependencies = dependencies
         }
-        
-        var edges:[[Edge]] 
-        {
-            [self.core.edges] + self.colonies.map(\.edges)
-        }
     }
+    
     public 
     struct Subgraph:Sendable 
     {
@@ -54,6 +63,15 @@ extension Module
         var edges:[Edge]
         let namespace:Module.ID
         
+        public 
+        init(namespace:Module.ID, 
+            vertices:[(id:Symbol.ID, vertex:Vertex)] = [], 
+            edges:[Edge] = [])
+        {
+            self.namespace = namespace 
+            self.vertices = vertices
+            self.edges = edges
+        }
         public 
         init(parsing json:[UInt8], culture:Module.ID, namespace:Module.ID? = nil) throws 
         {
@@ -82,19 +100,17 @@ extension Module
                 return (images, edges)
             }
             
-            self.edges = edges 
             if let namespace:Module.ID = namespace
             {
-                self.namespace = namespace
-                self.vertices = images.compactMap(\.canonical)
-                return
+                self.init(namespace: namespace, 
+                    vertices: images.compactMap(\.canonical), 
+                    edges: edges)
             }
             else 
             {
-                self.namespace = culture
-                self.vertices = []
+                self.init(namespace: culture, edges: edges)
+                self.extend(with: images, of: culture) 
             }
-            self.extend(with: images, of: culture) 
         }
         
         private mutating 

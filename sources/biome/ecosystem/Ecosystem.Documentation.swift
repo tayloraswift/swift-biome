@@ -4,12 +4,10 @@ extension Ecosystem
 {
     struct Documentation 
     {
-        var headlines:[Article.Index: Article.Headline]
         var templates:[Index: Article.Template<Link>]
         
         init(minimumCapacity capacity:Int)
         {
-            self.headlines = [:]
             self.templates = .init(minimumCapacity: capacity)
         }
     }
@@ -195,13 +193,6 @@ extension Ecosystem
                     scope: scope.import(article.metadata.imports, swift: swift), 
                     nest: self.nest(target),
                     stems: stems)
-                
-                if case .article(let index) = target 
-                {
-                    documentation.headlines[index] = .init(
-                        formatted: article.headline.rendered(as: [UInt8].self),
-                        plain: article.headline.plainText)
-                }
             } 
         }
     }

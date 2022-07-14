@@ -1,4 +1,4 @@
-@usableFromInline 
+public
 struct Symbol:Sendable, Identifiable, CustomStringConvertible  
 {
     /// A globally-unique index referencing a symbol. 
@@ -116,7 +116,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     }
     
     // these stored properties are constant with respect to symbol identity. 
-    @usableFromInline 
+    public
     let id:ID
     //  TODO: see if small-array optimizations here are beneficial, since this could 
     //  often be a single-element array
@@ -160,7 +160,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     {
         self.color.orientation
     }
-    @usableFromInline 
+    public
     var description:String 
     {
         self.path.description

@@ -2,8 +2,7 @@ import HTML
 
 extension Ecosystem
 {
-    func renderFields(for index:Package.Index) 
-        -> [Page.Key: DOM.Template<Index, [UInt8]>]
+    func renderFields(for index:Package.Index) -> [Page.Key: DOM.Template<Index>]
     {
         let package:Package = self[index]
         let kind:String 
@@ -19,10 +18,9 @@ extension Ecosystem
             .headline:     .h1(package.id.string), 
             .kind:         .text(escaped: kind)
         ]
-        return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
+        return substitutions.mapValues(DOM.Template<Index>.init(freezing:))
     }
-    func renderFields(for index:Module.Index) 
-        -> [Page.Key: DOM.Template<Index, [UInt8]>]
+    func renderFields(for index:Module.Index) -> [Page.Key: DOM.Template<Index>]
     {
         let module:Module = self[index]
         let title:String = .init(module.title)
@@ -34,10 +32,10 @@ extension Ecosystem
             .fragments:    .render(fragments: module.fragments) { (_:Never) -> Index in },
             .culture:       self.link(package: index.package),
         ]
-        return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
+        return substitutions.mapValues(DOM.Template<Index>.init(freezing:))
     }
     func renderFields(for index:Article.Index, headline:Article.Headline) 
-        -> [Page.Key: DOM.Template<Index, [UInt8]>]
+        -> [Page.Key: DOM.Template<Index>]
     {
         let substitutions:[Page.Key: HTML.Element<Index>] = 
         [
@@ -46,12 +44,12 @@ extension Ecosystem
             .kind:         .text(escaped: "Article"),
             .culture:       self.link(module: index.module),
         ]
-        return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
+        return substitutions.mapValues(DOM.Template<Index>.init(freezing:))
     }
     func renderFields(for composite:Symbol.Composite, 
         declaration:Symbol.Declaration, 
         facts:Symbol.Predicates) 
-        -> [Page.Key: DOM.Template<Index, [UInt8]>]
+        -> [Page.Key: DOM.Template<Index>]
     {
         let base:Symbol = self[composite.base]
         var substitutions:[Page.Key: HTML.Element<Index>] = 
@@ -97,7 +95,7 @@ extension Ecosystem
             }
         }
         
-        return substitutions.mapValues(DOM.Template<Index, [UInt8]>.init(freezing:))
+        return substitutions.mapValues(DOM.Template<Index>.init(freezing:))
     }
     func renderFields(for choices:[Symbol.Composite], uri:URI) -> [Page.Key: [UInt8]]
     {
@@ -248,26 +246,26 @@ extension Ecosystem
 
 extension Ecosystem
 {
-    func render(choices segregated:[Module.Index: [Symbol.Card]]) 
-        -> DOM.Template<Topics.Key, [UInt8]>
+    func render(choices segregated:[Module.Index: [Page.Card]]) 
+        -> DOM.Template<Page.Topics.Key>
     {
-        var elements:[HTML.Element<Topics.Key>] = []
+        var elements:[HTML.Element<Page.Topics.Key>] = []
             elements.reserveCapacity(2 * segregated.count)
-        for (culture, cards):(Module.Index, [Symbol.Card]) in self.sort(segregated)
+        for (culture, cards):(Module.Index, [Page.Card]) in self.sort(segregated)
         {
             elements.append(.h4(self.renderHeading(culture)))
             elements.append(self.render(cards: cards))
         }
         return .init(freezing: .div(.section(elements) { ("class", "topics choices") }))
     }
-    func render(modulelist:[Module]) -> DOM.Template<Topics.Key, [UInt8]>
+    func render(modulelist:[Module]) -> DOM.Template<Page.Topics.Key>
     {
-        let items:[HTML.Element<Topics.Key>] = 
+        let items:[HTML.Element<Page.Topics.Key>] = 
             modulelist.sorted(by: { $0.id.value < $1.id.value }).map
         {
             (module:Module) in 
             
-            let signature:HTML.Element<Topics.Key> = 
+            let signature:HTML.Element<Page.Topics.Key> = 
                 .a(.render(path: module.path))
             {
                 ("href", .anchor(.uri(.module(module.index))))
@@ -275,38 +273,41 @@ extension Ecosystem
             }
             return .li(signature)
         }
-        let list:HTML.Element<Topics.Key> = .ul(items: items)
-        let heading:HTML.Element<Topics.Key> = .h2("Modules")
-        let section:HTML.Element<Topics.Key> = 
+        let list:HTML.Element<Page.Topics.Key> = .ul(items: items)
+        let heading:HTML.Element<Page.Topics.Key> = .h2("Modules")
+        let section:HTML.Element<Page.Topics.Key> = 
             .section([heading, list]) { ("class", "related") }
         return .init(freezing: .div(section))
     }
-    func render(topics:Topics) -> DOM.Template<Topics.Key, [UInt8]>?
+    func render(topics:Page.Topics) -> DOM.Template<Page.Topics.Key>?
     {
         if topics.isEmpty 
         {
             return nil 
         }
         
-        var sections:[HTML.Element<Topics.Key>] = []
-        for heading:Topics.List in 
+        var sections:[HTML.Element<Page.Topics.Key>] = topics.feed.isEmpty ? [] : 
         [
-            .refinements,
-            .implementations,
-            .restatements, 
-            .overrides,
+            .section(self.render(cards: topics.feed)) { ("class", "feed") }
         ]
+        
+        func add(lists:Page.List...)
         {
-            if  let segregated:[Module.Culture: [Generic.Conditional<Symbol.Index>]] = 
-                topics.lists[heading]
+            for list:Page.List in lists
             {
-                sections.append(self.render(section: segregated, heading: heading.rawValue))
+                if  let segregated:[Module.Culture: [Generic.Conditional<Symbol.Index>]] = 
+                    topics.lists[list]
+                {
+                    sections.append(self.render(section: segregated, heading: list.rawValue))
+                }
             }
         }
         
+        add(lists: .refinements, .implementations, .restatements, .overrides)
+        
         if !topics.requirements.isEmpty
         {
-            let requirements:[Topics.Sublist: [Module.Culture: [Symbol.Card]]] = 
+            let requirements:[Page.Sublist: [Module.Culture: [Page.Card]]] = 
                 topics.requirements.mapValues { [.primary: $0] }
             sections.append(self.render(section: requirements, 
                 heading: "Requirements", 
@@ -319,20 +320,7 @@ extension Ecosystem
                 class: "members"))
         }
         
-        for heading:Topics.List in 
-        [
-            .conformers,
-            .conformances,
-            .subclasses,
-            .implications,
-        ]
-        {
-            if  let list:[Module.Culture: [Generic.Conditional<Symbol.Index>]] = 
-                topics.lists[heading]
-            {
-                sections.append(self.render(section: list, heading: heading.rawValue))
-            }
-        }
+        add(lists: .conformers, .conformances, .subclasses, .implications)
         
         if !topics.removed.isEmpty
         {
@@ -347,27 +335,29 @@ extension Ecosystem
     
     private 
     func render(section segregated:[Module.Culture: [Generic.Conditional<Symbol.Index>]], 
-        heading:String) -> HTML.Element<Topics.Key>
+        heading:String) -> HTML.Element<Page.Topics.Key>
     {
-        var elements:[HTML.Element<Topics.Key>] = []
+        var elements:[HTML.Element<Page.Topics.Key>] = []
             elements.reserveCapacity(2 * segregated.count + 1)
             elements.append(.h2(heading))
         for (culture, relationships):(Module.Culture, [Generic.Conditional<Symbol.Index>]) in 
             self.sort(segregated)
         {
-            if let culture:HTML.Element<Topics.Key> = self.renderHeading(culture)
+            if let culture:HTML.Element<Page.Topics.Key> = self.renderHeading(culture)
             {
                 elements.append(.h3(culture))
             }
-            let items:[HTML.Element<Topics.Key>] = self.sort(relationships).map 
+            let items:[HTML.Element<Page.Topics.Key>] = relationships.map 
             {
-                let (relationship, host):(Generic.Conditional<Symbol.Index>, Symbol.Index) = $0
-                let signature:HTML.Element<Topics.Key> = .a(.render(path: self[host].path))
+                (relationship:Generic.Conditional<Symbol.Index>) in
+                
+                let host:Symbol.Index = self[relationship.target].type ?? relationship.target
+                let signature:HTML.Element<Page.Topics.Key> = .a(.render(path: self[host].path))
                 {
                     ("href", .anchor(.uri(.symbol(relationship.target))))
                     ("class", "signature")
                 }
-                if  let constraints:HTML.Element<Topics.Key> = .render(.text(escaped: "When "), 
+                if  let constraints:HTML.Element<Page.Topics.Key> = .render(.text(escaped: "When "), 
                     constraints: relationship.conditions, 
                     transform: { .uri(.symbol($0)) }) 
                 {
@@ -384,15 +374,15 @@ extension Ecosystem
         return .section(elements) { ("class", "related") }
     }
     private 
-    func render(subsection segregated:[Module.Culture: [Symbol.Card]], heading:String)
-        -> HTML.Element<Topics.Key>
+    func render(subsection segregated:[Module.Culture: [Page.Card]], heading:String)
+        -> HTML.Element<Page.Topics.Key>
     {
-        var elements:[HTML.Element<Topics.Key>] = []
+        var elements:[HTML.Element<Page.Topics.Key>] = []
             elements.reserveCapacity(2 * segregated.count + 1)
             elements.append(.h3(heading))
-        for (culture, cards):(Module.Culture, [Symbol.Card]) in self.sort(segregated)
+        for (culture, cards):(Module.Culture, [Page.Card]) in self.sort(segregated)
         {
-            if let culture:HTML.Element<Topics.Key> = self.renderHeading(culture)
+            if let culture:HTML.Element<Page.Topics.Key> = self.renderHeading(culture)
             {
                 elements.append(.h4(culture))
             }
@@ -402,15 +392,15 @@ extension Ecosystem
     }
     private 
     func render(
-        section segregated:[Topics.Sublist: [Module.Culture: [Symbol.Card]]], 
+        section segregated:[Page.Sublist: [Module.Culture: [Page.Card]]], 
         heading:String, 
         class:String)
-        -> HTML.Element<Topics.Key>
+        -> HTML.Element<Page.Topics.Key>
     {
-        var elements:[HTML.Element<Topics.Key>] = [.h2(heading)]
-        for sublist:Topics.Sublist in Topics.Sublist.allCases
+        var elements:[HTML.Element<Page.Topics.Key>] = [.h2(heading)]
+        for sublist:Page.Sublist in Page.Sublist.allCases
         {
-            if let segregated:[Module.Culture: [Symbol.Card]] = segregated[sublist]
+            if let segregated:[Module.Culture: [Page.Card]] = segregated[sublist]
             {
                 elements.append(self.render(subsection: segregated, heading: sublist.heading))
             }
@@ -418,24 +408,40 @@ extension Ecosystem
         return .section(elements) { ("class", "topics \(`class`)") }
     }
     private 
-    func render(cards:[Symbol.Card]) -> HTML.Element<Topics.Key>
+    func render(cards:[Page.Card]) -> HTML.Element<Page.Topics.Key>
     {
-        let items:[HTML.Element<Topics.Key>] = self.sort(cards).map 
+        let items:[HTML.Element<Page.Topics.Key>] = cards.map 
         {
-            (card:Symbol.Card) in 
-            
-            let signature:HTML.Element<Topics.Key> = 
-                .a(.render(signature: card.declaration.signature))
+            switch $0 
             {
-                ("href", .anchor(.uri(.composite(card.composite))))
-                ("class", "signature")
+            case .article(let article, let headline):
+                let signature:HTML.Element<Page.Topics.Key> = 
+                    .a(.h2(.bytes(utf8: headline.formatted)))
+                {
+                    ("href", .anchor(.uri(.article(article))))
+                    ("class", "headline")
+                }
+                let more:HTML.Element<Page.Topics.Key> = .a("Read more")
+                {
+                    ("href", .anchor(.uri(.article(article))))
+                    ("class", "more")
+                }
+                return .li([signature, .anchor(.article(article)), more])
+            
+            case .composite(let composite, let declaration):
+                let signature:HTML.Element<Page.Topics.Key> = 
+                    .a(.render(signature: declaration.signature))
+                {
+                    ("href", .anchor(.uri(.composite(composite))))
+                    ("class", "signature")
+                }
+                return .li([signature, .anchor(.composite(composite))])
             }
-            return .li([signature, .anchor(.excerpt(card.composite))])
         }
         return .ul(items: items)
     }
     private 
-    func renderHeading(_ culture:Module.Culture) -> HTML.Element<Topics.Key>?
+    func renderHeading(_ culture:Module.Culture) -> HTML.Element<Page.Topics.Key>?
     {
         switch culture 
         {
@@ -446,7 +452,7 @@ extension Ecosystem
         }
     }
     private 
-    func renderHeading(_ culture:Module.Index) -> HTML.Element<Topics.Key>
+    func renderHeading(_ culture:Module.Index) -> HTML.Element<Page.Topics.Key>
     {
         .a(String.init(self[culture].title)) 
         { 
@@ -492,24 +498,6 @@ extension Ecosystem
         }
     }
     private 
-    func sort(_ relationships:[Generic.Conditional<Symbol.Index>]) 
-        -> [(relationship:Generic.Conditional<Symbol.Index>, host:Symbol.Index)]
-    {
-        relationships.map 
-        {
-            (relationship:Generic.Conditional<Symbol.Index>) -> 
-            (relationship:Generic.Conditional<Symbol.Index>, host:Symbol.Index) in 
-            (
-                relationship: relationship, 
-                host: self[relationship.target].type ?? relationship.target
-            )
-        }
-        .sorted 
-        {
-            self[$0.host].path.lexicographicallyPrecedes(self[$1.host].path)
-        }
-    }
-    private 
     func sort(_ roles:Symbol.Roles?) -> [(target:Symbol.Index, host:Symbol.Index)]
     {
         switch roles 
@@ -527,33 +515,6 @@ extension Ecosystem
             .sorted 
             {
                 self[$0.host].path.lexicographicallyPrecedes(self[$1.host].path)
-            }
-        }
-    }
-    private 
-    func sort(_ cards:[Symbol.Card]) -> [Symbol.Card]
-    {
-        cards.sorted 
-        {
-            // this lexicographic ordering sorts by last path component first, 
-            // and *then* by vending protocol (if applicable)
-            let base:(Symbol, Symbol) = 
-            (
-                self[$0.composite.base], 
-                self[$1.composite.base]
-            )
-            if  base.0.name < base.1.name 
-            {
-                return true 
-            }
-            else if base.0.name == base.1.name 
-            {
-                return base.0.path.prefix
-                    .lexicographicallyPrecedes(base.1.path.prefix)
-            }
-            else 
-            {
-                return false 
             }
         }
     }

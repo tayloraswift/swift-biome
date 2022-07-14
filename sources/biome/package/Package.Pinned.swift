@@ -177,6 +177,11 @@ extension Package.Pinned
         self.package.toplevels
             .through(self.version, head: self.package[local: module].heads.toplevel) ?? []
     }
+    func guides(_ module:Module.Index) -> Set<Article.Index>
+    {
+        self.package.guides
+            .through(self.version, head: self.package[local: module].heads.guides) ?? []
+    }
     
     func declaration(_ symbol:Symbol.Index) -> Symbol.Declaration
     {

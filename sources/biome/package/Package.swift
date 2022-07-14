@@ -69,7 +69,8 @@ struct Package:Identifiable, Sendable
     // per-module buffers
     private(set)
     var dependencies:Keyframe<Set<Module.Index>>.Buffer, // always populated 
-        toplevels:Keyframe<Set<Symbol.Index>>.Buffer // always populated 
+        toplevels:Keyframe<Set<Symbol.Index>>.Buffer, // always populated 
+        guides:Keyframe<Set<Article.Index>>.Buffer // *not* always populated
     // per-article buffers
     private(set)
     var headlines:Keyframe<Article.Headline>.Buffer
@@ -109,6 +110,7 @@ struct Package:Identifiable, Sendable
         self.articles = .init()
         self.external = [:]
         self.toplevels = .init()
+        self.guides = .init()
         self.dependencies = .init()
         self.declarations = .init()
         
@@ -381,17 +383,21 @@ extension Package
     func updateDeclarations(scopes:[Symbol.Scope], symbols:[[Symbol.Index: Vertex.Frame]]) 
         throws -> [Dictionary<Symbol.Index, Symbol.Declaration>.Keys]
     {
+        let current:Version = self.versions.latest
         let declarations:[[Symbol.Index: Symbol.Declaration]] = try zip(scopes, symbols).map
         {
             let (scope, symbols):(Symbol.Scope, [Symbol.Index: Vertex.Frame]) = $0
             return try symbols.mapValues { try .init($0, scope: scope) }
         }
-        self.updateDeclarations(declarations)
+        for (index, declaration):(Symbol.Index, Symbol.Declaration) in declarations.joined() 
+        {
+            self.declarations.update(head: &self.symbols[local: index].heads.declaration, 
+                to: current, with: declaration)
+        }
         
         let positions:[Dictionary<Symbol.Index, Symbol.Declaration>.Keys] = 
             declarations.map(\.keys)
         // also update module toplevels 
-        let current:Version = self.versions.latest
         for (scope, symbols):(Symbol.Scope, Dictionary<Symbol.Index, Symbol.Declaration>.Keys) 
             in zip(scopes, positions)
         {
@@ -407,14 +413,30 @@ extension Package
         }
         return positions
     }
-    private mutating 
-    func updateDeclarations(_ declarations:[[Symbol.Index: Symbol.Declaration]]) 
+    
+    mutating 
+    func updateHeadlines(for cultures:[Module.Index], articles:[[Article.Index: Extension]]) 
+        throws
     {
         let current:Version = self.versions.latest
-        for (index, declaration):(Symbol.Index, Symbol.Declaration) in declarations.joined() 
+        for (culture, articles):(Module.Index, [Article.Index: Extension]) in 
+            zip(cultures, articles)
         {
-            self.declarations.update(head: &self.symbols[local: index].heads.declaration, 
-                to: current, with: declaration)
+            for (index, article):(Article.Index, Extension) in articles
+            {
+                let headline:Article.Headline = .init(
+                    formatted: article.headline.rendered(as: [UInt8].self),
+                    plain: article.headline.plainText)
+                self.headlines.update(head: &self.articles[local: index].heads.headline, 
+                    to: current, with: headline)
+            }
+            
+            let guides:Set<Article.Index> = .init(articles.keys)
+            if !guides.isEmpty 
+            {
+                self.guides.update(head: &self.modules[local: culture].heads.guides,
+                    to: current, with: guides)
+            }
         }
     }
     
@@ -480,12 +502,6 @@ extension Package
             case .package(_): 
                 fatalError("unreachable")
             }
-        }
-        for (index, headline):(Article.Index, Article.Headline) in 
-            compiled.headlines
-        {
-            self.headlines.update(head: &self.articles[local: index].heads.headline, 
-                to: current, with: headline)
         }
     }
     mutating 

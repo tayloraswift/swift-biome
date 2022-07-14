@@ -2,12 +2,6 @@ import Notebook
 
 extension Symbol 
 {
-    typealias Card = 
-    (
-        composite:Symbol.Composite, 
-        declaration:Symbol.Declaration
-    )
-    
     struct Declaration:Equatable
     {
         // signatures and declarations can change without disturbing the symbol identifier, 

@@ -3,6 +3,7 @@ extension Symbol.Role:Hashable where Target:Hashable {}
 extension Symbol.Role:Sendable where Target:Sendable {}
 extension Symbol 
 {
+    @frozen public
     enum Role<Target>:CustomStringConvertible
     {
         case member(of:Target)
@@ -34,7 +35,7 @@ extension Symbol
                 return .requirement(of: try transform(target))
             }
         }
-        
+        @inlinable public
         var description:String 
         {
             switch self 

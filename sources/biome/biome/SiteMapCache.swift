@@ -2,16 +2,8 @@ import Resources
 
 struct SiteMapCache:Cache 
 {
-    private
+    private(set)
     var cache:[Package.Index: Resource]
-    
-    subscript(package:Package.Index) -> Resource?
-    {
-        _read 
-        {
-            yield self.cache[package]
-        }
-    }
     
     init()
     {

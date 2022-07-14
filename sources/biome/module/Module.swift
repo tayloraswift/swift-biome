@@ -40,6 +40,8 @@ struct Module:Identifiable, Sendable
         var dependencies:Keyframe<Set<Index>>.Buffer.Index?
         @Keyframe<Set<Symbol.Index>>.Head
         var toplevel:Keyframe<Set<Symbol.Index>>.Buffer.Index?
+        @Keyframe<Set<Article.Index>>.Head
+        var guides:Keyframe<Set<Article.Index>>.Buffer.Index?
         @Keyframe<Article.Template<Ecosystem.Link>>.Head
         var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
         
@@ -47,6 +49,7 @@ struct Module:Identifiable, Sendable
         {
             self._dependencies = .init()
             self._toplevel = .init()
+            self._guides = .init()
             self._template = .init()
         }
     }

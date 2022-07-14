@@ -3,7 +3,7 @@ import Markdown
 extension Extension 
 {
     struct Metadata 
-    {        
+    {
         var path:Path?
         var imports:Set<Module.ID> 
         var errors:[DirectiveArgumentText.ParseError]

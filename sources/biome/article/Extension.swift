@@ -46,6 +46,7 @@ struct Extension:Sendable
             self.metadata.path = .init(last: .init(name.map { $0 == " " ? "-" : $0 }))
         }
     }
+    public 
     init(markdown string:String)
     {
         let root:Markdown.Document = .init(parsing: string, 
@@ -202,8 +203,8 @@ struct Extension:Sendable
         {
             renderer.append(nodes: remaining)
         }
-        let discussion:DOM.Template<String, [UInt8]> = .init(freezing: renderer.elements)
-        let summary:DOM.Template<String, [UInt8]>
+        let discussion:DOM.Template<String> = .init(freezing: renderer.elements)
+        let summary:DOM.Template<String>
         if let first:HTML.Element<String> = first 
         {
             summary = .init(freezing: first)

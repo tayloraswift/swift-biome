@@ -1,9 +1,9 @@
-struct Topics 
+extension Page 
 {
-    enum Key:Hashable, Sendable 
+    enum Card 
     {
-        case excerpt(Symbol.Composite)
-        case uri(Ecosystem.Index)
+        case composite(Symbol.Composite, Symbol.Declaration)
+        case article(Article.Index, Article.Headline)
     }
     
     enum Sublist:Hashable, CaseIterable, Sendable
@@ -32,44 +32,84 @@ struct Topics
         case restatements       = "Restated By"
         case overrides          = "Overridden By"
     }
-    
-    var requirements:[Sublist: [Symbol.Card]]
-    var members:[Sublist: [Module.Culture: [Symbol.Card]]]
-    var removed:[Sublist: [Module.Culture: [Symbol.Card]]]
-    var lists:[List: [Module.Culture: [Generic.Conditional<Symbol.Index>]]]
-    
-    var isEmpty:Bool 
+    struct Topics 
     {
-        self.requirements.isEmpty && 
-        self.members.isEmpty && 
-        self.removed.isEmpty && 
-        self.lists.isEmpty 
-    }
-    
-    init() 
-    {
-        self.requirements = [:]
-        self.members = [:]
-        self.removed = [:]
-        self.lists = [:]
+        enum Key:Hashable, Sendable 
+        {
+            case composite(Symbol.Composite)
+            case article(Article.Index)
+            case uri(Ecosystem.Index)
+        }
+        
+        var feed:[Card]
+        var requirements:[Sublist: [Card]]
+        var members:[Sublist: [Module.Culture: [Card]]]
+        var removed:[Sublist: [Module.Culture: [Card]]]
+        var lists:[List: [Module.Culture: [Generic.Conditional<Symbol.Index>]]]
+        
+        var isEmpty:Bool 
+        {
+            self.feed.isEmpty &&
+            self.requirements.isEmpty && 
+            self.members.isEmpty && 
+            self.removed.isEmpty && 
+            self.lists.isEmpty 
+        }
+        
+        init() 
+        {
+            self.feed = []
+            self.requirements = [:]
+            self.members = [:]
+            self.removed = [:]
+            self.lists = [:]
+        }
+        
+        mutating 
+        func sort(by ecosystem:Ecosystem)
+        {
+            self.feed.sort(by: ecosystem)
+            self.requirements.sortValues(by: ecosystem)
+            for index:Dictionary<Sublist, [Module.Culture: [Card]]>.Index in self.members.indices 
+            {
+                self.members.values[index].sortValues(by: ecosystem)
+            }
+            for index:Dictionary<Sublist, [Module.Culture: [Card]]>.Index in self.removed.indices 
+            {
+                self.removed.values[index].sortValues(by: ecosystem)
+            }
+            for index:Dictionary<List, [Module.Culture: [Generic.Conditional<Symbol.Index>]]>.Index in 
+                self.lists.indices 
+            {
+                self.lists.values[index].sortValues(by: ecosystem)
+            }
+        }
     }
 }
 
 extension Ecosystem.Pinned 
 {
-    func organize(toplevel:Set<Symbol.Index>) -> Topics 
+    func organize(toplevel:Set<Symbol.Index>, guides:Set<Article.Index>) -> Page.Topics 
     {
-        var topics:Topics = .init()
-        for index:Symbol.Index in toplevel
+        var topics:Page.Topics = .init()
+        for article:Article.Index in guides
+        {
+            let headline:Article.Headline = 
+                self.pin(article.module.package).headline(article)
+            topics.feed.append(.article(article, headline))
+        }
+        for symbol:Symbol.Index in toplevel
         {
             // all toplevel symbols are natural and of the module’s primary culture
-            self.add(member: .init(natural: index), culture: .primary, to: &topics)
+            self.add(member: .init(natural: symbol), culture: .primary, to: &topics)
         }
+        
+        topics.sort(by: self.ecosystem)
         return topics
     }
-    func organize(facts:Symbol.Predicates, host:Symbol.Index) -> Topics 
+    func organize(facts:Symbol.Predicates, host:Symbol.Index) -> Page.Topics 
     {
-        var topics:Topics = .init()
+        var topics:Page.Topics = .init()
         
         if case .protocol = self.ecosystem[host].color
         {
@@ -113,10 +153,12 @@ extension Ecosystem.Pinned
                     host: host)  
             }
         }
+        
+        topics.sort(by: self.ecosystem)
         return topics
     }
     private 
-    func organize(topics:inout Topics, 
+    func organize(topics:inout Page.Topics, 
         culture:Module.Culture, 
         traits:Symbol.Traits, 
         host:Symbol.Index)
@@ -197,27 +239,27 @@ extension Ecosystem.Pinned
         }
     }
     private 
-    func add(member composite:Symbol.Composite, culture:Module.Culture, to topics:inout Topics)
+    func add(member composite:Symbol.Composite, culture:Module.Culture, to topics:inout Page.Topics)
     {
-        let sublist:Topics.Sublist = .color(self.ecosystem[composite.base].color)
+        let sublist:Page.Sublist = .color(self.ecosystem[composite.base].color)
         let declaration:Symbol.Declaration = 
             self.pin(composite.base.module.package).declaration(composite.base)
         // every sublist has a sub-sublist for the primary culture, even if it 
         // is empty. this is more css-grid friendly.
-        var empty:[Module.Culture: [Symbol.Card]] { [.primary: []] }
+        var empty:[Module.Culture: [Page.Card]] { [.primary: []] }
         if  declaration.availability.isUsable 
         {
             topics.members[sublist, default: empty][culture, default: []]
-                .append((composite, declaration))
+                .append(.composite(composite, declaration))
         }
         else 
         {
             topics.removed[sublist, default: empty][culture, default: []]
-                .append((composite, declaration))
+                .append(.composite(composite, declaration))
         }
     }
     private 
-    func add(role:Symbol.Index, pinned:Package.Pinned, to topics:inout Topics)
+    func add(role:Symbol.Index, pinned:Package.Pinned, to topics:inout Page.Topics)
     {
         // protocol roles may originate from a different package
         switch self.ecosystem[role].color 
@@ -226,13 +268,89 @@ extension Ecosystem.Pinned
             topics.lists[.implications, default: [:]][.primary, default: []]
                 .append(.init(role))
         case let color:
-            let sublist:Topics.Sublist = .color(color)
+            let sublist:Page.Sublist = .color(color)
             // this is always valid, because non-protocol roles are always 
             // requirements, and requirements always live in the same package as 
             // the protocol they are part of.
             let declaration:Symbol.Declaration = pinned.declaration(role)
             topics.requirements[sublist, default: []]
-                .append((.init(natural: role), declaration))
+                .append(.composite(.init(natural: role), declaration))
+        }
+    }
+}
+
+extension MutableCollection 
+    where Self:RandomAccessCollection, Element == Generic.Conditional<Symbol.Index>
+{
+    fileprivate mutating 
+    func sort(by ecosystem:Ecosystem) 
+    {
+        self.sort
+        {
+            ecosystem[$0.target].path.lexicographicallyPrecedes(ecosystem[$1.target].path)
+        }
+    }
+}
+extension MutableCollection 
+    where Self:RandomAccessCollection, Element == Page.Card
+{
+    fileprivate mutating 
+    func sort(by ecosystem:Ecosystem) 
+    {
+        self.sort 
+        {
+            // this lexicographic ordering sorts by last path component first, 
+            // and *then* by vending protocol (if applicable)
+            let path:(Path, Path) 
+            switch ($0, $1)
+            {
+            case (.article(_, _), .composite(_, _)):
+                return true 
+            case (.article(let first, _), .article(let second, _)):
+                path = (ecosystem[first].path, ecosystem[second].path)
+            case (.composite(let first, _), .composite(let second, _)):
+                path = (ecosystem[first.base].path, ecosystem[second.base].path)
+            case (.composite(_, _), .article(_, _)):
+                return false
+            }
+            if  path.0.last < path.1.last 
+            {
+                return true 
+            }
+            else if path.0.last == path.1.last 
+            {
+                return path.0.prefix.lexicographicallyPrecedes(path.1.prefix)
+            }
+            else 
+            {
+                return false 
+            }
+        }
+    }
+}
+extension Dictionary 
+    where   Value:MutableCollection & RandomAccessCollection, 
+            Value.Element == Generic.Conditional<Symbol.Index>
+{
+    fileprivate mutating 
+    func sortValues(by ecosystem:Ecosystem)
+    {
+        for index:Index in self.indices 
+        {
+            self.values[index].sort(by: ecosystem)
+        }
+    }
+}
+extension Dictionary 
+    where   Value:MutableCollection & RandomAccessCollection, 
+            Value.Element == Page.Card 
+{
+    fileprivate mutating 
+    func sortValues(by ecosystem:Ecosystem)
+    {
+        for index:Index in self.indices 
+        {
+            self.values[index].sort(by: ecosystem)
         }
     }
 }

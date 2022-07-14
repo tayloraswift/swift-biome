@@ -1,9 +1,11 @@
 import Grammar 
 import JSON
 
+public 
 struct Edge:Hashable, Sendable
 {
     // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
+    @frozen public
     enum Kind:String, CustomStringConvertible, Sendable
     {
         case member                 = "memberOf"
@@ -14,6 +16,7 @@ struct Edge:Hashable, Sendable
         case optionalRequirement    = "optionalRequirementOf"
         case defaultImplementation  = "defaultImplementationOf"
         
+        @inlinable public
         var description:String 
         {
             switch self 

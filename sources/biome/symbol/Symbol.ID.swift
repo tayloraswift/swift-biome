@@ -6,9 +6,10 @@ extension Symbol
         case swift  = "s"
     }
     
-    @usableFromInline 
+    @frozen public
     struct ID:Hashable, CustomStringConvertible, Sendable 
     {
+        public 
         let string:String 
         
         init(string:String)
@@ -31,7 +32,7 @@ extension Symbol
             return language 
         }
         
-        @usableFromInline 
+        @inlinable public
         var description:String
         {
             self.string

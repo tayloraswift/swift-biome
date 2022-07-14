@@ -4,7 +4,7 @@ import Resources
 public
 struct Biome 
 {
-    let template:DOM.Template<Page.Key, [UInt8]>, 
+    let template:DOM.Template<Page.Key>, 
         logo:[UInt8]
     @usableFromInline private(set)
     var ecosystem:Ecosystem
@@ -23,7 +23,7 @@ struct Biome
         searchIndices:SearchIndexCache
     
     public 
-    init(roots:[Root: String] = [:], template:DOM.Template<Page.Key, [UInt8]>) 
+    init(roots:[Root: String] = [:], template:DOM.Template<Page.Key>) 
     {
         self.ecosystem = .init(roots: roots)
         self.searchIndices = .init()
@@ -107,6 +107,7 @@ struct Biome
         case .index(let index, pins: let pins, exhibit: let exhibit): 
             var page:Page = .init(self.ecosystem.pinned(pins), logo: self.logo)
                 page.generate(for: index, exhibit: exhibit)
+                page.add(scriptConstants: self.searchIndices.cache.keys)
             return .matched(.init(self.template.rendered(as: [UInt8].self, 
                         substituting: _move(page).substitutions), 
                     type: .utf8(encoded: .html)), 
@@ -115,12 +116,13 @@ struct Biome
         case .choices(let choices, pins: let pins): 
             var page:Page = .init(self.ecosystem.pinned(pins), logo: self.logo)
                 page.generate(for: choices, uri: uri)
+                page.add(scriptConstants: self.searchIndices.cache.keys)
             return .multiple(.init(self.template.rendered(as: [UInt8].self, 
                         substituting: _move(page).substitutions), 
                     type: .utf8(encoded: .html)))
         
         case .searchIndex(let package): 
-            guard let cached:Resource = self.searchIndices[package]
+            guard let cached:Resource = self.searchIndices.cache[package]
             else 
             {
                 return .error(.init("search index for '\(self.ecosystem[package].id)' not available"))
@@ -128,7 +130,7 @@ struct Biome
             return .matched(cached, canonical: uri.description) 
         
         case .sitemap(let package): 
-            guard let cached:Resource = self.sitemaps[package]
+            guard let cached:Resource = self.sitemaps.cache[package]
             else 
             {
                 return .error(.init("sitemap for '\(self.ecosystem[package].id)' not available"))
@@ -158,9 +160,10 @@ struct Biome
                 graphs: graph.modules, 
                 version: version,
                 era: era)
+        let cultures:[Module.Index] = scopes.map(\.culture)
         
         let (articles, extensions):([[Article.Index: Extension]], [[String: Extension]]) = 
-            self.ecosystem[index].addExtensions(in: scopes.map(\.culture), 
+            self.ecosystem[index].addExtensions(in: cultures, 
                 graphs: graph.modules, 
                 stems: &self.stems)
         let symbols:[[Symbol.Index: Vertex.Frame]] = 
@@ -176,8 +179,10 @@ struct Biome
             scopes[scope].lenses.append(self.ecosystem[index].symbols.indices)
         }
         
+        
         let positions:[Dictionary<Symbol.Index, Symbol.Declaration>.Keys] =
             try self.ecosystem[index].updateDeclarations(scopes: scopes, symbols: symbols)
+            try self.ecosystem[index].updateHeadlines(for: cultures, articles: articles)
         let hints:[Symbol.Index: Symbol.Index] = 
             try self.ecosystem.updateImplicitSymbols(in: index, 
                 fromExplicit: _move(positions), 
