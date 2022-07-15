@@ -551,7 +551,7 @@ extension Package
         var articles:[Article.Index: Extension] = [:]
         var extensions:[String: Extension] = [:] 
         
-        let start:Int = self.articles.count
+        let start:Article.Index = .init(culture, offset: self.articles.count)
         for article:Extension in graph.articles
         {
             if let binding:String = article.binding 
@@ -577,7 +577,7 @@ extension Package
             }
             articles[index] = article
         }
-        let end:Int = self.articles.count 
+        let end:Article.Index = .init(culture, offset: self.articles.count)
         if start < end
         {
             self.modules[local: culture].articles.append(start ..< end)

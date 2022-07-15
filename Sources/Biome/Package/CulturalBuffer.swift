@@ -1,9 +1,39 @@
-protocol CulturalIndex 
+public 
+protocol CulturalIndex:Strideable
 {
     associatedtype Culture 
+    associatedtype Bits:UnsignedInteger
     
+    var culture:Culture { get }
+    var bits:Bits { get }
+    
+    init(_ culture:Culture, bits:Bits)
+}
+extension CulturalIndex 
+{
     init(_ culture:Culture, offset:Int)
-    var offset:Int { get }
+    {
+        self.init(culture, bits: .init(offset))
+    }
+    var offset:Int 
+    {
+        .init(self.bits)
+    }
+    @inlinable public static 
+    func < (lhs:Self, rhs:Self) -> Bool
+    {
+        lhs.bits < rhs.bits
+    }
+    @inlinable public
+    func advanced(by stride:Bits.Stride) -> Self 
+    {
+        .init(self.culture, bits: self.bits.advanced(by: stride))
+    }
+    @inlinable public
+    func distance(to other:Self) -> Bits.Stride
+    {
+        self.bits.distance(to: other.bits)
+    }
 }
 
 struct CulturalBuffer<Index, Element> where Index:CulturalIndex, Element:Identifiable

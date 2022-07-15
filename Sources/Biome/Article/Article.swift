@@ -7,22 +7,20 @@ struct Article:Identifiable
     /// 
     /// An article index encodes the module it belongs to, whichs makes it possible 
     /// to query module membership based on the index alone.
-    @usableFromInline 
+    @frozen public 
     struct Index:CulturalIndex, Hashable, Sendable
     {
+        public 
         let module:Module.Index
+        public 
         let bits:UInt32
         
-        var offset:Int
+        @inlinable public 
+        var culture:Module.Index
         {
-            .init(self.bits)
+            self.module
         }
-        
-        init(_ module:Module.Index, offset:Int)
-        {
-            self.init(module, bits: .init(offset))
-        }
-        fileprivate 
+        @inlinable public 
         init(_ module:Module.Index, bits:UInt32)
         {
             self.module = module

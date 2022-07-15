@@ -5,68 +5,24 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     /// 
     /// A symbol index encodes the module it belongs to, which makes it possible 
     /// to query module membership based on the index alone.
-    @usableFromInline 
+    @frozen public 
     struct Index:CulturalIndex, Hashable, Sendable
     {
+        public 
         let module:Module.Index
+        public 
         let bits:UInt32
-        
-        var offset:Int
+        @inlinable public 
+        var culture:Module.Index
         {
-            .init(self.bits)
+            self.module
         }
-        
-        init(_ module:Module.Index, offset:Int)
-        {
-            self.init(module, bits: .init(offset))
-        }
-        fileprivate 
+        @inlinable public 
         init(_ module:Module.Index, bits:UInt32)
         {
             self.module = module
             self.bits = bits
-        }
-    }
-    struct IndexRange:RandomAccessCollection, Hashable, Sendable
-    {
-        let module:Module.Index 
-        let bits:Range<UInt32>
-        
-        var offsets:Range<Int> 
-        {
-            .init(self.bits.lowerBound) ..< .init(self.bits.upperBound)
-        }
-        var lowerBound:Symbol.Index 
-        {
-            .init(self.module, bits: self.bits.lowerBound)
-        }
-        var upperBound:Symbol.Index 
-        {
-            .init(self.module, bits: self.bits.upperBound)
-        }
-        
-        var startIndex:UInt32
-        {
-            self.bits.startIndex
-        }
-        var endIndex:UInt32
-        {
-            self.bits.endIndex
-        }
-        subscript(index:UInt32) -> Symbol.Index 
-        {
-            .init(self.module, bits: self.bits[index])
-        }
-        
-        init(_ module:Module.Index, offsets:Range<Int>)
-        {
-            self.init(module, bits: .init(offsets.lowerBound) ..< .init(offsets.upperBound))
-        }
-        init(_ module:Module.Index, bits:Range<UInt32>)
-        {
-            self.module = module
-            self.bits = bits
-        }
+        } 
     }
     // this is like ``Symbol.IndexRange``, except the ``module`` field refers to 
     // a namespace, not the module that actually contains the symbol

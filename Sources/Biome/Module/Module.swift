@@ -4,21 +4,24 @@ public
 struct Module:Identifiable, Sendable
 {
     /// A globally-unique index referencing a module. 
-    @usableFromInline 
+    @frozen public
     struct Index:CulturalIndex, Hashable, Sendable 
     {
+        public 
         let package:Package.Index 
+        public 
         let bits:UInt16
-        
-        var offset:Int 
+        @inlinable public 
+        var culture:Package.Index
         {
-            .init(self.bits)
+            self.package
         }
-        init(_ package:Package.Index, offset:Int)
+        @inlinable public 
+        init(_ package:Package.Index, bits:UInt16)
         {
-            self.package = package 
-            self.bits = .init(offset)
-        }
+            self.package = package
+            self.bits = bits
+        } 
     }
     
     enum Culture:Hashable, Sendable 
@@ -59,7 +62,7 @@ struct Module:Identifiable, Sendable
     let index:Index 
     
     var symbols:[Symbol.ColonialRange]
-    var articles:[Range<Int>]
+    var articles:[Range<Article.Index>]
     
     var heads:Heads
     

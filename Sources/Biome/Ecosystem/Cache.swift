@@ -74,10 +74,9 @@ extension Ecosystem
         }
         for module:Module in current.package.modules.all 
         {
-            for offset:Int in module.articles.joined() 
+            for article:Article.Index in module.articles.joined() 
             {
-                let index:Article.Index = .init(module.index, offset: offset)
-                let uri:URI = self.uri(of: index, in: current)
+                let uri:URI = self.uri(of: article, in: current)
                 sitemap += domain
                 sitemap += uri.description.utf8
                 sitemap.append(0x0a) // '\n'
