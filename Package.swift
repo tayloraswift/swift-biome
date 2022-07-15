@@ -20,7 +20,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a"),
         .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a"),
         
-        // only used by the index target
+        // only used by the PackageCatalog target
         .package(url: "https://github.com/apple/swift-system.git",              exact: "1.2.1"),
         // only used by the previewer target
         .package(url: "https://github.com/apple/swift-nio.git",                 exact: "2.40.0"),

@@ -1,6 +1,6 @@
 .build/
 .resources/
-Packages
+/Packages
 
 .biome
 .checkouts
