@@ -6,116 +6,62 @@ extension Package
     public 
     struct Resolved
     {
-        // needed for compatibility with older spm tools
-        @usableFromInline
-        struct Legacy:Decodable
-        {
-            @usableFromInline
-            let object:Object
-        }
-        @usableFromInline
-        struct Object:Decodable 
-        {
-            struct State:Decodable 
-            {
-                let revision:String, 
-                    version:String?, 
-                    branch:String?
-            }
-            @usableFromInline 
-            struct Pin:Decodable 
-            {
-                let id:ID?, 
-                    package:ID?,
-                    location:String?, 
-                    state:State 
-                    
-                enum CodingKeys:String, CodingKey 
-                {
-                    case id = "identity" 
-                    case package 
-                    case location 
-                    case state 
-                }
-            }
-            
-            @usableFromInline 
-            let pins:[Pin]
-        }
-        
         public
         var pins:[ID: MaskedVersion]
-        
-        @inlinable public
-        init<UTF8>(parsing json:UTF8) throws 
-            where UTF8:Collection, UTF8.Element == UInt8
+    }
+}
+extension Package.Resolved
+{
+    public
+    init(pins:[Pin])
+    {
+        self.pins = [:]
+        for pin:Pin in pins 
         {
-            let json:JSON = try Grammar.parse(json, as: JSON.Rule<UTF8.Index>.Root.self)
-            if  let object:Object = try? .init(from: json)
+            // these strings are slightly different from the ones we 
+            // parse from url queries 
+            switch pin.state.requirement 
             {
-                self.init(pins: object.pins)
-            }
-            else 
-            {
-                let wrapper:Legacy = try .init(from: json)
-                self.init(pins: wrapper.object.pins)
+            case .version(let version):
+                self.pins[pin.id] = version
+            case .branch(let branch):
+                self.pins[pin.id] = .init(branch) ?? .init(toolchain: branch)
             }
         }
-        @usableFromInline 
-        init(pins:[Object.Pin])
+    }
+    public 
+    init(from json:JSON) throws 
+    {
+        let pins:[Pin] = try json.lint   
         {
-            self.pins = [:]
-            for pin:Object.Pin in pins 
+            switch try $0.remove("version", as: Int.self)
             {
-                guard let id:ID = pin.id ?? pin.package 
-                else 
+            case 1:
+                return try $0.remove("object") 
                 {
-                    continue 
-                }
-                // these strings are slightly different from the ones we 
-                // parse from url queries 
-                if let string:String = pin.state.version
-                {
-                    // always 3 components 
-                    let numbers:[Substring] = string.split(separator: ".")
-                    if  numbers.count == 3, 
-                        let major:UInt16 = .init(numbers[0]),
-                        let minor:UInt16 = .init(numbers[1]),
-                        let patch:UInt16 = .init(numbers[2])
-                    {
-                        self.pins[id] = .patch(major, minor, patch)
+                    try $0.lint 
+                    { 
+                        try $0.remove("pins", as: [JSON].self) 
+                        {
+                            try $0.map(Pin.init(from:))
+                        }
                     }
                 }
-                else if let string:String = pin.state.branch
+            case 2:
+                return  try $0.remove("pins", as: [JSON].self)
                 {
-                    let words:[Substring] = string.split(separator: "-")
-                    if  words.count == 7, 
-                        words[0] == "swift", 
-                        words[1] == "DEVELOPMENT", 
-                        words[2] == "SNAPSHOT", 
-                        let year:UInt16 = .init(words[3]), 
-                        let month:UInt16 = .init(words[4]), 
-                        let day:UInt16 = .init(words[5]), 
-                        let letter:Unicode.Scalar = words[6].unicodeScalars.first,
-                        "a" ... "z" ~= letter
-                    {
-                        self.pins[id] = .hourly(year: year, month: month, day: day, 
-                            letter: .init(ascii: letter))
-                        continue 
-                    }
-                    
-                    let numbers:[Substring] = string.split(separator: ".")
-                    if  numbers.count == 4, 
-                        let major:UInt16 = .init(numbers[0]),
-                        let minor:UInt16 = .init(numbers[1]),
-                        let patch:UInt16 = .init(numbers[2]),
-                        let edition:UInt16 = .init(numbers[3])
-                    {
-                        self.pins[id] = .edition(major, minor, patch, edition)
-                        continue 
-                    }
+                            try $0.map(Pin.init(from:))
                 }
+            default: 
+                fatalError("unsupported Package.resolved format") 
             }
         }
+        self.init(pins: pins)
+    }
+    @inlinable public
+    init<UTF8>(parsing json:UTF8) throws 
+        where UTF8:Collection, UTF8.Element == UInt8
+    {
+        try self.init(from: try Grammar.parse(json, as: JSON.Rule<UTF8.Index>.Root.self))
     }
 }

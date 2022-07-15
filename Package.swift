@@ -6,8 +6,8 @@ let package = Package(
     products: 
     [
         .library(name: "Biome", targets: ["Biome"]),
-        .library(name: "BiomeIndex", targets: ["BiomeIndex"]),
-        .library(name: "BiomeTemplates", targets: ["BiomeTemplates"]),
+        .library(name: "PackageCatalog", targets: ["PackageCatalog"]),
+        
         .executable(name: "preview", targets: ["Preview"]),
     ],
     dependencies: 
@@ -39,39 +39,28 @@ let package = Package(
                 .product(name: "SwiftSyntaxParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntax",       package: "swift-syntax"),
                 .product(name: "Markdown",          package: "swift-markdown"),
-            ], 
-            path: "sources/biome"),
+            ]),
         
-        .target(name: "BiomeIndex", 
+        .target(name: "PackageCatalog", 
             dependencies: 
             [
                 .target(name: "Biome"),
+                
                 .product(name: "JSON",              package: "swift-json"),
                 .product(name: "SystemExtras",      package: "swift-resource"),
-            ], 
-            path: "sources/index"),
-        
-        .target(name: "BiomeTemplates", 
-            dependencies: 
-            [
-                .target(name: "Biome"),
-                .product(name: "DOM",               package: "swift-dom"),
-            ], 
-            path: "sources/templates"),
+            ]),
         
         .executableTarget(name: "Preview", 
             dependencies: 
             [
                 .target(name: "Biome"),
-                .target(name: "BiomeIndex"),
-                .target(name: "BiomeTemplates"),
+                .target(name: "PackageCatalog"),
                 
                 .product(name: "NIO",               package: "swift-nio"),
                 .product(name: "NIOHTTP1",          package: "swift-nio"),
                 .product(name: "Backtrace",         package: "swift-backtrace"),
                 .product(name: "SystemPackage",     package: "swift-system"),
                 .product(name: "ArgumentParser",    package: "swift-argument-parser"),
-            ], 
-            path: "sources/preview"),
+            ]),
     ]
 )

@@ -1,5 +1,7 @@
 import JSON
 
+infix operator ?= :ComparisonPrecedence
+
 @usableFromInline
 struct Version:Hashable, Strideable, Sendable
 {
@@ -87,7 +89,7 @@ enum PreciseVersion:Hashable, CustomStringConvertible, Sendable
     }
     
     @inlinable public static
-    func ~= (pattern:MaskedVersion?, precise:Self) -> Bool 
+    func ?= (pattern:MaskedVersion?, precise:Self) -> Bool 
     {
         switch pattern 
         {
@@ -174,13 +176,26 @@ enum MaskedVersion:Hashable, CustomStringConvertible, Sendable
     }
     
     @inlinable public static
-    func ~= (pattern:MaskedVersion?, version:Self) -> Bool 
+    func ?= (pattern:MaskedVersion?, version:Self) -> Bool 
     {
-        pattern ~= .init(version)
+        pattern ?= .init(version)
     }
 }
 extension MaskedVersion 
 {
+    @inlinable public
+    init?<S>(toolchain string:S) where S:StringProtocol
+    {
+        if  let version:Self = 
+            try? Grammar.parse(string.unicodeScalars, as: Rule<String.Index>.Toolchain.self)
+        {
+            self = version 
+        }
+        else 
+        {
+            return nil 
+        }
+    }
     @inlinable public
     init?<S>(_ string:S) where S:StringProtocol
     {
@@ -236,6 +251,7 @@ extension MaskedVersion.Rule
         typealias Terminal = Unicode.Scalar
         public 
         typealias Construction = UInt8
+        
         @inlinable public static 
         func parse(terminal:Terminal) -> UInt8?
         {
@@ -244,6 +260,109 @@ extension MaskedVersion.Rule
             case "a" ... "z":   return .init(ascii: terminal)
             //case "A" ... "Z":   return terminal.lowercased()
             default:            return nil
+            }
+        }
+    }
+    public 
+    enum Swift:LiteralRule 
+    {
+        public
+        typealias Terminal = Unicode.Scalar
+        
+        @inlinable public static
+        var literal:String.UnicodeScalarView 
+        {
+            "swift".unicodeScalars
+        }
+    }
+    public 
+    enum Release:LiteralRule 
+    {
+        public
+        typealias Terminal = Unicode.Scalar
+        
+        @inlinable public static
+        var literal:String.UnicodeScalarView 
+        {
+            "RELEASE".unicodeScalars
+        }
+    }
+    public 
+    enum DevelopmentSnapshot:LiteralRule 
+    {
+        public
+        typealias Terminal = Unicode.Scalar
+        
+        @inlinable public static
+        var literal:String.UnicodeScalarView 
+        {
+            "DEVELOPMENT-SNAPSHOT".unicodeScalars
+        }
+    }
+    public 
+    enum Toolchain:ParsingRule 
+    {
+        public 
+        typealias Terminal = Unicode.Scalar
+        
+        @inlinable public static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
+            throws -> MaskedVersion
+            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+        {
+            try input.parse(as: Swift.self)
+            try input.parse(as: Encoding.Hyphen.self)
+            if case _? = input.parse(as: DevelopmentSnapshot?.self)
+            {
+                try input.parse(as: Encoding.Hyphen.self)
+                let year:UInt16 = try input.parse(as: Integer.self)
+                try input.parse(as: Encoding.Hyphen.self)
+                let month:UInt16 = try input.parse(as: Integer.self)
+                try input.parse(as: Encoding.Hyphen.self)
+                let day:UInt16 = try input.parse(as: Integer.self)
+                try input.parse(as: Encoding.Hyphen.self)
+                let hour:UInt8 = try input.parse(as: Hour.self)
+                
+                return .hourly(year: year, month: month, day: day, letter: hour)
+            }
+            else 
+            {
+                let semantic:MaskedVersion = try input.parse(as: Semantic.self)
+                try input.parse(as: Encoding.Hyphen.self)
+                try input.parse(as: Release.self)
+                return semantic
+            }
+        }
+    }
+    // will only parse up to 3 components 
+    public 
+    enum Semantic:ParsingRule 
+    {
+        public 
+        typealias Terminal = Unicode.Scalar
+        
+        @inlinable public static 
+        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
+            throws -> MaskedVersion
+            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+        {
+            let first:UInt16 = try input.parse(as: Integer.self)
+            if  case let (_, minor)? = 
+                try? input.parse(as: (Encoding.Period, Integer).self)
+            {
+                if  case let (_, patch)? = 
+                    try? input.parse(as: (Encoding.Period, Integer).self)
+                {
+                    return .patch(first, minor, patch)
+                }
+                else 
+                {
+                    return .minor(first, minor)
+                }
+            }
+            else 
+            {
+                return .major(first)
             }
         }
     }

@@ -92,7 +92,7 @@ struct Ecosystem:Sendable
     }
     
     public
-    init(roots:[Root: String] = [:], template:DOM.Template<Page.Key>)
+    init(roots:[Root: String] = [:])
     {
         self.logo = Self.logo
         self.root = 
@@ -111,6 +111,8 @@ struct Ecosystem:Sendable
             self.stems.register(component: self.root.sitemap):      .sitemap,
             self.stems.register(component: self.root.searchIndex):  .searchIndex,
         ]
+        
+        let template:DOM.Template<Page.Key> = .init(freezing: Page.html)
         self.templates = .init(uniqueKeysWithValues: self.roots.values.map 
         { 
             ($0, template) 
@@ -135,7 +137,7 @@ extension Ecosystem
     
     @discardableResult
     public mutating 
-    func updatePackage(_ graph:Package.Graph, era:[Package.ID: MaskedVersion]) 
+    func updatePackage(_ graph:Package.Graph, pins era:[Package.ID: MaskedVersion]) 
         throws -> Package.Index
     {
         try Task.checkCancellation()
@@ -231,11 +233,6 @@ extension Ecosystem
     
 extension Ecosystem 
 {
-    @available(*, deprecated)
-    subscript(package:Package.ID) -> Package?
-    {
-        self.packages[package]
-    } 
     subscript(package:Package.Index) -> Package
     {
         _read 

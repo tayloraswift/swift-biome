@@ -1,5 +1,4 @@
-import BiomeIndex
-import BiomeTemplates
+import PackageCatalog
 import Resources
 import HTML
 import NIO
@@ -33,12 +32,10 @@ actor Preview
     init(projects:[FilePath], resources:FilePath) async throws 
     {
         self.resources = [:]
-        self.ecosystem = .init(roots: [.master: "reference", .article: "learn"], 
-            template: .init(freezing: DefaultTemplates.documentation))
+        self.ecosystem = .init()
         
-        var pins:[Package.ID: MaskedVersion] = [:]
-        try self.loadBuiltinModules(pins: &pins, from: resources.appending("swift"))
-        try self.loadProjects(projects, pins: pins)
+        try self.ecosystem.loadToolchains(from: resources.appending("swift"))
+        try self.ecosystem.loadProjects(from: projects)
         
         try self.loadResources(from: resources)
         
@@ -78,60 +75,6 @@ actor Preview
                 self.resources[uri] = .init(hashing: try path.read(), type: type)
             }
         }
-    }
-}
-extension Preview 
-{
-    private 
-    func loadBuiltinModules(pins:inout [Package.ID: MaskedVersion], 
-        from directory:FilePath) throws 
-    {
-        try Task.checkCancellation() 
-        
-        // load standard library
-        for version:Substring in try directory.appending("swift-versions").read()
-            .split(whereSeparator: \.isWhitespace)
-        {
-            guard   let component:FilePath.Component = .init(String.init(version)), 
-                    let version:MaskedVersion = .init(version)
-            else 
-            {
-                continue 
-            }
-            let project:FilePath = directory.appending(component)
-            let catalogs:[Package.Catalog] = 
-                try .init(parsing: try project.appending("Package.catalog").read())
-            
-            pins = [.swift: version, .core: version]
-            for catalog:Package.Catalog in catalogs
-            {
-                try self.ecosystem.updatePackage(try catalog.loadGraph(relativeTo: project), 
-                    era: pins)
-            }
-        }
-    }
-    private 
-    func loadProjects(_ projects:[FilePath], pins:[Package.ID: MaskedVersion]) throws
-    {
-        for project:FilePath in projects 
-        {
-            try Task.checkCancellation() 
-            
-            print("loading project '\(project)'...")
-            
-            let resolved:Package.Resolved = 
-                try .init(parsing: try project.appending("Package.resolved").read())
-            let catalogs:[Package.Catalog] = 
-                try .init(parsing: try project.appending("Package.catalog").read())
-            let pins:[Package.ID: MaskedVersion] = pins.merging(resolved.pins) { $1 }
-            for catalog:Package.Catalog in catalogs
-            {
-                try self.ecosystem.updatePackage(try catalog.loadGraph(relativeTo: project), 
-                    era: pins)
-            }
-        }
-        
-        self.ecosystem.regenerateCaches()
     }
 }
 
