@@ -31,49 +31,32 @@ extension Package.Pinned
         self.package.depth(of: composite, at: self.version, route: route)
     }
     
-    func path() -> [String]
+    var prefix:[String]
     {
-        var path:[String] = [self.package.name]
+        self.package.prefix(arrival: self.abbreviatedVersion)
+    }
+    var path:[String]
+    {
         if let version:MaskedVersion = self.abbreviatedVersion
         {
-            path.append(version.description)
+            return [self.package.name, version.description]
         }
-        return path
-    }
-    func path(to index:Module.Index) -> [String]
-    {
-        var path:[String] = self.package.trunk
-        if let version:MaskedVersion = self.abbreviatedVersion
+        else 
         {
-            path.append(version.description)
+            return [self.package.name]
         }
-        // *not* `id.string` !
-        path.append(self.package[local: index].id.value)
-        return path
-    }
-    func path(to index:Article.Index) -> [String]
-    {
-        var path:[String] = self.path(to: index.module)
-        for component:String in self.package[local: index].path 
-        {
-            path.append(component.lowercased())
-        }
-        return path
     }
     func path(to composite:Symbol.Composite, ecosystem:Ecosystem) -> [String]
     {
         // same as host if composite is natural
         let base:Symbol = ecosystem[composite.base]
         let host:Symbol = ecosystem[composite.diacritic.host] 
+        let residency:Package.Index = host.namespace.package 
+        let arrival:MaskedVersion? = 
+            composite.culture.package == residency ? self.abbreviatedVersion : nil
+        var path:[String] = ecosystem[residency].prefix(arrival: arrival)
         
-        var path:[String] = ecosystem[host.namespace.package].trunk
-        if  composite.culture.package == host.namespace.package, 
-            let version:MaskedVersion = self.abbreviatedVersion
-        {
-            path.append(version.description)
-        }
-        
-        path.append(ecosystem[host.namespace].id.value)
+            path.append(ecosystem[host.namespace].id.value)
         
         for component:String in host.path 
         {
@@ -127,7 +110,7 @@ extension Package.Pinned
         
         if composite.culture.package != host.namespace.package
         {
-            query.lens = (self.package.id, self.abbreviatedVersion)
+            query.lens = .init(self.package.id, at: self.abbreviatedVersion)
         }
         return query
     }

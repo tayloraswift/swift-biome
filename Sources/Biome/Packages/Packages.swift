@@ -85,7 +85,7 @@ struct Packages
         graphs:[Module.Graph], 
         version:PreciseVersion,
         era:[Package.ID: MaskedVersion])
-        throws -> (pins:Package.Pins<Version>, scopes:[Symbol.Scope])
+        throws -> (pins:Package.Pins, scopes:[Symbol.Scope])
     {
         // create modules, if they do not exist already.
         // note: module indices are *not* necessarily contiguous, 
@@ -109,8 +109,8 @@ struct Packages
             ($0, self[$0].versions.snap(era[self[$0].id]))
         })
         // must call this *before* `updateDependencies`
-        let pins:Package.Pins<Version> = 
-            self[culture].updateVersion(version, upstream: upstream)
+        let pins:Package.Pins = self[culture].updateVersion(version, 
+            upstream: upstream)
         self[culture].updateDependencies(of: cultures, with: dependencies)
         
         return (pins, self.scopes(of: cultures, dependencies: dependencies))
@@ -195,32 +195,29 @@ extension Packages
 extension Packages 
 {
     mutating 
-    func updateDocumentation(in culture:Package.Index, 
-        upstream:[Package.Index: Version], 
-        compiled:Ecosystem.Documentation,
-        hints:[Symbol.Index: Symbol.Index])
+    func updateDocumentation(_ compiled:Ecosystem.Documentation,
+        hints:[Symbol.Index: Symbol.Index], 
+        pins:Package.Pins)
     {
-        self[culture].updateDocumentation(compiled)
-        self[culture].spreadDocumentation(
-            self.recruitMigrants(in: culture, upstream: upstream, 
-                sponsors: compiled.templates, 
-                hints: hints))
+        self[pins.local.package].updateDocumentation(compiled)
+        self[pins.local.package].spreadDocumentation(
+            self.recruitMigrants(sponsors: compiled, hints: hints, pins: pins))
     }
     // `culture` parameter not strictly needed, but we use it to make sure 
     // that ``generateRhetoric(graphs:scopes:)`` did not return ``hints``
     // about other packages
     private 
-    func recruitMigrants(in culture:Package.Index,
-        upstream:[Package.Index: Version], 
+    func recruitMigrants(
         sponsors:[Ecosystem.Index: Article.Template<Ecosystem.Link>],
-        hints:[Symbol.Index: Symbol.Index]) 
+        hints:[Symbol.Index: Symbol.Index], 
+        pins:Package.Pins) 
         -> [Symbol.Index: Article.Template<Ecosystem.Link>]
     {
         var migrants:[Symbol.Index: Article.Template<Ecosystem.Link>] = [:]
         for (member, sponsor):(Symbol.Index, Symbol.Index) in hints
             where !sponsors.keys.contains(.symbol(member))
         {
-            assert(member.module.package == culture)
+            assert(member.module.package == pins.local.package)
             // if a symbol did not have documentation of its own, 
             // check if it has a sponsor. article templates are copy-on-write 
             // types, so this will not (eagarly) copy storage
@@ -229,11 +226,10 @@ extension Packages
                 migrants[member] = template
             }
             // note: empty doccomments are omitted from the template buffer
-            else if culture != sponsor.module.package
+            else if pins.local.package != sponsor.module.package
             {
-                let template:Article.Template<Ecosystem.Link> = self[sponsor.module.package]
-                    .pinned(upstream)
-                    .template(sponsor)
+                let template:Article.Template<Ecosystem.Link> = 
+                    self[sponsor.module.package].pinned(pins).template(sponsor)
                 if !template.isEmpty
                 {
                     migrants[member] = template

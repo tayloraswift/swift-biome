@@ -2,6 +2,17 @@ import Grammar
 
 extension Symbol.Link 
 {
+    struct Lens 
+    {
+        let culture:Package.ID, 
+            version:MaskedVersion?
+        
+        init(_ culture:Package.ID, at version:MaskedVersion? = nil)
+        {
+            self.culture = culture 
+            self.version = version
+        }
+    }
     struct Query 
     {
         static 
@@ -11,7 +22,7 @@ extension Symbol.Link
         
         var base:Symbol.ID?
         var host:Symbol.ID?
-        var lens:(culture:Package.ID, version:MaskedVersion?)?
+        var lens:Lens?
         
         init() 
         {
@@ -45,11 +56,11 @@ extension Symbol.Link
                         let version:MaskedVersion = try? Grammar.parse(second.unicodeScalars, 
                             as: MaskedVersion.Rule<String.Index>.self)
                     {
-                        self.lens = (id, version)
+                        self.lens = .init(id, at: version)
                     }
                     else 
                     {
-                        self.lens = (id, nil)
+                        self.lens = .init(id)
                     }
                 
                 case Self.host:

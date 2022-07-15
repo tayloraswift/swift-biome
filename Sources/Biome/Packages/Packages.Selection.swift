@@ -35,48 +35,36 @@ extension Packages
         }
     }
     
-    func localize(destination:Package.Index, arrival:MaskedVersion? = nil,
-        lens:(culture:Package.ID, version:MaskedVersion?)?) 
-        -> (package:Package, pins:Package.Pins<Version>)?
+    func localize(destination:Package.Index, 
+        arrival:MaskedVersion? = nil,
+        lens:Symbol.Link.Lens?) -> Package.Pins?
     {
-        if case let (package, departure)? = lens 
+        if let lens:Symbol.Link.Lens 
         {
-            if  let package:Package = self[package], 
-                let pins:Package.Pins<Version> = package.versions[departure]
-            {
-                return (package, pins)
-            }
-            else 
-            {
-                return nil
-            }
-        }
-        else if let pins:Package.Pins<Version> = self[destination].versions[arrival]
-        {
-            return (self[destination], pins)
+            return self[lens.culture]?.versions[lens.version]
         }
         else 
         {
-            return nil
+            return self[destination].versions[arrival]
         }
     }
 }
 
 extension Packages
 {    
-    func selectExtantWithRedirect(from route:Route, lens:Package.Pinned, 
+    func selectExtantWithRedirect(_ route:Route, lens:Package.Pinned, 
         by disambiguator:Symbol.Disambiguator) 
         -> (selection:Selection, redirected:Bool)?
     {
         route.first 
         {
-            self.selectExtant(from: $0, lenses: CollectionOfOne<Package.Pinned>.init(lens))
+            self.selectExtant($0, lenses: CollectionOfOne<Package.Pinned>.init(lens))
             {
                 self.filter($0, by: disambiguator)
             }
         }
     }
-    func selectExtant<Lenses>(from route:Route, lenses:Lenses, 
+    func selectExtant<Lenses>(_ route:Route, lenses:Lenses, 
         where predicate:(Symbol.Composite) throws -> Bool) 
         rethrows -> Selection?
         where Lenses:Sequence, Lenses.Element == Package.Pinned
@@ -95,20 +83,20 @@ extension Packages
         return .init(matches)
     }
     
-    func selectHistoricalWithRedirect(from route:Route, lens:Package, 
+    func selectHistoricalWithRedirect(_ route:Route, lens:Package, 
         by disambiguator:Symbol.Disambiguator) 
         -> (selection:Selection, redirected:Bool)?
     {
         route.first 
         {
-            self.selectHistorical(from: $0, lens: lens)
+            self.selectHistorical($0, lens: lens)
             {
                 self.filter($0, by: disambiguator)
             }
         }
     }
     private
-    func selectHistorical(from route:Route, lens:Package, 
+    func selectHistorical(_ route:Route, lens:Package, 
         where predicate:(Symbol.Composite) throws -> Bool) 
         rethrows -> Selection?
     {

@@ -72,11 +72,13 @@ struct Ecosystem:Sendable
         roots:[Stem: Root]
     let root:
     (    
-        master:String,
-        article:String,
-        sitemap:String,
-        searchIndex:String
+        master:URI,
+        article:URI,
+        sitemap:URI,
+        searchIndex:URI
     )
+    private 
+    var redirects:[String: Index]
     
     private(set)
     var stems:Stems
@@ -86,30 +88,31 @@ struct Ecosystem:Sendable
     private(set)
     var packages:Packages 
     
-    func pinned(_ pins:[Package.Index: Version]) -> Pinned 
-    {
-        .init(self, pins: pins)
-    }
-    
     public
     init(roots:[Root: String] = [:])
     {
         self.logo = Self.logo
+        
+        let master:String       = roots[.master,      default: "reference"],
+            article:String      = roots[.article,     default: "learn"],
+            sitemap:String      = roots[.sitemap,     default: "sitemaps"],
+            searchIndex:String  = roots[.searchIndex, default: "lunr"]
+        
         self.root = 
         (
-            master:         roots[.master,      default: "reference"],
-            article:        roots[.article,     default: "learn"],
-            sitemap:        roots[.sitemap,     default: "sitemaps"],
-            searchIndex:   roots[.searchIndex,  default: "lunr"]
+            master:         .init(root: master),
+            article:        .init(root: article),
+            sitemap:        .init(root: sitemap),
+            searchIndex:    .init(root: searchIndex)
         )
-        self.caches = [:]
+        self.redirects = [:]
         self.stems = .init()
         self.roots = 
         [
-            self.stems.register(component: self.root.master):       .master,
-            self.stems.register(component: self.root.article):      .article,
-            self.stems.register(component: self.root.sitemap):      .sitemap,
-            self.stems.register(component: self.root.searchIndex):  .searchIndex,
+            self.stems.register(component: master):         .master,
+            self.stems.register(component: article):        .article,
+            self.stems.register(component: sitemap):        .sitemap,
+            self.stems.register(component: searchIndex):    .searchIndex,
         ]
         
         let template:DOM.Template<Page.Key> = .init(freezing: Page.html)
@@ -119,6 +122,7 @@ struct Ecosystem:Sendable
         })
         
         self.packages = .init()
+        self.caches = [:]
     }
 }
 extension Ecosystem 
@@ -147,7 +151,7 @@ extension Ecosystem
         let index:Package.Index = 
             try self.packages.updatePackageRegistration(for: graph.id)
         // initialize symbol id scopes for upstream packages only
-        let pins:Package.Pins<Version> ; var scopes:[Symbol.Scope] ; (pins, scopes) = 
+        let pins:Package.Pins ; var scopes:[Symbol.Scope] ; (pins, scopes) = 
             try self.packages.updateModuleRegistrations(in: index, 
                 graphs: graph.modules, 
                 version: version,
@@ -183,16 +187,15 @@ extension Ecosystem
         let comments:[Symbol.Index: String] = 
             Self.comments(from: _move(symbols), pruning: hints)
         let documentation:Ecosystem.Documentation = 
-            self.compileDocumentation(for: index, 
+            self.compileDocumentation(
                 extensions: _move(extensions),
                 articles: _move(articles),
                 comments: _move(comments), 
                 scopes: _move(scopes).map(\.namespaces),
                 pins: pins)
-        self.packages.updateDocumentation(in: index, 
-            upstream: _move(pins).upstream,
-            compiled: _move(documentation), 
-            hints: _move(hints))
+        self.packages.updateDocumentation(_move(documentation), 
+            hints: _move(hints), 
+            pins: _move(pins))
         
         func bold(_ string:String) -> String
         {
@@ -289,8 +292,7 @@ extension Ecosystem
     }
 
     @usableFromInline
-    func uri(of resolution:Resolution) 
-        -> (exact:URI, canonical:URI?) 
+    func uri(of resolution:Resolution) -> (exact:URI, canonical:URI?) 
     {
         switch resolution 
         {        
@@ -308,15 +310,16 @@ extension Ecosystem
         }
     }
     private 
-    func uri(of index:Index, pins:[Package.Index: Version], exhibit:Version?) 
+    func uri(of index:Index, pins:Package.Pins, exhibit:Version?) 
         -> (exact:URI, canonical:URI?) 
     {
+        let pinned:Package.Pinned = .init(self[pins.local.package], 
+            at: pins.local.version, 
+            exhibit: exhibit)
         let uri:URI
-        let pinned:Package.Pinned
         switch index 
         {
         case .composite(let composite):
-            pinned = self[composite.culture.package].pinned(pins, exhibit: exhibit)
             uri = self.uri(of: composite, in: pinned)
             guard composite.isNatural 
             else 
@@ -329,15 +332,12 @@ extension Ecosystem
             }
         
         case .article(let article):
-            pinned = self[article.module.package].pinned(pins, exhibit: exhibit)
             uri = self.uri(of: article, in: pinned)
             
         case .module(let module):
-            pinned = self[module.package].pinned(pins, exhibit: exhibit)
             uri = self.uri(of: module, in: pinned)
         
-        case .package(let package):
-            pinned = self[package].pinned(pins, exhibit: exhibit)
+        case .package(_):
             uri = self.uri(of: pinned)
         }
         
@@ -370,24 +370,51 @@ extension Ecosystem
 
     func uri(of pinned:Package.Pinned) -> URI
     {
-        .init(root: self.root.master, path: pinned.path())
+        self.root.master.appending(components: pinned.path)
     }
     func uri(of module:Module.Index, in pinned:Package.Pinned) -> URI
     {
-        .init(root: self.root.master, path: pinned.path(to: module))
+        let culture:Module = pinned.package[local: module]
+        if case (let uri, pinned.version)? = culture.redirect.module
+        {
+            return uri 
+        }
+        
+        var uri:URI = self.root.master 
+        uri.path.append(components: pinned.prefix)
+        uri.path.append(component: culture.id.value)
+        return uri
     }
     func uri(of article:Article.Index, in pinned:Package.Pinned) -> URI
     {
-        .init(root: self.root.article, path: pinned.path(to: article))
+        let culture:Module = pinned.package[local: article.module]
+        var uri:URI
+        if case (let root, pinned.version)? = culture.redirect.articles 
+        {
+            uri = root 
+        }
+        else 
+        {
+            uri = self.root.article 
+            uri.path.append(components: pinned.prefix)
+            uri.path.append(component: culture.id.value)
+        }
+        for component:String in pinned.package[local: article].path
+        {
+            uri.path.append(component: component.lowercased())
+        }
+        return uri
     }
     func uri(of composite:Symbol.Composite, in pinned:Package.Pinned) -> URI
     {
-        .init(root: self.root.master, 
-            path: pinned.path(to: composite, ecosystem: self), 
-            query: pinned.query(to: composite, ecosystem: self), 
+        var uri:URI = self.root.master 
+        
+        uri.path.append(components: pinned.path(to: composite, ecosystem: self), 
             orientation: self[composite.base].orientation)
+        uri.insert(parameters: pinned.query(to: composite, ecosystem: self))
+        return uri
     }
-    func uri(of choices:[Symbol.Composite], pins:[Package.Index: Version]) -> URI
+    func uri(of choices:[Symbol.Composite], pins:Package.Pins) -> URI
     {
         // `first` should always exist, if not, something has gone seriously 
         // wrong in swift-biome...
@@ -396,18 +423,22 @@ extension Ecosystem
         {
             fatalError("empty disambiguation group")
         }
-        let pinned:Package.Pinned = self[exemplar.culture.package].pinned(pins)
-        return .init(root: self.root.master, 
-            path: pinned.path(to: exemplar, ecosystem: self), 
+        let pinned:Package.Pinned = .init(self[pins.local.package], 
+            at: pins.local.version)
+        
+        var uri:URI = self.root.master 
+        
+        uri.path.append(components: pinned.path(to: exemplar, ecosystem: self), 
             orientation: self[exemplar.base].orientation)
+        return uri
     }
     func uriOfSearchIndex(for package:Package.Index) -> URI 
     {
-        .init(root: self.root.searchIndex, path: [self[package].name, "types"])
+        self.root.searchIndex.appending(components: [self[package].name, "types"])
     }
     func uriOfSiteMap(for package:Package.Index) -> URI 
     {
-        .init(root: self.root.sitemap, path: ["\(self[package].name).txt"])
+        self.root.sitemap.appending(component: "\(self[package].name).txt")
     }
     
     func expand(_ link:Link) -> Link.Expansion

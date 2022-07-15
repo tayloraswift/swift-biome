@@ -2,7 +2,7 @@ extension Package
 {
     struct Versions:RandomAccessCollection, Sendable 
     {
-        typealias Element = Pins<Version>
+        typealias Element = Pins
         
         var latest:Version
         {
@@ -10,8 +10,9 @@ extension Package
         }
         
         private
-        var storage:[Pins<PreciseVersion>], 
+        var storage:[(local:PreciseVersion, upstream:[Package.Index: Version])], 
             mapping:[MaskedVersion?: Version]
+        let package:Package.Index
         
         var startIndex:Version 
         {
@@ -22,11 +23,12 @@ extension Package
             .init(offset: self.storage.endIndex)
         }
         
-        subscript(version:Version) -> Pins<Version>
+        subscript(version:Version) -> Pins
         {
-            .init(local: version, upstream: self.storage[version.offset].upstream)
+            .init(local: (self.package, version), 
+                upstream: self.storage[version.offset].upstream)
         }
-        subscript(masked:MaskedVersion?) -> Pins<Version>?
+        subscript(masked:MaskedVersion?) -> Pins?
         {
             self.mapping[masked].map { self[$0] }
         }
@@ -41,17 +43,17 @@ extension Package
             self.mapping[masked] ?? self.latest
         }
         
-        init()
+        init(package:Package.Index)
         {
+            self.package = package 
             self.storage = []
             self.mapping = [:]
         }
         
         mutating 
-        func push(_ precise:PreciseVersion, upstream:[Package.Index: Version])
-            -> Pins<Version>
+        func push(_ precise:PreciseVersion, upstream:[Package.Index: Version]) -> Pins
         {
-            self.storage.append(.init(local: precise, upstream: upstream))
+            self.storage.append((local: precise, upstream: upstream))
             let version:Version = self.latest 
             switch precise 
             {
@@ -65,7 +67,7 @@ extension Package
                 self.mapping[.nightly(year: year, month: month, day: day)] = version
             }
             self.mapping[nil] = version
-            return .init(local: version, upstream: upstream)
+            return .init(local: (self.package, version), upstream: upstream)
         }
         
         func abbreviate(_ version:Version) -> MaskedVersion?

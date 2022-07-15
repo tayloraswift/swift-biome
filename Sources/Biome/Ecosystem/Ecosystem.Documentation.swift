@@ -2,28 +2,20 @@ import HTML
 
 extension Ecosystem 
 {
-    struct Documentation 
-    {
-        var templates:[Index: Article.Template<Link>]
-        
-        init(minimumCapacity capacity:Int)
-        {
-            self.templates = .init(minimumCapacity: capacity)
-        }
-    }
+    typealias Documentation = [Index: Article.Template<Link>]
     
-    func compileDocumentation(for culture:Package.Index,
-        extensions:[[String: Extension]],
+    func compileDocumentation(extensions:[[String: Extension]],
         articles:[[Article.Index: Extension]], 
         comments:[Symbol.Index: String], 
         scopes:[Module.Scope], 
-        pins:Package.Pins<Version>)
+        pins:Package.Pins)
         -> Documentation
     {
         //  build lexical scopes for each module culture. 
         //  we can store entire packages in the lenses because this method 
         //  is non-mutating!
-        let pinned:Package.Pinned = .init(self[culture], at: pins.local)
+        let pinned:Package.Pinned = .init(self[pins.local.package], 
+            at: pins.local.version)
         let peripherals:[[Index: Extension]] = 
             self.resolveBindings(of: extensions, 
                 articles: articles, 
@@ -32,7 +24,7 @@ extension Ecosystem
         // add upstream lenses 
         let lenses:[[Package.Pinned]] = scopes.map 
         {
-            [pinned] + $0.upstream().map { self[$0].pinned(pins.upstream) }
+            [pinned] + $0.upstream().map { self[$0].pinned(pins) }
         }
         return self.compile(comments: comments, peripherals: peripherals, 
             lenses: lenses, 
@@ -128,7 +120,7 @@ extension Ecosystem
         {
             for (target, article):(Index, Extension) in assigned
             {
-                documentation.templates[target] = self.compile(article, 
+                documentation[target] = self.compile(article, 
                     lenses: lenses, 
                     scope: scope.import(article.metadata.imports, swift: swift), 
                     nest: self.nest(target))
@@ -157,7 +149,7 @@ extension Ecosystem
             let comment:Extension = .init(markdown: comment)
             let target:Index = .symbol(symbol)
             
-            documentation.templates[target] = self.compile(comment, 
+            documentation[target] = self.compile(comment, 
                 lenses: lenses[context], 
                 scope: scopes[context].import(comment.metadata.imports, swift: swift), 
                 nest: self.nest(target))
@@ -280,19 +272,17 @@ extension Ecosystem
             return .init(.module(namespace), visible: 1)
         }
         
-        if  case let (package, pins)? = self.packages.localize(destination: destination, 
-                lens: implicit.query.lens),
-            let route:Route = self.stems[namespace, implicit.revealed],
-            case let (selection, _)? = self.packages.selectExtantWithRedirect(from: route, 
-                lens: .init(package, at: pins.local), 
-                by: implicit.disambiguator)
-        {
-            return .init(.composite(try selection.composite()), visible: implicit.count)
-        }
+        guard   let pins:Package.Pins = self.packages.localize(destination: destination, 
+                    lens: implicit.query.lens), 
+                let route:Route = self.stems[namespace, implicit.revealed],
+                let selection:Packages.Selection = self.packages.selectExtantWithRedirect(route, 
+                    lens: .init(self[pins.local.package], at: pins.local.version), 
+                    by: implicit.disambiguator)?.selection
         else 
         {
             return nil
         }
+        return .init(.composite(try selection.composite()), visible: implicit.count)
     }
     private 
     func resolveWithRedirect(visibleLink uri:URI, 
@@ -410,8 +400,8 @@ extension Ecosystem
             return nil
         }
         let disambiguator:Symbol.Disambiguator = link.disambiguator
-        let selection:Packages.Selection? = 
-            self.packages.selectExtant(from: route, lenses: lenses)
+        let selection:Packages.Selection? = self.packages.selectExtant(route, 
+            lenses: lenses)
         {
             scope.contains($0.culture) && self.packages.filter($0, by: disambiguator)
         }

@@ -36,6 +36,55 @@ extension Collection where Element == URI.Vector?
         return (components, fold)
     }
 }
+extension RangeReplaceableCollection where Element == URI.Vector? 
+{
+    @inlinable public mutating 
+    func append(component:String)
+    {
+        self.append(component.isEmpty ? nil : .push(component))
+    }
+    @inlinable public mutating 
+    func append<Components>(components:Components) 
+        where Components:Sequence, Components.Element == String
+    {
+        self.reserveCapacity(self.underestimatedCount + components.underestimatedCount)
+        for component:String in components 
+        {
+            self.append(component: component)
+        }
+    }
+    mutating 
+    func append<Components>(components:Components, 
+        orientation:Symbol.Link.Orientation)
+        where Components:BidirectionalCollection, Components.Element == String
+    {
+        guard case .gay = orientation, components.startIndex < components.endIndex
+        else 
+        {
+            self.append(components: components)
+            return 
+        }
+        
+        let ultimate:Components.Index = components.index(before: components.endIndex)
+        
+        guard components.startIndex < ultimate 
+        else 
+        {
+            self.append(components: components)
+            return 
+        }
+        
+        let penultimate:Components.Index = components.index(before: ultimate)
+        
+        self.reserveCapacity(self.underestimatedCount + 
+            components[..<ultimate].underestimatedCount)
+        for component:String in components[..<penultimate]
+        {
+            self.append(component: component)
+        }
+        self.append(component: "\(components[penultimate]).\(components[ultimate])")
+    }
+}
 
 @frozen public 
 struct URI:CustomStringConvertible, Sendable
@@ -126,6 +175,11 @@ struct URI:CustomStringConvertible, Sendable
     }
     
     @inlinable public
+    init(root:String, query:[Parameter]? = nil)
+    {
+        self.init(path: CollectionOfOne<String>.init(root), query: query)
+    }
+    @inlinable public
     init(path:[Vector?] = [], query:[Parameter]? = nil)
     {
         self.path = path == [nil] ? [] : path
@@ -135,7 +189,8 @@ struct URI:CustomStringConvertible, Sendable
     init<Path>(path:Path, query:[Parameter]? = nil)
         where Path:Sequence, Path.Element == String
     {
-        self.init(path: path.map(Vector.push(_:)), query: query)
+        self.init(query: query)
+        self.path.append(components: path)
     }
     @inlinable public
     init<S>(absolute string:S) throws where S:StringProtocol
@@ -204,65 +259,46 @@ struct URI:CustomStringConvertible, Sendable
 
 extension URI 
 {
-    init(root:String, 
-        path:[String], 
-        orientation:Symbol.Link.Orientation = .straight)
+    func appending(component:String) -> Self 
     {
-        self.path = []
-        if case .gay = orientation, path.count >= 2
-        {
-            self.path.reserveCapacity(path.count)
-            self.path.append(.push(root))
-            for component:String in path.dropLast(2)
-            {
-                self.path.append(.push(component))
-            }
-            let penultimate:String = path[path.endIndex - 2]
-            let    ultimate:String = path[path.endIndex - 1]
-            self.path.append(.push("\(penultimate).\(ultimate)"))
-        }
-        else 
-        {
-            self.path.reserveCapacity(path.count + 1)
-            self.path.append(.push(root))
-            for component:String in path
-            {
-                self.path.append(.push(component))
-            }
-        }
-        self.query = nil
+        self.appending(components: CollectionOfOne<String>.init(component))
     }
-    init(root:String, 
-        path:[String], 
-        query:Symbol.Link.Query = .init(), 
-        orientation:Symbol.Link.Orientation = .straight)
+    func appending<Components>(components:Components) -> Self 
+        where Components:Sequence, Components.Element == String
     {
-        self.init(root: root, path: path, orientation: orientation)
-        self.insert(query)
+        var uri:Self = self
+            uri.path.append(components: components)
+        return uri
     }
-    private mutating 
-    func insert(_ query:Symbol.Link.Query)
+    
+    mutating 
+    func insert(parameters query:Symbol.Link.Query)
     {
         if let base:Symbol.ID = query.base
         {
-            self.insert((Symbol.Link.Query.base, base.string))
+            self.insert(parameter: (Symbol.Link.Query.base, base.string))
         }
         if let host:Symbol.ID = query.host
         {
-            self.insert((Symbol.Link.Query.host, host.string))
+            self.insert(parameter: (Symbol.Link.Query.host, host.string))
         }
-        switch query.lens
+        guard let lens:Symbol.Link.Lens = query.lens 
+        else 
         {
-        case nil: 
-            break 
-        case (let culture, nil)?:
-            self.insert((Symbol.Link.Query.lens,    culture.string))
-        case (let culture, let version?)?:
-            self.insert((Symbol.Link.Query.lens, "\(culture.string)/\(version.description)"))
+            return 
+        }
+        if let version:MaskedVersion = lens.version 
+        {
+            self.insert(parameter: (Symbol.Link.Query.lens, 
+                "\(lens.culture.string)/\(version.description)"))
+        }
+        else 
+        {
+            self.insert(parameter: (Symbol.Link.Query.lens, lens.culture.string))
         }
     }
-    private mutating 
-    func insert(_ parameter:Parameter) 
+    @inlinable public mutating 
+    func insert(parameter:Parameter) 
     {
         switch self.query 
         {
@@ -273,5 +309,14 @@ extension URI
             parameters.append(parameter)
             self.query = parameters
         }
+    }
+}
+
+extension URI:ExpressibleByArrayLiteral 
+{
+    @inlinable public 
+    init(arrayLiteral:String...)
+    {
+        self.init(path: arrayLiteral)
     }
 }

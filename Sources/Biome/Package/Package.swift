@@ -47,17 +47,13 @@ struct Package:Identifiable, Sendable
     
     public 
     let id:ID
-    let index:Index
+    var index:Index 
+    {
+        self.versions.package
+    }
     
     private(set)
     var heads:Heads
-    // private 
-    // var tag:Resource.Tag?
-    @available(*, deprecated)
-    var latest:Version
-    {
-        self.versions.latest 
-    }
     private(set)
     var versions:Versions
     private(set) 
@@ -99,10 +95,8 @@ struct Package:Identifiable, Sendable
     init(id:ID, index:Index)
     {
         self.id = id 
-        self.index = index
-        
         self.heads = .init()
-        self.versions = .init()
+        self.versions = .init(package: index)
         
         self.groups = .init()
         self.modules = .init()
@@ -160,17 +154,25 @@ struct Package:Identifiable, Sendable
     {
         .init(self, at: self.versions.latest)
     }
-    func pinned(_ pins:[Index: Version], exhibit:Version? = nil) -> Pinned 
+    func pinned(_ pins:Pins) -> Pinned 
     {
-        .init(self, at: pins[self.index] ?? self.versions.latest, exhibit: exhibit)
+        .init(self, at: pins[self.index] ?? self.versions.latest)
     }
     
-    var trunk:[String]
+    func prefix(arrival:MaskedVersion?) -> [String]
     {
-        switch self.kind
+        switch (self.kind, arrival)
         {
-        case .swift, .core:         return []
-        case .community(let name):  return [name]
+        case    (.swift, nil), 
+                (.core,  nil):
+            return []
+        case    (.swift, let version?), 
+                (.core,  let version?):
+            return [version.description]
+        case    (.community(let name), let version?):
+            return [name, version.description]
+        case    (.community(let name), nil):
+            return [name]
         }
     }
     
@@ -256,25 +258,24 @@ struct Package:Identifiable, Sendable
     //  - local symbols: self.facts 
     //  - external symbols: self.opinions 
     mutating 
-    func updateVersion(_ version:PreciseVersion, upstream:[Index: Version]) 
-        -> Package.Pins<Version>
+    func updateVersion(_ version:PreciseVersion, upstream:[Index: Version]) -> Package.Pins
     {
-        let pins:Package.Pins<Version> = self.versions.push(version, upstream: upstream)
+        let pins:Package.Pins = self.versions.push(version, upstream: upstream)
         for module:Module in self.modules.all 
         {
-            self.dependencies.push(pins.local, head: module.heads.dependencies)
+            self.dependencies.push(pins.local.version, head: module.heads.dependencies)
         }
         for article:Article in self.articles.all 
         {
-            self.templates.push(pins.local, head: article.heads.template)
+            self.templates.push(pins.local.version, head: article.heads.template)
         }
         for symbol:Symbol in self.symbols.all 
         {
-            self.facts.push(pins.local, head: symbol.heads.facts)
+            self.facts.push(pins.local.version, head: symbol.heads.facts)
         }
         for host:Keyframe<Symbol.Traits>.Buffer.Index in self.external.values 
         {
-            self.opinions.push(pins.local, head: host)
+            self.opinions.push(pins.local.version, head: host)
         }
         return pins 
     }
@@ -475,7 +476,7 @@ extension Package
     {
         let current:Version = self.versions.latest
         for (index, template):(Ecosystem.Index, Article.Template<Ecosystem.Link>) in 
-            compiled.templates 
+            compiled 
         {
             switch index 
             {

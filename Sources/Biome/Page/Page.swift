@@ -36,22 +36,22 @@ struct Page
         headlines:[Article.Index: [UInt8]], 
         uris:[Ecosystem.Index: String]
     )
+    
+    let ecosystem:Ecosystem
     private 
-    let era:Ecosystem.Pinned 
-        
-    private 
-    var ecosystem:Ecosystem 
+    let pins:Package.Pins 
+    
+    init(ecosystem:Ecosystem, pins:Package.Pins) 
     {
-        _read 
-        {
-            yield self.era.ecosystem
-        }
-    }
-    init(_ era:Ecosystem.Pinned, logo:[UInt8]) 
-    {
-        self.substitutions = [.breadcrumbs: logo]
+        self.pins = pins 
+        self.ecosystem = ecosystem 
+        self.substitutions = [.breadcrumbs: ecosystem.logo]
         self.cache = ([:], [:])
-        self.era = era 
+    }
+    
+    func pin(_ package:Package.Index) -> Package.Pinned 
+    {
+        self.ecosystem[package].pinned(self.pins)
     }
 }
 extension Page 
@@ -66,7 +66,7 @@ extension Page
         {
             $0.map 
             {
-                .composite($0, self.era.pin($0.base.module.package).declaration($0.base))
+                .composite($0, self.pin($0.base.module.package).declaration($0.base))
             }
         }
         self.substitutions.merge(
@@ -91,7 +91,7 @@ extension Page
     private mutating 
     func generate(for package:Package.Index, exhibit:Version?) 
     {
-        let pinned:Package.Pinned = self.era.pin(package)
+        let pinned:Package.Pinned = self.pin(package)
         
         self.add(fields: self.ecosystem.renderFields(for: package))
         self.add(topics: self.ecosystem.render(modulelist: pinned.package.modules.all))
@@ -105,8 +105,8 @@ extension Page
     private mutating 
     func generate(for module:Module.Index, exhibit:Version?) 
     {
-        let pinned:Package.Pinned = self.era.pin(module.package)
-        let topics:Topics = self.era.organize(
+        let pinned:Package.Pinned = self.pin(module.package)
+        let topics:Topics = self.organize(
             toplevel: pinned.toplevel(module),
             guides: pinned.guides(module))
         
@@ -123,7 +123,7 @@ extension Page
     private mutating
     func generate(for article:Article.Index, exhibit:Version?)
     {
-        let pinned:Package.Pinned = self.era.pin(article.module.package)
+        let pinned:Package.Pinned = self.pin(article.module.package)
         
         self.add(fields: self.ecosystem.renderFields(for: article, 
             excerpt: pinned.excerpt(article)))
@@ -146,8 +146,8 @@ extension Page
         let facts:Symbol.Predicates
         if let host:Symbol.Index = composite.natural 
         {
-            facts = self.era.pin(host.module.package).facts(host)
-            topics = self.era.organize(facts: facts, host: host)
+            facts = self.pin(host.module.package).facts(host)
+            topics = self.organize(facts: facts, host: host)
         }
         else 
         {
@@ -156,8 +156,8 @@ extension Page
             topics = .init()
         }
         
-        let base:Package.Pinned = self.era.pin(composite.base.module.package)
-        let pinned:Package.Pinned = self.era.pin(composite.culture.package)
+        let base:Package.Pinned = self.pin(composite.base.module.package)
+        let pinned:Package.Pinned = self.pin(composite.culture.package)
         
         self.add(fields: self.ecosystem.renderFields(for: composite, 
             declaration: base.declaration(composite.base),
@@ -177,12 +177,42 @@ extension Page
     private mutating 
     func uri(of index:Ecosystem.Index) -> String 
     {
-        self.era.uri(of: index, cache: &self.cache.uris)
+        if let cached:String = self.cache.uris[index] 
+        {
+            return cached 
+        }
+        let uri:URI 
+        switch index 
+        {
+        case .composite(let composite):
+            uri = self.ecosystem.uri(of: composite, 
+                in: self.pin(composite.culture.package))
+        case .article(let article):
+            uri = self.ecosystem.uri(of: article, 
+                in: self.pin(article.module.package))
+        case .module(let module):
+            uri = self.ecosystem.uri(of: module, 
+                in: self.pin(module.package))
+        case .package(let package):
+            uri = self.ecosystem.uri(
+                of: self.pin(package))
+        }
+        let string:String = uri.description 
+        self.cache.uris[index] = string
+        return string
     }
     private mutating 
     func headline(of article:Article.Index) -> [UInt8] 
     {
-        self.era.headline(of: article, cache: &self.cache.headlines)
+        if let cached:[UInt8] = self.cache.headlines[article] 
+        {
+            return cached 
+        }
+        
+        let excerpt:Article.Excerpt = 
+            self.pin(article.module.package).excerpt(article)
+        self.cache.headlines[article] = excerpt.headline
+        return excerpt.headline
     }
     
     private mutating 
@@ -273,10 +303,10 @@ extension Page
             case .uri(let index):
                 return [UInt8].init(self.uri(of: index).utf8)
             case .article(let article):
-                template = self.era.pin(article.module.package)
+                template = self.pin(article.module.package)
                     .template(article)
             case .composite(let composite):
-                template = self.era.pin(composite.base.module.package)
+                template = self.pin(composite.base.module.package)
                     .template(composite.base)
             }
             return template.summary.rendered 

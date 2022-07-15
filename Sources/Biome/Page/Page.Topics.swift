@@ -87,11 +87,11 @@ extension Page
     }
 }
 
-extension Ecosystem.Pinned 
+extension Page
 {
-    func organize(toplevel:Set<Symbol.Index>, guides:Set<Article.Index>) -> Page.Topics 
+    func organize(toplevel:Set<Symbol.Index>, guides:Set<Article.Index>) -> Topics 
     {
-        var topics:Page.Topics = .init()
+        var topics:Topics = .init()
         for article:Article.Index in guides
         {
             let excerpt:Article.Excerpt = 
@@ -107,9 +107,9 @@ extension Ecosystem.Pinned
         topics.sort(by: self.ecosystem)
         return topics
     }
-    func organize(facts:Symbol.Predicates, host:Symbol.Index) -> Page.Topics 
+    func organize(facts:Symbol.Predicates, host:Symbol.Index) -> Topics 
     {
-        var topics:Page.Topics = .init()
+        var topics:Topics = .init()
         
         if case .protocol = self.ecosystem[host].color
         {
@@ -158,7 +158,7 @@ extension Ecosystem.Pinned
         return topics
     }
     private 
-    func organize(topics:inout Page.Topics, 
+    func organize(topics:inout Topics, 
         culture:Module.Culture, 
         traits:Symbol.Traits, 
         host:Symbol.Index)
@@ -239,14 +239,14 @@ extension Ecosystem.Pinned
         }
     }
     private 
-    func add(member composite:Symbol.Composite, culture:Module.Culture, to topics:inout Page.Topics)
+    func add(member composite:Symbol.Composite, culture:Module.Culture, to topics:inout Topics)
     {
-        let sublist:Page.Sublist = .color(self.ecosystem[composite.base].color)
+        let sublist:Sublist = .color(self.ecosystem[composite.base].color)
         let declaration:Symbol.Declaration = 
             self.pin(composite.base.module.package).declaration(composite.base)
         // every sublist has a sub-sublist for the primary culture, even if it 
         // is empty. this is more css-grid friendly.
-        var empty:[Module.Culture: [Page.Card]] { [.primary: []] }
+        var empty:[Module.Culture: [Card]] { [.primary: []] }
         if  declaration.availability.isUsable 
         {
             topics.members[sublist, default: empty][culture, default: []]
@@ -259,7 +259,7 @@ extension Ecosystem.Pinned
         }
     }
     private 
-    func add(role:Symbol.Index, pinned:Package.Pinned, to topics:inout Page.Topics)
+    func add(role:Symbol.Index, pinned:Package.Pinned, to topics:inout Topics)
     {
         // protocol roles may originate from a different package
         switch self.ecosystem[role].color 
@@ -268,7 +268,7 @@ extension Ecosystem.Pinned
             topics.lists[.implications, default: [:]][.primary, default: []]
                 .append(.init(role))
         case let color:
-            let sublist:Page.Sublist = .color(color)
+            let sublist:Sublist = .color(color)
             // this is always valid, because non-protocol roles are always 
             // requirements, and requirements always live in the same package as 
             // the protocol they are part of.

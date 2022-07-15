@@ -3,13 +3,13 @@ extension Ecosystem
     @usableFromInline
     enum Resolution
     {
-        case index(Index, pins:[Package.Index: Version], exhibit:Version? = nil)
-        case choices([Symbol.Composite], pins:[Package.Index: Version])
+        case index(Index, pins:Package.Pins, exhibit:Version? = nil)
+        case choices([Symbol.Composite], pins:Package.Pins)
         
         case searchIndex(Package.Index)
         case sitemap(Package.Index)
         
-        init(_ selection:Packages.Selection, pins:[Package.Index: Version])
+        init(_ selection:Packages.Selection, pins:Package.Pins)
         {
             switch selection 
             {
@@ -76,13 +76,14 @@ extension Ecosystem
                     let article:Article.Index = 
                         self[namespace.package].articles.indices[article]
                 {
-                    guard let pins:[Package.Index: Version] = self[namespace.package]
-                        .versions[arrival]?.isotropic(culture: namespace.package)
+                    if let pins:Package.Pins = self[namespace.package].versions[arrival]
+                    {
+                        return (.index(.article(article), pins: pins), false)
+                    }
                     else 
                     {
                         return nil
                     }
-                    return (.index(.article(article), pins: pins), false)
                 }
                 else if case (let resolution, _)? = 
                     self.resolveSymbol(link: implicit, 
@@ -157,10 +158,8 @@ extension Ecosystem
         else 
         {
             if  let destination:Package = root, 
-                let pins:Package.Pins<Version> = destination.versions[arrival]
+                let pins:Package.Pins = destination.versions[arrival]
             {
-                let pins:[Package.Index: Version] = 
-                    pins.isotropic(culture: destination.index)
                 return (.index(.package(destination.index), pins: pins), false)
             }
             else 
@@ -195,11 +194,8 @@ extension Ecosystem
         guard let implicit:Symbol.Link = _move(link).suffix
         else 
         {
-            if  let pins:Package.Pins<Version> = 
-                self[namespace.package].versions[arrival]
+            if let pins:Package.Pins = self[namespace.package].versions[arrival]
             {
-                let pins:[Package.Index: Version] = 
-                    pins.isotropic(culture: namespace.package)
                 return (.index(.module(namespace), pins: pins), false)
             }
             else 
@@ -215,8 +211,8 @@ extension Ecosystem
         arrival:MaskedVersion?)
         -> (resolution:Resolution, redirected:Bool)?
     {
-        guard   case let (package, pins)? = 
-                self.packages.localize(destination: namespace.package, 
+        guard   let pins:Package.Pins = self.packages.localize(
+                    destination: namespace.package, 
                     arrival: arrival, 
                     lens: implicit.query.lens),
                 let route:Route = self.stems[namespace, implicit]
@@ -224,18 +220,19 @@ extension Ecosystem
         {
             return nil 
         }
+        
+        let package:Package = self[pins.local.package]
         // each “select” call is currently O(n^2), but we could make it 
         // O(n log(n)) with some effort
         if case (let selection, redirected: let redirected)? = 
-                self.packages.selectExtantWithRedirect(from: route, 
-                    lens: .init(package, at: pins.local), 
+                self.packages.selectExtantWithRedirect(route, 
+                    lens: .init(package, at: pins.local.version), 
                     by: implicit.disambiguator)
         {
-            let pins:[Package.Index: Version] = pins.isotropic(culture: package.index)
             return (.init(selection, pins: pins), redirected)
         }
         else if case (.one(let composite), redirected: let redirected)? = 
-                self.packages.selectHistoricalWithRedirect(from: route, lens: package, 
+                self.packages.selectHistoricalWithRedirect(route, lens: package, 
                     by: implicit.disambiguator)
         {
             // we have no idea what version any of the historical selections 
@@ -247,11 +244,9 @@ extension Ecosystem
             {
                 if package.contains(composite, at: version) 
                 {
-                    let exhibit:Version = pins.local 
-                    let pins:[Package.Index: Version] = 
-                        package.versions[version].isotropic(culture: package.index)
-                    let resolution:Resolution = 
-                        .index(.composite(composite), pins: pins, exhibit: exhibit)
+                    let resolution:Resolution = .index(.composite(composite), 
+                        pins: package.versions[version], 
+                        exhibit: pins.local.version)
                     return (resolution, redirected)
                 }
             }
@@ -286,21 +281,16 @@ extension Ecosystem
         {
             guard   let package:Package = self.packages[package], 
                         package.index != namespace.package,
-                    let pins:Package.Pins<Version> = 
-                        package.versions[nil as MaskedVersion?]
+                    let pins:Package.Pins = package.versions[nil as MaskedVersion?],
+                    case (let selection, redirected: let redirected)? = 
+                        self.packages.selectExtantWithRedirect(route, 
+                            lens: .init(package, at: pins.local.version), 
+                            by: implicit.disambiguator)
             else 
             {
                 continue 
             }
-            
-            if case (let selection, redirected: let redirected)? = 
-                    self.packages.selectExtantWithRedirect(from: route, 
-                        lens: .init(package, at: pins.local), 
-                        by: implicit.disambiguator)
-            {
-                let pins:[Package.Index: Version] = pins.isotropic(culture: package.index)
-                return (.init(selection, pins: pins), redirected)
-            }
+            return (.init(selection, pins: pins), redirected)
         }
         return nil
     }

@@ -1,30 +1,20 @@
 extension Package 
 {
-    struct Pins<Pin>
+    @usableFromInline
+    struct Pins:Sendable
     {
-        @available(*, deprecated)
-        var version:Pin 
-        {
-            self.local 
-        }
-        
-        let local:Pin
+        let local:(package:Index, version:Version)
         let upstream:[Index: Version]
         
-        init(local:Pin, upstream:[Index: Version])
+        subscript(index:Index) -> Version? 
+        {
+            index == self.local.package ? self.local.version : self.upstream[index]
+        }
+        
+        init(local:(package:Index, version:Version), upstream:[Index: Version])
         {
             self.local = local
             self.upstream = upstream
         }
-        
-        func isotropic(culture:Index) -> [Index: Version]
-            where Pin == Version
-        {
-            var isotropic:[Index: Version] = self.upstream 
-            isotropic[culture] = self.local 
-            return isotropic
-        }
     }
 }
-extension Package.Pins:Equatable where Pin:Equatable {}
-extension Package.Pins:Sendable where Pin:Sendable {}
