@@ -70,8 +70,8 @@ extension Page
             }
         }
         self.substitutions.merge(
-            self.ecosystem.renderFields(for: choices, uri: uri)) { $1 }
-        self.add(topics: self.ecosystem.render(choices: segregated))
+            self.ecosystem.packages.renderFields(for: choices, uri: uri)) { $1 }
+        self.add(topics: self.ecosystem.packages.render(choices: segregated))
     }
     mutating 
     func generate(for index:Ecosystem.Index, exhibit:Version?)
@@ -93,8 +93,9 @@ extension Page
     {
         let pinned:Package.Pinned = self.pin(package)
         
-        self.add(fields: self.ecosystem.renderFields(for: package))
-        self.add(topics: self.ecosystem.render(modulelist: pinned.package.modules.all))
+        self.add(fields: self.ecosystem.packages.renderFields(for: package))
+        self.add(topics: self.ecosystem.packages.render(
+            modulelist: pinned.package.modules.all))
         self.add(availableVersions: pinned.package.allVersions(), 
             currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
@@ -110,8 +111,8 @@ extension Page
             toplevel: pinned.toplevel(module),
             guides: pinned.guides(module))
         
-        self.add(fields: self.ecosystem.renderFields(for: module))
-        self.add(topics: self.ecosystem.render(topics: topics))
+        self.add(fields: self.ecosystem.packages.renderFields(for: module))
+        self.add(topics: self.ecosystem.packages.render(topics: topics))
         self.add(article: pinned.template(module))
         self.add(availableVersions: pinned.package.allVersions(of: module), 
             currentVersion: exhibit ?? pinned.version,
@@ -125,7 +126,7 @@ extension Page
     {
         let pinned:Package.Pinned = self.pin(article.module.package)
         
-        self.add(fields: self.ecosystem.renderFields(for: article, 
+        self.add(fields: self.ecosystem.packages.renderFields(for: article, 
             excerpt: pinned.excerpt(article)))
         self.add(article: pinned.template(article))
         self.add(availableVersions: pinned.package.allVersions(of: article), 
@@ -159,10 +160,10 @@ extension Page
         let base:Package.Pinned = self.pin(composite.base.module.package)
         let pinned:Package.Pinned = self.pin(composite.culture.package)
         
-        self.add(fields: self.ecosystem.renderFields(for: composite, 
+        self.add(fields: self.ecosystem.packages.renderFields(for: composite, 
             declaration: base.declaration(composite.base),
             facts: facts))
-        self.add(topics: self.ecosystem.render(topics: topics))
+        self.add(topics: self.ecosystem.packages.render(topics: topics))
         self.add(article: base.template(composite.base))
         self.add(availableVersions: pinned.package.allVersions(of: composite), 
             currentVersion: exhibit ?? pinned.version,

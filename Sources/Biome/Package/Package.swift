@@ -51,7 +51,7 @@ struct Package:Identifiable, Sendable
     {
         self.versions.package
     }
-    
+    var brand:String?
     private(set)
     var heads:Heads
     private(set)
@@ -95,6 +95,13 @@ struct Package:Identifiable, Sendable
     init(id:ID, index:Index)
     {
         self.id = id 
+        switch id.kind 
+        {
+        case .swift, .core: 
+            self.brand = "Swift"
+        case .community(_):
+            self.brand = nil
+        }
         self.heads = .init()
         self.versions = .init(package: index)
         
@@ -148,6 +155,29 @@ struct Package:Identifiable, Sendable
     subscript(article:Article.Index) -> Article?
     {
         self.index == article.module.package ? self[local: article] : nil
+    }
+    
+    var title:String 
+    {
+        if let brand:String = self.brand 
+        {
+            return "\(brand) Documentation"
+        }
+        else 
+        {
+            return self.name
+        }
+    }
+    func title<S>(_ title:S) -> String where S:StringProtocol 
+    {
+        if let brand:String = self.brand 
+        {
+            return "\(title) — \(brand) Documentation"
+        }
+        else 
+        {
+            return .init(title)
+        }
     }
     
     func pinned() -> Pinned 

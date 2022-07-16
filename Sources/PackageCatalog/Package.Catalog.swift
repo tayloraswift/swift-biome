@@ -11,12 +11,14 @@ extension Package
         enum CodingKeys:String, CodingKey 
         {
             case id             = "package" 
+            case brand          = "brand"
             case modules        = "modules"
             case toolsVersion   = "catalog_tools_version"
         }
         
         public
         let id:ID
+        let brand:String?
         public
         let modules:[Module.Catalog]
         let toolsVersion:Int
@@ -28,6 +30,7 @@ extension Package
         init(id:ID, modules:[Module.Catalog])
         {
             self.id = id 
+            self.brand = nil
             self.modules = modules
             self.toolsVersion = Self.toolsVersion
         }
@@ -42,7 +45,7 @@ extension Package
             {
                 fatalError("version mismatch")
             }
-            return .init(id: self.id, modules: try self.modules.map 
+            return .init(id: self.id, brand: self.brand, modules: try self.modules.map 
             {
                 try $0.loadGraph(relativeTo: prefix)
             })

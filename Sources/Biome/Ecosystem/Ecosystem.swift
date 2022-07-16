@@ -150,6 +150,12 @@ extension Ecosystem
         
         let index:Package.Index = 
             try self.packages.updatePackageRegistration(for: graph.id)
+        
+        if let brand:String = graph.brand 
+        {
+            self.packages[index].brand = brand
+        }
+        
         // initialize symbol id scopes for upstream packages only
         let pins:Package.Pins ; var scopes:[Symbol.Scope] ; (pins, scopes) = 
             try self.packages.updateModuleRegistrations(in: index, 

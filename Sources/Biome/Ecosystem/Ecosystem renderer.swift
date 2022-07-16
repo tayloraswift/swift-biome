@@ -1,64 +1,67 @@
 import HTML
 
-extension Ecosystem
+extension Packages
 {
-    func renderFields(for index:Package.Index) -> [Page.Key: DOM.Template<Index>]
+    func renderFields(for index:Package.Index) -> [Page.Key: DOM.Template<Ecosystem.Index>]
     {
         let package:Package = self[index]
         let kind:String 
         switch package.kind 
         {
         case .swift:        kind = "Standard Library"
-        case .core:         kind = "Core Library"
+        case .core:         kind = "Core Libraries"
         case .community:    kind = "Package"
         }
-        let substitutions:[Page.Key: HTML.Element<Index>] = 
-        [
-            .title:        .text(escaping: package.id.string), 
-            .headline:     .h1(package.id.string), 
-            .kind:         .text(escaped: kind)
-        ]
-        return substitutions.mapValues(DOM.Template<Index>.init(freezing:))
-    }
-    func renderFields(for index:Module.Index) -> [Page.Key: DOM.Template<Index>]
-    {
-        let module:Module = self[index]
-        let title:String = .init(module.title)
-        let substitutions:[Page.Key: HTML.Element<Index>] = 
+        let title:String = package.title
+        let substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
             .title:        .text(escaping: title), 
             .headline:     .h1(title), 
+            .kind:         .text(escaped: kind)
+        ]
+        return substitutions.mapValues(DOM.Template<Ecosystem.Index>.init(freezing:))
+    }
+    func renderFields(for index:Module.Index) -> [Page.Key: DOM.Template<Ecosystem.Index>]
+    {
+        let module:Module = self[index]
+        let title:String = self[index.package].title(module.title)
+        let substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
+        [
+            .title:        .text(escaping: title), 
+            .headline:     .h1(String.init(module.title)), 
             .kind:         .text(escaped: "Module"),
-            .fragments:    .render(fragments: module.fragments) { (_:Never) -> Index in },
+            .fragments:    .render(fragments: module.fragments) { (_:Never) -> Ecosystem.Index in },
             .culture:       self.link(package: index.package),
         ]
-        return substitutions.mapValues(DOM.Template<Index>.init(freezing:))
+        return substitutions.mapValues(DOM.Template<Ecosystem.Index>.init(freezing:))
     }
     func renderFields(for index:Article.Index, excerpt:Article.Excerpt) 
-        -> [Page.Key: DOM.Template<Index>]
+        -> [Page.Key: DOM.Template<Ecosystem.Index>]
     {
-        let substitutions:[Page.Key: HTML.Element<Index>] = 
+        let title:String = self[index.module.package].title(excerpt.title)
+        let substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
-            .title:        .text(escaping: excerpt.title), 
+            .title:        .text(escaping: title), 
             .headline:     .h1(.bytes(utf8: excerpt.headline)), 
             .kind:         .text(escaped: "Article"),
             .culture:       self.link(module: index.module),
         ]
-        return substitutions.mapValues(DOM.Template<Index>.init(freezing:))
+        return substitutions.mapValues(DOM.Template<Ecosystem.Index>.init(freezing:))
     }
     func renderFields(for composite:Symbol.Composite, 
         declaration:Symbol.Declaration, 
         facts:Symbol.Predicates) 
-        -> [Page.Key: DOM.Template<Index>]
+        -> [Page.Key: DOM.Template<Ecosystem.Index>]
     {
         let base:Symbol = self[composite.base]
-        var substitutions:[Page.Key: HTML.Element<Index>] = 
+        let title:String = self[composite.culture.package].title(base.name)
+        var substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
-            .title:        .text(escaping: base.name), 
+            .title:        .text(escaping: title), 
             .headline:     .h1(base.name), 
             .kind:         .text(escaping: base.color.title),
             .fragments:    .render(fragments: declaration.fragments, 
-                transform: Index.symbol(_:)),
+                transform: Ecosystem.Index.symbol(_:)),
             
             .culture:       self.link(module: composite.culture),
             
@@ -95,7 +98,7 @@ extension Ecosystem
             }
         }
         
-        return substitutions.mapValues(DOM.Template<Index>.init(freezing:))
+        return substitutions.mapValues(DOM.Template<Ecosystem.Index>.init(freezing:))
     }
     func renderFields(for choices:[Symbol.Composite], uri:URI) -> [Page.Key: [UInt8]]
     {
@@ -128,19 +131,19 @@ extension Ecosystem
     func renderNotes(for composite:Symbol.Composite,
         declaration:Symbol.Declaration, 
         facts:Symbol.Predicates) 
-        -> HTML.Element<Index>?
+        -> HTML.Element<Ecosystem.Index>?
     {
         let base:Symbol = self[composite.base]
         
-        var items:[HTML.Element<Index>] = []
+        var items:[HTML.Element<Ecosystem.Index>] = []
         switch (base.shape, composite.host)
         {        
         case (.member(of: let interface)?, let host?):
-            let subject:HTML.Element<Index> = 
+            let subject:HTML.Element<Ecosystem.Index> = 
                 .highlight(escaped: "Self", .type, href: .symbol(host))
-            let object:HTML.Element<Index> = 
+            let object:HTML.Element<Ecosystem.Index> = 
                 .highlight(self[interface].name, .type, href: .symbol(composite.base))
-            let sentence:[HTML.Element<Index>] = 
+            let sentence:[HTML.Element<Ecosystem.Index>] = 
             [
                 .text(escaped: "Available because "),
                 .code(subject),
@@ -170,9 +173,9 @@ extension Ecosystem
                 default: 
                     continue 
                 }
-                let object:HTML.Element<Index> = 
+                let object:HTML.Element<Ecosystem.Index> = 
                     .highlight(type.name, .type, href: .symbol(upstream.target))
-                let sentence:[HTML.Element<Index>] = 
+                let sentence:[HTML.Element<Ecosystem.Index>] = 
                 [
                     .text(escaped: prose),
                     .code(object),
@@ -187,10 +190,10 @@ extension Ecosystem
             for requirement:(target:Symbol.Index, host:Symbol.Index) in 
                 self.sort(facts.roles)
             {
-                let object:HTML.Element<Index> = 
+                let object:HTML.Element<Ecosystem.Index> = 
                     .highlight(self[requirement.host].name, .type, 
                         href: .symbol(requirement.target))
-                let sentence:[HTML.Element<Index>] = 
+                let sentence:[HTML.Element<Ecosystem.Index>] = 
                 [
                     .text(escaped: "Restates requirement of "),
                     .code(object),
@@ -202,9 +205,9 @@ extension Ecosystem
             break
         }
         
-        if let constraints:HTML.Element<Index> = .render(.text(escaped: "Available when "), 
+        if let constraints:HTML.Element<Ecosystem.Index> = .render(.text(escaped: "Available when "), 
             constraints: declaration.extensionConstraints, 
-            transform: Index.symbol(_:)) 
+            transform: Ecosystem.Index.symbol(_:)) 
         {
             items.append(.li(constraints))
         }
@@ -212,16 +215,16 @@ extension Ecosystem
         return items.isEmpty ? nil : .ul(items: items) { ("class", "notes") }
     }
     private 
-    func renderBreadcrumbs(for composite:Symbol.Composite) -> HTML.Element<Index>
+    func renderBreadcrumbs(for composite:Symbol.Composite) -> HTML.Element<Ecosystem.Index>
     {
         let base:Symbol = self[composite.base]
         
-        var crumbs:[HTML.Element<Index>] = [.li(base.name)]
+        var crumbs:[HTML.Element<Ecosystem.Index>] = [.li(base.name)]
         var next:Symbol.Index? = composite.host ?? base.shape?.target
         while let index:Symbol.Index = next
         {
             let current:Symbol = self[index]
-            let crumb:HTML.Element<Index> = .a(.highlight(current.name, .type))
+            let crumb:HTML.Element<Ecosystem.Index> = .a(.highlight(current.name, .type))
             {
                 ("href", .anchor(.symbol(index)))
             }
@@ -233,18 +236,18 @@ extension Ecosystem
     }
     
     private 
-    func link(package:Package.Index) -> HTML.Element<Index>
+    func link(package:Package.Index) -> HTML.Element<Ecosystem.Index>
     {
         .a(self[package].name) { ("href", .anchor(.package(package))) }
     }
     private 
-    func link(module:Module.Index) -> HTML.Element<Index>
+    func link(module:Module.Index) -> HTML.Element<Ecosystem.Index>
     {
         .a(String.init(self[module].title)) { ("href", .anchor(.module(module))) }
     }
 } 
 
-extension Ecosystem
+extension Packages
 {
     func render(choices segregated:[Module.Index: [Page.Card]]) 
         -> DOM.Template<Page.Topics.Key>
@@ -461,7 +464,7 @@ extension Ecosystem
     }
 }
 
-extension Ecosystem 
+extension Packages 
 {    
     private 
     func sort<Value>(_ segregated:[Module.Index: Value]) 
