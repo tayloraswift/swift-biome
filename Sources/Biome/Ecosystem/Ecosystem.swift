@@ -66,10 +66,11 @@ struct Ecosystem:Sendable
     } */
     
     let logo:[UInt8]
+    let whitelist:[Package.ID]
     
     private(set)
-    var templates:[Root: DOM.Template<Page.Key>], 
-        roots:[Stem: Root]
+    var template:DOM.Template<Page.Key>
+    let roots:[Stem: Root]
     let root:
     (    
         master:URI,
@@ -89,9 +90,10 @@ struct Ecosystem:Sendable
     var packages:Packages 
     
     public
-    init(roots:[Root: String] = [:])
+    init(roots:[Root: String] = [:], whitelist:[Package.ID] = [])
     {
         self.logo = Self.logo
+        self.whitelist = whitelist
         
         let master:String       = roots[.master,      default: "reference"],
             article:String      = roots[.article,     default: "learn"],
@@ -115,12 +117,7 @@ struct Ecosystem:Sendable
             self.stems.register(component: searchIndex):    .searchIndex,
         ]
         
-        let template:DOM.Template<Page.Key> = .init(freezing: Page.html)
-        self.templates = .init(uniqueKeysWithValues: self.roots.values.map 
-        { 
-            ($0, template) 
-        })
-        
+        self.template = .init(freezing: Page.html)
         self.packages = .init()
         self.caches = [:]
     }
@@ -283,14 +280,15 @@ extension Ecosystem
         self.redirects[uri.description] = .resource(resource)
     }
     public mutating 
-    func move(module:Module.Index, to uri:URI)
+    func move(module:Module.Index, to uri:URI, template:DOM.Template<Page.Key>? = nil)
     {
         let pins:Package.Pins = 
             self.packages[module.package].move(module: module, to: uri)
-        self.redirects[uri.description] = .index(.module(module), pins: pins)
+        self.redirects[uri.description] = .index(.module(module), pins: pins, 
+            template: template)
     }
     public mutating 
-    func move(articles module:Module.Index, to uri:URI)
+    func move(articles module:Module.Index, to uri:URI, template:DOM.Template<Page.Key>? = nil)
     {
         let pins:Package.Pins = 
             self.packages[module.package].move(articles: module, to: uri)
@@ -301,7 +299,8 @@ extension Ecosystem
             {
                 uri.path.append(component: component.lowercased())
             }
-            self.redirects[uri.description] = .index(.article(article), pins: pins)
+            self.redirects[uri.description] = .index(.article(article), pins: pins, 
+                template: template)
         }
     }
     
@@ -334,7 +333,7 @@ extension Ecosystem
     {
         switch resolution 
         {        
-        case .index(let index, let pins, exhibit: let exhibit):
+        case .index(let index, let pins, exhibit: let exhibit, template: _):
             return self.uri(of: index, pins: pins, exhibit: exhibit)
             
         case .choices(let choices, let pins):

@@ -1,17 +1,19 @@
 import Resources
+import DOM
 
 extension Ecosystem 
 {
     enum Redirect
     {
-        case index(Index, pins:Package.Pins)
+        case index(Index, pins:Package.Pins, template:DOM.Template<Page.Key>? = nil)
         case resource(Resource)
     }
     
     @usableFromInline
     enum Resolution
     {
-        case index  (Index,              pins:Package.Pins, exhibit:Version? = nil)
+        case index(Index, pins:Package.Pins, exhibit:Version? = nil, template:DOM.Template<Page.Key>? = nil)
+        
         case choices([Symbol.Composite], pins:Package.Pins)
         case resource(Resource, uri:URI)
         
@@ -50,8 +52,8 @@ extension Ecosystem
             return nil 
         case .resource(let resource)?: 
             return (.resource(resource, uri: normalized), false)
-        case .index(let index, pins: let pins)?:
-            return (.index(index, pins: pins), false)
+        case .index(let index, pins: let pins, template: let template)?:
+            return (.index(index, pins: pins, template: template), false)
         }
     }
     
@@ -290,15 +292,7 @@ extension Ecosystem
         {
             return nil
         }
-        for package:Package.ID in 
-        [
-            "swift-nio",
-            "swift-system",
-            "swift-syntax",
-            "swift-markdown",
-            "swift-grammar",
-            "swift-json",
-        ]
+        for package:Package.ID in self.whitelist
         {
             guard   let package:Package = self.packages[package], 
                         package.index != namespace.package,

@@ -16,7 +16,6 @@ struct Page
         case discussion
         case fragments
         case headline
-        case introduction
         case kind
         case namespace 
         case notes 
