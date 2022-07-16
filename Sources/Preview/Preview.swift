@@ -29,7 +29,6 @@ actor Preview
     
     init(projects:[FilePath], resources:FilePath) async throws 
     {
-        self.resources = [:]
         self.ecosystem = .init()
         
         try self.ecosystem.loadToolchains(from: resources.appending("swift"))
@@ -85,25 +84,10 @@ extension Preview
     {
         for await (request, promise):Request.Enqueued in requests 
         {
-            if let response:StaticResponse = self.ecosystem[uri: request.uri]
+            if let response:StaticResponse = self.ecosystem[request.uri]
             {
                 promise.succeed(response)
                 continue 
-            }
-            
-            let uri:URI = .init(path: request.uri.path.normalized.components)
-            if let resource:Resource = self.resources[uri.description]
-            {
-                if case nil = request.uri.query, uri ~= request.uri 
-                {
-                    promise.succeed(.matched(resource, 
-                        canonical: uri.description))
-                }
-                else 
-                {
-                    promise.succeed(.found(at: uri.description, 
-                        canonical: uri.description))
-                }
             }
             else 
             {
