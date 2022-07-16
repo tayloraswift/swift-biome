@@ -360,6 +360,18 @@ struct Package:Identifiable, Sendable
     {
         self.symbols[local: symbol].pollen.insert(pin)
     }
+    mutating 
+    func move(module:Module.Index, to uri:URI) -> Pins
+    {
+        self.modules[local: module].redirect.module = (uri, self.versions.latest)
+        return self.versions[self.versions.latest]
+    }
+    mutating 
+    func move(articles module:Module.Index, to uri:URI) -> Pins
+    {
+        self.modules[local: module].redirect.articles = (uri, self.versions.latest)
+        return self.versions[self.versions.latest]
+    }
     
     func currentOpinion(_ diacritic:Symbol.Diacritic) -> Symbol.Traits?
     {

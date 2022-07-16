@@ -42,21 +42,8 @@ extension Ecosystem
                         substituting: _move(page).substitutions), 
                     type: .utf8(encoded: .html)))
         
-        case .searchIndex(let package): 
-            guard let cached:Resource = self.caches[package]?.search
-            else 
-            {
-                return .error(.init("search index for '\(self[package].id)' not available"))
-            }
-            return .matched(cached, canonical: uri.description) 
-        
-        case .sitemap(let package): 
-            guard let cached:Resource = self.caches[package]?.sitemap
-            else 
-            {
-                return .error(.init("sitemap for '\(self[package].id)' not available"))
-            }
-            return .matched(cached, canonical: uri.description) 
+        case .resource(let resource, uri: let uri): 
+            return .matched(resource, canonical: uri.description) 
         }
     }
 }

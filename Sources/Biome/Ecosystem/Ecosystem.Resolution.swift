@@ -1,13 +1,19 @@
+import Resources
+
 extension Ecosystem 
 {
+    enum Redirect
+    {
+        case index(Index, pins:Package.Pins)
+        case resource(Resource)
+    }
+    
     @usableFromInline
     enum Resolution
     {
-        case index(Index, pins:Package.Pins, exhibit:Version? = nil)
+        case index  (Index,              pins:Package.Pins, exhibit:Version? = nil)
         case choices([Symbol.Composite], pins:Package.Pins)
-        
-        case searchIndex(Package.Index)
-        case sitemap(Package.Index)
+        case resource(Resource, uri:URI)
         
         init(_ selection:Packages.Selection, pins:Package.Pins)
         {
@@ -22,22 +28,35 @@ extension Ecosystem
     }
     
     @usableFromInline
-    func resolve(path:[String], query:[URI.Parameter]) 
-        -> (resolution:Ecosystem.Resolution, redirected:Bool)?
+    func resolve(uri:URI) -> (resolution:Resolution, redirected:Bool)?
     {
-        guard   let root:String = path.first, 
-                let root:Stem = self.stems[leaf: root],
-                let root:Root = self.roots[root]
-        else 
+        let path:[String] = uri.path.normalized.components
+        let query:[URI.Parameter] = uri.query ?? []
+        
+        if  let root:String = path.first, 
+            let root:Stem = self.stems[leaf: root],
+            let root:Root = self.roots[root],
+            case let (resolution, redirected)? = self.resolve(root: root,
+                path: path.dropFirst(), 
+                query: query) 
         {
-            return nil 
+            return (resolution, redirected)
         }
-        return self.resolve(path.dropFirst(), 
-            root: root, query: query) 
+        
+        let normalized:URI = .init(path: path, query: query.isEmpty ? nil : query)
+        switch self.redirects[normalized.description]
+        {
+        case nil: 
+            return nil 
+        case .resource(let resource)?: 
+            return (.resource(resource, uri: normalized), false)
+        case .index(let index, pins: let pins)?:
+            return (.index(index, pins: pins), false)
+        }
     }
     
     private 
-    func resolve<Path>(_ path:Path, root:Root, query:[URI.Parameter]) 
+    func resolve<Path>(root:Root, path:Path, query:[URI.Parameter]) 
         -> (resolution:Resolution, redirected:Bool)?
         where Path:BidirectionalCollection, Path.Element:StringProtocol
     {
@@ -46,22 +65,24 @@ extension Ecosystem
         case .sitemap: 
             guard   let components:[Path.Element.SubSequence] = path.first?.split(separator: "."),
                     let package:Package.ID = components.first.map(Package.ID.init(_:)), 
-                    let package:Package.Index = self.packages.indices[package]
+                    let package:Package.Index = self.packages.indices[package], 
+                    let sitemap:Resource = self.caches[package]?.sitemap
             else 
             {
                 return nil 
             }
-            return (.sitemap(package), false) 
+            return (.resource(sitemap, uri: self.uriOfSiteMap(for: package)), false) 
         
         case .searchIndex: 
             guard   let package:Package.ID = path.first.map(Package.ID.init(_:)), 
                     let package:Package.Index = self.packages.indices[package],
-                    case "types"? = path.dropFirst().first
+                    case "types"? = path.dropFirst().first, 
+                    let search:Resource = self.caches[package]?.search
             else 
             {
                 return nil 
             }
-            return (.searchIndex(package), false) 
+            return (.resource(search, uri: self.uriOfSearchIndex(for: package)), false) 
         
         case .article: 
             return self.resolveNamespace(path: path, query: query)

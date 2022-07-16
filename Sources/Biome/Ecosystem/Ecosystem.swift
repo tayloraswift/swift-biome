@@ -77,8 +77,8 @@ struct Ecosystem:Sendable
         sitemap:URI,
         searchIndex:URI
     )
-    private 
-    var redirects:[String: Index]
+    private(set)
+    var redirects:[String: Redirect]
     
     private(set)
     var stems:Stems
@@ -265,12 +265,44 @@ extension Ecosystem
         }
     } 
     
-    @inlinable public 
-    subscript(uri request:URI) -> StaticResponse?
+    public 
+    func index(of module:Module.ID, in package:Package.Index) -> Module.Index?
     {
-        guard case let (resolution, temporary)? = self.resolve(
-            path: request.path.normalized.components, 
-            query: request.query ?? [])
+        self[package].modules.indices[module]
+    }
+    
+    public mutating 
+    func move(_ resource:Resource, to uri:URI)
+    {
+        self.redirects[uri.description] = .resource(resource)
+    }
+    public mutating 
+    func move(module:Module.Index, to uri:URI)
+    {
+        let pins:Package.Pins = 
+            self.packages[module.package].move(module: module, to: uri)
+        self.redirects[uri.description] = .index(.module(module), pins: pins)
+    }
+    public mutating 
+    func move(articles module:Module.Index, to uri:URI)
+    {
+        let pins:Package.Pins = 
+            self.packages[module.package].move(articles: module, to: uri)
+        for article:Article.Index in self[module].articles.joined()
+        {
+            var uri:URI = uri 
+            for component:String in self[article].path 
+            {
+                uri.path.append(component: component.lowercased())
+            }
+            self.redirects[uri.description] = .index(.article(article), pins: pins)
+        }
+    }
+    
+    public 
+    subscript(request:URI) -> StaticResponse?
+    {
+        guard case let (resolution, temporary)? = self.resolve(uri: request)
         else 
         {
             return nil
@@ -290,8 +322,8 @@ extension Ecosystem
                 .found(at: uri, canonical: canonical?.description ?? uri)
         }
     }
-
-    @usableFromInline
+    
+    private 
     func uri(of resolution:Resolution) -> (exact:URI, canonical:URI?) 
     {
         switch resolution 
@@ -302,11 +334,8 @@ extension Ecosystem
         case .choices(let choices, let pins):
             return (self.uri(of: choices, pins: pins), nil)
         
-        case .searchIndex(let package): 
-            return (self.uriOfSearchIndex(for: package), nil)
-        
-        case .sitemap(let package): 
-            return (self.uriOfSiteMap(for: package), nil)
+        case .resource(_, uri: let uri): 
+            return (uri, nil) 
         }
     }
     private 

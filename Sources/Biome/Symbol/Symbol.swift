@@ -6,12 +6,13 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     /// A symbol index encodes the module it belongs to, which makes it possible 
     /// to query module membership based on the index alone.
     @frozen public 
-    struct Index:CulturalIndex, Hashable, Sendable
+    struct Index:CulturalIndex, Sendable
     {
         public 
         let module:Module.Index
         public 
         let bits:UInt32
+        
         @inlinable public 
         var culture:Module.Index
         {

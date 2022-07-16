@@ -1,7 +1,7 @@
 public 
-protocol CulturalIndex:Strideable
+protocol CulturalIndex:Strideable, Hashable
 {
-    associatedtype Culture 
+    associatedtype Culture:Hashable
     associatedtype Bits:UnsignedInteger
     
     var culture:Culture { get }
@@ -19,11 +19,25 @@ extension CulturalIndex
     {
         .init(self.bits)
     }
+    // *really* weird shit happens if we don’t provide these implementations, 
+    // because by default, ``Strideable`` ignores the `culture` property...
+    @inlinable public static 
+    func == (lhs:Self, rhs:Self) -> Bool
+    {
+        lhs.bits == rhs.bits && lhs.culture == rhs.culture 
+    }
     @inlinable public static 
     func < (lhs:Self, rhs:Self) -> Bool
     {
         lhs.bits < rhs.bits
     }
+    @inlinable public 
+    func hash(into hasher:inout Hasher)
+    {
+        self.culture.hash(into: &hasher)
+        self.bits.hash(into: &hasher)
+    }
+    
     @inlinable public
     func advanced(by stride:Bits.Stride) -> Self 
     {

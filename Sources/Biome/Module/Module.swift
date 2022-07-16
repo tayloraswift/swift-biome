@@ -5,12 +5,13 @@ struct Module:Identifiable, Sendable
 {
     /// A globally-unique index referencing a module. 
     @frozen public
-    struct Index:CulturalIndex, Hashable, Sendable 
+    struct Index:CulturalIndex, Sendable 
     {
         public 
         let package:Package.Index 
         public 
         let bits:UInt16
+        
         @inlinable public 
         var culture:Package.Index
         {
@@ -57,6 +58,8 @@ struct Module:Identifiable, Sendable
         }
     }
     
+    typealias Redirect = (uri:URI, version:Version)
+    
     public 
     let id:ID
     let index:Index 
@@ -65,6 +68,7 @@ struct Module:Identifiable, Sendable
     var articles:[Range<Article.Index>]
     
     var heads:Heads
+    var redirect:(module:Redirect?, articles:Redirect?)
     
     /// this module’s exact identifier string, e.g. '_Concurrency'
     var name:String 
@@ -89,6 +93,7 @@ struct Module:Identifiable, Sendable
         self.articles = []
         
         self.heads = .init()
+        self.redirect = (nil, nil)
     }
     
     var fragments:[Notebook<Highlight, Never>.Fragment] 

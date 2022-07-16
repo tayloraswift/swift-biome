@@ -26,8 +26,6 @@ actor Preview
     
     private 
     var ecosystem:Ecosystem
-    private 
-    var resources:[String: Resource]
     
     init(projects:[FilePath], resources:FilePath) async throws 
     {
@@ -39,12 +37,14 @@ actor Preview
         
         try self.loadResources(from: resources)
         
-        self.resources["/biome.css"] = .init(
-            hashing: try resources.appending(["css", "biome.css"]).read(), 
-            type: .utf8(encoded: .css))
-        self.resources["/search.js"] = .init(
-            hashing: try resources.appending(["js", "main.js"]).read(), 
-            type: .utf8(encoded: .javascript))
+        self.ecosystem.move(.init(
+                hashing: try resources.appending(["css", "biome.css"]).read(), 
+                type: .utf8(encoded: .css)),
+            to: ["biome.css"])
+        self.ecosystem.move(.init(
+                hashing: try resources.appending(["js", "main.js"]).read(), 
+                type: .utf8(encoded: .javascript)),
+            to: ["search.js"])
     }
     
     private  
@@ -70,9 +70,10 @@ actor Preview
         {
             for type:MIME in types 
             {
-                let uri:String = "/\(name.external).\(type.extension)"
-                let path:FilePath = directory.appending("\(name.internal).\(type.extension)")
-                self.resources[uri] = .init(hashing: try path.read(), type: type)
+                let path:FilePath = 
+                    directory.appending("\(name.internal).\(type.extension)")
+                self.ecosystem.move(.init(hashing: try path.read(), type: type), 
+                    to: ["\(name.external).\(type.extension)"])
             }
         }
     }

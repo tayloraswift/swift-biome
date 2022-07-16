@@ -8,7 +8,7 @@ struct Article:Identifiable
     /// An article index encodes the module it belongs to, whichs makes it possible 
     /// to query module membership based on the index alone.
     @frozen public 
-    struct Index:CulturalIndex, Hashable, Sendable
+    struct Index:CulturalIndex, Sendable
     {
         public 
         let module:Module.Index
