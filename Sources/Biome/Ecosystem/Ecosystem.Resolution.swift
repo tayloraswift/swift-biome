@@ -122,11 +122,15 @@ extension Ecosystem
             } 
         
         case .master:
+            if path.isEmpty 
+            {
+                return try? self.resolveAnySymbol(matching: .init(query))
+            }
             return self.resolveNamespace(path: path, query: query)
             {
                 self.resolveSymbol(link: $0, namespace: $1, arrival: $2) ?? 
                 self.resolveSymbol(legacyLink: $0, namespace: $1, arrival: $2)
-            } // ?? (try? self.resolveAnySymbol(matching: .init(query)))
+            }
         }
     }
 
@@ -311,7 +315,7 @@ extension Ecosystem
     }
 }
 // brute force id-based resolution 
-/* extension Ecosystem 
+extension Ecosystem 
 {
     func resolveAnySymbol(matching query:Symbol.Link.Query) 
         -> (resolution:Resolution, redirected:Bool)?
@@ -321,11 +325,11 @@ extension Ecosystem
         {
             return nil
         }
-        if  case let (package, pins)? = 
-            self.localize(destination: composite.culture.package, lens: query.lens)//, 
+        if  let pins:Package.Pins = self.packages.localize(
+                destination: composite.culture.package, 
+                lens: query.lens)//, 
             //package.contains(composite, at: pins.local)
         {
-            let pins:[Package.Index: Version] = pins.isotropic(culture: package.index)
             return (.index(.composite(composite), pins: pins), false)
         }
         else 
@@ -360,13 +364,13 @@ extension Ecosystem
     private 
     func findAnySymbol(matching id:Symbol.ID) -> Symbol.Index?
     {
-        for package:Package in self.packages 
+        for package:Package.ID in self.whitelist  
         {
-            if let index:Symbol.Index = package.symbols.indices[id]
+            if let index:Symbol.Index = self.packages[package]?.symbols.indices[id]
             {
                 return index 
             }
         }
         return nil 
     }
-} */
+} 
