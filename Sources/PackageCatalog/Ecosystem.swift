@@ -25,7 +25,7 @@ extension Ecosystem
                 return nil 
             }
         }
-        for (project, version):(FilePath, MaskedVersion) in toolchains.dropFirst()
+        for (project, version):(FilePath, MaskedVersion) in toolchains
         {
             let catalogs:[Package.Catalog] = 
                 try .init(parsing: try project.appending("Package.catalog").read())
