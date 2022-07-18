@@ -39,6 +39,12 @@ extension Symbol
             // (Swift._UnicodeParser.Encoding)
             self.fragments = vertex.declaration.compactMap 
             {
+                // ignore warnings related to c-language symbols 
+                guard case .swift = $0.language 
+                else 
+                {
+                    return nil
+                }
                 do 
                 {
                     return try scope.index(of: $0)

@@ -120,6 +120,7 @@ extension Packages
             speeches.reserveCapacity(scopes.count)
         for (graph, scope):(Module.Graph, Symbol.Scope) in zip(graphs, scopes)
         {
+            var errors:[Symbol.LookupError] = []
             // if we have `n` edges, we will get between `n` and `2n` statements
             var statements:[Symbol.Statement] = []
                 statements.reserveCapacity(graph.edges.reduce(0) { $0 + $1.count })
@@ -137,10 +138,9 @@ extension Packages
                     source = try scope.index(of: edge.source)
                     target = try scope.index(of: edge.target)
                 } 
-                catch let error 
+                catch let error as Symbol.LookupError 
                 {
-                    print(error)
-                    print("note: while processing edge in '\(graph.core.namespace)'")
+                    errors.append(error)
                     continue
                 }
                 do 
@@ -170,6 +170,11 @@ extension Packages
                 }
             }
             speeches.append(statements)
+
+            if !errors.isEmpty 
+            {
+                print("warning: dropped \(errors.count) edges from '\(graph.core.namespace)'")
+            }
         }
         
         // flatten the uptree, in O(n). every item in the dictionary will be 

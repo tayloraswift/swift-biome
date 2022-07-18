@@ -170,7 +170,10 @@ extension Ecosystem
                 graphs: graph.modules, 
                 stems: &self.stems)
         
-        print("note: key table population: \(self.stems._count), total key size: \(self.stems._memoryFootprint) B")
+        print("""
+            note: key table population: \(self.stems._count), \
+            total key size: \(self.stems._memoryFootprint) B
+            """)
         
         // add the newly-registered symbols to each module scope 
         for scope:Int in scopes.indices

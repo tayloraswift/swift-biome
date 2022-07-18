@@ -83,9 +83,9 @@ extension Module
         {
             let (images, edges):([Image], [Edge]) = try json.lint(["metadata"]) 
             {
-                let edges:[Edge]   = try $0.remove("relationships") { try $0.map( Edge.init(from:)) }
-                let images:[Image] = try $0.remove("symbols")       { try $0.map(Image.init(from:)) }
-                let module:Module.ID  = try $0.remove("module")
+                let edges:[Edge] = try $0.remove("relationships") { try $0.map( Edge.init(from:)) }
+                let images:[Image] = try $0.remove("symbols") { try $0.map(Image.init(from:)) }
+                let module:Module.ID = try $0.remove("module")
                 {
                     try $0.lint(["platform"]) 
                     {
@@ -132,6 +132,9 @@ extension Module
             // the underscored `_Pointer` protocol.
             var vertices:[Symbol.ID: Vertex] = [:], 
                 protocols:[Symbol.ID: String] = [:]
+            // it is possible to naturalize protocol members without naturalizing the 
+            // protocols themselves.
+            var naturalizations:[Symbol.ID: [Symbol.ID]] = [:]
             
             for image:Image in images 
             {
@@ -183,8 +186,6 @@ extension Module
                 }
                 
                 let base:Path = .init(prefix: [`protocol`.name], last: image.vertex.path.last)
-                var host:String { image.vertex.path.prefix.joined(separator: ".") }
-                
                 // fix the first path component of the vertex, so that it points 
                 // to the protocol and not the concrete type we discovered it in 
                 vertices[image.id]?.path = base
@@ -193,17 +194,15 @@ extension Module
                 {
                     // if the symbol is unconditionally unavailable, generate 
                     // an edge for it:
-                    self.edges.append(.init(image.id, is: .member, of: `protocol`.id))
-                    print("note: naturalized protocol member '\(base)' from host '\(host)'")
+                    naturalizations[`protocol`.id, default: []].append(image.id)
                 }
                 else if case "_"? = `protocol`.name.first
                 {
                     // if the inferred symbol belongs to an underscored protocol, 
                     // generate an edge for it:
-                    self.edges.append(.init(image.id, is: .member, of: `protocol`.id))
+                    naturalizations[`protocol`.id, default: []].append(image.id)
                     // make a note of the protocol name and identifier
                     protocols[`protocol`.id] = `protocol`.name
-                    print("note: naturalized protocol member '\(base)' from host '\(host)'")
                 }
             }
             
@@ -232,7 +231,27 @@ extension Module
                         extensionConstraints:   [], 
                         comment:                ""))
                 self.vertices.append((id, vertex))
-                print("note: naturalized underscored protocol '\(name)'")
+            }
+            if !protocols.isEmpty 
+            {
+                print("""
+                    note: naturalized underscored protocols \
+                    (\(protocols.values.sorted().map { "'\($0)'" }.joined(separator: ", ")))
+                    """)
+            }
+            for (`protocol`, members):(Symbol.ID, [Symbol.ID]) in naturalizations 
+            {
+                for member:Symbol.ID in members 
+                {
+                    self.edges.append(.init(member, is: .member, of: `protocol`))
+                }
+            }
+            if !naturalizations.isEmpty 
+            {
+                print("""
+                    note: naturalized \(naturalizations.values.reduce(0) { $0 + $1.count }) \
+                    protocol members
+                    """)
             }
         }
     }

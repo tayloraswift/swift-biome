@@ -640,7 +640,7 @@ extension Package
         }
         
         let updated:Int = symbols.reduce(0) { $0 + $1.count }
-        print("(\(self.id)) updated \(updated) symbols (\(self.symbols.count - extant) are new)")
+        // print("(\(self.id)) updated \(updated) symbols (\(self.symbols.count - extant) are new)")
         return symbols
     }
     private mutating 
