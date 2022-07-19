@@ -175,18 +175,18 @@ extension Image
                     try $0.lint
                     {
                         let deprecated:MaskedVersion?? = try
-                            $0.pop("deprecated", MaskedVersion.init(from:)) ?? 
+                            $0.pop("deprecated", MaskedVersion.init(exactly:)) ?? 
                             $0.pop("isUnconditionallyDeprecated", as: Bool?.self).flatMap 
                         {
                             (flag:Bool) -> MaskedVersion?? in 
                             flag ? .some(nil) : nil
                         } 
-                        // possible be both unconditionally unavailable and unconditionally deprecated
+                        // possible to be both unconditionally unavailable and unconditionally deprecated
                         let availability:VersionedAvailability = .init(
                             unavailable: try $0.pop("isUnconditionallyUnavailable", as: Bool?.self) ?? false,
                             deprecated: deprecated,
-                            introduced: try $0.pop("introduced", MaskedVersion.init(from:)),
-                            obsoleted: try $0.pop("obsoleted", MaskedVersion.init(from:)), 
+                            introduced: try $0.pop("introduced", MaskedVersion.init(exactly:)) ?? nil,
+                            obsoleted: try $0.pop("obsoleted", MaskedVersion.init(exactly:)) ?? nil, 
                             renamed: try $0.pop("renamed", as: String?.self),
                             message: try $0.pop("message", as: String?.self))
                         let domain:Availability.Domain = try $0.remove("domain") 

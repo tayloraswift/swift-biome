@@ -209,6 +209,22 @@ extension MaskedVersion
             return nil 
         }
     }
+    init?(exactly json:JSON) throws 
+    {
+        do 
+        {
+            try self.init(from: json)
+        }
+        catch let error as JSON.RecursiveError
+        {
+            guard error.next is JSON.IntegerOverflowError 
+            else 
+            {
+                throw error
+            }
+            return nil
+        }
+    }
     init(from json:JSON) throws 
     {
         self = try json.lint 
