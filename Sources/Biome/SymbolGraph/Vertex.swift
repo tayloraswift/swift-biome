@@ -81,7 +81,7 @@ extension Image
             
             let (kind, id):(Kind, Symbol.ID) = try $0.remove("identifier")
             {
-                let string:String = try $0.lint(["interfaceLanguage"])
+                let string:String = try $0.lint(whitelisting: ["interfaceLanguage"])
                 {
                     try $0.remove("precise", as: String.self)
                 }
@@ -109,7 +109,7 @@ extension Image
             }
             let color:Symbol.Color = try $0.remove("kind")
             {
-                let color:Symbol.Color = try $0.lint(["displayName"])
+                let color:Symbol.Color = try $0.lint(whitelisting: ["displayName"])
                 {
                     try $0.remove("identifier") { try $0.case(of: Symbol.Color.self) }
                 }
@@ -135,7 +135,7 @@ extension Image
             let signature:Notebook<Highlight, Never> = .init(
                 try $0.remove("names")
             {
-                try $0.lint(["title", "navigator"])
+                try $0.lint(whitelisting: ["title", "navigator"])
                 {
                     try $0.remove("subHeading") 
                     { 
@@ -161,10 +161,7 @@ extension Image
                     return (uri, line, column)
                 }
             }
-            let _:Void? = try $0.pop("functionSignature")
-            {
-                _ in ()
-            }
+            let _:JSON? = $0.pop("functionSignature")
 
             let availability:Availability? = 
                 try $0.pop("availability", as: [JSON]?.self)
@@ -200,13 +197,13 @@ extension Image
             }
             let comment:String? = try $0.pop("docComment")
             {
-                try $0.lint(["uri", "module"]) 
+                try $0.lint(whitelisting: ["uri", "module"]) 
                 {
                     try $0.remove("lines")
                     {
                         try $0.map
                         {
-                            try $0.lint(["range"])
+                            try $0.lint(whitelisting: ["range"])
                             {
                                 try $0.remove("text", as: String.self)
                             }

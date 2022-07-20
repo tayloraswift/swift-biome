@@ -52,13 +52,13 @@ extension Edge
     init(from json:JSON) throws
     {
         (self.kind, self.origin, source: self.source, target: self.target, self.constraints) = 
-            try json.lint(["targetFallback"])
+            try json.lint(whitelisting: ["targetFallback"])
         {
             var kind:Edge.Kind? = try $0.remove("kind") { try $0.case(of: Edge.Kind.self) }
             let target:Symbol.ID = try $0.remove("target", Symbol.ID.init(from:))
             let origin:Symbol.ID? = try $0.pop("sourceOrigin")
             {
-                try $0.lint(["displayName"])
+                try $0.lint(whitelisting: ["displayName"])
                 {
                     try $0.remove("identifier", Symbol.ID.init(from:))
                 }

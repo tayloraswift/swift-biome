@@ -35,7 +35,7 @@ extension Package.Resolved
         public 
         init(from json:JSON) throws 
         {
-            (self.id, self.state, self.location) = try json.lint(["kind"])
+            (self.id, self.state, self.location) = try json.lint(whitelisting: ["kind"])
             {
                 let id:Package.ID = .init(
                     try $0.pop("identity", as: String.self) ?? 

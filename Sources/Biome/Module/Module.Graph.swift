@@ -81,13 +81,13 @@ extension Module
         private 
         init(from json:JSON, culture:Module.ID, namespace:Module.ID?) throws 
         {
-            let (images, edges):([Image], [Edge]) = try json.lint(["metadata"]) 
+            let (images, edges):([Image], [Edge]) = try json.lint(whitelisting: ["metadata"]) 
             {
                 let edges:[Edge] = try $0.remove("relationships") { try $0.map( Edge.init(from:)) }
                 let images:[Image] = try $0.remove("symbols") { try $0.map(Image.init(from:)) }
                 let module:Module.ID = try $0.remove("module")
                 {
-                    try $0.lint(["platform"]) 
+                    try $0.lint(whitelisting: ["platform"]) 
                     {
                         Module.ID.init(try $0.remove("name", as: String.self))
                     }
