@@ -50,8 +50,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-hash.git",
       "state" : {
-        "revision" : "173dd383d1bfdc3479811623d8a284cacd1c5604",
-        "version" : "0.2.2"
+        "revision" : "e66010cb5921192af16e50270dea859047719c47",
+        "version" : "0.2.3"
       }
     },
     {
@@ -95,8 +95,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-resource",
       "state" : {
-        "revision" : "65bc1bed20648767e39662e8fe1839ce469d7738",
-        "version" : "0.3.0"
+        "revision" : "d1b94b500afd8af35e4396205ea05f2f20b4e990",
+        "version" : "0.3.2"
       }
     },
     {
@@ -115,6 +115,15 @@
       "state" : {
         "revision" : "025bcb1165deab2e20d4eaba79967ce73013f496",
         "version" : "1.2.1"
+      }
+    },
+    {
+      "identity" : "swift-system-extras",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/kelvin13/swift-system-extras.git",
+      "state" : {
+        "revision" : "5a67c69d99d4dd7ea33ca5ddb2973f7d80cbdcdd",
+        "version" : "0.1.0"
       }
     }
   ],

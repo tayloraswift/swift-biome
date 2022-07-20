@@ -30,11 +30,9 @@ extension Ecosystem
     }
     
     @usableFromInline
-    func resolve(uri:URI) -> (resolution:Resolution, redirected:Bool)?
+    func resolve(path:[String], query:[URI.Parameter]) 
+        -> (resolution:Resolution, redirected:Bool)?
     {
-        let path:[String] = uri.path.normalized.components
-        let query:[URI.Parameter] = uri.query ?? []
-        
         if  let root:String = path.first, 
             let root:Stem = self.stems[leaf: root],
             let root:Root = self.roots[root],
@@ -44,16 +42,9 @@ extension Ecosystem
         {
             return (resolution, redirected)
         }
-        
-        let normalized:URI = .init(path: path, query: query.isEmpty ? nil : query)
-        switch self.redirects[normalized.description]
+        else 
         {
-        case nil: 
             return nil 
-        case .resource(let resource)?: 
-            return (.resource(resource, uri: normalized), false)
-        case .index(let index, pins: let pins, template: let template)?:
-            return (.index(index, pins: pins, template: template), false)
         }
     }
     

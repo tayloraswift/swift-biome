@@ -1,9 +1,10 @@
+import SystemExtras
 import PackageCatalog
+import WebSemantics
 import Resources
 import HTML
 import NIO
 import NIOHTTP1
-import SystemExtras
 
 actor Preview
 {
@@ -84,16 +85,7 @@ extension Preview
     {
         for await (request, promise):Request.Enqueued in requests 
         {
-            if let response:StaticResponse = self.ecosystem[request.uri]
-            {
-                promise.succeed(response)
-                continue 
-            }
-            else 
-            {
-                promise.succeed(.none(.init("page not found.")))
-                continue 
-            }
+            promise.succeed(self.ecosystem[request.uri])
         }
     }
 }

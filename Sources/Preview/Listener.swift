@@ -1,6 +1,7 @@
 import NIO
 import NIOHTTP1
 import Resources
+import WebSemantics
 
 protocol ExpressibleByPartialHTTPRequest 
 {
@@ -9,7 +10,7 @@ protocol ExpressibleByPartialHTTPRequest
 }
 extension ExpressibleByPartialHTTPRequest 
 {
-    typealias Enqueued = (request:Self, promise:EventLoopPromise<StaticResponse>)
+    typealias Enqueued = (request:Self, promise:EventLoopPromise<Response<Resource>>)
     
     init?(source _:SocketAddress?, head _:HTTPRequestHead)
     {
@@ -172,16 +173,18 @@ extension Listener
 {
     private 
     func makePromise(hash:SHA256?, context:ChannelHandlerContext) 
-        -> EventLoopPromise<StaticResponse>
+        -> EventLoopPromise<Response<Resource>>
     {
-        let promise:EventLoopPromise<StaticResponse> = 
-            context.eventLoop.makePromise(of: StaticResponse.self)
+        let promise:EventLoopPromise<Response<Resource>> = 
+            context.eventLoop.makePromise(of: Response<Resource>.self)
             promise.futureResult.whenComplete 
         {
             switch $0 
             {
             case .failure(let error): 
-                self.respond(with: .error(.init("\(error)")), context: context)
+                let error:Response<Resource> = .init(uri: "/", results: .error, 
+                    payload: .init("\(error)"))
+                self.respond(with: error, context: context)
             
             case .success(let response):
                 self.respond(with: response, ifNoneMatch: hash, context: context) 
@@ -250,48 +253,52 @@ extension Listener
         return (head, buffer.map(IOData.byteBuffer(_:)))
     }
     private 
-    func respond(with response:StaticResponse, 
+    func respond(with response:Response<Resource>, 
         ifNoneMatch hash:SHA256? = nil,
         context:ChannelHandlerContext) 
     {
         let head:HTTPResponseHead, 
             body:IOData?
-        switch response
+        switch response.redirection 
         {
-        case .none(let resource):
-            (head, body) = self.createResponse(containing: resource, 
-                allocator: context.channel.allocator,
-                status: .notFound)
-        
-        case .error(let resource):
-            (head, body) = self.createResponse(containing: resource, 
-                allocator: context.channel.allocator,
-                status: .internalServerError)
-        
-        case .multiple(let resource):
-            (head, body) = self.createResponse(containing: resource, 
-                allocator: context.channel.allocator,
-                status: .multipleChoices)
-        
-        case .maybe(at: let uri, canonical: let canonical):
-            head = self.createResponseHead(location: uri, 
-                canonical: canonical,
+        case .temporary:
+            head = self.createResponseHead(location: response.uri, 
+                canonical: response.canonical,
                 status: .temporaryRedirect)
             body = nil 
-        
-        case .found(at: let uri, canonical: let canonical):
-            head = self.createResponseHead(location: uri, 
-                canonical: canonical, 
+
+        case .permanent:
+            head = self.createResponseHead(location: response.uri, 
+                canonical: response.canonical, 
                 status: .permanentRedirect)
             body = nil
         
-        case .matched(let resource, canonical: let canonical):
-            let status:HTTPResponseStatus = 
-                resource.hash =~= hash ? .notModified : .ok
-            (head, body) = self.createResponse(containing: resource, 
-                allocator: context.channel.allocator,
-                canonical: canonical, 
-                status: status)
+        case .none(let resource):
+            switch response.results 
+            {
+            case .error:
+                (head, body) = self.createResponse(containing: resource, 
+                    allocator: context.channel.allocator,
+                    status: .internalServerError)
+            
+            case .none:
+                (head, body) = self.createResponse(containing: resource, 
+                    allocator: context.channel.allocator,
+                    status: .notFound)
+            
+            case .one(let canonical):
+                let status:HTTPResponseStatus = 
+                    resource.hash ?= hash ? .notModified : .ok
+                (head, body) = self.createResponse(containing: resource, 
+                    allocator: context.channel.allocator,
+                    canonical: canonical, 
+                    status: status)
+            
+            case .many:
+                (head, body) = self.createResponse(containing: resource, 
+                    allocator: context.channel.allocator,
+                    status: .multipleChoices)
+            }
         }
         self.respond(head: head, body: body, context: context)
     }

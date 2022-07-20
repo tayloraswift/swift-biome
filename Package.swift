@@ -14,13 +14,14 @@ let package = Package(
     [
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-highlight",            exact: "0.1.4"),
-        .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.3.0"),
+        .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.3.2"),
         .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.4.1"),
         
         .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a"),
         .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a"),
         
         // only used by the PackageCatalog target
+        .package(url: "https://github.com/kelvin13/swift-system-extras.git",    exact: "0.1.0"),
         .package(url: "https://github.com/apple/swift-system.git",              exact: "1.2.1"),
         // only used by the previewer target
         .package(url: "https://github.com/apple/swift-nio.git",                 exact: "2.40.0"),
@@ -35,6 +36,7 @@ let package = Package(
                 .product(name: "DOM",               package: "swift-dom"),
                 .product(name: "JSON",              package: "swift-json"),
                 .product(name: "Resources",         package: "swift-resource"),
+                .product(name: "WebSemantics",      package: "swift-resource"),
                 .product(name: "Notebook",          package: "swift-highlight"),
                 .product(name: "SwiftSyntaxParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntax",       package: "swift-syntax"),
@@ -59,7 +61,7 @@ let package = Package(
                 .product(name: "NIO",               package: "swift-nio"),
                 .product(name: "NIOHTTP1",          package: "swift-nio"),
                 .product(name: "Backtrace",         package: "swift-backtrace"),
-                .product(name: "SystemPackage",     package: "swift-system"),
+                .product(name: "SystemExtras",      package: "swift-system-extras"),
                 .product(name: "ArgumentParser",    package: "swift-argument-parser"),
             ]),
     ]
