@@ -28,11 +28,12 @@ actor Preview
     private 
     var ecosystem:Ecosystem
     
-    init(projects:[FilePath], resources:FilePath) async throws 
+    init(projects:[FilePath], resources:FilePath, swift:MaskedVersion?) async throws 
     {
         self.ecosystem = .init()
         
-        try self.ecosystem.loadToolchains(from: resources.appending("swift"))
+        try self.ecosystem.loadToolchains(from: resources.appending("swift"), 
+            matching: swift)
         try self.ecosystem.loadProjects(from: projects)
         
         try self.loadResources(from: resources)

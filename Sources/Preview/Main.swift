@@ -18,6 +18,10 @@ struct Main:AsyncParsableCommand
     @Option(name: [.customShort("d"), .customLong("domain")], 
         help: "public host name")
     var domain:String = "127.0.0.1" 
+
+    @Option(name: [.customLong("swift")], 
+        help: "swift standard library version")
+    var swift:String = "*"
     
     @Option(name: [.customLong("resources")], 
         help: "path to a copy of the 'swift-biome-resources' repository")
@@ -48,7 +52,8 @@ struct Main:AsyncParsableCommand
         let port:Int = self.port 
         
         async let preview:Preview = .init(projects: self.projects.map(FilePath.init(_:)), 
-            resources: .init(self.resources))
+            resources: .init(self.resources), 
+            swift: .init(self.swift))
 
         let requests:AsyncStream<Preview.Request.Enqueued> = .init 
         { 
