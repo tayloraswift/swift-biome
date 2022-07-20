@@ -40,9 +40,11 @@ extension Package.Resolved
                 let id:Package.ID = .init(
                     try $0.pop("identity", as: String.self) ?? 
                         $0.remove("package", as: String.self))
+                let location:String? = try $0.pop("location", as: String.self) ?? 
+                    $0.pop("repositoryURL", as: String.self)
                 let state:State = try $0.remove("state")
                 {
-                    try $0.lint 
+                    try $0.lint(whitelisting: ["branch"]) 
                     {
                         let revision:String = try $0.remove("revision", as: String.self)
                         let requirement:Requirement
@@ -58,7 +60,7 @@ extension Package.Resolved
                         return .init(requirement, revision: revision)
                     }
                 }
-                return (id, state, try $0.pop("location", as: String.self))
+                return (id, state, location)
             }
         }
     }
