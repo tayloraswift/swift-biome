@@ -48,7 +48,7 @@ extension Package.Resolved
                     {
                         let revision:String = try $0.remove("revision", as: String.self)
                         let requirement:Requirement
-                        if let version:String = try $0.pop("version", as: String.self)
+                        if let version:String = try $0.pop("version", as: String?.self)
                         {
                             requirement = .version(try Grammar.parse(version.unicodeScalars, 
                                 as: MaskedVersion.Rule<String.Index>.self))
