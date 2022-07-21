@@ -51,7 +51,7 @@ extension Extension
                     print("warning: unknown keyword '\(unknown)'")
                 
                 case .aside(let aside): 
-                    muggles.append(.aside(aside, .init(item.blockChildren)))
+                    muggles.append(.aside(aside, .init(content)))
                     continue 
                 
                 case .returns:
