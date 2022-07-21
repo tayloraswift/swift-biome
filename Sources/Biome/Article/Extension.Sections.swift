@@ -4,13 +4,18 @@ extension Extension
 {
     struct Sections 
     {
-        var parameters:[(String, [any BlockMarkup])] = []
-        var returns:[any BlockMarkup] = []
+        typealias Parameter = (name:String, content:[any BlockMarkup])
+        typealias Topic = (heading:Heading, items:[String])
+
+        var parameters:[Parameter] 
+        var returns:[any BlockMarkup] 
+        var topics:[Topic]
         
         init()
         {
             self.parameters = []
             self.returns = []
+            self.topics = []
         }
         
         mutating 
@@ -22,7 +27,19 @@ extension Extension
                 switch node 
                 {
                 case .section(let heading, let children):
+                    #if false
+                    if  heading.level == 2, heading.plainText == "Topics"
+                    {
+                        if let topics:[Topic] = Self.recognize(topics: children)
+                        {
+                            self.topics.append(contentsOf: topics)
+                            continue 
+                        }
+                        print("warning: malformed topics section")
+                    }
+                    #endif
                     replaced.append(.section(heading, self.recognize(nodes: children)))
+
                 case .block(let list as UnorderedList):
                     replaced.append(contentsOf: self.recognize(unordered: list))
                 default:
@@ -63,7 +80,7 @@ extension Extension
                     continue 
                 
                 case .parameters:
-                    var group:[(String, [any BlockMarkup])] = []
+                    var group:[Parameter] = []
                     for block:any BlockMarkup in content
                     {
                         guard let unordered:UnorderedList = block as? UnorderedList 
@@ -114,6 +131,78 @@ extension Extension
                 fractured.append(.block(UnorderedList.init(sublist)))
             }
             return fractured
+        }
+        private static 
+        func recognize(topics nodes:[Node]) -> [Topic]? 
+        {
+            var topics:[Topic] = [] 
+                topics.reserveCapacity(nodes.count)
+            for node:Node in nodes 
+            {
+                guard case .section(let heading, let blocks) = node, 
+                    heading.level == 3
+                else 
+                {
+                    return nil
+                }
+
+                var description:[any BlockMarkup] = []
+                var topic:[String] = []
+                for block:Node in blocks 
+                {
+                    guard case .block(let block) = block
+                    else 
+                    {
+                        return nil
+                    }
+                    guard let list:UnorderedList = block as? UnorderedList 
+                    else 
+                    {
+                        // if there are non-list children, they must appear 
+                        // before the first list.
+                        // sometimes there are HTML comments, which we ignore
+                        if topic.isEmpty || block is HTMLBlock
+                        {
+                            description.append(block)
+                            continue 
+                        }
+                        return nil
+                    }
+                    for item:ListItem in list.listItems 
+                    {
+                        for paragraph:any BlockMarkup in item.blockChildren 
+                        {
+                            guard let paragraph:any InlineContainer = 
+                                paragraph as? InlineContainer 
+                            else 
+                            {
+                                return nil
+                            }
+                            for span:any InlineMarkup in paragraph.inlineChildren 
+                            {
+                                let destination:String?
+                                switch span 
+                                {
+                                case let link as Markdown.Link:
+                                    destination = link.destination
+                                case let link as Markdown.SymbolLink:
+                                    destination = link.destination
+                                default: 
+                                    return nil
+                                }
+                                guard let destination:String, !destination.isEmpty
+                                else 
+                                {
+                                    return nil
+                                }
+                                topic.append(destination)
+                            }
+                        }
+                    }
+                }
+                topics.append((heading, topic))
+            }
+            return topics
         }
     }
 }

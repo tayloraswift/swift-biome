@@ -142,15 +142,7 @@ struct Extension:Sendable
         self.metadata = .init(directives: directives)
         self.headline = headline
         self.sections = .init()
-        
-        if case .implicit = self.headline 
-        {
-            self.nodes = self.sections.recognize(nodes: nodes)
-        }
-        else 
-        {
-            self.nodes = nodes
-        }
+        self.nodes = self.sections.recognize(nodes: nodes)
     }
     
     var binding:String?
@@ -194,9 +186,9 @@ struct Extension:Sendable
             remaining = self.nodes[...]
         }
         
+        renderer.append(sections: self.sections)
         if case .implicit = self.headline 
         {
-            renderer.append(sections: self.sections)
             renderer.append(nodes: remaining, under: "Overview", classes: "discussion")
         }
         else 
