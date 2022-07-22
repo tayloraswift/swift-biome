@@ -612,9 +612,21 @@ extension Package
                 extensions[binding] = article 
                 continue 
             }
-            // replace spaces in the article name with hyphens
-            let path:Path = article.metadata.path ??
-                .init(last: .init(name.map { $0 == " " ? "-" : $0 }))
+            let path:Path 
+            if let explicit:Path = article.metadata.path 
+            {
+                path = explicit 
+            }
+            else if !name.isEmpty 
+            {
+                // replace spaces in the article name with hyphens
+                path = .init(last: .init(name.map { $0 == " " ? "-" : $0 }))
+            }
+            else 
+            {
+                print("warning: article with no filename must have an explicit @path(_:)")
+                continue 
+            }
             // article namespace is always its culture. 
             let route:Route = .init(culture, 
                       stems.register(components: path.prefix), 
