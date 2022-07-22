@@ -1,3 +1,6 @@
+import SymbolGraphs
+import Versions
+
 struct Packages 
 {
     private 
@@ -82,7 +85,7 @@ struct Packages
     
     mutating 
     func updateModuleRegistrations(in culture:Package.Index,
-        graphs:[Module.Graph], 
+        graphs:[ModuleGraph], 
         version:PreciseVersion,
         era:[Package.ID: MaskedVersion])
         throws -> (pins:Package.Pins, scopes:[Symbol.Scope])
@@ -142,12 +145,12 @@ struct Packages
 }
 extension Packages 
 {
-    func computeDependencies(of cultures:[Module.Index], graphs:[Module.Graph]) 
+    func computeDependencies(of cultures:[Module.Index], graphs:[ModuleGraph]) 
         throws -> [Set<Module.Index>]
     {
         var dependencies:[Set<Module.Index>] = []
             dependencies.reserveCapacity(cultures.count)
-        for (graph, culture):(Module.Graph, Module.Index) in zip(graphs, cultures)
+        for (graph, culture):(ModuleGraph, Module.Index) in zip(graphs, cultures)
         {
             // remove self-dependencies 
             var set:Set<Module.Index> = try self.identify(graph.dependencies)
@@ -158,9 +161,9 @@ extension Packages
     }
     
     private 
-    func identify(_ dependencies:[Module.Graph.Dependency]) throws -> Set<Module.Index>
+    func identify(_ dependencies:[ModuleGraph.Dependency]) throws -> Set<Module.Index>
     {
-        let packages:[Package.ID: [Module.ID]] = [Package.ID: [Module.Graph.Dependency]]
+        let packages:[Package.ID: [Module.ID]] = [Package.ID: [ModuleGraph.Dependency]]
             .init(grouping: dependencies, by: \.package)
             .mapValues 
         {

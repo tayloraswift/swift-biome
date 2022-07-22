@@ -1,3 +1,5 @@
+import SymbolGraphs
+
 extension Symbol.Trait:Equatable where Target:Equatable {}
 extension Symbol.Trait:Sendable where Target:Sendable {}
 extension Symbol 
@@ -154,18 +156,18 @@ extension Symbol
             self.conditional = [:]
         }
         
-        init<Traits>(_ traits:Traits, as color:Color)
+        init<Traits>(_ traits:Traits, as community:Community)
             where Traits:Sequence, Traits.Element == Trait<Index>
         {
             self.init()
-            self.update(with: traits, as: color)
+            self.update(with: traits, as: community)
         }
         
         mutating 
-        func update<Traits>(with traits:Traits, as color:Color) 
+        func update<Traits>(with traits:Traits, as community:Community) 
             where Traits:Sequence, Traits.Element == Trait<Index>
         {
-            switch color 
+            switch community 
             {
             case .associatedtype:
                 for trait:Trait<Index> in traits 

@@ -1,3 +1,5 @@
+import Versions 
+
 extension Packages 
 {
     @usableFromInline
@@ -123,9 +125,9 @@ extension Packages
         case .fnv(_)?: 
             // TODO: implement this 
             break 
-        case .color(base.color)?: 
+        case .community(base.community)?: 
             break 
-        case .color(_)?:
+        case .community(_)?:
             return false
         }
         switch (disambiguator.base, disambiguator.host)

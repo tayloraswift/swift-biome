@@ -1,9 +1,11 @@
+import SymbolGraphs
+
 extension Packages 
 {
     mutating 
     func updateImplicitSymbols<Symbols>(in index:Package.Index, 
         fromExplicit symbols:[Symbols],
-        graphs:[Module.Graph],
+        graphs:[ModuleGraph],
         scopes:[Symbol.Scope])
         throws -> [Symbol.Index: Symbol.Index]
         where Symbols:Sequence, Symbols.Element == Symbol.Index
@@ -76,7 +78,7 @@ extension Packages
                     facts[symbol] = try .init(
                         traits: traits.removeValue(forKey: symbol) ?? [],
                         roles: roles.removeValue(forKey: symbol) ?? [], 
-                        as: self[symbol].color)
+                        as: self[symbol].community)
                 }
                 catch let error as Symbol.PoliticalError<Symbol.Index>
                 {
@@ -86,7 +88,7 @@ extension Packages
             for (symbol, traits):(Symbol.Index, [Symbol.Trait<Symbol.Index>]) in traits 
             {
                 let diacritic:Symbol.Diacritic = .init(host: symbol, culture: culture)
-                let traits:Symbol.Traits = .init(traits, as: self[symbol].color)
+                let traits:Symbol.Traits = .init(traits, as: self[symbol].community)
                 if symbol.module.package == culture.package 
                 {
                     local[diacritic] = traits 
@@ -112,13 +114,13 @@ extension Packages
     }
     
     private 
-    func generateRhetoric(graphs:[Module.Graph], scopes:[Symbol.Scope])
+    func generateRhetoric(graphs:[ModuleGraph], scopes:[Symbol.Scope])
         throws -> (speeches:[[Symbol.Statement]], hints:[Symbol.Index: Symbol.Index])
     {
         var uptree:[Symbol.Index: Symbol.Index] = [:]
         var speeches:[[Symbol.Statement]] = [] 
             speeches.reserveCapacity(scopes.count)
-        for (graph, scope):(Module.Graph, Symbol.Scope) in zip(graphs, scopes)
+        for (graph, scope):(ModuleGraph, Symbol.Scope) in zip(graphs, scopes)
         {
             var errors:[Symbol.LookupError] = []
             // if we have `n` edges, we will get between `n` and `2n` statements
@@ -212,9 +214,9 @@ extension Packages
     {
         switch  
         (
-                self[source].color,
+                self[source].community,
             is: relation,
-            of: self[target].color,
+            of: self[target].community,
             unconditional: constraints.isEmpty
         ) 
         {
@@ -287,8 +289,8 @@ extension Packages
             // ``Edge.init(from:)`` should have thrown a ``JSON.LintingError`
             fatalError("unreachable")
         
-        case (let source, is: let relation, of: let color, unconditional: true):
-            throw Symbol.PoliticalError.miscegenation(is: source, and: relation, of: (color, target))
+        case (let source, is: let relation, of: let community, unconditional: true):
+            throw Symbol.PoliticalError.miscegenation(is: source, and: relation, of: (community, target))
         }
     }
 }

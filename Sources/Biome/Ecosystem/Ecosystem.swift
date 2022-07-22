@@ -1,5 +1,7 @@
-import DOM
+@_exported import SymbolGraphs
+@_exported import Versions
 import Resources
+import DOM
 
 public
 struct Ecosystem:Sendable 
@@ -138,7 +140,7 @@ extension Ecosystem
     
     @discardableResult
     public mutating 
-    func updatePackage(_ graph:Package.Graph, pins era:[Package.ID: MaskedVersion]) 
+    func updatePackage(_ graph:PackageGraph, pins era:[Package.ID: MaskedVersion]) 
         throws -> Package.Index
     {
         try Task.checkCancellation()

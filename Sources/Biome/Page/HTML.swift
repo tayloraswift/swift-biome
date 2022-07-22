@@ -1,5 +1,7 @@
-import HTML
+import SymbolGraphs
+import Versions
 import Notebook
+import HTML
 
 extension DOM.Element where Domain == HTML
 {

@@ -1,3 +1,4 @@
+import SymbolGraphs
 import Notebook
 
 public 
@@ -61,7 +62,7 @@ struct Module:Identifiable, Sendable
     typealias Redirect = (uri:URI, version:Version)
     
     public 
-    let id:ID
+    let id:ModuleIdentifier
     let index:Index 
     
     var symbols:[Symbol.ColonialRange]

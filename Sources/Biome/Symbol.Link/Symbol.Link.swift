@@ -1,3 +1,4 @@
+import SymbolGraphs
 import Grammar 
 
 extension Symbol 
@@ -42,21 +43,21 @@ extension Symbol
         }
         enum Suffix 
         {
-            case color(Color)
+            case community(Community)
             case fnv(hash:UInt32)
             
             init?<S>(_ string:S) where S:StringProtocol 
             {
-                // will never collide with symbol colors, since they always contain 
+                // will never collide with symbol communities, since they always contain 
                 // a period ('.')
                 // https://github.com/apple/swift-docc/blob/d94139a5e64e9ecf158214b1cded2a2880fc1b02/Sources/SwiftDocC/Utility/FoundationExtensions/String%2BHashing.swift
                 if let hash:UInt32 = .init(string, radix: 36)
                 {
                     self = .fnv(hash: hash)
                 }
-                else if let color:Color = .init(rawValue: String.init(string))
+                else if let community:Community = .init(rawValue: String.init(string))
                 {
-                    self = .color(color)
+                    self = .community(community)
                 }
                 else 
                 {

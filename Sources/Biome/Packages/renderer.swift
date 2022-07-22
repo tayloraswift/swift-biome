@@ -1,3 +1,4 @@
+import SymbolGraphs
 import HTML
 
 extension Packages
@@ -59,7 +60,7 @@ extension Packages
         [
             .title:        .text(escaping: title), 
             .headline:     .h1(base.name), 
-            .kind:         .text(escaping: base.color.title),
+            .kind:         .text(escaping: base.community.title),
             .fragments:    .render(fragments: declaration.fragments, 
                 transform: Ecosystem.Index.symbol(_:)),
             
@@ -154,7 +155,7 @@ extension Packages
             items.append(.li(.p(sentence)))
         
         case (.member(of: _)?, nil): 
-            guard case .callable(_) = base.color 
+            guard case .callable(_) = base.community 
             else 
             {
                 break 
@@ -164,7 +165,7 @@ extension Packages
             {
                 let type:Symbol = self[upstream.host]
                 let prose:String 
-                switch type.color 
+                switch type.community 
                 {
                 case .protocol: 
                     prose = "Implements requirement of "

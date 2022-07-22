@@ -1,5 +1,18 @@
-import Resources
+import SymbolGraphs
+import Versions
 import Grammar
+
+extension PackageIdentifier
+{
+    var title:String 
+    {
+        switch self.kind
+        {
+        case .swift, .core:         return "swift"
+        case .community(let name):  return name 
+        }
+    }
+}
 
 public 
 struct Package:Identifiable, Sendable
@@ -26,13 +39,9 @@ struct Package:Identifiable, Sendable
         }
     }
     
+    @available(*, deprecated, renamed: "ID.Kind")
     public 
-    enum Kind:Hashable, Comparable, Sendable 
-    {
-        case swift 
-        case core
-        case community(String)
-    }
+    typealias Kind = ID.Kind 
     
     struct Heads 
     {
@@ -46,7 +55,7 @@ struct Package:Identifiable, Sendable
     }
     
     public 
-    let id:ID
+    let id:PackageIdentifier
     var index:Index 
     {
         self.versions.package
@@ -87,7 +96,7 @@ struct Package:Identifiable, Sendable
     {
         self.id.string
     }
-    var kind:Kind 
+    var kind:ID.Kind 
     {
         self.id.kind
     }
@@ -562,7 +571,7 @@ extension Package
 extension Package 
 {
     mutating 
-    func addModules(_ graphs:[Module.Graph]) -> [Module.Index]
+    func addModules(_ graphs:[ModuleGraph]) -> [Module.Index]
     {
         graphs.map 
         { 
@@ -571,14 +580,14 @@ extension Package
     }
     
     mutating 
-    func addExtensions(in cultures:[Module.Index], graphs:[Module.Graph], stems:inout Stems) 
+    func addExtensions(in cultures:[Module.Index], graphs:[ModuleGraph], stems:inout Stems) 
         -> (articles:[[Article.Index: Extension]], extensions:[[String: Extension]])
     {
         var articles:[[Article.Index: Extension]] = []
             articles.reserveCapacity(graphs.count)
         var extensions:[[String: Extension]] = []
             extensions.reserveCapacity(graphs.count)
-        for (culture, graph):(Module.Index, Module.Graph) in zip(cultures, graphs)
+        for (culture, graph):(Module.Index, ModuleGraph) in zip(cultures, graphs)
         {
             let column:(articles:[Article.Index: Extension], extensions:[String: Extension]) =
                 self.addExtensions(in: culture, graph: graph, stems: &stems)
@@ -588,27 +597,25 @@ extension Package
         return (articles, extensions)
     }
     private mutating 
-    func addExtensions(in culture:Module.Index, graph:Module.Graph, stems:inout Stems) 
+    func addExtensions(in culture:Module.Index, graph:ModuleGraph, stems:inout Stems) 
         -> (articles:[Article.Index: Extension], extensions:[String: Extension])
     {
         var articles:[Article.Index: Extension] = [:]
         var extensions:[String: Extension] = [:] 
         
         let start:Article.Index = .init(culture, offset: self.articles.count)
-        for article:Extension in graph.articles
+        for (name, source):(name:String, source:String) in graph.extensions
         {
+            let article:Extension = .init(markdown: source)
             if let binding:String = article.binding 
             {
                 extensions[binding] = article 
                 continue 
             }
+            // replace spaces in the article name with hyphens
+            let path:Path = article.metadata.path ??
+                .init(last: .init(name.map { $0 == " " ? "-" : $0 }))
             // article namespace is always its culture. 
-            guard let path:Path = article.metadata.path
-            else 
-            {
-                // should have been checked earlier
-                fatalError("unreachable")
-            }
             let route:Route = .init(culture, 
                       stems.register(components: path.prefix), 
                 .init(stems.register(component:  path.last), 
@@ -629,7 +636,7 @@ extension Package
     }
     
     mutating 
-    func addSymbols(through scopes:[Symbol.Scope], graphs:[Module.Graph], stems:inout Stems) 
+    func addSymbols(through scopes:[Symbol.Scope], graphs:[ModuleGraph], stems:inout Stems) 
         -> [[Symbol.Index: Vertex.Frame]]
     {
         let extant:Int = self.symbols.count
@@ -644,11 +651,11 @@ extension Package
         return symbols
     }
     private mutating 
-    func addSymbols(through scope:Symbol.Scope, graph:Module.Graph, stems:inout Stems) 
+    func addSymbols(through scope:Symbol.Scope, graph:ModuleGraph, stems:inout Stems) 
         -> [Symbol.Index: Vertex.Frame]
     {            
         var updates:[Symbol.Index: Vertex.Frame] = [:]
-        for colony:Module.Subgraph in [[graph.core], graph.colonies].joined()
+        for colony:SymbolGraph in [[graph.core], graph.colonies].joined()
         {
             // will always succeed for the core subgraph
             guard let namespace:Module.Index = scope.namespaces[colony.namespace]
@@ -673,13 +680,13 @@ extension Package
                     let route:Route = .init(namespace, 
                               stems.register(components: vertex.path.prefix), 
                         .init(stems.register(component:  vertex.path.last), 
-                        orientation: vertex.color.orientation))
+                        orientation: vertex.community.orientation))
                     // if the symbol could inherit features, generate a stem 
                     // for its children from its full path. this stem will only 
                     // go to waste if a concretetype is completely uninhabited, 
                     // which is very rare.
                     let kind:Symbol.Kind 
-                    switch vertex.color 
+                    switch vertex.community
                     {
                     case .associatedtype: 
                         kind = .associatedtype 

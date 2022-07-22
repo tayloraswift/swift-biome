@@ -2,7 +2,6 @@ import Markdown
 import Resources 
 import HTML
 
-public 
 struct Extension:Sendable 
 {
     enum Node 
@@ -36,17 +35,6 @@ struct Extension:Sendable
         }
     }
     
-    public 
-    init(parsing markdown:String, name:String) 
-    {
-        self.init(markdown: markdown)
-        if case nil = self.metadata.path
-        {
-            // replace spaces in the article name with hyphens
-            self.metadata.path = .init(last: .init(name.map { $0 == " " ? "-" : $0 }))
-        }
-    }
-    public 
     init(markdown string:String)
     {
         let root:Markdown.Document = .init(parsing: string, 

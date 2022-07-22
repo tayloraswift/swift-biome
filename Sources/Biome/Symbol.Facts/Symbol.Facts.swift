@@ -1,3 +1,5 @@
+import SymbolGraphs
+
 extension Symbol 
 {
     typealias Statement = (subject:Index, predicate:Predicate)
@@ -47,7 +49,7 @@ extension Symbol
         var shape:Shape<Index>?
         var predicates:Predicates
         
-        init(traits:[Trait<Index>], roles:[Role<Index>], as color:Color) throws 
+        init(traits:[Trait<Index>], roles:[Role<Index>], as community:Community) throws 
         {
             self.shape = nil 
             // partition relationships buffer 
@@ -95,9 +97,8 @@ extension Symbol
             let roles:Roles? = try .init(residuals, 
                 superclass: superclass, 
                 shape: self.shape, 
-                as: color)
-            self.predicates = .init(roles: roles, 
-                primary: .init(traits, as: color))
+                as: community)
+            self.predicates = .init(roles: roles, primary: .init(traits, as: community))
         }
     }
 }

@@ -1,3 +1,5 @@
+import SymbolGraphs
+
 extension Symbol.Role:Equatable where Target:Equatable {}
 extension Symbol.Role:Hashable where Target:Hashable {}
 extension Symbol.Role:Sendable where Target:Sendable {}
@@ -91,7 +93,7 @@ extension Symbol
     /// 
     /// -   protocols can have requirements, and can also have upstream protocols 
     ///     they refine. both kinds of roles are stored in the same buffer; they 
-    ///     can be distinguished by querying the color of the symbol they reference.
+    ///     can be distinguished by querying the community of the symbol they reference.
     /// 
     ///     protocol requirements *always* have the same culture as the protocol 
     ///     itself.
@@ -123,13 +125,14 @@ extension Symbol
                 self = .many(.init(symbols))
             }
         }
-        init?<Roles>(_ roles:Roles, superclass:Index?, shape:Shape<Index>?, as color:Color) 
+        init?<Roles>(_ roles:Roles, superclass:Index?, shape:Shape<Index>?, 
+            as community:Community) 
             throws 
             where Roles:Sequence, Roles.Element == Role<Index>
         {
             if  let superclass:Index = superclass 
             {
-                switch  (color, shape)
+                switch  (community, shape)
                 {
                 case    (.class, .member(of: _)?), 
                         (.class,           nil):
@@ -146,7 +149,7 @@ extension Symbol
             }
             else 
             {
-                switch  (color, shape)
+                switch  (community, shape)
                 {
                 case    (.callable(_),      .requirement(of: let interface)?), 
                         (.associatedtype,   .requirement(of: let interface)?):

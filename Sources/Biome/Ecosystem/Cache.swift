@@ -22,7 +22,7 @@ extension Ecosystem
                     let index:Symbol.Index = .init($0.index, offset: offset)
                     
                     let symbol:Symbol = current.package[local: index]
-                    switch symbol.color
+                    switch symbol.community
                     {
                     case .protocol, .typealias, .concretetype(_), .global(_):
                         break 

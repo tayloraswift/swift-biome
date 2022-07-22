@@ -1,3 +1,5 @@
+import SymbolGraphs
+
 extension Page 
 {
     enum Card 
@@ -8,18 +10,18 @@ extension Page
     
     enum Sublist:Hashable, CaseIterable, Sendable
     {
-        case color(Symbol.Color)
+        case community(Community)
         
         var heading:String 
         {
             switch self 
             {
-            case .color(let color): return color.plural
+            case .community(let community): return community.plural
             }
         }
         
         static 
-        let allCases:[Self] = Symbol.Color.allCases.map(Self.color(_:))
+        let allCases:[Self] = Community.allCases.map(Self.community(_:))
     }
     enum List:String, Hashable, Sendable 
     {
@@ -111,7 +113,7 @@ extension Page
     {
         var topics:Topics = .init()
         
-        if case .protocol = self.ecosystem[host].color
+        if case .protocol = self.ecosystem[host].community
         {
             let pinned:Package.Pinned = self.pin(host.module.package)
             switch facts.roles 
@@ -175,7 +177,7 @@ extension Page
         }
         
         let host:Symbol = self.ecosystem[host]
-        switch (host.color, host.shape) 
+        switch (host.community, host.shape) 
         {
         case (_, .requirement(of: _)?):
             for index:Symbol.Index in traits.downstream
@@ -241,7 +243,7 @@ extension Page
     private 
     func add(member composite:Symbol.Composite, culture:Module.Culture, to topics:inout Topics)
     {
-        let sublist:Sublist = .color(self.ecosystem[composite.base].color)
+        let sublist:Sublist = .community(self.ecosystem[composite.base].community)
         let declaration:Symbol.Declaration = 
             self.pin(composite.base.module.package).declaration(composite.base)
         // every sublist has a sub-sublist for the primary culture, even if it 
@@ -262,13 +264,13 @@ extension Page
     func add(role:Symbol.Index, pinned:Package.Pinned, to topics:inout Topics)
     {
         // protocol roles may originate from a different package
-        switch self.ecosystem[role].color 
+        switch self.ecosystem[role].community 
         {
         case .protocol:
             topics.lists[.implications, default: [:]][.primary, default: []]
                 .append(.init(role))
-        case let color:
-            let sublist:Sublist = .color(color)
+        case let community:
+            let sublist:Sublist = .community(community)
             // this is always valid, because non-protocol roles are always 
             // requirements, and requirements always live in the same package as 
             // the protocol they are part of.

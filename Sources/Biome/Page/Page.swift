@@ -1,3 +1,5 @@
+import SymbolGraphs
+import Versions
 import HTML
 
 public 

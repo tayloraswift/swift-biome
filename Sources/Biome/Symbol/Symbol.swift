@@ -1,3 +1,5 @@
+import SymbolGraphs
+
 public
 struct Symbol:Sendable, Identifiable, CustomStringConvertible  
 {
@@ -74,7 +76,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     
     // these stored properties are constant with respect to symbol identity. 
     public
-    let id:ID
+    let id:SymbolIdentifier
     //  TODO: see if small-array optimizations here are beneficial, since this could 
     //  often be a single-element array
     let path:Path
@@ -84,9 +86,14 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     var heads:Heads
     var pollen:Set<Module.Pin>
     
+    var community:Community 
+    {
+        self.kind.community 
+    } 
+    @available(*, deprecated, renamed: "community")
     var color:Color 
     {
-        self.kind.color
+        self.community 
     }
     var name:String 
     {
@@ -105,7 +112,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     }
     var type:Index?
     {
-        switch self.color 
+        switch self.community 
         {
         case .associatedtype, .callable(_):
             return self.shape?.target 
@@ -115,7 +122,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     }
     var orientation:Link.Orientation
     {
-        self.color.orientation
+        self.community.orientation
     }
     public
     var description:String 

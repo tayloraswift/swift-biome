@@ -1,5 +1,5 @@
+import PackageLoader
 import SystemExtras
-import PackageCatalog
 import WebSemantics
 import Resources
 import HTML

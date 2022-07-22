@@ -1,5 +1,6 @@
-import SwiftSyntax
+import enum SymbolGraphs.Highlight
 import SwiftSyntaxParser
+import SwiftSyntax
 
 extension Extension.Renderer 
 {

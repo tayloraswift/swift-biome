@@ -1,3 +1,4 @@
+import SymbolGraphs
 import Notebook
 
 extension Symbol 

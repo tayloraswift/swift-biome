@@ -1,3 +1,5 @@
+import SymbolGraphs
+
 extension Ecosystem 
 {
     struct LinkResolutionError:Error 
@@ -36,36 +38,12 @@ extension Packages
         }
     }
 }
-extension Module 
-{
-    public 
-    enum SubgraphDecodingError:Error, CustomStringConvertible 
-    {
-        case duplicateAvailabilityDomain(Availability.Domain)
-        case invalidFragmentColor(String)
-        case mismatchedCulture(ID, expected:ID)
-        
-        public 
-        var description:String 
-        {
-            switch self 
-            {
-            case .duplicateAvailabilityDomain(let domain):
-                return "duplicate entries for availability domain '\(domain.rawValue)'"
-            case .mismatchedCulture(let id, expected: let expected): 
-                return "subgraph culture is '\(id)', expected '\(expected)'"
-            case .invalidFragmentColor(let string): 
-                return "invalid fragment color '\(string)'"
-            }
-        }
-    }
-}
 extension Symbol 
 {
     public 
     enum PoliticalError<Target>:Error, CustomStringConvertible 
     {
-        case miscegenation(is:Color, and:Edge.Kind?, of:(adjective:Color, noun:Target))
+        case miscegenation(is:Community, and:Edge.Kind?, of:(adjective:Community, noun:Target))
         case conflict(is:Role<Target>, and:Role<Target>)
         
         func map<T>(_ transform:(Target) throws -> T) rethrows -> PoliticalError<T>
@@ -75,8 +53,8 @@ extension Symbol
             case .conflict(is: let first, and: let second):
                 return .conflict(is: try first.map(transform), 
                     and: try second.map(transform))
-            case .miscegenation(is: let color, and: let relation, of: let object):
-                return .miscegenation(is: color, and: relation, 
+            case .miscegenation(is: let community, and: let relation, of: let object):
+                return .miscegenation(is: community, and: relation, 
                     of: (object.adjective, try transform(object.noun)))
             }
         }
@@ -87,8 +65,8 @@ extension Symbol
             {
             case .conflict(is: let first, and: let second):
                 return "is \(first) and \(second)"
-            case .miscegenation(is: let color, and: let relation, of: let object):
-                return "is \(color) and \(relation?.description ?? "feature") of \(object.adjective) '\(object.noun)'"
+            case .miscegenation(is: let community, and: let relation, of: let object):
+                return "is \(community) and \(relation?.description ?? "feature") of \(object.adjective) '\(object.noun)'"
             }
         }
     }

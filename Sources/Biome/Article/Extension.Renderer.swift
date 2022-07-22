@@ -1,3 +1,4 @@
+import enum SymbolGraphs.Highlight
 import Markdown
 import HTML
 

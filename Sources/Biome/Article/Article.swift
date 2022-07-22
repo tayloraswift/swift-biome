@@ -1,3 +1,4 @@
+import struct SymbolGraphs.Path
 import HTML
 
 @usableFromInline 

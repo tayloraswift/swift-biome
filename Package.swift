@@ -5,13 +5,18 @@ let package = Package(
     name: "swift-biome",
     products: 
     [
-        .library(name: "Biome", targets: ["Biome"]),
-        .library(name: "PackageCatalog", targets: ["PackageCatalog"]),
+        .library(name: "Versions",          targets: ["Versions"]),
+        .library(name: "SymbolGraphs",      targets: ["SymbolGraphs"]),
+        .library(name: "Biome",             targets: ["Biome"]),
+        .library(name: "PackageResolution", targets: ["PackageResolution"]),
+        .library(name: "PackageCatalogs",   targets: ["PackageCatalogs"]),
+        .library(name: "PackageLoader",     targets: ["PackageLoader"]),
         
-        .executable(name: "preview", targets: ["Preview"]),
+        .executable(name: "preview",        targets: ["Preview"]),
     ],
     dependencies: 
     [
+        .package(url: "https://github.com/kelvin13/swift-grammar",              exact: "0.1.5"),
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-highlight",            exact: "0.1.4"),
         .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.3.2"),
@@ -30,9 +35,26 @@ let package = Package(
     ],
     targets: 
     [
+        .target(name: "Versions", 
+            dependencies: 
+            [
+                .product(name: "Grammar",           package: "swift-grammar"),
+            ]),
+        
+        .target(name: "SymbolGraphs", 
+            dependencies: 
+            [
+                .target(name: "Versions"),
+
+                .product(name: "JSON",              package: "swift-json"),
+                .product(name: "Notebook",          package: "swift-highlight"),
+            ]),
+        
         .target(name: "Biome", 
             dependencies: 
             [
+                .target(name: "SymbolGraphs"),
+
                 .product(name: "DOM",               package: "swift-dom"),
                 .product(name: "JSON",              package: "swift-json"),
                 .product(name: "Resources",         package: "swift-resource"),
@@ -43,20 +65,35 @@ let package = Package(
                 .product(name: "Markdown",          package: "swift-markdown"),
             ]),
         
-        .target(name: "PackageCatalog", 
+        .target(name: "PackageResolution", 
             dependencies: 
             [
-                .target(name: "Biome"),
-                
+                .target(name: "SymbolGraphs"),
+
                 .product(name: "JSON",              package: "swift-json"),
-                .product(name: "SystemExtras",      package: "swift-resource"),
+            ]),
+        
+        .target(name: "PackageCatalogs", 
+            dependencies: 
+            [
+                .target(name: "SymbolGraphs"),
+
+                .product(name: "JSON",              package: "swift-json"),
+                .product(name: "SystemExtras",      package: "swift-system-extras"),
+            ]),
+        
+        .target(name: "PackageLoader", 
+            dependencies: 
+            [
+                .target(name: "PackageResolution"),
+                .target(name: "PackageCatalogs"),
+                .target(name: "Biome"),
             ]),
         
         .executableTarget(name: "Preview", 
             dependencies: 
             [
-                .target(name: "Biome"),
-                .target(name: "PackageCatalog"),
+                .target(name: "PackageLoader"),
                 
                 .product(name: "NIO",               package: "swift-nio"),
                 .product(name: "NIOHTTP1",          package: "swift-nio"),
