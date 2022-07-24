@@ -29,6 +29,12 @@ extension Generic
             self.object = object
             self.target = target
         }
+        // right now, this just runs on `target`, but in the future, this monad might 
+        // gain another inhabitant...
+        func forEach(_ body:(Target) throws -> ()) rethrows 
+        {
+            let _:Void? = try self.target.map(body)
+        }
         @inlinable public
         func map<T>(_ transform:(Target) throws -> T) rethrows -> Constraint<T>
         {

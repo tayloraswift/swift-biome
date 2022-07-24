@@ -468,7 +468,6 @@ extension Package
     
     mutating 
     func updateHeadlines(for cultures:[Module.Index], articles:[[Article.Index: Extension]]) 
-        throws
     {
         let current:Version = self.versions.latest
         for (culture, articles):(Module.Index, [Article.Index: Extension]) in 
@@ -571,23 +570,23 @@ extension Package
 extension Package 
 {
     mutating 
-    func addModules(_ graphs:[ModuleGraph]) -> [Module.Index]
+    func addModules(_ graphs:[SymbolGraph]) -> [Module.Index]
     {
         graphs.map 
         { 
-            self.modules.insert($0.core.namespace, culture: self.index, Module.init(id:index:))
+            self.modules.insert($0.id, culture: self.index, Module.init(id:index:))
         }
     }
     
     mutating 
-    func addExtensions(in cultures:[Module.Index], graphs:[ModuleGraph], stems:inout Stems) 
+    func addExtensions(in cultures:[Module.Index], graphs:[SymbolGraph], stems:inout Stems) 
         -> (articles:[[Article.Index: Extension]], extensions:[[String: Extension]])
     {
         var articles:[[Article.Index: Extension]] = []
             articles.reserveCapacity(graphs.count)
         var extensions:[[String: Extension]] = []
             extensions.reserveCapacity(graphs.count)
-        for (culture, graph):(Module.Index, ModuleGraph) in zip(cultures, graphs)
+        for (culture, graph):(Module.Index, SymbolGraph) in zip(cultures, graphs)
         {
             let column:(articles:[Article.Index: Extension], extensions:[String: Extension]) =
                 self.addExtensions(in: culture, graph: graph, stems: &stems)
@@ -597,7 +596,7 @@ extension Package
         return (articles, extensions)
     }
     private mutating 
-    func addExtensions(in culture:Module.Index, graph:ModuleGraph, stems:inout Stems) 
+    func addExtensions(in culture:Module.Index, graph:SymbolGraph, stems:inout Stems) 
         -> (articles:[Article.Index: Extension], extensions:[String: Extension])
     {
         var articles:[Article.Index: Extension] = [:]
@@ -647,46 +646,50 @@ extension Package
         return (articles, extensions)
     }
     
+    // mutating 
+    // func addSymbols(translations:inout [[Symbol.Index?]], graphs:[SymbolGraph], stems:inout Stems) 
+    //     -> [[Symbol.Index: Vertex.Frame]]
+    // {
+    //     let extant:Int = self.symbols.count
+        
+    //     let symbols:[[Symbol.Index: Vertex.Frame]] = zip(scopes, graphs).map
+    //     {
+    //         self.addSymbols(through: $0.0, graph: $0.1, stems: &stems)
+    //     }
+        
+    //     let updated:Int = symbols.reduce(0) { $0 + $1.count }
+    //     // print("(\(self.id)) updated \(updated) symbols (\(self.symbols.count - extant) are new)")
+    //     return symbols
+    // }
     mutating 
-    func addSymbols(through scopes:[Symbol.Scope], graphs:[ModuleGraph], stems:inout Stems) 
-        -> [[Symbol.Index: Vertex.Frame]]
+    func addSymbols(from graph:SymbolGraph, 
+        indices:inout [Symbol.Index?], 
+        stems:inout Stems,
+        scope:Module.Scope) 
     {
-        let extant:Int = self.symbols.count
-        
-        let symbols:[[Symbol.Index: Vertex.Frame]] = zip(scopes, graphs).map
-        {
-            self.addSymbols(through: $0.0, graph: $0.1, stems: &stems)
-        }
-        
-        let updated:Int = symbols.reduce(0) { $0 + $1.count }
-        // print("(\(self.id)) updated \(updated) symbols (\(self.symbols.count - extant) are new)")
-        return symbols
-    }
-    private mutating 
-    func addSymbols(through scope:Symbol.Scope, graph:ModuleGraph, stems:inout Stems) 
-        -> [Symbol.Index: Vertex.Frame]
-    {            
-        var updates:[Symbol.Index: Vertex.Frame] = [:]
-        for colony:SymbolGraph in [[graph.core], graph.colonies].joined()
+        for colony:SymbolGraph in graph.colonies
         {
             // will always succeed for the core subgraph
-            guard let namespace:Module.Index = scope.namespaces[colony.namespace]
+            guard let namespace:Module.Index = scope[colony.namespace]
             else 
             {
-                print("warning: ignored colonial symbolgraph '\(graph.core.namespace)@\(colony.namespace)'")
-                print("note: '\(colony.namespace)' is not a known dependency of '\(graph.core.namespace)'")
+                print("warning: ignored colonial symbolgraph '\(graph.id)@\(colony.namespace)'")
+                print("note: '\(colony.namespace)' is not a known dependency of '\(graph.id)'")
                 continue 
             }
             
             let start:Int = self.symbols.count
-            for (id, vertex):(Symbol.ID, Vertex) in colony.vertices 
+            for (offset, vertex):(Int, SymbolGraph.Vertex<Int>) in 
+                zip(colony.vertices.indices, colony.vertices)
             {
-                if scope.contains(id) 
+                guard case nil = indices[offset]
+                else 
                 {
-                    // usually happens because of inferred symbols. ignore.
+                    // already registered this symbol
                     continue 
                 }
-                let index:Symbol.Index = self.symbols.insert(id, culture: scope.culture)
+                let index:Symbol.Index = self.symbols.insert(graph.identifiers[offset], 
+                    culture: scope.culture)
                 {
                     (id:Symbol.ID, _:Symbol.Index) in 
                     let route:Route = .init(namespace, 
@@ -717,7 +720,7 @@ extension Package
                     return .init(id: id, path: vertex.path, kind: kind, route: route)
                 }
                 
-                updates[index] = vertex.frame
+                indices[offset] = index
             }
             let end:Int = self.symbols.count 
             if start < end
@@ -726,6 +729,5 @@ extension Package
                     namespace: namespace, offsets: start ..< end))
             }
         }
-        return updates
     }
 }

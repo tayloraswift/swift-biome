@@ -147,28 +147,34 @@ extension Ecosystem
         
         let version:PreciseVersion = .init(era[graph.id])
         
-        let index:Package.Index = 
-            try self.packages.updatePackageRegistration(for: graph.id)
+        let index:Package.Index = self.packages.updatePackageRegistration(for: graph)
+        // create modules, if they do not exist already.
+        // note: module indices are *not* necessarily contiguous, 
+        // or even monotonically increasing
+        let cultures:[Module.Index] = self.packages[index].addModules(graph.modules)
+        let scopes:[Module.Scope] = try self.packages.computeScopes(of: cultures, 
+            graphs: graph.modules)
+        // must call this *before* any other update methods 
+        let pins:Package.Pins = self.packages.updatePackageVersion(for: index, 
+            version: version, 
+            scopes: scopes, 
+            era: era)
         
-        if let brand:String = graph.brand 
+        var translations:[[Symbol.Index?]] = []
+            translations.reserveCapacity(scopes.count)
+        for (graph, scope):(SymbolGraph, Module.Scope) in zip(graph.modules, scopes)
         {
-            self.packages[index].brand = brand
+            var indices:[Symbol.Index?] = 
+                self.packages.translate(graph.identifiers, scope: scope)
+            self.packages[index].addSymbols(from: graph,
+                indices: &indices,
+                stems: &self.stems,
+                scope: scope)
+            translations.append(indices)
         }
-        
-        // initialize symbol id scopes for upstream packages only
-        let pins:Package.Pins ; var scopes:[Symbol.Scope] ; (pins, scopes) = 
-            try self.packages.updateModuleRegistrations(in: index, 
-                graphs: graph.modules, 
-                version: version,
-                era: era)
-        let cultures:[Module.Index] = scopes.map(\.culture)
-        
+
         let (articles, extensions):([[Article.Index: Extension]], [[String: Extension]]) = 
             self.packages[index].addExtensions(in: cultures, 
-                graphs: graph.modules, 
-                stems: &self.stems)
-        let symbols:[[Symbol.Index: Vertex.Frame]] = 
-            self.packages[index].addSymbols(through: scopes, 
                 graphs: graph.modules, 
                 stems: &self.stems)
         
@@ -177,29 +183,20 @@ extension Ecosystem
             total key size: \(self.stems._memoryFootprint) B
             """)
         
-        // add the newly-registered symbols to each module scope 
-        for scope:Int in scopes.indices
-        {
-            scopes[scope].lenses.append(self[index].symbols.indices)
-        }
-        
-        let positions:[Dictionary<Symbol.Index, Symbol.Declaration>.Keys] =
-            try self.packages[index].updateDeclarations(scopes: scopes, symbols: symbols)
-            try self.packages[index].updateHeadlines(for: cultures, articles: articles)
-        let hints:[Symbol.Index: Symbol.Index] = 
-            try self.packages.updateImplicitSymbols(in: index, 
-                fromExplicit: _move(positions), 
-                graphs: graph.modules, 
-                scopes: scopes)
-        
-        let comments:[Symbol.Index: String] = 
-            Self.comments(from: _move(symbols), pruning: hints)
+        self.packages[index].updateDependencies(of: cultures, with: _move(dependencies))
+
+        try self.packages[index].updateDeclarations(scopes: scopes, symbols: symbols)
+        try self.packages[index].updateHeadlines(for: cultures, articles: articles)
+        try self.packages.updateImplicitSymbols(in: cultures, 
+            indices: translations,
+            graphs: graph.modules)
+
         let documentation:Ecosystem.Documentation = 
             self.compileDocumentation(
                 extensions: _move(extensions),
                 articles: _move(articles),
-                comments: _move(comments), 
-                scopes: _move(scopes).map(\.namespaces),
+                comments: graph.comments(translations: translations, culture: index), 
+                scopes: _move(scopes),
                 pins: pins)
         self.packages.updateDocumentation(_move(documentation), 
             hints: _move(hints), 
@@ -213,32 +210,6 @@ extension Ecosystem
         print(bold("updated \(self[index].id) to version \(version)"))
         
         return index
-    }
-    
-    private static
-    func comments(from symbols:[[Symbol.Index: Vertex.Frame]], 
-        pruning hints:[Symbol.Index: Symbol.Index]) 
-        -> [Symbol.Index: String]
-    {
-        var comments:[Symbol.Index: String] = [:]
-        for (symbol, frame):(Symbol.Index, Vertex.Frame) in symbols.joined()
-            where !frame.comment.isEmpty
-        {
-            comments[symbol] = frame.comment
-        }
-        // delete comments if a hint indicates it is duplicated
-        var pruned:Int = 0
-        for (member, union):(Symbol.Index, Symbol.Index) in hints 
-        {
-            if  let comment:String  = comments[member],
-                let original:String = comments[union],
-                    original == comment 
-            {
-                comments.removeValue(forKey: member)
-                pruned += 1
-            }
-        }
-        return comments
     }
 }
     

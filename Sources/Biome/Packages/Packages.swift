@@ -67,103 +67,79 @@ struct Packages
     /// returns the index of the entry for the given package, creating it if it 
     /// does not already exist.
     mutating 
-    func updatePackageRegistration(for package:Package.ID)
-        throws -> Package.Index
+    func updatePackageRegistration(for graph:PackageGraph) -> Package.Index
     {
-        if let package:Package.Index = self.indices[package]
+        let index:Package.Index
+        if  let package:Package.Index = self.indices[graph.id]
         {
-            return package 
+            index = package 
         }
         else 
         {
-            let index:Package.Index = .init(offset: self.packages.endIndex)
-            self.packages.append(.init(id: package, index: index))
-            self.indices[package] = index
-            return index
+            index = .init(offset: self.packages.endIndex)
+            self.packages.append(.init(id: graph.id, index: index))
+            self.indices[graph.id] = index
         }
+        if let brand:String = graph.brand 
+        {
+            self[index].brand = brand
+        }
+        return index
     }
-    
     mutating 
-    func updateModuleRegistrations(in culture:Package.Index,
-        graphs:[ModuleGraph], 
-        version:PreciseVersion,
+    func updatePackageVersion(for package:Package.Index, 
+        version:PreciseVersion, 
+        scopes:[Module.Scope], 
         era:[Package.ID: MaskedVersion])
-        throws -> (pins:Package.Pins, scopes:[Symbol.Scope])
+        -> Package.Pins
     {
-        // create modules, if they do not exist already.
-        // note: module indices are *not* necessarily contiguous, 
-        // or even monotonically increasing
-        let cultures:[Module.Index] = self[culture].addModules(graphs)
-        
-        let dependencies:[Set<Module.Index>] = 
-            try self.computeDependencies(of: cultures, graphs: graphs)
-        
-        var packages:Set<Package.Index> = []
-        for target:Module.Index in dependencies.joined()
-        {
-            packages.insert(target.package)
-        }
-        packages.remove(culture)
-        // only include pins for actual package dependencies, this prevents 
-        // extraneous pins in a Package.resolved from disrupting the version cache.
-        let upstream:[Package.Index: Version] = 
-            .init(uniqueKeysWithValues: packages.map
-        {
-            ($0, self[$0].versions.snap(era[self[$0].id]))
-        })
-        // must call this *before* `updateDependencies`
-        let pins:Package.Pins = self[culture].updateVersion(version, 
-            upstream: upstream)
-        self[culture].updateDependencies(of: cultures, with: dependencies)
-        
-        return (pins, self.scopes(of: cultures, dependencies: dependencies))
-    }
-    
-    private 
-    func scopes(of cultures:[Module.Index], dependencies:[Set<Module.Index>])
-        -> [Symbol.Scope]
-    {
-        zip(cultures, dependencies).map 
-        {
-            self.scope(of: $0.0, dependencies: $0.1)
-        }
-    }
-    private 
-    func scope(of culture:Module.Index, dependencies:Set<Module.Index>) 
-        -> Symbol.Scope
-    {
-        var scope:Module.Scope = .init(culture: culture, id: self[culture].id)
-        for namespace:Module.Index in dependencies 
-        {
-            scope.insert(namespace: namespace, id: self[namespace].id)
-        }
-        return .init(namespaces: scope, lenses: scope.upstream().map 
-        {
-            self[$0].symbols.indices
-        })
+        self[index].updateVersion(version, 
+            upstream: self.computeUpstreamPins(scopes, era: era))
     }
 }
 extension Packages 
 {
-    func computeDependencies(of cultures:[Module.Index], graphs:[ModuleGraph]) 
-        throws -> [Set<Module.Index>]
+    func computeScopes(of cultures:[Module.Index], graphs:[SymbolGraph]) 
+        throws -> [Module.Scope]
     {
-        var dependencies:[Set<Module.Index>] = []
-            dependencies.reserveCapacity(cultures.count)
-        for (graph, culture):(ModuleGraph, Module.Index) in zip(graphs, cultures)
+        var scopes:[Module.Scope] = []
+            scopes.reserveCapacity(graphs.count)
+        for (graph, culture):(SymbolGraph, Module.Index) in zip(graphs, cultures)
         {
-            // remove self-dependencies 
-            var set:Set<Module.Index> = try self.identify(graph.dependencies)
-                set.remove(culture)
-            dependencies.append(set)
+            var scope:Module.Scope = .init(culture: culture, id: self[culture].id)
+            for dependency:Module.Index in try self.identify(graph.dependencies)
+            {
+                scope.insert(dependency, id: self[dependency].id)
+            }
+            scopes.append(scope)
         }
-        return dependencies
+        return scopes
     }
-    
+
     private 
-    func identify(_ dependencies:[ModuleGraph.Dependency]) throws -> Set<Module.Index>
+    func computeUpstreamPins(_ scopes:[Module.Scope], era:[Package.ID: MaskedVersion])
+        -> [Package.Index: Version]
     {
-        let packages:[Package.ID: [Module.ID]] = [Package.ID: [ModuleGraph.Dependency]]
+        var packages:Set<Package.Index> = []
+        for scope:Module.Scope in scopes 
+        {
+            for namespace:Module.Index in scope.filter 
+                where namespace.package != scope.culture.package
+            {
+                packages.insert(namespace.package)
+            }
+        }
+        // only include pins for actual package dependencies, this prevents 
+        // extraneous pins in a Package.resolved from disrupting the version cache.
+        return .init(uniqueKeysWithValues: packages.map
+        {
+            ($0, self[$0].versions.snap(era[self[$0].id]))
+        })
+    }
+    private 
+    func identify(_ dependencies:[SymbolGraph.Dependency]) throws -> Set<Module.Index>
+    {
+        let packages:[Package.ID: [Module.ID]] = [Package.ID: [SymbolGraph.Dependency]]
             .init(grouping: dependencies, by: \.package)
             .mapValues 
         {
@@ -193,6 +169,41 @@ extension Packages
             }
         }
         return namespaces
+    }
+}
+extension Packages 
+{
+    func translate(_ identifiers:[Symbol.ID], scope:Module.Scope) -> [Symbol.Index?]
+    {
+        // includes the current package 
+        let packages:Set<Package.Index> = .init(scope.filter.lazy.map(\.package))
+        let lenses:[[Symbol.ID: Symbol.Index]] = packages.map 
+        { 
+            self[$0].symbols.indices 
+        }
+        return identifiers.map 
+        {
+            var match:Symbol.Index? = nil
+            for lens:[Symbol.ID: Symbol.Index] in lenses
+            {
+                guard let index:Symbol.Index = lens[id], scope.contains(index.module)
+                else 
+                {
+                    continue 
+                }
+                if case nil = match 
+                {
+                    match = index
+                }
+                else 
+                {
+                    // sanity check: ensure none of the remaining lenses contains 
+                    // a colliding key 
+                    fatalError("colliding symbol identifiers in search space")
+                }
+            }
+            return match
+        }
     }
 }
 extension Packages 

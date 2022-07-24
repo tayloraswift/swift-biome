@@ -1,99 +1,78 @@
-import JSON 
 import Notebook
+import JSON 
 
-struct Image:Sendable
+extension SymbolGraph 
 {
-    enum Kind:Sendable
+    struct Symbol:Identifiable, Sendable
     {
-        case natural
-        case synthesized(namespace:ModuleIdentifier) // namespace of natural base
-    }
-    
-    let id:SymbolIdentifier
-    var kind:Kind
-    var vertex:Vertex
-    
-    public
-    var canonical:(id:SymbolIdentifier, vertex:Vertex)?
-    {
-        if case .natural = self.kind 
+        enum ID:Hashable, Sendable
         {
-            return (self.id, self.vertex)
+            case natural(SymbolIdentifier)
+            // namespace of natural base, *not* its culture, and *not* the 
+            // culture of the synthesized feature!
+            case synthesized(SymbolIdentifier, namespace:ModuleIdentifier) 
+
+            var symbol:SymbolIdentifier 
+            {
+                switch self 
+                {
+                case .natural(let symbol), .synthesized(let symbol, namespace: _):
+                    return symbol
+                }
+            }
         }
-        else 
-        {
-            return nil
-        }
-    }
-    
-    public
-    var constraints:FlattenSequence<[[Generic.Constraint<SymbolIdentifier>]]>
-    {
-        [self.vertex.frame.genericConstraints, self.vertex.frame.extensionConstraints].joined()
+        
+        let id:ID
+        var vertex:Vertex<SymbolIdentifier>
     }
 }
-@frozen public
-struct Vertex:Sendable
-{
-    @frozen public 
-    struct Frame:Sendable 
-    {
-        public
-        var availability:Availability 
-        public
-        var declaration:Notebook<Highlight, SymbolIdentifier> 
-        public
-        var signature:Notebook<Highlight, Never> 
-        public
-        var generics:[Generic] 
-        public
-        var genericConstraints:[Generic.Constraint<SymbolIdentifier>] 
-        public
-        var extensionConstraints:[Generic.Constraint<SymbolIdentifier>] 
-        public
-        var comment:String
-    }
-    
-    public 
-    var path:Path
-    public 
-    var community:Community 
-    public 
-    var frame:Frame
-}
-
-extension Image
+extension SymbolGraph.Symbol
 {
     public 
     init(from json:JSON) throws 
     {
-        (self.id, self.kind, self.vertex) = try json.lint 
+        (self.id, self.vertex) = try json.lint 
         {
-            let `extension`:(extendedModule:ModuleIdentifier, constraints:[Generic.Constraint<SymbolIdentifier>])? = 
-                try $0.pop("swiftExtension")
+            let (extendedModule, extensionConstraints):
+            (
+                ModuleIdentifier?, 
+                [Generic.Constraint<SymbolIdentifier>]
+            ) = try $0.pop("swiftExtension")
             {
-                let (module, constraints):(String, [Generic.Constraint<SymbolIdentifier>]) = try $0.lint
+                try $0.lint
                 {
                     (
-                        try $0.remove("extendedModule", as: String.self),
-                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(Generic.Constraint.init(from:)) } ?? []
+                        try $0.pop("extendedModule", as: String.self)
+                            .map(ModuleIdentifier.init(_:)),
+                        try $0.pop("constraints", as: [JSON]?.self) 
+                        { 
+                            try $0.map(Generic.Constraint<SymbolIdentifier>.init(from:)) 
+                        } ?? []
                     )
                 }
-                return (.init(module), constraints)
-            }
-            let generics:(parameters:[Generic], constraints:[Generic.Constraint<SymbolIdentifier>])? = 
-                try $0.pop("swiftGenerics")
+            } ?? (nil, [])
+            let (generics, genericConstraints):
+            (
+                [Generic], 
+                [Generic.Constraint<SymbolIdentifier>]
+            ) = try $0.pop("swiftGenerics")
             {
                 try $0.lint 
                 {
                     (
-                        try $0.pop("parameters",  as: [JSON]?.self) { try $0.map(Generic.init(from:)) } ?? [],
-                        try $0.pop("constraints", as: [JSON]?.self) { try $0.map(Generic.Constraint.init(from:)) } ?? []
+                        try $0.pop("parameters", as: [JSON]?.self) 
+                        { 
+                            try $0.map(Generic.init(from:)) 
+                        } ?? [],
+                        try $0.pop("constraints", as: [JSON]?.self) 
+                        { 
+                            try $0.map(Generic.Constraint.init(from:)) 
+                        } ?? []
                     )
                 }
-            }
+            } ?? ([], [])
             
-            let (kind, id):(Kind, SymbolIdentifier) = try $0.remove("identifier")
+            let id:ID = try $0.remove("identifier")
             {
                 let string:String = try $0.lint(whitelisting: ["interfaceLanguage"])
                 {
@@ -102,16 +81,16 @@ extension Image
                 switch try Grammar.parse(string.utf8, as: USR.Rule<String.Index>.self)
                 {
                 case .natural(let id): 
-                    return (.natural, id)
+                    return .natural(id)
                 case .synthesized(from: let id, for: _): 
                     // synthesized symbols always live in extensions
-                    guard let namespace:ModuleIdentifier = `extension`?.extendedModule
+                    guard let extendedModule:ModuleIdentifier 
                     else 
                     {
                         // FIXME: we should throw an error instead 
                         fatalError("FIXME")
                     }
-                    return (.synthesized(namespace: namespace), id)
+                    return .synthesized(id, namespace: extendedModule)
                 }
             }
             let path:[String] = try $0.remove("pathComponents") { try $0.map { try $0.as(String.self) } }
@@ -141,7 +120,7 @@ extension Image
             
             let _:AccessLevel = try $0.remove("accessLevel") { try $0.case(of: AccessLevel.self) }
             
-            let declaration:Notebook<Highlight, SymbolIdentifier> = .init(
+            let fragments:Notebook<Highlight, SymbolIdentifier> = .init(
                 try $0.remove("declarationFragments") 
             { 
                 try $0.map(Notebook<Highlight, SymbolIdentifier>.Fragment.init(from:)) 
@@ -177,9 +156,9 @@ extension Image
             }
             let _:JSON? = $0.pop("functionSignature")
 
-            let availability:Availability? = 
-                try $0.pop("availability", as: [JSON]?.self, Availability.init(from:))
-            let comment:String? = try $0.pop("docComment")
+            let availability:Availability = 
+                try $0.pop("availability", as: [JSON]?.self, Availability.init(from:)) ?? .init()
+            let comment:String = try $0.pop("docComment")
             {
                 try $0.lint(whitelisting: ["uri", "module"]) 
                 {
@@ -194,16 +173,18 @@ extension Image
                         }.joined(separator: "\n")
                     }
                 }
-            }
-            let frame:Vertex.Frame = .init(
-                availability:           availability ?? .init(), 
-                declaration:            declaration, 
-                signature:              signature, 
-                generics:               generics?.parameters ?? [], 
-                genericConstraints:     generics?.constraints ?? [], 
-                extensionConstraints:  `extension`?.constraints ?? [], 
-                comment:                comment ?? "")
-            return (id, kind, .init(path: path, community: community, frame: frame))
+            } ?? ""
+            let vertex:SymbolGraph.Vertex = .init(path: path,
+                community: community, 
+                declaration: .init(
+                    fragments: fragments, 
+                    signature: signature, 
+                    availability: availability, 
+                    extensionConstraints: extensionConstraints, 
+                    genericConstraints: genericConstraints, 
+                    generics: generics), 
+                comment: comment)
+            return (id, vertex)
         }
     }
 }

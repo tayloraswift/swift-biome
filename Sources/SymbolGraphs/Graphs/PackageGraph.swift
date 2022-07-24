@@ -6,10 +6,10 @@ struct PackageGraph:Identifiable, Sendable
     public 
     var brand:String?
     public 
-    var modules:[ModuleGraph]
+    var modules:[SymbolGraph]
     
     public 
-    init(id:ID, brand:String? = nil, modules:[ModuleGraph])
+    init(id:ID, brand:String? = nil, modules:[SymbolGraph])
     {
         self.id = id 
         self.brand = brand

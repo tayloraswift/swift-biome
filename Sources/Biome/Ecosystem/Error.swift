@@ -43,7 +43,7 @@ extension Symbol
     public 
     enum PoliticalError<Target>:Error, CustomStringConvertible 
     {
-        case miscegenation(is:Community, and:Edge.Kind?, of:(adjective:Community, noun:Target))
+        case invalidEdge(SymbolGraph.Edge<Target>)
         case conflict(is:Role<Target>, and:Role<Target>)
         
         func map<T>(_ transform:(Target) throws -> T) rethrows -> PoliticalError<T>
