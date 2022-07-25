@@ -1,7 +1,7 @@
+@preconcurrency import SystemExtras
 import ArgumentParser
-import SystemPackage
-import SymbolGraphs
 import PackageCatalogs
+import SymbolGraphs
 
 @main 
 struct Main:AsyncParsableCommand 
@@ -32,9 +32,9 @@ struct Main:AsyncParsableCommand
     
     func run() async throws 
     {
-        try await withThrowingTaskGroup(of: SymbolGraph.self)
+        try await withThrowingTaskGroup(of: (SymbolGraph, FilePath).self)
         {
-            (queue:inout ThrowingTaskGroup<SymbolGraph, Error>) in 
+            (queue:inout ThrowingTaskGroup<(SymbolGraph, FilePath), Error>) in 
 
             var width:Int = 0
             for project:FilePath in self.projects.map(FilePath.init(_:))
@@ -55,21 +55,28 @@ struct Main:AsyncParsableCommand
                         {
                             width += 1
                         }
-                        else if let graph:SymbolGraph = try await queue.next() 
+                        else if let (graph, output):(SymbolGraph, FilePath) = try await queue.next() 
                         {
-                            print("loaded symbolgraph '\(graph.id)")
+                            try graph.save(to: output)
                         }
                         queue.addTask 
                         {
-                            try .init(parsing: hlo)
+                            (try .init(parsing: hlo), project.appending("\(hlo.id).ss"))
                         }
                     }
                 }
             }
-            for try await graph:SymbolGraph in queue 
+            for try await (graph, output):(SymbolGraph, FilePath) in queue 
             {
-                print("loaded symbolgraph '\(graph.id)")
+                try graph.save(to: output)
             }
         }
+    }
+}
+extension SymbolGraph 
+{
+    func save(to output:FilePath) throws 
+    {
+        try output.write(self.serialized.description)
     }
 }

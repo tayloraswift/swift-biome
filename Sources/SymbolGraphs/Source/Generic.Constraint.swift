@@ -3,11 +3,11 @@ import JSON
 extension Generic 
 {
     @frozen public
-    enum ConstraintVerb:String, Hashable, Sendable
+    enum Verb:Int, Hashable, Sendable
     {
-        case subclasses = "superclass"
-        case implements = "conformance"
-        case `is`       = "sameType"
+        case subclasses = 0 
+        case implements 
+        case `is`
     }
     @frozen public 
     struct Constraint<Target>
@@ -15,14 +15,14 @@ extension Generic
         public 
         var subject:String
         public 
-        var verb:ConstraintVerb 
+        var verb:Verb 
         public 
         var target:Target?
         public 
         var object:String
         
         @inlinable public 
-        init(_ subject:String, _ verb:ConstraintVerb, _ object:String, target:Target?)
+        init(_ subject:String, _ verb:Verb, _ object:String, target:Target?)
         {
             self.subject = subject
             self.verb = verb
@@ -52,15 +52,29 @@ extension Generic.Constraint:Sendable where Target:Sendable {}
 extension Generic.Constraint:Hashable where Target:Hashable {}
 extension Generic.Constraint:Equatable where Target:Equatable {}
 
-extension Generic.Constraint where Target == SymbolIdentifier
+extension Generic.Verb 
+{
+    enum Longform:String 
+    {
+        case superclass
+        case conformance
+        case sameType
+    }
+}
+extension Generic.Constraint<SymbolIdentifier>
 {
     init(from json:JSON) throws
     {
         self = try json.lint 
         {
-            let verb:Generic.ConstraintVerb = try $0.remove("kind") 
+            let verb:Generic.Verb = try $0.remove("kind") 
             {
-                try $0.case(of: Generic.ConstraintVerb.self)
+                switch try $0.case(of: Generic.Verb.Longform.self)
+                {
+                case .superclass:   return .subclasses
+                case .conformance:  return .implements
+                case .sameType:     return .is
+                }
             }
             return .init(
                 try    $0.remove("lhs", as: String.self), verb, 

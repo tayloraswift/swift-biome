@@ -13,6 +13,20 @@ struct Availability:Equatable, Sendable
     var platforms:[Platform: VersionedAvailability]
     
     @inlinable public
+    var isEmpty:Bool 
+    {
+        if  case nil = self.swift, 
+            case nil = self.general, 
+            self.platforms.isEmpty 
+        {
+            return true 
+        }
+        else 
+        {
+            return false
+        }
+    }
+    @inlinable public
     var isUsable:Bool 
     {
         if  let generally:UnversionedAvailability = self.general, 

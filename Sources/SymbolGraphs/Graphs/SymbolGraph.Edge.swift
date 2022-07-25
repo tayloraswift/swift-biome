@@ -23,20 +23,20 @@ extension SymbolGraph
             case optionalRequirement
             case defaultImplementation
 
-            var code:UInt8
-            {
-                switch self
-                {
-                case .feature:                  return 0
-                case .member:                   return 1
-                case .conformer:                return 2
-                case .subclass:                 return 3
-                case .override:                 return 4
-                case .requirement:              return 5
-                case .optionalRequirement:      return 6
-                case .defaultImplementation:    return 7
-                }
-            }
+            // var code:UInt8
+            // {
+            //     switch self
+            //     {
+            //     case .feature:                  return 0
+            //     case .member:                   return 1
+            //     case .conformer:                return 2
+            //     case .subclass:                 return 3
+            //     case .override:                 return 4
+            //     case .requirement:              return 5
+            //     case .optionalRequirement:      return 6
+            //     case .defaultImplementation:    return 7
+            //     }
+            // }
 
             func forEach(_ body:(Target) throws -> ()) rethrows 
             {
@@ -80,10 +80,10 @@ extension SymbolGraph
         public 
         let target:Target
 
-        var bounds:(Target, UInt8, Target)
-        {
-            (self.source, self.relation.code, self.target)
-        }
+        // var bounds:(Target, UInt8, Target)
+        // {
+        //     (self.source, self.relation.code, self.target)
+        // }
         
         @inlinable public
         init(_ source:Target, is relation:Relation, of target:Target)

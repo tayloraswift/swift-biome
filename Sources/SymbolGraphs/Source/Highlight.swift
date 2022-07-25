@@ -35,7 +35,7 @@ enum Highlight:UInt8, Sendable
     case type
 }
 
-extension Notebook.Fragment where Color == Highlight, Link == SymbolIdentifier
+extension Notebook<Highlight, SymbolIdentifier>.Fragment
 {
     init(from json:JSON) throws 
     {
