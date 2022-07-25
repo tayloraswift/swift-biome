@@ -58,16 +58,10 @@ struct ModuleCatalog:Identifiable, Decodable, Sendable
         self.include = include 
         self.dependencies = dependencies
     }
-    
-    func loadGraph(relativeTo prefix:FilePath?) throws -> SymbolGraph
+    public 
+    func load(relativeTo prefix:FilePath? = nil) throws -> SymbolGraph
     {
         try Task.checkCancellation()
-        
-        func absolute(_ path:FilePath) -> FilePath 
-        {
-            path.isAbsolute ? path : prefix?.appending(path.components) ?? path
-        }
-        
         var paths:
         (
             extensions:[(name:String, source:FilePath)],
@@ -77,7 +71,8 @@ struct ModuleCatalog:Identifiable, Decodable, Sendable
         paths.subgraphs = [:]
         for include:FilePath in self.include
         {
-            let include:FilePath = absolute(include)
+            let include:FilePath = include.isAbsolute  ? include : 
+                prefix?.appending(include.components) ?? include
             try include.walk
             {
                 (path:FilePath) in 

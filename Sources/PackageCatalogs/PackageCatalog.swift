@@ -34,7 +34,7 @@ struct PackageCatalog:Identifiable, Decodable, Sendable
     }
     
     public 
-    func loadGraph(relativeTo prefix:FilePath?) throws -> PackageGraph
+    func load(relativeTo prefix:FilePath? = nil) throws -> PackageGraph
     {
         // don’t check for task cancellation, because each constituent 
         // call to `Module.Catalog.load(with:)` checks for it
@@ -45,11 +45,11 @@ struct PackageCatalog:Identifiable, Decodable, Sendable
         }
         return .init(id: self.id, brand: self.brand, modules: try self.modules.map 
         {
-            try $0.loadGraph(relativeTo: prefix)
+            try $0.load(relativeTo: prefix)
         })
     }
 }
-extension RangeReplaceableCollection where Element == PackageCatalog
+extension RangeReplaceableCollection<PackageCatalog>
 {
     @inlinable public 
     init<UTF8>(parsing json:UTF8) throws where UTF8:Collection, UTF8.Element == UInt8

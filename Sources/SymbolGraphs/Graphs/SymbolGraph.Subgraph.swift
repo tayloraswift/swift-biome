@@ -13,15 +13,16 @@ extension SymbolGraph
             edges:[Edge<SymbolIdentifier>],
             hints:[Hint<SymbolIdentifier>]
         
-        public 
-        init(parsing json:[UInt8], namespace:ModuleIdentifier, culture:ModuleIdentifier) 
+        @inlinable public 
+        init<UTF8>(parsing json:UTF8, namespace:ModuleIdentifier, culture:ModuleIdentifier) 
             throws 
+            where UTF8:Collection, UTF8.Element == UInt8
         {
-            try self.init(from: try Grammar.parse(json, as: JSON.Rule<Int>.Root.self), 
+            try self.init(from: try Grammar.parse(json, as: JSON.Rule<UTF8.Index>.Root.self), 
                 namespace: namespace, 
                 culture: culture)
         }
-        private 
+        public  
         init(from json:JSON, namespace:ModuleIdentifier, culture:ModuleIdentifier) 
             throws 
         {
