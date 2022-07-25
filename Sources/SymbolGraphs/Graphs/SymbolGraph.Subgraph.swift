@@ -144,13 +144,13 @@ extension SymbolGraph
                         community: symbol.vertex.community, 
                         declaration: symbol.vertex.declaration, 
                         comment: symbol.vertex.comment)
-                    self.vertices[inferred] = vertex
                     
                     if case true? = vertex.declaration.availability.general?.unavailable
                     {
                         // if the symbol is unconditionally unavailable, generate 
                         // an edge for it:
                         self.edges.append(.init(inferred, is: .member, of: mythical.id))
+                        self.vertices[inferred] = vertex
                         print("note: naturalized unavailable protocol member '\(vertex.path)'")
                     }
                     else if case "_"? = mythical.name.first
@@ -158,6 +158,7 @@ extension SymbolGraph
                         // if the inferred symbol belongs to an underscored protocol, 
                         // generate an edge for it:
                         self.edges.append(.init(inferred, is: .member, of: mythical.id))
+                        self.vertices[inferred] = vertex
                         print("note: naturalized underscored-protocol member '\(vertex.path)'")
                         // make a note of the protocol name and identifier
                         if !self.vertices.keys.contains(mythical.id)
