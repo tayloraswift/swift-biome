@@ -81,7 +81,7 @@ struct Package:Identifiable, Sendable
     var excerpts:Keyframe<Article.Excerpt>.Buffer
     // per-symbol buffers 
     private(set)
-    var declarations:Keyframe<Symbol.Declaration>.Buffer, // always populated 
+    var declarations:Keyframe<Declaration<Symbol.Index>>.Buffer, // always populated 
         facts:Keyframe<Symbol.Predicates>.Buffer // always populated
     // per-(external) host buffers 
     private(set)
@@ -89,7 +89,7 @@ struct Package:Identifiable, Sendable
     // shared buffer. 
     private(set) 
     var templates:Keyframe<Article.Template<Ecosystem.Link>>.Buffer
-    
+    private(set)
     var groups:Symbol.Groups
     
     var name:String 
@@ -215,7 +215,7 @@ struct Package:Identifiable, Sendable
         }
     }
     
-    func depth(of composite:Symbol.Composite, at version:Version, route:Route)
+    func depth(of composite:Symbol.Composite, at version:Version, route:Route.Key)
         -> (host:Bool, base:Bool)
     {
         var explicit:(host:Bool, base:Bool) = (false, false)
@@ -421,112 +421,41 @@ struct Package:Identifiable, Sendable
 extension Package 
 {
     mutating 
-    func updateDependencies(of cultures:[Module.Index], with dependencies:[Set<Module.Index>])
+    func pushBeliefs(_ beliefs:Beliefs)
     {
         let current:Version = self.versions.latest
-        for (index, dependencies):(Module.Index, Set<Module.Index>) in zip(cultures, dependencies)
-        {
-            self.dependencies.update(head: &self.modules[local: index].heads.dependencies, 
-                to: current, with: dependencies)
-        }
-    }
-    
-    mutating 
-    func updateDeclarations(scopes:[Symbol.Scope], symbols:[[Symbol.Index: Vertex.Frame]]) 
-        throws -> [Dictionary<Symbol.Index, Symbol.Declaration>.Keys]
-    {
-        let current:Version = self.versions.latest
-        let declarations:[[Symbol.Index: Symbol.Declaration]] = try zip(scopes, symbols).map
-        {
-            let (scope, symbols):(Symbol.Scope, [Symbol.Index: Vertex.Frame]) = $0
-            return try symbols.mapValues { try .init($0, scope: scope) }
-        }
-        for (index, declaration):(Symbol.Index, Symbol.Declaration) in declarations.joined() 
-        {
-            self.declarations.update(head: &self.symbols[local: index].heads.declaration, 
-                to: current, with: declaration)
-        }
-        
-        let positions:[Dictionary<Symbol.Index, Symbol.Declaration>.Keys] = 
-            declarations.map(\.keys)
-        // also update module toplevels 
-        for (scope, symbols):(Symbol.Scope, Dictionary<Symbol.Index, Symbol.Declaration>.Keys) 
-            in zip(scopes, positions)
-        {
-            var toplevel:Set<Symbol.Index> = [] 
-            for symbol:Symbol.Index in symbols where self[local: symbol].path.prefix.isEmpty
-            {
-                // a symbol is toplevel if it has a single path component. this 
-                // is not the same thing as having a `nil` shape.
-                toplevel.insert(symbol)
-            }
-            self.toplevels.update(head: &self.modules[local: scope.culture].heads.toplevel, 
-                to: current, with: toplevel)
-        }
-        return positions
-    }
-    
-    mutating 
-    func updateHeadlines(for cultures:[Module.Index], articles:[[Article.Index: Extension]]) 
-    {
-        let current:Version = self.versions.latest
-        for (culture, articles):(Module.Index, [Article.Index: Extension]) in 
-            zip(cultures, articles)
-        {
-            for (index, article):(Article.Index, Extension) in articles
-            {
-                let excerpt:Article.Excerpt = .init(title: article.headline.plainText,
-                    headline: article.headline.rendered(as: [UInt8].self),
-                    snippet: article.snippet)
-                self.excerpts.update(head: &self.articles[local: index].heads.excerpt, 
-                    to: current, with: excerpt)
-            }
-            
-            let guides:Set<Article.Index> = .init(articles.keys)
-            if !guides.isEmpty 
-            {
-                self.guides.update(head: &self.modules[local: culture].heads.guides,
-                    to: current, with: guides)
-            }
-        }
-    }
-    
-    mutating 
-    func assignShapes(_ facts:[Symbol.Index: Symbol.Facts])
-    {
-        for (index, facts):(Symbol.Index, Symbol.Facts) in facts
-        {
-            self.symbols[local: index].shape = facts.shape
-        }
-    }
-    
-    mutating 
-    func updateFacts(_ facts:[Symbol.Index: Symbol.Facts])
-    {
-        let current:Version = self.versions.latest
-        for (index, facts):(Symbol.Index, Symbol.Facts) in facts
+        for (index, facts):(Symbol.Index, Symbol.Facts) in beliefs.facts
         {
             self.facts.update(head: &self.symbols[local: index].heads.facts, 
                 to: current, with: facts.predicates)
         }
-    }
-    mutating 
-    func updateOpinions(_ opinions:[Symbol.Diacritic: Symbol.Traits])
-    {
-        let current:Version = self.versions.latest
-        for (diacritic, traits):(Symbol.Diacritic, Symbol.Traits) in opinions 
+        for (diacritic, traits):(Symbol.Diacritic, Symbol.Traits) in beliefs.opinions 
         {
             self.opinions.update(head: &self.external[diacritic], 
                 to: current, with: traits)
         }
     }
-
     mutating 
-    func updateDocumentation(_ compiled:Ecosystem.Documentation)
+    func pushDependencies(_ dependencies:Set<Module.Index>, culture:Module.Index)
+    {
+        self.dependencies.update(head: &self.modules[local: culture].heads.dependencies, 
+            to: self.versions.latest, with: dependencies)
+    }
+    mutating 
+    func pushDeclarations(_ declarations:[(Symbol.Index, Declaration<Symbol.Index>)]) 
     {
         let current:Version = self.versions.latest
-        for (index, template):(Ecosystem.Index, Article.Template<Ecosystem.Link>) in 
-            compiled 
+        for (index, declaration):(Symbol.Index, Declaration<Symbol.Index>) in declarations
+        {
+            self.declarations.update(head: &self.symbols[local: index].heads.declaration, 
+                to: current, with: declaration)
+        }
+    }
+    mutating 
+    func pushDocumentation(_ compiled:[Ecosystem.Index: Article.Template<Ecosystem.Link>])
+    {
+        let current:Version = self.versions.latest
+        for (index, template):(Ecosystem.Index, Article.Template<Ecosystem.Link>) in compiled 
         {
             switch index 
             {
@@ -556,14 +485,39 @@ extension Package
         }
     }
     mutating 
-    func spreadDocumentation(_ migrants:[Symbol.Index: Article.Template<Ecosystem.Link>]) 
+    func pushExtensionMetadata(articles:[Article.Index: Extension], culture:Module.Index) 
     {
         let current:Version = self.versions.latest
-        for (migrant, template):(Symbol.Index, Article.Template<Ecosystem.Link>) in migrants 
+        for (index, article):(Article.Index, Extension) in articles
         {
-            self.templates.update(head: &self.symbols[local: migrant].heads.template, 
-                to: current, with: template)
+            let excerpt:Article.Excerpt = .init(title: article.headline.plainText,
+                headline: article.headline.rendered(as: [UInt8].self),
+                snippet: article.snippet)
+            self.excerpts.update(head: &self.articles[local: index].heads.excerpt, 
+                to: current, with: excerpt)
         }
+        let guides:Set<Article.Index> = .init(articles.keys)
+        if !guides.isEmpty 
+        {
+            self.guides.update(head: &self.modules[local: culture].heads.guides,
+                to: current, with: guides)
+        }
+    }
+    mutating 
+    func pushToplevel(filtering updates:Abstractor.Updates)
+    {
+        var toplevel:Set<Symbol.Index> = [] 
+        for symbol:Symbol.Index? in updates 
+        {
+            if let symbol:Symbol.Index, self[local: symbol].path.prefix.isEmpty
+            {
+                // a symbol is toplevel if it has a single path component. this 
+                // is not the same thing as having a `nil` shape.
+                toplevel.insert(symbol)
+            }
+        }
+        self.toplevels.update(head: &self.modules[local: updates.culture].heads.toplevel, 
+            to: self.versions.latest, with: toplevel)
     }
 }
 
@@ -578,25 +532,27 @@ extension Package
         }
     }
     
-    mutating 
-    func addExtensions(in cultures:[Module.Index], graphs:[SymbolGraph], stems:inout Stems) 
-        -> (articles:[[Article.Index: Extension]], extensions:[[String: Extension]])
-    {
-        var articles:[[Article.Index: Extension]] = []
-            articles.reserveCapacity(graphs.count)
-        var extensions:[[String: Extension]] = []
-            extensions.reserveCapacity(graphs.count)
-        for (culture, graph):(Module.Index, SymbolGraph) in zip(cultures, graphs)
-        {
-            let column:(articles:[Article.Index: Extension], extensions:[String: Extension]) =
-                self.addExtensions(in: culture, graph: graph, stems: &stems)
-            extensions.append(column.extensions)
-            articles.append(column.articles)
-        }
-        return (articles, extensions)
-    }
-    private mutating 
-    func addExtensions(in culture:Module.Index, graph:SymbolGraph, stems:inout Stems) 
+    // mutating 
+    // func addExtensions(in cultures:[Module.Index], graphs:[SymbolGraph], stems:inout Route.Stems) 
+    //     -> (articles:[[Article.Index: Extension]], extensions:[[String: Extension]])
+    // {
+    //     var articles:[[Article.Index: Extension]] = []
+    //         articles.reserveCapacity(graphs.count)
+    //     var extensions:[[String: Extension]] = []
+    //         extensions.reserveCapacity(graphs.count)
+    //     for (culture, graph):(Module.Index, SymbolGraph) in zip(cultures, graphs)
+    //     {
+    //         let column:(articles:[Article.Index: Extension], extensions:[String: Extension]) =
+    //             self.addExtensions(in: culture, graph: graph, stems: &stems)
+    //         extensions.append(column.extensions)
+    //         articles.append(column.articles)
+    //     }
+    //     return (articles, extensions)
+    // }
+     mutating 
+    func addExtensions(from graph:SymbolGraph, 
+        stems:inout Route.Stems, 
+        culture:Module.Index) 
         -> (articles:[Article.Index: Extension], extensions:[String: Extension])
     {
         var articles:[Article.Index: Extension] = [:]
@@ -627,7 +583,7 @@ extension Package
                 continue 
             }
             // article namespace is always its culture. 
-            let route:Route = .init(culture, 
+            let route:Route.Key = .init(culture, 
                       stems.register(components: path.prefix), 
                 .init(stems.register(component:  path.last), 
                 orientation: .straight))
@@ -663,28 +619,34 @@ extension Package
     // }
     mutating 
     func addSymbols(from graph:SymbolGraph, 
-        indices:inout [Symbol.Index?], 
-        stems:inout Stems,
+        abstractor:inout Abstractor, 
+        stems:inout Route.Stems,
         scope:Module.Scope) 
     {
-        for colony:SymbolGraph in graph.colonies
+        for (namespace, vertices):(Module.ID, ArraySlice<SymbolGraph.Vertex<Int>>) in graph.colonies
         {
             // will always succeed for the core subgraph
-            guard let namespace:Module.Index = scope[colony.namespace]
+            guard let namespace:Module.Index = scope[namespace]
             else 
             {
-                print("warning: ignored colonial symbolgraph '\(graph.id)@\(colony.namespace)'")
-                print("note: '\(colony.namespace)' is not a known dependency of '\(graph.id)'")
+                print("warning: ignored colonial symbolgraph '\(graph.id)@\(namespace)'")
+                print("note: '\(namespace)' is not a known dependency of '\(graph.id)'")
                 continue 
             }
             
             let start:Int = self.symbols.count
-            for (offset, vertex):(Int, SymbolGraph.Vertex<Int>) in 
-                zip(colony.vertices.indices, colony.vertices)
+            for (offset, vertex):(Int, SymbolGraph.Vertex<Int>) in zip(vertices.indices, vertices)
             {
-                guard case nil = indices[offset]
-                else 
+                if let index:Symbol.Index = abstractor[offset]
                 {
+                    if index.module != scope.culture 
+                    {
+                        print(
+                            """
+                            warning: symbol '\(vertex.path)' has already been registered in a \
+                            different module (while loading symbolgraph of culture '\(graph.id)')
+                            """)
+                    }
                     // already registered this symbol
                     continue 
                 }
@@ -692,7 +654,7 @@ extension Package
                     culture: scope.culture)
                 {
                     (id:Symbol.ID, _:Symbol.Index) in 
-                    let route:Route = .init(namespace, 
+                    let route:Route.Key = .init(namespace, 
                               stems.register(components: vertex.path.prefix), 
                         .init(stems.register(component:  vertex.path.last), 
                         orientation: vertex.community.orientation))
@@ -720,13 +682,40 @@ extension Package
                     return .init(id: id, path: vertex.path, kind: kind, route: route)
                 }
                 
-                indices[offset] = index
+                abstractor[offset] = index
             }
             let end:Int = self.symbols.count 
             if start < end
             {
                 self.modules[local: scope.culture].symbols.append(Symbol.ColonialRange.init(
                     namespace: namespace, offsets: start ..< end))
+            }
+        }
+    }
+    mutating 
+    func reshape(_ facts:[Symbol.Index: Symbol.Facts])
+    {
+        for (index, facts):(Symbol.Index, Symbol.Facts) in facts
+        {
+            self.symbols[local: index].shape = facts.shape
+        }
+    }
+    mutating 
+    func addNaturalRoutes(_ trees:[Route.NaturalTree])
+    {
+        for tree:Route.NaturalTree in trees 
+        {
+            self.groups.insert(tree.route)
+        }
+    }
+    mutating 
+    func addSyntheticRoutes(_ trees:[Route.SyntheticTree])
+    {
+        for tree:Route.SyntheticTree in trees 
+        {
+            for route:Route in tree 
+            {
+                self.groups.insert(route)
             }
         }
     }

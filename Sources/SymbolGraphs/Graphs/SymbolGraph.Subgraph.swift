@@ -14,13 +14,6 @@ extension SymbolGraph
             hints:[Hint<SymbolIdentifier>]
         
         public 
-        init(namespace:ModuleIdentifier)
-        {
-            self.namespace = namespace 
-            self.vertices = [:]
-            self.edges = []
-        }
-        public 
         init(parsing json:[UInt8], namespace:ModuleIdentifier, culture:ModuleIdentifier) 
             throws 
         {
@@ -109,13 +102,13 @@ extension SymbolGraph
 
                 switch symbol.id 
                 {
-                case .natural(let symbol):
+                case .natural(let natural):
                     // natural vertices should always overwrite copies we got from  
                     // synthetic inference.
-                    self.vertices[symbol] = symbol.vertex
+                    self.vertices[natural] = symbol.vertex
                     continue 
                 
-                case .synthesized(let symbol, namespace: let namespace): 
+                case .synthesized(let inferred, namespace: let namespace): 
                     guard namespace == culture 
                     else 
                     {
@@ -129,18 +122,17 @@ extension SymbolGraph
                         // through conformances to a protocol in a different module.
                         continue 
                     }
-                    if self.vertices.keys.contains(symbol)
+                    if self.vertices.keys.contains(inferred)
                     {
                         // already have a copy of this declaration
                         continue 
                     }
 
-
-                    guard case (culture, let mythical)? = symbol.interface 
+                    guard case (culture, let mythical)? = inferred.interface 
                     else 
                     {
-                        // FIXME: would fail for inherited class members
-                        fatalError("unimplemented") 
+                        // FIXME: would miss inherited class members
+                        continue 
                     }
                     // fix the first path component of the vertex, so that it points 
                     // to the protocol and not the concrete type we discovered it in 
@@ -149,20 +141,20 @@ extension SymbolGraph
                         community: symbol.vertex.community, 
                         declaration: symbol.vertex.declaration, 
                         comment: symbol.vertex.comment)
-                    self.vertices[symbol] = vertex
+                    self.vertices[inferred] = vertex
                     
                     if case true? = vertex.declaration.availability.general?.unavailable
                     {
                         // if the symbol is unconditionally unavailable, generate 
                         // an edge for it:
-                        self.edges.append(.init(symbol, is: .member(of: mythical.id)))
+                        self.edges.append(.init(inferred, is: .member, of: mythical.id))
                         print("note: naturalized unavailable protocol member '\(vertex.path)'")
                     }
                     else if case "_"? = mythical.name.first
                     {
                         // if the inferred symbol belongs to an underscored protocol, 
                         // generate an edge for it:
-                        self.edges.append(.init(symbol, is: .member(of: mythical.id)))
+                        self.edges.append(.init(inferred, is: .member, of: mythical.id))
                         print("note: naturalized underscored-protocol member '\(vertex.path)'")
                         // make a note of the protocol name and identifier
                         if !self.vertices.keys.contains(mythical.id)

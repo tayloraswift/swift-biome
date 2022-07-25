@@ -1,49 +1,47 @@
-struct Route:Hashable, Sendable, CustomStringConvertible 
+struct Route 
 {
-    let namespace:Module.Index
-    let stem:Stem 
-    let leaf:Leaf 
-    
-    var outed:Self? 
+    let key:Key 
+    let target:Symbol.Composite 
+
+    init(key:Key, target:Symbol.Composite)
     {
-        self.leaf.outed.map { .init(self.namespace, self.stem, $0) }
+        self.key = key 
+        self.target = target 
     }
-    
-    var description:String 
+
+    typealias Trees = (natural:[NaturalTree], synthetic:[SyntheticTree])
+
+    struct NaturalTree 
     {
-        """
-        \(self.namespace.package.bits):\
-        \(self.namespace.bits).\
-        \(self.stem.bitPattern >> 1).\
-        \(self.leaf.bitPattern)
-        """
-    }
-    
-    init(_ namespace:Module.Index, _ stem:Stem, _ leaf:Stem, orientation:Symbol.Link.Orientation)
-    {
-        self.init(namespace, stem, .init(leaf, orientation: orientation))
-    }
-    init(_ namespace:Module.Index, _ stem:Stem, _ leaf:Leaf)
-    {
-        self.namespace = namespace
-        self.stem = stem
-        self.leaf = leaf
-    }
-    
-    func first<T>(where transform:(Self) throws -> T?) rethrows -> (T, redirected:Bool)? 
-    {
-        if      let result:T = try transform(self)
+        let key:Key
+        let target:Symbol.Index
+
+        var route:Route 
         {
-            return (result, false)
+            .init(key: key, target: .init(natural: self.target))
         }
-        else if let outed:Self = self.outed, 
-                let result:T = try transform(outed)
+    }
+    struct SyntheticTree:RandomAccessCollection
+    {
+        let namespace:Module.Index 
+        let stem:Stem 
+        
+        let diacritic:Symbol.Diacritic 
+        let features:[(base:Symbol.Index, leaf:Leaf)]
+
+        var startIndex:Int 
         {
-            return (result, true)
+            self.features.startIndex
         }
-        else 
+        var endIndex:Int 
         {
-            return nil
+            self.features.endIndex
+        }
+        subscript(index:Int) -> Route
+        {
+            let (base, leaf):(Symbol.Index, Leaf) = self.features[index]
+            return .init(key: .init(self.namespace, self.stem, leaf), 
+                target: .init(base, self.diacritic))
         }
     }
 }

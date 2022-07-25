@@ -87,7 +87,7 @@ struct Packages
         return index
     }
     mutating 
-    func updatePackageVersion(for package:Package.Index, 
+    func updatePackageVersion(for index:Package.Index, 
         version:PreciseVersion, 
         scopes:[Module.Scope], 
         era:[Package.ID: MaskedVersion])
@@ -173,83 +173,16 @@ extension Packages
 }
 extension Packages 
 {
-    func translate(_ identifiers:[Symbol.ID], scope:Module.Scope) -> [Symbol.Index?]
-    {
-        // includes the current package 
-        let packages:Set<Package.Index> = .init(scope.filter.lazy.map(\.package))
-        let lenses:[[Symbol.ID: Symbol.Index]] = packages.map 
-        { 
-            self[$0].symbols.indices 
-        }
-        return identifiers.map 
-        {
-            var match:Symbol.Index? = nil
-            for lens:[Symbol.ID: Symbol.Index] in lenses
-            {
-                guard let index:Symbol.Index = lens[id], scope.contains(index.module)
-                else 
-                {
-                    continue 
-                }
-                if case nil = match 
-                {
-                    match = index
-                }
-                else 
-                {
-                    // sanity check: ensure none of the remaining lenses contains 
-                    // a colliding key 
-                    fatalError("colliding symbol identifiers in search space")
-                }
-            }
-            return match
-        }
-    }
-}
-extension Packages 
-{
     mutating 
-    func updateDocumentation(_ compiled:Ecosystem.Documentation,
-        hints:[Symbol.Index: Symbol.Index], 
-        pins:Package.Pins)
+    func spread(from index:Package.Index, beliefs:Beliefs)
     {
-        self[pins.local.package].updateDocumentation(compiled)
-        self[pins.local.package].spreadDocumentation(
-            self.recruitMigrants(sponsors: compiled, hints: hints, pins: pins))
-    }
-    // `culture` parameter not strictly needed, but we use it to make sure 
-    // that ``generateRhetoric(graphs:scopes:)`` did not return ``hints``
-    // about other packages
-    private 
-    func recruitMigrants(
-        sponsors:[Ecosystem.Index: Article.Template<Ecosystem.Link>],
-        hints:[Symbol.Index: Symbol.Index], 
-        pins:Package.Pins) 
-        -> [Symbol.Index: Article.Template<Ecosystem.Link>]
-    {
-        var migrants:[Symbol.Index: Article.Template<Ecosystem.Link>] = [:]
-        for (member, sponsor):(Symbol.Index, Symbol.Index) in hints
-            where !sponsors.keys.contains(.symbol(member))
+        self[index].reshape(beliefs.facts)
+
+        let current:Version = self[index].versions.latest
+        for diacritic:Symbol.Diacritic in beliefs.opinions.keys 
         {
-            assert(member.module.package == pins.local.package)
-            // if a symbol did not have documentation of its own, 
-            // check if it has a sponsor. article templates are copy-on-write 
-            // types, so this will not (eagarly) copy storage
-            if  let template:Article.Template<Ecosystem.Link> = sponsors[.symbol(sponsor)] 
-            {
-                migrants[member] = template
-            }
-            // note: empty doccomments are omitted from the template buffer
-            else if pins.local.package != sponsor.module.package
-            {
-                let template:Article.Template<Ecosystem.Link> = 
-                    self[sponsor.module.package].pinned(pins).template(sponsor)
-                if !template.isEmpty
-                {
-                    migrants[member] = template
-                }
-            }
+            self[diacritic.host.module.package].pollinate(local: diacritic.host, 
+                from: .init(culture: diacritic.culture, version: current))
         }
-        return migrants
     }
 }

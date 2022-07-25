@@ -49,7 +49,7 @@ extension Symbol
         var shape:Shape<Index>?
         var predicates:Predicates
         
-        init(traits:[Trait<Index>], roles:[Role<Index>], as community:Community) throws 
+        init(traits:[Trait<Index>], roles:[Role<Index>], as community:Community)  
         {
             self.shape = nil 
             // partition relationships buffer 
@@ -68,15 +68,17 @@ extension Symbol
                     guard case         .member(of:     type) = shape 
                     else 
                     {
-                        throw PoliticalError.conflict(is: shape.role, 
-                            and: .member(of: type))
+                        fatalError("unimplemented")
+                        // throw PoliticalError.conflict(is: shape.role, 
+                        //     and: .member(of: type))
                     }
                 case (let shape?, .requirement(of: let interface)): 
                     guard case    .requirement(of:     interface) = shape 
                     else 
                     {
-                        throw PoliticalError.conflict(is: shape.role, 
-                            and: .requirement(of: interface))
+                        fatalError("unimplemented")
+                        // throw PoliticalError.conflict(is: shape.role, 
+                        //     and: .requirement(of: interface))
                     }
                     
                 case (_,             .subclass(of: let type)): 
@@ -84,9 +86,10 @@ extension Symbol
                     {
                     case nil, type?:
                         superclass = type
-                    case let superclass?:
-                        throw PoliticalError.conflict(is: .subclass(of: superclass), 
-                            and: .subclass(of: type))
+                    case _?:
+                        fatalError("unimplemented")
+                        // throw PoliticalError.conflict(is: .subclass(of: superclass), 
+                        //     and: .subclass(of: type))
                     }
                     
                 default: 
@@ -94,7 +97,7 @@ extension Symbol
                 }
             }
             
-            let roles:Roles? = try .init(residuals, 
+            let roles:Roles? = .init(residuals, 
                 superclass: superclass, 
                 shape: self.shape, 
                 as: community)

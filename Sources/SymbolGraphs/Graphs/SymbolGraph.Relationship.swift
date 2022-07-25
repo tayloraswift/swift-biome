@@ -5,7 +5,7 @@ extension SymbolGraph
 {
     struct Relationship:Sendable
     {
-        let edge:Edge 
+        let edge:Edge<SymbolIdentifier> 
         let origin:SymbolIdentifier?
 
         var hint:Hint<SymbolIdentifier>?
@@ -15,7 +15,7 @@ extension SymbolGraph
     }
 }
 
-extension SymbolGraph.Relationship where Source == SymbolIdentifier
+extension SymbolGraph.Relationship 
 {
     init(from json:JSON) throws
     {
@@ -32,10 +32,10 @@ extension SymbolGraph.Relationship where Source == SymbolIdentifier
             {
             case (.synthesized(from: let source, for: target), "memberOf"):
                 // only 'memberOf' edges may come from synthetic sources
-                edge = .init(source, is: .feature(of: target))
+                edge = .init(source, is: .feature, of: target)
             
             case (.natural(let source), "memberOf"):
-                edge = .init(source, is: .member(of: target))
+                edge = .init(source, is: .member, of: target)
             case (.natural(let source), "conformsTo"):
                 // only 'conformsTo' edges may contain constraints 
                 let constraints:[Generic.Constraint<SymbolIdentifier>] = 
@@ -43,17 +43,17 @@ extension SymbolGraph.Relationship where Source == SymbolIdentifier
                 { 
                     try $0.map(Generic.Constraint.init(from:)) 
                 } ?? []
-                edge = .init(source, is: .conformer(of: target, where: constraints))
+                edge = .init(source, is: .conformer(constraints), of: target)
             case (.natural(let source), "inheritsFrom"):
-                edge = .init(source, is: .subclass(of: target))
+                edge = .init(source, is: .subclass, of: target)
             case (.natural(let source), "overrides"):
-                edge = .init(source, is: .override(of: target))
+                edge = .init(source, is: .override, of: target)
             case (.natural(let source), "requirementOf"):
-                edge = .init(source, is: .requirement(of: target))
+                edge = .init(source, is: .requirement, of: target)
             case (.natural(let source), "optionalRequirementOf"):
-                edge = .init(source, is: .optionalRequirement(of: target))
+                edge = .init(source, is: .optionalRequirement, of: target)
             case (.natural(let source), "defaultImplementationOf"):
-                edge = .init(source, is: .defaultImplementation(of: target))
+                edge = .init(source, is: .defaultImplementation, of: target)
             
             case (let source, let relation): 
                 throw SymbolGraphDecodingError.invalidEdge((source, target), 

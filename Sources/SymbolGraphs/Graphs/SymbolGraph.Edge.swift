@@ -1,121 +1,110 @@
-extension SymbolGraph.Edge:Sendable where Source:Sendable {}
-extension SymbolGraph.Edge:Hashable where Source:Hashable {}
-extension SymbolGraph.Edge:Equatable where Source:Equatable {}
+extension SymbolGraph.Edge:Sendable where Target:Sendable {}
+extension SymbolGraph.Edge:Hashable where Target:Hashable {}
+extension SymbolGraph.Edge:Equatable where Target:Equatable {}
 
-extension SymbolGraph.Edge.Target:Sendable where Source:Sendable {}
-extension SymbolGraph.Edge.Target:Hashable where Source:Hashable {}
-extension SymbolGraph.Edge.Target:Equatable where Source:Equatable {}
+extension SymbolGraph.Edge.Relation:Sendable where Target:Sendable {}
+extension SymbolGraph.Edge.Relation:Hashable where Target:Hashable {}
+extension SymbolGraph.Edge.Relation:Equatable where Target:Equatable {}
 
 extension SymbolGraph 
 {
     @frozen public 
-    struct Edge<Source>
+    struct Edge<Target>
     {
         @frozen public 
-        enum Target 
+        enum Relation 
         {
-            case feature(of:Source)
-            case member(of:Source)
-            case conformer(of:Source, where:[Generic.Constraint<Source>])
-            case subclass(of:Source)
-            case override(of:Source)
-            case requirement(of:Source)
-            case optionalRequirement(of:Source)
-            case defaultImplementation(of:Source)
+            case feature
+            case member
+            case conformer([Generic.Constraint<Target>])
+            case subclass
+            case override
+            case requirement
+            case optionalRequirement
+            case defaultImplementation
 
-            func forEach(_ body:(Source) throws -> ()) rethrows 
+            var code:UInt8
             {
-                switch self  
+                switch self
                 {
-                case .feature(of: let target):
-                    try body(target)
-                case .member(of: let target):
-                    try body(target)
-                case .conformer(of: let target, where: let constraints):
-                    try body(target)
-                    for constraint:Generic.Constraint<Source> in constraints 
+                case .feature:                  return 0
+                case .member:                   return 1
+                case .conformer:                return 2
+                case .subclass:                 return 3
+                case .override:                 return 4
+                case .requirement:              return 5
+                case .optionalRequirement:      return 6
+                case .defaultImplementation:    return 7
+                }
+            }
+
+            func forEach(_ body:(Target) throws -> ()) rethrows 
+            {
+                if case .conformer(let constraints) = self 
+                {
+                    for constraint:Generic.Constraint<Target> in constraints 
                     {
                         try constraint.forEach(body)
                     }
-                case .subclass(of: let target):
-                    try body(target)
-                case .override(of: let target):
-                    try body(target)
-                case .requirement(of: let target):
-                    try body(target)
-                case .optionalRequirement(of: let target):
-                    try body(target)
-                case .defaultImplementation(of: let target):
-                    try body(target)
                 }
             }
-            func map<T>(_ transform:(Source) throws -> T) rethrows -> Edge<T>.Target
+            @inlinable public
+            func map<T>(_ transform:(Target) throws -> T) rethrows -> Edge<T>.Relation
             {
                 switch self  
                 {
-                case .feature(of: let target):
-                    return .feature(of: try transform(target))
-                case .member(of: let target):
-                    return .member(of: try transform(target))
-                case .conformer(of: let target, where: let constraints):
-                    return .conformer(of: try transform(target), 
-                        where: try constraints.map { try $0.map(transform) })
-                case .subclass(of: let target):
-                    return .subclass(of: try transform(target))
-                case .override(of: let target):
-                    return .override(of: try transform(target))
-                case .requirement(of: let target):
-                    return .requirement(of: try transform(target))
-                case .optionalRequirement(of: let target):
-                    return .optionalRequirement(of: try transform(target))
-                case .defaultImplementation(of: let target):
-                    return .defaultImplementation(of: try transform(target))
+                case .feature:
+                    return .feature
+                case .member:
+                    return .member
+                case .conformer(let constraints):
+                    return .conformer(try constraints.map { try $0.map(transform) })
+                case .subclass:
+                    return .subclass
+                case .override:
+                    return .override
+                case .requirement:
+                    return .requirement
+                case .optionalRequirement:
+                    return .optionalRequirement
+                case .defaultImplementation:
+                    return .defaultImplementation
                 }
             }
         }
 
         public 
-        let source:Source 
+        let source:Target 
+        public 
+        let relation:Relation
         public 
         let target:Target
 
-        var bounds:(Source, UInt8, Source)
+        var bounds:(Target, UInt8, Target)
         {
-            switch self.target
-            {
-            case .feature(of: let target):
-                return (self.source, 0, target)
-            case .member(of: let target):
-                return (self.source, 1, target)
-            case .conformer(of: let target, where: _):
-                return (self.source, 2, target)
-            case .subclass(of: let target):
-                return (self.source, 3, target)
-            case .override(of: let target):
-                return (self.source, 4, target)
-            case .requirement(of: let target):
-                return (self.source, 5, target)
-            case .optionalRequirement(of: let target):
-                return (self.source, 6, target)
-            case .defaultImplementation(of: let target):
-                return (self.source, 7, target)
-            }
+            (self.source, self.relation.code, self.target)
         }
-
-        init(_ source:Source, is target:Target)
+        
+        @inlinable public
+        init(_ source:Target, is relation:Relation, of target:Target)
         {
             self.source = source 
+            self.relation = relation 
             self.target = target
         }
 
-        func forEach(_ body:(Source) throws -> ()) rethrows 
+        func forEach(_ body:(Target) throws -> ()) rethrows 
         {
             try body(self.source)
-            try self.target.forEach(body)
+            try body(self.target)
+            try self.relation.forEach(body)
         }
-        func map<T>(_ transform:(Source) throws -> T) rethrows -> Edge<T>
+        @inlinable public
+        func map<T>(_ transform:(Target) throws -> T) rethrows -> Edge<T>
         {
-            .init(try transform(self.source), is: try self.target.map(transform))
+            .init(try transform(self.source), 
+                is: try self.relation.map(transform), 
+                of: try transform(self.target))
         }
     }
 }

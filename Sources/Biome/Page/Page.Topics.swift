@@ -4,7 +4,7 @@ extension Page
 {
     enum Card 
     {
-        case composite(Symbol.Composite, Symbol.Declaration)
+        case composite(Symbol.Composite, Declaration<Symbol.Index>)
         case article(Article.Index, Article.Excerpt)
     }
     
@@ -244,7 +244,7 @@ extension Page
     func add(member composite:Symbol.Composite, culture:Module.Culture, to topics:inout Topics)
     {
         let sublist:Sublist = .community(self.ecosystem[composite.base].community)
-        let declaration:Symbol.Declaration = 
+        let declaration:Declaration<Symbol.Index> = 
             self.pin(composite.base.module.package).declaration(composite.base)
         // every sublist has a sub-sublist for the primary culture, even if it 
         // is empty. this is more css-grid friendly.
@@ -274,7 +274,7 @@ extension Page
             // this is always valid, because non-protocol roles are always 
             // requirements, and requirements always live in the same package as 
             // the protocol they are part of.
-            let declaration:Symbol.Declaration = pinned.declaration(role)
+            let declaration:Declaration<Symbol.Index> = pinned.declaration(role)
             topics.requirements[sublist, default: []]
                 .append(.composite(.init(natural: role), declaration))
         }

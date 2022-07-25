@@ -28,7 +28,7 @@ extension Package.Pinned
     }
     
     private 
-    func depth(of composite:Symbol.Composite, route:Route) -> (host:Bool, base:Bool)
+    func depth(of composite:Symbol.Composite, route:Route.Key) -> (host:Bool, base:Bool)
     {
         self.package.depth(of: composite, at: self.version, route: route)
     }
@@ -79,13 +79,13 @@ extension Package.Pinned
         var query:Symbol.Link.Query = .init()
         if composite.base != composite.diacritic.host
         {
-            guard let stem:Stem = host.kind.path
+            guard let stem:Route.Stem = host.kind.path
             else 
             {
                 fatalError("unreachable: (host: \(host), base: \(base))")
             }
             
-            let route:Route = .init(host.namespace, stem, base.route.leaf)
+            let route:Route.Key = .init(host.namespace, stem, base.route.leaf)
             switch self.depth(of: composite, route: route)
             {
             case (host: false, base: false): 
@@ -168,7 +168,7 @@ extension Package.Pinned
             .through(self.version, head: self.package[local: module].heads.guides) ?? []
     }
     
-    func declaration(_ symbol:Symbol.Index) -> Symbol.Declaration
+    func declaration(_ symbol:Symbol.Index) -> Declaration<Symbol.Index>
     {
         // `nil` case should be unreachable in practice
         self.package.declarations

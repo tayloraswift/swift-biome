@@ -53,6 +53,12 @@ extension Module
             self.filter.contains(namespace)
         }
         
+        func dependencies() -> Set<Module.Index>
+        {
+            var dependencies:Set<Module.Index> = self.filter 
+                dependencies.remove(self.culture)
+            return dependencies
+        }
         // func upstream() -> Set<Package.Index>
         // {
         //     var packages:Set<Package.Index> = .init(self.filter.map(\.package))

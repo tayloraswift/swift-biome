@@ -54,7 +54,7 @@ extension Packages
 
 extension Packages
 {    
-    func selectExtantWithRedirect(_ route:Route, lens:Package.Pinned, 
+    func selectExtantWithRedirect(_ route:Route.Key, lens:Package.Pinned, 
         by disambiguator:Symbol.Disambiguator) 
         -> (selection:Selection, redirected:Bool)?
     {
@@ -66,7 +66,7 @@ extension Packages
             }
         }
     }
-    func selectExtant<Lenses>(_ route:Route, lenses:Lenses, 
+    func selectExtant<Lenses>(_ route:Route.Key, lenses:Lenses, 
         where predicate:(Symbol.Composite) throws -> Bool) 
         rethrows -> Selection?
         where Lenses:Sequence, Lenses.Element == Package.Pinned
@@ -85,7 +85,7 @@ extension Packages
         return .init(matches)
     }
     
-    func selectHistoricalWithRedirect(_ route:Route, lens:Package, 
+    func selectHistoricalWithRedirect(_ route:Route.Key, lens:Package, 
         by disambiguator:Symbol.Disambiguator) 
         -> (selection:Selection, redirected:Bool)?
     {
@@ -98,7 +98,7 @@ extension Packages
         }
     }
     private
-    func selectHistorical(_ route:Route, lens:Package, 
+    func selectHistorical(_ route:Route.Key, lens:Package, 
         where predicate:(Symbol.Composite) throws -> Bool) 
         rethrows -> Selection?
     {

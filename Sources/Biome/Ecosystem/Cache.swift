@@ -30,7 +30,7 @@ extension Ecosystem
                         continue
                     }
                     
-                    let declaration:Symbol.Declaration = current.declaration(index)
+                    let declaration:Declaration<Symbol.Index> = current.declaration(index)
                     let uri:URI = self.uri(of: .init(natural: index), in: current)
                     let keywords:[JSON] = declaration.signature.compactMap
                     {
