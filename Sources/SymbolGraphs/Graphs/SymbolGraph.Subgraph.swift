@@ -1,4 +1,3 @@
-import Resources 
 import Notebook
 import JSON 
 
@@ -14,17 +13,20 @@ extension SymbolGraph
             hints:[Hint<SymbolIdentifier>]
         
         @inlinable public 
-        init<UTF8>(parsing json:UTF8, namespace:ModuleIdentifier, culture:ModuleIdentifier) 
-            throws 
+        init<UTF8>(parsing json:UTF8, culture:ModuleIdentifier, namespace:ModuleIdentifier) throws 
             where UTF8:Collection, UTF8.Element == UInt8
         {
             try self.init(from: try Grammar.parse(json, as: JSON.Rule<UTF8.Index>.Root.self), 
-                namespace: namespace, 
-                culture: culture)
+                culture: culture, namespace: namespace)
+        }
+        public 
+        init(parsing object:HLO) throws 
+        {
+            try self.init(parsing: object.utf8, 
+                culture: object.culture, namespace: object.namespace)
         }
         public  
-        init(from json:JSON, namespace:ModuleIdentifier, culture:ModuleIdentifier) 
-            throws 
+        init(from json:JSON, culture:ModuleIdentifier, namespace:ModuleIdentifier) throws 
         {
             let (symbols, relationships):([Symbol], [Relationship]) = 
                 try json.lint(whitelisting: ["metadata"]) 
@@ -55,11 +57,11 @@ extension SymbolGraph
                 return (symbols, relationships)
             }
             
-            self.init(namespace: namespace, culture: culture, symbols: symbols, 
+            self.init(culture: culture, namespace: namespace, symbols: symbols, 
                 relationships: relationships)
         }
         private 
-        init(namespace:ModuleIdentifier, culture:ModuleIdentifier,
+        init(culture:ModuleIdentifier, namespace:ModuleIdentifier, 
             symbols:[Symbol], relationships:[Relationship])
         {
             // about half of the symbols in a typical symbol graph are non-canonical. 

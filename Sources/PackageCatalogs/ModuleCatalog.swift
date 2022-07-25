@@ -20,6 +20,7 @@ enum SymbolGraphLoadingError:Error, CustomStringConvertible
         }
     }
 }
+
 public 
 struct ModuleCatalog:Identifiable, Decodable, Sendable 
 {
@@ -60,6 +61,11 @@ struct ModuleCatalog:Identifiable, Decodable, Sendable
     }
     public 
     func load(relativeTo prefix:FilePath? = nil) throws -> SymbolGraph
+    {
+        try .init(parsing: try self.read(relativeTo: prefix))
+    }
+    public 
+    func read(relativeTo prefix:FilePath? = nil) throws -> SymbolGraph.HLO
     {
         try Task.checkCancellation()
         var paths:
@@ -136,9 +142,7 @@ struct ModuleCatalog:Identifiable, Decodable, Sendable
             }, 
             subgraphs: try paths.subgraphs.map 
             {
-                try .init(parsing: try $0.value.read([UInt8].self), 
-                    namespace: $0.key,
-                    culture: self.id)
+                (culture: self.id, namespace: $0.key, utf8: try $0.value.read([UInt8].self))
             })
     }
 }

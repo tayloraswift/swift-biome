@@ -84,8 +84,8 @@ struct SymbolGraph:Identifiable, Sendable
     public 
     let id:ModuleIdentifier 
     public 
-    let extensions:[Extension], 
-        dependencies:[Dependency]
+    let dependencies:[Dependency], 
+        extensions:[Extension]
     public private(set)
     var identifiers:[SymbolIdentifier], 
         vertices:[Vertex<Int>], 
@@ -100,6 +100,14 @@ struct SymbolGraph:Identifiable, Sendable
         .init(partitions: self.partitions, vertices: self.vertices)
     }
     
+    public 
+    init(parsing object:HLO) throws 
+    {
+        self.init(id: object.id, 
+            dependencies: object.dependencies, 
+            extensions: object.extensions, 
+            subgraphs: try object.subgraphs.map(Subgraph.init(parsing:)))
+    }
     public 
     init(id:ID, 
         dependencies:[Dependency] = [], 
