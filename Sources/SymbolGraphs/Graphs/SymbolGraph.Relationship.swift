@@ -55,9 +55,10 @@ extension SymbolGraph.Relationship
             case (.natural(let source), "defaultImplementationOf"):
                 edge = .init(source, is: .defaultImplementation, of: target)
             
-            case (let source, let relation): 
-                throw SymbolGraphDecodingError.invalidEdge((source, target), 
-                    relation: relation)
+            case (.natural(_), let kind): 
+                throw SymbolGraphDecodingError.unknownRelationshipKind(kind)
+            case (let source, let kind): 
+                throw SymbolGraphDecodingError.invalidRelationshipKind(source, is: kind)
             }
 
             let origin:SymbolIdentifier? = try $0.pop("sourceOrigin")

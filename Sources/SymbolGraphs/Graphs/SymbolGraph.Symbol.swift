@@ -34,31 +34,6 @@ extension SymbolGraph
     }
 }
 
-extension SymbolGraph.Symbol 
-{
-    // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Symbol.cpp
-    enum Kind:String 
-    {
-        case `associatedtype`   = "swift.associatedtype"
-        case `protocol`         = "swift.protocol"
-        case `typealias`        = "swift.typealias"
-        case `enum`             = "swift.enum"
-        case `struct`           = "swift.struct"
-        case `class`            = "swift.class"
-        case  enumCase          = "swift.enum.case"
-        case `init`             = "swift.init"
-        case `deinit`           = "swift.deinit"
-        case  typeSubscript     = "swift.type.subscript"
-        case `subscript`        = "swift.subscript"
-        case  typeProperty      = "swift.type.property"
-        case  property          = "swift.property"
-        case  typeMethod        = "swift.type.method"
-        case  method            = "swift.method"
-        case  funcOp            = "swift.func.op"
-        case `func`             = "swift.func"
-        case `var`              = "swift.var"
-    }
-}
 extension SymbolGraph.Symbol
 {
     public 
@@ -139,29 +114,15 @@ extension SymbolGraph.Symbol
                 {
                     try $0.remove("identifier") 
                     { 
-                        switch try $0.case(of: Kind.self) 
+                        let string:String = try $0.as(String.self)
+                        if  let community:Community = .init(declarationKind: string, 
+                            global: path.count == 1)
                         {
-                        case .associatedtype:   return .associatedtype
-                        case .protocol:         return .protocol
-                        case .typealias:        return .typealias
-                        case .enum:             return .concretetype(.enum)
-                        case .struct:           return .concretetype(.struct)
-                        case .class:            return .concretetype(.class)
-                        case .enumCase:         return .callable(.case)
-                        case .`init`:           return .callable(.initializer)
-                        case .deinit:           return .callable(.deinitializer)
-                        case .typeSubscript:    return .callable(.typeSubscript)
-                        case .subscript:        return .callable(.instanceSubscript)
-                        case .typeProperty:     return .callable(.typeProperty)
-                        case .property:         return .callable(.instanceProperty)
-                        case .typeMethod:       return .callable(.typeMethod)
-                        case .method:           return .callable(.instanceMethod)
-                        case .funcOp: 
-                            // if the symbol is an operator and it has more than one path 
-                            // component, consider it a type operator. 
-                            return path.count > 1 ?    .callable(.typeOperator) : .global(.operator)
-                        case .func:             return .global(.func)
-                        case .var:              return .global(.var)
+                            return community 
+                        }
+                        else 
+                        {
+                            throw SymbolGraphDecodingError.unknownDeclarationKind(string)
                         }
                     }
                 }

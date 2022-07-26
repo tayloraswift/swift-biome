@@ -90,11 +90,6 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     {
         self.kind.community 
     } 
-    @available(*, deprecated, renamed: "community")
-    var color:Color 
-    {
-        self.community 
-    }
     var name:String 
     {
         self.path.last

@@ -54,6 +54,7 @@ extension Generic.Constraint:Equatable where Target:Equatable {}
 
 extension Generic.Verb 
 {
+    // https://github.com/apple/swift/blob/e7d56037e87787c3ee92d861e95e5ba95e0bcbd4/lib/SymbolGraphGen/JSON.cpp#L92
     enum Longform:String 
     {
         case superclass

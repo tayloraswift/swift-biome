@@ -40,6 +40,35 @@ enum Community:Hashable, Comparable, Sendable
     
     public static 
     let `class`:Self = .concretetype(.class)
+
+    @inlinable public 
+    init?(declarationKind:String, global:Bool)
+    {
+        // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Symbol.cpp
+        switch declarationKind
+        {
+            case "swift.associatedtype":    self = .associatedtype
+            case "swift.protocol":          self = .protocol
+            case "swift.typealias":         self = .typealias
+            case "swift.enum":              self = .concretetype(.enum)
+            case "swift.struct":            self = .concretetype(.struct)
+            case "swift.class":             self = .concretetype(.class)
+            case "swift.enum.case":         self = .callable(.case)
+            case "swift.init":              self = .callable(.initializer)
+            case "swift.deinit":            self = .callable(.deinitializer)
+            case "swift.type.subscript":    self = .callable(.typeSubscript)
+            case "swift.subscript":         self = .callable(.instanceSubscript)
+            case "swift.type.property":     self = .callable(.typeProperty)
+            case "swift.property":          self = .callable(.instanceProperty)
+            case "swift.type.method":       self = .callable(.typeMethod)
+            case "swift.method":            self = .callable(.instanceMethod)
+            case "swift.func.op":           self =  global ? .global(.operator) : 
+                                                   .callable(.typeOperator)
+            case "swift.func":              self = .global(.func)
+            case "swift.var":               self = .global(.var)
+            default:                        return nil
+        }
+    }
 }
 extension Community:RawRepresentable 
 {

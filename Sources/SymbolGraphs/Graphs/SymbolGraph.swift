@@ -4,8 +4,10 @@ enum SymbolGraphDecodingError:Error, CustomStringConvertible
     case duplicateAvailabilityDomain(Availability.Domain)
     case mismatchedCulture(ModuleIdentifier, expected:ModuleIdentifier)
 
-    case invalidFragmentColor(String)
-    case invalidEdge((USR, SymbolIdentifier), relation:String)
+    case unknownDeclarationKind(String) 
+    case unknownFragmentKind(String)
+    case unknownRelationshipKind(String)
+    case invalidRelationshipKind(USR, is:String)
     
     public 
     var description:String 
@@ -16,10 +18,14 @@ enum SymbolGraphDecodingError:Error, CustomStringConvertible
             return "duplicate entries for availability domain '\(domain.rawValue)'"
         case .mismatchedCulture(let id, expected: let expected): 
             return "subgraph culture is '\(id)', expected '\(expected)'"
-        case .invalidFragmentColor(let string): 
-            return "invalid fragment color '\(string)'"
-        case .invalidEdge(let edge, relation: let relation): 
-            return "invalid edge '\(edge.0)' -- \(relation) -> '\(edge.1)'"
+        case .unknownDeclarationKind(let string): 
+            return "unknown declaration kind '\(string)'"
+        case .unknownFragmentKind(let string): 
+            return "unknown fragment kind '\(string)'"
+        case .unknownRelationshipKind(let string): 
+            return "unknown relationship kind '\(string)'"
+        case .invalidRelationshipKind(let source, is: let string): 
+            return "symbol '\(source)' cannot be the source of a relationship of kind '\(string)'"
         }
     }
 }

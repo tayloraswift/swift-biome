@@ -290,13 +290,15 @@ extension DOM.Element where Domain == HTML
             {
                 platforms.append(.li("\(platform.rawValue) unavailable"))
             }
-            else if case nil? = availability.deprecated 
+            else if let deprecated:VersionedAvailability.Deprecation = availability.deprecated 
             {
-                platforms.append(.li("\(platform.rawValue) deprecated"))
-            }
-            else if case let version?? = availability.deprecated 
-            {
-                platforms.append(.li("\(platform.rawValue) deprecated since \(version.description)"))
+                switch deprecated 
+                {
+                case .always:
+                    platforms.append(.li("\(platform.rawValue) deprecated"))
+                case .since(let version):
+                    platforms.append(.li("\(platform.rawValue) deprecated since \(version.description)"))
+                }
             }
             else if let version:MaskedVersion = availability.introduced 
             {

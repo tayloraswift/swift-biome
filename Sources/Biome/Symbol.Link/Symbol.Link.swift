@@ -5,9 +5,15 @@ extension Symbol
 {
     struct Disambiguator 
     {
+        enum DocC 
+        {
+            case community(Community)
+            case fnv(hash:UInt32)
+        }
+
         let host:ID?
         let base:ID?
-        let suffix:Link.Suffix?
+        let docC:DocC?
     }
     struct Link:RandomAccessCollection
     {
@@ -30,42 +36,13 @@ extension Symbol
                 self.string = string 
                 self.hyphen = hyphen
             }
-            
-            var suffix:Suffix?
-            {
-                self.hyphen.flatMap { .init(self.string[$0...].dropFirst()) }
-            }
         }
         enum Orientation:Unicode.Scalar
         {
             case gay        = "."
             case straight   = "/"
         }
-        enum Suffix 
-        {
-            case community(Community)
-            case fnv(hash:UInt32)
-            
-            init?<S>(_ string:S) where S:StringProtocol 
-            {
-                // will never collide with symbol communities, since they always contain 
-                // a period ('.')
-                // https://github.com/apple/swift-docc/blob/d94139a5e64e9ecf158214b1cded2a2880fc1b02/Sources/SwiftDocC/Utility/FoundationExtensions/String%2BHashing.swift
-                if let hash:UInt32 = .init(string, radix: 36)
-                {
-                    self = .fnv(hash: hash)
-                }
-                else if let community:Community = .init(rawValue: String.init(string))
-                {
-                    self = .community(community)
-                }
-                else 
-                {
-                    return nil
-                }
-            }
-        }
-        
+
         private
         var path:[Component]
         var query:Query,
@@ -118,7 +95,31 @@ extension Symbol
             .init(
                 host: self.query.host, 
                 base: self.query.base, 
-                suffix: self.path.last?.suffix)
+                docC: self.path.last.flatMap 
+                {
+                    guard let hyphen:String.Index = $0.hyphen
+                    else 
+                    {
+                        return nil 
+                    }
+                    let text:Substring = $0.string[$0.string.index(after: hyphen)...]
+                    // will never collide with symbol communities, since they always contain 
+                    // a period ('.')
+                    // https://github.com/apple/swift-docc/blob/d94139a5e64e9ecf158214b1cded2a2880fc1b02/Sources/SwiftDocC/Utility/FoundationExtensions/String%2BHashing.swift
+                    if let hash:UInt32 = .init(text, radix: 36)
+                    {
+                        return .fnv(hash: hash)
+                    }
+                    else if let community:Community = .init(declarationKind: String.init(text), 
+                        global: self.count == 1)
+                    {
+                        return .community(community)
+                    }
+                    else 
+                    {
+                        return nil
+                    }
+                })
         }
         
         private 

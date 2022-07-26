@@ -65,8 +65,8 @@ extension Notebook<Highlight, SymbolIdentifier>.Fragment
                 case "internalParam":       return .parameter
                 case "externalParam":       return .argument
                 case "text":                return .text
-                case let color:
-                    throw SymbolGraphDecodingError.invalidFragmentColor(color)
+                case let kind:
+                    throw SymbolGraphDecodingError.unknownFragmentKind(kind)
                 }
             }
             return .init(text, color: color, link: link)

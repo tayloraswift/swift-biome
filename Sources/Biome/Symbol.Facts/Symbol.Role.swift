@@ -150,8 +150,8 @@ extension Symbol
             {
                 switch  (community, shape)
                 {
-                case    (.callable(_),      .requirement(of: let interface)?), 
-                        (.associatedtype,   .requirement(of: let interface)?):
+                case    (.callable(_),      .requirement(of: _)?), 
+                        (.associatedtype,   .requirement(of: _)?):
                     self.init(roles.map 
                     {
                         switch $0 

@@ -2,10 +2,6 @@ import SymbolGraphs
 
 extension Symbol 
 {
-    @available(*, deprecated, renamed: "Community")
-    public 
-    typealias Color = Community 
-
     // should have stride of 8 B
     enum Kind:Sendable, Hashable 
     {
@@ -26,11 +22,6 @@ extension Symbol
             {
                 return nil 
             }
-        }
-        @available(*, deprecated, renamed: "community")
-        var color:Color 
-        {
-            self.community
         }
         var community:Community 
         {

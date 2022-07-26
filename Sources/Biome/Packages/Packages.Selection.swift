@@ -118,7 +118,7 @@ extension Packages
     {
         let host:Symbol = self[composite.diacritic.host]
         let base:Symbol = self[composite.base]
-        switch disambiguator.suffix 
+        switch disambiguator.docC 
         {
         case nil: 
             break 
