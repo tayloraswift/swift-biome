@@ -8,6 +8,7 @@ extension SymbolGraph
     {
         public 
         let namespace:ModuleIdentifier
+        var sourcemap:[String: [SourceFeature<SymbolIdentifier>]]
         var vertices:[SymbolIdentifier: Vertex<SymbolIdentifier>],
             edges:[Edge<SymbolIdentifier>],
             hints:[Hint<SymbolIdentifier>]
@@ -79,6 +80,7 @@ extension SymbolGraph
             // the witness `ss8_PointerPsE11predecessorxyF`, which is part of 
             // the underscored `_Pointer` protocol.
             self.namespace = namespace 
+            self.sourcemap = [:]
             self.vertices = [:]
             self.edges = relationships.map(\.edge)
             self.hints = relationships.compactMap(\.hint)
@@ -109,6 +111,7 @@ extension SymbolGraph
                     // natural vertices should always overwrite copies we got from  
                     // synthetic inference.
                     self.vertices[natural] = symbol.vertex
+                    self.record(location: symbol.location, of: natural)
                     continue 
                 
                 case .synthesized(let inferred, namespace: let namespace): 
@@ -151,6 +154,7 @@ extension SymbolGraph
                         // an edge for it:
                         self.edges.append(.init(inferred, is: .member, of: mythical.id))
                         self.vertices[inferred] = vertex
+                        self.record(location: symbol.location, of: inferred)
                         print("note: naturalized unavailable protocol member '\(vertex.path)'")
                     }
                     else if case "_"? = mythical.name.first
@@ -159,6 +163,7 @@ extension SymbolGraph
                         // generate an edge for it:
                         self.edges.append(.init(inferred, is: .member, of: mythical.id))
                         self.vertices[inferred] = vertex
+                        self.record(location: symbol.location, of: inferred)
                         print("note: naturalized underscored-protocol member '\(vertex.path)'")
                         // make a note of the protocol name and identifier
                         if !self.vertices.keys.contains(mythical.id)
@@ -169,6 +174,18 @@ extension SymbolGraph
                     }
                 }
             }
+        }
+        private mutating 
+        func record(location:Symbol.Location?, of symbol:SymbolIdentifier)
+        {
+            guard let location:Symbol.Location 
+            else 
+            {
+                return 
+            }
+            self.sourcemap[location.uri, default: []].append(.init(line: location.line, 
+                character: location.character, 
+                symbol: symbol))
         }
     }
 }

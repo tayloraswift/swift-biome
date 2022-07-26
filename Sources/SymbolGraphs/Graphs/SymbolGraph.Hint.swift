@@ -1,7 +1,7 @@
-extension SymbolGraph.Hint:Sendable where Source:Sendable {}
-extension SymbolGraph.Hint:Hashable where Source:Hashable {}
-extension SymbolGraph.Hint:Equatable where Source:Equatable {}
-extension SymbolGraph.Hint:Comparable where Source:Comparable 
+extension SymbolGraph.Hint:Sendable where Target:Sendable {}
+extension SymbolGraph.Hint:Hashable where Target:Hashable {}
+extension SymbolGraph.Hint:Equatable where Target:Equatable {}
+extension SymbolGraph.Hint:Comparable where Target:Comparable 
 {
     @inlinable public static 
     func < (lhs:Self, rhs:Self) -> Bool 
@@ -13,19 +13,19 @@ extension SymbolGraph.Hint:Comparable where Source:Comparable
 extension SymbolGraph 
 {
     @frozen public 
-    struct Hint<Source>
+    struct Hint<Target>
     {
         public 
-        let source:Source 
+        let source:Target 
         public 
-        let origin:Source
+        let origin:Target
 
-        func forEach(_ body:(Source) throws -> ()) rethrows 
+        func forEach(_ body:(Target) throws -> ()) rethrows 
         {
             try body(self.source)
             try body(self.origin)
         }
-        func map<T>(_ transform:(Source) throws -> T) rethrows -> Hint<T>
+        func map<T>(_ transform:(Target) throws -> T) rethrows -> Hint<T>
         {
             .init(source: try transform(self.source), 
                 origin: try transform(self.origin))

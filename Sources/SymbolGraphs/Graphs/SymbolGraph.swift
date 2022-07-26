@@ -95,6 +95,8 @@ struct SymbolGraph:Identifiable, Sendable
         vertices:[Vertex<Int>], 
         edges:[Edge<Int>],
         hints:[Hint<Int>]
+    public
+    var sourcemap:[(uri:String, symbols:[SourceFeature<Int>])]
     
     public 
     var colonies:Colonies
@@ -219,6 +221,26 @@ struct SymbolGraph:Identifiable, Sendable
             }
         }
         self.hints = hints.sorted()
+
+        var sourcemap:[String: [SourceFeature<Int>]] = [:]
+        for subgraph:Subgraph in subgraphs 
+        {
+            for (uri, symbols):(String, [SourceFeature<SymbolIdentifier>]) in subgraph.sourcemap 
+            {
+                for symbol:SourceFeature<SymbolIdentifier> in symbols 
+                {
+                    sourcemap[uri, default: []].append(symbol.map { indices[$0]! })
+                }
+            }
+        }
+        self.sourcemap = sourcemap.map 
+        {
+            (uri: $0.key, symbols: $0.value.sorted())
+        }
+        .sorted
+        {
+            $0.uri < $1.uri
+        }
     }
 }
 
@@ -245,6 +267,20 @@ extension SymbolGraph
             "vertices": .array(self.vertices.map(\.serialized)),
             "edges": self.edges.serialized,
             "hints": .array(self.hints.flatMap { [.number($0.source), .number($0.origin)] }),
+            "sourcemap": .array(self.sourcemap.map 
+            { 
+                [
+                    "uri": .string($0.uri),
+                    "symbols": .array($0.symbols.flatMap 
+                    { 
+                        [
+                            .number($0.line),
+                            .number($0.character),
+                            .number($0.symbol),
+                        ]
+                    })
+                ]
+            }),
         ]
     }
 }

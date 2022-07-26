@@ -21,8 +21,15 @@ extension SymbolGraph
                 }
             }
         }
+        struct Location:Sendable 
+        {
+            let uri:String 
+            let line:Int 
+            let character:Int
+        }
         
         let id:ID
+        let location:Location?
         var vertex:Vertex<SymbolIdentifier>
     }
 }
@@ -57,7 +64,7 @@ extension SymbolGraph.Symbol
     public 
     init(from json:JSON) throws 
     {
-        (self.id, self.vertex) = try json.lint 
+        (self.id, self.location, self.vertex) = try json.lint 
         {
             let (extendedModule, extensionConstraints):
             (
@@ -178,24 +185,7 @@ extension SymbolGraph.Symbol
                     }
                 }
             })
-            let _:(String, Int, Int)? = try $0.pop("location")
-            {
-                try $0.lint 
-                {
-                    let uri:String                  = try $0.remove("uri", as: String.self)
-                    let (line, column):(Int, Int)   = try $0.remove("position")
-                    {
-                        try $0.lint 
-                        {
-                            (
-                                try $0.remove("line",      as: Int.self),
-                                try $0.remove("character", as: Int.self)
-                            )
-                        }
-                    }
-                    return (uri, line, column)
-                }
-            }
+            let location:Location? = try $0.pop("location", Location.init(from:))
             let _:JSON? = $0.pop("functionSignature")
 
             let availability:Availability = 
@@ -226,7 +216,28 @@ extension SymbolGraph.Symbol
                     genericConstraints: genericConstraints, 
                     generics: generics), 
                 comment: comment)
-            return (id, vertex)
+            return (id, location, vertex)
+        }
+    }
+}
+extension SymbolGraph.Symbol.Location
+{
+    init(from json:JSON) throws 
+    {
+        (self.uri, self.line, self.character) = try json.lint 
+        {
+            let uri:String                      = try $0.remove("uri", as: String.self)
+            let (line, character):(Int, Int)    = try $0.remove("position")
+            {
+                try $0.lint 
+                {
+                    (
+                        try $0.remove("line",      as: Int.self),
+                        try $0.remove("character", as: Int.self)
+                    )
+                }
+            }
+            return (uri, line, character)
         }
     }
 }
