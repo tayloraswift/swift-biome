@@ -3,11 +3,17 @@ import Versions
 @frozen public 
 struct VersionedAvailability:Equatable, Sendable 
 {
+    @frozen public 
+    enum Deprecation:Hashable, Sendable
+    {
+        case always
+        case since(MaskedVersion)
+    }
     public 
     var unavailable:Bool 
     // .some(nil) represents unconditional deprecation
     public 
-    var deprecated:MaskedVersion??
+    var deprecated:Deprecation?
     public 
     var introduced:MaskedVersion?
     public 
@@ -20,7 +26,7 @@ struct VersionedAvailability:Equatable, Sendable
     @inlinable public 
     var isGenerallyDeprecated:Bool 
     {
-        if case .some(nil) = self.deprecated 
+        if case .always? = self.deprecated 
         {
             return true 
         }

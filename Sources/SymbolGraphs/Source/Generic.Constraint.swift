@@ -63,7 +63,7 @@ extension Generic.Verb
 }
 extension Generic.Constraint<SymbolIdentifier>
 {
-    init(from json:JSON) throws
+    init(lowering json:JSON) throws
     {
         self = try json.lint 
         {

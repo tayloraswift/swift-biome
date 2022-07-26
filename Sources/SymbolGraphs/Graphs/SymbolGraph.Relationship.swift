@@ -41,7 +41,7 @@ extension SymbolGraph.Relationship
                 let constraints:[Generic.Constraint<SymbolIdentifier>] = 
                     try $0.pop("swiftConstraints", as: [JSON]?.self) 
                 { 
-                    try $0.map(Generic.Constraint.init(from:)) 
+                    try $0.map(Generic.Constraint.init(lowering:)) 
                 } ?? []
                 edge = .init(source, is: .conformer(constraints), of: target)
             case (.natural(let source), "inheritsFrom"):

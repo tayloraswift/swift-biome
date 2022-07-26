@@ -37,7 +37,7 @@ enum Highlight:UInt8, Sendable
 
 extension Notebook<Highlight, SymbolIdentifier>.Fragment
 {
-    init(from json:JSON) throws 
+    init(lowering json:JSON) throws 
     {
         self = try json.lint 
         {

@@ -79,7 +79,7 @@ extension SymbolGraph.Symbol
                             .map(ModuleIdentifier.init(_:)),
                         try $0.pop("constraints", as: [JSON]?.self) 
                         { 
-                            try $0.map(Generic.Constraint<SymbolIdentifier>.init(from:)) 
+                            try $0.map(Generic.Constraint<SymbolIdentifier>.init(lowering:)) 
                         } ?? []
                     )
                 }
@@ -95,11 +95,11 @@ extension SymbolGraph.Symbol
                     (
                         try $0.pop("parameters", as: [JSON]?.self) 
                         { 
-                            try $0.map(Generic.init(from:)) 
+                            try $0.map(Generic.init(lowering:)) 
                         } ?? [],
                         try $0.pop("constraints", as: [JSON]?.self) 
                         { 
-                            try $0.map(Generic.Constraint.init(from:)) 
+                            try $0.map(Generic.Constraint.init(lowering:)) 
                         } ?? []
                     )
                 }
@@ -172,7 +172,7 @@ extension SymbolGraph.Symbol
             let fragments:Notebook<Highlight, SymbolIdentifier> = .init(
                 try $0.remove("declarationFragments") 
             { 
-                try $0.map(Notebook<Highlight, SymbolIdentifier>.Fragment.init(from:)) 
+                try $0.map(Notebook<Highlight, SymbolIdentifier>.Fragment.init(lowering:)) 
             })
             let signature:Notebook<Highlight, Never> = .init(
                 try $0.remove("names")
@@ -181,7 +181,7 @@ extension SymbolGraph.Symbol
                 {
                     try $0.remove("subHeading") 
                     { 
-                        try $0.map(Notebook<Highlight, SymbolIdentifier>.Fragment.init(from:)) 
+                        try $0.map(Notebook<Highlight, SymbolIdentifier>.Fragment.init(lowering:)) 
                     }
                 }
             })
@@ -189,7 +189,7 @@ extension SymbolGraph.Symbol
             let _:JSON? = $0.pop("functionSignature")
 
             let availability:Availability = 
-                try $0.pop("availability", as: [JSON]?.self, Availability.init(from:)) ?? .init()
+                try $0.pop("availability", as: [JSON]?.self, Availability.init(lowering:)) ?? .init()
             let comment:String = try $0.pop("docComment")
             {
                 try $0.lint(whitelisting: ["uri", "module"]) 

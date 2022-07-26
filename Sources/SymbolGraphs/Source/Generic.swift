@@ -12,7 +12,7 @@ struct Generic:Hashable, Sendable
 }
 extension Generic 
 {
-    init(from json:JSON) throws 
+    init(lowering json:JSON) throws 
     {
         (self.name, self.index, self.depth) = try json.lint 
         {
