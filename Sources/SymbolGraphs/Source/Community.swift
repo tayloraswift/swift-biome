@@ -42,14 +42,13 @@ enum Community:Hashable, Comparable, Sendable
     let `class`:Self = .concretetype(.class)
 
     @inlinable public 
-    init?(declarationKind:String, global:Bool)
+    init?(declarationKind:some StringProtocol, global:Bool)
     {
         // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Symbol.cpp
         switch declarationKind
         {
-            case "swift.associatedtype":    self = .associatedtype
             case "swift.protocol":          self = .protocol
-            case "swift.typealias":         self = .typealias
+            case "swift.associatedtype":    self = .associatedtype
             case "swift.enum":              self = .concretetype(.enum)
             case "swift.struct":            self = .concretetype(.struct)
             case "swift.class":             self = .concretetype(.class)
@@ -66,7 +65,66 @@ enum Community:Hashable, Comparable, Sendable
                                                    .callable(.typeOperator)
             case "swift.func":              self = .global(.func)
             case "swift.var":               self = .global(.var)
+            case "swift.typealias":         self = .typealias
             default:                        return nil
+        }
+    }
+}
+extension Community:LosslessStringConvertible 
+{
+    @inlinable public 
+    init?(_ string:some StringProtocol)
+    {
+        switch string 
+        {
+        case "protocol":        self = .protocol 
+        case "associatedtype":  self = .associatedtype 
+        case "enum":            self = .concretetype(.enum) 
+        case "struct":          self = .concretetype(.struct) 
+        case "class":           self = .concretetype(.class) 
+        case "actor":           self = .concretetype(.actor) 
+        case "enum.case":       self = .callable(.case) 
+        case "init":            self = .callable(.initializer) 
+        case "deinit":          self = .callable(.deinitializer) 
+        case "type.subscript":  self = .callable(.typeSubscript) 
+        case "subscript":       self = .callable(.instanceSubscript) 
+        case "type.property":   self = .callable(.typeProperty) 
+        case "property":        self = .callable(.instanceProperty) 
+        case "type.method":     self = .callable(.typeMethod) 
+        case "method":          self = .callable(.instanceMethod) 
+        case "type.op":         self = .callable(.typeOperator) 
+        case "func.op":         self = .global(.operator) 
+        case "func":            self = .global(.func) 
+        case "var":             self = .global(.var) 
+        case "typealias":       self = .typealias 
+        default:                return nil
+        }
+    }
+    @inlinable public 
+    var description:String
+    {
+        switch self 
+        {
+        case .protocol:                     return "protocol"
+        case .associatedtype:               return "associatedtype"
+        case .concretetype(.enum):          return "enum"
+        case .concretetype(.struct):        return "struct"
+        case .concretetype(.class):         return "class"
+        case .concretetype(.actor):         return "actor"
+        case .callable(.case):              return "enum.case"
+        case .callable(.initializer):       return "init"
+        case .callable(.deinitializer):     return "deinit"
+        case .callable(.typeSubscript):     return "type.subscript"
+        case .callable(.instanceSubscript): return "subscript"
+        case .callable(.typeProperty):      return "type.property"
+        case .callable(.instanceProperty):  return "property"
+        case .callable(.typeMethod):        return "type.method"
+        case .callable(.instanceMethod):    return "method"
+        case .callable(.typeOperator):      return "type.op"
+        case .global(.operator):            return "func.op"
+        case .global(.func):                return "func"
+        case .global(.var):                 return "var"
+        case .typealias:                    return "typealias"
         }
     }
 }

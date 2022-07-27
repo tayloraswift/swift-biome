@@ -78,7 +78,7 @@ extension Collection<SymbolGraph.Vertex<Int>> where Index == Int
         return .array(communities.map 
         { 
             [
-                "community": $0.community.serialized, 
+                "community": .string($0.community.description), 
                 "startIndex": .number($0.range.lowerBound),
                 "endIndex": .number($0.range.upperBound),
             ] 

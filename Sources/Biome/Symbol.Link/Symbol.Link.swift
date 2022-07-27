@@ -110,7 +110,7 @@ extension Symbol
                     {
                         return .fnv(hash: hash)
                     }
-                    else if let community:Community = .init(declarationKind: String.init(text), 
+                    else if let community:Community = .init(declarationKind: text, 
                         global: self.count == 1)
                     {
                         return .community(community)
