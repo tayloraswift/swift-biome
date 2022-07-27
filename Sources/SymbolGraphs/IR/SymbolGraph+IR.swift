@@ -16,12 +16,12 @@ extension SymbolGraph
             {
                 [
                     "id": .string($0.namespace.string),
-                    "communities": self.vertices[$0.indices].communities,
+                    "communities": .array(self.vertices[$0.indices].communities),
                 ]
             }),
             "identifiers": .array(self.identifiers.map { .string($0.string) }),
             "vertices": .array(self.vertices.map(\.serialized)),
-            "edges": self.edges.serialized,
+            "edges": .object(self.edges.serialized),
             "hints": .array(self.hints.flatMap { [.number($0.source), .number($0.origin)] }),
             "sourcemap": .array(self.sourcemap.map 
             { 
@@ -53,7 +53,7 @@ extension SymbolGraph.Dependency
 
 extension Collection<SymbolGraph.Vertex<Int>> where Index == Int 
 {
-    var communities:JSON
+    var communities:[JSON]
     {
         guard var community:Community = self.first?.community 
         else 
@@ -75,19 +75,19 @@ extension Collection<SymbolGraph.Vertex<Int>> where Index == Int
         {
             communities.append((community, start ..< self.endIndex))
         }
-        return .array(communities.map 
+        return communities.map 
         { 
             [
                 "community": .string($0.community.description), 
                 "startIndex": .number($0.range.lowerBound),
                 "endIndex": .number($0.range.upperBound),
             ] 
-        })
+        }
     }
 }
 extension Sequence<SymbolGraph.Edge<Int>> 
 {
-    var serialized:JSON
+    var serialized:[(key:String, value:JSON)]
     {
         var feature:[(Int, Int)] = []
         var member:[(Int, Int)] = []
@@ -133,6 +133,6 @@ extension Sequence<SymbolGraph.Edge<Int>>
         {
             items.append((key, .array(edges.flatMap { [.number($0.0), .number($0.1)] })))
         }
-        return .object(items)
+        return items
     }
 }

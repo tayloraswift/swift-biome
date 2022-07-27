@@ -22,28 +22,4 @@ extension Generic
         ]
     }
 }
-extension Generic.Constraint<Int> 
-{
-    var serialized:JSON 
-    {
-        if let target:Int = self.target
-        {
-            return 
-                [
-                    .string(self.subject), 
-                    .number(self.verb.rawValue), 
-                    .string(self.object), 
-                    .number(target),
-                ]
-        }
-        else 
-        {
-            return 
-                [
-                    .string(self.subject), 
-                    .number(self.verb.rawValue), 
-                    .string(self.object), 
-                ]
-        }
-    }
-}
+

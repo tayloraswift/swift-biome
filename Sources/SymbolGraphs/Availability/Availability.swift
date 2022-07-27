@@ -84,7 +84,7 @@ extension Availability
                     obsoleted: try $0.pop("obsoleted", MaskedVersion.init(exactly:)) ?? nil, 
                     renamed: try $0.pop("renamed", as: String?.self),
                     message: try $0.pop("message", as: String?.self))
-                let domain:Domain = try $0.remove("domain") { try $0.case(of: Domain.self) }
+                let domain:Domain = try $0.remove("domain") { try $0.as(cases: Domain.self) }
                 return (key: domain, value: availability)
             }
         })

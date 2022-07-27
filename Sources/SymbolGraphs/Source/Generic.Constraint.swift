@@ -70,7 +70,7 @@ extension Generic.Constraint<SymbolIdentifier>
         {
             let verb:Generic.Verb = try $0.remove("kind") 
             {
-                switch try $0.case(of: Generic.Verb.Longform.self)
+                switch try $0.as(cases: Generic.Verb.Longform.self)
                 {
                 case .superclass:   return .subclasses
                 case .conformance:  return .implements

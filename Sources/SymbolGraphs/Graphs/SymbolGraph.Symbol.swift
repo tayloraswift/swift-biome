@@ -101,13 +101,7 @@ extension SymbolGraph.Symbol
                     return .synthesized(id, namespace: extendedModule)
                 }
             }
-            let path:[String] = try $0.remove("pathComponents") { try $0.map { try $0.as(String.self) } }
-            guard let path:Path = .init(path)
-            else 
-            {
-                // FIXME: we should throw an error instead 
-                fatalError("FIXME")
-            }
+            let path:Path = try $0.remove("pathComponents", Path.init(from:))
             let community:Community = try $0.remove("kind")
             {
                 try $0.lint(whitelisting: ["displayName"])
@@ -128,24 +122,18 @@ extension SymbolGraph.Symbol
                 }
             }
             
-            let _:AccessLevel = try $0.remove("accessLevel") { try $0.case(of: AccessLevel.self) }
+            let _:AccessLevel = try $0.remove("accessLevel") { try $0.as(cases: AccessLevel.self) }
             
-            let fragments:Notebook<Highlight, SymbolIdentifier> = .init(
-                try $0.remove("declarationFragments") 
-            { 
-                try $0.map(Notebook<Highlight, SymbolIdentifier>.Fragment.init(lowering:)) 
-            })
-            let signature:Notebook<Highlight, Never> = .init(
+            let fragments:Notebook<Highlight, SymbolIdentifier> = 
+                try $0.remove("declarationFragments", Notebook<Highlight, SymbolIdentifier>.init(lowering:)) 
+            let signature:Notebook<Highlight, Never> = 
                 try $0.remove("names")
             {
                 try $0.lint(whitelisting: ["title", "navigator"])
                 {
-                    try $0.remove("subHeading") 
-                    { 
-                        try $0.map(Notebook<Highlight, SymbolIdentifier>.Fragment.init(lowering:)) 
-                    }
+                    try $0.remove("subHeading", Notebook<Highlight, Never>.init(lowering:)) 
                 }
-            })
+            }
             let location:Location? = try $0.pop("location", Location.init(from:))
             let _:JSON? = $0.pop("functionSignature")
 

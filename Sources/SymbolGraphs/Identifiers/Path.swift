@@ -1,3 +1,5 @@
+import JSON
+
 @frozen public
 struct Path:Equatable, RandomAccessCollection, CustomStringConvertible, Sendable
 {
@@ -66,5 +68,18 @@ struct Path:Equatable, RandomAccessCollection, CustomStringConvertible, Sendable
     var description:String 
     {
         self.joined(separator: ".")
+    }
+}
+
+extension Path 
+{
+    init(from json:JSON) throws
+    {
+        self = try json.shape { $0 > 0 } decode:
+        {
+            let last:Int = $0.index(before: $0.endIndex)
+            return .init(prefix: try $0[..<last].map { try $0.as(String.self) }, 
+                last: try $0.load(last, as: String.self))
+        }
     }
 }

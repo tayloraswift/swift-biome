@@ -1,5 +1,4 @@
-import JSON 
-import Notebook
+import JSON
 
 @frozen public
 enum Highlight:UInt8, Sendable
@@ -33,43 +32,30 @@ enum Highlight:UInt8, Sendable
     /// A type annotation, which appears after a colon. Not all references to a 
     /// type have this classification; some references are considered identifiers.
     case type
-}
 
-extension Notebook<Highlight, SymbolIdentifier>.Fragment
-{
-    init(lowering json:JSON) throws 
+    init(from json:JSON, text:String) throws 
     {
-        self = try json.lint 
+        // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/DeclarationFragmentPrinter.cpp
+        switch try json.as(String.self) as String
         {
-            let text:String = try $0.remove("spelling", as: String.self)
-            let link:SymbolIdentifier? = 
-                try $0.pop("preciseIdentifier", SymbolIdentifier.init(from:))
-            let color:Highlight = try $0.remove("kind")
+        case "keyword":
+            switch text 
             {
-                // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/DeclarationFragmentPrinter.cpp
-                switch try $0.as(String.self) as String
-                {
-                case "keyword":
-                    switch text 
-                    {
-                    case "init", "deinit", "subscript":
-                                            return .keywordIdentifier
-                    default:                return .keywordText
-                    }
-                case "attribute":           return .attribute
-                case "number":              return .number
-                case "string":              return .string
-                case "identifier":          return .identifier
-                case "typeIdentifier":      return .type
-                case "genericParameter":    return .generic
-                case "internalParam":       return .parameter
-                case "externalParam":       return .argument
-                case "text":                return .text
-                case let kind:
-                    throw SymbolGraphDecodingError.unknownFragmentKind(kind)
-                }
+            case "init", "deinit", "subscript":
+                                    self =  .keywordIdentifier
+            default:                self =  .keywordText
             }
-            return .init(text, color: color, link: link)
+        case "attribute":           self =  .attribute
+        case "number":              self =  .number
+        case "string":              self =  .string
+        case "identifier":          self =  .identifier
+        case "typeIdentifier":      self =  .type
+        case "genericParameter":    self =  .generic
+        case "internalParam":       self =  .parameter
+        case "externalParam":       self =  .argument
+        case "text":                self =  .text
+        case let kind:
+            throw SymbolGraphDecodingError.unknownFragmentKind(kind)
         }
     }
 }
