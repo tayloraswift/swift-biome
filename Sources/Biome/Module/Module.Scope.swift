@@ -59,12 +59,6 @@ extension Module
                 dependencies.remove(self.culture)
             return dependencies
         }
-        // func upstream() -> Set<Package.Index>
-        // {
-        //     var packages:Set<Package.Index> = .init(self.filter.map(\.package))
-        //         packages.remove(self.culture.package)
-        //     return packages
-        // }
         
         func `import`(_ modules:Set<ID>, swift:Package.Index?) -> Self 
         {
