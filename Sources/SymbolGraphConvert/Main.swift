@@ -32,9 +32,9 @@ struct Main:AsyncParsableCommand
     
     func run() async throws 
     {
-        try await withThrowingTaskGroup(of: (SymbolGraph, FilePath).self)
+        try await withThrowingTaskGroup(of: (String, FilePath).self)
         {
-            (queue:inout ThrowingTaskGroup<(SymbolGraph, FilePath), Error>) in 
+            (queue:inout ThrowingTaskGroup<(String, FilePath), Error>) in 
 
             var width:Int = 0
             for project:FilePath in self.projects.map(FilePath.init(_:))
