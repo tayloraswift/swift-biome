@@ -532,24 +532,7 @@ extension Package
         }
     }
     
-    // mutating 
-    // func addExtensions(in cultures:[Module.Index], graphs:[SymbolGraph], stems:inout Route.Stems) 
-    //     -> (articles:[[Article.Index: Extension]], extensions:[[String: Extension]])
-    // {
-    //     var articles:[[Article.Index: Extension]] = []
-    //         articles.reserveCapacity(graphs.count)
-    //     var extensions:[[String: Extension]] = []
-    //         extensions.reserveCapacity(graphs.count)
-    //     for (culture, graph):(Module.Index, SymbolGraph) in zip(cultures, graphs)
-    //     {
-    //         let column:(articles:[Article.Index: Extension], extensions:[String: Extension]) =
-    //             self.addExtensions(in: culture, graph: graph, stems: &stems)
-    //         extensions.append(column.extensions)
-    //         articles.append(column.articles)
-    //     }
-    //     return (articles, extensions)
-    // }
-     mutating 
+    mutating 
     func addExtensions(from graph:SymbolGraph, 
         stems:inout Route.Stems, 
         culture:Module.Index) 
@@ -602,21 +585,6 @@ extension Package
         return (articles, extensions)
     }
     
-    // mutating 
-    // func addSymbols(translations:inout [[Symbol.Index?]], graphs:[SymbolGraph], stems:inout Stems) 
-    //     -> [[Symbol.Index: Vertex.Frame]]
-    // {
-    //     let extant:Int = self.symbols.count
-        
-    //     let symbols:[[Symbol.Index: Vertex.Frame]] = zip(scopes, graphs).map
-    //     {
-    //         self.addSymbols(through: $0.0, graph: $0.1, stems: &stems)
-    //     }
-        
-    //     let updated:Int = symbols.reduce(0) { $0 + $1.count }
-    //     // print("(\(self.id)) updated \(updated) symbols (\(self.symbols.count - extant) are new)")
-    //     return symbols
-    // }
     mutating 
     func addSymbols(from graph:SymbolGraph, 
         abstractor:inout Abstractor, 
