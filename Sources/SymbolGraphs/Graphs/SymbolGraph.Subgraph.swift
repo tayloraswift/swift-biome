@@ -45,11 +45,11 @@ extension SymbolGraph
                     throw SymbolGraphDecodingError.mismatchedCulture(module, expected: culture)
                 }
 
-                let relationships:[Relationship] = try $0.remove("relationships") 
+                let relationships:[Relationship] = try $0.remove("relationships", as: [JSON].self) 
                 { 
                     try $0.map(Relationship.init(from:)) 
                 }
-                let symbols:[Symbol] = try $0.remove("symbols") 
+                let symbols:[Symbol] = try $0.remove("symbols", as: [JSON].self) 
                 { 
                     try $0.map(Symbol.init(from:)) 
                 }

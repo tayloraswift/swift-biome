@@ -22,9 +22,9 @@ extension SymbolGraph.Relationship
         (self.edge, self.origin) = try json.lint(whitelisting: ["targetFallback"])
         {
             let target:SymbolIdentifier = try $0.remove("target", SymbolIdentifier.init(from:))
-            let source:USR = try $0.remove("source")
+            let source:USR = try $0.remove("source", as: String.self)
             {
-                try Grammar.parse(try $0.as(String.self).utf8, as: USR.Rule<String.Index>.self)
+                try Grammar.parse($0.utf8, as: USR.Rule<String.Index>.self)
             }
             // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
             let edge:SymbolGraph.Edge<SymbolIdentifier>

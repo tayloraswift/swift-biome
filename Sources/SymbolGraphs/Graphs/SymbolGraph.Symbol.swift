@@ -50,8 +50,7 @@ extension SymbolGraph.Symbol
                 try $0.lint
                 {
                     (
-                        try $0.pop("extendedModule", as: String.self)
-                            .map(ModuleIdentifier.init(_:)),
+                        try $0.pop("extendedModule", as: String.self, ModuleIdentifier.init(_:)),
                         try $0.pop("constraints", as: [JSON]?.self) 
                         { 
                             try $0.map(Generic.Constraint<SymbolIdentifier>.init(lowering:)) 
@@ -82,23 +81,25 @@ extension SymbolGraph.Symbol
             
             let id:ID = try $0.remove("identifier")
             {
-                let string:String = try $0.lint(whitelisting: ["interfaceLanguage"])
+                try $0.lint(whitelisting: ["interfaceLanguage"])
                 {
                     try $0.remove("precise", as: String.self)
-                }
-                switch try Grammar.parse(string.utf8, as: USR.Rule<String.Index>.self)
-                {
-                case .natural(let id): 
-                    return .natural(id)
-                case .synthesized(from: let id, for: _): 
-                    // synthesized symbols always live in extensions
-                    guard let extendedModule:ModuleIdentifier 
-                    else 
                     {
-                        // FIXME: we should throw an error instead 
-                        fatalError("FIXME")
+                        switch try Grammar.parse($0.utf8, as: USR.Rule<String.Index>.self)
+                        {
+                        case .natural(let id): 
+                            return .natural(id)
+                        case .synthesized(from: let id, for: _): 
+                            // synthesized symbols always live in extensions
+                            guard let extendedModule:ModuleIdentifier 
+                            else 
+                            {
+                                // FIXME: we should throw an error instead 
+                                fatalError("FIXME")
+                            }
+                            return .synthesized(id, namespace: extendedModule)
+                        }
                     }
-                    return .synthesized(id, namespace: extendedModule)
                 }
             }
             let path:Path = try $0.remove("pathComponents", Path.init(from:))
@@ -106,17 +107,16 @@ extension SymbolGraph.Symbol
             {
                 try $0.lint(whitelisting: ["displayName"])
                 {
-                    try $0.remove("identifier") 
+                    try $0.remove("identifier", as: String.self) 
                     { 
-                        let string:String = try $0.as(String.self)
-                        if  let community:Community = .init(declarationKind: string, 
+                        if  let community:Community = .init(declarationKind: $0, 
                             global: path.count == 1)
                         {
                             return community 
                         }
                         else 
                         {
-                            throw SymbolGraphDecodingError.unknownDeclarationKind(string)
+                            throw SymbolGraphDecodingError.unknownDeclarationKind($0)
                         }
                     }
                 }
@@ -143,7 +143,7 @@ extension SymbolGraph.Symbol
             {
                 try $0.lint(whitelisting: ["uri", "module"]) 
                 {
-                    try $0.remove("lines")
+                    try $0.remove("lines", as: [JSON].self)
                     {
                         try $0.map
                         {

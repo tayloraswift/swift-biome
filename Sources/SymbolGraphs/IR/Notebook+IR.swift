@@ -7,13 +7,10 @@ extension Notebook<Highlight, Never>
     {
         self.init(try json.as([JSON].self).lazy.map 
         {
-            try $0.shape(2)
-            {
-                (
-                    try $0.load(0, as: String.self),
-                    try $0.load(1) { try $0.as(cases: Highlight.self) }
-                )
-            }
+            let tuple:[JSON] = try $0.as([JSON].self, count: 2)
+            let text:String = try tuple.load(0)
+            let color:Highlight = try tuple.load(1) { try $0.as(cases: Highlight.self) }
+            return (text, color)
         })
     }
 }
@@ -29,13 +26,10 @@ extension Notebook<Highlight, Int>.Fragment
 {
     init(from json:JSON) throws 
     {
-        self = try json.shape { 2 ... 3 ~= $0 } decode:
-        {
-            .init(try $0.load(0, as: String.self),
-                color: try $0.load(1) { try $0.as(cases: Highlight.self) },
-                link: try $0.count == 3 ? $0.load(2, as: Int.self) : nil
-            )
-        }
+        let tuple:[JSON] = try json.as([JSON].self) { 2 ... 3 ~= $0 }
+        self.init( try tuple.load(0),
+            color: try tuple.load(1) { try $0.as(cases: Highlight.self) },
+            link: try tuple.count == 3 ? tuple.load(2) : nil)
     }
     var serialized:JSON 
     {

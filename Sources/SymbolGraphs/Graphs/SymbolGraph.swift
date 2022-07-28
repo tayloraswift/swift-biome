@@ -108,6 +108,26 @@ struct SymbolGraph:Identifiable, Sendable
         .init(partitions: self.partitions, vertices: self.vertices)
     }
     
+    init(id:ID,
+        dependencies:[Dependency], 
+        extensions:[Extension],
+        partitions:[Partition],
+        identifiers:[SymbolIdentifier], 
+        vertices:[Vertex<Int>], 
+        edges:[Edge<Int>],
+        hints:[Hint<Int>],
+        sourcemap:[(uri:String, symbols:[SourceFeature<Int>])])
+    {
+        self.id = id
+        self.dependencies = dependencies
+        self.extensions = extensions
+        self.partitions = partitions
+        self.identifiers = identifiers
+        self.vertices = vertices
+        self.edges = edges
+        self.hints = hints
+        self.sourcemap = sourcemap
+    }
     public 
     init(parsing object:HLO) throws 
     {

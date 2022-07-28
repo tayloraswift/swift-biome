@@ -75,11 +75,10 @@ extension Path
 {
     init(from json:JSON) throws
     {
-        self = try json.shape { $0 > 0 } decode:
-        {
-            let last:Int = $0.index(before: $0.endIndex)
-            return .init(prefix: try $0[..<last].map { try $0.as(String.self) }, 
-                last: try $0.load(last, as: String.self))
-        }
+        let components:[JSON] = try json.as([JSON].self) { $0 > 0 }
+        let last:Int = components.index(before: components.endIndex)
+        self.init(
+            prefix: try components[..<last].map { try $0.as(String.self) }, 
+            last: try components.load(last, as: String.self))
     }
 }
