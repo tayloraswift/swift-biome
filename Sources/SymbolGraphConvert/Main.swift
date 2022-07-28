@@ -50,33 +50,28 @@ struct Main:AsyncParsableCommand
                 {
                     for catalog:ModuleCatalog in catalog.modules 
                     {
-                        let hlo:SymbolGraph.HLO = try catalog.read(relativeTo: project)
+                        let graph:RawSymbolGraph = try catalog.read(relativeTo: project)
                         if width < self.threads
                         {
                             width += 1
                         }
-                        else if let (graph, output):(SymbolGraph, FilePath) = try await queue.next() 
+                        else if let (ss, output):(String, FilePath) = try await queue.next() 
                         {
-                            try graph.save(to: output)
+                            try output.write(ss)
                         }
                         queue.addTask 
                         {
-                            (try .init(parsing: hlo), project.appending("\(hlo.id).ss"))
+                            let output:FilePath = project.appending("\(graph.id).ss")
+                            let graph:SymbolGraph = try .init(graph)
+                            return (graph.serialized.description, output)
                         }
                     }
                 }
             }
-            for try await (graph, output):(SymbolGraph, FilePath) in queue 
+            for try await (ss, output):(String, FilePath) in queue 
             {
-                try graph.save(to: output)
+                try output.write(ss)
             }
         }
-    }
-}
-extension SymbolGraph 
-{
-    func save(to output:FilePath) throws 
-    {
-        try output.write(self.serialized.description)
     }
 }

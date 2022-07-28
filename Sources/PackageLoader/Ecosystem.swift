@@ -34,7 +34,7 @@ extension Ecosystem
             
             for catalog:PackageCatalog in catalogs
             {
-                try self.updatePackage(try catalog.load(relativeTo: project), 
+                try self.updatePackage(try catalog.load(project: project), 
                     pins: [.swift: version, .core: version])
             }
         }
@@ -54,7 +54,7 @@ extension Ecosystem
                 try .init(parsing: try project.appending("Package.catalog").read())
             for catalog:PackageCatalog in catalogs
             {
-                try self.updatePackage(try catalog.load(relativeTo: project), 
+                try self.updatePackage(try catalog.load(project: project), 
                     pins: resolution.pins)
             }
         }

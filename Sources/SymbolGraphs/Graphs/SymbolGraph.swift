@@ -129,12 +129,15 @@ struct SymbolGraph:Identifiable, Sendable
         self.sourcemap = sourcemap
     }
     public 
-    init(parsing object:HLO) throws 
+    init(_ graph:RawSymbolGraph) throws 
     {
-        self.init(id: object.id, 
-            dependencies: object.dependencies, 
-            extensions: object.extensions, 
-            subgraphs: try object.subgraphs.map(Subgraph.init(parsing:)))
+        self.init(id: graph.id, 
+            dependencies: graph.dependencies, 
+            extensions: graph.extensions, 
+            subgraphs: try graph.subgraphs.map 
+            {
+                try .init(utf8: $0.utf8, culture: $0.culture, namespace: $0.namespace)
+            })
     }
     public 
     init(id:ID, 

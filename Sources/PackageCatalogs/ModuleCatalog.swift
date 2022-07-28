@@ -60,12 +60,23 @@ struct ModuleCatalog:Identifiable, Decodable, Sendable
         self.dependencies = dependencies
     }
     public 
-    func load(relativeTo prefix:FilePath? = nil) throws -> SymbolGraph
+    func load(project:FilePath) throws -> SymbolGraph
     {
-        try .init(parsing: try self.read(relativeTo: prefix))
+        let cache:FilePath = project.appending("\(self.id.string).ss")
+        if let utf8:[UInt8] = try? cache.read()
+        {
+            return try .init(utf8: utf8)
+        }
+        // don’t have ss object, need to generate one 
+        let graph:SymbolGraph = try .init(try self.read(relativeTo: project))
+        if let _:Void = try? cache.write(graph.serialized.description)
+        {
+            print("note: generated symbolgraph object '\(cache)'")
+        }
+        return graph
     }
     public 
-    func read(relativeTo prefix:FilePath? = nil) throws -> SymbolGraph.HLO
+    func read(relativeTo prefix:FilePath? = nil) throws -> RawSymbolGraph
     {
         try Task.checkCancellation()
         var paths:

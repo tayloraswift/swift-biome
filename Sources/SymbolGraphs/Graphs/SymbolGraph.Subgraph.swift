@@ -14,17 +14,11 @@ extension SymbolGraph
             hints:[Hint<SymbolIdentifier>]
         
         @inlinable public 
-        init<UTF8>(parsing json:UTF8, culture:ModuleIdentifier, namespace:ModuleIdentifier) throws 
-            where UTF8:Collection, UTF8.Element == UInt8
+        init<UTF8>(utf8:UTF8, culture:ModuleIdentifier, namespace:ModuleIdentifier) throws 
+            where UTF8:Collection<UInt8>
         {
-            try self.init(from: try Grammar.parse(json, as: JSON.Rule<UTF8.Index>.Root.self), 
+            try self.init(from: try Grammar.parse(utf8, as: JSON.Rule<UTF8.Index>.Root.self), 
                 culture: culture, namespace: namespace)
-        }
-        public 
-        init(parsing object:HLO) throws 
-        {
-            try self.init(parsing: object.utf8, 
-                culture: object.culture, namespace: object.namespace)
         }
         public  
         init(from json:JSON, culture:ModuleIdentifier, namespace:ModuleIdentifier) throws 
