@@ -34,7 +34,8 @@ struct PackageGraph:Identifiable, Sendable
             {
                 continue 
             }
-            for dependency:ModuleIdentifier in dependencies 
+            // need to sort dependency set to make topological sort deterministic
+            for dependency:ModuleIdentifier in dependencies.sorted()
             {
                 consumers[dependency, default: []].append(module)
             }
