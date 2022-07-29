@@ -370,19 +370,19 @@ extension Ecosystem
         if  let namespace:Module.ID = (link.first?.string).map(Module.ID.init(_:)), 
             let namespace:Module.Index = scope[namespace]
         {
-            if  let implicit:Symbol.Link = link.suffix 
-            {
-                return try self.resolve(relativeLink: implicit, 
-                    namespace: namespace, 
-                    lenses: lenses,
-                    scope: scope)
-            }
+            guard let implicit:Symbol.Link = link.suffix 
             else 
             {
                 return .module(namespace)
             }
+            if let local:Index = try self.resolve(relativeLink: implicit, 
+                    namespace: namespace, 
+                    lenses: lenses,
+                    scope: scope)
+            {
+                return local
+            }
         }
-        
         if  let nest:Symbol.Nest,
             let relative:Index = try self.resolve(relativeLink: link, 
                 namespace: nest.namespace, 
