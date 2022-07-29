@@ -4,8 +4,8 @@ extension SymbolIdentifier
 {
     init(from json:JSON) throws 
     {
-        let string:String = try json.as(String.self)
-        self = try Grammar.parse(string.utf8, as: USR.Rule<String.Index>.OpaqueName.self)
+        self = try Grammar.parse(try json.as(String.self).utf8, 
+            as: USR.Rule<String.Index>.OpaqueName.self)
     }
     
     var interface:(culture:ModuleIdentifier, protocol:(name:String, id:Self))?

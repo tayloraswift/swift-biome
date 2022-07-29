@@ -54,7 +54,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     struct Heads 
     {
         @Keyframe<Declaration>.Head
-        var declaration:Keyframe<Declaration>.Buffer.Index?
+        var declaration:Keyframe<Declaration<Index>>.Buffer.Index?
         @Keyframe<Article.Template<Ecosystem.Link>>.Head
         var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
         @Keyframe<Predicates>.Head
@@ -81,7 +81,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     //  often be a single-element array
     let path:Path
     let kind:Kind
-    let route:Route
+    let route:Route.Key
     var shape:Shape<Index>?
     var heads:Heads
     var pollen:Set<Module.Pin>
@@ -90,11 +90,6 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     {
         self.kind.community 
     } 
-    @available(*, deprecated, renamed: "community")
-    var color:Color 
-    {
-        self.community 
-    }
     var name:String 
     {
         self.path.last
@@ -130,7 +125,7 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
         self.path.description
     }
     
-    init(id:ID, path:Path, kind:Kind, route:Route)
+    init(id:ID, path:Path, kind:Kind, route:Route.Key)
     {
         self.id = id 
         self.path = path

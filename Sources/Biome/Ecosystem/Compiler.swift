@@ -2,14 +2,12 @@ import HTML
 
 extension Ecosystem 
 {
-    typealias Documentation = [Index: Article.Template<Link>]
-    
-    func compileDocumentation(extensions:[[String: Extension]],
+    func compile(comments:Comments,
+        extensions:[[String: Extension]],
         articles:[[Article.Index: Extension]], 
-        comments:[Symbol.Index: String], 
         scopes:[Module.Scope], 
         pins:Package.Pins)
-        -> Documentation
+        -> [Index: Article.Template<Link>]
     {
         //  build lexical scopes for each module culture. 
         //  we can store entire packages in the lenses because this method 
@@ -24,11 +22,48 @@ extension Ecosystem
         // add upstream lenses 
         let lenses:[[Package.Pinned]] = scopes.map 
         {
-            [pinned] + $0.upstream().map { self[$0].pinned(pins) }
+            let dependencies:Set<Package.Index> = .init($0.filter.lazy.map(\.package))
+            var lenses:[Package.Pinned] = []
+                lenses.reserveCapacity(dependencies.count)
+            for package:Package.Index in dependencies where package != $0.culture.package
+            {
+                lenses.append(self[package].pinned(pins))
+            }
+            lenses.append(pinned)
+            return lenses
         }
-        return self.compile(comments: comments, peripherals: peripherals, 
+        var documentation:[Index: Article.Template<Link>] = self.compile(
+            comments: comments.strings, 
+            peripherals: peripherals, 
             lenses: lenses, 
             scopes: scopes)
+        // if a symbol did not have documentation of its own, 
+        // check if it has a sponsor. article templates are copy-on-write 
+        // types, so this will not (eagarly) copy storage
+        for (alien, sponsor):(Symbol.Index, Symbol.Index) in comments.uptree 
+        {
+            let alien:Index = .symbol(alien)
+            if documentation.keys.contains(alien)
+            {
+                continue 
+            }
+            else if let template:Article.Template<Ecosystem.Link> = 
+                documentation[.symbol(sponsor)] 
+            {
+                documentation[alien] = template
+            }
+            // note: empty doccomments are omitted from the template buffer
+            else if pins.local.package != sponsor.module.package
+            {
+                let template:Article.Template<Ecosystem.Link> = 
+                    self[sponsor.module.package].pinned(pins).template(sponsor)
+                if !template.isEmpty
+                {
+                    documentation[alien] = template
+                }
+            }
+        }
+        return documentation
     }
 }
 
@@ -94,10 +129,10 @@ extension Ecosystem
         peripherals:[[Index: Extension]], 
         lenses:[[Package.Pinned]],
         scopes:[Module.Scope])
-        -> Documentation
+        -> [Index: Article.Template<Link>]
     {
-        var documentation:Documentation = .init(minimumCapacity: comments.count + 
-            peripherals.reduce(0) { $0 + $1.count })
+        var documentation:[Index: Article.Template<Link>] = 
+            .init(minimumCapacity: comments.count + peripherals.reduce(0) { $0 + $1.count })
         self.compile(&documentation,
             peripherals: peripherals, 
             lenses: lenses, 
@@ -109,7 +144,7 @@ extension Ecosystem
         return documentation
     }
     private
-    func compile(_ documentation:inout Documentation, 
+    func compile(_ documentation:inout [Index: Article.Template<Link>], 
         peripherals:[[Index: Extension]], 
         lenses:[[Package.Pinned]],
         scopes:[Module.Scope])
@@ -128,7 +163,7 @@ extension Ecosystem
         }
     }
     private
-    func compile(_ documentation:inout Documentation, 
+    func compile(_ documentation:inout [Index: Article.Template<Link>], 
         comments:[Symbol.Index: String], 
         lenses:[[Package.Pinned]],
         scopes:[Module.Scope])
@@ -274,7 +309,7 @@ extension Ecosystem
         
         guard   let pins:Package.Pins = self.packages.localize(destination: destination, 
                     lens: implicit.query.lens), 
-                let route:Route = self.stems[namespace, implicit.revealed],
+                let route:Route.Key = self.stems[namespace, implicit.revealed],
                 let selection:Packages.Selection = self.packages.selectExtantWithRedirect(route, 
                     lens: .init(self[pins.local.package], at: pins.local.version), 
                     by: implicit.disambiguator)?.selection
@@ -394,7 +429,7 @@ extension Ecosystem
         scope:Module.Scope) 
         throws -> Index?
     {
-        guard let route:Route = self.stems[namespace, prefix, link]
+        guard let route:Route.Key = self.stems[namespace, prefix, link]
         else 
         {
             return nil

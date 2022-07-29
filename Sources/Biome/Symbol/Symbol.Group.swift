@@ -101,7 +101,7 @@ extension Symbol
     struct Groups 
     {
         private
-        var table:[Route: Group]
+        var table:[Route.Key: Group]
         
         var _count:Int 
         {
@@ -113,26 +113,15 @@ extension Symbol
             self.table = [:]
         }
         
-        subscript(route:Route) -> Group
+        subscript(key:Route.Key) -> Group
         {
-            self.table[route] ?? .none
+            self.table[key] ?? .none
         }
         
         mutating 
-        func insert(natural:Index, at route:Route)
+        func insert(_ route:Route)
         {
-            self.table[route, default: .none].insert(.init(natural: natural))
-        }
-        mutating 
-        func insert(diacritic:Diacritic, 
-            features:[(base:Index, leaf:Leaf)],
-            under host:(namespace:Module.Index, path:Stem))
-        {
-            for (base, leaf):(Index, Leaf) in features 
-            {
-                let route:Route = .init(host.namespace, host.path, leaf)
-                self.table[route, default: .none].insert(.init(base, diacritic))
-            }
+            self.table[route.key, default: .none].insert(route.target)
         }
     }
 }

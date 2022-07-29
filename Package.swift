@@ -5,14 +5,15 @@ let package = Package(
     name: "swift-biome",
     products: 
     [
-        .library(name: "Versions",          targets: ["Versions"]),
-        .library(name: "SymbolGraphs",      targets: ["SymbolGraphs"]),
-        .library(name: "Biome",             targets: ["Biome"]),
-        .library(name: "PackageResolution", targets: ["PackageResolution"]),
-        .library(name: "PackageCatalogs",   targets: ["PackageCatalogs"]),
-        .library(name: "PackageLoader",     targets: ["PackageLoader"]),
+        .library(name: "Versions",              targets: ["Versions"]),
+        .library(name: "SymbolGraphs",          targets: ["SymbolGraphs"]),
+        .library(name: "Biome",                 targets: ["Biome"]),
+        .library(name: "PackageResolution",     targets: ["PackageResolution"]),
+        .library(name: "PackageCatalogs",       targets: ["PackageCatalogs"]),
+        .library(name: "PackageLoader",         targets: ["PackageLoader"]),
         
-        .executable(name: "preview",        targets: ["Preview"]),
+        .executable(name: "preview",            targets: ["Preview"]),
+        .executable(name: "swift-symbolgraphc", targets: ["SymbolGraphConvert"]),
     ],
     dependencies: 
     [
@@ -22,12 +23,11 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.3.2"),
         .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.4.1"),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a"),
-        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a"),
+        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-25-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-25-a"),
         
         // only used by the PackageCatalog target
         .package(url: "https://github.com/kelvin13/swift-system-extras.git",    exact: "0.1.0"),
-        .package(url: "https://github.com/apple/swift-system.git",              exact: "1.2.1"),
         // only used by the previewer target
         .package(url: "https://github.com/apple/swift-nio.git",                 exact: "2.40.0"),
         .package(url: "https://github.com/apple/swift-argument-parser.git",     exact: "1.1.3"),
@@ -88,6 +88,13 @@ let package = Package(
                 .target(name: "PackageResolution"),
                 .target(name: "PackageCatalogs"),
                 .target(name: "Biome"),
+            ]),
+        
+        .executableTarget(name: "SymbolGraphConvert", 
+            dependencies: 
+            [
+                .target(name: "PackageCatalogs"),
+                .product(name: "ArgumentParser",    package: "swift-argument-parser"),
             ]),
         
         .executableTarget(name: "Preview", 

@@ -38,7 +38,7 @@ extension Module
         }
         
         mutating 
-        func insert(namespace:Index, id:ID)
+        func insert(_ namespace:Index, id:ID)
         {
             self.namespaces[id] = namespace
             self.filter.insert(namespace)
@@ -53,11 +53,11 @@ extension Module
             self.filter.contains(namespace)
         }
         
-        func upstream() -> Set<Package.Index>
+        func dependencies() -> Set<Module.Index>
         {
-            var packages:Set<Package.Index> = .init(self.filter.map(\.package))
-                packages.remove(self.culture.package)
-            return packages
+            var dependencies:Set<Module.Index> = self.filter 
+                dependencies.remove(self.culture)
+            return dependencies
         }
         
         func `import`(_ modules:Set<ID>, swift:Package.Index?) -> Self 

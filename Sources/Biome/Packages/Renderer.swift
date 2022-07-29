@@ -50,7 +50,7 @@ extension Packages
         return substitutions.mapValues(DOM.Template<Ecosystem.Index>.init(freezing:))
     }
     func renderFields(for composite:Symbol.Composite, 
-        declaration:Symbol.Declaration, 
+        declaration:Declaration<Symbol.Index>, 
         facts:Symbol.Predicates) 
         -> [Page.Key: DOM.Template<Ecosystem.Index>]
     {
@@ -130,7 +130,7 @@ extension Packages
     
     private 
     func renderNotes(for composite:Symbol.Composite,
-        declaration:Symbol.Declaration, 
+        declaration:Declaration<Symbol.Index>, 
         facts:Symbol.Predicates) 
         -> HTML.Element<Ecosystem.Index>?
     {

@@ -127,7 +127,6 @@ extension Symbol
         }
         init?<Roles>(_ roles:Roles, superclass:Index?, shape:Shape<Index>?, 
             as community:Community) 
-            throws 
             where Roles:Sequence, Roles.Element == Role<Index>
         {
             if  let superclass:Index = superclass 
@@ -151,18 +150,18 @@ extension Symbol
             {
                 switch  (community, shape)
                 {
-                case    (.callable(_),      .requirement(of: let interface)?), 
-                        (.associatedtype,   .requirement(of: let interface)?):
-                    self.init(try roles.map 
+                case    (.callable(_),      .requirement(of: _)?), 
+                        (.associatedtype,   .requirement(of: _)?):
+                    self.init(roles.map 
                     {
                         switch $0 
                         {
                         case .override(of: let upstream): 
                             return upstream
-                        case let other:
-                            // requirements cannot be default implementations
-                            throw PoliticalError.conflict(is: .requirement(of: interface), 
-                                and: other)
+                        default:
+                            fatalError("requirements cannot be default implementations")
+                            // throw PoliticalError.conflict(is: .requirement(of: interface), 
+                            //     and: other)
                         }
                     })
                 

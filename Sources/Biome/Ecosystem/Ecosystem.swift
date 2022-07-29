@@ -72,7 +72,7 @@ struct Ecosystem:Sendable
     
     private(set)
     var template:DOM.Template<Page.Key>
-    let roots:[Stem: Root]
+    let roots:[Route.Stem: Root]
     let root:
     (    
         master:URI,
@@ -84,7 +84,7 @@ struct Ecosystem:Sendable
     var redirects:[String: Redirect]
     
     private(set)
-    var stems:Stems
+    var stems:Route.Stems
     private(set)
     var caches:[Package.Index: Cache]
 
@@ -147,63 +147,79 @@ extension Ecosystem
         
         let version:PreciseVersion = .init(era[graph.id])
         
-        let index:Package.Index = 
-            try self.packages.updatePackageRegistration(for: graph.id)
-        
-        if let brand:String = graph.brand 
+        let index:Package.Index = self.packages.updatePackageRegistration(for: graph)
+        let cultures:[Module.Index] = self.packages[index].addModules(graph.modules.lazy.map(\.id))
+
+        let scopes:[Module.Scope] = try self.packages.resolveDependencies(graphs: graph.modules,
+            cultures: cultures)
+
+        var articles:[[Article.Index: Extension]] = []
+            articles.reserveCapacity(scopes.count)
+        var extensions:[[String: Extension]] = []
+            extensions.reserveCapacity(scopes.count)
+        var abstractors:[Abstractor] = []
+            abstractors.reserveCapacity(scopes.count)
+        for (graph, scope):(SymbolGraph, Module.Scope) in zip(graph.modules, scopes)
         {
-            self.packages[index].brand = brand
+            var abstractor:Abstractor = graph.abstractor(context: self.packages, scope: scope)
+                self.packages[index].addSymbols(from: graph,
+                    abstractor: &abstractor,
+                    stems: &self.stems,
+                    scope: scope)
+            abstractors.append(abstractor)
+
+            let column:(articles:[Article.Index: Extension], extensions:[String: Extension]) =
+                self.packages[index].addExtensions(from: graph, 
+                    stems: &self.stems, 
+                    culture: scope.culture)
+            extensions.append(column.extensions)
+            articles.append(column.articles)
         }
-        
-        // initialize symbol id scopes for upstream packages only
-        let pins:Package.Pins ; var scopes:[Symbol.Scope] ; (pins, scopes) = 
-            try self.packages.updateModuleRegistrations(in: index, 
-                graphs: graph.modules, 
-                version: version,
-                era: era)
-        let cultures:[Module.Index] = scopes.map(\.culture)
-        
-        let (articles, extensions):([[Article.Index: Extension]], [[String: Extension]]) = 
-            self.packages[index].addExtensions(in: cultures, 
-                graphs: graph.modules, 
-                stems: &self.stems)
-        let symbols:[[Symbol.Index: Vertex.Frame]] = 
-            self.packages[index].addSymbols(through: scopes, 
-                graphs: graph.modules, 
-                stems: &self.stems)
         
         print("""
             note: key table population: \(self.stems._count), \
             total key size: \(self.stems._memoryFootprint) B
             """)
+        // must call this *before* any other update methods 
+        let pins:Package.Pins = self.packages.updatePackageVersion(for: index, 
+            version: version, 
+            scopes: scopes, 
+            era: era)
         
-        // add the newly-registered symbols to each module scope 
-        for scope:Int in scopes.indices
+        let beliefs:Beliefs = graph.modules.generateBeliefs(abstractors: abstractors, 
+            context: self.packages)
+        let trees:Route.Trees = beliefs.generateTrees(
+            context: self.packages)
+        self.packages[index].addNaturalRoutes(trees.natural)
+        self.packages[index].addSyntheticRoutes(trees.synthetic)
+
+        self.packages.spread(from: index, beliefs: beliefs)
+
+        // write to the keyframe buffers
+        self.packages[index].pushBeliefs(_move(beliefs))
+        for scope:Module.Scope in scopes
         {
-            scopes[scope].lenses.append(self[index].symbols.indices)
+            self.packages[index].pushDependencies(scope.dependencies(), culture: scope.culture)
         }
+        for (culture, articles):(Module.Index, [Article.Index: Extension]) in zip(cultures, articles)
+        {
+            self.packages[index].pushExtensionMetadata(articles: articles, culture: culture)
+        }
+        for (graph, abstractor):(SymbolGraph, Abstractor) in zip(graph.modules, abstractors)
+        {
+            self.packages[index].pushDeclarations(graph.declarations(abstractor: abstractor))
+            self.packages[index].pushToplevel(filtering: abstractor.updates)
+        }
+
+
+        let compiled:[Index: Article.Template<Link>] = self.compile(
+            comments: graph.modules.generateComments(abstractors: abstractors),
+            extensions: _move(extensions),
+            articles: _move(articles),
+            scopes: scopes,
+            pins: pins)
         
-        let positions:[Dictionary<Symbol.Index, Symbol.Declaration>.Keys] =
-            try self.packages[index].updateDeclarations(scopes: scopes, symbols: symbols)
-            try self.packages[index].updateHeadlines(for: cultures, articles: articles)
-        let hints:[Symbol.Index: Symbol.Index] = 
-            try self.packages.updateImplicitSymbols(in: index, 
-                fromExplicit: _move(positions), 
-                graphs: graph.modules, 
-                scopes: scopes)
-        
-        let comments:[Symbol.Index: String] = 
-            Self.comments(from: _move(symbols), pruning: hints)
-        let documentation:Ecosystem.Documentation = 
-            self.compileDocumentation(
-                extensions: _move(extensions),
-                articles: _move(articles),
-                comments: _move(comments), 
-                scopes: _move(scopes).map(\.namespaces),
-                pins: pins)
-        self.packages.updateDocumentation(_move(documentation), 
-            hints: _move(hints), 
-            pins: _move(pins))
+        self.packages[index].pushDocumentation(compiled)
         
         func bold(_ string:String) -> String
         {
@@ -213,32 +229,6 @@ extension Ecosystem
         print(bold("updated \(self[index].id) to version \(version)"))
         
         return index
-    }
-    
-    private static
-    func comments(from symbols:[[Symbol.Index: Vertex.Frame]], 
-        pruning hints:[Symbol.Index: Symbol.Index]) 
-        -> [Symbol.Index: String]
-    {
-        var comments:[Symbol.Index: String] = [:]
-        for (symbol, frame):(Symbol.Index, Vertex.Frame) in symbols.joined()
-            where !frame.comment.isEmpty
-        {
-            comments[symbol] = frame.comment
-        }
-        // delete comments if a hint indicates it is duplicated
-        var pruned:Int = 0
-        for (member, union):(Symbol.Index, Symbol.Index) in hints 
-        {
-            if  let comment:String  = comments[member],
-                let original:String = comments[union],
-                    original == comment 
-            {
-                comments.removeValue(forKey: member)
-                pruned += 1
-            }
-        }
-        return comments
     }
 }
     

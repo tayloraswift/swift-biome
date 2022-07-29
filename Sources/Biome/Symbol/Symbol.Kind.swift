@@ -2,21 +2,17 @@ import SymbolGraphs
 
 extension Symbol 
 {
-    @available(*, deprecated, renamed: "Community")
-    public 
-    typealias Color = Community 
-
     // should have stride of 8 B
     enum Kind:Sendable, Hashable 
     {
         case `associatedtype`
-        case  concretetype(Community.ConcreteType, path:Stem)
+        case  concretetype(Community.ConcreteType, path:Route.Stem)
         case  callable(Community.Callable)
         case  global(Community.Global)
         case `protocol`
         case `typealias`
         
-        var path:Stem?
+        var path:Route.Stem?
         {
             if case .concretetype(_, path: let path) = self 
             {
@@ -26,11 +22,6 @@ extension Symbol
             {
                 return nil 
             }
-        }
-        @available(*, deprecated, renamed: "community")
-        var color:Color 
-        {
-            self.community
         }
         var community:Community 
         {

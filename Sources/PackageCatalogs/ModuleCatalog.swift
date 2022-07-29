@@ -5,31 +5,29 @@ import SystemExtras
 public 
 enum SymbolGraphLoadingError:Error, CustomStringConvertible 
 {
-    case invalidName(String)
-    case duplicateSubgraph(ModuleIdentifier)
-    case missingCoreSubgraph(ModuleIdentifier)
+    case invalidName(String, culture:ModuleIdentifier)
+    case duplicateNamespace(ModuleIdentifier, culture:ModuleIdentifier)
     
     public 
     var description:String 
     {
         switch self 
         {
-        case .invalidName(let string): 
-            return "invalid subgraph name '\(string)'"
-        case .duplicateSubgraph(let id): 
-            return "duplicate subgraphs for primary culture '\(id)'"
-        case .missingCoreSubgraph(let id): 
-            return "missing subgraph for primary culture '\(id)'"
+        case .invalidName(let string, culture: let culture): 
+            return "invalid subgraph name '\(string)' (in culture '\(culture)')"
+        case .duplicateNamespace(let namespace, culture: let culture): 
+            return "duplicate subgraph namespace '\(namespace)' (in culture '\(culture)')"
         }
     }
 }
+
 public 
 struct ModuleCatalog:Identifiable, Decodable, Sendable 
 {
     public
     let id:ModuleIdentifier
     var include:[FilePath] 
-    var dependencies:[ModuleGraph.Dependency]
+    var dependencies:[SymbolGraph.Dependency]
     
     public 
     enum CodingKeys:String, CodingKey 
@@ -50,39 +48,48 @@ struct ModuleCatalog:Identifiable, Decodable, Sendable
         // https://github.com/apple/swift-system/issues/106
         self.include = try container.decode([String].self, 
             forKey: .include).map(FilePath.init(_:))
-        self.dependencies = try container.decode([ModuleGraph.Dependency].self, 
+        self.dependencies = try container.decode([SymbolGraph.Dependency].self, 
             forKey: .dependencies)
     }
     
     public 
-    init(id:ID, include:[FilePath], dependencies:[ModuleGraph.Dependency])
+    init(id:ID, include:[FilePath], dependencies:[SymbolGraph.Dependency])
     {
         self.id = id 
         self.include = include 
         self.dependencies = dependencies
     }
-    
-    func loadGraph(relativeTo prefix:FilePath?) throws -> ModuleGraph
+    public 
+    func load(project:FilePath) throws -> SymbolGraph
+    {
+        let cache:FilePath = project.appending("\(self.id.string).ss")
+        if let utf8:[UInt8] = try? cache.read()
+        {
+            return try .init(utf8: utf8)
+        }
+        // don’t have ss object, need to generate one 
+        let graph:SymbolGraph = try .init(try self.read(relativeTo: project))
+        if let _:Void = try? cache.write(graph.serialized.description)
+        {
+            print("note: generated symbolgraph object '\(cache)'")
+        }
+        return graph
+    }
+    public 
+    func read(relativeTo prefix:FilePath? = nil) throws -> RawSymbolGraph
     {
         try Task.checkCancellation()
-        
-        func absolute(_ path:FilePath) -> FilePath 
-        {
-            path.isAbsolute ? path : prefix?.appending(path.components) ?? path
-        }
-        
         var paths:
         (
             extensions:[(name:String, source:FilePath)],
-            colonies:[(namespace:ID, graph:FilePath)],
-            core:FilePath?
+            subgraphs:[ID: FilePath]
         )
         paths.extensions = []
-        paths.colonies = []
-        paths.core = nil
+        paths.subgraphs = [:]
         for include:FilePath in self.include
         {
-            let include:FilePath = absolute(include)
+            let include:FilePath = include.isAbsolute  ? include : 
+                prefix?.appending(include.components) ?? include
             try include.walk
             {
                 (path:FilePath) in 
@@ -112,18 +119,25 @@ struct ModuleCatalog:Identifiable, Decodable, Sendable
                     guard case self.id? = identifiers.first.map(ID.init(_:))
                     else 
                     {
-                        throw SymbolGraphLoadingError.invalidName(reduced.stem)
+                        throw SymbolGraphLoadingError.invalidName(reduced.stem, 
+                            culture: self.id)
                     }
-                    switch (identifiers.count, paths.core)
+                    let namespace:ID 
+                    switch identifiers.count
                     {
-                    case (1, nil): 
-                        paths.core = path
-                    case (1, _?):
-                        print("warning: ignored duplicate symbolgraph '\(reduced.stem)'")
-                    case (2, _):
-                        paths.colonies.append((ID.init(identifiers[1]), path))
+                    case 1: 
+                        namespace = self.id 
+                    case 2:
+                        namespace = .init(identifiers[1])
                     default: 
-                        return
+                        throw SymbolGraphLoadingError.invalidName(reduced.stem, 
+                            culture: self.id)
+                    }
+                    guard case nil = paths.subgraphs.updateValue(path, forKey: namespace)
+                    else 
+                    {
+                        throw SymbolGraphLoadingError.duplicateNamespace(namespace, 
+                            culture: self.id)
                     }
                     
                 default: 
@@ -131,23 +145,15 @@ struct ModuleCatalog:Identifiable, Decodable, Sendable
                 }
             }
         }
-        
-        guard let core:FilePath = paths.core 
-        else 
-        {
-            throw SymbolGraphLoadingError.missingCoreSubgraph(self.id)
-        }
-        return .init(
-            core: try .init(parsing: try   core.read([UInt8].self), culture: self.id), 
-            colonies: try paths.colonies.map 
-            {
-                try .init(parsing: try $0.graph.read([UInt8].self), culture: self.id, 
-                    namespace: $0.namespace)
-            }, 
+
+        return .init(id: self.id, dependencies: self.dependencies,
             extensions: try paths.extensions.map 
             {
                 (name: $0.name, source: try $0.source.read(String.self))
             }, 
-            dependencies: self.dependencies)
+            subgraphs: try paths.subgraphs.map 
+            {
+                (culture: self.id, namespace: $0.key, utf8: try $0.value.read([UInt8].self))
+            })
     }
 }

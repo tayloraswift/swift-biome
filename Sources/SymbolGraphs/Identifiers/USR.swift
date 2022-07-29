@@ -17,6 +17,32 @@ extension USR
         typealias Encoding = Grammar.Encoding<Location, Terminal>
     }
 }
+extension USR:LosslessStringConvertible 
+{
+    @inlinable public 
+    init?(_ string:String) 
+    {
+        if let usr:Self = try? Grammar.parse(string.utf8, as: Rule<String.Index>.self)
+        {
+            self = usr 
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    @inlinable public 
+    var description:String 
+    {
+        switch self 
+        {
+        case .natural(let symbol): 
+            return symbol.description 
+        case .synthesized(from: let base, for: let host):
+            return "\(base)::SYNTHESIZED::\(host)"
+        }
+    }
+}
 // it would be really nice if this were generic over ``ASCIITerminal``
 extension USR.Rule:ParsingRule 
 {
@@ -95,10 +121,10 @@ extension USR.Rule:ParsingRule
             
             input.parse(as: Encoding.Colon?.self)
             
-            let start:Location          = input.index 
+            let start:Location = input.index 
             try input.parse(as: OpaqueNameElement.self)
                 input.parse(as: OpaqueNameElement.self, in: Void.self)
-            let end:Location    = input.index 
+            let end:Location = input.index 
             
             return .init(language, input[start ..< end])
         }

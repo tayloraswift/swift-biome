@@ -1,13 +1,13 @@
-import Resources 
-import Notebook
-import JSON 
-
 public 
 enum SymbolGraphDecodingError:Error, CustomStringConvertible 
 {
     case duplicateAvailabilityDomain(Availability.Domain)
-    case invalidFragmentColor(String)
     case mismatchedCulture(ModuleIdentifier, expected:ModuleIdentifier)
+
+    case unknownDeclarationKind(String) 
+    case unknownFragmentKind(String)
+    case unknownRelationshipKind(String)
+    case invalidRelationshipKind(USR, is:String)
     
     public 
     var description:String 
@@ -18,215 +18,255 @@ enum SymbolGraphDecodingError:Error, CustomStringConvertible
             return "duplicate entries for availability domain '\(domain.rawValue)'"
         case .mismatchedCulture(let id, expected: let expected): 
             return "subgraph culture is '\(id)', expected '\(expected)'"
-        case .invalidFragmentColor(let string): 
-            return "invalid fragment color '\(string)'"
+        case .unknownDeclarationKind(let string): 
+            return "unknown declaration kind '\(string)'"
+        case .unknownFragmentKind(let string): 
+            return "unknown fragment kind '\(string)'"
+        case .unknownRelationshipKind(let string): 
+            return "unknown relationship kind '\(string)'"
+        case .invalidRelationshipKind(let source, is: let string): 
+            return "symbol '\(source)' cannot be the source of a relationship of kind '\(string)'"
         }
     }
 }
 
-public 
-struct SymbolGraph:Sendable 
+@frozen public 
+struct SymbolGraph:Identifiable, Sendable 
 {
-    public private(set)
-    var vertices:[(id:SymbolIdentifier, vertex:Vertex)]
-    private(set)
-    var edges:[Edge]
     public 
-    let namespace:ModuleIdentifier
+    typealias Extension = (name:String, source:String)
+    public 
+    typealias Partition = (namespace:ModuleIdentifier, indices:Range<Int>)
+    public 
+    typealias Colony = (namespace:ModuleIdentifier, vertices:ArraySlice<Vertex<Int>>)
+
+    @frozen public 
+    struct Dependency:Decodable, Sendable
+    {
+        public
+        var package:PackageIdentifier
+        public
+        var modules:[ModuleIdentifier]
+        
+        public 
+        init(package:PackageIdentifier, modules:[ModuleIdentifier])
+        {
+            self.package = package 
+            self.modules = modules 
+        }
+    }
+    @frozen public 
+    struct Colonies:RandomAccessCollection, Sendable
+    {
+        public 
+        let partitions:[Partition]
+        public 
+        let vertices:[Vertex<Int>]
+        
+        @inlinable public 
+        var startIndex:Int 
+        {
+            self.partitions.startIndex
+        }
+        @inlinable public 
+        var endIndex:Int 
+        {
+            self.partitions.endIndex
+        }
+        @inlinable public 
+        subscript(index:Int) -> 
+        (
+            namespace:ModuleIdentifier, 
+            vertices:ArraySlice<Vertex<Int>>
+        )
+        {
+            (
+                self.partitions[index].namespace, 
+                self.vertices[self.partitions[index].indices]
+            )
+        }
+    }
+
+    public 
+    let id:ModuleIdentifier 
+    public 
+    let dependencies:[Dependency], 
+        extensions:[Extension]
+    private(set)
+    var partitions:[Partition]
+    public private(set)
+    var identifiers:[SymbolIdentifier], 
+        vertices:[Vertex<Int>], 
+        edges:[Edge<Int>],
+        hints:[Hint<Int>]
+    public
+    var sourcemap:[(uri:String, symbols:[SourceFeature<Int>])]
     
     public 
-    init(namespace:ModuleIdentifier, 
-        vertices:[(id:SymbolIdentifier, vertex:Vertex)] = [], 
-        edges:[Edge] = [])
+    var colonies:Colonies
     {
-        self.namespace = namespace 
+        .init(partitions: self.partitions, vertices: self.vertices)
+    }
+    
+    init(id:ID,
+        dependencies:[Dependency], 
+        extensions:[Extension],
+        partitions:[Partition],
+        identifiers:[SymbolIdentifier], 
+        vertices:[Vertex<Int>], 
+        edges:[Edge<Int>],
+        hints:[Hint<Int>],
+        sourcemap:[(uri:String, symbols:[SourceFeature<Int>])])
+    {
+        self.id = id
+        self.dependencies = dependencies
+        self.extensions = extensions
+        self.partitions = partitions
+        self.identifiers = identifiers
         self.vertices = vertices
         self.edges = edges
+        self.hints = hints
+        self.sourcemap = sourcemap
     }
     public 
-    init(parsing json:[UInt8], 
-        culture:ModuleIdentifier, 
-        namespace:ModuleIdentifier? = nil) throws 
+    init(_ graph:RawSymbolGraph) throws 
     {
-        try self.init(from: try Grammar.parse(json, as: JSON.Rule<Int>.Root.self), 
-            culture: culture, namespace: namespace)
+        self.init(id: graph.id, 
+            dependencies: graph.dependencies, 
+            extensions: graph.extensions, 
+            subgraphs: try graph.subgraphs.map 
+            {
+                try .init(utf8: $0.utf8, culture: $0.culture, namespace: $0.namespace)
+            })
     }
-    private 
-    init(from json:JSON, 
-        culture:ModuleIdentifier, 
-        namespace:ModuleIdentifier?) throws 
+    public 
+    init(id:ID, 
+        dependencies:[Dependency] = [], 
+        extensions:[Extension] = [], 
+        subgraphs:[Subgraph] = [])
     {
-        let (images, edges):([Image], [Edge]) = try json.lint(whitelisting: ["metadata"]) 
+        self.id = id
+        self.extensions = extensions
+        self.dependencies = dependencies 
+
+        let subgraphs:[Subgraph] = subgraphs.sorted { $0.namespace < $1.namespace }
+        // build the identifiers table. this table contains two zones: 
+        //
+        // -    zone 0: 
+        //      all of the vertices stored in this symbolgraph, 
+        //      in lexicographical order. the *i*’th identifier in this zone 
+        //      is the identifier for the *i*’th vertex in the vertex array.
+        //      this allows us to omit the index field from the vertex structures.
+        self.partitions = []
+        self.partitions.reserveCapacity(subgraphs.count)
+        self.identifiers = []
+        self.identifiers.reserveCapacity(subgraphs.reduce(0) { $0 + $1.vertices.count })
+
+        var start:Int = self.identifiers.endIndex
+        for subgraph:Subgraph in subgraphs 
         {
-            let edges:[Edge] = try $0.remove("relationships") { try $0.map( Edge.init(from:)) }
-            let images:[Image] = try $0.remove("symbols") { try $0.map(Image.init(from:)) }
-            let module:ModuleIdentifier = try $0.remove("module")
+            self.identifiers.append(contentsOf: subgraph.vertices.map 
             {
-                try $0.lint(whitelisting: ["platform"]) 
-                {
-                    ModuleIdentifier.init(try $0.remove("name", as: String.self))
-                }
+                (community: $0.value.community, id: $0.key)
             }
-            guard module == culture
-            else 
+            .sorted
             {
-                throw SymbolGraphDecodingError.mismatchedCulture(module, expected: culture)
+                $0 < $1
             }
-            return (images, edges)
+            .lazy.map(\.id))
+
+            self.partitions.append((subgraph.namespace, start ..< self.identifiers.endIndex))
+            start = self.identifiers.endIndex 
         }
+        // -    zone 1: 
+        //      all remaining identifiers referenced by entities in this 
+        //      symbolgraph, *in lexicographical order*. this requires 
+        //      making a second pass over the symbolgraph data.
+        var outlined:Set<SymbolIdentifier> = []
+        var indices:[SymbolIdentifier: Int] = 
+            .init(uniqueKeysWithValues: zip(self.identifiers, self.identifiers.indices))
         
-        if let namespace:ModuleIdentifier = namespace
+        for subgraph:Subgraph in subgraphs 
         {
-            self.init(namespace: namespace, 
-                vertices: images.compactMap(\.canonical), 
-                edges: edges)
-        }
-        else 
-        {
-            self.init(namespace: culture, edges: edges)
-            self.extend(with: images, of: culture) 
-        }
-    }
-    
-    private mutating 
-    func extend(with images:[Image], of culture:ModuleIdentifier) 
-    {
-        // about half of the symbols in a typical symbol graph are non-canonical. 
-        // (i.e., they are inherited by victims). in theory, these symbols can 
-        // recieve documentation through article bindings, but it is very 
-        // unlikely that the symbol graph vertices themselves contain 
-        // useful information. 
-        // 
-        // that said, we cannot ignore non-canonical symbols altogether, because 
-        // if their canonical base originates from an underscored protocol 
-        // (or is implicitly private itself), then the non-canonical symbols 
-        // are our only source of information about the canonical base. 
-        // 
-        // example: UnsafePointer.predecessor() actually originates from 
-        // the witness `ss8_PointerPsE11predecessorxyF`, which is part of 
-        // the underscored `_Pointer` protocol.
-        var vertices:[SymbolIdentifier: Vertex] = [:], 
-            protocols:[SymbolIdentifier: String] = [:]
-        // it is possible to naturalize protocol members without naturalizing the 
-        // protocols themselves.
-        var naturalizations:[SymbolIdentifier: [SymbolIdentifier]] = [:]
-        
-        for image:Image in images 
-        {
-            // comb through generic constraints looking for references to 
-            // underscored protocols and associatedtypes
-            for constraint:Generic.Constraint<SymbolIdentifier> in image.constraints
+            for vertex:Vertex<SymbolIdentifier> in subgraph.vertices.values 
             {
-                guard let id:SymbolIdentifier = constraint.target
-                else 
+                vertex.forEach
                 {
-                    continue 
-                }
-                if  case (culture, let mythical)? = id.interface, 
-                    case "_"? = mythical.name.first
-                {
-                    protocols[mythical.id] = mythical.name
+                    if !indices.keys.contains($0) { outlined.insert($0) }
                 }
             }
-            canonicalization:
-            switch image.kind 
+            for edge:Edge<SymbolIdentifier> in subgraph.edges 
             {
-            case .synthesized(namespace: culture): 
-                // only infer symbols namespaced to the current module.
-                // it’s possible to encounter symbols namespaced to different 
-                // modules even in a core symbolgraph, if they were inherited 
-                // through conformances to a protocol in a different module.
-                guard vertices.keys.contains(image.id)
-                else 
+                edge.forEach 
                 {
-                    vertices[image.id] = image.vertex
-                    break canonicalization
+                    if !indices.keys.contains($0) { outlined.insert($0) }
                 }
-                // already have a copy of this declaration
-                continue 
-                
-            case .synthesized(namespace: _):
-                // this namespace is the namespace of the *inferred declaration*, 
-                // not the namespace of the synthesized feature.
-                continue 
-            
-            case .natural:
-                vertices[image.id] = image.vertex
-                continue 
             }
-            guard case (culture, let `protocol`)? = image.id.interface 
-            else 
+            for hint:Hint<SymbolIdentifier> in subgraph.hints 
             {
-                continue 
+                hint.forEach 
+                {
+                    if !indices.keys.contains($0) { outlined.insert($0) }
+                }
             }
-            
-            let base:Path = .init(prefix: [`protocol`.name], last: image.vertex.path.last)
-            // fix the first path component of the vertex, so that it points 
-            // to the protocol and not the concrete type we discovered it in 
-            vertices[image.id]?.path = base
-            
-            if case true? = image.vertex.frame.availability.general?.unavailable
+        }
+
+        self.identifiers.append(contentsOf: outlined.sorted())
+        let tail:ArraySlice<SymbolIdentifier> = self.identifiers[start...]
+
+        indices.merge(zip(tail, tail.indices)) { $1 }
+
+        // all the same keys, just rearranged
+        self.vertices = []
+        self.vertices.reserveCapacity(start - self.identifiers.startIndex)
+        for (subgraph, partition):(Subgraph, Partition) in zip(subgraphs, self.partitions)
+        {
+            for id:SymbolIdentifier in self.identifiers[partition.indices]
             {
-                // if the symbol is unconditionally unavailable, generate 
-                // an edge for it:
-                naturalizations[`protocol`.id, default: []].append(image.id)
+                self.vertices.append(subgraph.vertices[id]!.map { indices[$0]! })
             }
-            else if case "_"? = `protocol`.name.first
+        }
+        // this is only a well-defined sort within the same module!
+        self.edges = subgraphs.flatMap 
+        {
+            $0.edges.map { $0.map { indices[$0]! } }
+        }
+        .sorted 
+        {
+            // this is not a well-defined order if there are multiple edges of different types 
+            // between the same two vertices. this doesn’t affect the encoded output, since 
+            // we partition by relation type.
+            ($0.source, $0.target) < ($1.source, $1.target)
+        }
+        // uniquify hints
+        var hints:Set<Hint<Int>> = []
+        for subgraph:Subgraph in subgraphs 
+        {
+            for hint:Hint<SymbolIdentifier> in subgraph.hints
             {
-                // if the inferred symbol belongs to an underscored protocol, 
-                // generate an edge for it:
-                naturalizations[`protocol`.id, default: []].append(image.id)
-                // make a note of the protocol name and identifier
-                protocols[`protocol`.id] = `protocol`.name
+                hints.insert(hint.map { indices[$0]! })
             }
         }
-        
-        self.vertices.reserveCapacity(self.vertices.count + vertices.count + protocols.count)
-        for (id, vertex):(SymbolIdentifier, Vertex) in vertices 
+        self.hints = hints.sorted()
+
+        var sourcemap:[String: [SourceFeature<Int>]] = [:]
+        for subgraph:Subgraph in subgraphs 
         {
-            self.vertices.append((id, vertex))
-        }
-        // generate vertices for underscored protocols
-        for (id, name):(SymbolIdentifier, String) in protocols 
-        {
-            let fragments:[Notebook<Highlight, SymbolIdentifier>.Fragment] = 
-            [
-                .init("protocol",   color: .keywordText),
-                .init(" ",          color: .text),
-                .init(name,         color: .identifier),
-            ]
-            let vertex:Vertex = .init(path: .init(last: name), 
-                community: .protocol, 
-                frame: .init(
-                    availability:          .init(), 
-                    declaration:           .init(fragments), 
-                    signature:             .init(fragments), 
-                    generics:               [], 
-                    genericConstraints:     [], 
-                    extensionConstraints:   [], 
-                    comment:                ""))
-            self.vertices.append((id, vertex))
-        }
-        if !protocols.isEmpty 
-        {
-            print("""
-                note: naturalized underscored protocols \
-                (\(protocols.values.sorted().map { "'\($0)'" }.joined(separator: ", ")))
-                """)
-        }
-        for (`protocol`, members):(SymbolIdentifier, [SymbolIdentifier]) in naturalizations 
-        {
-            for member:SymbolIdentifier in members 
+            for (uri, symbols):(String, [SourceFeature<SymbolIdentifier>]) in subgraph.sourcemap 
             {
-                self.edges.append(.init(member, is: .member, of: `protocol`))
+                for symbol:SourceFeature<SymbolIdentifier> in symbols 
+                {
+                    sourcemap[uri, default: []].append(symbol.map { indices[$0]! })
+                }
             }
         }
-        if !naturalizations.isEmpty 
+        self.sourcemap = sourcemap.map 
         {
-            print("""
-                note: naturalized \(naturalizations.values.reduce(0) { $0 + $1.count }) \
-                protocol members
-                """)
+            (uri: $0.key, symbols: $0.value.sorted())
+        }
+        .sorted
+        {
+            $0.uri < $1.uri
         }
     }
 }

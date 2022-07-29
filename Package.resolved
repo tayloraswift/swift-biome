@@ -69,7 +69,7 @@
       "location" : "https://github.com/kelvin13/swift-json",
       "state" : {
         "branch" : "master",
-        "revision" : "6a5c7163be32d18e3e199cf0c52438f0a19dbc0c"
+        "revision" : "e4fc187d96c8b0c8b6a8034044aac3127203cde2"
       }
     },
     {
@@ -77,8 +77,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-markdown.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a",
-        "revision" : "e7a570d3900ed84a6904fd94088984dd95e1120e"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-07-25-a",
+        "revision" : "87c9e60b73174643f1f0bdfd81d41ce379defde0"
       }
     },
     {
@@ -104,8 +104,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-syntax.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-07-06-a",
-        "revision" : "535b9be8ad051a4487c9466040ecad46dccb05cb"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-07-25-a",
+        "revision" : "ba64513c6a5402671deed573409e38a0bb4895e0"
       }
     },
     {

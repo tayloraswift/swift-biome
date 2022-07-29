@@ -1,5 +1,5 @@
 @frozen public
-struct SymbolIdentifier:Hashable, Sendable 
+struct SymbolIdentifier:Sendable 
 {
     @frozen public 
     enum Language:Unicode.Scalar, Hashable, Sendable 
@@ -8,6 +8,7 @@ struct SymbolIdentifier:Hashable, Sendable
         case swift  = "s"
     }
 
+    // this must always be an ASCII string
     public 
     let string:String 
     
@@ -31,6 +32,33 @@ struct SymbolIdentifier:Hashable, Sendable
             fatalError("unreachable")
         }
         return language 
+    }
+}
+extension SymbolIdentifier:Equatable
+{
+    @inlinable public static
+    func == (lhs:Self, rhs:Self) -> Bool 
+    {
+        lhs.string.utf8.elementsEqual(rhs.string.utf8)
+    }
+}
+extension SymbolIdentifier:Hashable 
+{
+    @inlinable public 
+    func hash(into hasher:inout Hasher) 
+    {
+        for byte:UInt8 in self.string.utf8
+        {
+            byte.hash(into: &hasher)
+        }
+    }
+}
+extension SymbolIdentifier:Comparable
+{
+    @inlinable public static
+    func < (lhs:Self, rhs:Self) -> Bool 
+    {
+        lhs.string.utf8.lexicographicallyPrecedes(rhs.string.utf8)
     }
 }
 extension SymbolIdentifier:CustomStringConvertible

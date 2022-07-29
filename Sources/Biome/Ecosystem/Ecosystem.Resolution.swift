@@ -35,7 +35,7 @@ extension Ecosystem
         -> (resolution:Resolution, redirected:Bool)?
     {
         if  let root:String = path.first, 
-            let root:Stem = self.stems[leaf: root],
+            let root:Route.Stem = self.stems[leaf: root],
             let root:Root = self.roots[root],
             case let (resolution, redirected)? = self.resolve(root: root,
                 path: path.dropFirst(), 
@@ -234,7 +234,7 @@ extension Ecosystem
                     destination: namespace.package, 
                     arrival: arrival, 
                     lens: implicit.query.lens),
-                let route:Route = self.stems[namespace, implicit]
+                let route:Route.Key = self.stems[namespace, implicit]
         else 
         {
             return nil 
@@ -283,7 +283,7 @@ extension Ecosystem
         -> (resolution:Resolution, redirected:Bool)?
     {
         guard   case nil = implicit.query.lens, 
-                let route:Route = self.stems[namespace, implicit]
+                let route:Route.Key = self.stems[namespace, implicit]
         else 
         {
             return nil

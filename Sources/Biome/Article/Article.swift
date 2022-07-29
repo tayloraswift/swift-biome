@@ -46,31 +46,32 @@ struct Article:Identifiable
     @usableFromInline 
     struct ID:Hashable, Sendable 
     {
-        let route:Route 
+        let key:Route.Key 
         
-        init(_ route:Route)
+        init(_ key:Route.Key)
         {
-            self.route = route
+            self.key = key
         }
     }
     
     @usableFromInline 
-    var id:ID 
-    {
-        .init(self.route)
-    }
+    let id:ID 
     let path:Path
     var name:String 
     {
         self.path.last
     }
-    let route:Route
     var heads:Heads
+
+    var route:Route.Key
+    {
+        self.id.key
+    }
     
     init(id:ID, path:Path)
     {
+        self.id = id
         self.path = path
-        self.route = id.route
         self.heads = .init()
     }
 }

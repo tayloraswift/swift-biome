@@ -34,7 +34,14 @@ struct SwiftAvailability:Equatable, Sendable
     
     init(_ versioned:VersionedAvailability)
     {
-        self.deprecated = versioned.deprecated ?? nil
+        if case .since(let deprecated) = versioned.deprecated 
+        {
+            self.deprecated = deprecated
+        }
+        else 
+        {
+            self.deprecated = nil
+        }
         self.introduced = versioned.introduced
         self.obsoleted = versioned.obsoleted
         self.renamed = versioned.renamed
