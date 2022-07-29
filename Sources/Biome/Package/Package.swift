@@ -349,6 +349,18 @@ struct Package:Identifiable, Sendable
             return false 
         }
     }
+    func contains(_ symbol:Symbol.Index, at version:Version) -> Bool 
+    {
+        if case (_, .extant)? = self.facts.at(version, 
+            head: self.symbols[local: symbol].heads.facts)
+        {
+            return true 
+        }
+        else 
+        {
+            return false 
+        }
+    }
     // FIXME: the complexity of this becomes quadratic-ish if we test *every* 
     // package version with this method, which we do for the version menu dropdowns
     func contains(_ composite:Symbol.Composite, at version:Version) -> Bool 
@@ -357,15 +369,7 @@ struct Package:Identifiable, Sendable
         else 
         {
             // natural symbol 
-            if case (_, .extant)? = self.facts.at(version, 
-                head: self.symbols[local: composite.base].heads.facts)
-            {
-                return true 
-            }
-            else 
-            {
-                return false 
-            }
+            return self.contains(composite.base, at: version)
         }
         if let heads:Symbol.Heads = self[host]?.heads
         {

@@ -29,6 +29,11 @@ extension Ecosystem
                     case .associatedtype, .callable(_): 
                         continue
                     }
+                    guard current.package.contains(index, at: current.version)
+                    else 
+                    {
+                        continue 
+                    }
                     
                     let declaration:Declaration<Symbol.Index> = current.declaration(index)
                     let uri:URI = self.uri(of: .init(natural: index), in: current)
@@ -86,6 +91,12 @@ extension Ecosystem
                 for offset:Int in colony.offsets 
                 {
                     let index:Symbol.Index = .init(module.index, offset: offset)
+                    guard current.package.contains(index, at: current.version)
+                    else 
+                    {
+                        continue 
+                    }
+
                     let uri:URI = self.uri(of: .init(natural: index), 
                         in: current)
                     sitemap += domain
