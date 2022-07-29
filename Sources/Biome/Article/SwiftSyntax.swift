@@ -102,6 +102,8 @@ extension Extension.Renderer
         {
         case .garbageText(let text): 
             return (text, .invalid)
+        case .shebang(let text): 
+            return (text, .text)
         case .spaces(let count):
             return (.init(repeating: " ", count: count), .text)
         case .tabs(let count): 
