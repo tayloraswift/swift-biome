@@ -148,18 +148,11 @@ extension Ecosystem
         let version:PreciseVersion = .init(era[graph.id])
         
         let index:Package.Index = self.packages.updatePackageRegistration(for: graph)
-        // create modules, if they do not exist already.
-        // note: module indices are *not* necessarily contiguous, 
-        // or even monotonically increasing
-        let cultures:[Module.Index] = self.packages[index].addModules(graph.modules)
-        let scopes:[Module.Scope] = try self.packages.computeScopes(of: cultures, 
-            graphs: graph.modules)
-        // must call this *before* any other update methods 
-        let pins:Package.Pins = self.packages.updatePackageVersion(for: index, 
-            version: version, 
-            scopes: scopes, 
-            era: era)
-        
+        let cultures:[Module.Index] = self.packages[index].addModules(graph.modules.lazy.map(\.id))
+
+        let scopes:[Module.Scope] = try self.packages.resolveDependencies(graphs: graph.modules,
+            cultures: cultures)
+
         var articles:[[Article.Index: Extension]] = []
             articles.reserveCapacity(scopes.count)
         var extensions:[[String: Extension]] = []
@@ -187,6 +180,11 @@ extension Ecosystem
             note: key table population: \(self.stems._count), \
             total key size: \(self.stems._memoryFootprint) B
             """)
+        // must call this *before* any other update methods 
+        let pins:Package.Pins = self.packages.updatePackageVersion(for: index, 
+            version: version, 
+            scopes: scopes, 
+            era: era)
         
         let beliefs:Beliefs = graph.modules.generateBeliefs(abstractors: abstractors, 
             context: self.packages)

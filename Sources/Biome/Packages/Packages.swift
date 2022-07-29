@@ -64,8 +64,9 @@ struct Packages
         }
     }
     
-    /// returns the index of the entry for the given package, creating it if it 
-    /// does not already exist.
+    /// Creates a package entry for the given package graph, if it does not already exist.
+    /// 
+    /// -   Returns: The index of the package, identified by its ``Package.ID``.
     mutating 
     func updatePackageRegistration(for graph:PackageGraph) -> Package.Index
     {
@@ -99,17 +100,48 @@ struct Packages
 }
 extension Packages 
 {
-    func computeScopes(of cultures:[Module.Index], graphs:[SymbolGraph]) 
-        throws -> [Module.Scope]
+    func resolveDependencies(graphs:[SymbolGraph], cultures:[Module.Index]) throws -> [Module.Scope]
     {
         var scopes:[Module.Scope] = []
             scopes.reserveCapacity(graphs.count)
         for (graph, culture):(SymbolGraph, Module.Index) in zip(graphs, cultures)
         {
             var scope:Module.Scope = .init(culture: culture, id: self[culture].id)
-            for dependency:Module.Index in try self.identify(graph.dependencies)
+            // add explicit dependencies 
+            for dependency:SymbolGraph.Dependency in graph.dependencies
             {
-                scope.insert(dependency, id: self[dependency].id)
+                guard let package:Package = self[dependency.package]
+                else 
+                {
+                    throw DependencyError.packageNotFound(dependency.package)
+                }
+                for target:Module.ID in dependency.modules
+                {
+                    guard let index:Module.Index = package.modules.indices[target]
+                    else 
+                    {
+                        throw DependencyError.targetNotFound(target, in: dependency.package)
+                    }
+                    // use the stored id, not `target`
+                    scope.insert(index, id: package[local: index].id)
+                }
+            }
+            // add implicit dependencies
+            switch self[culture.package].kind
+            {
+            case .community(_): 
+                for module:Module in self[.core]?.modules.all ?? []
+                {
+                    scope.insert(module.index, id: module.id)
+                } 
+                fallthrough 
+            case .core: 
+                for module:Module in self[.swift]?.modules.all ?? []
+                {
+                    scope.insert(module.index, id: module.id)
+                } 
+            case .swift: 
+                break 
             }
             scopes.append(scope)
         }
@@ -135,40 +167,6 @@ extension Packages
         {
             ($0, self[$0].versions.snap(era[self[$0].id]))
         })
-    }
-    private 
-    func identify(_ dependencies:[SymbolGraph.Dependency]) throws -> Set<Module.Index>
-    {
-        let packages:[Package.ID: [Module.ID]] = [Package.ID: [SymbolGraph.Dependency]]
-            .init(grouping: dependencies, by: \.package)
-            .mapValues 
-        {
-            $0.flatMap(\.modules)
-        }
-        // add implicit dependencies 
-        var namespaces:Set<Module.Index> = self.standardLibrary
-        if let core:Package = self[.core]
-        {
-            namespaces.formUnion(core.modules.indices.values)
-        }
-        for (dependency, targets):(Package.ID, [Module.ID]) in packages
-        {
-            guard let package:Package = self[dependency]
-            else 
-            {
-                throw DependencyError.packageNotFound(dependency)
-            }
-            for target:Module.ID in targets
-            {
-                guard let index:Module.Index = package.modules.indices[target]
-                else 
-                {
-                    throw DependencyError.targetNotFound(target, in: dependency)
-                }
-                namespaces.insert(index)
-            }
-        }
-        return namespaces
     }
 }
 extension Packages 

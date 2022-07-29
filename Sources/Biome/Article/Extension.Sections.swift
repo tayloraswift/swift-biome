@@ -64,8 +64,9 @@ extension Extension
                 magic:
                 switch keyword 
                 {
-                case .other(let unknown):
-                    print("warning: unknown keyword '\(unknown)'")
+                case .other(_):
+                    //print("warning: unknown keyword '\(unknown)'")
+                    break 
                 
                 case .aside(let aside): 
                     muggles.append(.aside(aside, .init(content)))

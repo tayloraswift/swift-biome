@@ -523,12 +523,15 @@ extension Package
 
 extension Package 
 {
+    /// Registers the given modules.
+    /// 
+    /// >   Note: Module indices are *not* necessarily contiguous, or even monotonically increasing.
     mutating 
-    func addModules(_ graphs:[SymbolGraph]) -> [Module.Index]
+    func addModules(_ modules:some Sequence<Module.ID>) -> [Module.Index]
     {
-        graphs.map 
+        modules.map 
         { 
-            self.modules.insert($0.id, culture: self.index, Module.init(id:index:))
+            self.modules.insert($0, culture: self.index, Module.init(id:index:))
         }
     }
     
