@@ -8,10 +8,11 @@ struct PackageCatalog:Identifiable, Decodable, Sendable
     public
     enum CodingKeys:String, CodingKey 
     {
-        case id             = "package" 
-        case brand          = "brand"
-        case modules        = "modules"
-        case toolsVersion   = "catalog_tools_version"
+        case id = "package" 
+        case brand 
+        case modules 
+        case snippets 
+        case toolsVersion = "catalog_tools_version"
     }
     
     public
@@ -19,17 +20,20 @@ struct PackageCatalog:Identifiable, Decodable, Sendable
     let brand:String?
     public
     let modules:[ModuleCatalog]
+    public
+    let snippets:[SnippetCatalog]
     let toolsVersion:Int
     
     static 
-    let toolsVersion:Int = 2
+    let toolsVersion:Int = 3
     
     public 
-    init(id:ID, modules:[ModuleCatalog])
+    init(id:ID, modules:[ModuleCatalog] = [], snippets:[SnippetCatalog] = [])
     {
         self.id = id 
         self.brand = nil
         self.modules = modules
+        self.snippets = snippets
         self.toolsVersion = Self.toolsVersion
     }
     
