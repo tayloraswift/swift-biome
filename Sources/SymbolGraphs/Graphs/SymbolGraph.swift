@@ -41,21 +41,6 @@ struct SymbolGraph:Identifiable, Sendable
     typealias Colony = (namespace:ModuleIdentifier, vertices:ArraySlice<Vertex<Int>>)
 
     @frozen public 
-    struct Dependency:Decodable, Sendable
-    {
-        public
-        var package:PackageIdentifier
-        public
-        var modules:[ModuleIdentifier]
-        
-        public 
-        init(package:PackageIdentifier, modules:[ModuleIdentifier])
-        {
-            self.package = package 
-            self.modules = modules 
-        }
-    }
-    @frozen public 
     struct Colonies:RandomAccessCollection, Sendable
     {
         public 

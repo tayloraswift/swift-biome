@@ -218,6 +218,7 @@ extension SymbolGraph
 }
 extension SymbolGraph.Dependency 
 {
+    public 
     init(from json:JSON) throws 
     {
         (self.package, self.modules) = try json.lint 

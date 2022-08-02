@@ -1,48 +1,37 @@
-public
-struct PackageGraph:Identifiable, Sendable
+import SymbolGraphs 
+
+extension Ecosystem 
 {
-    public 
-    let id:PackageIdentifier 
-    public 
-    var brand:String?
-    public 
-    var modules:[SymbolGraph]
-    
-    public 
-    init(id:ID, brand:String? = nil, modules:[SymbolGraph])
+    static 
+    func order(modules:[SymbolGraph], package:Package.ID) throws -> [SymbolGraph]
     {
-        self.id = id 
-        self.brand = brand
         // collect intra-package dependencies
-        var dependencies:[ModuleIdentifier: Set<ModuleIdentifier>] = [:]
+        var dependencies:[Module.ID: Set<Module.ID>] = [:]
         for module:SymbolGraph in modules 
         {
             for dependency:SymbolGraph.Dependency in module.dependencies
-                where self.id == dependency.package
+                where package == dependency.package && !dependency.modules.isEmpty
             {
-                for dependency:ModuleIdentifier in dependency.modules 
-                {
-                    dependencies[module.id, default: []].insert(dependency)
-                }
+                dependencies[module.id, default: []].formUnion(dependency.modules)
             }
         }
-        var consumers:[ModuleIdentifier: [SymbolGraph]] = [:]
+        var consumers:[Module.ID: [SymbolGraph]] = [:]
         for module:SymbolGraph in modules 
         {
-            guard let dependencies:Set<ModuleIdentifier> = dependencies[module.id]
+            guard let dependencies:Set<Module.ID> = dependencies[module.id]
             else 
             {
                 continue 
             }
             // need to sort dependency set to make topological sort deterministic
-            for dependency:ModuleIdentifier in dependencies.sorted()
+            for dependency:Module.ID in dependencies.sorted()
             {
                 consumers[dependency, default: []].append(module)
             }
         }
 
-        self.modules = []
-        self.modules.reserveCapacity(modules.count)
+        var graphs:[SymbolGraph] = []
+            graphs.reserveCapacity(modules.count)
         // perform topological sort
         var sources:[SymbolGraph] = modules.compactMap 
         {
@@ -50,7 +39,7 @@ struct PackageGraph:Identifiable, Sendable
         }
         while let source:SymbolGraph = sources.popLast()
         {
-            self.modules.append(source)
+            graphs.append(source)
 
             guard let next:[SymbolGraph] = consumers.removeValue(forKey: source.id)
             else 
@@ -59,7 +48,7 @@ struct PackageGraph:Identifiable, Sendable
             }
             for next:SymbolGraph in next
             {
-                guard let index:Dictionary<ModuleIdentifier, Set<ModuleIdentifier>>.Index = 
+                guard let index:Dictionary<Module.ID, Set<Module.ID>>.Index = 
                     dependencies.index(forKey: next.id)
                 else 
                 {
@@ -74,10 +63,13 @@ struct PackageGraph:Identifiable, Sendable
                 }
             }
         }
-        guard dependencies.isEmpty, consumers.isEmpty 
+        if dependencies.isEmpty, consumers.isEmpty 
+        {
+            return graphs 
+        }
         else 
         {
-            fatalError("package contains dependency cycle")
+            throw DependencyError.moduleCycle(in: package)
         }
     }
 }

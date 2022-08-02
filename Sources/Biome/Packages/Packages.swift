@@ -68,24 +68,19 @@ struct Packages
     /// 
     /// -   Returns: The index of the package, identified by its ``Package.ID``.
     mutating 
-    func updatePackageRegistration(for graph:PackageGraph) -> Package.Index
+    func addPackage(_ package:Package.ID) -> Package.Index
     {
-        let index:Package.Index
-        if  let package:Package.Index = self.indices[graph.id]
+        if let index:Package.Index = self.indices[package]
         {
-            index = package 
+            return index 
         }
         else 
         {
-            index = .init(offset: self.packages.endIndex)
-            self.packages.append(.init(id: graph.id, index: index))
-            self.indices[graph.id] = index
+            let index:Package.Index = .init(offset: self.packages.endIndex)
+            self.packages.append(.init(id: package, index: index))
+            self.indices[package] = index
+            return index
         }
-        if let brand:String = graph.brand 
-        {
-            self[index].brand = brand
-        }
-        return index
     }
     mutating 
     func updatePackageVersion(for index:Package.Index, 
@@ -120,7 +115,7 @@ extension Packages
                     guard let index:Module.Index = package.modules.indices[target]
                     else 
                     {
-                        throw DependencyError.targetNotFound(target, in: dependency.package)
+                        throw DependencyError.moduleNotFound(target, in: dependency.package)
                     }
                     // use the stored id, not `target`
                     scope.insert(index, id: package[local: index].id)

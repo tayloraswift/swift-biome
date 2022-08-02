@@ -1,3 +1,4 @@
+import JSON
 import SymbolGraphs 
 import SystemExtras
 @preconcurrency import SystemPackage
@@ -22,36 +23,31 @@ enum SymbolGraphLoadingError:Error, CustomStringConvertible
 }
 
 public 
-struct ModuleCatalog:Identifiable, Decodable, Sendable 
+struct ModuleCatalog:Identifiable, Sendable 
 {
     public
     let id:ModuleIdentifier
     var include:[FilePath] 
     var dependencies:[SymbolGraph.Dependency]
     
-    public 
-    enum CodingKeys:String, CodingKey 
-    {
-        case id = "module" 
-        case include 
-        case dependencies
-    }
-    
     public
-    init(from decoder:any Decoder) throws 
+    init(from json:JSON) throws 
     {
-        let container:KeyedDecodingContainer<CodingKeys> = 
-            try decoder.container(keyedBy: CodingKeys.self)
-        
-        self.id = try container.decode(ID.self, forKey: .id)
-        // need to do this manually
-        // https://github.com/apple/swift-system/issues/106
-        self.include = try container.decode([String].self, 
-            forKey: .include).map(FilePath.init(_:))
-        self.dependencies = try container.decode([SymbolGraph.Dependency].self, 
-            forKey: .dependencies)
+        (self.id, self.include, self.dependencies) = try json.lint 
+        {
+            (
+                try $0.remove("module", as: String.self, ModuleIdentifier.init(_:)),
+                try $0.remove("include", as: [JSON].self)
+                {
+                    try $0.map { FilePath.init(try $0.as(String.self)) }
+                },
+                try $0.remove("dependencies", as: [JSON].self) 
+                {
+                    try $0.map(SymbolGraph.Dependency.init(from:))
+                }
+            )
+        }
     }
-    
     public 
     init(id:ID, include:[FilePath], dependencies:[SymbolGraph.Dependency])
     {

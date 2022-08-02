@@ -1,38 +1,33 @@
+import JSON
 import SymbolGraphs 
-import SystemExtras
 @preconcurrency import SystemPackage
 
 public 
-struct SnippetCatalog:Identifiable, Decodable, Sendable 
+struct SnippetCatalog:Identifiable, Sendable 
 {
     public
     let id:ModuleIdentifier
     var sources:[FilePath] 
     var dependencies:[SymbolGraph.Dependency]
     
-    public 
-    enum CodingKeys:String, CodingKey 
-    {
-        case id = "snippet" 
-        case sources 
-        case dependencies
-    }
-    
     public
-    init(from decoder:any Decoder) throws 
+    init(from json:JSON) throws 
     {
-        let container:KeyedDecodingContainer<CodingKeys> = 
-            try decoder.container(keyedBy: CodingKeys.self)
-        
-        self.id = try container.decode(ID.self, forKey: .id)
-        // need to do this manually
-        // https://github.com/apple/swift-system/issues/106
-        self.sources = try container.decode([String].self, 
-            forKey: .sources).map(FilePath.init(_:))
-        self.dependencies = try container.decode([SymbolGraph.Dependency].self, 
-            forKey: .dependencies)
+        (self.id, self.sources, self.dependencies) = try json.lint 
+        {
+            (
+                try $0.remove("snippet", as: String.self, ModuleIdentifier.init(_:)),
+                try $0.remove("sources", as: [JSON].self)
+                {
+                    try $0.map { FilePath.init(try $0.as(String.self)) }
+                },
+                try $0.remove("dependencies", as: [JSON].self) 
+                {
+                    try $0.map(SymbolGraph.Dependency.init(from:))
+                }
+            )
+        }
     }
-    
     public 
     init(id:ID, sources:[FilePath], dependencies:[SymbolGraph.Dependency])
     {

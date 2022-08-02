@@ -140,18 +140,38 @@ extension Ecosystem
     
     @discardableResult
     public mutating 
-    func updatePackage(_ graph:PackageGraph, pins era:[Package.ID: MaskedVersion]) 
+    func updatePackage(_ id:Package.ID, 
+        graphs unordered:[SymbolGraph],
+        brand:String? = nil,
+        pins era:[Package.ID: MaskedVersion]) 
         throws -> Package.Index
     {
         try Task.checkCancellation()
-        
-        let version:PreciseVersion = .init(era[graph.id])
-        
-        let index:Package.Index = self.packages.updatePackageRegistration(for: graph)
-        let cultures:[Module.Index] = self.packages[index].addModules(graph.modules.lazy.map(\.id))
 
-        let scopes:[Module.Scope] = try self.packages.resolveDependencies(graphs: graph.modules,
+        let graphs:[SymbolGraph]    = try Self.order(modules: unordered, package: id)
+
+        let index:Package.Index     = self.packages.addPackage(id)
+        let cultures:[Module.Index] = self.packages[index].addModules(graphs.lazy.map(\.id))
+
+        if let brand:String 
+        {
+            self.packages[index].brand = brand
+        }
+
+        let scopes:[Module.Scope]   = try self.packages.resolveDependencies(graphs: graphs,
             cultures: cultures)
+        
+        self.updatePackage(index, graphs: graphs, scopes: scopes, era: era)
+
+        return index 
+    }
+    private mutating 
+    func updatePackage(_ index:Package.Index, 
+        graphs:[SymbolGraph], 
+        scopes:[Module.Scope],
+        era:[Package.ID: MaskedVersion]) 
+    {
+        let version:PreciseVersion = .init(era[self[index].id])
 
         var articles:[[Article.Index: Extension]] = []
             articles.reserveCapacity(scopes.count)
@@ -159,7 +179,7 @@ extension Ecosystem
             extensions.reserveCapacity(scopes.count)
         var abstractors:[Abstractor] = []
             abstractors.reserveCapacity(scopes.count)
-        for (graph, scope):(SymbolGraph, Module.Scope) in zip(graph.modules, scopes)
+        for (graph, scope):(SymbolGraph, Module.Scope) in zip(graphs, scopes)
         {
             var abstractor:Abstractor = graph.abstractor(context: self.packages, scope: scope)
                 self.packages[index].addSymbols(from: graph,
@@ -186,7 +206,7 @@ extension Ecosystem
             scopes: scopes, 
             era: era)
         
-        let beliefs:Beliefs = graph.modules.generateBeliefs(abstractors: abstractors, 
+        let beliefs:Beliefs = graphs.generateBeliefs(abstractors: abstractors, 
             context: self.packages)
         let trees:Route.Trees = beliefs.generateTrees(
             context: self.packages)
@@ -201,11 +221,11 @@ extension Ecosystem
         {
             self.packages[index].pushDependencies(scope.dependencies(), culture: scope.culture)
         }
-        for (culture, articles):(Module.Index, [Article.Index: Extension]) in zip(cultures, articles)
+        for (scope, articles):(Module.Scope, [Article.Index: Extension]) in zip(scopes, articles)
         {
-            self.packages[index].pushExtensionMetadata(articles: articles, culture: culture)
+            self.packages[index].pushExtensionMetadata(articles: articles, culture: scope.culture)
         }
-        for (graph, abstractor):(SymbolGraph, Abstractor) in zip(graph.modules, abstractors)
+        for (graph, abstractor):(SymbolGraph, Abstractor) in zip(graphs, abstractors)
         {
             self.packages[index].pushDeclarations(graph.declarations(abstractor: abstractor))
             self.packages[index].pushToplevel(filtering: abstractor.updates)
@@ -213,7 +233,7 @@ extension Ecosystem
 
 
         let compiled:[Index: Article.Template<Link>] = self.compile(
-            comments: graph.modules.generateComments(abstractors: abstractors),
+            comments: graphs.generateComments(abstractors: abstractors),
             extensions: _move(extensions),
             articles: _move(articles),
             scopes: scopes,
@@ -227,8 +247,6 @@ extension Ecosystem
         }
         
         print(bold("updated \(self[index].id) to version \(version)"))
-        
-        return index
     }
 }
     

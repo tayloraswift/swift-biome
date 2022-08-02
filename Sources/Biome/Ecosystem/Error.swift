@@ -1,5 +1,14 @@
 import SymbolGraphs
 
+enum DependencyError:Error 
+{
+    case packageNotFound(Package.ID)
+    case moduleNotFound(Module.ID, in:Package.ID)
+
+    case packageCycle
+    case moduleCycle(in:Package.ID)
+}
+
 extension Ecosystem 
 {
     struct LinkResolutionError:Error 
@@ -14,11 +23,6 @@ extension Packages
     {
         case none 
         case many([Symbol.Composite])
-    }
-    enum DependencyError:Error 
-    {
-        case packageNotFound(Package.ID)
-        case targetNotFound(Module.ID, in:Package.ID)
     }
 }
 extension Symbol 

@@ -3,54 +3,55 @@ import SystemPackage
 import JSON
 
 public 
-struct PackageCatalog:Identifiable, Decodable, Sendable 
+enum PackageCatalogError:Error
+{
+    case toolsVersion(Int)
+}
+
+public 
+struct PackageCatalog:Identifiable, Sendable 
 {
     public
-    enum CodingKeys:String, CodingKey 
-    {
-        case id = "package" 
-        case brand 
-        case modules 
-        case snippets 
-        case toolsVersion = "catalog_tools_version"
-    }
-    
-    public
     let id:PackageIdentifier
+    public 
     let brand:String?
     public
     let modules:[ModuleCatalog]
     public
     let snippets:[SnippetCatalog]
-    let toolsVersion:Int
-    
-    static 
-    let toolsVersion:Int = 3
     
     public 
-    init(id:ID, modules:[ModuleCatalog] = [], snippets:[SnippetCatalog] = [])
+    init(id:ID, brand:String? = nil, modules:[ModuleCatalog] = [], snippets:[SnippetCatalog] = [])
     {
         self.id = id 
-        self.brand = nil
+        self.brand = brand 
         self.modules = modules
         self.snippets = snippets
-        self.toolsVersion = Self.toolsVersion
     }
-    
     public 
-    func load(project:FilePath) throws -> PackageGraph
+    init(from json:JSON) throws 
     {
-        // don’t check for task cancellation, because each constituent 
-        // call to `Module.Catalog.load(with:)` checks for it
-        guard self.toolsVersion == Self.toolsVersion
-        else 
+        self = try json.lint 
         {
-            fatalError("version mismatch")
+            switch try $0.remove("catalog_tools_version", as: Int.self)
+            {
+            case 3:
+                return .init(
+                    id: try $0.remove("package", as: String.self, PackageIdentifier.init(_:)), 
+                    brand: try $0.pop("brand", as: String.self), 
+                    modules: try $0.remove("modules", as: [JSON].self)
+                    {
+                        try $0.map(ModuleCatalog.init(from:))
+                    }, 
+                    snippets: try $0.pop("snippets", as: [JSON].self)
+                    {
+                        try $0.map(SnippetCatalog.init(from:))
+                    } ?? [])
+
+            case let unsupported:
+                throw PackageCatalogError.toolsVersion(unsupported)
+            }
         }
-        return .init(id: self.id, brand: self.brand, modules: try self.modules.map 
-        {
-            try $0.load(project: project)
-        })
     }
 }
 extension RangeReplaceableCollection<PackageCatalog>
