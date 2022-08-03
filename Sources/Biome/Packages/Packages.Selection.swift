@@ -74,7 +74,7 @@ extension Packages
         var matches:[Symbol.Composite] = []
         for pinned:Package.Pinned in lenses 
         {
-            try pinned.package.groups[route].forEach 
+            try pinned.package.groups[route]?.forEach 
             {
                 if try predicate($0), pinned.contains($0)
                 {
@@ -103,7 +103,7 @@ extension Packages
         rethrows -> Selection?
     {
         var matches:[Symbol.Composite] = []
-        try lens.groups[route].forEach 
+        try lens.groups[route]?.forEach 
         {
             if try predicate($0)
             {

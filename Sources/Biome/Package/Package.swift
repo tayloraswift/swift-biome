@@ -89,7 +89,7 @@ struct Package:Identifiable, Sendable
     private(set) 
     var templates:Keyframe<Article.Template<Ecosystem.Link>>.Buffer
     private(set)
-    var groups:Symbol.Groups
+    var groups:[Route.Key: Symbol.Group]
     
     var name:String 
     {
@@ -220,32 +220,29 @@ struct Package:Identifiable, Sendable
         var explicit:(host:Bool, base:Bool) = (false, false)
         switch self.groups[route]
         {
-        case .none: 
+        case nil: 
             assert(false)
-            
-        case .one(let occupant):
+        
+        case .one((let occupant, _))?:
             assert(occupant == composite)
         
-        case .many(let occupants):
+        case .many(let occupants)?:
             filtering:
             for (base, diacritics):(Symbol.Index, Symbol.Subgroup) in occupants
             {
                 switch (base == composite.base, diacritics)
                 {
-                case (_, .none):
-                    assert(false)
-                
-                case (true, .one(let diacritic)):
+                case (true, .one((let diacritic, _))):
                     assert(diacritic == composite.diacritic)
                 
-                case (false, .one(let diacritic)):
+                case (false, .one((let diacritic, _))):
                     if self.contains(.init(base, diacritic), at: version)
                     {
                         explicit.base = true 
                     }
                     
                 case (true, .many(let diacritics)):
-                    for diacritic:Symbol.Diacritic in diacritics 
+                    for diacritic:Symbol.Diacritic in diacritics.keys 
                         where diacritic != composite.diacritic 
                     {
                         if self.contains(.init(base, diacritic), at: version)
@@ -257,7 +254,7 @@ struct Package:Identifiable, Sendable
                     }
                 
                 case (false, .many(let diacritics)):
-                    for diacritic:Symbol.Diacritic in diacritics 
+                    for diacritic:Symbol.Diacritic in diacritics.keys 
                     {
                         if self.contains(.init(base, diacritic), at: version)
                         {
@@ -679,7 +676,8 @@ extension Package
     {
         for tree:Route.NaturalTree in trees 
         {
-            self.groups.insert(tree.route)
+            let route:Route = tree.route 
+            self.groups[route.key].insert(route.target)
         }
     }
     mutating 
@@ -689,7 +687,7 @@ extension Package
         {
             for route:Route in tree 
             {
-                self.groups.insert(route)
+                self.groups[route.key].insert(route.target)
             }
         }
     }
