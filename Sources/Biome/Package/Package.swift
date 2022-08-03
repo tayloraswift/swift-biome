@@ -63,7 +63,6 @@ struct Package:Identifiable, Sendable
     var brand:String?
     private(set)
     var heads:Heads
-    private(set)
     var versions:Versions
     private(set) 
     var modules:CulturalBuffer<Module.Index, Module>, 
@@ -297,9 +296,9 @@ struct Package:Identifiable, Sendable
     //  - local symbols: self.facts 
     //  - external symbols: self.opinions 
     mutating 
-    func updateVersion(_ version:PreciseVersion, upstream:[Index: Version]) -> Package.Pins
+    func updateVersion(_ version:PreciseVersion, dependencies:[Index: Version]) -> Package.Pins
     {
-        let pins:Package.Pins = self.versions.push(version, upstream: upstream)
+        let pins:Package.Pins = self.versions.push(version, dependencies: dependencies)
         for module:Module in self.modules.all 
         {
             self.dependencies.push(pins.local.version, head: module.heads.dependencies)
@@ -407,13 +406,13 @@ struct Package:Identifiable, Sendable
     func move(module:Module.Index, to uri:URI) -> Pins
     {
         self.modules[local: module].redirect.module = (uri, self.versions.latest)
-        return self.versions[self.versions.latest]
+        return self.versions.pins(at: self.versions.latest)
     }
     mutating 
     func move(articles module:Module.Index, to uri:URI) -> Pins
     {
         self.modules[local: module].redirect.articles = (uri, self.versions.latest)
-        return self.versions[self.versions.latest]
+        return self.versions.pins(at: self.versions.latest)
     }
     
     func currentOpinion(_ diacritic:Symbol.Diacritic) -> Symbol.Traits?

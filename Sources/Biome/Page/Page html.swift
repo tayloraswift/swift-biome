@@ -188,6 +188,8 @@ extension Page
                             
                             Element.anchor(.platforms)
                             Element.anchor(.fragments)
+                            Element.anchor(.dependencies)
+                            Element.anchor(.consumers)
                             Element.anchor(.discussion)
                         }
                     }

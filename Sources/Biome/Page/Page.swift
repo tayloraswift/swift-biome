@@ -14,7 +14,9 @@ struct Page
         case availability 
         case base
         case breadcrumbs
+        case consumers
         case culture 
+        case dependencies 
         case discussion
         case fragments
         case headline
@@ -94,7 +96,8 @@ extension Page
     {
         let pinned:Package.Pinned = self.pin(package)
         
-        self.add(fields: self.ecosystem.packages.renderFields(for: package))
+        self.add(fields: self.ecosystem.packages.renderFields(for: package, 
+            version: pinned.version))
         self.add(topics: self.ecosystem.packages.render(
             modulelist: pinned.package.modules.all))
         self.add(availableVersions: pinned.package.allVersions(), 
@@ -328,11 +331,11 @@ extension Page
         var counts:[MaskedVersion: Int] = [:]
         for version:Version in availableVersions 
         {
-            counts[package.versions.precise(version).triplet, default: 0] += 1
+            counts[package.versions[version].version.triplet, default: 0] += 1
         }
         let strings:[String] = availableVersions.map
         {
-            let precise:PreciseVersion = package.versions.precise($0)
+            let precise:PreciseVersion = package.versions[$0].version
             let triplet:MaskedVersion = precise.triplet
             return counts[triplet, default: 1] == 1 ? 
                 triplet.description : precise.quadruplet.description

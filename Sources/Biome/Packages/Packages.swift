@@ -89,8 +89,13 @@ struct Packages
         era:[Package.ID: MaskedVersion])
         -> Package.Pins
     {
-        self[index].updateVersion(version, 
-            upstream: self.computeUpstreamPins(scopes, era: era))
+        let pins:Package.Pins = self[index].updateVersion(version, 
+            dependencies: self.computeUpstreamPins(scopes, era: era))
+        for (package, version):(Package.Index, Version) in pins.dependencies 
+        {
+            self[package].versions[version].consumers[index, default: []].insert(pins.local.version)
+        }
+        return pins
     }
 }
 extension Packages 

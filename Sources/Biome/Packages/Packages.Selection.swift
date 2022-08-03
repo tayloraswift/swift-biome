@@ -43,11 +43,11 @@ extension Packages
     {
         if let lens:Symbol.Link.Lens 
         {
-            return self[lens.culture]?.versions[lens.version]
+            return self[lens.culture]?.versions.pins(at: lens.version)
         }
         else 
         {
-            return self[destination].versions[arrival]
+            return self[destination].versions.pins(at: arrival)
         }
     }
 }

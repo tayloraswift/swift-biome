@@ -3,7 +3,8 @@ import HTML
 
 extension Packages
 {
-    func renderFields(for index:Package.Index) -> [Page.Key: DOM.Template<Ecosystem.Index>]
+    func renderFields(for index:Package.Index, version:Version) 
+        -> [Page.Key: DOM.Template<Ecosystem.Index>]
     {
         let package:Package = self[index]
         let kind:String 
@@ -14,12 +15,49 @@ extension Packages
         case .community:    kind = "Package"
         }
         let title:String = package.title
-        let substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
+        var substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
             .title:        .text(escaping: title), 
             .headline:     .h1(title), 
             .kind:         .text(escaped: kind)
         ]
+
+        let node:Package.Node = package.versions[version]
+        if !node.dependencies.isEmpty
+        {
+            substitutions[.dependencies] = .container(.table, content: 
+            [
+                .container(.thead, content: 
+                [
+                    .container(.tr, content: 
+                    [
+                        .container(.td, content: [.text(escaped: "Dependency")]),
+                        .container(.td, content: [.text(escaped: "Version")]),
+                    ])
+                ]),
+                .container(.tbody, content: node.dependencies.sorted 
+                {
+                    $0.key < $1.key 
+                }
+                .map 
+                {
+                    (item:(key:Package.Index, value:Version)) in 
+
+                    let dependency:Package = self[item.key]
+                    let link:HTML.Element<Ecosystem.Index> = 
+                        .a(dependency.versions[item.value].version.description) 
+                    { 
+                        ("href", .anchor(.package(item.key))) 
+                    }
+                    return .container(.tr, content: 
+                    [
+                        .container(.td, content: [.text(escaping: dependency.name)]),
+                        .container(.td, content: [link]),
+                    ])
+                }),
+            ])
+        }
+
         return substitutions.mapValues(DOM.Template<Ecosystem.Index>.init(freezing:))
     }
     func renderFields(for index:Module.Index) -> [Page.Key: DOM.Template<Ecosystem.Index>]

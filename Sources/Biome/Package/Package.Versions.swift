@@ -2,42 +2,60 @@ import Versions
 
 extension Package 
 {
+    struct Node:Sendable 
+    {
+        let version:PreciseVersion 
+        let dependencies:[Package.Index: Version]
+        var consumers:[Package.Index: Set<Version>]
+
+        init(version:PreciseVersion, dependencies:[Package.Index: Version],
+            consumers:[Package.Index: Set<Version>] = [:])
+        {
+            self.version = version
+            self.consumers = consumers
+            self.dependencies = dependencies 
+        }
+    }
+
     struct Versions:RandomAccessCollection, Sendable 
     {
-        typealias Element = Pins
-        
         var latest:Version
         {
-            .init(offset: self.storage.endIndex - 1)
+            .init(offset: self.nodes.endIndex - 1)
         }
         
         private
-        var storage:[(local:PreciseVersion, upstream:[Package.Index: Version])], 
+        var nodes:[Node], 
             mapping:[MaskedVersion?: Version]
         let package:Package.Index
         
         var startIndex:Version 
         {
-            .init(offset: self.storage.startIndex)
+            .init(offset: self.nodes.startIndex)
         }
         var endIndex:Version 
         {
-            .init(offset: self.storage.endIndex)
+            .init(offset: self.nodes.endIndex)
         }
-        
-        subscript(version:Version) -> Pins
+        subscript(version:Version) -> Node 
         {
-            .init(local: (self.package, version), 
-                upstream: self.storage[version.offset].upstream)
+            _read 
+            {
+                yield  self.nodes[version.offset]
+            }
+            _modify 
+            {
+                yield &self.nodes[version.offset]
+            }
         }
-        subscript(masked:MaskedVersion?) -> Pins?
+
+        func pins(at version:Version) -> Pins
         {
-            self.mapping[masked].map { self[$0] }
+            .init(local: (self.package, version), dependencies: self[version].dependencies)
         }
-        
-        func precise(_ version:Version) -> PreciseVersion
+        func pins(at masked:MaskedVersion?) -> Pins?
         {
-            self.storage[version.offset].local
+            self.mapping[masked].map(self.pins(at:))
         }
         
         func snap(_ masked:MaskedVersion?) -> Version
@@ -48,14 +66,14 @@ extension Package
         init(package:Package.Index)
         {
             self.package = package 
-            self.storage = []
             self.mapping = [:]
+            self.nodes = []
         }
         
         mutating 
-        func push(_ precise:PreciseVersion, upstream:[Package.Index: Version]) -> Pins
+        func push(_ precise:PreciseVersion, dependencies:[Package.Index: Version]) -> Pins
         {
-            self.storage.append((local: precise, upstream: upstream))
+            self.nodes.append(.init(version: precise, dependencies: dependencies))
             let version:Version = self.latest 
             switch precise 
             {
@@ -69,7 +87,7 @@ extension Package
                 self.mapping[.nightly(year: year, month: month, day: day)] = version
             }
             self.mapping[nil] = version
-            return .init(local: (self.package, version), upstream: upstream)
+            return .init(local: (self.package, version), dependencies: dependencies)
         }
         
         func abbreviate(_ version:Version) -> MaskedVersion?
@@ -79,7 +97,7 @@ extension Package
             {
                 return nil 
             }
-            switch self.storage[version.offset].local 
+            switch self[version].version 
             {
             case .semantic(let major, let minor, let patch, let edition):
                 if      case version? = self.mapping[.major(major)]

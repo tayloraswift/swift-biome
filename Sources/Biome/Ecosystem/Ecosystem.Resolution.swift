@@ -91,7 +91,7 @@ extension Ecosystem
                     let article:Article.Index = 
                         self[namespace.package].articles.indices[article]
                 {
-                    if let pins:Package.Pins = self[namespace.package].versions[arrival]
+                    if let pins:Package.Pins = self[namespace.package].versions.pins(at: arrival)
                     {
                         return (.index(.article(article), pins: pins), false)
                     }
@@ -177,7 +177,7 @@ extension Ecosystem
         else 
         {
             if  let destination:Package = root, 
-                let pins:Package.Pins = destination.versions[arrival]
+                let pins:Package.Pins = destination.versions.pins(at: arrival)
             {
                 return (.index(.package(destination.index), pins: pins), false)
             }
@@ -213,7 +213,7 @@ extension Ecosystem
         guard let implicit:Symbol.Link = _move(link).suffix
         else 
         {
-            if let pins:Package.Pins = self[namespace.package].versions[arrival]
+            if let pins:Package.Pins = self[namespace.package].versions.pins(at: arrival)
             {
                 return (.index(.module(namespace), pins: pins), false)
             }
@@ -264,7 +264,7 @@ extension Ecosystem
                 if package.contains(composite, at: version) 
                 {
                     let resolution:Resolution = .index(.composite(composite), 
-                        pins: package.versions[version], 
+                        pins: package.versions.pins(at: version), 
                         exhibit: pins.local.version)
                     return (resolution, redirected)
                 }
@@ -292,7 +292,7 @@ extension Ecosystem
         {
             guard   let package:Package = self.packages[package], 
                         package.index != namespace.package,
-                    let pins:Package.Pins = package.versions[nil as MaskedVersion?],
+                    let pins:Package.Pins = package.versions.pins(at: nil),
                     case (let selection, redirected: let redirected)? = 
                         self.packages.selectExtantWithRedirect(route, 
                             lens: .init(package, at: pins.local.version), 
