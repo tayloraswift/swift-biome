@@ -5,6 +5,7 @@ let package = Package(
     name: "swift-biome",
     products: 
     [
+        .library(name: "Forest",                targets: ["Forest"]),
         .library(name: "Versions",              targets: ["Versions"]),
         .library(name: "SymbolGraphs",          targets: ["SymbolGraphs"]),
         .library(name: "Biome",                 targets: ["Biome"]),
@@ -35,6 +36,11 @@ let package = Package(
     ],
     targets: 
     [
+        .target(name: "Forest", 
+            dependencies: 
+            [
+            ]),
+        
         .target(name: "Versions", 
             dependencies: 
             [
