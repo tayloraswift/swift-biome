@@ -1,5 +1,6 @@
 extension Forest:Sendable where Value:Sendable {}
 extension Forest.Node:Sendable where Value:Sendable {}
+extension Forest.Node.State:Sendable where Value:Sendable {}
 
 @frozen public 
 struct Forest<Value>:RandomAccessCollection
@@ -48,10 +49,41 @@ struct Forest<Value>:RandomAccessCollection
     struct Node 
     {
         @frozen public 
+        enum State
+        {
+            case red(Value)
+            case black(Value)
+        }
+        @frozen public 
         enum Color:Sendable
         {
             case red
             case black
+        }
+        @frozen public 
+        enum Side:Sendable
+        {
+            case left
+            case right 
+
+            @inlinable public 
+            var left:Bool 
+            {
+                switch self 
+                {
+                case .left:     return true
+                case .right:    return false
+                }
+            }
+            @inlinable public 
+            var right:Bool 
+            {
+                switch self 
+                {
+                case .left:     return false
+                case .right:    return true
+                }
+            }
         }
 
         public 
@@ -61,13 +93,105 @@ struct Forest<Value>:RandomAccessCollection
         public 
         var parent:Index
         public 
+        var state:State?
+
+        @inlinable public 
+        init(_ state:State, at index:Index, parent:Index? = nil)
+        {
+            self.left = index 
+            self.right = index 
+            self.parent = parent ?? index 
+            self.state = state 
+        }
+
+        @inlinable public 
+        subscript(child:Side) -> Index 
+        {
+            _read 
+            {
+                switch child 
+                {
+                case .left:     yield  self.left 
+                case .right:    yield  self.right 
+                }
+            }
+            _modify 
+            {
+                switch child 
+                {
+                case .left:     yield &self.left 
+                case .right:    yield &self.right 
+                }
+            }
+        }
+        @inlinable public 
+        var color:Color 
+        {
+            get 
+            {
+                switch self.state
+                {
+                case nil: 
+                    fatalError("read from uninitialized node")
+                case .red?:
+                    return .red
+                case .black?:
+                    return .black
+                }
+            }
+            set(color)
+            {
+                switch color
+                {
+                case .red:
+                    self.state = .red(self.value)
+                case .black:
+                    self.state = .black(self.value)
+                }
+            }
+        }
+        @inlinable public 
         var value:Value 
-        public 
-        var color:Color
+        {
+            _read 
+            {
+                switch self.state
+                {
+                case nil: 
+                    fatalError("read from uninitialized node")
+                case .red(let value)?:
+                    yield value 
+                case .black(let value)?:
+                    yield value
+                }
+            }
+            _modify 
+            {
+                switch self.state
+                {
+                case nil: 
+                    fatalError("read from uninitialized node")
+                case .red(var value)?:
+                    self.state = nil
+                    yield &value 
+                    self.state = .red(value)
+                case .black(var value)?:
+                    self.state = nil
+                    yield &value
+                    self.state = .black(value)
+                }
+            }
+        }
     }
 
     public 
     var nodes:[Node]
+
+    @inlinable public 
+    init() 
+    {
+        self.nodes = []
+    }
 
     @inlinable public 
     var startIndex:Index 
@@ -126,7 +250,7 @@ struct Forest<Value>:RandomAccessCollection
     {
         if let child:Index = self.right(of: index)
         {
-            return self.rightmost(of: child)
+            return self.leftmost(of: child)
         }
 
         var current:Index = index
@@ -176,6 +300,16 @@ struct Forest<Value>:RandomAccessCollection
         }
         return current
     }
+    @inlinable public 
+    func root(of index:Index) -> Index
+    {
+        var current:Index = index
+        while let next:Index = self.parent(of: current)
+        {
+            current = next 
+        }
+        return current
+    }
 }
 extension Forest 
 {
@@ -184,17 +318,29 @@ extension Forest
     {
         if pivot == self[parent].left
         {
-            self[parent].left = self.rotateLeft(pivot, under: parent)
+            self.rotateLeft(pivot, on: (.left, of: parent))
         }
         else
         {
-            self[parent].right = self.rotateLeft(pivot, under: parent)
+            self.rotateLeft(pivot, on: (.right, of: parent))
+        }
+    }
+    @inlinable public mutating 
+    func rotateRight(_ pivot:Index, under parent:Index)
+    {
+        if pivot == self[parent].left
+        {
+            self.rotateRight(pivot, on: (.left, of: parent))
+        }
+        else
+        {
+            self.rotateRight(pivot, on: (.right, of: parent))
         }
     }
 
     // performs a left rotation and returns the new vertex
     @inlinable public mutating 
-    func rotateLeft(_ pivot:Index, under parent:Index? = nil) -> Index
+    func rotateLeft(_ pivot:Index, on position:(side:Node.Side, of:Index)? = nil) 
     {
         let vertex:Index = self[pivot].right
         if let left:Index = self.left(of: vertex)
@@ -206,29 +352,21 @@ extension Forest
         {
             self[pivot].right = pivot
         }
-
-        self[vertex].parent = parent ?? vertex
+        if case let (side, parent)? = position
+        {
+            self[vertex].parent = parent 
+            self[parent][side] = vertex 
+        }
+        else 
+        {
+            self[vertex].parent = vertex
+        }
         self[vertex].left = pivot
         self[pivot].parent = vertex
-        return vertex
     }
-
-    @inlinable public mutating 
-    func rotateRight(_ pivot:Index, under parent:Index)
-    {
-        if pivot == self[parent].left
-        {
-            self[parent].left = self.rotateRight(pivot, under: parent)
-        }
-        else
-        {
-            self[parent].right = self.rotateRight(pivot, under: parent)
-        }
-    }
-
     // performs a right rotation and returns the new vertex
     @inlinable public mutating 
-    func rotateRight(_ pivot:Index, under parent:Index? = nil) -> Index
+    func rotateRight(_ pivot:Index, on position:(side:Node.Side, of:Index)? = nil) 
     {
         let vertex:Index = self[pivot].left
         if let right:Index = self.right(of: vertex) 
@@ -240,187 +378,23 @@ extension Forest
         {
             self[pivot].left = pivot
         }
-
-        self[vertex].parent = parent ?? vertex
+        if case let (side, parent)? = position
+        {
+            self[vertex].parent = parent 
+            self[parent][side] = vertex 
+        }
+        else 
+        {
+            self[vertex].parent = vertex
+        }
         self[vertex].right = pivot
         self[pivot].parent = vertex
-        return vertex
     }
 }
 
 /*
 struct UnsafeBalancedTree<Element>:Sequence
 {
-    fileprivate
-    struct NodeCore
-    {
-        enum Color
-        {
-            case red, black
-        }
-
-        var parent:Node?,
-            lchild:Node?,
-            rchild:Node?
-
-        var element:Element
-
-        // arrange later to take advantage of padding space if Element produces any
-        var color:Color
-    }
-
-    struct Node:Equatable
-    {
-        private
-        var core:UnsafeMutablePointer<NodeCore>
-
-        var address:UnsafeRawPointer
-        {
-            return UnsafeRawPointer(self.core)
-        }
-
-        var element:Element
-        {
-            get
-            {
-                return self.core.pointee.element
-            }
-            set(v)
-            {
-                self.core.pointee.element = v
-            }
-        }
-
-
-
-        fileprivate
-        func deallocate()
-        {
-            self.core.deinitialize(count: 1)
-            self.core.deallocate(capacity: 1)
-        }
-
-        fileprivate static
-        func create(_ value:Element, color:NodeCore.Color = .red) -> Node
-        {
-            let core = UnsafeMutablePointer<NodeCore>.allocate(capacity: 1)
-                core.initialize(to: NodeCore(parent: nil,
-                                             lchild: nil,
-                                             rchild: nil,
-                                             element: value,
-                                             color: color))
-            return Node(core: core)
-        }
-
-        static
-        func == (a:Node, b:Node) -> Bool
-        {
-            return a.core == b.core
-        }
-
-
-    }
-
-    struct Iterator:IteratorProtocol
-    {
-        private
-        var node:Node?
-
-        fileprivate
-        init(node:Node?)
-        {
-            self.node = node
-        }
-
-        mutating
-        func next() -> Element?
-        {
-            guard let node:Node = self.node
-            else
-            {
-                return nil
-            }
-
-            let value:Element = node.element
-            self.node = node.successor()
-            return value
-        }
-    }
-
-    internal private(set)
-    var root:Node? = nil
-
-    func makeIterator() -> Iterator
-    {
-        return Iterator(node: self.first())
-    }
-
-    // frees the tree from memory
-    func deallocate()
-    {
-        UnsafeBalancedTree.deallocateTree(self.root)
-    }
-
-    // verifies that all paths in the red-black tree have the same black height,
-    // that all nodes satisfy the red property, and that the root is black
-    fileprivate
-    func verify() -> Bool
-    {
-        return  self.root?.color ?? .black == .black &&
-                UnsafeBalancedTree.verify(self.root) != nil
-    }
-
-    // returns the inserted node
-    @discardableResult
-    mutating
-    func append(_ element:Element) -> Node
-    {
-        if let last:Node = self.last()
-        {
-            return self.insert(element, after: last)
-        }
-        else
-        {
-            let root:Node = Node.create(element, color: .black)
-            self.root = root
-            return root
-        }
-    }
-
-    // returns the inserted node
-    @discardableResult
-    mutating
-    func insert(_ element:Element, after predecessor:Node) -> Node
-    {
-        let new:Node = Node.create(element)
-        UnsafeBalancedTree.insert(new, after: predecessor, root: &self.root)
-        return new
-    }
-
-    mutating
-    func remove(_ node:Node)
-    {
-        UnsafeBalancedTree.remove(node, root: &self.root)
-    }
-
-    // returns the leftmost node in the tree, or nil if the tree is empty
-    // complexity: O(log n)
-    func first() -> Node?
-    {
-        return self.root?.leftmost()
-    }
-
-    // returns the rightmost node in the tree, or nil if the tree is empty
-    // complexity: O(log n)
-    func last() -> Node?
-    {
-        return self.root?.rightmost()
-    }
-
-
-
-
-
     private static
     func remove(_ node:Node, root:inout Node?)
     {
@@ -648,88 +622,11 @@ struct UnsafeBalancedTree<Element>:Sequence
         deallocateTree(node.rchild)
         node.deallocate()
     }
-
-    // verifies that all paths in `node`’s subtree have the same black height,
-    // and that `node` and all of its children satisfy the red property.
-    private static
-    func verify(_ node:Node?) -> Int?
-    {
-        guard let node:Node = node
-        else
-        {
-            return 1
-        }
-
-        if node.color == .red
-        {
-            guard node.lchild?.color ?? .black == .black,
-                  node.rchild?.color ?? .black == .black
-            else
-            {
-                return nil
-            }
-        }
-
-        guard let   l_height:Int = verify(node.lchild),
-              let   r_height:Int = verify(node.rchild),
-                    l_height == r_height
-        else
-        {
-            return nil
-        }
-
-        return l_height + (node.color == .black ? 1 : 0)
-    }
 }
 extension UnsafeBalancedTree where Element:Comparable
 {
     // returns the inserted node
-    @discardableResult
-    mutating
-    func insort(_ element:Element) -> Node
-    {
 
-        guard var current:Node = self.root
-        else
-        {
-            let root:Node = Node.create(element, color: .black)
-            self.root = root
-            return root
-        }
-
-        let new:Node = Node.create(element)
-        while true
-        {
-            if element < current.element
-            {
-                if let next:Node = current.lchild
-                {
-                    current = next
-                }
-                else
-                {
-                    current.lchild = new
-                    break
-                }
-            }
-            else
-            {
-                if let next:Node = current.rchild
-                {
-                    current = next
-                }
-                else
-                {
-                    current.rchild = new
-                    break
-                }
-            }
-        }
-
-        new.parent = current
-        UnsafeBalancedTree.balanceInsertion(at: new, root: &self.root)
-        return new
-    }
 
     func binarySearch(_ element:Element) -> Node?
     {

@@ -15,6 +15,8 @@ let package = Package(
         
         .executable(name: "preview",            targets: ["Preview"]),
         .executable(name: "swift-symbolgraphc", targets: ["SymbolGraphConvert"]),
+
+        .executable(name: "test-forest",        targets: ["ForestTests"]),
     ],
     dependencies: 
     [
@@ -114,5 +116,13 @@ let package = Package(
                 .product(name: "SystemExtras",      package: "swift-system-extras"),
                 .product(name: "ArgumentParser",    package: "swift-argument-parser"),
             ]),
+        
+        
+        .executableTarget(name: "ForestTests", 
+            dependencies: 
+            [
+                .target(name: "Forest"),
+            ], 
+            path: "Tests/ForestTests"),
     ]
 )
