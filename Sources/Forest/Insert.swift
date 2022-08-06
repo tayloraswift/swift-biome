@@ -2,69 +2,39 @@ extension Forest where Value:Comparable
 {
     @discardableResult
     @inlinable public mutating
-    func insert(ordered value:Value, into tree:inout Tree.Head?) -> Index 
+    func insert(_ value:Value, into tree:inout Tree.Head?) -> Index 
     {
-        self.insert(ordered: value, into: &tree, by: < )
+        self.insert(value, into: &tree, order: < )
     }
 }
 extension Forest 
 {
     @discardableResult
     @inlinable public mutating
-    func insert(ordered value:Value, into head:inout Tree.Head?,
-        by ascending:(Value, Value) throws -> Bool) rethrows -> Index
+    func insert(_ value:Value, into tree:inout Tree.Head?,
+        order ascending:(Value, Value) throws -> Bool) rethrows -> Index
     {
-        guard var current:Index = head?.index
-        else
+        switch try self[tree].walk(by: { try ascending($0, value) })
         {
-            let first:Index = self.insert(root: value)
-            head = .init(first)
-            return first
-        }
-        guard try ascending(self[current].value, value)
-        else 
-        {
+        case nil:
             // node would become the new head. 
-            let first:Index = self.insert(value, on: .left, of: current)
-            head = .init(first)
-            return first 
-        }
-        // ascend 
-        while   let parent:Index = self.parent(of: current), 
-                try ascending(self[parent].value, value) 
-        {
-            current = parent 
-        }
-        guard var current:Index = self.right(of: current)
-        else 
-        {
-            return self.insert(value, on: .right, of: current)
-        }
-        // descend 
-        while true
-        {
-            if try ascending(self[current].value, value)
+            let head:Index 
+            if let tree:Tree.Head 
             {
-                if let next:Index = self.right(of: current)
-                {
-                    current = next
-                }
-                else
-                {
-                    return self.insert(value, on: .right, of: current)
-                }
+                head = self.insert(value, on: .left, of: tree.index)
             }
-            else
+            else 
             {
-                if let next:Index = self.left(of: current)
-                {
-                    current = next
-                }
-                else
-                {
-                    return self.insert(value, on: .left, of: current)
-                }
+                head = self.insert(root: value)
             }
+            tree = .init(head)
+            return head 
+        
+        case (let parent, let side?)?:
+            return self.insert(value, on: side, of: parent)
+        
+        case (let occupant, nil)?:
+            return occupant
         }
     }
 
@@ -186,25 +156,11 @@ extension Forest
         // counterpart *always* has at least one child!
         if pivot == self[counterpart].left
         {
-            if let greatgrandparent:Index = self.parent(of: grandparent)
-            {
-                self.rotateRight(grandparent, under: greatgrandparent)
-            }
-            else
-            {
-                self.rotateRight(grandparent)
-            }
+            self.rotateRight(grandparent)
         }
         else
         {
-            if let greatgrandparent:Index = self.parent(of: grandparent)
-            {
-                self.rotateLeft(grandparent, under: greatgrandparent)
-            }
-            else 
-            {
-                self.rotateLeft(grandparent)
-            }
+            self.rotateLeft(grandparent)
         }
     }
 }
