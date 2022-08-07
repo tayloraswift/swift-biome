@@ -169,7 +169,10 @@ struct Main
             if let index:Forest<Int>.Index = self.unwrap(forest[tree].find(element))
             {
                 forest.remove(index, from: &tree)
+                self.assert(forest[tree].validate())
             }
         }
+
+        self.assert(forest._inhabitants() ==? 0)
     }
 }

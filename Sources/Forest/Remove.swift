@@ -43,174 +43,239 @@ extension Forest
     }
 
     @inlinable public mutating 
-    func sink(_ node:Index, on position:(side:Node.Side, of:Index)?, left a:Index, right b:Index) 
-        -> Index 
+    func sink(_ node:Index, on position:(side:Node.Side, of:Index)?, 
+        a:Index, b:Index, d:Index, e replacement:Index) -> Index?
     {
-        if case (left: let replacement, parent: let c)? = self.leftmost(of: b)
+        //  there are up to 5 links that need to be updated, 
+        //  which requires up to 11 memory writes. 
+        //
+        //  the additional write is because we must `nil`-out 
+        //  the `node`’s left-child, since the replacement 
+        //  will never have one.
+        //
+        //  note: (b) and (x) may be the same node. 
+        //           ┆
+        //         (node)
+        //  ┌────────┴───────────────────────────┐
+        // (a)                                  (b)
+        //                              ┌────────┴───────┐
+        //                             (d)
+        //                      ┌───────┴───────┐
+        //               (replacement)
+        //                      └───┐
+        //                         (c?)
+        let _c:Index?
+        if case .red = self[replacement].color 
         {
-            let d:Index? = self.right(of: replacement)
-            //  there are up to 5 links that need to be updated, 
-            //  which requires up to 11 memory writes. 
-            //
-            //  the additional write is because we must `nil`-out 
-            //  the `node`’s left-child, since the replacement 
-            //  will never have one.
-            //
-            //  note: (b) and (c) may be the same node. 
-            //           ┆
-            //         (node)
-            //  ┌────────┴───────────────────────────┐
-            // (a)                                  (b)
-            //                              ┌────────┴───────┐
-            //                             (c)
-            //                      ┌───────┴───────┐
-            //               (replacement)
-            //                      └───┐
-            //                         (d?)
-            if case (let side, of: let parent)? = position 
-            {
-                self[parent][side] = replacement // 1
-                self[replacement].parent = parent // 2
-            }
-            else 
-            {
-                self[replacement].parent = replacement
-            }
-            self[replacement].left = a // 3
-            self[replacement].right = b // 4
-            self[a].parent = replacement // 5
-            self[b].parent = replacement // 6
-
-            self[c].left = node // 7
-            self[node].parent = c // 8
-            if let d:Index
-            {
-                self[d].parent = node // 9
-                self[node].right = d // 10
-            }
-            else 
-            {
-                self[node].right = node
-            }
-            self[node].left = node // 11
-            return replacement
+            assert(self.right(of: replacement) == nil)
+            _c = nil 
+        }
+        else if let c:Index = self.right(of: replacement)
+        {
+            self[c].parent = node // 9
+            self[node].right = c // 10
+            assert(self[replacement].color == .black)
+            assert(self[c].color == .red)
+            _c = c 
         }
         else 
         {
-            let replacement:Index = b
-            let d:Index? = self.right(of: replacement)
-            //  there are up to 4 links that need to be updated, 
-            //  which requires up to 9 memory writes. 
-            //
-            //  the additional write is because we must `nil`-out 
-            //  the `node`’s left-child, since the replacement 
-            //  will never have one.
-            //
-            //           ┆
-            //         (node)
-            //  ┌────────┴───────────────────────────┐
-            // (a)                             (replacement)
-            //                                       └───────┐
-            //                                              (d?)
-            if case (let side, of: let parent)? = position 
-            {
-                self[parent][side] = replacement // 1
-                self[replacement].parent = parent // 2
-            }
-            else 
-            {
-                self[replacement].parent = replacement
-            }
-
-            self[replacement].left = a // 3
-            self[replacement].right = node // 4
-            self[node].parent = replacement // 5
-            self[a].parent = replacement // 6
-            if let d:Index
-            {
-                self[d].parent = node // 7
-                self[node].right = d // 8
-            }
-            else 
-            {
-                self[node].right = node
-            }
-            self[node].left = node // 9
-            return replacement
+            self[node].right = node
+            _c = nil 
         }
+
+        if case (let side, of: let parent)? = position 
+        {
+            self[parent][side] = replacement // 1
+            self[replacement].parent = parent // 2
+        }
+        else 
+        {
+            self[replacement].parent = replacement
+        }
+        self[replacement].left = a // 3
+        self[replacement].right = b // 4
+        self[a].parent = replacement // 5
+        self[b].parent = replacement // 6
+
+        self[d].left = node // 7
+        self[node].parent = d // 8
+        self[node].left = node // 11
+
+        return _c
+    }
+    @inlinable public mutating 
+    func sink(_ node:Index, on position:(side:Node.Side, of:Index)?, 
+        a:Index, b replacement:Index) -> Index?
+    {
+        //  there are up to 4 links that need to be updated, 
+        //  which requires up to 9 memory writes. 
+        //
+        //  the additional write is because we must `nil`-out 
+        //  the `node`’s left-child, since the replacement 
+        //  will never have one.
+        //
+        //           ┆
+        //         (node)
+        //  ┌────────┴───────────────────────────┐
+        // (a)                             (replacement)
+        //                                       └───────┐
+        //                                              (c?)
+        let _c:Index?
+        if case .red = self[replacement].color 
+        {
+            // if the destination is red, it will never have a child, 
+            // because red nodes can only have 0 or 2 children.
+            // we can always remove a red leaf node without needing to 
+            // rebalance the tree, 
+            assert(self.right(of: replacement) == nil)
+            _c = nil 
+        }
+        else if let c:Index = self.right(of: replacement)
+        {
+            self[c].parent = node // 7
+            self[node].right = c // 8
+            assert(self[replacement].color == .black)
+            assert(self[c].color == .red)
+            _c = c
+        }
+        else 
+        {
+            self[node].right = node
+            _c = nil 
+        }
+
+        self[replacement].left = a // 3
+        self[replacement].right = node // 4
+        self[node].parent = replacement // 5
+        self[a].parent = replacement // 6
+        self[node].left = node // 9
+
+        if case (let side, of: let parent)? = position 
+        {
+            self[parent][side] = replacement // 1
+            self[replacement].parent = parent // 2
+        }
+        else 
+        {
+            self[replacement].parent = replacement
+        }
+
+        return _c
     }
     @inlinable public mutating 
     func remove(_ node:Index, on position:(side:Node.Side, of:Index)?)
     {
-        let color:Node.Color 
-        if  let a:Index = self.left(of: node),
-            let b:Index = self.right(of: node)
+        let left:Index?, 
+            right:Index?, 
+            color:Node.Color 
+        switch (self.left(of: node), self.right(of: node))
         {
-            let replacement:Index = self.sink(node, on: position, left: a, right: b)
+        case (let a?, let b?):
+            let replacement:Index
+            if case (left: let e, parent: let d)? = self.leftmost(of: b)
+            {
+                right = self.sink(node, on: position, a: a, b: b, d: d, e: e)
+                replacement = e
+            }
+            else 
+            {
+                right = self.sink(node, on: position, a: a, b: b)
+                replacement = b
+            }
+            // replacement never has a left child
+            left = nil 
             color = self[replacement].color
             self[replacement].color = self[node].color
             self[node].color = color 
-        }
-        else 
-        {
-            color = self[node].color
-        }
 
-        if case .red = color 
-        {
-            assert(self[node].left == node && self[node].right == node)
-            // a red node cannot be the root, so it must have a parent
-            self._replaceLink(to: node, with: nil, onParent: self[node].parent)
-        }
-        else if let child:Index = self.left(of: node) ?? self.right(of: node),
-                case .red = self[child].color
-        {
-            if let parent:Index = self.parent(of: node)
+            if case .red = color 
             {
-                self._replaceLink(to: node, with: child, onParent: parent)
+                assert(left  == nil)
+                assert(right == nil)
+                // a red node cannot be the root, so it must have a parent
+                self._replaceLink(to: node, with: nil, onParent: self[node].parent)
+            }
+            else if let child:Index = right
+            {
+                // an only-child must be red 
+                assert(.red == self[child].color)
+                
+                if let parent:Index = self.parent(of: node)
+                {
+                    self._replaceLink(to: node, with: child, onParent: parent)
+                    self[child].parent = parent
+                }
+                else
+                {
+                    fatalError("unreachable")
+                }
+
+                self[child].color = .black
+            }
+            else
+            {
+                // the root case is checked but not handled inside the
+                // balanceDeletion(phantom:root:) function
+                if let parent:Index = self.parent(of: node)
+                {
+                    self.balance(removal: node, on: self[parent].left == node ? .left : .right, of: parent)
+                    self._replaceLink(to: node, with: nil, onParent: parent)
+                }
+                else 
+                {
+                    fatalError("unreachable")
+                }
+            }
+        
+        case (let child?, nil), (nil, let child?):
+            // an only-child must be red, and a red node cannot have a red parent. 
+            assert(self[node].color == .black)
+            assert(self[child].color == .red)
+            if case (let side, of: let parent)? = position
+            {
+                self[parent][side] = child
                 self[child].parent = parent
             }
             else
             {
                 self[child].parent = child
-                // root = child
             }
-
             self[child].color = .black
-        }
-        else
-        {
-            self.balance(removal: node)
-            // the root case is checked but not handled inside the
-            // balanceDeletion(phantom:root:) function
-            if let parent:Index = self.parent(of: node)
+        
+        case (nil, nil):
+            switch (self[node].color, on: position)
             {
-                self._replaceLink(to: node, with: nil, onParent: parent)
+            case (.red, on: nil): 
+                // a red node cannot be the root, so it must have a parent
+                fatalError("unreachable")
+            
+            case (.red, on: (let side, of: let parent)?):
+                // we can always delete a childless red node.
+                self[parent][side] = parent 
+            
+            case (.black, on: (let side, of: let parent)?):
+                self.balance(removal: node, on: side, of: parent)
+                self[parent][side] = parent 
+            
+            case (.black, on: nil): 
+                // we can always delete the root. 
+                break 
             }
-            // else
-            // {
-            //     root = nil
-            // }
         }
 
         self[node].state = nil
     }
     @inlinable public mutating 
-    func balance(removal node:Index)
+    func balance(removal node:Index, on side:Node.Side, of parent:Index)
     {
-        // case 1: node is the root. do nothing. don’t nil out the root because
-        // we may be here on a recursive call
-        guard let parent:Index = self.parent(of: node)
-        else
-        {
-            return
-        }
         // the node must have a sibling, since if it did not, the sibling subtree
         // would only contribute +1 black height compared to the node’s subtree’s
         // +2 black height.
         assert(self[parent].left  != parent)
         assert(self[parent].right != parent)
-        var sibling:Index = node == self[parent].left ? self[parent].right : self[parent].left
+
+        var sibling:Index = self[parent][side.other]
 
         // case 2: the node’s sibling is red. (the parent must be black.)
         //         make the parent red and the sibling black. rotate on the parent.
@@ -244,7 +309,10 @@ extension Forest
             self[sibling].color = .red
 
             // recursive call
-            self.balance(removal: parent)
+            if let grandparent:Index = self.parent(of: parent)
+            {
+                self.balance(removal: parent, on: self[grandparent].left == parent ? .left : .right, of: grandparent)
+            }
             return
         }
 

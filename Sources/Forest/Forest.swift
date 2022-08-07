@@ -73,6 +73,15 @@ struct Forest<Value>:RandomAccessCollection, CustomStringConvertible
             case right 
 
             @inlinable public 
+            var other:Self 
+            {
+                switch self 
+                {
+                case .left: return .right
+                case .right: return .left
+                }
+            }
+            @inlinable public 
             var left:Bool 
             {
                 switch self 
@@ -244,6 +253,22 @@ struct Forest<Value>:RandomAccessCollection, CustomStringConvertible
     init() 
     {
         self.nodes = []
+    }
+
+    public 
+    func _inhabitants() -> Int 
+    {
+        self.nodes.reduce(0) 
+        {
+            if case nil = $1.state 
+            {
+                return $0
+            }
+            else 
+            {
+                return $0 + 1
+            }
+        }
     }
 
     @inlinable public 
