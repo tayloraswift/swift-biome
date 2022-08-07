@@ -5,7 +5,6 @@ let package = Package(
     name: "swift-biome",
     products: 
     [
-        .library(name: "Forest",                targets: ["Forest"]),
         .library(name: "Versions",              targets: ["Versions"]),
         .library(name: "SymbolGraphs",          targets: ["SymbolGraphs"]),
         .library(name: "Biome",                 targets: ["Biome"]),
@@ -15,11 +14,11 @@ let package = Package(
         
         .executable(name: "preview",            targets: ["Preview"]),
         .executable(name: "swift-symbolgraphc", targets: ["SymbolGraphConvert"]),
-
-        .executable(name: "test-forest",        targets: ["ForestTests"]),
     ],
     dependencies: 
     [
+        .package(name: "swift-balanced-trees", path: "swift-balanced-trees"),
+
         .package(url: "https://github.com/kelvin13/swift-grammar",              exact: "0.1.5"),
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-highlight",            exact: "0.1.4"),
@@ -38,11 +37,6 @@ let package = Package(
     ],
     targets: 
     [
-        .target(name: "Forest", 
-            dependencies: 
-            [
-            ]),
-        
         .target(name: "Versions", 
             dependencies: 
             [
@@ -116,13 +110,5 @@ let package = Package(
                 .product(name: "SystemExtras",      package: "swift-system-extras"),
                 .product(name: "ArgumentParser",    package: "swift-argument-parser"),
             ]),
-        
-        
-        .executableTarget(name: "ForestTests", 
-            dependencies: 
-            [
-                .target(name: "Forest"),
-            ], 
-            path: "Tests/ForestTests"),
     ]
 )

@@ -9,6 +9,18 @@ extension Forest where Value:Comparable
 }
 extension Forest 
 {
+    @inlinable public mutating
+    func push(min value:Value, into tree:inout Tree.Head?) 
+    {
+        if let head:Tree.Head = tree
+        {
+            tree = .init(self.insert(value, on: .left, of: head.index))
+        }
+        else 
+        {
+            tree = .init(self.insert(root: value))
+        }
+    }
     @discardableResult
     @inlinable public mutating
     func insert(_ value:Value, into tree:inout Tree.Head?,
@@ -37,25 +49,6 @@ extension Forest
             return occupant
         }
     }
-
-    // @inlinable public mutating 
-    // func insert(_ index:Index, after predecessor:Index, root:inout Index?)
-    // {
-    //     if let right:Index = self.right(of: predecessor)
-    //     {
-    //         let parent:Index = self.leftmost(of: right)
-    //         self[parent].left = index
-    //         self[index].parent = parent
-    //     }
-    //     else
-    //     {
-    //         self[predecessor].right = index
-    //         self[index].parent = predecessor
-    //     }
-
-    //     self.balanceInsertion(at: index, root: &root)
-    // }
-
 
     @inlinable public mutating 
     func insert(root value:Value) -> Index 
