@@ -293,6 +293,82 @@ struct Forest<Value>:RandomAccessCollection, CustomStringConvertible
             yield &self.nodes[index.offset]
         }
     }
+    // “smart” subscripts, that update both ends of a link
+    @inlinable public 
+    subscript(side:Node.Side, of parent:Index) -> Index
+    {
+        _read 
+        {
+            yield self[parent][side]
+        }
+        set(child)
+        {
+            self[child].parent = parent 
+            self[parent][side] = child
+        }
+    }
+    @inlinable public 
+    subscript(side:Node.Side, of parent:Index) -> Index?
+    {
+        _read 
+        {
+            yield self[side, of: parent] as Index 
+        }
+        set(child)
+        {
+            if let child:Index 
+            {
+                self[side, of: parent] = child 
+            }
+            else 
+            {
+                self[parent][side] = parent 
+            }
+        }
+    }
+    @inlinable public 
+    subscript(position:(side:Node.Side, of:Index)) -> Index
+    {
+        _read 
+        {
+            yield  self[position.side, of: position.of]
+        }
+        _modify
+        {
+            yield &self[position.side, of: position.of]
+        }
+    }
+    @inlinable public 
+    subscript(position:(side:Node.Side, of:Index)) -> Index?
+    {
+        _read 
+        {
+            yield  self[position.side, of: position.of]
+        }
+        _modify
+        {
+            yield &self[position.side, of: position.of]
+        }
+    }
+    @inlinable public 
+    subscript(position:(side:Node.Side, of:Index)?) -> Index?
+    {
+        get 
+        {
+            position.map { self[ $0] }
+        }
+        set(child)
+        {
+            if case (let side, of: let parent)? = position 
+            {
+                self[side, of: parent] = child ?? parent
+            }
+            else if let child:Index 
+            {
+                self[child].parent = child 
+            }
+        }
+    }
 
     @inlinable public 
     func left(of index:Index) -> Index?
