@@ -45,8 +45,8 @@ struct Package:Identifiable, Sendable
     
     struct Heads 
     {
-        @Keyframe<Article.Template<Ecosystem.Link>>.Head
-        var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
+        @History<Article.Template<Ecosystem.Link>>.Branch.Optional
+        var template:History<Article.Template<Ecosystem.Link>>.Branch.Head?
         
         init() 
         {
@@ -69,25 +69,25 @@ struct Package:Identifiable, Sendable
         symbols:CulturalBuffer<Symbol.Index, Symbol>,
         articles:CulturalBuffer<Article.Index, Article>
     private(set)
-    var external:[Symbol.Diacritic: Keyframe<Symbol.Traits>.Buffer.Index]
+    var external:[Symbol.Diacritic: History<Symbol.Traits>.Branch.Head]
     // per-module buffers
     private(set)
-    var dependencies:Keyframe<Set<Module.Index>>.Buffer, // always populated 
-        toplevels:Keyframe<Set<Symbol.Index>>.Buffer, // always populated 
-        guides:Keyframe<Set<Article.Index>>.Buffer // *not* always populated
+    var dependencies:History<Set<Module.Index>>, // always populated 
+        toplevels:History<Set<Symbol.Index>>, // always populated 
+        guides:History<Set<Article.Index>> // *not* always populated
     // per-article buffers
     private(set)
-    var excerpts:Keyframe<Article.Excerpt>.Buffer
+    var excerpts:History<Article.Excerpt>
     // per-symbol buffers 
     private(set)
-    var declarations:Keyframe<Declaration<Symbol.Index>>.Buffer, // always populated 
-        facts:Keyframe<Symbol.Predicates>.Buffer // always populated
+    var declarations:History<Declaration<Symbol.Index>>, // always populated 
+        facts:History<Symbol.Predicates> // always populated
     // per-(external) host buffers 
     private(set)
-    var opinions:Keyframe<Symbol.Traits>.Buffer
+    var opinions:History<Symbol.Traits>
     // shared buffer. 
     private(set) 
-    var templates:Keyframe<Article.Template<Ecosystem.Link>>.Buffer
+    var templates:History<Article.Template<Ecosystem.Link>>
     private(set)
     var groups:[Route.Key: Symbol.Group]
     
@@ -295,24 +295,7 @@ struct Package:Identifiable, Sendable
     mutating 
     func updateVersion(_ version:PreciseVersion, dependencies:[Index: Version]) -> Package.Pins
     {
-        let pins:Package.Pins = self.versions.push(version, dependencies: dependencies)
-        for module:Module in self.modules.all 
-        {
-            self.dependencies.push(pins.local.version, head: module.heads.dependencies)
-        }
-        for article:Article in self.articles.all 
-        {
-            self.templates.push(pins.local.version, head: article.heads.template)
-        }
-        for symbol:Symbol in self.symbols.all 
-        {
-            self.facts.push(pins.local.version, head: symbol.heads.facts)
-        }
-        for host:Keyframe<Symbol.Traits>.Buffer.Index in self.external.values 
-        {
-            self.opinions.push(pins.local.version, head: host)
-        }
-        return pins 
+        self.versions.push(version, dependencies: dependencies)
     }
 
     // we don’t use this quite the same as `contains(_:at:)` for ``Symbol.Composite``, 
@@ -323,39 +306,15 @@ struct Package:Identifiable, Sendable
     // package version with this method.
     func contains(_ module:Module.Index, at version:Version) -> Bool 
     {
-        if case (_, .extant)? = self.dependencies.at(version, 
-            head: self[local: module].heads.dependencies)
-        {
-            return true 
-        }
-        else 
-        {
-            return false 
-        }
+        self.dependencies[self[local: module].heads.dependencies].contains(version)
     }
     func contains(_ article:Article.Index, at version:Version) -> Bool 
     {
-        if case (_, .extant)? = self.templates.at(version, 
-            head: self[local: article].heads.template)
-        {
-            return true 
-        }
-        else 
-        {
-            return false 
-        }
+        self.templates[self[local: article].heads.template].contains(version)
     }
     func contains(_ symbol:Symbol.Index, at version:Version) -> Bool 
     {
-        if case (_, .extant)? = self.facts.at(version, 
-            head: self.symbols[local: symbol].heads.facts)
-        {
-            return true 
-        }
-        else 
-        {
-            return false 
-        }
+        self.facts[self.symbols[local: symbol].heads.facts].contains(version)
     }
     // FIXME: the complexity of this becomes quadratic-ish if we test *every* 
     // package version with this method, which we do for the version menu dropdowns
@@ -370,8 +329,7 @@ struct Package:Identifiable, Sendable
         if let heads:Symbol.Heads = self[host]?.heads
         {
             // local host (primary or accepted culture)
-            if case (let predicates, .extant)? = 
-                    self.facts.at(version, head: heads.facts), 
+            if  let predicates:Symbol.Predicates = self.facts[heads.facts].at(version), 
                 let traits:Symbol.Traits = composite.culture == host.module ? 
                     predicates.primary : predicates.accepted[composite.culture]
             {
@@ -383,8 +341,8 @@ struct Package:Identifiable, Sendable
             }
         }
         // external host
-        else if case (let traits, .extant)? = 
-            self.opinions.at(version, head: self.external[composite.diacritic])
+        else if let traits:Symbol.Traits = 
+            self.opinions[self.external[composite.diacritic]].at(version)
         {
             return traits.features.contains(composite.base)
         }
@@ -414,7 +372,7 @@ struct Package:Identifiable, Sendable
     
     func currentOpinion(_ diacritic:Symbol.Diacritic) -> Symbol.Traits?
     {
-        self.external[diacritic].map { self.opinions[$0].value }
+        self.external[diacritic].map { self.opinions[$0.index].value }
     }
 }
 
@@ -426,20 +384,20 @@ extension Package
         let current:Version = self.versions.latest
         for (index, facts):(Symbol.Index, Symbol.Facts) in beliefs.facts
         {
-            self.facts.update(head: &self.symbols[local: index].heads.facts, 
-                to: current, with: facts.predicates)
+            self.facts.push(facts.predicates, version: current, 
+                into: &self.symbols[local: index].heads.facts)
         }
         for (diacritic, traits):(Symbol.Diacritic, Symbol.Traits) in beliefs.opinions 
         {
-            self.opinions.update(head: &self.external[diacritic], 
-                to: current, with: traits)
+            self.opinions.push(traits, version: current, 
+                into: &self.external[diacritic])
         }
     }
     mutating 
     func pushDependencies(_ dependencies:Set<Module.Index>, culture:Module.Index)
     {
-        self.dependencies.update(head: &self.modules[local: culture].heads.dependencies, 
-            to: self.versions.latest, with: dependencies)
+        self.dependencies.push(dependencies, version: self.versions.latest,
+            into: &self.modules[local: culture].heads.dependencies)
     }
     mutating 
     func pushDeclarations(_ declarations:[(Symbol.Index, Declaration<Symbol.Index>)]) 
@@ -447,8 +405,8 @@ extension Package
         let current:Version = self.versions.latest
         for (index, declaration):(Symbol.Index, Declaration<Symbol.Index>) in declarations
         {
-            self.declarations.update(head: &self.symbols[local: index].heads.declaration, 
-                to: current, with: declaration)
+            self.declarations.push(declaration, version: current, 
+                into: &self.symbols[local: index].heads.declaration)
         }
     }
     mutating 
@@ -465,19 +423,19 @@ extension Package
                 {
                     fatalError("unimplemented")
                 }
-                self.templates.update(head: &self.symbols[local: composite.base].heads.template, 
-                    to: current, with: template)
+                self.templates.push(template, version: current, 
+                    into: &self.symbols[local: composite.base].heads.template)
                 
             case .article(let index): 
-                self.templates.update(head: &self.articles[local: index].heads.template, 
-                    to: current, with: template)
+                self.templates.push(template, version: current, 
+                    into: &self.articles[local: index].heads.template)
                 
             case .module(let index): 
-                self.templates.update(head: &self.modules[local: index].heads.template, 
-                    to: current, with: template)
+                self.templates.push(template, version: current, 
+                    into: &self.modules[local: index].heads.template)
             case .package(self.index): 
-                self.templates.update(head: &self.heads.template, 
-                    to: current, with: template)
+                self.templates.push(template, version: current, 
+                    into: &self.heads.template)
             
             case .package(_): 
                 fatalError("unreachable")
@@ -493,14 +451,14 @@ extension Package
             let excerpt:Article.Excerpt = .init(title: article.headline.plainText,
                 headline: article.headline.rendered(as: [UInt8].self),
                 snippet: article.snippet)
-            self.excerpts.update(head: &self.articles[local: index].heads.excerpt, 
-                to: current, with: excerpt)
+            self.excerpts.push(excerpt, version: current, 
+                into: &self.articles[local: index].heads.excerpt)
         }
         let guides:Set<Article.Index> = .init(articles.keys)
         if !guides.isEmpty 
         {
-            self.guides.update(head: &self.modules[local: culture].heads.guides,
-                to: current, with: guides)
+            self.guides.push(guides, version: current, 
+                into: &self.modules[local: culture].heads.guides)
         }
     }
     mutating 
@@ -516,8 +474,8 @@ extension Package
                 toplevel.insert(symbol)
             }
         }
-        self.toplevels.update(head: &self.modules[local: updates.culture].heads.toplevel, 
-            to: self.versions.latest, with: toplevel)
+        self.toplevels.push(toplevel, version: self.versions.latest, 
+            into: &self.modules[local: updates.culture].heads.toplevel)
     }
 }
 

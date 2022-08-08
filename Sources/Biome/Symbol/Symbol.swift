@@ -53,12 +53,12 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     
     struct Heads 
     {
-        @Keyframe<Declaration>.Head
-        var declaration:Keyframe<Declaration<Index>>.Buffer.Index?
-        @Keyframe<Article.Template<Ecosystem.Link>>.Head
-        var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
-        @Keyframe<Predicates>.Head
-        var facts:Keyframe<Predicates>.Buffer.Index?
+        @History<Declaration<Index>>.Branch.Optional
+        var declaration:History<Declaration<Index>>.Branch.Head?
+        @History<Article.Template<Ecosystem.Link>>.Branch.Optional
+        var template:History<Article.Template<Ecosystem.Link>>.Branch.Head?
+        @History<Predicates>.Branch.Optional
+        var facts:History<Predicates>.Branch.Head?
         
         init() 
         {
