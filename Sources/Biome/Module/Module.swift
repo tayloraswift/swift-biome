@@ -41,14 +41,14 @@ struct Module:Identifiable, Sendable
     
     struct Heads 
     {
-        @Keyframe<Set<Index>>.Head
-        var dependencies:Keyframe<Set<Index>>.Buffer.Index?
-        @Keyframe<Set<Symbol.Index>>.Head
-        var toplevel:Keyframe<Set<Symbol.Index>>.Buffer.Index?
-        @Keyframe<Set<Article.Index>>.Head
-        var guides:Keyframe<Set<Article.Index>>.Buffer.Index?
-        @Keyframe<Article.Template<Ecosystem.Link>>.Head
-        var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
+        @History<Set<Index>>.Branch.Optional 
+        var dependencies:History<Set<Index>>.Branch.Head?
+        @History<Set<Symbol.Index>>.Branch.Optional 
+        var toplevel:History<Set<Symbol.Index>>.Branch.Head?
+        @History<Set<Article.Index>>.Branch.Optional 
+        var guides:History<Set<Article.Index>>.Branch.Head?
+        @History<Article.Template<Ecosystem.Link>>.Branch.Optional 
+        var template:History<Article.Template<Ecosystem.Link>>.Branch.Head?
         
         init() 
         {

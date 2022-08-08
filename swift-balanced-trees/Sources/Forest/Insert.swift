@@ -30,17 +30,18 @@ extension Forest
         {
         case nil:
             // node would become the new head. 
-            let head:Index 
-            if let tree:Tree.Head 
+            if var head:Tree.Head = tree 
             {
-                head = self.insert(value, on: .left, of: tree.index)
+                head.index = self.insert(value, on: .left, of: head.index)
+                tree = head 
+                return head.index 
             }
             else 
             {
-                head = self.insert(root: value)
+                let head:Tree.Head = self.insert(root: value)
+                tree = head 
+                return head.index 
             }
-            tree = .init(head)
-            return head 
         
         case (let parent, let side?)?:
             return self.insert(value, on: side, of: parent)
@@ -51,11 +52,11 @@ extension Forest
     }
 
     @inlinable public mutating 
-    func insert(root value:Value) -> Index 
+    func insert(root value:Value) -> Tree.Head  
     {
         let index:Index = self.endIndex
         self.nodes.append(.init(.black(value), at: index))
-        return index
+        return .init(index)
     }
 
     @inlinable public mutating 

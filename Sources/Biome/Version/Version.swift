@@ -21,4 +21,9 @@ struct Version:Hashable, Strideable, Sendable
     {
         self.offset.distance(to: other.offset)
     }
+
+    var _predecessor:Self 
+    {
+        self.advanced(by: -1)
+    }
 }

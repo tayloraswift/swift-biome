@@ -31,10 +31,10 @@ struct Article:Identifiable
     
     struct Heads 
     {
-        @Keyframe<Article.Excerpt>.Head
-        var excerpt:Keyframe<Article.Excerpt>.Buffer.Index?
-        @Keyframe<Article.Template<Ecosystem.Link>>.Head
-        var template:Keyframe<Article.Template<Ecosystem.Link>>.Buffer.Index?
+        @History<Article.Excerpt>.Branch.Optional 
+        var excerpt:History<Article.Excerpt>.Branch.Head?
+        @History<Article.Template<Ecosystem.Link>>.Branch.Optional 
+        var template:History<Article.Template<Ecosystem.Link>>.Branch.Head?
         
         init() 
         {

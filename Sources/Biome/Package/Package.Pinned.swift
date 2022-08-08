@@ -121,65 +121,65 @@ extension Package.Pinned
 {
     func template() -> Article.Template<Ecosystem.Link>
     {
-        self.package.templates
-            .through(self.version, head: self.package.heads.template) ?? 
+        self.package.templates[self.package.heads.template]
+            .at(self.version) ?? 
             .init()
     }
     func template(_ module:Module.Index) -> Article.Template<Ecosystem.Link>
     {
-        self.package.templates
-            .through(self.version, head: self.package[local: module].heads.template) ?? 
+        self.package.templates[self.package[local: module].heads.template]
+            .at(self.version) ?? 
             .init()
     }
     func template(_ symbol:Symbol.Index) -> Article.Template<Ecosystem.Link>
     {
-        self.package.templates
-            .through(self.version, head: self.package[local: symbol].heads.template) ?? 
+        self.package.templates[self.package[local: symbol].heads.template]
+            .at(self.version) ?? 
             .init()
     }
     func template(_ article:Article.Index) -> Article.Template<Ecosystem.Link>
     {
-        self.package.templates
-            .through(self.version, head: self.package[local: article].heads.template) ?? 
+        self.package.templates[self.package[local: article].heads.template]
+            .at(self.version) ?? 
             .init()
     }
     func excerpt(_ article:Article.Index) -> Article.Excerpt
     {
-        self.package.excerpts
-            .through(self.version, head: self.package[local: article].heads.excerpt) ?? 
+        self.package.excerpts[self.package[local: article].heads.excerpt]
+            .at(self.version) ?? 
             .init("Untitled")
     }
     
     func dependencies(_ module:Module.Index) -> Set<Module.Index>
     {
         // `nil` case should be unreachable in practice
-        self.package.dependencies
-            .through(self.version, head: self.package[local: module].heads.dependencies) ?? []
+        self.package.dependencies[self.package[local: module].heads.dependencies]
+            .at(self.version) ?? []
     }
     func toplevel(_ module:Module.Index) -> Set<Symbol.Index>
     {
         // `nil` case should be unreachable in practice
-        self.package.toplevels
-            .through(self.version, head: self.package[local: module].heads.toplevel) ?? []
+        self.package.toplevels[self.package[local: module].heads.toplevel]
+            .at(self.version) ?? []
     }
     func guides(_ module:Module.Index) -> Set<Article.Index>
     {
-        self.package.guides
-            .through(self.version, head: self.package[local: module].heads.guides) ?? []
+        self.package.guides[self.package[local: module].heads.guides]
+            .at(self.version) ?? []
     }
     
     func declaration(_ symbol:Symbol.Index) -> Declaration<Symbol.Index>
     {
         // `nil` case should be unreachable in practice
-        self.package.declarations
-            .through(self.version, head: self.package[local: symbol].heads.declaration) ?? 
+        self.package.declarations[self.package[local: symbol].heads.declaration]
+            .at(self.version) ?? 
             .init(fallback: "<unavailable>")
     }
     func facts(_ symbol:Symbol.Index) -> Symbol.Predicates 
     {
         // `nil` case should be unreachable in practice
-        self.package.facts
-            .through(self.version, head: self.package[local: symbol].heads.facts) ?? 
+        self.package.facts[self.package[local: symbol].heads.facts]
+            .at(self.version) ?? 
             .init(roles: nil)
     }
     

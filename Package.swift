@@ -57,6 +57,8 @@ let package = Package(
             [
                 .target(name: "SymbolGraphs"),
 
+                .product(name: "Forest",            package: "swift-balanced-trees"),
+
                 .product(name: "DOM",               package: "swift-dom"),
                 .product(name: "JSON",              package: "swift-json"),
                 .product(name: "Resources",         package: "swift-resource"),
