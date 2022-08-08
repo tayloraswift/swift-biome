@@ -295,24 +295,7 @@ struct Package:Identifiable, Sendable
     mutating 
     func updateVersion(_ version:PreciseVersion, dependencies:[Index: Version]) -> Package.Pins
     {
-        let pins:Package.Pins = self.versions.push(version, dependencies: dependencies)
-        // for module:Module in self.modules.all 
-        // {
-        //     self.dependencies.push(pins.local.version, head: module.heads.dependencies)
-        // }
-        // for article:Article in self.articles.all 
-        // {
-        //     self.templates.push(pins.local.version, head: article.heads.template)
-        // }
-        // for symbol:Symbol in self.symbols.all 
-        // {
-        //     self.facts.push(pins.local.version, head: symbol.heads.facts)
-        // }
-        // for host:Keyframe<Symbol.Traits>.Buffer.Index in self.external.values 
-        // {
-        //     self.opinions.push(pins.local.version, head: host)
-        // }
-        return pins 
+        self.versions.push(version, dependencies: dependencies)
     }
 
     // we don’t use this quite the same as `contains(_:at:)` for ``Symbol.Composite``, 
