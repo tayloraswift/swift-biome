@@ -39,32 +39,6 @@ extension Ecosystem
             peripherals: peripherals, 
             lenses: lenses, 
             scopes: scopes)
-        // if a symbol did not have documentation of its own, 
-        // check if it has a sponsor. article templates are copy-on-write 
-        // types, so this will not (eagarly) copy storage
-        // for (alien, sponsor):(Symbol.Index, Symbol.Index) in comments.hints 
-        // {
-        //     let alien:Index = .symbol(alien)
-        //     if documentation.keys.contains(alien)
-        //     {
-        //         continue 
-        //     }
-        //     else if let template:Article.Template<Ecosystem.Link> = 
-        //         documentation[.symbol(sponsor)] 
-        //     {
-        //         documentation[alien] = template
-        //     }
-        //     // note: empty doccomments are omitted from the template buffer
-        //     else if pins.local.package != sponsor.module.package
-        //     {
-        //         let template:Article.Template<Ecosystem.Link> = 
-        //             self[sponsor.module.package].pinned(pins).template(sponsor)
-        //         if !template.isEmpty
-        //         {
-        //             documentation[alien] = template
-        //         }
-        //     }
-        // }
     }
 }
 
