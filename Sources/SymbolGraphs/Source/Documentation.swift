@@ -42,22 +42,19 @@ enum Documentation<Comment, Target>
 }
 extension Documentation where Comment == String 
 {
-    init?(_ comment:String?, from origin:Target?)
+    static 
+    func extends(_ origin:Target?, with comment:String?) -> Self?
     {
-        switch (comment, origin)
+        switch (origin, comment)
         {
         case (nil, nil): 
             return nil 
-        case (nil, let origin?):
-            self = .inherits(origin)
-        case (let comment?, let origin?):
-            self = comment.isEmpty ? .inherits(origin) : .extends(origin, with: comment)
-        case (let comment?, nil):
-            if comment.isEmpty 
-            {
-                return nil 
-            }
-            self = .extends(nil, with: comment)
+        case (let origin?, nil):
+            return .inherits(origin)
+        case (let origin?, let comment?):
+            return comment.isEmpty ? .inherits(origin) : .extends(origin, with: comment)
+        case (nil, let comment?):
+            return comment.isEmpty ? nil : .extends(nil, with: comment)
         }
     }
 }

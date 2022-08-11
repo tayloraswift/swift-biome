@@ -48,8 +48,8 @@ extension SymbolGraph.Vertex<Int>
                     {
                         try $0.map(Generic.init(from:))
                     } ?? []),
-                documentation: .init(try $0.pop(IR.Vertex.comment, as: String.self), 
-                    from: try $0.pop(IR.Vertex.origin, as: Int.self))) 
+                documentation: .extends(try $0.pop(IR.Vertex.origin, as: Int.self), 
+                    with: try $0.pop(IR.Vertex.comment, as: String.self))) 
         }
     }
     var serialized:JSON 
