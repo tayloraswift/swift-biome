@@ -53,17 +53,17 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
     
     struct Heads 
     {
+        @History<DocumentationNode>.Branch.Optional
+        var documentation:History<DocumentationNode>.Branch.Head?
         @History<Declaration<Index>>.Branch.Optional
         var declaration:History<Declaration<Index>>.Branch.Head?
-        @History<Article.Template<Ecosystem.Link>>.Branch.Optional
-        var template:History<Article.Template<Ecosystem.Link>>.Branch.Head?
         @History<Predicates>.Branch.Optional
         var facts:History<Predicates>.Branch.Head?
         
         init() 
         {
+            self._documentation = .init()
             self._declaration = .init()
-            self._template = .init()
             self._facts = .init()
         }
     }

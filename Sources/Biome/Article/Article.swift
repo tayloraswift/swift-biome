@@ -31,15 +31,15 @@ struct Article:Identifiable
     
     struct Heads 
     {
-        @History<Article.Excerpt>.Branch.Optional 
-        var excerpt:History<Article.Excerpt>.Branch.Head?
-        @History<Article.Template<Ecosystem.Link>>.Branch.Optional 
-        var template:History<Article.Template<Ecosystem.Link>>.Branch.Head?
+        @History<Excerpt>.Branch.Optional 
+        var excerpt:History<Excerpt>.Branch.Head?
+        @History<DocumentationNode>.Branch.Optional 
+        var documentation:History<DocumentationNode>.Branch.Head?
         
         init() 
         {
             self._excerpt = .init()
-            self._template = .init()
+            self._documentation = .init()
         }
     }
     

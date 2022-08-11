@@ -119,29 +119,29 @@ extension Package.Pinned
 }
 extension Package.Pinned 
 {
-    func template() -> Article.Template<Ecosystem.Link>
+    func documentation() -> DocumentationNode
     {
-        self.package.templates[self.package.heads.template]
+        self.package.documentation[self.package.heads.documentation]
             .at(self.version) ?? 
-            .init()
+            .extends(nil, with: .init())
     }
-    func template(_ module:Module.Index) -> Article.Template<Ecosystem.Link>
+    func documentation(_ module:Module.Index) -> DocumentationNode
     {
-        self.package.templates[self.package[local: module].heads.template]
+        self.package.documentation[self.package[local: module].heads.documentation]
             .at(self.version) ?? 
-            .init()
+            .extends(nil, with: .init())
     }
-    func template(_ symbol:Symbol.Index) -> Article.Template<Ecosystem.Link>
+    func documentation(_ symbol:Symbol.Index) -> DocumentationNode
     {
-        self.package.templates[self.package[local: symbol].heads.template]
+        self.package.documentation[self.package[local: symbol].heads.documentation]
             .at(self.version) ?? 
-            .init()
+            .extends(nil, with: .init())
     }
-    func template(_ article:Article.Index) -> Article.Template<Ecosystem.Link>
+    func documentation(_ article:Article.Index) -> DocumentationNode
     {
-        self.package.templates[self.package[local: article].heads.template]
+        self.package.documentation[self.package[local: article].heads.documentation]
             .at(self.version) ?? 
-            .init()
+            .extends(nil, with: .init())
     }
     func excerpt(_ article:Article.Index) -> Article.Excerpt
     {

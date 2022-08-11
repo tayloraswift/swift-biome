@@ -45,12 +45,12 @@ struct Package:Identifiable, Sendable
     
     struct Heads 
     {
-        @History<Article.Template<Ecosystem.Link>>.Branch.Optional
-        var template:History<Article.Template<Ecosystem.Link>>.Branch.Head?
+        @History<DocumentationNode>.Branch.Optional
+        var documentation:History<DocumentationNode>.Branch.Head?
         
         init() 
         {
-            self._template = .init()
+            self._documentation = .init()
         }
     }
     
@@ -87,7 +87,7 @@ struct Package:Identifiable, Sendable
     var opinions:History<Symbol.Traits>
     // shared buffer. 
     private(set) 
-    var templates:History<Article.Template<Ecosystem.Link>>
+    var documentation:History<DocumentationNode>
     private(set)
     var groups:[Route.Key: Symbol.Group]
     
@@ -126,7 +126,7 @@ struct Package:Identifiable, Sendable
         self.facts = .init()
         self.opinions = .init()
         
-        self.templates = .init()
+        self.documentation = .init()
         self.excerpts = .init()
     }
 
@@ -310,7 +310,7 @@ struct Package:Identifiable, Sendable
     }
     func contains(_ article:Article.Index, at version:Version) -> Bool 
     {
-        self.templates[self[local: article].heads.template].contains(version)
+        self.documentation[self[local: article].heads.documentation].contains(version)
     }
     func contains(_ symbol:Symbol.Index, at version:Version) -> Bool 
     {
@@ -410,10 +410,10 @@ extension Package
         }
     }
     mutating 
-    func pushDocumentation(_ compiled:[Ecosystem.Index: Article.Template<Ecosystem.Link>])
+    func pushDocumentation(_ compiled:[Ecosystem.Index: DocumentationNode])
     {
         let current:Version = self.versions.latest
-        for (index, template):(Ecosystem.Index, Article.Template<Ecosystem.Link>) in compiled 
+        for (index, documentation):(Ecosystem.Index, DocumentationNode) in compiled 
         {
             switch index 
             {
@@ -423,19 +423,19 @@ extension Package
                 {
                     fatalError("unimplemented")
                 }
-                self.templates.push(template, version: current, 
-                    into: &self.symbols[local: composite.base].heads.template)
+                self.documentation.push(documentation, version: current, 
+                    into: &self.symbols[local: composite.base].heads.documentation)
                 
             case .article(let index): 
-                self.templates.push(template, version: current, 
-                    into: &self.articles[local: index].heads.template)
+                self.documentation.push(documentation, version: current, 
+                    into: &self.articles[local: index].heads.documentation)
                 
             case .module(let index): 
-                self.templates.push(template, version: current, 
-                    into: &self.modules[local: index].heads.template)
+                self.documentation.push(documentation, version: current, 
+                    into: &self.modules[local: index].heads.documentation)
             case .package(self.index): 
-                self.templates.push(template, version: current, 
-                    into: &self.heads.template)
+                self.documentation.push(documentation, version: current, 
+                    into: &self.heads.documentation)
             
             case .package(_): 
                 fatalError("unreachable")

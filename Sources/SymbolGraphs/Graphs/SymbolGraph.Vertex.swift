@@ -16,23 +16,24 @@ extension SymbolGraph
         public 
         var declaration:Declaration<Target>
         public 
-        var comment:String
+        var documentation:Documentation<String, Target>?
 
         @inlinable public 
         init(path:Path,
             community:Community, 
             declaration:Declaration<Target>, 
-            comment:String)
+            documentation:Documentation<String, Target>? = nil)
         {
             self.path = path
             self.community = community
             self.declaration = declaration
-            self.comment = comment
+            self.documentation = documentation
         }
 
         func forEach(_ body:(Target) throws -> ()) rethrows 
         {
             try self.declaration.forEach(body)
+            try self.documentation?.forEach(body)
         }
         @inlinable public 
         func map<T>(_ transform:(Target) throws -> T) rethrows -> Vertex<T>
@@ -40,7 +41,7 @@ extension SymbolGraph
             .init(path: self.path, 
                 community: self.community, 
                 declaration: try self.declaration.map(transform), 
-                comment: self.comment)
+                documentation: try self.documentation?.map(transform))
         }
     }
 }
@@ -59,7 +60,6 @@ extension SymbolGraph.Vertex
             community: .protocol, 
             declaration: .init(
                 fragments: .init(fragments), 
-                signature: .init(fragments)), 
-            comment: "")
+                signature: .init(fragments)))
     }
 }

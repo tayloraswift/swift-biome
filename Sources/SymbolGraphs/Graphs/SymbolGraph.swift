@@ -82,8 +82,7 @@ struct SymbolGraph:Identifiable, Sendable
     public private(set)
     var identifiers:[SymbolIdentifier], 
         vertices:[Vertex<Int>], 
-        edges:[Edge<Int>],
-        hints:[Hint<Int>]
+        edges:[Edge<Int>]
     public
     var sourcemap:[(uri:String, symbols:[SourceFeature<Int>])]
     
@@ -100,7 +99,6 @@ struct SymbolGraph:Identifiable, Sendable
         identifiers:[SymbolIdentifier], 
         vertices:[Vertex<Int>], 
         edges:[Edge<Int>],
-        hints:[Hint<Int>],
         sourcemap:[(uri:String, symbols:[SourceFeature<Int>])])
     {
         self.id = id
@@ -110,7 +108,6 @@ struct SymbolGraph:Identifiable, Sendable
         self.identifiers = identifiers
         self.vertices = vertices
         self.edges = edges
-        self.hints = hints
         self.sourcemap = sourcemap
     }
     public 
@@ -223,16 +220,6 @@ struct SymbolGraph:Identifiable, Sendable
             // we partition by relation type.
             ($0.source, $0.target) < ($1.source, $1.target)
         }
-        // uniquify hints
-        var hints:Set<Hint<Int>> = []
-        for subgraph:Subgraph in subgraphs 
-        {
-            for hint:Hint<SymbolIdentifier> in subgraph.hints
-            {
-                hints.insert(hint.map { indices[$0]! })
-            }
-        }
-        self.hints = hints.sorted()
 
         var sourcemap:[String: [SourceFeature<Int>]] = [:]
         for subgraph:Subgraph in subgraphs 
@@ -253,5 +240,51 @@ struct SymbolGraph:Identifiable, Sendable
         {
             $0.uri < $1.uri
         }
+
+        // uniquify hints
+        var uptree:[Int: Int] = [:]
+        for subgraph:Subgraph in subgraphs 
+        {
+            for hint:Hint<SymbolIdentifier> in subgraph.hints
+            {
+                let hint:Hint<Int> = hint.map { indices[$0]! } 
+                uptree[hint.source] = hint.origin
+            }
+        }
+        self.apply(hints: uptree)
+    }
+
+    private mutating 
+    func apply(hints:[Int: Int]) 
+    {
+        for (source, origin):(Int, Int) in hints where source < self.vertices.endIndex
+        {
+            switch self.vertices[source].documentation
+            {
+            case .inherits(_)?, .extends(_?, with: _): 
+                break 
+            case .extends(nil, with: let comment)?:
+                self.vertices[source].documentation = .extends(origin, with: comment)
+            case nil: 
+                self.vertices[source].documentation = .inherits(origin)
+            }
+        }
+        // delete comments if a hint indicates it is duplicated. 
+        // this does not preclude the need to prune again when documentation 
+        // from multiple modules in the same package are combined (yet)
+        var pruned:Int = 0
+        for index:Int in self.vertices.indices
+        {
+            if  case .extends(let origin?, with: let comment)? = 
+                    self.vertices[index].documentation,
+                    origin < self.vertices.endIndex, 
+                case .extends(_, with: comment)? = 
+                    self.vertices[origin].documentation
+            {
+                self.vertices[index].documentation = .inherits(origin)
+                pruned += 1
+            }
+        }
+        print("pruned \(pruned) duplicate comments")
     }
 }

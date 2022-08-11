@@ -232,7 +232,7 @@ extension Ecosystem
         }
 
 
-        let compiled:[Index: Article.Template<Link>] = self.compile(
+        let compiled:[Index: DocumentationNode] = self.compile(
             comments: graphs.generateComments(abstractors: abstractors),
             extensions: _move(extensions),
             articles: _move(articles),
