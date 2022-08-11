@@ -9,7 +9,6 @@ enum IR
     static let identifiers:String = "identifiers"
     static let vertices:String = "vertices"
     static let edges:String = "edges"
-    static let hints:String = "hints"
     static let sourcemap:String = "sourcemap"
 
     enum Communities 
@@ -132,19 +131,6 @@ extension SymbolGraph
                     try .init(from: $0, communities: partitions.lazy.map(\.communities).joined())
                 },
                 edges: try $0.remove(IR.edges, [Edge<Int>].init(from:)), 
-                hints: try $0.remove(IR.hints)
-                {
-                    let points:[JSON] = try $0.as([JSON].self) { $0 % 2 == 0 }
-                    var hints:[Hint<Int>] = []
-                        hints.reserveCapacity(points.count / 2)
-                    for start:Int in stride(from: points.startIndex, to: points.endIndex, by: 2)
-                    {
-                        hints.append(.init(
-                            source: try points.load(start), 
-                            origin: try points.load(start + 1)))
-                    }
-                    return hints
-                }, 
                 sourcemap: try $0.remove(IR.sourcemap, as: [JSON].self)
                 {
                     try $0.map 
@@ -198,7 +184,6 @@ extension SymbolGraph
             IR.identifiers: .array(self.identifiers.map { .string($0.string) }),
             IR.vertices: .array(self.vertices.map(\.serialized)),
             IR.edges: .object(self.edges.serialized),
-            IR.hints: .array(self.hints.flatMap { [.number($0.source), .number($0.origin)] }),
             IR.sourcemap: .array(self.sourcemap.map 
             { 
                 [

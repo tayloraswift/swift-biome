@@ -139,7 +139,7 @@ extension SymbolGraph.Symbol
 
             let availability:Availability = 
                 try $0.pop("availability", as: [JSON]?.self, Availability.init(lowering:)) ?? .init()
-            let comment:String = try $0.pop("docComment")
+            let comment:String? = try $0.pop("docComment")
             {
                 try $0.lint(whitelisting: ["uri", "module"]) 
                 {
@@ -154,7 +154,7 @@ extension SymbolGraph.Symbol
                         }.joined(separator: "\n")
                     }
                 }
-            } ?? ""
+            }
             let vertex:SymbolGraph.Vertex = .init(path: path,
                 community: community, 
                 declaration: .init(
@@ -164,7 +164,10 @@ extension SymbolGraph.Symbol
                     extensionConstraints: extensionConstraints, 
                     genericConstraints: genericConstraints, 
                     generics: generics), 
-                comment: comment)
+                documentation: comment.flatMap 
+                {
+                    $0.isEmpty ? nil : .extends(nil, with: $0)
+                })
             return (id, location, vertex)
         }
     }

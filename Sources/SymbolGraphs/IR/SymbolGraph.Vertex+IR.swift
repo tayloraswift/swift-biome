@@ -6,6 +6,7 @@ extension IR
     enum Vertex 
     {
         static let path:String = "p"
+        static let origin:String = "o"
         static let comment:String = "d"
     }
     enum Declaration 
@@ -47,7 +48,8 @@ extension SymbolGraph.Vertex<Int>
                     {
                         try $0.map(Generic.init(from:))
                     } ?? []),
-                comment: try $0.pop(IR.Vertex.comment, as: String.self) ?? "") 
+                documentation: .init(try $0.pop(IR.Vertex.comment, as: String.self), 
+                    from: try $0.pop(IR.Vertex.origin, as: Int.self))) 
         }
     }
     var serialized:JSON 
@@ -78,10 +80,18 @@ extension SymbolGraph.Vertex<Int>
             items.append((IR.Declaration.generics, 
                 .array(self.declaration.generics.map(\.serialized))))
         }
-        if !self.comment.isEmpty 
+        switch self.documentation 
         {
-            items.append((IR.Vertex.comment, 
-                .string(self.comment)))
+        case nil: 
+            break 
+        case .extends(nil, with: let comment):
+            items.append((IR.Vertex.comment, .string(comment)))
+        
+        case .extends(let origin?, with: let comment):
+            items.append((IR.Vertex.comment, .string(comment)))
+            fallthrough 
+        case .inherits(let origin)?:
+            items.append((IR.Vertex.origin, .number(origin)))
         }
         return .object(items)
     }

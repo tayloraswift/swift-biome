@@ -47,15 +47,15 @@ struct Module:Identifiable, Sendable
         var toplevel:History<Set<Symbol.Index>>.Branch.Head?
         @History<Set<Article.Index>>.Branch.Optional 
         var guides:History<Set<Article.Index>>.Branch.Head?
-        @History<Article.Template<Ecosystem.Link>>.Branch.Optional 
-        var template:History<Article.Template<Ecosystem.Link>>.Branch.Head?
+        @History<DocumentationNode>.Branch.Optional 
+        var documentation:History<DocumentationNode>.Branch.Head?
         
         init() 
         {
             self._dependencies = .init()
             self._toplevel = .init()
             self._guides = .init()
-            self._template = .init()
+            self._documentation = .init()
         }
     }
     

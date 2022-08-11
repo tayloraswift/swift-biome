@@ -1,13 +1,16 @@
+import SymbolGraphs
 import HTML
+
+typealias DocumentationNode = Documentation<Article.Template<Ecosystem.Link>, Symbol.Index>
 
 extension Ecosystem 
 {
-    func compile(comments:Comments,
+    func compile(comments:[Symbol.Index: Documentation<String, Symbol.Index>],
         extensions:[[String: Extension]],
         articles:[[Article.Index: Extension]], 
         scopes:[Module.Scope], 
         pins:Package.Pins)
-        -> [Index: Article.Template<Link>]
+        -> [Index: DocumentationNode]
     {
         //  build lexical scopes for each module culture. 
         //  we can store entire packages in the lenses because this method 
@@ -32,38 +35,36 @@ extension Ecosystem
             lenses.append(pinned)
             return lenses
         }
-        var documentation:[Index: Article.Template<Link>] = self.compile(
-            comments: comments.strings, 
+        return self.compile(comments: comments, 
             peripherals: peripherals, 
             lenses: lenses, 
             scopes: scopes)
         // if a symbol did not have documentation of its own, 
         // check if it has a sponsor. article templates are copy-on-write 
         // types, so this will not (eagarly) copy storage
-        for (alien, sponsor):(Symbol.Index, Symbol.Index) in comments.uptree 
-        {
-            let alien:Index = .symbol(alien)
-            if documentation.keys.contains(alien)
-            {
-                continue 
-            }
-            else if let template:Article.Template<Ecosystem.Link> = 
-                documentation[.symbol(sponsor)] 
-            {
-                documentation[alien] = template
-            }
-            // note: empty doccomments are omitted from the template buffer
-            else if pins.local.package != sponsor.module.package
-            {
-                let template:Article.Template<Ecosystem.Link> = 
-                    self[sponsor.module.package].pinned(pins).template(sponsor)
-                if !template.isEmpty
-                {
-                    documentation[alien] = template
-                }
-            }
-        }
-        return documentation
+        // for (alien, sponsor):(Symbol.Index, Symbol.Index) in comments.hints 
+        // {
+        //     let alien:Index = .symbol(alien)
+        //     if documentation.keys.contains(alien)
+        //     {
+        //         continue 
+        //     }
+        //     else if let template:Article.Template<Ecosystem.Link> = 
+        //         documentation[.symbol(sponsor)] 
+        //     {
+        //         documentation[alien] = template
+        //     }
+        //     // note: empty doccomments are omitted from the template buffer
+        //     else if pins.local.package != sponsor.module.package
+        //     {
+        //         let template:Article.Template<Ecosystem.Link> = 
+        //             self[sponsor.module.package].pinned(pins).template(sponsor)
+        //         if !template.isEmpty
+        //         {
+        //             documentation[alien] = template
+        //         }
+        //     }
+        // }
     }
 }
 
@@ -125,13 +126,13 @@ extension Ecosystem
 extension Ecosystem
 {
     private 
-    func compile(comments:[Symbol.Index: String], 
+    func compile(comments:[Symbol.Index: Documentation<String, Symbol.Index>], 
         peripherals:[[Index: Extension]], 
         lenses:[[Package.Pinned]],
         scopes:[Module.Scope])
-        -> [Index: Article.Template<Link>]
+        -> [Index: DocumentationNode]
     {
-        var documentation:[Index: Article.Template<Link>] = 
+        var documentation:[Index: DocumentationNode] = 
             .init(minimumCapacity: comments.count + peripherals.reduce(0) { $0 + $1.count })
         self.compile(&documentation,
             peripherals: peripherals, 
@@ -144,7 +145,7 @@ extension Ecosystem
         return documentation
     }
     private
-    func compile(_ documentation:inout [Index: Article.Template<Link>], 
+    func compile(_ documentation:inout [Index: DocumentationNode], 
         peripherals:[[Index: Extension]], 
         lenses:[[Package.Pinned]],
         scopes:[Module.Scope])
@@ -155,16 +156,16 @@ extension Ecosystem
         {
             for (target, article):(Index, Extension) in assigned
             {
-                documentation[target] = self.compile(article, 
+                documentation[target] = .extends(nil, with: self.compile(article, 
                     lenses: lenses, 
                     scope: scope.import(article.metadata.imports, swift: swift), 
-                    nest: self.nest(target))
+                    nest: self.nest(target)))
             } 
         }
     }
     private
-    func compile(_ documentation:inout [Index: Article.Template<Link>], 
-        comments:[Symbol.Index: String], 
+    func compile(_ documentation:inout [Index: DocumentationNode], 
+        comments:[Symbol.Index: Documentation<String, Symbol.Index>], 
         lenses:[[Package.Pinned]],
         scopes:[Module.Scope])
     {
@@ -173,21 +174,27 @@ extension Ecosystem
         // comments dictionary 
         let contexts:[Module.Index: Int] = 
             .init(uniqueKeysWithValues: zip(scopes.lazy.map(\.culture), scopes.indices))
-        for (symbol, comment):(Symbol.Index, String) in comments
+        for (symbol, comment):(Symbol.Index, Documentation<String, Symbol.Index>) in comments
         {
             guard let context:Int = contexts[symbol.module] 
             else 
             {
                 fatalError("unreachable")
             }
-            
-            let comment:Extension = .init(markdown: comment)
             let target:Index = .symbol(symbol)
+            switch comment 
+            {
+            case .inherits(let origin): 
+                documentation[target] = .inherits(origin)
             
-            documentation[target] = self.compile(comment, 
-                lenses: lenses[context], 
-                scope: scopes[context].import(comment.metadata.imports, swift: swift), 
-                nest: self.nest(target))
+            case .extends(let origin, with: let comment):
+                let comment:Extension = .init(markdown: comment)
+                
+                documentation[target] = .extends(origin, with: self.compile(comment, 
+                    lenses: lenses[context], 
+                    scope: scopes[context].import(comment.metadata.imports, swift: swift), 
+                    nest: self.nest(target)))
+            }
         } 
     }
     private 

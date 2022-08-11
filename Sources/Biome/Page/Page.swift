@@ -56,6 +56,22 @@ struct Page
     {
         self.ecosystem[package].pinned(self.pins)
     }
+    func template(_ documentation:DocumentationNode) -> Article.Template<Ecosystem.Link> 
+    {
+        var documentation:DocumentationNode = documentation
+        while true 
+        {
+            switch documentation 
+            {
+            case .inherits(let origin):
+                documentation = self.pin(origin.module.package)
+                    .documentation(origin)
+            
+            case .extends(_, with: let template):
+                return template
+            }
+        }
+    }
 }
 extension Page 
 {
@@ -117,7 +133,7 @@ extension Page
         
         self.add(fields: self.ecosystem.packages.renderFields(for: module))
         self.add(topics: self.ecosystem.packages.render(topics: topics))
-        self.add(article: pinned.template(module))
+        self.add(article: self.template(pinned.documentation(module)))
         self.add(availableVersions: pinned.package.allVersions(of: module), 
             currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
@@ -132,7 +148,7 @@ extension Page
         
         self.add(fields: self.ecosystem.packages.renderFields(for: article, 
             excerpt: pinned.excerpt(article)))
-        self.add(article: pinned.template(article))
+        self.add(article: self.template(pinned.documentation(article)))
         self.add(availableVersions: pinned.package.allVersions(of: article), 
             currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
@@ -168,7 +184,7 @@ extension Page
             declaration: base.declaration(composite.base),
             facts: facts))
         self.add(topics: self.ecosystem.packages.render(topics: topics))
-        self.add(article: base.template(composite.base))
+        self.add(article: self.template(base.documentation(composite.base)))
         self.add(availableVersions: pinned.package.allVersions(of: composite), 
             currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
@@ -302,19 +318,19 @@ extension Page
         }
         self.substitutions[.topics] = topics.rendered 
         {
-            let template:Article.Template<Ecosystem.Link>
+            let documentation:DocumentationNode
             switch $0 
             {
             case .uri(let index):
                 return [UInt8].init(self.uri(of: index).utf8)
             case .article(let article):
-                template = self.pin(article.module.package)
-                    .template(article)
+                documentation = self.pin(article.module.package)
+                    .documentation(article)
             case .composite(let composite):
-                template = self.pin(composite.base.module.package)
-                    .template(composite.base)
+                documentation = self.pin(composite.base.module.package)
+                    .documentation(composite.base)
             }
-            return template.summary.rendered 
+            return self.template(documentation).summary.rendered 
             {
                 self.expand($0).rendered(as: [UInt8].self)
             }
