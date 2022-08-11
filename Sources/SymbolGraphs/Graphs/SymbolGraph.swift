@@ -248,7 +248,10 @@ struct SymbolGraph:Identifiable, Sendable
             for hint:Hint<SymbolIdentifier> in subgraph.hints
             {
                 let hint:Hint<Int> = hint.map { indices[$0]! } 
-                uptree[hint.source] = hint.origin
+                if  hint.source < self.vertices.endIndex 
+                {
+                    uptree[hint.source] = hint.origin
+                }
             }
         }
         self.apply(hints: uptree)
@@ -257,7 +260,7 @@ struct SymbolGraph:Identifiable, Sendable
     private mutating 
     func apply(hints:[Int: Int]) 
     {
-        for (source, origin):(Int, Int) in hints where source < self.vertices.endIndex
+        for (source, origin):(Int, Int) in hints 
         {
             switch self.vertices[source].documentation
             {

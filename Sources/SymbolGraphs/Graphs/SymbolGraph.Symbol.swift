@@ -164,10 +164,7 @@ extension SymbolGraph.Symbol
                     extensionConstraints: extensionConstraints, 
                     genericConstraints: genericConstraints, 
                     generics: generics), 
-                documentation: comment.flatMap 
-                {
-                    $0.isEmpty ? nil : .extends(nil, with: $0)
-                })
+                documentation: .extends(nil, with: comment))
             return (id, location, vertex)
         }
     }
