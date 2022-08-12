@@ -1,5 +1,5 @@
 <p align="center">
-  <strong><em><code>swift-biome</code></em></strong><br><small><code>0.3.0</code></small>
+  <strong><em><code>swift-biome</code></em></strong><br><small><code>0.3.2</code></small>
 </p>
 
 > *Entrapta* is now **SwiftBiome**!
