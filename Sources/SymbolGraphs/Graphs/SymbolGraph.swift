@@ -245,7 +245,11 @@ struct SymbolGraph:Identifiable, Sendable
         var uptree:[Int: Int] = [:]
         for subgraph:Subgraph in subgraphs 
         {
+            // synthetics generate hints that make sense to lib/SymbolGraphGen, 
+            // but look like loopbacks to us. so we need to explicitly look for 
+            // and ignore these self-hints.
             for hint:Hint<SymbolIdentifier> in subgraph.hints
+                where hint.source != hint.origin
             {
                 let hint:Hint<Int> = hint.map { indices[$0]! } 
                 if  hint.source < self.vertices.endIndex 
