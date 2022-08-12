@@ -25,13 +25,13 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.3.2"),
         .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.4.1"),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-25-a"),
-        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-07-25-a"),
+        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-09-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-09-a"),
         
         // only used by the PackageCatalog target
         .package(url: "https://github.com/kelvin13/swift-system-extras.git",    exact: "0.1.0"),
         // only used by the previewer target
-        .package(url: "https://github.com/apple/swift-nio.git",                 exact: "2.40.0"),
+        .package(url: "https://github.com/apple/swift-nio.git",                 exact: "2.41.1"),
         .package(url: "https://github.com/apple/swift-argument-parser.git",     exact: "1.1.3"),
         .package(url: "https://github.com/swift-server/swift-backtrace.git",    exact: "1.3.2"),
     ],
