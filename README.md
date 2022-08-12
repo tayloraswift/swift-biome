@@ -4,7 +4,7 @@
 
 **`swift-biome`** is a versioned, multi-package Swift documentation compiler. 
 
-Unlike DocC, Biome is not a site generator. Instead, it is meant to be the back-end component of a web service or a static site generator. Biome handles symbolgraph parsing, cross-linking, version control, organization, presentation, HTML rendering, and query routing.
+Biome is meant to be the back-end component of a web service or a static site generator. Biome handles symbolgraph parsing, cross-linking, version control, organization, presentation, HTML rendering, and query routing.
 
 Biome powers the [swiftinit.org ecosystem documentation](https://swiftinit.org/reference/swift)!
 
@@ -18,6 +18,12 @@ Since v0.3.1, Biome compiles raw symbolgraphs ahead-of-time into the `ss` file f
 
 Biome includes a tool, `swift-symbolgraphc`, which can be used to convert raw symbolgraphs into `ss` files.
 
-The [`swift-biome-resources`](https://github.com/swift-biome/swift-biome-resources) submodule holds pre-compiled `ss` files for recent versions of the standard library, and various sources and webpacks for its default frontend.
+The [`swift-biome-resources`](https://github.com/swift-biome/swift-biome-resources) submodule holds precompiled `ss` files for recent versions of the standard library, and various sources and webpacks for its default frontend.
 
-The [`ecosystem`](https://github.com/swift-biome/ecosystem) repository is not tracked by this repository, but it contains historical `ss` files, `Package.resolved` files, and `Package.catalog` files for select ecosystem packages.
+The [`ecosystem`](https://github.com/swift-biome/ecosystem) repository is not tracked by this repository, but it contains historical symbolgraphs, `Package.resolved` files, and `Package.catalog` files for select ecosystem packages.
+
+The `swift-biome` package includes an executable [`swift-nio`](https://github.com/apple/swift-nio)-based target called `preview` which can be used to build and browse docs locally. This server does not have security features, and **is not intended to be used in production**. 
+
+Consumers of `swift-biome` with more sophisticated use-cases are expected to implement their own web server interfacing with Biome via [`WebSemantics`](https://github.com/kelvin13/swift-resource).
+
+The frontend is written in Sass and Typescript.
