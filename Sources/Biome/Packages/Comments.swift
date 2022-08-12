@@ -14,6 +14,12 @@ extension Sequence<SymbolGraph>
     func generateComments(abstractors:[Abstractor]) 
         -> [Symbol.Index: Documentation<String, Symbol.Index>]
     {
+        guard let culture:Package.Index = abstractors.first?.culture.package 
+        else 
+        {
+            return [:]
+        }
+
         var pruned:Int = 0
         var comments:[Symbol.Index: Documentation<String, Symbol.Index>] = [:]
         for (graph, abstractor):(SymbolGraph, Abstractor) in zip(self, abstractors)
@@ -44,7 +50,54 @@ extension Sequence<SymbolGraph>
                 }
             }
         }
-        print("pruned \(pruned) duplicate CROSS-MODULE comments")
-        return comments
+        if pruned != 0 
+        {
+            print("pruned \(pruned) duplicate comments")
+        }
+
+        var skipped:Int = 0,
+            dropped:Int = 0
+        comments = comments.compactMapValues 
+        {
+            if case .inherits(var origin) = $0 
+            {
+                // fast-forward until we either reach a package boundary, 
+                // or a local symbol that has documentation
+                var visited:Set<Symbol.Index> = []
+                fastforwarding:
+                while origin.module.package == culture
+                {
+                    if  case _? = visited.update(with: origin)
+                    {
+                        fatalError("detected cycle in doccomment inheritance graph")
+                    }
+                    switch comments[origin] 
+                    {
+                    case nil: 
+                        dropped += 1
+                        return nil 
+                    case .extends(_, with: _)?: 
+                        break fastforwarding
+                    case .inherits(let next)?: 
+                        origin = next 
+                        skipped += 1
+                    }
+                }
+                return .inherits(origin)
+            }
+            else 
+            {
+                return $0
+            }
+        }
+        if skipped != 0 
+        {
+            print("shortened \(skipped) doccomment inheritance links")
+        }
+        if dropped != 0 
+        {
+            print("pruned \(dropped) nil-terminating doccomment inheritance chains")
+        }
+        return comments 
     }
 }
