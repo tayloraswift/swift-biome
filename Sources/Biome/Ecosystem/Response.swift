@@ -74,7 +74,7 @@ extension Ecosystem
                 page.add(scriptConstants: self.caches.keys)
             
             redirection = .none(.init(template.rendered(as: [UInt8].self, 
-                    substituting: _move(page).substitutions), 
+                    substituting: (_move page).substitutions), 
                 type: .utf8(encoded: .html)))
             
         case .choices(let choices, let pins):
@@ -95,7 +95,7 @@ extension Ecosystem
                 page.add(scriptConstants: self.caches.keys)
             
             redirection = .none(.init(self.template.rendered(as: [UInt8].self, 
-                    substituting: _move(page).substitutions), 
+                    substituting: (_move page).substitutions), 
                 type: .utf8(encoded: .html)))
         
         case .resource(let resource, uri: let normalized): 

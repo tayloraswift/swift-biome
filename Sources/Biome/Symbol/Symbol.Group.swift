@@ -44,7 +44,7 @@ extension Symbol.Group?
     mutating 
     func insert(_ element:Symbol.Composite)
     {
-        switch _move(self)
+        switch _move self
         {
         case nil: 
             self = .one((element, 1))
@@ -80,7 +80,7 @@ extension Symbol.Group?
     mutating 
     func remove(_ element:Symbol.Composite)
     {
-        switch _move(self) 
+        switch _move self
         {
         case nil: 
             break
@@ -119,7 +119,7 @@ extension Symbol.Subgroup?
     mutating 
     func insert(_ element:Symbol.Diacritic)
     {
-        switch _move(self)
+        switch _move self
         {
         case nil: 
             self = .one((element, 1))
@@ -135,7 +135,7 @@ extension Symbol.Subgroup?
     mutating 
     func remove(_ element:Symbol.Diacritic)
     {
-        switch _move(self)
+        switch _move self
         {
         case nil: 
             break 
