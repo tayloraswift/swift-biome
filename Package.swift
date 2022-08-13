@@ -17,7 +17,7 @@ let package = Package(
     ],
     dependencies: 
     [
-        .package(name: "swift-balanced-trees", path: "./swift-balanced-trees"),
+        // .package(name: "swift-balanced-trees", path: "./swift-balanced-trees"),
 
         .package(url: "https://github.com/kelvin13/swift-grammar",              exact: "0.1.5"),
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
@@ -37,6 +37,8 @@ let package = Package(
     ],
     targets: 
     [
+        .target(name: "Forest", path: "swift-balanced-trees/Sources/Forest"),
+
         .target(name: "Versions", 
             dependencies: 
             [
@@ -57,7 +59,8 @@ let package = Package(
             [
                 .target(name: "SymbolGraphs"),
 
-                .product(name: "Forest",            package: "swift-balanced-trees"),
+                .target(name: "Forest"),
+                //.product(name: "Forest",            package: "swift-balanced-trees"),
 
                 .product(name: "DOM",               package: "swift-dom"),
                 .product(name: "JSON",              package: "swift-json"),
