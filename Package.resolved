@@ -10,6 +10,15 @@
       }
     },
     {
+      "identity" : "swift-atomics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-atomics.git",
+      "state" : {
+        "revision" : "919eb1d83e02121cdb434c7bfc1f0c66ef17febe",
+        "version" : "1.0.2"
+      }
+    },
+    {
       "identity" : "swift-backtrace",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swift-server/swift-backtrace.git",
@@ -77,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-markdown.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-07-25-a",
-        "revision" : "87c9e60b73174643f1f0bdfd81d41ce379defde0"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-08-09-a",
+        "revision" : "52563fc74a540b29854fde20e836b27394be2749"
       }
     },
     {
@@ -86,8 +95,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-nio.git",
       "state" : {
-        "revision" : "124119f0bb12384cef35aa041d7c3a686108722d",
-        "version" : "2.40.0"
+        "revision" : "b4e0a274f7f34210e97e2f2c50ab02a10b549250",
+        "version" : "2.41.1"
       }
     },
     {
@@ -104,8 +113,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-syntax.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-07-25-a",
-        "revision" : "ba64513c6a5402671deed573409e38a0bb4895e0"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-08-09-a",
+        "revision" : "342a9d26aa45701bc1e6a79387bc5f3e01bb3e5d"
       }
     },
     {

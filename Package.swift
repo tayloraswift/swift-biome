@@ -17,7 +17,7 @@ let package = Package(
     ],
     dependencies: 
     [
-        .package(name: "swift-balanced-trees", path: "swift-balanced-trees"),
+        .package(name: "swift-balanced-trees", path: "./swift-balanced-trees"),
 
         .package(url: "https://github.com/kelvin13/swift-grammar",              exact: "0.1.5"),
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
