@@ -58,8 +58,8 @@ extension Ecosystem
             let module:String = .init($0.title)
             return .object([("module", .string(module)), ("symbols", .array(types))])
         }
-        let json:JSON = .array(_move(modules))
-        let bytes:[UInt8] = .init(_move(json).description.utf8)
+        let json:JSON = .array(_move modules)
+        let bytes:[UInt8] = .init((_move json).description.utf8)
         return .init(hashing: bytes, type: .utf8(encoded: .json))
     }
     
