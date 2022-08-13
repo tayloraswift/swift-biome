@@ -180,7 +180,7 @@ struct Package:Identifiable, Sendable
     {
         if let brand:String = self.brand 
         {
-            return "\(title) — \(brand) Documentation"
+            return "\(title) - \(brand) Documentation"
         }
         else 
         {
