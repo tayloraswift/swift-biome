@@ -123,6 +123,7 @@ extension SymbolGraph.Symbol
             }
             
             let _:AccessLevel = try $0.remove("accessLevel") { try $0.as(cases: AccessLevel.self) }
+            let _:Bool = try $0.pop("spi", as: Bool.self) ?? false
             
             let fragments:Notebook<Highlight, SymbolIdentifier> = 
                 try $0.remove("declarationFragments", Notebook<Highlight, SymbolIdentifier>.init(lowering:)) 
