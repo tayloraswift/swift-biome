@@ -1,11 +1,11 @@
+import Grammar
 import JSON
 
 extension SymbolIdentifier
 {
     init(from json:JSON) throws 
     {
-        self = try Grammar.parse(try json.as(String.self).utf8, 
-            as: USR.Rule<String.Index>.OpaqueName.self)
+        self = try USR.Rule<String.Index>.OpaqueName.parse(try json.as(String.self).utf8)
     }
     
     var interface:(culture:ModuleIdentifier, protocol:(name:String, id:Self))?
@@ -16,7 +16,7 @@ extension SymbolIdentifier
         // protocols like 'Swift.Equatable'. but this is fine because we 
         // are only using this to detect symbols that are defined in extensions 
         // on underscored protocols.
-        var input:ParsingInput<Grammar.NoDiagnostics> = .init(self.string.utf8)
+        var input:ParsingInput<NoDiagnostics> = .init(self.string.utf8)
         guard case let (namespace, name)? = 
             input.parse(as: USR.Rule<String.Index>.MangledProtocolName?.self)
         else 

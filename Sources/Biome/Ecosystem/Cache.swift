@@ -1,5 +1,6 @@
 import JSON 
 import Resources
+import URI
 
 struct Cache 
 {

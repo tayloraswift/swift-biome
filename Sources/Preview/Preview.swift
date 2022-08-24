@@ -5,6 +5,7 @@ import Resources
 import HTML
 import NIO
 import NIOHTTP1
+import URI
 
 actor Preview
 {

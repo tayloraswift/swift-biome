@@ -1,6 +1,7 @@
 import SymbolGraphs
 import Versions
 import HTML
+import URI
 
 public 
 struct Page 

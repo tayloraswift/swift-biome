@@ -1,5 +1,6 @@
 import SymbolGraphs
 import HTML
+import URI
 
 typealias DocumentationNode = Documentation<Article.Template<Ecosystem.Link>, Symbol.Index>
 
@@ -267,7 +268,7 @@ extension Ecosystem
             return nil 
         }
         guard let link:Symbol.Link = 
-            try? .init(path: ((_move global).dropFirst(), fold), query: uri.query ?? [])
+            try? .init(path: (global.dropFirst(), fold), query: uri.query ?? [])
         else 
         {
             return nil
@@ -282,7 +283,7 @@ extension Ecosystem
         {
             return nil
         }
-        guard let implicit:Symbol.Link = (_move link).suffix 
+        guard let implicit:Symbol.Link = link.suffix 
         else 
         {
             return .init(.module(namespace), visible: 1)

@@ -25,27 +25,24 @@ enum MaskedVersion:Hashable, CustomStringConvertible, Sendable
     }
 
     @inlinable public
-    init?<S>(toolchain string:S) where S:StringProtocol
+    init(toolchain string:some StringProtocol) throws
     {
-        if  let version:Self = 
-            try? Grammar.parse(string.unicodeScalars, as: Rule<String.Index>.Toolchain.self)
-        {
-            self = version 
-        }
-        else 
-        {
-            return nil 
-        }
+        self = try Rule<String.Index>.Toolchain.parse(string.unicodeScalars)
     }
+    @inlinable public
+    init(parsing string:some StringProtocol) throws
+    {
+        self = try Rule<String.Index>.parse(string.unicodeScalars)
+    }
+    @available(*, deprecated)
     @inlinable public
     init?<S>(_ string:S) where S:StringProtocol
     {
-        if  let version:Self = 
-            try? Grammar.parse(string.unicodeScalars, as: Rule<String.Index>.self)
+        do
         {
-            self = version 
+            try self.init(parsing: string)
         }
-        else 
+        catch 
         {
             return nil 
         }

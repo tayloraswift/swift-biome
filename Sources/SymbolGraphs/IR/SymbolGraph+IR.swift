@@ -44,7 +44,7 @@ extension SymbolGraph
     @inlinable public 
     init<UTF8>(utf8:UTF8) throws where UTF8:Collection<UInt8> 
     {
-        try self.init(from: try Grammar.parse(utf8, as: JSON.Rule<UTF8.Index>.Root.self))
+        try self.init(from: try JSON.init(parsing: utf8))
     }
     public 
     init(from json:JSON) throws 

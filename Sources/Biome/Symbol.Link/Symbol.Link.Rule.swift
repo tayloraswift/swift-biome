@@ -6,7 +6,7 @@ extension Symbol.Link
     enum Rule<Location>
     {
         typealias Terminal = Unicode.Scalar
-        typealias Encoding = Grammar.Encoding<Location, Terminal>
+        typealias Encoding = UnicodeEncoding<Location, Terminal>
     }
 }
 extension Symbol.Link.Rule 
@@ -17,8 +17,8 @@ extension Symbol.Link.Rule
     {
         typealias Terminal = Unicode.Scalar
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws 
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) throws
+            where Source:Collection<Unicode.Scalar>, Source.Index == Location
         {
             try input.parse(as: Encoding.ParenthesisLeft.self)
             if  let _:Void = input.parse(as: IdentifierBase?.self)
@@ -110,8 +110,8 @@ extension Symbol.Link.Rule
     {
         typealias Terminal = Unicode.Scalar
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws 
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) throws 
+            where Source:Collection<Unicode.Scalar>, Source.Index == Location
         {
             try input.parse(as: IdentifierFirst.self)
             input.parse(as: IdentifierNext.self, in: Void.self)
@@ -123,8 +123,8 @@ extension Symbol.Link.Rule
     {
         typealias Terminal = Unicode.Scalar
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws 
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) throws 
+            where Source:Collection<Unicode.Scalar>, Source.Index == Location
         {
             try input.parse(as: IdentifierBase.self)
             input.parse(as: Arguments?.self)
@@ -193,8 +193,8 @@ extension Symbol.Link.Rule
     {
         typealias Terminal = Unicode.Scalar
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws 
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) throws 
+            where Source:Collection<Unicode.Scalar>, Source.Index == Location
         {
             try input.parse(as: DotlessOperatorFirst.self)
                 input.parse(as: DotlessOperatorNext.self, in: Void.self)
@@ -227,8 +227,8 @@ extension Symbol.Link.Rule
     {
         typealias Terminal = Unicode.Scalar
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) throws
+            where Source:Collection<Unicode.Scalar>, Source.Index == Location
         {
             guard   case nil = input.parse(as: IdentifierLeaf?.self), 
                     case nil = input.parse(as: DotlessOperatorLeaf?.self)
@@ -255,9 +255,9 @@ extension Symbol.Link.Rule
     {
         typealias Terminal = Unicode.Scalar
         static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) 
             throws -> Symbol.Link.ComponentSegmentation<Location>
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+            where Source:Collection<Unicode.Scalar>, Source.Index == Location
         {
             let start:Location = input.index 
             guard case nil = input.parse(as: IdentifierBase?.self)

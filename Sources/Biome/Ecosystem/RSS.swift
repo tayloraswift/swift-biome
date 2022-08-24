@@ -1,5 +1,5 @@
-import Resources 
 import RSS 
+import URI
 
 extension Ecosystem 
 {

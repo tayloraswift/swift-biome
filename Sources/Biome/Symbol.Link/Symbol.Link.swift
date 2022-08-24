@@ -1,5 +1,5 @@
 import SymbolGraphs
-import Grammar 
+import URI
 
 extension Symbol 
 {
@@ -30,7 +30,7 @@ extension Symbol
         {
             let string:String 
             let hyphen:String.Index?
-            
+
             init(_ string:String, hyphen:String.Index? = nil)
             {
                 self.string = string 
@@ -162,13 +162,11 @@ extension Symbol
             }
         }
         mutating 
-        func append<Path>(components:Path) throws 
-            where Path:Sequence, Path.Element:StringProtocol 
+        func append<S>(components:some Sequence<S>) throws where S:StringProtocol 
         {
-            for component:Path.Element in components
+            for component:S in components
             {
-                switch try Grammar.parse(component.unicodeScalars, 
-                    as: Rule<String.Index>.Component.self)
+                switch try ComponentSegmentation<String.Index>.init(parsing: component)
                 {
                 case .opaque(let hyphen): 
                     self.path.append(.init(String.init(component), hyphen: hyphen))
@@ -191,5 +189,12 @@ extension Symbol
                 }
             }
         }
+    }
+}
+extension Symbol.Link.ComponentSegmentation<String.Index>
+{
+    init(parsing string:some StringProtocol) throws 
+    {
+        self = try Symbol.Link.Rule<String.Index>.Component.parse(string.unicodeScalars)
     }
 }

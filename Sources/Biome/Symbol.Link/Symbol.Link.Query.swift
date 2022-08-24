@@ -1,6 +1,6 @@
 import SymbolGraphs
 import Versions
-import Grammar 
+import URI
 
 extension Symbol.Link 
 {
@@ -55,8 +55,7 @@ extension Symbol.Link
                     }
                     let id:Package.ID = .init(first)
                     if  let second:Substring = components.dropFirst().first, 
-                        let version:MaskedVersion = try? Grammar.parse(second.unicodeScalars, 
-                            as: MaskedVersion.Rule<String.Index>.self)
+                        let version:MaskedVersion = try? .init(parsing: second)
                     {
                         self.lens = .init(id, at: version)
                     }
@@ -68,10 +67,10 @@ extension Symbol.Link
                 case Self.host:
                     // if the mangled name contained a colon ('SymbolGraphGen style'), 
                     // the parsing rule will remove it.
-                    self.host = try Grammar.parse(value.utf8, as: USR.Rule<String.Index>.OpaqueName.self)
+                    self.host = try USR.Rule<String.Index>.OpaqueName.parse(value.utf8)
                 
                 case Self.base: 
-                    switch try Grammar.parse(value.utf8, as: USR.Rule<String.Index>.self) 
+                    switch try USR.init(parsing: value.utf8) 
                     {
                     case .natural(let base):
                         self.base = base

@@ -85,7 +85,7 @@ extension SymbolGraph.Symbol
                 {
                     try $0.remove("precise", as: String.self)
                     {
-                        switch try Grammar.parse($0.utf8, as: USR.Rule<String.Index>.self)
+                        switch try USR.init(parsing: $0.utf8)
                         {
                         case .natural(let id): 
                             return .natural(id)

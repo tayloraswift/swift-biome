@@ -17,7 +17,7 @@ extension SymbolGraph
         init<UTF8>(utf8:UTF8, culture:ModuleIdentifier, namespace:ModuleIdentifier) throws 
             where UTF8:Collection<UInt8>
         {
-            try self.init(from: try Grammar.parse(utf8, as: JSON.Rule<UTF8.Index>.Root.self), 
+            try self.init(from: try JSON.init(parsing: utf8), 
                 culture: culture, namespace: namespace)
         }
         public  

@@ -19,14 +19,14 @@ let package = Package(
     [
         // .package(name: "swift-balanced-trees", path: "./swift-balanced-trees"),
 
-        .package(url: "https://github.com/kelvin13/swift-grammar",              exact: "0.1.5"),
+        .package(url: "https://github.com/kelvin13/swift-grammar", .upToNextMinor(from: "0.2.0")),
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-highlight",            exact: "0.1.4"),
         .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.3.2"),
         .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.4.1"),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-09-a"),
-        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-09-a"),
+        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
         
         // only used by the PackageCatalog target
         .package(url: "https://github.com/kelvin13/swift-system-extras.git",    exact: "0.1.0"),
@@ -39,6 +39,12 @@ let package = Package(
     [
         .target(name: "Forest", path: "swift-balanced-trees/Sources/Forest"),
 
+        .target(name: "URI", 
+            dependencies: 
+            [
+                .product(name: "Grammar",           package: "swift-grammar"),
+            ]),
+        
         .target(name: "Versions", 
             dependencies: 
             [
@@ -58,6 +64,7 @@ let package = Package(
             dependencies: 
             [
                 .target(name: "SymbolGraphs"),
+                .target(name: "URI"),
 
                 .target(name: "Forest"),
                 //.product(name: "Forest",            package: "swift-balanced-trees"),
@@ -70,6 +77,10 @@ let package = Package(
                 .product(name: "SwiftSyntaxParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntax",       package: "swift-syntax"),
                 .product(name: "Markdown",          package: "swift-markdown"),
+            ], 
+            swiftSettings:
+            [
+                .unsafeFlags(["-Xfrontend", "-enable-experimental-move-only"]),
             ]),
         
         .target(name: "PackageResolution", 
