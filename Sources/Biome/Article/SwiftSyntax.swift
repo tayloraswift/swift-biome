@@ -39,7 +39,7 @@ extension Extension.Renderer
     func highlight(tree:Syntax) -> [(text:String, color:Highlight)]
     {
         var highlights:[(text:String, color:Highlight)] = []
-        for token:TokenSyntax in tree.tokens 
+        for token:TokenSyntax in tree.tokens(viewMode: .sourceAccurate) 
         {
             for trivia:TriviaPiece in token.leadingTrivia 
             {
@@ -100,7 +100,7 @@ extension Extension.Renderer
     {
         switch trivia 
         {
-        case .garbageText(let text): 
+        case .unexpectedText(let text): 
             return (text, .invalid)
         case .shebang(let text): 
             return (text, .text)

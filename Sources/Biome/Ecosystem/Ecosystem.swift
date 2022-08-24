@@ -216,7 +216,7 @@ extension Ecosystem
         self.packages.spread(from: index, beliefs: beliefs)
 
         // write to the keyframe buffers
-        self.packages[index].pushBeliefs(_move beliefs)
+        self.packages[index].pushBeliefs(beliefs)
         for scope:Module.Scope in scopes
         {
             self.packages[index].pushDependencies(scope.dependencies(), culture: scope.culture)
@@ -234,8 +234,8 @@ extension Ecosystem
 
         let compiled:[Index: DocumentationNode] = self.compile(
             comments: graphs.generateComments(abstractors: abstractors),
-            extensions: _move extensions,
-            articles: _move articles,
+            extensions: extensions,
+            articles: articles,
             scopes: scopes,
             pins: pins)
         

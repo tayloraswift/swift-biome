@@ -194,14 +194,14 @@ struct URI:CustomStringConvertible, Sendable
         self.path.append(components: path)
     }
     @inlinable public
-    init<S>(absolute string:S) throws where S:StringProtocol
+    init(absolute string:some StringProtocol) throws 
     {
-        self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Absolute.self)
+        self = try Rule<String.Index>.Absolute.parse(string.utf8)
     }
     @inlinable public
-    init<S>(relative string:S) throws where S:StringProtocol
+    init(relative string:some StringProtocol) throws 
     {
-        self = try Grammar.parse(string.utf8, as: URI.Rule<String.Index>.Relative.self)
+        self = try Rule<String.Index>.Relative.parse(string.utf8)
     }
     
     @inlinable public static 

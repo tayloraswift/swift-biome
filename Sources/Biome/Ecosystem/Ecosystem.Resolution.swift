@@ -150,20 +150,20 @@ extension Ecosystem
         
         let qualified:Path.SubSequence
         let arrival:MaskedVersion?
-        if let version:MaskedVersion = local.first.flatMap(MaskedVersion.init(_:))
+        if let version:MaskedVersion = try? local.first.map(MaskedVersion.init(parsing:))
         {
-            qualified = (_move local).dropFirst()
+            qualified = local.dropFirst()
             arrival = version 
         }
         else 
         {
-            qualified = _move local
+            qualified = local
             arrival = nil
         }
         // we must parse the symbol link *now*, otherwise references to things 
         // like global vars (`Swift.min(_:_:)`) won’t work
         guard let link:Symbol.Link = 
-            try? .init(path: _move qualified, query: query).revealed
+            try? .init(path: qualified, query: query).revealed
         else 
         {
             // every article path is a valid symbol link (just with extra 
@@ -210,7 +210,7 @@ extension Ecosystem
             return nil
         }
         
-        guard let implicit:Symbol.Link = (_move link).suffix
+        guard let implicit:Symbol.Link = link.suffix
         else 
         {
             if let pins:Package.Pins = self[namespace.package].versions.pins(at: arrival)
