@@ -1,4 +1,3 @@
-import Grammar 
 import JSON
 
 extension SymbolGraph 
@@ -24,7 +23,7 @@ extension SymbolGraph.Relationship
             let target:SymbolIdentifier = try $0.remove("target", SymbolIdentifier.init(from:))
             let source:USR = try $0.remove("source", as: String.self)
             {
-                try Grammar.parse($0.utf8, as: USR.Rule<String.Index>.self)
+                try .init(parsing: $0.utf8)
             }
             // https://github.com/apple/swift/blob/main/lib/SymbolGraphGen/Edge.h
             let edge:SymbolGraph.Edge<SymbolIdentifier>

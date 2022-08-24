@@ -14,19 +14,25 @@ extension USR
         public 
         typealias Terminal = UInt8
         public 
-        typealias Encoding = Grammar.Encoding<Location, Terminal>
+        typealias Encoding = UnicodeEncoding<Location, Terminal>
     }
 }
 extension USR:LosslessStringConvertible 
 {
     @inlinable public 
+    init<UTF8>(parsing utf8:UTF8) throws where UTF8:Collection<UInt8>
+    {
+        self = try Rule<UTF8.Index>.parse(utf8)
+    }
+    @available(*, deprecated)
+    @inlinable public 
     init?(_ string:String) 
     {
-        if let usr:Self = try? Grammar.parse(string.utf8, as: Rule<String.Index>.self)
+        do
         {
-            self = usr 
+            try self.init(parsing: string.utf8)
         }
-        else 
+        catch 
         {
             return nil
         }
@@ -108,14 +114,16 @@ extension USR.Rule:ParsingRule
         }
     }
     public 
-    enum OpaqueName:ParsingRule 
+    enum OpaqueName:ParsingRule
     {
         public 
-        typealias Terminal = UInt8
+        typealias Terminal = UInt8 
+
         // Mangled Identifier ::= <Language> ':' ? <Mangled Identifier Head> <Mangled Identifier Next> *
         @inlinable public static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> SymbolIdentifier
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) 
+            throws -> SymbolIdentifier
+            where Source:Collection<UInt8>, Source.Index == Location
         {
             let language:SymbolIdentifier.Language = try input.parse(as: Language.self)
             
@@ -132,8 +140,9 @@ extension USR.Rule:ParsingRule
         
     // USR  ::= <Mangled Name> ( '::SYNTHESIZED::' <Mangled Name> ) ?
     @inlinable public static 
-    func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> USR
-        where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+    func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) 
+        throws -> USR
+        where Source:Collection<UInt8>, Source.Index == Location
     {
         let first:SymbolIdentifier = try input.parse(as: OpaqueName.self)
         guard let _:Void = input.parse(as: Synthesized?.self)
@@ -171,13 +180,14 @@ extension USR.Rule
         typealias Terminal = UInt8
 
         @inlinable public static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> String
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) 
+            throws -> String
+            where Source:Collection<UInt8>, Source.Index == Location
         {
             // cannot begin with a '0', since that signifies that substitutions will occur
-            let count:Int = try input.parse(as: Grammar.UnsignedNormalizedIntegerLiteral<
-                Grammar.NaturalDecimalDigit<Location, Terminal, Int>, 
-                Grammar.DecimalDigit       <Location, Terminal, Int>>.self)
+            let count:Int = try input.parse(as: Pattern.UnsignedNormalizedInteger<
+                UnicodeDigit<Location, Terminal, Int>.Natural, 
+                UnicodeDigit<Location, Terminal, Int>.Decimal>.self)
             // FIXME: properly handle punycode
             return String.init(decoding: try input.parse(prefix: count), as: Unicode.ASCII.self)
         }
@@ -189,8 +199,9 @@ extension USR.Rule
         typealias Terminal = UInt8
 
         @inlinable public static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> ModuleIdentifier
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) 
+            throws -> ModuleIdentifier
+            where Source:Collection<UInt8>, Source.Index == Location
         {
             if let _:Void = input.parse(as: Encoding.S.Lowercase?.self)
             {
@@ -209,9 +220,9 @@ extension USR.Rule
         typealias Terminal = UInt8
 
         @inlinable public static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) 
             throws -> (module:ModuleIdentifier, name:String)
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+            where Source:Collection<UInt8>, Source.Index == Location
         {
             try input.parse(as: Encoding.S.Lowercase.self)
             let module:ModuleIdentifier = try input.parse(as: MangledModuleName.self)
@@ -227,8 +238,9 @@ extension USR.Rule
         typealias Terminal = UInt8
 
         @inlinable public static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) throws -> ModuleIdentifier
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) 
+            throws -> ModuleIdentifier
+            where Source:Collection<UInt8>, Source.Index == Location
         {
             let culture:ModuleIdentifier = try input.parse(as: MangledModuleName.self)
             try input.parse(as: Encoding.E.Uppercase.self)

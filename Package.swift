@@ -19,7 +19,7 @@ let package = Package(
     [
         // .package(name: "swift-balanced-trees", path: "./swift-balanced-trees"),
 
-        .package(url: "https://github.com/kelvin13/swift-grammar",              exact: "0.1.5"),
+        .package(url: "https://github.com/kelvin13/swift-grammar", .upToNextMinor(from: "0.2.0")),
         .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-highlight",            exact: "0.1.4"),
         .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.3.2"),
