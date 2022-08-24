@@ -19,21 +19,21 @@ let package = Package(
     [
         // .package(name: "swift-balanced-trees", path: "./swift-balanced-trees"),
 
+        .package(url: "https://github.com/kelvin13/swift-json", branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-grammar", .upToNextMinor(from: "0.2.0")),
-        .package(url: "https://github.com/kelvin13/swift-json",                 branch: "master"),
-        .package(url: "https://github.com/kelvin13/swift-highlight",            exact: "0.1.4"),
-        .package(url: "https://github.com/kelvin13/swift-resource",             exact: "0.3.2"),
-        .package(url: "https://github.com/kelvin13/swift-dom",                  exact: "0.4.1"),
+        .package(url: "https://github.com/kelvin13/swift-highlight", .upToNextMinor(from: "0.1.4")),
+        .package(url: "https://github.com/kelvin13/swift-resource", .upToNextMinor(from: "0.3.2")),
+        .package(url: "https://github.com/kelvin13/swift-dom", .upToNextMinor(from: "0.4.1")),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
-        .package(url: "https://github.com/apple/swift-syntax.git",              revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
+        .package(url: "https://github.com/apple/swift-markdown.git",    revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",      revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
         
-        // only used by the PackageCatalog target
-        .package(url: "https://github.com/kelvin13/swift-system-extras.git",    exact: "0.1.0"),
-        // only used by the previewer target
-        .package(url: "https://github.com/apple/swift-nio.git",                 exact: "2.41.1"),
-        .package(url: "https://github.com/apple/swift-argument-parser.git",     exact: "1.1.3"),
-        .package(url: "https://github.com/swift-server/swift-backtrace.git",    exact: "1.3.2"),
+        // only used by the PackageLoader target
+        .package(url: "https://github.com/kelvin13/swift-system-extras.git", .upToNextMinor(from: "0.2.0")),
+        // only used by the Preview target
+        .package(url: "https://github.com/apple/swift-nio.git", .upToNextMinor(from: "2.41.1")),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),
+        .package(url: "https://github.com/swift-server/swift-backtrace.git", .upToNextMinor(from: "1.3.2")),
     ],
     targets: 
     [
