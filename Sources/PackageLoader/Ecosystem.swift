@@ -17,7 +17,7 @@ extension Ecosystem
             .compactMap 
         {
             if  let component:FilePath.Component = .init(String.init($0)), 
-                let version:MaskedVersion = .init($0),
+                let version:MaskedVersion = try? .init(parsing: $0),
                 pattern ?= version
             {
                 return (directory.appending(component), version)
