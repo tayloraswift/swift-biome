@@ -53,7 +53,7 @@ struct Main:AsyncParsableCommand
         
         async let preview:Preview = .init(projects: self.projects.map(FilePath.init(_:)), 
             resources: .init(self.resources), 
-            swift: .init(self.swift))
+            swift: try .init(parsing: self.swift))
 
         let requests:AsyncStream<Preview.Request.Enqueued> = .init 
         { 
