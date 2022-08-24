@@ -71,9 +71,12 @@ extension SwiftAvailability
         ) = try json.lint
         {
             (
-                deprecated: try $0.pop(IR.Availability.deprecated, as: String.self).flatMap(MaskedVersion.init(_:)),
-                introduced: try $0.pop(IR.Availability.introduced, as: String.self).flatMap(MaskedVersion.init(_:)), 
-                obsoleted: try $0.pop(IR.Availability.obsoleted, as: String.self).flatMap(MaskedVersion.init(_:)), 
+                deprecated: try $0.pop(IR.Availability.deprecated, as: String.self)
+                    .map(MaskedVersion.init(parsing:)),
+                introduced: try $0.pop(IR.Availability.introduced, as: String.self)
+                    .map(MaskedVersion.init(parsing:)), 
+                obsoleted: try $0.pop(IR.Availability.obsoleted, as: String.self)
+                    .map(MaskedVersion.init(parsing:)), 
                 renamed: try $0.pop(IR.Availability.renamed, as: String.self),
                 message: try $0.pop(IR.Availability.message, as: String.self)
             )
@@ -120,7 +123,7 @@ extension VersionedAvailability
         {
             (
                 unavailable: try $0.pop(IR.Availability.unavailable, as: Bool.self) ?? false,
-                deprecated: $0.pop(IR.Availability.deprecated)
+                deprecated: try $0.pop(IR.Availability.deprecated)
                 {
                     (variant:JSON) -> Deprecation? in 
                     switch variant 
@@ -128,13 +131,15 @@ extension VersionedAvailability
                     case .bool(true):
                         return .always
                     case .string(let string):
-                        return MaskedVersion.init(string).map(Deprecation.since(_:))
+                        return .since(try .init(parsing: string))
                     default: 
                         return nil
                     }
                 } ?? nil,
-                introduced: try $0.pop(IR.Availability.introduced, as: String.self).flatMap(MaskedVersion.init(_:)), 
-                obsoleted: try $0.pop(IR.Availability.obsoleted, as: String.self).flatMap(MaskedVersion.init(_:)), 
+                introduced: try $0.pop(IR.Availability.introduced, as: String.self)
+                    .map(MaskedVersion.init(parsing:)), 
+                obsoleted: try $0.pop(IR.Availability.obsoleted, as: String.self)
+                    .map(MaskedVersion.init(parsing:)), 
                 renamed: try $0.pop(IR.Availability.renamed, as: String.self),
                 message: try $0.pop(IR.Availability.message, as: String.self)
             )
