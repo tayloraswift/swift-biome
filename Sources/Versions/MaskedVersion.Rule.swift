@@ -8,14 +8,15 @@ extension MaskedVersion
         public 
         typealias Terminal = Unicode.Scalar
         public 
-        typealias Encoding = Grammar.Encoding<Location, Terminal>
+        typealias Encoding = UnicodeEncoding<Location, Terminal>
     }
 }
 extension MaskedVersion.Rule 
 {
     public 
-    typealias Integer = Grammar.UnsignedIntegerLiteral<
-                        Grammar.DecimalDigitScalar<Location, UInt16>>
+    typealias Integer = Pattern.UnsignedInteger<
+        UnicodeDigit<Location, Unicode.Scalar, UInt16>.DecimalScalar>
+    
     public 
     enum Hour:TerminalRule
     {
@@ -74,13 +75,13 @@ extension MaskedVersion.Rule
     public 
     enum Toolchain:ParsingRule 
     {
-        public 
+        public
         typealias Terminal = Unicode.Scalar
         
         @inlinable public static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) 
             throws -> MaskedVersion
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+            where Source:Collection<Unicode.Scalar>, Source.Index == Location
         {
             try input.parse(as: Swift.self)
             try input.parse(as: Encoding.Hyphen.self)
@@ -114,9 +115,9 @@ extension MaskedVersion.Rule
         typealias Terminal = Unicode.Scalar
         
         @inlinable public static 
-        func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
+        func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) 
             throws -> MaskedVersion
-            where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+            where Source:Collection<Unicode.Scalar>, Source.Index == Location
         {
             let first:UInt16 = try input.parse(as: Integer.self)
             if  case let (_, minor)? = 
@@ -140,9 +141,9 @@ extension MaskedVersion.Rule
     }
     
     @inlinable public static 
-    func parse<Diagnostics>(_ input:inout ParsingInput<Diagnostics>) 
+    func parse<Source>(_ input:inout ParsingInput<some ParsingDiagnostics<Source>>) 
         throws -> MaskedVersion
-        where Grammar.Parsable<Location, Terminal, Diagnostics>:Any 
+        where Source:Collection<Unicode.Scalar>, Source.Index == Location
     {
         let first:UInt16 = try input.parse(as: Integer.self)
         guard case nil = input.parse(as: Encoding.Hyphen?.self)
