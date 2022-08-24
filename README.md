@@ -44,6 +44,10 @@ Currently, Biome can only be built on linux. Ubuntu and Amazon Linux 2 are offic
 
 ### Library products 
 
+1. [**`URI`**](Sources/URI)
+
+    Implements a URI parser and basic URI operations.
+
 1. [**`Versions`**](Sources/Versions)
 
     Implements semantic versions.
