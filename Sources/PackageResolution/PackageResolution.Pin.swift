@@ -51,8 +51,7 @@ extension PackageResolution
                         let requirement:Requirement
                         if let version:String = try $0.pop("version", as: String?.self)
                         {
-                            requirement = .version(try Grammar.parse(version.unicodeScalars, 
-                                as: MaskedVersion.Rule<String.Index>.self))
+                            requirement = .version(try .init(parsing: version))
                         }
                         else 
                         {

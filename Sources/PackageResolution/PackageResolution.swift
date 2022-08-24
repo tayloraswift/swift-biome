@@ -1,3 +1,4 @@
+import SymbolGraphs
 import Versions 
 import JSON
 
@@ -20,7 +21,9 @@ struct PackageResolution
             case .version(let version):
                 self.pins[pin.id] = version
             case .branch(let branch):
-                self.pins[pin.id] = .init(branch) ?? .init(toolchain: branch)
+                self.pins[pin.id] = 
+                    (try? .init(parsing:   branch)) ?? 
+                    (try? .init(toolchain: branch))
             }
         }
     }
@@ -54,9 +57,8 @@ struct PackageResolution
         self.init(pins: pins)
     }
     @inlinable public
-    init<UTF8>(parsing json:UTF8) throws 
-        where UTF8:Collection, UTF8.Element == UInt8
+    init<UTF8>(parsing utf8:UTF8) throws where UTF8:Collection<UInt8>
     {
-        try self.init(from: try Grammar.parse(json, as: JSON.Rule<UTF8.Index>.Root.self))
+        try self.init(from: try JSON.init(parsing: utf8))
     }
 }
