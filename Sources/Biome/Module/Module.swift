@@ -1,5 +1,6 @@
 import SymbolGraphs
 import Notebook
+import URI
 
 public 
 struct Module:Identifiable, Sendable

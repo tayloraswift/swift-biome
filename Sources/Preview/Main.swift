@@ -1,7 +1,7 @@
 import ArgumentParser
 import Backtrace
 @preconcurrency import SystemPackage
-@preconcurrency import NIO
+import NIO
 
 @main 
 struct Main:AsyncParsableCommand 

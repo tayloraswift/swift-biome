@@ -1,5 +1,5 @@
 import SymbolGraphs
-import Grammar 
+import URI
 
 extension Symbol 
 {

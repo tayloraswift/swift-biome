@@ -1,5 +1,6 @@
 import SymbolGraphs
 import HTML
+import URI
 
 typealias DocumentationNode = Documentation<Article.Template<Ecosystem.Link>, Symbol.Index>
 

@@ -1,6 +1,7 @@
 import HTML
 import Resources
 import WebSemantics
+import URI
 
 extension Ecosystem 
 {

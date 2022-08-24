@@ -1,5 +1,6 @@
 import SymbolGraphs
 import HTML
+import URI
 
 extension Packages
 {

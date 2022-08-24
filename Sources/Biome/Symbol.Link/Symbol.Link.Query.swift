@@ -1,6 +1,6 @@
 import SymbolGraphs
 import Versions
-import Grammar 
+import URI
 
 extension Symbol.Link 
 {

@@ -2,6 +2,7 @@
 @_exported import Versions
 import Resources
 import DOM
+import URI
 
 public
 struct Ecosystem:Sendable 

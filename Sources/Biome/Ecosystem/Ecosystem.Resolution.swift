@@ -1,6 +1,7 @@
 import Versions
 import Resources
 import DOM
+import URI
 
 extension Ecosystem 
 {

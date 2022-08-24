@@ -39,6 +39,12 @@ let package = Package(
     [
         .target(name: "Forest", path: "swift-balanced-trees/Sources/Forest"),
 
+        .target(name: "URI", 
+            dependencies: 
+            [
+                .product(name: "Grammar",           package: "swift-grammar"),
+            ]),
+        
         .target(name: "Versions", 
             dependencies: 
             [
@@ -58,6 +64,7 @@ let package = Package(
             dependencies: 
             [
                 .target(name: "SymbolGraphs"),
+                .target(name: "URI"),
 
                 .target(name: "Forest"),
                 //.product(name: "Forest",            package: "swift-balanced-trees"),
