@@ -131,8 +131,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-system-extras.git",
       "state" : {
-        "revision" : "5a67c69d99d4dd7ea33ca5ddb2973f7d80cbdcdd",
-        "version" : "0.1.0"
+        "revision" : "42f297a3191e668ed072878d5db3890db8eada50",
+        "version" : "0.2.0"
       }
     }
   ],
