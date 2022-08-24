@@ -1,5 +1,6 @@
 import SymbolGraphs 
 import SystemPackage
+import Grammar
 import JSON
 
 public 
@@ -57,9 +58,9 @@ struct PackageCatalog:Identifiable, Sendable
 extension RangeReplaceableCollection<PackageCatalog>
 {
     @inlinable public 
-    init<UTF8>(parsing json:UTF8) throws where UTF8:Collection<UInt8>
+    init<UTF8>(parsing utf8:UTF8) throws where UTF8:Collection<UInt8>
     {
-        let json:[JSON] = try Grammar.parse(json, as: JSON.Rule<UTF8.Index>.Array.self)
+        let json:[JSON] = try JSON.Rule<UTF8.Index>.Array.parse(utf8)
         self.init()
         self.reserveCapacity(json.count)
         for json:JSON in json
