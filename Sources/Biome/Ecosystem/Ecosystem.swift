@@ -207,17 +207,15 @@ extension Ecosystem
             scopes: scopes, 
             era: era)
         
-        let beliefs:Beliefs = graphs.generateBeliefs(abstractors: abstractors, 
+        var beliefs:Beliefs = graphs.generateBeliefs(abstractors: abstractors, 
             context: self.packages)
         let trees:Route.Trees = beliefs.generateTrees(
             context: self.packages)
         self.packages[index].addNaturalRoutes(trees.natural)
         self.packages[index].addSyntheticRoutes(trees.synthetic)
 
-        self.packages.spread(from: index, beliefs: beliefs)
-
         // write to the keyframe buffers
-        self.packages[index].pushBeliefs(beliefs)
+        self.packages[index].pushBeliefs(&beliefs, stems: self.stems)
         for scope:Module.Scope in scopes
         {
             self.packages[index].pushDependencies(scope.dependencies(), culture: scope.culture)
@@ -232,6 +230,7 @@ extension Ecosystem
             self.packages[index].pushToplevel(filtering: abstractor.updates)
         }
 
+        self.packages.spread(from: index, beliefs: beliefs)
 
         let compiled:[Index: DocumentationNode] = self.compile(
             comments: graphs.generateComments(abstractors: abstractors),
