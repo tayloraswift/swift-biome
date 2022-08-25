@@ -70,7 +70,8 @@ extension Ecosystem
                     scope: scope)
                 else 
                 {
-                    fatalError("unimplemented")
+                    print("ignored extension '\(article.metadata.path?.description ?? "")' with unknown binding ``\(binding)``")
+                    continue 
                 }
                 // TODO: emit warning for colliding extensions
                 bindings[binding] = article 
