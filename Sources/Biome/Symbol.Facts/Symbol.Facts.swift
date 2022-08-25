@@ -12,8 +12,7 @@ extension Symbol
     struct Predicates:Equatable, Sendable 
     {
         let roles:Roles?
-        let primary:Traits
-        private(set)
+        var primary:Traits
         var accepted:[Module.Index: Traits]
         
         init(roles:Roles?, primary:Traits = .init())

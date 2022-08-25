@@ -18,12 +18,9 @@ extension Sequence<SymbolGraph>
 }
 struct Beliefs 
 {
-    private(set) 
     var facts:[Symbol.Index: Symbol.Facts] 
-    private(set) 
     var opinions:[Symbol.Diacritic: Symbol.Traits] 
 
-    fileprivate 
     init()
     {
         self.facts = [:]

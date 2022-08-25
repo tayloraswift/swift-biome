@@ -379,8 +379,10 @@ struct Package:Identifiable, Sendable
 extension Package 
 {
     mutating 
-    func pushBeliefs(_ beliefs:Beliefs)
+    func pushBeliefs(_ beliefs:inout Beliefs, stems:Route.Stems)
     {
+        self.inferShapes(&beliefs.facts, stems: stems)
+
         let current:Version = self.versions.latest
         for (index, facts):(Symbol.Index, Symbol.Facts) in beliefs.facts
         {
@@ -622,11 +624,47 @@ extension Package
         }
     }
     mutating 
-    func reshape(_ facts:[Symbol.Index: Symbol.Facts])
+    func inferShapes(_ facts:inout [Symbol.Index: Symbol.Facts], stems:Route.Stems)
     {
-        for (index, facts):(Symbol.Index, Symbol.Facts) in facts
+        for index:Dictionary<Symbol.Index, Symbol.Facts>.Index in facts.indices
         {
-            self.symbols[local: index].shape = facts.shape
+            let local:Symbol.Index = facts.keys[index]
+
+            if  let shape:Symbol.Shape = facts.values[index].shape 
+            {
+                self.symbols[local: local].shape = shape
+                continue 
+            }
+
+            let symbol:Symbol = self.symbols[local: local]
+            guard   case nil = symbol.shape,
+                    let scope:Path = .init(symbol.path.prefix)
+            else 
+            {
+                continue 
+            }
+            // attempt to re-parent this symbol using lexical lookup
+            if  let scope:Route.Key = stems[symbol.route.namespace, scope], 
+                case .one((let scope, _))? = self.groups[scope], 
+                let scope:Symbol.Index = scope.natural
+            {
+                self.symbols[local: local].shape = .member(of: scope)
+                if scope.culture == local.culture 
+                {
+                    facts[scope]?.predicates.primary
+                        .members.insert(local)
+                }
+                else 
+                {
+                    facts[scope]?.predicates.accepted[local.culture, default: .init()]
+                        .members.insert(local)
+                }
+            }
+            else 
+            {
+                print("warning: orphaned symbol \(symbol)")
+                continue 
+            }
         }
     }
     mutating 

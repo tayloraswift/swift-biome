@@ -174,8 +174,6 @@ extension Packages
     mutating 
     func spread(from index:Package.Index, beliefs:Beliefs)
     {
-        self[index].reshape(beliefs.facts)
-
         let current:Version = self[index].versions.latest
         for diacritic:Symbol.Diacritic in beliefs.opinions.keys 
         {
