@@ -293,7 +293,7 @@ extension Packages
         }
         let list:HTML.Element<Page.Topics.Key> = .ul(items)
         let heading:HTML.Element<Page.Topics.Key> = .h2(escaped: "Modules")
-        return .init(freezing: .div(.section([heading, list], attributes: [.class("related")])))
+        return .init(freezing: .div(.section(heading, list, attributes: [.class("related")])))
     }
     func render(topics:Page.Topics) -> DOM.Flattened<Page.Topics.Key>?
     {
