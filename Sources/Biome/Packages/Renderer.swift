@@ -452,7 +452,7 @@ extension Packages
                         .init(anchor: .href(.composite(composite))),
                         .class("signature")
                     ])
-                return .li([signature, .init(anchor: .composite(composite))])
+                return .li(signature, .init(anchor: .composite(composite)))
             }
         }
         return .ul(items)
