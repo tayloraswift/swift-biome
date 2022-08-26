@@ -91,10 +91,7 @@ extension Extension
                 for (name, content):(String, [any BlockMarkup]) in sections.parameters 
                 {
                     list.append(.dt(name))
-                    list.append(.dd(content.map 
-                    {
-                        self.render(block: $0)
-                    }))
+                    list.append(.dd(self.render(blocks: content)))
                 }
                 self.append([.dl(list)], under: "Parameters", classes: "parameters")
                 
@@ -153,11 +150,16 @@ extension Extension
         private mutating 
         func render(aside:Aside, content:[any BlockMarkup]) -> HTML.Element<String> 
         {
-            .aside([.h3(aside.prose)] + content.map 
-                {
-                    self.render(block: $0)
-                }, 
+            .aside([.h3(aside.prose)] + self.render(blocks: content), 
                 attributes: [.class(aside.class)])
+        }
+        private mutating 
+        func render(blocks:some Sequence<any BlockMarkup>) -> [HTML.Element<String>] 
+        {
+            blocks.map 
+            {
+                self.render(block: $0)
+            }
         }
         private mutating 
         func render(block:any BlockMarkup) -> HTML.Element<String> 
@@ -176,7 +178,7 @@ extension Extension
             case let directive as BlockDirective:
                 return self.render(directive: directive)
             case let item as ListItem:
-                return .li(self.render(item: item))
+                return .li(self.render(blocks: item.blockChildren))
             case let list as OrderedList:
                 return .ol(self.render(list: list))
             case let list as UnorderedList:
@@ -295,19 +297,11 @@ extension Extension
             }
         }
         private mutating 
-        func render(item:ListItem) -> [HTML.Element<String>] 
-        {
-            item.blockChildren.map 
-            {
-                self.render(block: $0)
-            }
-        }
-        private mutating 
         func render(list:some ListItemContainer) -> [HTML.Element<String>] 
         {
             list.listItems.map
             {
-                .li(self.render(item: $0))
+                .li(self.render(blocks: $0.blockChildren))
             }
         }
         private mutating 
@@ -334,15 +328,6 @@ extension Extension
                 .tbody(self.render(rows: table.body)))
         }
         
-        // inline rendering 
-        mutating 
-        func render(span:some InlineContainer) -> [HTML.Element<String>]
-        {
-            span.inlineChildren.map
-            {
-                self.render(inline: $0)
-            }
-        }
         private mutating 
         func render(image:Markdown.Image) -> HTML.Element<String>
         {
@@ -409,6 +394,15 @@ extension Extension
             }
         }
         
+        // inline rendering 
+        mutating 
+        func render(span:some InlineContainer) -> [HTML.Element<String>]
+        {
+            span.inlineChildren.map
+            {
+                self.render(inline: $0)
+            }
+        }
         private mutating 
         func render(inline:any InlineMarkup) -> HTML.Element<String>
         {
