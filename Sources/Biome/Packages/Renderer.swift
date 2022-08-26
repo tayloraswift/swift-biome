@@ -28,8 +28,7 @@ extension Packages
         if !node.dependencies.isEmpty
         {
             substitutions[.dependencies] = .table( 
-            [
-                .thead(.tr([.td(escaped: "Dependency"), .td(escaped: "Version")])),
+                .thead(.tr(.td(escaped: "Dependency"), .td(escaped: "Version"))),
                 .tbody(node.dependencies.sorted 
                 {
                     $0.key < $1.key 
@@ -42,9 +41,8 @@ extension Packages
                     let link:HTML.Element<Ecosystem.Index> = 
                         .a(dependency.versions[item.value].version.description, 
                             attributes: [.init(anchor: .package(item.key))])
-                    return .tr([.td(dependency.name), .td(link)])
-                }),
-            ])
+                    return .tr(.td(dependency.name), .td(link))
+                }))
         }
 
         return substitutions.mapValues { .init(freezing: $0) }
@@ -70,7 +68,7 @@ extension Packages
         let substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
             .title:        .init(title), 
-            .headline:     .h1(.init(node: .value(.init(escaped: excerpt.headline)))), 
+            .headline:     .h1(.init(escaped: excerpt.headline)), 
             .kind:         .init(escaped: "Article"),
             .culture:       self.link(module: index.module),
         ]
