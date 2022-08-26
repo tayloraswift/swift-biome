@@ -35,7 +35,7 @@ extension HTML.Element
     {
         if let anchor:Anchor = anchor
         {
-            return .a(.highlight(child, color), attributes: [.href(anchor: anchor)])
+            return .a(.highlight(child, color), attributes: [.init(anchor: anchor)])
         }
         else 
         {
@@ -158,7 +158,7 @@ extension HTML.Element
         {
             elements.append(contentsOf: try Self.render(constraint: penultimate, 
                 transform: transform))
-            elements.append(.text(escaped: " and "))
+            elements.append(.init(escaped: " and "))
             elements.append(contentsOf: try Self.render(constraint: ultimate, 
                 transform: transform))
         }
@@ -169,11 +169,11 @@ extension HTML.Element
             {
                 elements.append(contentsOf: try Self.render(constraint: constraint, 
                     transform: transform))
-                elements.append(.text(escaped: ", "))
+                elements.append(.init(escaped: ", "))
             }
             elements.append(contentsOf: try Self.render(constraint: penultimate, 
                 transform: transform))
-            elements.append(.text(escaped: ", and "))
+            elements.append(.init(escaped: ", and "))
             elements.append(contentsOf: try Self.render(constraint: ultimate, 
                 transform: transform))
         }
@@ -196,7 +196,7 @@ extension HTML.Element
         let subject:Self = .code(.highlight(constraint.subject, .type))
         let object:Self = .code(.highlight(constraint.object, .type, 
             href: try constraint.target.map(transform)))
-        return [subject, .text(escaped: verb), object]
+        return [subject, .init(escaped: verb), object]
     }
 }
 
@@ -223,7 +223,7 @@ extension HTML.Element
         {
             return nil
         }
-        return .li { "\(adjective, as: .strong)" }
+        return .li(.strong(escaped: adjective))
     }
     private static 
     func render(availability:SwiftAvailability?) -> Self?
@@ -254,7 +254,9 @@ extension HTML.Element
         {
             return nil
         }
-        return .li { "\(adjective, as: .strong) since Swift \(toolchain)" }
+        return .li(.strong(escaped: adjective), 
+            .init(escaped: " since Swift "), 
+            toolchain)
     }
     
     static 
@@ -272,7 +274,7 @@ extension HTML.Element
         {
             items.append(item)
         }
-        return items.isEmpty ? nil : .ul(items: items, attributes: [.class("availability-list")])
+        return items.isEmpty ? nil : .ul(items, attributes: [.class("availability-list")])
     }
     
     static
@@ -311,7 +313,7 @@ extension HTML.Element
         }
         else 
         {
-            return .section(.ul(items: platforms), attributes: [.class("platforms")])
+            return .section(.ul(platforms), attributes: [.class("platforms")])
         }
     }
 }

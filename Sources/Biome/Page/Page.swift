@@ -1,7 +1,8 @@
-import SymbolGraphs
-import Versions
+import DOM
 import HTML
+import SymbolGraphs
 import URI
+import Versions
 
 public 
 struct Page 
@@ -197,6 +198,11 @@ extension Page
 extension Page 
 {
     private mutating 
+    func href(_ index:Ecosystem.Index) -> String.UTF8View
+    {
+        "href=\"\(self.uri(of: index))\"".utf8
+    }
+    private mutating 
     func uri(of index:Ecosystem.Index) -> String 
     {
         if let cached:String = self.cache.uris[index] 
@@ -245,22 +251,19 @@ extension Page
         switch self.ecosystem.expand(link)
         {
         case .package(let package): 
-            let text:String = self.ecosystem[package].name
-            let uri:String = self.uri(of: .package(package))
-            return .code(.a(text) { ("href", uri) })
+            return .code(.a(self.ecosystem[package].name, 
+                attributes: [.href(self.uri(of: .package(package)))]))
         
         case .article(let article):
-            let utf8:[UInt8] = self.headline(of: article)
-            let uri:String = self.uri(of: .article(article))
-            return .cite(.a(.bytes(utf8: utf8)) { ("href", uri) }) 
+            return .cite(.a(.init(escaped: self.headline(of: article)), 
+                attributes: [.href(self.uri(of: .article(article)))])) 
         
         case .module(let module, let trace):
             composites = trace 
             // not `title`!
-            let text:String = self.ecosystem[module].name
-            let uri:String = self.uri(of: .module(module))
             crumbs.reserveCapacity(2 * trace.count + 1)
-            crumbs.append(.a(text) { ("href", uri) })
+            crumbs.append(.a(self.ecosystem[module].name, 
+                attributes: [.href(self.uri(of: .module(module)))]))
         
         case .composite(let trace): 
             composites = trace 
@@ -270,11 +273,10 @@ extension Page
         {
             if !crumbs.isEmpty 
             {
-                crumbs.append(.text(escaped: "."))
+                crumbs.append(.init(escaped: "."))
             }
-            let text:String = self.ecosystem[composite.base].name
-            let uri:String = self.uri(of: .composite(composite))
-            crumbs.append(.a(text) { ("href", uri) })
+            crumbs.append(.a(self.ecosystem[composite.base].name, 
+                attributes: [.href(self.uri(of: .composite(composite)))]))
         }
         return .code(crumbs)
     }
@@ -288,31 +290,31 @@ extension Page
         {
             self.substitutions[.summary] = article.summary.rendered
             {
-                self.expand($0).rendered(as: [UInt8].self)
+                self.expand($0).node.rendered(as: [UInt8].self)
             }
         }
         if !article.discussion.isEmpty
         {
             self.substitutions[.discussion] = article.discussion.rendered
             {
-                self.expand($0).rendered(as: [UInt8].self)
+                self.expand($0).node.rendered(as: [UInt8].self)
             }
         }
     }
     
     private mutating 
-    func add(fields:[Key: DOM.Template<Ecosystem.Index>])
+    func add(fields:[Key: DOM.Flattened<Ecosystem.Index>])
     {
         self.substitutions.reserveCapacity(self.substitutions.count + fields.count)
-        for (key, field):(Key, DOM.Template<Ecosystem.Index>) in fields 
+        for (key, field):(Key, DOM.Flattened<Ecosystem.Index>) in fields 
         {
-            self.substitutions[key] = field.rendered { self.uri(of: $0).utf8 }
+            self.substitutions[key] = field.rendered { self.href($0) }
         }
     }
     private mutating 
-    func add(topics:DOM.Template<Topics.Key>?)
+    func add(topics:DOM.Flattened<Topics.Key>?)
     {
-        guard let topics:DOM.Template<Topics.Key>
+        guard let topics:DOM.Flattened<Topics.Key>
         else 
         {
             return 
@@ -322,8 +324,8 @@ extension Page
             let documentation:DocumentationNode
             switch $0 
             {
-            case .uri(let index):
-                return [UInt8].init(self.uri(of: index).utf8)
+            case .href(let index):
+                return [UInt8].init(self.href(index))
             case .article(let article):
                 documentation = self.pin(article.module.package)
                     .documentation(article)
@@ -333,7 +335,7 @@ extension Page
             }
             return self.template(documentation).summary.rendered 
             {
-                self.expand($0).rendered(as: [UInt8].self)
+                self.expand($0).node.rendered(as: [UInt8].self)
             }
         }
     }
@@ -361,7 +363,7 @@ extension Page
         let width:Int = strings.lazy.map(\.count).max() ?? 0
         
         var current:String? = nil
-        var items:[HTML.StaticElement] = []
+        var items:[HTML.Element<Never>] = []
             items.reserveCapacity(availableVersions.count)
         for (version, text):(Version, String) in 
             zip(availableVersions, strings).reversed()
@@ -373,73 +375,50 @@ extension Page
             if  version == currentVersion
             {
                 current = text 
-                items.append(.li(.span(text)) { ("class", "current") })
+                items.append(.li(.span(text), attributes: [.class("current")]))
             }
             else 
             {
                 let uri:URI = try uri(self.ecosystem, .init(package, at: version))
-                items.append(.li(.a(text) { ("href", uri.description) }))
+                items.append(.li(.a(text, attributes: [.href(uri.description)])))
             }
         }
         
-        let menu:HTML.StaticElement = .ol(items: items) 
-        self.substitutions[.versions] = menu.rendered(as: [UInt8].self)
+        let menu:HTML.Element<Never> = .ol(items) 
+        self.substitutions[.versions] = menu.node.rendered(as: [UInt8].self)
         
-        let name:HTML.StaticElement = .span(package.id.title) 
-        { 
-            ("class", "package") 
-        }
+        let name:HTML.Element<Never> = .span(package.id.title, attributes: [.class("package")]) 
         if  let current:String 
         {
-            let current:HTML.StaticElement = 
-                .span(currentVersion == package.versions.latest ? "latest" : current) 
-            { 
-                ("class", "version") 
-            }
-            self.substitutions[.pin] = name.rendered(as: [UInt8].self) + 
-                current.rendered(as: [UInt8].self)
+            let current:HTML.Element<Never> = .span(
+                escaped: currentVersion == package.versions.latest ? "latest" : current, 
+                attributes: [.class("version")]) 
+            self.substitutions[.pin] = name.node.rendered(as: [UInt8].self) + 
+                current.node.rendered(as: [UInt8].self)
         }
         else 
         {
-            self.substitutions[.pin] = name.rendered(as: [UInt8].self) 
+            self.substitutions[.pin] = name.node.rendered(as: [UInt8].self) 
             
             let snapped:Int = availableVersions.lastIndex { $0 < currentVersion } ?? 
                 availableVersions.startIndex
             let uri:URI = try uri(self.ecosystem, 
                 .init(package, at: availableVersions[snapped]))
             
-            let notice:HTML.StaticElement = HTML.StaticElement[.div]
-            {
-                ("class", "notice extinct")
-            }
-            content: 
-            {
-                HTML.StaticElement[.div]
-                {
-                    HTML.StaticElement.p([])
-                }
-                HTML.StaticElement[.div]
-                {
-                    HTML.StaticElement[.p]
-                    {
-                        "This symbol does not exist in the requested version of "
-                        name
-                        "."
-                    }
-                    HTML.StaticElement[.p]
-                    {
-                        "The documentation from version "
-                        HTML.StaticElement.a(strings[snapped - availableVersions.startIndex])
-                        {
-                            ("href",    uri.description)
-                            ("class",   "version")
-                        }
-                        " is shown below."
-                    }
-                }
-            }
+            let notice:HTML.Element<Never> = .div(.div(.p()),
+                .div(
+                    .p(
+                        .init(escaped: "This symbol does not exist in the requested version of "),
+                        name,
+                        .init(escaped: ".")),
+                    .p(
+                        .init(escaped: "The documentation from version "),
+                        .a(strings[snapped - availableVersions.startIndex], 
+                            attributes: [.href(uri.description), .class("version")]),
+                        .init(escaped: " is shown below."))), 
+                attributes: [.class("notice extinct")])
             
-            self.substitutions[.notices] = notice.rendered(as: [UInt8].self) 
+            self.substitutions[.notices] = notice.node.rendered(as: [UInt8].self) 
         }
     }
     mutating 

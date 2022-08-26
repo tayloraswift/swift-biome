@@ -1,5 +1,6 @@
-import SymbolGraphs
+import DOM
 import HTML
+import SymbolGraphs
 import URI
 
 extension Packages
@@ -40,13 +41,13 @@ extension Packages
                     let dependency:Package = self[item.key]
                     let link:HTML.Element<Ecosystem.Index> = 
                         .a(dependency.versions[item.value].version.description, 
-                            attributes: [.href(anchor: .package(item.key))])
+                            attributes: [.init(anchor: .package(item.key))])
                     return .tr([.td(dependency.name), .td(link)])
                 }),
             ])
         }
 
-        return substitutions.mapValues(DOM.Flattened<Ecosystem.Index>.init(freezing:))
+        return substitutions.mapValues { .init(freezing: $0) }
     }
     func renderFields(for index:Module.Index) -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
     {
@@ -60,7 +61,7 @@ extension Packages
             .fragments:    .render(fragments: module.fragments) { (_:Never) -> Ecosystem.Index in },
             .culture:       self.link(package: index.package),
         ]
-        return substitutions.mapValues(DOM.Flattened<Ecosystem.Index>.init(freezing:))
+        return substitutions.mapValues { .init(freezing: $0) }
     }
     func renderFields(for index:Article.Index, excerpt:Article.Excerpt) 
         -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
@@ -73,7 +74,7 @@ extension Packages
             .kind:         .init(escaped: "Article"),
             .culture:       self.link(module: index.module),
         ]
-        return substitutions.mapValues(DOM.Flattened<Ecosystem.Index>.init(freezing:))
+        return substitutions.mapValues { .init(freezing: $0) }
     }
     func renderFields(for composite:Symbol.Composite, 
         declaration:Declaration<Symbol.Index>, 
@@ -119,7 +120,7 @@ extension Packages
                 attributes: [.class("base")])
         }
         
-        return substitutions.mapValues(DOM.Flattened<Ecosystem.Index>.init(freezing:))
+        return substitutions.mapValues { .init(freezing: $0) }
     }
     func renderFields(for choices:[Symbol.Composite], uri:URI) -> [Page.Key: [UInt8]]
     {
@@ -138,14 +139,14 @@ extension Packages
                 name += "/\(component)"
             }
         }
-        let substitutions:[Page.Key: HTML.StaticElement] = 
+        let substitutions:[Page.Key: HTML.Element<Never>] = 
         [
             .title:        .init(escaped: "Disambiguation Page"), 
             .headline:     .h1(name), 
             .kind:         .init(escaped: "Disambiguation Page"),
             .summary:      .p(escaped: "This link could refer to multiple symbols."),
         ]
-        return substitutions.mapValues { $0.rendered(as: [UInt8].self) }
+        return substitutions.mapValues { $0.node.rendered(as: [UInt8].self) }
     }
     
     private 
@@ -233,7 +234,7 @@ extension Packages
             items.append(.li(constraints))
         }
         
-        return items.isEmpty ? nil : .ul(items: items, attributes: [.class("notes")])
+        return items.isEmpty ? nil : .ul(items, attributes: [.class("notes")])
     }
     private 
     func renderBreadcrumbs(for composite:Symbol.Composite) -> HTML.Element<Ecosystem.Index>
@@ -246,22 +247,22 @@ extension Packages
         {
             let current:Symbol = self[index]
             crumbs.append(.li(.a(.highlight(current.name, .type), 
-                attributes: [.href(anchor: .symbol(index))])))
+                attributes: [.init(anchor: .symbol(index))])))
             next = current.shape?.target
         }
         crumbs.reverse()
-        return .ol(items: crumbs) 
+        return .ol(crumbs) 
     }
     
     private 
     func link(package:Package.Index) -> HTML.Element<Ecosystem.Index>
     {
-        .a(self[package].name, attributes: [.href(anchor: .package(package))])
+        .a(self[package].name, attributes: [.init(anchor: .package(package))])
     }
     private 
     func link(module:Module.Index) -> HTML.Element<Ecosystem.Index>
     {
-        .a(self[module].title, attributes: [.href(anchor: .module(module))])
+        .a(self[module].title, attributes: [.init(anchor: .module(module))])
     }
 } 
 
@@ -288,7 +289,7 @@ extension Packages
             
             .li(.a(.render(path: module.path), attributes: 
             [
-                .init(anchor: .uri(.module(module.index))), 
+                .init(anchor: .href(.module(module.index))), 
                 .class("signature")
             ]))
         }
@@ -372,12 +373,12 @@ extension Packages
                 let signature:HTML.Element<Page.Topics.Key> = .a(.render(path: self[host].path), 
                     attributes:
                     [
-                        .init(anchor: .uri(.symbol(relationship.target))),
+                        .init(anchor: .href(.symbol(relationship.target))),
                         .class("signature")
                     ])
                 if  let constraints:HTML.Element<Page.Topics.Key> = .render(.init(escaped: "When "), 
                     constraints: relationship.conditions, 
-                    transform: { .uri(.symbol($0)) }) 
+                    transform: { .href(.symbol($0)) }) 
                 {
                     return .li([signature, constraints])
                 }
@@ -434,14 +435,14 @@ extension Packages
             {
             case .article(let article, let excerpt):
                 let signature:HTML.Element<Page.Topics.Key> = 
-                    .a(.h2(.bytes(utf8: excerpt.headline)), attributes:
+                    .a(.h2(.init(escaped: excerpt.headline)), attributes:
                     [
-                        .init(anchor: .uri(.article(article))),
+                        .init(anchor: .href(.article(article))),
                         .class("headline")
                     ])
                 let more:HTML.Element<Page.Topics.Key> = .a("Read more", attributes:
                     [
-                        .init(anchor: .uri(.article(article))),
+                        .init(anchor: .href(.article(article))),
                         .class("more")
                     ])
                 return .li([signature, .init(anchor: .article(article)), more])
@@ -450,13 +451,13 @@ extension Packages
                 let signature:HTML.Element<Page.Topics.Key> = 
                     .a(.render(signature: declaration.signature), attributes:
                     [
-                        .init(anchor: .uri(.composite(composite))),
+                        .init(anchor: .href(.composite(composite))),
                         .class("signature")
                     ])
                 return .li([signature, .init(anchor: .composite(composite))])
             }
         }
-        return .ul(items: items)
+        return .ul(items)
     }
     private 
     func renderHeading(_ culture:Module.Culture) -> HTML.Element<Page.Topics.Key>?
@@ -472,7 +473,7 @@ extension Packages
     private 
     func renderHeading(_ culture:Module.Index) -> HTML.Element<Page.Topics.Key>
     {
-        .a(self[culture].title, attributes: [.init(anchor: .uri(.module(culture)))])
+        .a(self[culture].title, attributes: [.init(anchor: .href(.module(culture)))])
     }
 }
 

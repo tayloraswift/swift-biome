@@ -1,6 +1,7 @@
-import enum SymbolGraphs.Highlight
-import Markdown
+import DOM
 import HTML
+import Markdown
+import enum SymbolGraphs.Highlight
 
 extension Extension
 {
@@ -158,7 +159,7 @@ extension Extension
                 {
                     self.render(block: $0)
                 }, 
-                attributes: .class(aside.class))
+                attributes: [.class(aside.class)])
         }
         private mutating 
         func render(block:any BlockMarkup) -> HTML.Element<String> 
@@ -177,18 +178,18 @@ extension Extension
             case let directive as BlockDirective:
                 return self.render(directive: directive)
             case let item as ListItem:
-                return self.render(item: item)
+                return .li(self.render(item: item))
             case let list as OrderedList:
-                return self.render(list: list, as: .ol)
+                return .ol(self.render(list: list))
             case let list as UnorderedList:
-                return self.render(list: list, as: .ul)
+                return .ul(self.render(list: list))
             case let block as CodeBlock:
                 return Self.highlight(block: block.code, 
                     as: block.language.map { $0.lowercased() == "swift" ? .swift : .text } ?? .swift)
             case let heading as Heading: 
                 return self.render(heading: heading)
             case let paragraph as Paragraph:
-                return self.render(span: paragraph, as: .p)
+                return .p(self.render(span: paragraph))
             case let table as Table:
                 return self.render(table: table)
             case is ThematicBreak: 
@@ -202,7 +203,7 @@ extension Extension
         private static
         func highlight(block code:String, as language:CodeBlockLanguage) -> HTML.Element<String> 
         {
-            var fragments:[HTML.Element<String>] = [.highlight(.text(escaped: ""), .newlines)]
+            var fragments:[HTML.Element<String>] = [.highlight(escaped: "", .newlines)]
             switch language 
             {
             case .text: 
@@ -217,7 +218,7 @@ extension Extension
                 }
                 for next:Substring in lines.dropFirst()
                 {
-                    fragments.append(.highlight(.text(escaped: "\n"), .newlines))
+                    fragments.append(.highlight(escaped: "\n", .newlines))
                     fragments.append(.init(next))
                 }
             case .swift:
@@ -228,27 +229,20 @@ extension Extension
             }
             
             return .pre(.code(fragments, attributes: [.class(language.rawValue)]), 
-                attributes: .class("notebook"))
+                attributes: [.class("notebook")])
         }
         private static
-        func highlight(inline code:String, as language:CodeBlockLanguage) -> Element 
+        func highlight(inline code:String, as language:CodeBlockLanguage) -> HTML.Element<String> 
         {
-            Element[.code] 
-            { 
-                ("class", language.rawValue)  
-            } 
-            content: 
-            { 
-                switch language 
-                {
-                case .text: 
-                    code 
-                case .swift:
-                    for (text, color):(String, Highlight) in Self.highlight(code)
-                    {
-                        Element.highlight(text, color)
-                    }
-                }
+            let attributes:[HTML.Element<String>.Attribute] = [.class(language.rawValue)]
+            switch language 
+            {
+            case .text: 
+                return .code(code, 
+                    attributes: attributes)
+            case .swift:
+                return .code(Self.highlight(code).map { .highlight($0.text, $0.color) }, 
+                    attributes: attributes)
             }
         }
         private 
@@ -267,15 +261,14 @@ extension Extension
         private mutating 
         func render(heading:Heading) -> Element 
         {
-            let level:HTML.Container
             switch heading.level + self.rank
             {
-            case ...1:  level = .h1
-            case    2:  level = .h2
-            case    3:  level = .h3
-            case    4:  level = .h4
-            case    5:  level = .h5
-            default:    level = .h6
+            case ...1:  return .h1(self.render(span: heading))
+            case    2:  return .h2(self.render(span: heading))
+            case    3:  return .h3(self.render(span: heading))
+            case    4:  return .h4(self.render(span: heading))
+            case    5:  return .h5(self.render(span: heading))
+            default:    return .h6(self.render(span: heading))
             }
             /* return Element[.h2]
             {
@@ -293,7 +286,6 @@ extension Extension
                 }
                 headings().joined() as FlattenSequence<[[Element]]>
             } */
-            return self.render(span: heading, as: level)
         }
         private mutating 
         func render(directive:BlockDirective) -> HTML.Element<String> 
@@ -305,53 +297,53 @@ extension Extension
             }
         }
         private mutating 
-        func render(item:ListItem) -> HTML.Element<String> 
+        func render(item:ListItem) -> [HTML.Element<String>] 
         {
-            .li(item.blockChildren.map 
+            item.blockChildren.map 
             {
                 self.render(block: $0)
-            })
+            }
         }
         private mutating 
-        func render<List>(list:List, as container:HTML.Container) -> HTML.Element<String> 
-            where List:ListItemContainer
+        func render(list:some ListItemContainer) -> [HTML.Element<String>] 
         {
-            .init(node: .container(container, content: list.listItems.map
+            list.listItems.map
             {
-                self.render(item: $0)
-            }))
+                .li(self.render(item: $0))
+            }
         }
         private mutating 
-        func render<Row>(row:Row, as container:HTML.Container) -> HTML.Element<String> 
-            where Row:TableCellContainer
+        func render(row:some TableCellContainer) -> [HTML.Element<String>] 
         {
-            .init(node: .container(container, content: row.cells.map
+            row.cells.map
             {
-                self.render(span: $0, as: .td)
-            }))
+                .td(self.render(span: $0))
+            }
+        }
+        private mutating 
+        func render(rows body:Table.Body) -> [HTML.Element<String>] 
+        {
+            body.rows.map
+            {
+                .tr(self.render(row: $0))
+            }
         }
         private mutating 
         func render(table:Table) -> HTML.Element<String> 
         {
             .table(
-            [
-                self.render(row: table.head, as: .thead),
-                .tbody(table.body.rows.map
-                {
-                    self.render(row: $0, as: .tr)
-                }),
-            ])
+                .thead(.tr(self.render(row: table.head))),
+                .tbody(self.render(rows: table.body)))
         }
         
         // inline rendering 
         mutating 
-        func render<Span>(span:Span, as container:HTML.Container) -> HTML.Element<String>
-            where Span:InlineContainer
+        func render(span:some InlineContainer) -> [HTML.Element<String>]
         {
-            .init(node: .container(container, content: span.inlineChildren.map
+            span.inlineChildren.map
             {
                 self.render(inline: $0)
-            }))
+            }
         }
         private mutating 
         func render(image:Markdown.Image) -> HTML.Element<String>
@@ -369,8 +361,7 @@ extension Extension
             {
                 attributes.append(.alt(title))
             }
-            return .figure([.img(attributes: attributes), 
-                self.render(span: image, as: .figcaption)])
+            return .figure(.img(attributes: attributes), .figcaption(self.render(span: image)))
         }
 
         private mutating 
@@ -386,7 +377,7 @@ extension Extension
                 else 
                 {
                     self.report(invalid: link)
-                    return self.render(span: link, as: .span)
+                    return .span(self.render(span: link))
                 }
             }
             if destination.starts(with: "doc:")
@@ -439,11 +430,11 @@ extension Extension
             case let span as InlineCode: 
                 return .code(span.code)
             case let span as Emphasis:
-                return self.render(span: span, as: .em)
+                return .em(self.render(span: span))
             case let span as Strikethrough:
-                return self.render(span: span, as: .s)
+                return .s(self.render(span: span))
             case let span as Strong:
-                return self.render(span: span, as: .strong)
+                return .strong(self.render(span: span))
             case let image as Markdown.Image: 
                 return self.render(image: image)
             case let link as Markdown.Link: 
