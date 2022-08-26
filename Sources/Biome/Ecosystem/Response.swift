@@ -1,3 +1,4 @@
+import DOM
 import HTML
 import Resources
 import WebSemantics
@@ -8,17 +9,11 @@ extension Ecosystem
     static 
     var logo:[UInt8]
     {
-        let logo:HTML.Element<Never> = .ol(items: [.li(.a(
-        [
-            .text(escaped: "swift"), 
-            .container(.i, content: [.text(escaped: "init")])
-        ]) 
-        { 
-            ("class", "logo") 
-            ("href", "/")
-        })])
-        
-        return logo.rendered(as: [UInt8].self)
+        let logo:HTML.Element<Never> = .ol(.li(.a(
+            .init(escaped: "swift"), 
+            .i(.init(escaped: "init")), 
+            attributes: [.class("logo"), .href("/")])))
+        return logo.node.rendered(as: [UInt8].self)
     }
 
     public 
@@ -69,7 +64,7 @@ extension Ecosystem
                 break 
             }
 
-            let template:DOM.Template<Page.Key> = template ?? self.template
+            let template:DOM.Flattened<Page.Key> = template ?? self.template
             var page:Page = .init(ecosystem: self, pins: pins)
                 page.generate(for: index, exhibit: exhibit)
                 page.add(scriptConstants: self.caches.keys)

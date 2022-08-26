@@ -72,7 +72,7 @@ struct Ecosystem:Sendable
     let whitelist:[Package.ID]
     
     private(set)
-    var template:DOM.Template<Page.Key>
+    var template:DOM.Flattened<Page.Key>
     let roots:[Route.Stem: Root]
     let root:
     (    
@@ -293,7 +293,7 @@ extension Ecosystem
         self.redirects[uri.description] = .resource(resource)
     }
     public mutating 
-    func move(module:Module.Index, to uri:URI, template:DOM.Template<Page.Key>? = nil)
+    func move(module:Module.Index, to uri:URI, template:DOM.Flattened<Page.Key>? = nil)
     {
         let pins:Package.Pins = 
             self.packages[module.package].move(module: module, to: uri)
@@ -301,7 +301,7 @@ extension Ecosystem
             template: template)
     }
     public mutating 
-    func move(articles module:Module.Index, to uri:URI, template:DOM.Template<Page.Key>? = nil)
+    func move(articles module:Module.Index, to uri:URI, template:DOM.Flattened<Page.Key>? = nil)
     {
         let pins:Package.Pins = 
             self.packages[module.package].move(articles: module, to: uri)

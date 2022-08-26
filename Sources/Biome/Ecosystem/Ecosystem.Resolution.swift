@@ -7,14 +7,14 @@ extension Ecosystem
 {
     enum Redirect
     {
-        case index(Index, pins:Package.Pins, template:DOM.Template<Page.Key>? = nil)
+        case index(Index, pins:Package.Pins, template:DOM.Flattened<Page.Key>? = nil)
         case resource(Resource)
     }
     
     @usableFromInline
     enum Resolution
     {
-        case index(Index, pins:Package.Pins, exhibit:Version? = nil, template:DOM.Template<Page.Key>? = nil)
+        case index(Index, pins:Package.Pins, exhibit:Version? = nil, template:DOM.Flattened<Page.Key>? = nil)
         
         case choices([Symbol.Composite], pins:Package.Pins)
         case resource(Resource, uri:URI)

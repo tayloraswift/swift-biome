@@ -1,3 +1,4 @@
+import DOM
 import HTML
 
 extension Article 
@@ -5,8 +6,8 @@ extension Article
     struct Template<Key>:Equatable where Key:Equatable
     {
         let errors:[Error]
-        let summary:DOM.Template<Key>
-        let discussion:DOM.Template<Key>
+        let summary:DOM.Flattened<Key>
+        let discussion:DOM.Flattened<Key>
         
         // don’t include ``errors`` 
         static 
@@ -27,8 +28,8 @@ extension Article
             self.discussion = .init()
         }
         init(errors:[Error], 
-            summary:DOM.Template<Key>, 
-            discussion:DOM.Template<Key>) 
+            summary:DOM.Flattened<Key>, 
+            discussion:DOM.Flattened<Key>) 
         {
             self.errors = errors
             self.summary = summary
@@ -49,11 +50,11 @@ extension Article
             where T:Hashable, Segment:Sequence, Segment.Element == UInt8
         {
             var errors:[Error] = self.errors 
-            let summary:DOM.Template<T> = try self.summary.transform
+            let summary:DOM.Flattened<T> = try self.summary.transform
             {
                 try transform($0, &errors)
             }
-            let discussion:DOM.Template<T> = try self.discussion.transform
+            let discussion:DOM.Flattened<T> = try self.discussion.transform
             {
                 try transform($0, &errors)
             }

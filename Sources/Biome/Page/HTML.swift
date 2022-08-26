@@ -3,7 +3,7 @@ import Versions
 import Notebook
 import HTML
 
-extension DOM.Element where Domain == HTML
+extension HTML.Element
 {
     static 
     func highlight<Fragments, Link>(_ fragments:Fragments, 
@@ -21,13 +21,13 @@ extension DOM.Element where Domain == HTML
     func highlight(escaped string:String, _ color:Highlight, href anchor:Anchor?) 
         -> Self
     {
-        self.highlight(.text(escaped: string), color, href: anchor)
+        self.highlight(.init(escaped: string), color, href: anchor)
     }
     static 
     func highlight(_ string:String, _ color:Highlight, href anchor:Anchor?) 
         -> Self
     {
-        self.highlight(.text(escaping: string), color, href: anchor)
+        self.highlight(.init(string), color, href: anchor)
     }
     static 
     func highlight(_ child:Self, _ color:Highlight, href anchor:Anchor?) 
@@ -35,7 +35,7 @@ extension DOM.Element where Domain == HTML
     {
         if let anchor:Anchor = anchor
         {
-            return .a(.highlight(child, color)) { ("href", .anchor(anchor)) }
+            return .a(.highlight(child, color), attributes: [.init(anchor: anchor)])
         }
         else 
         {
@@ -43,17 +43,17 @@ extension DOM.Element where Domain == HTML
         }
     }
 }
-extension DOM.Element where Domain == HTML 
+extension HTML.Element
 {
     static 
     func highlight(escaped string:String, _ color:Highlight) -> Self
     {
-        Self.highlight(.text(escaped: string), color)
+        Self.highlight(.init(escaped: string), color)
     }
     static 
     func highlight(_ string:String, _ color:Highlight) -> Self
     {
-        Self.highlight(.text(escaping: string), color)
+        Self.highlight(.init(string), color)
     }
     static 
     func highlight(_ child:Self, _ color:Highlight) -> Self
@@ -92,11 +92,11 @@ extension DOM.Element where Domain == HTML
         case .invalid:
             classes = "syntax-invalid"
         }
-        return .span(child) { ("class", classes) }
+        return .span(child, attributes: [.class(classes)])
     } 
 }
 
-extension DOM.Element where Domain == HTML
+extension HTML.Element
 {
     static 
     func render<Fragments, Link>(fragments:Fragments, 
@@ -106,8 +106,8 @@ extension DOM.Element where Domain == HTML
                 Fragments.Element == Notebook<Highlight, Link>.Fragment
     {
         let fragments:[Self] = try Self.highlight(fragments, transform: transform)
-        let code:Self = .code(fragments) { ("class", "swift") }
-        return .section(.pre(code)) { ("class", "declaration") }
+        let code:Self = .code(fragments, attributes: [.class("swift")])
+        return .section(.pre(code), attributes: [.class("declaration")])
     }
     static 
     func render<Fragments>(signature:Fragments) -> Self
@@ -118,7 +118,7 @@ extension DOM.Element where Domain == HTML
     }
 }
 
-extension DOM.Element where Domain == HTML
+extension HTML.Element
 {
     static 
     func render(path:Path) -> Self
@@ -134,7 +134,7 @@ extension DOM.Element where Domain == HTML
         return .code(components)
     }
 }
-extension DOM.Element where Domain == HTML
+extension HTML.Element
 {
     static 
     func render(_ prefix:Self, constraints:[Generic.Constraint<Symbol.Index>], 
@@ -158,7 +158,7 @@ extension DOM.Element where Domain == HTML
         {
             elements.append(contentsOf: try Self.render(constraint: penultimate, 
                 transform: transform))
-            elements.append(.text(escaped: " and "))
+            elements.append(.init(escaped: " and "))
             elements.append(contentsOf: try Self.render(constraint: ultimate, 
                 transform: transform))
         }
@@ -169,11 +169,11 @@ extension DOM.Element where Domain == HTML
             {
                 elements.append(contentsOf: try Self.render(constraint: constraint, 
                     transform: transform))
-                elements.append(.text(escaped: ", "))
+                elements.append(.init(escaped: ", "))
             }
             elements.append(contentsOf: try Self.render(constraint: penultimate, 
                 transform: transform))
-            elements.append(.text(escaped: ", and "))
+            elements.append(.init(escaped: ", and "))
             elements.append(contentsOf: try Self.render(constraint: ultimate, 
                 transform: transform))
         }
@@ -196,11 +196,11 @@ extension DOM.Element where Domain == HTML
         let subject:Self = .code(.highlight(constraint.subject, .type))
         let object:Self = .code(.highlight(constraint.object, .type, 
             href: try constraint.target.map(transform)))
-        return [subject, .text(escaped: verb), object]
+        return [subject, .init(escaped: verb), object]
     }
 }
 
-extension DOM.Element where Domain == HTML
+extension HTML.Element
 {
     private static 
     func render(availability:UnversionedAvailability?) -> Self?
@@ -223,7 +223,7 @@ extension DOM.Element where Domain == HTML
         {
             return nil
         }
-        return .li { "\(adjective, as: .strong)" }
+        return .li(.strong(escaped: adjective))
     }
     private static 
     func render(availability:SwiftAvailability?) -> Self?
@@ -238,23 +238,25 @@ extension DOM.Element where Domain == HTML
         if let version:MaskedVersion = availability.obsoleted 
         {
             adjective = "Obsolete"
-            toolchain = .span(version.description) { ("class", "version") }
+            toolchain = .span(version.description, attributes: [.class("version")])
         } 
         else if let version:MaskedVersion = availability.deprecated 
         {
             adjective = "Deprecated"
-            toolchain = .span(version.description) { ("class", "version") }
+            toolchain = .span(version.description, attributes: [.class("version")])
         }
         else if let version:MaskedVersion = availability.introduced
         {
             adjective = "Available"
-            toolchain = .span(version.description) { ("class", "version") }
+            toolchain = .span(version.description, attributes: [.class("version")])
         }
         else 
         {
             return nil
         }
-        return .li { "\(adjective, as: .strong) since Swift \(toolchain)" }
+        return .li(.strong(escaped: adjective), 
+            .init(escaped: " since Swift "), 
+            toolchain)
     }
     
     static 
@@ -272,7 +274,7 @@ extension DOM.Element where Domain == HTML
         {
             items.append(item)
         }
-        return items.isEmpty ? nil : .ul(items: items) { ("class", "availability-list") }
+        return items.isEmpty ? nil : .ul(items, attributes: [.class("availability-list")])
     }
     
     static
@@ -311,7 +313,7 @@ extension DOM.Element where Domain == HTML
         }
         else 
         {
-            return .section(.ul(items: platforms)) { ("class", "platforms") }
+            return .section(.ul(platforms), attributes: [.class("platforms")])
         }
     }
 }

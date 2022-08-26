@@ -41,8 +41,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-dom",
       "state" : {
-        "revision" : "cfd83f7d75008f5ba372e6baa457825ab4478be4",
-        "version" : "0.4.1"
+        "revision" : "9c977503b2889bc61848b966f566ce1a95810889",
+        "version" : "0.5.1"
       }
     },
     {
@@ -50,7 +50,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-grammar",
       "state" : {
-        "revision" : "733ca5e74fb3722f3229a5ae055508da82b338b3",
+        "revision" : "9951511e213741b18de71264f22be1392163428e",
         "version" : "0.2.0"
       }
     },
@@ -59,7 +59,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-hash.git",
       "state" : {
-        "revision" : "e66010cb5921192af16e50270dea859047719c47",
+        "revision" : "a3cb6b6880d68ce10eec6f0cbd0713402e526583",
         "version" : "0.2.3"
       }
     },

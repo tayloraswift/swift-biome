@@ -46,7 +46,7 @@ extension Extension
             case .explicit(let headline):
                 for child:any InlineMarkup in headline.inlineChildren
                 {
-                    HTML.Element<Never>.render(recurring: child).rendered(into: &output)
+                    HTML.Element<Never>.render(recurring: child).node.rendered(into: &output)
                 }
             }
             return output
@@ -54,7 +54,7 @@ extension Extension
     }
 }
 
-extension DOM.Element where Domain == HTML, Anchor == Never
+extension HTML.Element<Never>
 {
     // `RecurringInlineMarkup` is not a useful abstraction
     fileprivate static 
@@ -63,16 +63,16 @@ extension DOM.Element where Domain == HTML, Anchor == Never
         switch inline
         {
         case is LineBreak:
-            return .leaf(.br, attributes: [])
+            return .br
         case is SoftBreak:
-            return .text(escaped: " ")
+            return .init(escaped: " ")
         
         case let span as CustomInline: 
-            return .text(escaping: span.text)
+            return .init(span.text)
         case let text as Text:
-            return .text(escaping: text.string)
+            return .init(text.string)
         case let span as InlineHTML:
-            return .text(escaped: span.rawHTML)
+            return .init(escaped: span.rawHTML)
         case let span as InlineCode: 
             return .code(span.code)
         case let span as Emphasis:

@@ -1,11 +1,12 @@
-import SymbolGraphs
+import DOM
 import HTML
+import SymbolGraphs
 import URI
 
 extension Packages
 {
     func renderFields(for index:Package.Index, version:Version) 
-        -> [Page.Key: DOM.Template<Ecosystem.Index>]
+        -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
     {
         let package:Package = self[index]
         let kind:String 
@@ -18,25 +19,17 @@ extension Packages
         let title:String = package.title
         var substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
-            .title:        .text(escaping: title), 
+            .title:        .init(title), 
             .headline:     .h1(title), 
-            .kind:         .text(escaped: kind)
+            .kind:         .init(escaped: kind)
         ]
 
         let node:Package.Node = package.versions[version]
         if !node.dependencies.isEmpty
         {
-            substitutions[.dependencies] = .container(.table, content: 
-            [
-                .container(.thead, content: 
-                [
-                    .container(.tr, content: 
-                    [
-                        .container(.td, content: [.text(escaped: "Dependency")]),
-                        .container(.td, content: [.text(escaped: "Version")]),
-                    ])
-                ]),
-                .container(.tbody, content: node.dependencies.sorted 
+            substitutions[.dependencies] = .table( 
+                .thead(.tr(.td(escaped: "Dependency"), .td(escaped: "Version"))),
+                .tbody(node.dependencies.sorted 
                 {
                     $0.key < $1.key 
                 }
@@ -46,60 +39,53 @@ extension Packages
 
                     let dependency:Package = self[item.key]
                     let link:HTML.Element<Ecosystem.Index> = 
-                        .a(dependency.versions[item.value].version.description) 
-                    { 
-                        ("href", .anchor(.package(item.key))) 
-                    }
-                    return .container(.tr, content: 
-                    [
-                        .container(.td, content: [.text(escaping: dependency.name)]),
-                        .container(.td, content: [link]),
-                    ])
-                }),
-            ])
+                        .a(dependency.versions[item.value].version.description, 
+                            attributes: [.init(anchor: .package(item.key))])
+                    return .tr(.td(dependency.name), .td(link))
+                }))
         }
 
-        return substitutions.mapValues(DOM.Template<Ecosystem.Index>.init(freezing:))
+        return substitutions.mapValues { .init(freezing: $0) }
     }
-    func renderFields(for index:Module.Index) -> [Page.Key: DOM.Template<Ecosystem.Index>]
+    func renderFields(for index:Module.Index) -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
     {
         let module:Module = self[index]
         let title:String = self[index.package].title(module.title)
         let substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
-            .title:        .text(escaping: title), 
-            .headline:     .h1(String.init(module.title)), 
-            .kind:         .text(escaped: "Module"),
+            .title:        .init(title), 
+            .headline:     .h1(module.title), 
+            .kind:         .init(escaped: "Module"),
             .fragments:    .render(fragments: module.fragments) { (_:Never) -> Ecosystem.Index in },
             .culture:       self.link(package: index.package),
         ]
-        return substitutions.mapValues(DOM.Template<Ecosystem.Index>.init(freezing:))
+        return substitutions.mapValues { .init(freezing: $0) }
     }
     func renderFields(for index:Article.Index, excerpt:Article.Excerpt) 
-        -> [Page.Key: DOM.Template<Ecosystem.Index>]
+        -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
     {
         let title:String = self[index.module.package].title(excerpt.title)
         let substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
-            .title:        .text(escaping: title), 
-            .headline:     .h1(.bytes(utf8: excerpt.headline)), 
-            .kind:         .text(escaped: "Article"),
+            .title:        .init(title), 
+            .headline:     .h1(.init(escaped: excerpt.headline)), 
+            .kind:         .init(escaped: "Article"),
             .culture:       self.link(module: index.module),
         ]
-        return substitutions.mapValues(DOM.Template<Ecosystem.Index>.init(freezing:))
+        return substitutions.mapValues { .init(freezing: $0) }
     }
     func renderFields(for composite:Symbol.Composite, 
         declaration:Declaration<Symbol.Index>, 
         facts:Symbol.Predicates) 
-        -> [Page.Key: DOM.Template<Ecosystem.Index>]
+        -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
     {
         let base:Symbol = self[composite.base]
         let title:String = self[composite.culture.package].title(base.name)
         var substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
-            .title:        .text(escaping: title), 
+            .title:        .init(title), 
             .headline:     .h1(base.name), 
-            .kind:         .text(escaping: base.community.title),
+            .kind:         .init(base.community.title),
             .fragments:    .render(fragments: declaration.fragments, 
                 transform: Ecosystem.Index.symbol(_:)),
             
@@ -123,22 +109,16 @@ extension Packages
         
         if composite.diacritic.host.module != composite.culture 
         {
-            substitutions[.namespace] = 
-                .span(self.link(module: composite.diacritic.host.module))
-            {
-                ("class", "namespace")
-            }
+            substitutions[.namespace] = .span(self.link(module: composite.diacritic.host.module), 
+                attributes: [.class("namespace")])
         }
         if composite.base.module != composite.culture 
         {
-            substitutions[.base] = 
-                .span(self.link(module: composite.base.module))
-            {
-                ("class", "base")
-            }
+            substitutions[.base] = .span(self.link(module: composite.base.module), 
+                attributes: [.class("base")])
         }
         
-        return substitutions.mapValues(DOM.Template<Ecosystem.Index>.init(freezing:))
+        return substitutions.mapValues { .init(freezing: $0) }
     }
     func renderFields(for choices:[Symbol.Composite], uri:URI) -> [Page.Key: [UInt8]]
     {
@@ -157,14 +137,14 @@ extension Packages
                 name += "/\(component)"
             }
         }
-        let substitutions:[Page.Key: HTML.StaticElement] = 
+        let substitutions:[Page.Key: HTML.Element<Never>] = 
         [
-            .title:        .text(escaped: "Disambiguation Page"), 
+            .title:        .init(escaped: "Disambiguation Page"), 
             .headline:     .h1(name), 
-            .kind:         .text(escaped: "Disambiguation Page"),
-            .summary:      .p("This link could refer to multiple symbols."),
+            .kind:         .init(escaped: "Disambiguation Page"),
+            .summary:      .p(escaped: "This link could refer to multiple symbols."),
         ]
-        return substitutions.mapValues { $0.rendered(as: [UInt8].self) }
+        return substitutions.mapValues { $0.node.rendered(as: [UInt8].self) }
     }
     
     private 
@@ -185,11 +165,11 @@ extension Packages
                 .highlight(self[interface].name, .type, href: .symbol(composite.base))
             let sentence:[HTML.Element<Ecosystem.Index>] = 
             [
-                .text(escaped: "Available because "),
+                .init(escaped: "Available because "),
                 .code(subject),
-                .text(escaped: " conforms to "),
+                .init(escaped: " conforms to "),
                 .code(object),
-                .text(escaped: "."),
+                .init(escaped: "."),
             ]
             items.append(.li(.p(sentence)))
         
@@ -217,15 +197,15 @@ extension Packages
                     .highlight(type.name, .type, href: .symbol(upstream.target))
                 let sentence:[HTML.Element<Ecosystem.Index>] = 
                 [
-                    .text(escaped: prose),
+                    .init(escaped: prose),
                     .code(object),
-                    .text(escaped: "."),
+                    .init(escaped: "."),
                 ]
                 items.append(.li(.p(sentence)))
             } 
         
         case (.requirement(of: _)?, _):
-            items.append(.li(.p("Required.") { ("class", "required") }))
+            items.append(.li(.p(escaped: "Required.", attributes: [.class("required")])))
             
             for requirement:(target:Symbol.Index, host:Symbol.Index) in 
                 self.sort(facts.roles)
@@ -235,9 +215,9 @@ extension Packages
                         href: .symbol(requirement.target))
                 let sentence:[HTML.Element<Ecosystem.Index>] = 
                 [
-                    .text(escaped: "Restates requirement of "),
+                    .init(escaped: "Restates requirement of "),
                     .code(object),
-                    .text(escaped: "."),
+                    .init(escaped: "."),
                 ]
                 items.append(.li(.p(sentence)))
             }
@@ -245,14 +225,14 @@ extension Packages
             break
         }
         
-        if let constraints:HTML.Element<Ecosystem.Index> = .render(.text(escaped: "Available when "), 
+        if let constraints:HTML.Element<Ecosystem.Index> = .render(.init(escaped: "Available when "), 
             constraints: declaration.extensionConstraints, 
             transform: Ecosystem.Index.symbol(_:)) 
         {
             items.append(.li(constraints))
         }
         
-        return items.isEmpty ? nil : .ul(items: items) { ("class", "notes") }
+        return items.isEmpty ? nil : .ul(items, attributes: [.class("notes")])
     }
     private 
     func renderBreadcrumbs(for composite:Symbol.Composite) -> HTML.Element<Ecosystem.Index>
@@ -264,33 +244,30 @@ extension Packages
         while let index:Symbol.Index = next
         {
             let current:Symbol = self[index]
-            let crumb:HTML.Element<Ecosystem.Index> = .a(.highlight(current.name, .type))
-            {
-                ("href", .anchor(.symbol(index)))
-            }
-            crumbs.append(.li(crumb))
+            crumbs.append(.li(.a(.highlight(current.name, .type), 
+                attributes: [.init(anchor: .symbol(index))])))
             next = current.shape?.target
         }
         crumbs.reverse()
-        return .ol(items: crumbs) 
+        return .ol(crumbs) 
     }
     
     private 
     func link(package:Package.Index) -> HTML.Element<Ecosystem.Index>
     {
-        .a(self[package].name) { ("href", .anchor(.package(package))) }
+        .a(self[package].name, attributes: [.init(anchor: .package(package))])
     }
     private 
     func link(module:Module.Index) -> HTML.Element<Ecosystem.Index>
     {
-        .a(String.init(self[module].title)) { ("href", .anchor(.module(module))) }
+        .a(self[module].title, attributes: [.init(anchor: .module(module))])
     }
 } 
 
 extension Packages
 {
     func render(choices segregated:[Module.Index: [Page.Card]]) 
-        -> DOM.Template<Page.Topics.Key>
+        -> DOM.Flattened<Page.Topics.Key>
     {
         var elements:[HTML.Element<Page.Topics.Key>] = []
             elements.reserveCapacity(2 * segregated.count)
@@ -299,30 +276,26 @@ extension Packages
             elements.append(.h4(self.renderHeading(culture)))
             elements.append(self.render(cards: cards))
         }
-        return .init(freezing: .div(.section(elements) { ("class", "topics choices") }))
+        return .init(freezing: .div(.section(elements, attributes: [.class("topics choices")])))
     }
-    func render(modulelist:[Module]) -> DOM.Template<Page.Topics.Key>
+    func render(modulelist:[Module]) -> DOM.Flattened<Page.Topics.Key>
     {
         let items:[HTML.Element<Page.Topics.Key>] = 
             modulelist.sorted(by: { $0.id.value < $1.id.value }).map
         {
             (module:Module) in 
             
-            let signature:HTML.Element<Page.Topics.Key> = 
-                .a(.render(path: module.path))
-            {
-                ("href", .anchor(.uri(.module(module.index))))
-                ("class", "signature")
-            }
-            return .li(signature)
+            .li(.a(.render(path: module.path), attributes: 
+            [
+                .init(anchor: .href(.module(module.index))), 
+                .class("signature")
+            ]))
         }
-        let list:HTML.Element<Page.Topics.Key> = .ul(items: items)
-        let heading:HTML.Element<Page.Topics.Key> = .h2("Modules")
-        let section:HTML.Element<Page.Topics.Key> = 
-            .section([heading, list]) { ("class", "related") }
-        return .init(freezing: .div(section))
+        let list:HTML.Element<Page.Topics.Key> = .ul(items)
+        let heading:HTML.Element<Page.Topics.Key> = .h2(escaped: "Modules")
+        return .init(freezing: .div(.section(heading, list, attributes: [.class("related")])))
     }
-    func render(topics:Page.Topics) -> DOM.Template<Page.Topics.Key>?
+    func render(topics:Page.Topics) -> DOM.Flattened<Page.Topics.Key>?
     {
         if topics.isEmpty 
         {
@@ -331,7 +304,7 @@ extension Packages
         
         var sections:[HTML.Element<Page.Topics.Key>] = topics.feed.isEmpty ? [] : 
         [
-            .section(self.render(cards: topics.feed)) { ("class", "feed") }
+            .section(self.render(cards: topics.feed), attributes: [.class("feed")])
         ]
         
         func add(lists:Page.List...)
@@ -395,14 +368,15 @@ extension Packages
                 (relationship:Generic.Conditional<Symbol.Index>) in
                 
                 let host:Symbol.Index = self[relationship.target].type ?? relationship.target
-                let signature:HTML.Element<Page.Topics.Key> = .a(.render(path: self[host].path))
-                {
-                    ("href", .anchor(.uri(.symbol(relationship.target))))
-                    ("class", "signature")
-                }
-                if  let constraints:HTML.Element<Page.Topics.Key> = .render(.text(escaped: "When "), 
+                let signature:HTML.Element<Page.Topics.Key> = .a(.render(path: self[host].path), 
+                    attributes:
+                    [
+                        .init(anchor: .href(.symbol(relationship.target))),
+                        .class("signature")
+                    ])
+                if  let constraints:HTML.Element<Page.Topics.Key> = .render(.init(escaped: "When "), 
                     constraints: relationship.conditions, 
-                    transform: { .uri(.symbol($0)) }) 
+                    transform: { .href(.symbol($0)) }) 
                 {
                     return .li([signature, constraints])
                 }
@@ -412,9 +386,9 @@ extension Packages
                 }
             }
             
-            elements.append(.ul(items: items))
+            elements.append(.ul(items))
         }
-        return .section(elements) { ("class", "related") }
+        return .section(elements, attributes: [.class("related")])
     }
     private 
     func render(subsection segregated:[Module.Culture: [Page.Card]], heading:String)
@@ -448,7 +422,7 @@ extension Packages
                 elements.append(self.render(subsection: segregated, heading: sublist.heading))
             }
         }
-        return .section(elements) { ("class", "topics \(`class`)") }
+        return .section(elements, attributes: [.class("topics \(`class`)")])
     }
     private 
     func render(cards:[Page.Card]) -> HTML.Element<Page.Topics.Key>
@@ -459,29 +433,29 @@ extension Packages
             {
             case .article(let article, let excerpt):
                 let signature:HTML.Element<Page.Topics.Key> = 
-                    .a(.h2(.bytes(utf8: excerpt.headline)))
-                {
-                    ("href", .anchor(.uri(.article(article))))
-                    ("class", "headline")
-                }
-                let more:HTML.Element<Page.Topics.Key> = .a("Read more")
-                {
-                    ("href", .anchor(.uri(.article(article))))
-                    ("class", "more")
-                }
-                return .li([signature, .anchor(.article(article)), more])
+                    .a(.h2(.init(escaped: excerpt.headline)), attributes:
+                    [
+                        .init(anchor: .href(.article(article))),
+                        .class("headline")
+                    ])
+                let more:HTML.Element<Page.Topics.Key> = .a("Read more", attributes:
+                    [
+                        .init(anchor: .href(.article(article))),
+                        .class("more")
+                    ])
+                return .li([signature, .init(anchor: .article(article)), more])
             
             case .composite(let composite, let declaration):
                 let signature:HTML.Element<Page.Topics.Key> = 
-                    .a(.render(signature: declaration.signature))
-                {
-                    ("href", .anchor(.uri(.composite(composite))))
-                    ("class", "signature")
-                }
-                return .li([signature, .anchor(.composite(composite))])
+                    .a(.render(signature: declaration.signature), attributes:
+                    [
+                        .init(anchor: .href(.composite(composite))),
+                        .class("signature")
+                    ])
+                return .li(signature, .init(anchor: .composite(composite)))
             }
         }
-        return .ul(items: items)
+        return .ul(items)
     }
     private 
     func renderHeading(_ culture:Module.Culture) -> HTML.Element<Page.Topics.Key>?
@@ -497,10 +471,7 @@ extension Packages
     private 
     func renderHeading(_ culture:Module.Index) -> HTML.Element<Page.Topics.Key>
     {
-        .a(String.init(self[culture].title)) 
-        { 
-            ("href", .anchor(.uri(.module(culture)))) 
-        }
+        .a(self[culture].title, attributes: [.init(anchor: .href(.module(culture)))])
     }
 }
 

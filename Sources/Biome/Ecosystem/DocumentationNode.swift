@@ -1,5 +1,6 @@
-import SymbolGraphs
+import DOM
 import HTML
+import SymbolGraphs
 import URI
 
 typealias DocumentationNode = Documentation<Article.Template<Ecosystem.Link>, Symbol.Index>
@@ -231,7 +232,7 @@ extension Ecosystem
             catch let error 
             {
                 errors.append(LinkResolutionError.init(link: string, error: error))
-                return .segment(HTML.Element<Never>.code(string).rendered(as: [UInt8].self))
+                return .segment(HTML.Element<Never>.code(string).node.rendered(as: [UInt8].self))
             }
         }
     }

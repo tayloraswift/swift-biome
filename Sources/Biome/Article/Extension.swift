@@ -1,5 +1,6 @@
 import Markdown
 import Resources 
+import DOM
 import HTML
 
 struct Extension:Sendable 
@@ -165,7 +166,7 @@ struct Extension:Sendable
             remaining:ArraySlice<Node>
         if let paragraph:Paragraph = self.summary
         {
-            first = renderer.render(span: paragraph, as: .p)
+            first = .p(renderer.render(span: paragraph))
             remaining = self.nodes.dropFirst()
         }
         else 
@@ -183,8 +184,8 @@ struct Extension:Sendable
         {
             renderer.append(nodes: remaining)
         }
-        let discussion:DOM.Template<String> = .init(freezing: renderer.elements)
-        let summary:DOM.Template<String>
+        let discussion:DOM.Flattened<String> = .init(freezing: renderer.elements)
+        let summary:DOM.Flattened<String>
         if let first:HTML.Element<String> = first 
         {
             summary = .init(freezing: first)

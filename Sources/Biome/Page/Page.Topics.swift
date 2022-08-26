@@ -40,7 +40,7 @@ extension Page
         {
             case composite(Symbol.Composite)
             case article(Article.Index)
-            case uri(Ecosystem.Index)
+            case href(Ecosystem.Index)
         }
         
         var feed:[Card]
