@@ -62,8 +62,6 @@ extension Extension
     } */
     struct Renderer 
     {
-        typealias Element = HTML.Element<String>
-        
         private 
         let rank:Int
         private(set)
@@ -246,7 +244,7 @@ extension Extension
             }
         }
         private 
-        func highlight(inline link:Markdown.Link) -> Element?
+        func highlight(inline link:Markdown.Link) -> HTML.Element<String>?
         {
             let spans:[any InlineMarkup] = .init(link.inlineChildren)
             guard   let span:any InlineMarkup = spans.first, spans.count == 1,
@@ -259,7 +257,7 @@ extension Extension
         }
         
         private mutating 
-        func render(heading:Heading) -> Element 
+        func render(heading:Heading) -> HTML.Element<String> 
         {
             switch heading.level + self.rank
             {
