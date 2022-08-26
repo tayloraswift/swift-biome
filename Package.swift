@@ -23,7 +23,7 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-grammar", .upToNextMinor(from: "0.2.0")),
         .package(url: "https://github.com/kelvin13/swift-highlight", .upToNextMinor(from: "0.1.4")),
         .package(url: "https://github.com/kelvin13/swift-resource", .upToNextMinor(from: "0.3.2")),
-        .package(url: "https://github.com/kelvin13/swift-dom", .upToNextMinor(from: "0.4.1")),
+        .package(url: "https://github.com/kelvin13/swift-dom", .upToNextMinor(from: "0.5.0")),
         
         .package(url: "https://github.com/apple/swift-markdown.git",    revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
         .package(url: "https://github.com/apple/swift-syntax.git",      revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
@@ -69,7 +69,8 @@ let package = Package(
                 .target(name: "Forest"),
                 //.product(name: "Forest",            package: "swift-balanced-trees"),
 
-                .product(name: "DOM",               package: "swift-dom"),
+                .product(name: "HTML",              package: "swift-dom"),
+                .product(name: "RSS",               package: "swift-dom"),
                 .product(name: "JSON",              package: "swift-json"),
                 .product(name: "Resources",         package: "swift-resource"),
                 .product(name: "WebSemantics",      package: "swift-resource"),

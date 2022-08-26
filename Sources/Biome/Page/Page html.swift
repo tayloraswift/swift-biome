@@ -3,206 +3,88 @@ import HTML
 
 extension Page 
 {
-    fileprivate 
-    typealias Element = HTML.Element<Key>
-    
     static 
-    let html:HTML.Root<Key> = .init 
-    {
-        ("lang", "en")
-    }
-    content:
-    {
-        Element[.head]
-        {
-            Element[.title]
-            {
-                Element.anchor(.title)
-            }
+    let html:HTML.Root<Key> = .init(
+    [
+        .head(
+        [
+            .title(.init(anchor: .title)),
             
-            Element[.meta]
-            {
-                ("charset", "UTF-8")
-            }
-            Element[.meta]
-            {
-                ("name",    "viewport")
-                ("content", "width=device-width, initial-scale=1")
-            }
+            .meta(attributes: [.charset("UTF-8")]),
+            .meta(attributes: [.name("viewport"), .content("width=device-width, initial-scale=1")]),
             
-            Element[.script]
-            {
-                Element.anchor(.constants)
-            }
-            Element[.script]
-            {
-                ("src",     "/search.js")
-                ("defer",   true)
-            }
-            Element[.link]
-            {
-                ("href",    "/biome.css")
-                ("rel",     "stylesheet")
-            }
-            Element[.link]
-            {
-                ("href",    "/favicon.png")
-                ("rel",     "icon")
-            }
-            Element[.link]
-            {
-                ("href",    "/favicon.ico")
-                ("rel",     "icon")
-                ("type",    MIME.icon.rawValue)
-            }
-        }
-        Element[.body]
-        {
-            Element[.header]
-            {
-                Element[.nav]
-                {
-                    ("class", "breadcrumbs")
-                } 
-                content: 
-                {
-                    Element.anchor(.breadcrumbs)
-                }
-                
-                Element[.div]
-                {
-                    ("class", "toolbar-container")
-                } 
-                content: 
-                {
-                    Element[.div]
-                    {
-                        ("class", "toolbar")
-                    }
-                    content: 
-                    {
-                        Element[.form] 
-                        {
-                            ("role",    "search")
-                            ("id",      "search")
-                        }
-                        content: 
-                        {
-                            Element[.input]
-                            {
-                                ("id",              "search-input")
-                                ("type",            "search")
-                                ("placeholder",     "search symbols")
-                                ("autocomplete",    "off")
-                            }
-                        }
-                        Element[.input]
-                        {
-                            ("id",              "version-menu-toggle")
-                            ("type",            "checkbox")
-                            ("autocomplete",    "off")
-                        }
-                        Element[.label]
-                        {
-                            ("id",  "version")
-                            ("for", "version-menu-toggle")
-                        }
-                        content: 
-                        {
-                            Element.anchor(.pin)
-                        }
-                    }
-                    Element[.ol]
-                    {
-                        ("id", "search-results")
-                    }
-                    Element[.div]
-                    {
-                        ("id", "version-menu")
-                    }
-                    content: 
-                    {
-                        Element.anchor(.versions)
-                    }
-                }
-            }
-            Element[.main]
-            {
-                Element[.div]
-                {
-                    ("class", "upper")
-                }
-                content: 
-                {
-                    Element[.div]
-                    {
-                        ("class", "upper-container")
-                    }
-                    content: 
-                    {
-                        Element[.article]
-                        {
-                            ("class", "upper-container-left")
-                        }
-                        content: 
-                        {
-                            Element[.section]
-                            {
-                                ("class", "introduction")
-                            }
-                            content:
-                            {
-                                Element[.div]
-                                {
-                                    ("class", "eyebrows")
-                                }
-                                content:
-                                {
-                                    Element[.span]
-                                    {
-                                        ("class", "kind")
-                                    }
-                                    content: 
-                                    {
-                                        Element.anchor(.kind)
-                                    }
-                                    
-                                    Element[.span]
-                                    {
-                                        ("class", "nationality")
-                                    }
-                                    content: 
-                                    {
-                                        Element.anchor(.namespace)
-                                        Element.anchor(.culture)
-                                        Element.anchor(.base)
-                                    }
-                                }
+            .script(attributes: [.init(anchor: .constants)]),
+            .script(attributes: [.src("/search.js"), .defer(true)]),
+            .link(attributes: [.href("/biome.css"), .rel("stylesheet")]),
+            .link(attributes: [.href("/favicon.png"), .rel("icon")]),
+            .link(attributes: [.href("/favicon.ico"), .rel("icon"), .type(MIME.icon.rawValue)]),
+        ]),
+        .body(
+        [
+            .header(
+            [
+                .nav(.init(anchor: .breadcrumbs), attributes: [.class("breadcrumbs")]),
+                .div([
+                    .div([
+                        .form(.input(
+                                attributes: 
+                                [
+                                    .id("search-input"),
+                                    .type("search"),
+                                    .placeholder("search symbols"),
+                                    .autocomplete("off"),
+                                ]), 
+                            attributes: 
+                            [
+                                .role("search"), 
+                                .id("search"),
+                            ]),
+                        .input(attributes: 
+                            [
+                                .id("version-menu-toggle"),
+                                .type("checkbox"),
+                                .autocomplete("off")
+                            ]),
+                        .label(.init(anchor: .pin), attributes: 
+                            [
+                                .id("version"), 
+                                .for("version-menu-toggle"),
+                            ])], 
+                        attributes: [.class("toolbar")]),
+                    .ol(attributes: [.id("search-results")]),
+                    .div(.init(anchor: .versions), attributes: [.id("version-menu")])],
+                    attributes: [.class("toolbar-container")]),
+            ]),
+            .main(
+                .div([
+                    .div([
+                        .article([
+                            .section([
+                                .div([
+                                    .span(.init(anchor: .kind), attributes: [.class("kind")]),
+                                    .span([
+                                        .init(anchor: .namespace),
+                                        .init(anchor: .culture),
+                                        .init(anchor: .base)], 
+                                        attributes: [.class("nationality")])],
+                                    attributes: [.class("eyebrows")]),
                                 
-                                Element.anchor(.headline)
-                                Element.anchor(.notices)
-                                Element.anchor(.summary)
-                                Element.anchor(.notes)
-                                Element.anchor(.availability)
-                            }
-                            
-                            Element.anchor(.platforms)
-                            Element.anchor(.fragments)
-                            Element.anchor(.dependencies)
-                            Element.anchor(.consumers)
-                            Element.anchor(.discussion)
-                        }
-                    }
-                }
-                Element[.div]
-                {
-                    ("class", "lower")
-                }
-                content: 
-                {
-                    Element.anchor(.topics)
-                }
-            }
-        }
-    }
+                                .init(anchor: .headline),
+                                .init(anchor: .notices),
+                                .init(anchor: .summary),
+                                .init(anchor: .notes),
+                                .init(anchor: .availability)], 
+                                attributes: [.class("introduction")]),
+                            .init(anchor: .platforms),
+                            .init(anchor: .fragments),
+                            .init(anchor: .dependencies),
+                            .init(anchor: .consumers),
+                            .init(anchor: .discussion)],
+                            attributes: [.class("upper-container-left")])],
+                        attributes: [.class("upper-container")])],
+                    attributes: [.class("upper")]),
+                .div(.init(anchor: .topics), attributes: [.class("lower")])),
+        ])
+    ], 
+    attributes: [.lang("en")])
 }
