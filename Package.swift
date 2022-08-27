@@ -25,8 +25,8 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-resource", .upToNextMinor(from: "0.3.2")),
         .package(url: "https://github.com/kelvin13/swift-dom", .upToNextMinor(from: "0.5.2")),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",    revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
-        .package(url: "https://github.com/apple/swift-syntax.git",      revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
+        .package(url: "https://github.com/apple/swift-markdown.git",    revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-24-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",      revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-24-a"),
         
         // only used by the PackageLoader target
         .package(url: "https://github.com/kelvin13/swift-system-extras.git", .upToNextMinor(from: "0.2.0")),
