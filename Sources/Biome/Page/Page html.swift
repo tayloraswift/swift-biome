@@ -11,7 +11,7 @@ extension Page
             .meta(attributes: [.charset("UTF-8")]),
             .meta(attributes: [.name("viewport"), .content("width=device-width, initial-scale=1")]),
             
-            .script(attributes: [.init(anchor: .constants)]),
+            .script(.init(anchor: .constants)),
             .script(attributes: [.src("/search.js"), .defer]),
             .link(attributes: [.href("/biome.css"), .rel("stylesheet")]),
             .link(attributes: [.href("/favicon.png"), .rel("icon")]),
