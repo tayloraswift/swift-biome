@@ -39,6 +39,12 @@ let package = Package(
     [
         .target(name: "Forest", path: "swift-balanced-trees/Sources/Forest"),
 
+        .target(name: "PieCharts", 
+            dependencies: 
+            [
+                .product(name: "SVG",               package: "swift-dom"),
+            ]),
+        
         .target(name: "URI", 
             dependencies: 
             [
@@ -63,6 +69,7 @@ let package = Package(
         .target(name: "Biome", 
             dependencies: 
             [
+                .target(name: "PieCharts"),
                 .target(name: "SymbolGraphs"),
                 .target(name: "URI"),
 
