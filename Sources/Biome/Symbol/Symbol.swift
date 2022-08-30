@@ -1,19 +1,18 @@
 import SymbolGraphs
 
 public
-struct Symbol:Sendable, Identifiable, CustomStringConvertible  
+struct Symbol:Identifiable, Sendable, CustomStringConvertible  
 {
-    /// A globally-unique index referencing a symbol. 
-    /// 
-    /// A symbol index encodes the module it belongs to, which makes it possible 
-    /// to query module membership based on the index alone.
     @frozen public 
-    struct Index:CulturalIndex, Sendable
+    struct Index:_CulturalIndex, Sendable
     {
+        public typealias Culture = Module.Index 
+        public typealias Offset = UInt32
+
         public 
         let module:Module.Index
         public 
-        let bits:UInt32
+        let offset:UInt32
         
         @inlinable public 
         var culture:Module.Index
@@ -21,33 +20,10 @@ struct Symbol:Sendable, Identifiable, CustomStringConvertible
             self.module
         }
         @inlinable public 
-        init(_ module:Module.Index, bits:UInt32)
+        init(_ module:Module.Index, offset:UInt32)
         {
             self.module = module
-            self.bits = bits
-        } 
-    }
-    // this is like ``Symbol.IndexRange``, except the ``module`` field refers to 
-    // a namespace, not the module that actually contains the symbol
-    struct ColonialRange:Hashable, Sendable
-    {
-        let namespace:Module.Index 
-        let bits:Range<UInt32>
-        
-        var offsets:Range<Int> 
-        {
-            .init(self.bits.lowerBound) ..< .init(self.bits.upperBound)
-        }
-        
-        init(namespace:Module.Index, offsets:Range<Int>)
-        {
-            self.init(namespace: namespace, bits: .init(offsets.lowerBound) ..< .init(offsets.upperBound))
-        }
-        private 
-        init(namespace:Module.Index, bits:Range<UInt32>)
-        {
-            self.namespace = namespace
-            self.bits = bits
+            self.offset = offset
         }
     }
     

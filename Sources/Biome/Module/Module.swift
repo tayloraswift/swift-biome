@@ -5,14 +5,16 @@ import URI
 public 
 struct Module:Identifiable, Sendable
 {
-    /// A globally-unique index referencing a module. 
-    @frozen public
-    struct Index:CulturalIndex, Sendable 
+    @frozen public 
+    struct Index:_CulturalIndex, Sendable
     {
+        public typealias Culture = Package.Index 
+        public typealias Offset = UInt16
+
         public 
-        let package:Package.Index 
+        let package:Package.Index
         public 
-        let bits:UInt16
+        let offset:UInt16
         
         @inlinable public 
         var culture:Package.Index
@@ -20,14 +22,14 @@ struct Module:Identifiable, Sendable
             self.package
         }
         @inlinable public 
-        init(_ package:Package.Index, bits:UInt16)
+        init(_ package:Package.Index, offset:UInt16)
         {
             self.package = package
-            self.bits = bits
-        } 
+            self.offset = offset
+        }
     }
-    
-    enum Culture:Hashable, Sendable 
+
+    enum _Culture:Hashable, Sendable 
     {
         case primary 
         case accepted(Index)
@@ -42,6 +44,9 @@ struct Module:Identifiable, Sendable
     
     struct Heads 
     {
+        var symbols:[Colony]
+        var articles:[Range<Article.Index.Offset>]
+        
         @History<Set<Index>>.Branch.Optional 
         var dependencies:History<Set<Index>>.Branch.Head?
         @History<Set<Symbol.Index>>.Branch.Optional 
@@ -53,6 +58,9 @@ struct Module:Identifiable, Sendable
         
         init() 
         {
+            self.symbols = []
+            self.articles = []
+            
             self._dependencies = .init()
             self._toplevel = .init()
             self._guides = .init()
@@ -65,9 +73,6 @@ struct Module:Identifiable, Sendable
     public 
     let id:ModuleIdentifier
     let index:Index 
-    
-    var symbols:[Symbol.ColonialRange]
-    var articles:[Range<Article.Index>]
     
     var heads:Heads
     var redirect:(module:Redirect?, articles:Redirect?)
@@ -91,9 +96,6 @@ struct Module:Identifiable, Sendable
     {
         self.id = id 
         self.index = index
-        self.symbols = []
-        self.articles = []
-        
         self.heads = .init()
         self.redirect = (nil, nil)
     }

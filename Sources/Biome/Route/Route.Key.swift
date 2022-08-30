@@ -73,8 +73,8 @@ extension Route
         var description:String 
         {
             """
-            \(self.namespace.package.bits):\
-            \(self.namespace.bits).\
+            \(self.namespace.package.offset):\
+            \(self.namespace.offset).\
             \(self.stem.bitPattern >> 1).\
             \(self.leaf.bitPattern)
             """

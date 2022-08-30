@@ -45,9 +45,9 @@ extension Page
         
         var feed:[Card]
         var requirements:[Sublist: [Card]]
-        var members:[Sublist: [Module.Culture: [Card]]]
-        var removed:[Sublist: [Module.Culture: [Card]]]
-        var lists:[List: [Module.Culture: [Generic.Conditional<Symbol.Index>]]]
+        var members:[Sublist: [Module._Culture: [Card]]]
+        var removed:[Sublist: [Module._Culture: [Card]]]
+        var lists:[List: [Module._Culture: [Generic.Conditional<Symbol.Index>]]]
         
         var isEmpty:Bool 
         {
@@ -72,15 +72,15 @@ extension Page
         {
             self.feed.sort(by: ecosystem)
             self.requirements.sortValues(by: ecosystem)
-            for index:Dictionary<Sublist, [Module.Culture: [Card]]>.Index in self.members.indices 
+            for index:Dictionary<Sublist, [Module._Culture: [Card]]>.Index in self.members.indices 
             {
                 self.members.values[index].sortValues(by: ecosystem)
             }
-            for index:Dictionary<Sublist, [Module.Culture: [Card]]>.Index in self.removed.indices 
+            for index:Dictionary<Sublist, [Module._Culture: [Card]]>.Index in self.removed.indices 
             {
                 self.removed.values[index].sortValues(by: ecosystem)
             }
-            for index:Dictionary<List, [Module.Culture: [Generic.Conditional<Symbol.Index>]]>.Index in 
+            for index:Dictionary<List, [Module._Culture: [Generic.Conditional<Symbol.Index>]]>.Index in 
                 self.lists.indices 
             {
                 self.lists.values[index].sortValues(by: ecosystem)
@@ -161,7 +161,7 @@ extension Page
     }
     private 
     func organize(topics:inout Topics, 
-        culture:Module.Culture, 
+        culture:Module._Culture, 
         traits:Symbol.Traits, 
         host:Symbol.Index)
     {
@@ -241,14 +241,14 @@ extension Page
         }
     }
     private 
-    func add(member composite:Symbol.Composite, culture:Module.Culture, to topics:inout Topics)
+    func add(member composite:Symbol.Composite, culture:Module._Culture, to topics:inout Topics)
     {
         let sublist:Sublist = .community(self.ecosystem[composite.base].community)
         let declaration:Declaration<Symbol.Index> = 
             self.pin(composite.base.module.package).declaration(composite.base)
         // every sublist has a sub-sublist for the primary culture, even if it 
         // is empty. this is more css-grid friendly.
-        var empty:[Module.Culture: [Card]] { [.primary: []] }
+        var empty:[Module._Culture: [Card]] { [.primary: []] }
         if  declaration.availability.isUsable 
         {
             topics.members[sublist, default: empty][culture, default: []]

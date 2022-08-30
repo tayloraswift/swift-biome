@@ -21,21 +21,21 @@ struct Package:Identifiable, Sendable
     public 
     struct Index:Hashable, Comparable, Sendable 
     {
-        let bits:UInt16
+        let opaque:UInt16
         
         public static 
         func < (lhs:Self, rhs:Self) -> Bool 
         {
-            lhs.bits < rhs.bits
+            lhs.opaque < rhs.opaque
         }
         
         var offset:Int 
         {
-            .init(self.bits)
+            .init(self.opaque)
         }
         init(offset:Int)
         {
-            self.bits = .init(offset)
+            self.opaque = .init(offset)
         }
     }
     
@@ -65,9 +65,9 @@ struct Package:Identifiable, Sendable
     var heads:Heads
     var versions:Versions
     private(set) 
-    var modules:CulturalBuffer<Module.Index, Module>, 
-        symbols:CulturalBuffer<Symbol.Index, Symbol>,
-        articles:CulturalBuffer<Article.Index, Article>
+    var modules:CulturalBuffer<Module, Module.Index>, 
+        symbols:CulturalBuffer<Symbol, Symbol.Index>,
+        articles:CulturalBuffer<Article, Article.Index>
     private(set)
     var external:[Symbol.Diacritic: History<Symbol.Traits>.Branch.Head]
     // per-module buffers
@@ -114,9 +114,9 @@ struct Package:Identifiable, Sendable
         self.versions = .init(package: index)
         
         self.groups = .init()
-        self.modules = .init()
-        self.symbols = .init()
-        self.articles = .init()
+        self.modules = .init(startIndex: 0)
+        self.symbols = .init(startIndex: 0)
+        self.articles = .init(startIndex: 0)
         self.external = [:]
         self.toplevels = .init()
         self.guides = .init()
@@ -501,51 +501,52 @@ extension Package
         culture:Module.Index) 
         -> (articles:[Article.Index: Extension], extensions:[String: Extension])
     {
-        var articles:[Article.Index: Extension] = [:]
-        var extensions:[String: Extension] = [:] 
+        return ([:], [:])
+        // var articles:[Article.Index: Extension] = [:]
+        // var extensions:[String: Extension] = [:] 
         
-        let start:Article.Index = .init(culture, offset: self.articles.count)
-        for (name, source):(name:String, source:String) in graph.extensions
-        {
-            let article:Extension = .init(markdown: source)
-            if let binding:String = article.binding 
-            {
-                extensions[binding] = article 
-                continue 
-            }
-            let path:Path 
-            if let explicit:Path = article.metadata.path 
-            {
-                path = explicit 
-            }
-            else if !name.isEmpty 
-            {
-                // replace spaces in the article name with hyphens
-                path = .init(last: .init(name.map { $0 == " " ? "-" : $0 }))
-            }
-            else 
-            {
-                print("warning: article with no filename must have an explicit @path(_:)")
-                continue 
-            }
-            // article namespace is always its culture. 
-            let route:Route.Key = .init(culture, 
-                      stems.register(components: path.prefix), 
-                .init(stems.register(component:  path.last), 
-                orientation: .straight))
-            let index:Article.Index = 
-                self.articles.insert(.init(route), culture: culture)
-            {
-                (id:Article.ID, _:Article.Index) in .init(id: id, path: path)
-            }
-            articles[index] = article
-        }
-        let end:Article.Index = .init(culture, offset: self.articles.count)
-        if start < end
-        {
-            self.modules[local: culture].articles.append(start ..< end)
-        }
-        return (articles, extensions)
+        // let start:Article.Index = .init(culture, offset: self.articles.count)
+        // for (name, source):(name:String, source:String) in graph.extensions
+        // {
+        //     let article:Extension = .init(markdown: source)
+        //     if let binding:String = article.binding 
+        //     {
+        //         extensions[binding] = article 
+        //         continue 
+        //     }
+        //     let path:Path 
+        //     if let explicit:Path = article.metadata.path 
+        //     {
+        //         path = explicit 
+        //     }
+        //     else if !name.isEmpty 
+        //     {
+        //         // replace spaces in the article name with hyphens
+        //         path = .init(last: .init(name.map { $0 == " " ? "-" : $0 }))
+        //     }
+        //     else 
+        //     {
+        //         print("warning: article with no filename must have an explicit @path(_:)")
+        //         continue 
+        //     }
+        //     // article namespace is always its culture. 
+        //     let route:Route.Key = .init(culture, 
+        //               stems.register(components: path.prefix), 
+        //         .init(stems.register(component:  path.last), 
+        //         orientation: .straight))
+        //     let index:Article.Index = 
+        //         self.articles.insert(.init(route), culture: culture)
+        //     {
+        //         (id:Article.ID, _:Article.Index) in .init(id: id, path: path)
+        //     }
+        //     articles[index] = article
+        // }
+        // let end:Article.Index = .init(culture, offset: self.articles.count)
+        // if start < end
+        // {
+        //     self.modules[local: culture].articles.append(start ..< end)
+        // }
+        // return (articles, extensions)
     }
     
     mutating 
@@ -554,74 +555,74 @@ extension Package
         stems:inout Route.Stems,
         scope:Module.Scope) 
     {
-        for (namespace, vertices):(Module.ID, ArraySlice<SymbolGraph.Vertex<Int>>) in graph.colonies
-        {
-            // will always succeed for the core subgraph
-            guard let namespace:Module.Index = scope[namespace]
-            else 
-            {
-                print("warning: ignored colonial symbolgraph '\(graph.id)@\(namespace)'")
-                print("note: '\(namespace)' is not a known dependency of '\(graph.id)'")
-                continue 
-            }
+        // for (namespace, vertices):(Module.ID, ArraySlice<SymbolGraph.Vertex<Int>>) in graph.colonies
+        // {
+        //     // will always succeed for the core subgraph
+        //     guard let namespace:Module.Index = scope[namespace]
+        //     else 
+        //     {
+        //         print("warning: ignored colonial symbolgraph '\(graph.id)@\(namespace)'")
+        //         print("note: '\(namespace)' is not a known dependency of '\(graph.id)'")
+        //         continue 
+        //     }
             
-            let start:Int = self.symbols.count
-            for (offset, vertex):(Int, SymbolGraph.Vertex<Int>) in zip(vertices.indices, vertices)
-            {
-                if let index:Symbol.Index = abstractor[offset]
-                {
-                    if index.module != scope.culture 
-                    {
-                        print(
-                            """
-                            warning: symbol '\(vertex.path)' has already been registered in a \
-                            different module (while loading symbolgraph of culture '\(graph.id)')
-                            """)
-                    }
-                    // already registered this symbol
-                    continue 
-                }
-                let index:Symbol.Index = self.symbols.insert(graph.identifiers[offset], 
-                    culture: scope.culture)
-                {
-                    (id:Symbol.ID, _:Symbol.Index) in 
-                    let route:Route.Key = .init(namespace, 
-                              stems.register(components: vertex.path.prefix), 
-                        .init(stems.register(component:  vertex.path.last), 
-                        orientation: vertex.community.orientation))
-                    // if the symbol could inherit features, generate a stem 
-                    // for its children from its full path. this stem will only 
-                    // go to waste if a concretetype is completely uninhabited, 
-                    // which is very rare.
-                    let kind:Symbol.Kind 
-                    switch vertex.community
-                    {
-                    case .associatedtype: 
-                        kind = .associatedtype 
-                    case .concretetype(let concrete): 
-                        kind = .concretetype(concrete, path: vertex.path.prefix.isEmpty ? 
-                            route.leaf.stem : stems.register(components: vertex.path))
-                    case .callable(let callable): 
-                        kind = .callable(callable)
-                    case .global(let global): 
-                        kind = .global(global)
-                    case .protocol: 
-                        kind = .protocol 
-                    case .typealias: 
-                        kind = .typealias
-                    }
-                    return .init(id: id, path: vertex.path, kind: kind, route: route)
-                }
+        //     let start:Int = self.symbols.count
+        //     for (offset, vertex):(Int, SymbolGraph.Vertex<Int>) in zip(vertices.indices, vertices)
+        //     {
+        //         if let index:Symbol.Index = abstractor[offset]
+        //         {
+        //             if index.module != scope.culture 
+        //             {
+        //                 print(
+        //                     """
+        //                     warning: symbol '\(vertex.path)' has already been registered in a \
+        //                     different module (while loading symbolgraph of culture '\(graph.id)')
+        //                     """)
+        //             }
+        //             // already registered this symbol
+        //             continue 
+        //         }
+        //         let index:Symbol.Index = self.symbols.insert(graph.identifiers[offset], 
+        //             culture: scope.culture)
+        //         {
+        //             (id:Symbol.ID, _:Symbol.Index) in 
+        //             let route:Route.Key = .init(namespace, 
+        //                       stems.register(components: vertex.path.prefix), 
+        //                 .init(stems.register(component:  vertex.path.last), 
+        //                 orientation: vertex.community.orientation))
+        //             // if the symbol could inherit features, generate a stem 
+        //             // for its children from its full path. this stem will only 
+        //             // go to waste if a concretetype is completely uninhabited, 
+        //             // which is very rare.
+        //             let kind:Symbol.Kind 
+        //             switch vertex.community
+        //             {
+        //             case .associatedtype: 
+        //                 kind = .associatedtype 
+        //             case .concretetype(let concrete): 
+        //                 kind = .concretetype(concrete, path: vertex.path.prefix.isEmpty ? 
+        //                     route.leaf.stem : stems.register(components: vertex.path))
+        //             case .callable(let callable): 
+        //                 kind = .callable(callable)
+        //             case .global(let global): 
+        //                 kind = .global(global)
+        //             case .protocol: 
+        //                 kind = .protocol 
+        //             case .typealias: 
+        //                 kind = .typealias
+        //             }
+        //             return .init(id: id, path: vertex.path, kind: kind, route: route)
+        //         }
                 
-                abstractor[offset] = index
-            }
-            let end:Int = self.symbols.count 
-            if start < end
-            {
-                self.modules[local: scope.culture].symbols.append(Symbol.ColonialRange.init(
-                    namespace: namespace, offsets: start ..< end))
-            }
-        }
+        //         abstractor[offset] = index
+        //     }
+        //     let end:Int = self.symbols.count 
+        //     if start < end
+        //     {
+        //         self.modules[local: scope.culture].symbols.append(Symbol.ColonialRange.init(
+        //             namespace: namespace, offsets: start ..< end))
+        //     }
+        // }
     }
     mutating 
     func inferShapes(_ facts:inout [Symbol.Index: Symbol.Facts], stems:Route.Stems)
@@ -636,7 +637,7 @@ extension Package
                 continue 
             }
 
-            let symbol:Symbol = self.symbols[local: local]
+            let symbol:Symbol = self.symbols[_local: local]
             guard   case nil = symbol.shape,
                     let scope:Path = .init(symbol.path.prefix)
             else 

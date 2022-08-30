@@ -1,5 +1,7 @@
 import DOM
 import HTML
+import SVG
+import PieCharts
 import SymbolGraphs
 import URI
 
@@ -44,6 +46,17 @@ extension Packages
                     return .tr(.td(dependency.name), .td(link))
                 }))
         }
+        let pie:SVG.Root<Never> = Pie.svg(
+        [
+            .init(weight: 57, classes: "-pink"),
+            .init(weight: 27, classes: "-yellow"),
+            .init(weight: 16, classes: "-white"),
+        ])
+        substitutions[.discussion] = .div(
+            .div(.init(escaped: pie.rendered(as: [UInt8].self)), 
+                attributes: [.class("pie-color")]),
+            .div(attributes: [.class("pie-geometry")]),
+            attributes: [.class("pie")])
 
         return substitutions.mapValues { .init(freezing: $0) }
     }
@@ -311,7 +324,7 @@ extension Packages
         {
             for list:Page.List in lists
             {
-                if  let segregated:[Module.Culture: [Generic.Conditional<Symbol.Index>]] = 
+                if  let segregated:[Module._Culture: [Generic.Conditional<Symbol.Index>]] = 
                     topics.lists[list]
                 {
                     sections.append(self.render(section: segregated, heading: list.rawValue))
@@ -323,7 +336,7 @@ extension Packages
         
         if !topics.requirements.isEmpty
         {
-            let requirements:[Page.Sublist: [Module.Culture: [Page.Card]]] = 
+            let requirements:[Page.Sublist: [Module._Culture: [Page.Card]]] = 
                 topics.requirements.mapValues { [.primary: $0] }
             sections.append(self.render(section: requirements, 
                 heading: "Requirements", 
@@ -350,13 +363,13 @@ extension Packages
     }
     
     private 
-    func render(section segregated:[Module.Culture: [Generic.Conditional<Symbol.Index>]], 
+    func render(section segregated:[Module._Culture: [Generic.Conditional<Symbol.Index>]], 
         heading:String) -> HTML.Element<Page.Topics.Key>
     {
         var elements:[HTML.Element<Page.Topics.Key>] = []
             elements.reserveCapacity(2 * segregated.count + 1)
             elements.append(.h2(heading))
-        for (culture, relationships):(Module.Culture, [Generic.Conditional<Symbol.Index>]) in 
+        for (culture, relationships):(Module._Culture, [Generic.Conditional<Symbol.Index>]) in 
             self.sort(segregated)
         {
             if let culture:HTML.Element<Page.Topics.Key> = self.renderHeading(culture)
@@ -391,13 +404,13 @@ extension Packages
         return .section(elements, attributes: [.class("related")])
     }
     private 
-    func render(subsection segregated:[Module.Culture: [Page.Card]], heading:String)
+    func render(subsection segregated:[Module._Culture: [Page.Card]], heading:String)
         -> HTML.Element<Page.Topics.Key>
     {
         var elements:[HTML.Element<Page.Topics.Key>] = []
             elements.reserveCapacity(2 * segregated.count + 1)
             elements.append(.h3(heading))
-        for (culture, cards):(Module.Culture, [Page.Card]) in self.sort(segregated)
+        for (culture, cards):(Module._Culture, [Page.Card]) in self.sort(segregated)
         {
             if let culture:HTML.Element<Page.Topics.Key> = self.renderHeading(culture)
             {
@@ -409,7 +422,7 @@ extension Packages
     }
     private 
     func render(
-        section segregated:[Page.Sublist: [Module.Culture: [Page.Card]]], 
+        section segregated:[Page.Sublist: [Module._Culture: [Page.Card]]], 
         heading:String, 
         class:String)
         -> HTML.Element<Page.Topics.Key>
@@ -417,7 +430,7 @@ extension Packages
         var elements:[HTML.Element<Page.Topics.Key>] = [.h2(heading)]
         for sublist:Page.Sublist in Page.Sublist.allCases
         {
-            if let segregated:[Module.Culture: [Page.Card]] = segregated[sublist]
+            if let segregated:[Module._Culture: [Page.Card]] = segregated[sublist]
             {
                 elements.append(self.render(subsection: segregated, heading: sublist.heading))
             }
@@ -458,7 +471,7 @@ extension Packages
         return .ul(items)
     }
     private 
-    func renderHeading(_ culture:Module.Culture) -> HTML.Element<Page.Topics.Key>?
+    func renderHeading(_ culture:Module._Culture) -> HTML.Element<Page.Topics.Key>?
     {
         switch culture 
         {
@@ -487,8 +500,8 @@ extension Packages
         }
     }
     private 
-    func sort<Value>(_ segregated:[Module.Culture: Value]) 
-        -> [(key:Module.Culture, value:Value)]
+    func sort<Value>(_ segregated:[Module._Culture: Value]) 
+        -> [(key:Module._Culture, value:Value)]
     {
         segregated.sorted 
         {

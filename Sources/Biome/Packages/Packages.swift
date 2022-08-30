@@ -106,7 +106,7 @@ extension Packages
             scopes.reserveCapacity(graphs.count)
         for (graph, culture):(SymbolGraph, Module.Index) in zip(graphs, cultures)
         {
-            var scope:Module.Scope = .init(culture: culture, id: self[culture].id)
+            var scope:Module.Scope = .init(origin: .founded(culture), id: self[culture].id)
             // add explicit dependencies 
             for dependency:SymbolGraph.Dependency in graph.dependencies
             {
