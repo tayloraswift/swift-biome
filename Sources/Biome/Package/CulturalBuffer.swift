@@ -9,42 +9,13 @@ extension Cultured
     public typealias Index = CulturalBuffer<Self>.OpaqueIndex
 }
 
-public 
-protocol _CulturalIndex<Culture, Offset>:Strideable, Hashable
-{
-    associatedtype Culture:Hashable
-    associatedtype Offset:UnsignedInteger
-    
-    var culture:Culture { get }
-    var offset:Offset { get }
-    
-    init(_ culture:Culture, offset:Offset)
-}
-
-extension _CulturalIndex 
-{
-    // *really* weird shit happens if we don’t provide these implementations, 
-    // because by default, ``Strideable`` ignores the `culture` property...
-
-    
-    @inlinable public
-    func advanced(by stride:Offset.Stride) -> Self 
-    {
-        .init(self.culture, offset: self.offset.advanced(by: stride))
-    }
-    @inlinable public
-    func distance(to other:Self) -> Offset.Stride
-    {
-        self.offset.distance(to: other.offset)
-    }
-}
-
 extension CulturalBuffer.OpaqueIndex:Sendable 
-    where Element.Offset:Sendable, Element.Culture:Sendable
+    where   Element.Offset:Sendable, Element.Culture:Sendable
 {
 }
 extension CulturalBuffer:Sendable 
-    where Element:Sendable, Element.ID:Sendable, Element.Offset:Sendable, Element.Culture:Sendable
+    where   Element.Offset:Sendable, Element.Culture:Sendable, 
+            Element:Sendable, Element.ID:Sendable
 {
 }
 extension CulturalBuffer.OpaqueIndex where Element.Culture == Package.Index
@@ -67,7 +38,7 @@ public
 struct CulturalBuffer<Element> where Element:Cultured
 {
     @frozen public 
-    struct OpaqueIndex:Hashable
+    struct OpaqueIndex:Hashable, Comparable
     {
         public 
         let culture:Element.Culture
@@ -97,6 +68,17 @@ struct CulturalBuffer<Element> where Element:Cultured
             self.culture.hash(into: &hasher)
             self.offset.hash(into: &hasher)
         }
+
+        // @inlinable public
+        // func advanced(by stride:Offset.Stride) -> Self 
+        // {
+        //     .init(self.culture, offset: self.offset.advanced(by: stride))
+        // }
+        // @inlinable public
+        // func distance(to other:Self) -> Offset.Stride
+        // {
+        //     self.offset.distance(to: other.offset)
+        // }
     }
 
     public 
