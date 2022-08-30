@@ -1,31 +1,12 @@
 import SymbolGraphs
 
 public
-struct Symbol:Identifiable, Sendable, CustomStringConvertible  
+struct Symbol:Cultured, Sendable, CustomStringConvertible  
 {
-    @frozen public 
-    struct Index:_CulturalIndex, Sendable
-    {
-        public typealias Culture = Module.Index 
-        public typealias Offset = UInt32
-
-        public 
-        let module:Module.Index
-        public 
-        let offset:UInt32
-        
-        @inlinable public 
-        var culture:Module.Index
-        {
-            self.module
-        }
-        @inlinable public 
-        init(_ module:Module.Index, offset:UInt32)
-        {
-            self.module = module
-            self.offset = offset
-        }
-    }
+    public 
+    typealias Culture = Module.Index 
+    public 
+    typealias Offset = UInt32 
     
     struct Heads 
     {

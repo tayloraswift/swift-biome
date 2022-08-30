@@ -2,36 +2,13 @@ import struct SymbolGraphs.Path
 import HTML
 
 @usableFromInline 
-struct Article:Identifiable, Sendable
+struct Article:Cultured, Sendable
 {
-    /// A globally-unique index referencing an article. 
-    /// 
-    /// An article index encodes the module it belongs to, whichs makes it possible 
-    /// to query module membership based on the index alone.
-    @frozen public 
-    struct Index:_CulturalIndex, Sendable
-    {
-        public typealias Culture = Module.Index 
-        public typealias Offset = UInt32
+    @usableFromInline 
+    typealias Culture = Module.Index 
+    @usableFromInline 
+    typealias Offset = UInt32 
 
-        public 
-        let module:Module.Index
-        public 
-        let offset:UInt32
-        
-        @inlinable public 
-        var culture:Module.Index
-        {
-            self.module
-        }
-        @inlinable public 
-        init(_ module:Module.Index, offset:UInt32)
-        {
-            self.module = module
-            self.offset = offset
-        }
-    }
-    
     struct Heads 
     {
         @History<Excerpt>.Branch.Optional 

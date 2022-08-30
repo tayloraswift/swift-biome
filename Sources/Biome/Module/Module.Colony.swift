@@ -5,9 +5,9 @@ extension Module
     struct Colony:Hashable, Sendable
     {
         let namespace:Index 
-        let range:Range<Symbol.Index.Offset>
+        let range:Range<Symbol.Offset>
         
-        init(namespace:Index, range:Range<Symbol.Index.Offset>)
+        init(namespace:Index, range:Range<Symbol.Offset>)
         {
             self.namespace = namespace
             self.range = range

@@ -65,9 +65,9 @@ struct Package:Identifiable, Sendable
     var heads:Heads
     var versions:Versions
     private(set) 
-    var modules:CulturalBuffer<Module, Module.Index>, 
-        symbols:CulturalBuffer<Symbol, Symbol.Index>,
-        articles:CulturalBuffer<Article, Article.Index>
+    var modules:CulturalBuffer<Module>, 
+        symbols:CulturalBuffer<Symbol>,
+        articles:CulturalBuffer<Article>
     private(set)
     var external:[Symbol.Diacritic: History<Symbol.Traits>.Branch.Head]
     // per-module buffers
@@ -637,7 +637,7 @@ extension Package
                 continue 
             }
 
-            let symbol:Symbol = self.symbols[_local: local]
+            let symbol:Symbol = self.symbols[local: local]
             guard   case nil = symbol.shape,
                     let scope:Path = .init(symbol.path.prefix)
             else 

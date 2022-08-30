@@ -3,31 +3,12 @@ import Notebook
 import URI
 
 public 
-struct Module:Identifiable, Sendable
+struct Module:Cultured, Sendable
 {
-    @frozen public 
-    struct Index:_CulturalIndex, Sendable
-    {
-        public typealias Culture = Package.Index 
-        public typealias Offset = UInt16
-
-        public 
-        let package:Package.Index
-        public 
-        let offset:UInt16
-        
-        @inlinable public 
-        var culture:Package.Index
-        {
-            self.package
-        }
-        @inlinable public 
-        init(_ package:Package.Index, offset:UInt16)
-        {
-            self.package = package
-            self.offset = offset
-        }
-    }
+    public 
+    typealias Culture = Package.Index 
+    public 
+    typealias Offset = UInt16
 
     enum _Culture:Hashable, Sendable 
     {
@@ -45,7 +26,7 @@ struct Module:Identifiable, Sendable
     struct Heads 
     {
         var symbols:[Colony]
-        var articles:[Range<Article.Index.Offset>]
+        var articles:[Range<Article.Offset>]
         
         @History<Set<Index>>.Branch.Optional 
         var dependencies:History<Set<Index>>.Branch.Head?

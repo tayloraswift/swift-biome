@@ -29,9 +29,9 @@ struct _Version:Hashable, Sendable
 struct Trunk:Sendable 
 {
     let ring:Branch.Ring 
-    let modules:CulturalBuffer<Module, Module.Index>, 
-        symbols:CulturalBuffer<Symbol, Symbol.Index>,
-        articles:CulturalBuffer<Article, Article.Index>
+    let modules:CulturalBuffer<Module>, 
+        symbols:CulturalBuffer<Symbol>,
+        articles:CulturalBuffer<Article>
 
     func index(of module:Module.ID) -> Module.Index? 
     {
@@ -58,9 +58,9 @@ struct Branch:Sendable
     struct Ring:Sendable 
     {
         let revision:Int 
-        let modules:Module.Index.Offset
-        let symbols:Symbol.Index.Offset
-        let articles:Article.Index.Offset
+        let modules:Module.Offset
+        let symbols:Symbol.Offset
+        let articles:Article.Offset
     }
     struct Revision:Sendable 
     {
@@ -80,9 +80,9 @@ struct Branch:Sendable
     var updatedModules:[Module.Index: Module.Heads], 
         updatedSymbols:[Symbol.Index: Symbol.Heads], 
         updatedArticles:[Article.Index: Article.Heads]
-    var newModules:CulturalBuffer<Module, Module.Index>, 
-        newSymbols:CulturalBuffer<Symbol, Symbol.Index>,
-        newArticles:CulturalBuffer<Article, Article.Index>
+    var newModules:CulturalBuffer<Module>, 
+        newSymbols:CulturalBuffer<Symbol>,
+        newArticles:CulturalBuffer<Article>
     
     subscript(prefix:PartialRangeUpTo<_Version.Revision>) -> Trunk 
     {
@@ -128,7 +128,7 @@ extension Branch
                 continue 
             }
             
-            let start:Symbol.Index.Offset = self.newSymbols.endIndex
+            let start:Symbol.Offset = self.newSymbols.endIndex
             for (offset, vertex):(Int, SymbolGraph.Vertex<Int>) in zip(vertices.indices, vertices)
             {
                 if let index:Symbol.Index = abstractor[offset]
@@ -178,7 +178,7 @@ extension Branch
                 
                 abstractor[offset] = index
             }
-            let end:Symbol.Index.Offset = self.newSymbols.endIndex 
+            let end:Symbol.Offset = self.newSymbols.endIndex 
             if start < end
             {
                 let colony:Module.Colony = .init(namespace: namespace, range: start ..< end)
@@ -194,14 +194,14 @@ extension Branch
     }
     mutating 
     func addExtensions(from graph:SymbolGraph, 
-        origin:CulturalBuffer<Module, Module.Index>.Origin, 
+        origin:CulturalBuffer<Module>.Origin, 
         stems:inout Route.Stems) 
         -> (articles:[Article.Index: Extension], extensions:[String: Extension])
     {
         var articles:[Article.Index: Extension] = [:]
         var extensions:[String: Extension] = [:] 
         
-        let start:Article.Index.Offset = self.newArticles.endIndex
+        let start:Article.Offset = self.newArticles.endIndex
         for (name, source):(name:String, source:String) in graph.extensions
         {
             let article:Extension = .init(markdown: source)
@@ -237,7 +237,7 @@ extension Branch
             }
             articles[index] = article
         }
-        let end:Article.Index.Offset = self.newArticles.endIndex
+        let end:Article.Offset = self.newArticles.endIndex
         if start < end
         {
             switch origin 

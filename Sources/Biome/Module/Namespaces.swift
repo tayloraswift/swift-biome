@@ -13,7 +13,7 @@ struct Namespaces
     var indices:[Module.ID: Module.Index]
     private(set)
     var filter:Set<Module.Index>
-    let origin:CulturalBuffer<Module, Module.Index>.Origin 
+    let origin:CulturalBuffer<Module>.Origin 
 
     var culture:Module.Index 
     {
@@ -29,13 +29,13 @@ struct Namespaces
     }
     
     private 
-    init(origin:CulturalBuffer<Module, Module.Index>.Origin, indices:[Module.ID: Module.Index])
+    init(origin:CulturalBuffer<Module>.Origin, indices:[Module.ID: Module.Index])
     {
         self.origin = origin 
         self.indices = indices 
         self.filter = .init(indices.values)
     }
-    init(origin:CulturalBuffer<Module, Module.Index>.Origin, id:Module.ID)
+    init(origin:CulturalBuffer<Module>.Origin, id:Module.ID)
     {
         self.init(origin: origin, indices: [id: origin.index])
     }
