@@ -2,13 +2,12 @@ import SymbolGraphs
 
 extension Symbol 
 {
+    @available(*, deprecated)
     typealias Statement = (subject:Index, predicate:Predicate)
     
-    enum Predicate 
-    {
-        case `is`(Role<Index>)
-        case has(Trait<Index>)
-    }
+    @available(*, deprecated, renamed: "Belief.Predicate")
+    typealias Predicate = Belief.Predicate 
+    
     struct Predicates:Equatable, Sendable 
     {
         let roles:Roles?

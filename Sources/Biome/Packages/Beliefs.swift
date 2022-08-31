@@ -2,18 +2,28 @@ import SymbolGraphs
 
 extension Sequence<SymbolGraph> 
 {
+    @available(*, deprecated)
     func generateBeliefs(abstractors:[Abstractor], context:Packages) -> Beliefs 
     {
-        var beliefs:Beliefs = .init() 
-        for (graph, abstractor):(SymbolGraph, Abstractor) in zip(self, abstractors)
-        {
-            beliefs.insert(
-                statements: graph.statements(abstractor: abstractor, context: context), 
-                symbols: abstractor.updates, 
-                context: context)
-        }
-        beliefs.integrate()
-        return beliefs 
+        fatalError("obsoleted")
+    }
+}
+
+struct Belief 
+{
+    enum Predicate 
+    {
+        case `is`(Symbol.Role<Symbol.Index>)
+        case has(Symbol.Trait<Symbol.Index>)
+    }
+
+    let subject:Tree.Position<Symbol>
+    let predicate:Predicate
+
+    init(_ subject:Tree.Position<Symbol>, _ predicate:Predicate)
+    {
+        self.subject = subject 
+        self.predicate = predicate
     }
 }
 struct Beliefs 
@@ -27,46 +37,75 @@ struct Beliefs
         self.opinions = [:]
     }
 
-    fileprivate mutating 
-    func insert(statements:[Symbol.Statement], 
-        symbols:Abstractor.Updates, 
-        context:Packages) 
+    private mutating 
+    func insert(_ beliefs:[Belief], symbols:_Abstractor.UpdatedSymbols, context:Packages) 
     {
-        var traits:[Symbol.Index: [Symbol.Trait<Symbol.Index>]] = [:]
-        var roles:[Symbol.Index: [Symbol.Role<Symbol.Index>]] = [:]
-        for (subject, predicate):Symbol.Statement in statements 
+        typealias UncheckedFacts = 
+        (
+            roles:[Symbol.Role<Symbol.Index>], 
+            traits:[Symbol.Trait<Symbol.Index>]
+        )
+        typealias UncheckedOpinions = 
+        (
+            branch:_Version.Branch, 
+            traits:[Symbol.Trait<Symbol.Index>]
+        )
+
+        var facts:[Symbol.Index: UncheckedFacts] = [:]
+        var opinions:[Symbol.Index: UncheckedOpinions] = [:]
+        for belief:Belief in beliefs 
         {
-            switch (symbols.culture == subject.module, predicate)
+            let key:Symbol.Index = belief.subject.index
+            switch (symbols.culture == key.module, belief.predicate)
             {
             case (false,  .is(_)):
                 fatalError("unimplemented")
             case (false, .has(let trait)):
-                traits  [subject, default: []].append(trait)
+                opinions[key, default: (belief.subject.branch, [])].traits.append(trait)
             case (true,  .has(let trait)):
-                traits  [subject, default: []].append(trait)
+                facts[key, default: ([], [])].traits.append(trait)
             case (true,   .is(let role)):
-                roles   [subject, default: []].append(role)
+                facts[key, default: ([], [])].roles.append(role)
             }
         }
-        for symbol:Symbol.Index? in symbols 
+        for symbol:Tree.Position<Symbol>? in symbols 
         {
-            guard let symbol:Symbol.Index 
-            else 
+            if let symbol:Tree.Position<Symbol>
             {
-                continue 
+                let (roles, traits):UncheckedFacts = facts.removeValue(forKey: symbol.index) ?? 
+                    ([],    [])
+                self.facts[symbol.index] = .init(traits: traits, roles: roles, 
+                    as: context[global: symbol].community) 
             }
-            self.facts[symbol] = .init(
-                traits: traits.removeValue(forKey: symbol) ?? [],
-                roles: roles.removeValue(forKey: symbol) ?? [], 
-                as: context[symbol].community)
         }
-        for (symbol, traits):(Symbol.Index, [Symbol.Trait<Symbol.Index>]) in traits 
+        guard facts.isEmpty 
+        else 
         {
+            fatalError("unimplemented")
+        }
+        for (symbol, (branch, traits)):(Symbol.Index, UncheckedOpinions) in opinions 
+        {
+            let position:Tree.Position<Symbol> = .init(symbol, branch: branch)
             let diacritic:Symbol.Diacritic = .init(host: symbol, culture: symbols.culture)
-            self.opinions[diacritic] = .init(traits, as: context[symbol].community)
+            self.opinions[diacritic] = .init(traits, as: context[global: position].community)
         }
     }
-    fileprivate mutating 
+
+    mutating 
+    func update(with edges:[SymbolGraph.Edge<Int>], abstractor:_Abstractor, context:Packages)
+    {
+        let (beliefs, errors):([Belief], [_Abstractor.LookupError]) = 
+            abstractor.translate(edges: edges, context: context)
+        
+        if !errors.isEmpty 
+        {
+            print("warning: dropped \(errors.count) edges")
+        }
+        
+        self.insert(beliefs, symbols: abstractor.updatedSymbols, context: context)
+    }
+
+    mutating 
     func integrate() 
     {
         self.opinions = self.opinions.filter 

@@ -30,6 +30,8 @@ struct Packages
             yield &self.packages[package.offset]
         }
     } 
+
+    @available(*, deprecated, renamed: "subscript(global:)")
     subscript(module:Module.Index) -> Module
     {
         _read 
@@ -37,6 +39,7 @@ struct Packages
             yield self.packages[       module.package.offset][local: module]
         }
     } 
+    @available(*, deprecated, renamed: "subscript(global:)")
     subscript(symbol:Symbol.Index) -> Symbol
     {
         _read 
@@ -59,6 +62,13 @@ struct Packages
             yield self[module.index.package].tree[local: module]
         }
     } 
+    subscript(global symbol:Tree.Position<Symbol>) -> Symbol
+    {
+        _read 
+        {
+            yield self[symbol.index.module.package].tree[local: symbol]
+        }
+    } 
     
     var standardLibrary:Set<Module.Index>
     {
@@ -76,7 +86,7 @@ struct Packages
     mutating 
     func _add(_ id:Package.ID, resolved:PackageResolution, graphs:[SymbolGraph], 
         stems:inout Route.Stems) 
-        throws
+        throws -> Package.Index
     {
         guard let pin:PackageResolution.Pin = resolved.pins[id]
         else 
@@ -101,6 +111,8 @@ struct Packages
             abstractors.reserveCapacity(graphs.count)
         var _extensions:[[Extension]] = []
             _extensions.reserveCapacity(graphs.count)
+        
+        var beliefs:Beliefs = .init() 
         for graph:SymbolGraph in graphs 
         {
             let module:Tree.Position<Module> = self[index].tree[branch].add(module: graph.id, 
@@ -142,16 +154,29 @@ struct Packages
                 namespaces: namespaces, 
                 trunks: lenses, 
                 stems: &stems) 
+
+            beliefs.update(with: graph.edges, abstractor: abstractor, context: self)
+
             abstractors.append(abstractor)
             _extensions.append(_rendered)
         }
+        beliefs.integrate()
 
+        
         // successfully registered symbolgraph contents 
         let version:_Version = self[index].tree[branch].commit(pin.revision, pins: pins)
         for (package, pin):(Package.Index, _Version) in pins
         {
             self[package].tree[pin].consumers[index, default: []].insert(version)
         }
+
+
+        let trees:Route.Trees = beliefs.generateTrees(
+            context: self)
+        self[index].addNaturalRoutes(trees.natural)
+        self[index].addSyntheticRoutes(trees.synthetic)
+
+        return index
     }
     
     /// Creates a package entry for the given package graph, if it does not already exist.

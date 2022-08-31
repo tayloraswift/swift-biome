@@ -150,7 +150,10 @@ extension Ecosystem
         try Task.checkCancellation()
         // topological sort  
         let graphs:[SymbolGraph] = try graphs.topologicallySorted(for: id)
-        try self.packages._add(id, resolved: resolved, graphs: graphs, stems: &self.stems)
+        let _:Package.Index = try self.packages._add(id, 
+            resolved: resolved, 
+            graphs: graphs, 
+            stems: &self.stems)
     }
 
     @discardableResult

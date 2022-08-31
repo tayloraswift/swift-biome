@@ -1,11 +1,20 @@
 struct _Abstractor
 {
+    struct LookupError:Error 
+    {
+        let index:Int 
+
+        init(_ index:Int)
+        {
+            self.index = index
+        }
+    }
     // the `prefix` excludes symbols that were once in the current package, 
     // but for whatever reason were left out of the current version of the 
     // current package.
     // the `compactMap` excludes symbols that are not native to the current 
     // module. this happens sometimes due to member inference.
-    struct Updates:RandomAccessCollection
+    struct UpdatedSymbols:RandomAccessCollection
     {
         let culture:Module.Index 
         let symbols:ArraySlice<Tree.Position<Symbol>?>
@@ -18,9 +27,9 @@ struct _Abstractor
         {
             self.symbols.endIndex
         }
-        subscript(index:Int) -> Symbol.Index? 
+        subscript(index:Int) -> Tree.Position<Symbol>? 
         {
-            self.symbols[index].flatMap { $0.index.module == self.culture ? $0.index : nil }
+            self.symbols[index].flatMap { $0.index.module == self.culture ? $0 : nil }
         }
     }
 
@@ -31,19 +40,22 @@ struct _Abstractor
     var symbols:[Tree.Position<Symbol>?], 
         articles:[Tree.Position<Article>?]
 
-    var updates:Updates 
+    var updatedSymbols:UpdatedSymbols 
     {
         .init(culture: self.culture, symbols: self.symbols[..<self.updated])
     }
     
+    @available(*, deprecated)
     var startIndex:Int
     {
         self.symbols.startIndex
     }
+    @available(*, deprecated)
     var endIndex:Int
     {
         self.symbols.endIndex
     }
+    @available(*, deprecated)
     subscript(index:Int) -> Tree.Position<Symbol>? 
     {
         _read 
@@ -74,6 +86,49 @@ struct _Abstractor
         {
             self.symbols.append(try find(external))
         }
+    }
+
+    func translate(edges:[SymbolGraph.Edge<Int>], context:Packages) 
+        -> (beliefs:[Belief], errors:[LookupError])
+    {
+        var errors:[LookupError] = []
+        // if we have `n` edges, we will get between `n` and `2n` beliefs
+        var beliefs:[Belief] = []
+            beliefs.reserveCapacity(edges.count)
+        for edge:SymbolGraph.Edge<Int> in edges
+        {
+            let opaque:SymbolGraph.Edge<Tree.Position<Symbol>>
+            do 
+            {
+                opaque = try edge.map 
+                {
+                    if let position:Tree.Position<Symbol> = self.symbols[$0]
+                    {
+                        return position
+                    }
+                    else 
+                    {
+                        throw LookupError.init($0)
+                    }
+                }
+            } 
+            catch let error 
+            {
+                errors.append(error as! LookupError)
+                continue
+            }
+            switch opaque.beliefs(
+                source: context[global: opaque.source].community, 
+                target: context[global: opaque.target].community)
+            {
+            case (let source?,  let target):
+                beliefs.append(source)
+                beliefs.append(target)
+            case (nil,          let target):
+                beliefs.append(target)
+            }
+        }
+        return (beliefs, errors)
     }
 }
 
@@ -209,62 +264,11 @@ extension SymbolGraph
         }
     }
 }
-extension SymbolGraph
-{
-    func statements(abstractor:Abstractor, context:Packages) -> [Symbol.Statement]
-    {
-        var errors:[Symbol.LookupError] = []
-        // if we have `n` edges, we will get between `n` and `2n` statements
-        var rhetoric:[Symbol.Statement] = []
-            rhetoric.reserveCapacity(self.edges.count)
-        for edge:Edge<Int> in self.edges
-        {
-            let indexed:Edge<Symbol.Index>
-            do 
-            {
-                indexed = try edge.map 
-                {
-                    if let index:Symbol.Index = abstractor[$0]
-                    {
-                        return index
-                    }
-                    else 
-                    {
-                        throw Symbol.LookupError.unknownID(self.identifiers[$0])
-                    }
-                }
-            } 
-            catch let error 
-            {
-                errors.append(error as! Symbol.LookupError)
-                continue
-            }
-            switch indexed.statements(
-                source: context[indexed.source].community, 
-                target: context[indexed.target].community)
-            {
-            case (let source?,  let target):
-                rhetoric.append(source)
-                rhetoric.append(target)
-            case (nil,          let target):
-                rhetoric.append(target)
-            }
-        }
 
-        if !errors.isEmpty 
-        {
-            print("warning: dropped \(errors.count) edges from '\(self.id)'")
-        }
-
-        return rhetoric
-    }
-}
-
-extension SymbolGraph.Edge where Target == Symbol.Index
+extension SymbolGraph.Edge<Tree.Position<Symbol>>
 {
     fileprivate
-    func statements(source:Community, target:Community) 
-        -> (source:Symbol.Statement?, target:Symbol.Statement)
+    func beliefs(source:Community, target:Community) -> (source:Belief?, target:Belief)
     {
         switch (source, self.source, is: self.relation, of: target, self.target) 
         {
@@ -272,7 +276,7 @@ extension SymbolGraph.Edge where Target == Symbol.Index
             return
                 (
                     nil,
-                    (target, .has(.feature(source)))
+                    .init(target, .has(.feature(source.index)))
                 )
         
         case    (.concretetype, let source, is: .member,    of: .concretetype,  let target), 
@@ -283,37 +287,39 @@ extension SymbolGraph.Edge where Target == Symbol.Index
                 (.callable,     let source, is: .member,    of: .protocol,      let target):
             return 
                 (
-                    (source,  .is(.member(of: target))), 
-                    (target, .has(.member(    source)))
+                    .init(source,  .is(.member(of: target.index))), 
+                    .init(target, .has(.member(    source.index)))
                 )
         
         case    (.concretetype, let source, is: .conformer(let conditions), of: .protocol, let target):
+            let conditions:[Generic.Constraint<Symbol.Index>] = 
+                conditions.map { $0.map(\.index) }
             return 
                 (
-                    (source, .has(.conformance(.init(target, where: conditions)))), 
-                    (target, .has(  .conformer(.init(source, where: conditions))))
+                    .init(source, .has(.conformance(.init(target.index, where: conditions)))), 
+                    .init(target, .has(  .conformer(.init(source.index, where: conditions))))
                 )
          
         case    (.protocol, let source, is: .conformer([]), of: .protocol, let target):
             return 
                 (
-                    (source,  .is(.refinement(of: target))), 
-                    (target, .has(.refinement(    source)))
+                    .init(source,  .is(.refinement(of: target.index))), 
+                    .init(target, .has(.refinement(    source.index)))
                 ) 
         
         case    (.class, let source, is: .subclass, of: .class, let target):
             return 
                 (
-                    (source,  .is(.subclass(of: target))), 
-                    (target, .has(.subclass(    source)))
+                    .init(source,  .is(.subclass(of: target.index))), 
+                    .init(target, .has(.subclass(    source.index)))
                 ) 
          
         case    (.associatedtype,   let source, is: .override, of: .associatedtype, let target),
                 (.callable,         let source, is: .override, of: .callable,       let target):
             return 
                 (
-                    (source,  .is(.override(of: target))), 
-                    (target, .has(.override(    source)))
+                    .init(source,  .is(.override(of: target.index))), 
+                    .init(target, .has(.override(    source.index)))
                 ) 
          
         case    (.associatedtype,   let source, is:         .requirement, of: .protocol, let target),
@@ -322,15 +328,15 @@ extension SymbolGraph.Edge where Target == Symbol.Index
                 (.callable,         let source, is: .optionalRequirement, of: .protocol, let target):
             return 
                 (
-                    (source,  .is(.requirement(of: target))), 
-                    (target,  .is(  .interface(of: source)))
+                    .init(source,  .is(.requirement(of: target.index))), 
+                    .init(target,  .is(  .interface(of: source.index)))
                 ) 
          
         case    (.callable, let source, is: .defaultImplementation, of: .callable, let target):
             return 
                 (
-                    (source,  .is(.implementation(of: target))), 
-                    (target, .has(.implementation(    source)))
+                    .init(source,  .is(.implementation(of: target.index))), 
+                    .init(target, .has(.implementation(    source.index)))
                 ) 
         
         default:

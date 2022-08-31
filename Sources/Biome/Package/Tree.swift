@@ -15,7 +15,7 @@ extension Package
 
 struct Tree 
 {
-    struct Position<Element> where Element:BranchElement
+    struct Position<Element>:Hashable where Element:BranchElement
     {
         let index:Element.Index 
         let branch:_Version.Branch 
@@ -60,6 +60,13 @@ struct Tree
         _read 
         {
             yield  self[module.branch].newModules[local: module.index]
+        }
+    }
+    subscript(local symbol:Position<Symbol>) -> Symbol 
+    {
+        _read 
+        {
+            yield  self[symbol.branch].newSymbols[local: symbol.index]
         }
     }
 
