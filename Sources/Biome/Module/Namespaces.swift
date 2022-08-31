@@ -30,11 +30,6 @@ struct Namespaces
     let current:Namespace
     private(set)
     var positions:[Module.ID: Tree.Position<Module>]
-
-    subscript(namespace:Module.ID) -> Module.Index?
-    {
-        fatalError("unimplemented")
-    }
     
     init(_ current:Namespace)
     {
