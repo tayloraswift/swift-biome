@@ -148,6 +148,8 @@ extension Ecosystem
         throws
     {
         try Task.checkCancellation()
+        // topological sort  
+        let graphs:[SymbolGraph] = try graphs.topologicallySorted(for: id)
         try self.packages._add(id, resolved: resolved, graphs: graphs, stems: &self.stems)
     }
 

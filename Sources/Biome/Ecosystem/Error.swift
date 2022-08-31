@@ -4,9 +4,6 @@ enum DependencyError:Error
 {
     case packageNotFound(Package.ID)
     case moduleNotFound(Module.ID, in:Package.ID)
-
-    case packageCycle
-    case moduleCycle(in:Package.ID)
 }
 
 extension Ecosystem 

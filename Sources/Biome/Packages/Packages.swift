@@ -78,8 +78,6 @@ struct Packages
         stems:inout Route.Stems) 
         throws
     {
-        let graphs:[SymbolGraph] = try Self.sort(id, graphs: graphs)
-        
         guard let pin:PackageResolution.Pin = resolved.pins[id]
         else 
         {

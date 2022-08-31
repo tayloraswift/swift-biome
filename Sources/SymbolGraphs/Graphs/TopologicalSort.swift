@@ -1,13 +1,20 @@
-import SymbolGraphs 
-
-extension Packages 
+extension SymbolGraph 
 {
-    static 
-    func sort(_ package:Package.ID, graphs modules:[SymbolGraph]) throws -> [SymbolGraph]
+    public 
+    enum DependencyError:Error 
+    {
+        case moduleCycle(in:PackageIdentifier)
+    }
+}
+
+extension Collection<SymbolGraph> 
+{
+    public 
+    func topologicallySorted(for package:PackageIdentifier) throws -> [SymbolGraph]
     {
         // collect intra-package dependencies
-        var dependencies:[Module.ID: Set<Module.ID>] = [:]
-        for module:SymbolGraph in modules 
+        var dependencies:[ModuleIdentifier: Set<ModuleIdentifier>] = [:]
+        for module:SymbolGraph in self
         {
             for dependency:SymbolGraph.Dependency in module.dependencies
                 where package == dependency.package && !dependency.modules.isEmpty
@@ -15,25 +22,25 @@ extension Packages
                 dependencies[module.id, default: []].formUnion(dependency.modules)
             }
         }
-        var consumers:[Module.ID: [SymbolGraph]] = [:]
-        for module:SymbolGraph in modules 
+        var consumers:[ModuleIdentifier: [SymbolGraph]] = [:]
+        for module:SymbolGraph in self
         {
-            guard let dependencies:Set<Module.ID> = dependencies[module.id]
+            guard let dependencies:Set<ModuleIdentifier> = dependencies[module.id]
             else 
             {
                 continue 
             }
             // need to sort dependency set to make topological sort deterministic
-            for dependency:Module.ID in dependencies.sorted()
+            for dependency:ModuleIdentifier in dependencies.sorted()
             {
                 consumers[dependency, default: []].append(module)
             }
         }
 
         var graphs:[SymbolGraph] = []
-            graphs.reserveCapacity(modules.count)
+            graphs.reserveCapacity(self.underestimatedCount)
         // perform topological sort
-        var sources:[SymbolGraph] = modules.compactMap 
+        var sources:[SymbolGraph] = self.compactMap 
         {
             dependencies[$0.id, default: []].isEmpty ? $0 : nil
         }
@@ -48,7 +55,7 @@ extension Packages
             }
             for next:SymbolGraph in next
             {
-                guard let index:Dictionary<Module.ID, Set<Module.ID>>.Index = 
+                guard let index:Dictionary<ModuleIdentifier, Set<ModuleIdentifier>>.Index = 
                     dependencies.index(forKey: next.id)
                 else 
                 {
@@ -69,7 +76,7 @@ extension Packages
         }
         else 
         {
-            throw DependencyError.moduleCycle(in: package)
+            throw SymbolGraph.DependencyError.moduleCycle(in: package)
         }
     }
 }
