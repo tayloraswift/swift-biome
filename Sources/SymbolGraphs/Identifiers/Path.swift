@@ -1,7 +1,7 @@
 import JSON
 
 @frozen public
-struct Path:Equatable, RandomAccessCollection, CustomStringConvertible, Sendable
+struct Path:Hashable, RandomAccessCollection, CustomStringConvertible, Sendable
 {
     public 
     var prefix:[String]

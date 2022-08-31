@@ -74,12 +74,15 @@ struct Packages
     }
 
     mutating 
-    func _add(_ id:Package.ID, resolved:PackageResolution, graphs:[SymbolGraph]) 
+    func _add(_ id:Package.ID, resolved:PackageResolution, graphs:[SymbolGraph], 
+        stems:inout Route.Stems) 
         throws
     {
         let graphs:[SymbolGraph] = try Self.sort(id, graphs: graphs)
         let index:Package.Index = self.addPackage(id)
 
+        // we are going to mutate `self[index].tree[branch]`, so we must not 
+        // capture that buffer or any slice of it!
         let branch:_Version.Branch = self[index].tree.branch(resolved.pins[id])
         let trunks:[Trunk] = self[index].tree.trunks(of: branch)
 
@@ -87,13 +90,46 @@ struct Packages
 
         for graph:SymbolGraph in graphs 
         {
-            let position:Tree.Position<Module> = self[index].tree[branch].addModule(graph.id, 
+            let module:Tree.Position<Module> = self[index].tree[branch].add(module: graph.id, 
                 culture: index, 
-                trunks: trunks)
-            let namespaces:Namespaces = try self.computeDependencies(graph.dependencies, 
-                linkable: linkable,
-                position: position,
                 trunks: trunks) 
+            // use this instead of `graph.id` to prevent string duplication
+            var namespaces:Namespaces = .init(id: self[global: module].id, position: module) 
+            var lenses:[Trunk] = trunks 
+            // add explicit dependencies 
+            for dependency:SymbolGraph.Dependency in graph.dependencies
+            {
+                let trunks:[Trunk] = try namespaces.link(package: dependency.package, 
+                    dependencies: dependency.modules, 
+                    linkable: linkable, 
+                    context: self)
+                //  don’t accidentally capture the buffer we are trying to modify!
+                if  dependency.package != id 
+                {
+                    lenses.append(contentsOf: trunks)
+                }
+            }
+            // add implicit dependencies
+            switch self[module.index.package].kind
+            {
+            case .community(_): 
+                lenses.append(contentsOf: try namespaces.link(package: .core, 
+                    linkable: linkable, 
+                    context: self))
+                fallthrough 
+            case .core: 
+                lenses.append(contentsOf: try namespaces.link(package: .swift, 
+                    linkable: linkable, 
+                    context: self))
+            case .swift: 
+                break 
+            }
+            // all of the trunks in `lenses` are from different branches, 
+            // so this will not cause copy-on-write.
+            let (abstractor, _rendered):(_Abstractor, [Extension]) = self[index].tree[branch].add(graph: graph, 
+                namespaces: namespaces, 
+                trunks: lenses, 
+                stems: &stems) 
         }
     }
     
@@ -146,91 +182,7 @@ extension Packages
         }
         return linkable
     }
-    func computeDependencies(_ dependencies:[SymbolGraph.Dependency], 
-        linkable:[Package.Index: _Dependency],
-        position:Tree.Position<Module>, 
-        trunks:[Trunk])
-        throws -> Namespaces
-    {
-        var namespaces:Namespaces = .init(id: self[global: position].id, 
-            position: position, 
-            trunks: trunks)
-        // add explicit dependencies 
-        for dependency:SymbolGraph.Dependency in dependencies
-        {
-            guard let package:Package = self[dependency.package]
-            else 
-            {
-                throw _DependencyError.package(unavailable: dependency.package)
-            }
-            switch linkable[package.index] 
-            {
-            case nil:
-                throw _DependencyError.pin(unavailable: package.id)
-            case .unavailable(let requirement, let revision):
-                throw _DependencyError.version(unavailable: (requirement, revision), package.id)
-            case .available(let version):
-                let trunks:[Trunk] = package.tree.trunks(version)
-                let modules:[(id:Module.ID, position:Tree.Position<Module>)] = 
-                    try dependency.modules.map
-                {
-                    if let module:Tree.Position<Module> = trunks.find(module: $0)
-                    {
-                        // use the stored id, not the requested id
-                        return (package.tree[local: module].id, module)
-                    }
-                    else 
-                    {
-                        let branch:Branch = package.tree[version.branch]
-                        throw _DependencyError.module(unavailable: $0, 
-                            (branch.id, branch[version.revision].hash), 
-                            package.id)
-                    }
-                }
-
-                namespaces.link(modules: modules, trunks: trunks)
-            }
-        }
-        // add implicit dependencies
-        switch self[position.index.package].kind
-        {
-        case .community(_): 
-            if  let core:Package = self[.core], 
-                case .available(let version)? = linkable[core.index] 
-            {
-                let trunks:[Trunk] = core.tree.trunks(version)
-                let modules:[(id:Module.ID, position:Tree.Position<Module>)] = trunks.flatMap 
-                {
-                    (trunk:Trunk) in trunk.modules.map 
-                    {
-                        ($0.id, trunk.position($0.index))
-                    }
-                }
-
-                namespaces.link(modules: modules, trunks: trunks)
-            }
-            fallthrough 
-        case .core: 
-            if  let swift:Package = self[.swift], 
-                case .available(let version)? = linkable[swift.index] 
-            {
-                let trunks:[Trunk] = swift.tree.trunks(version)
-                let modules:[(id:Module.ID, position:Tree.Position<Module>)] = trunks.flatMap 
-                {
-                    (trunk:Trunk) in trunk.modules.map 
-                    {
-                        ($0.id, trunk.position($0.index))
-                    }
-                }
-                
-                namespaces.link(modules: modules, trunks: trunks)
-            }
-        case .swift: 
-            break 
-        }
-        return namespaces
-    }
-    
+    @available(*, deprecated)
     func resolveDependencies(graphs:[SymbolGraph], cultures:[Module.Index]) throws -> [Module.Scope]
     {
         var scopes:[Module.Scope] = []

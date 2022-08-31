@@ -216,158 +216,239 @@ extension Sequence<Trunk>
         }
         return nil
     }
+    func find(symbol:Symbol.ID) -> Tree.Position<Symbol>? 
+    {
+        for trunk:Trunk in self 
+        {
+            if let symbol:Symbol.Index = trunk.symbols.opaque(of: symbol)
+            {
+                return .init(symbol, branch: trunk.branch)
+            }
+        }
+        return nil
+    }
+    func find(article:Article.ID) -> Tree.Position<Article>? 
+    {
+        for trunk:Trunk in self 
+        {
+            if let article:Article.Index = trunk.articles.opaque(of: article)
+            {
+                return .init(article, branch: trunk.branch)
+            }
+        }
+        return nil
+    }
 }
 extension Branch 
 {
     mutating 
-    func addModule(_ id:Module.ID, culture:Package.Index, trunks:[Trunk]) -> Tree.Position<Module>
+    func add(module id:Module.ID, culture:Package.Index, trunks:[Trunk]) 
+        -> Tree.Position<Module>
     {
         if let existing:Tree.Position<Module> = trunks.find(module: id)
         {
             return existing 
         }
-        else 
-        {
-            return self.position(self.newModules.insert(id, culture: culture, 
-                Module.init(id:index:)))
-        }
+        let index:Module.Index = self.newModules.insert(id, culture: culture, 
+            Module.init(id:index:))
+        return self.position(index)
     }
-    // mutating 
-    // func addSymbols(from graph:SymbolGraph, namespaces:Namespaces,
-    //     abstractor:inout Abstractor, 
-    //     stems:inout Route.Stems) 
-    // {
-    //     for (namespace, vertices):(Module.ID, ArraySlice<SymbolGraph.Vertex<Int>>) in graph.colonies
-    //     {
-    //         // will always succeed for the core subgraph
-    //         guard let namespace:Module.Index = namespaces[namespace]
-    //         else 
-    //         {
-    //             print("warning: ignored colonial symbolgraph '\(graph.id)@\(namespace)'")
-    //             print("note: '\(namespace)' is not a known dependency of '\(graph.id)'")
-    //             continue 
-    //         }
-            
-    //         let start:Symbol.Offset = self.newSymbols.endIndex
-    //         for (offset, vertex):(Int, SymbolGraph.Vertex<Int>) in zip(vertices.indices, vertices)
-    //         {
-    //             if let index:Symbol.Index = abstractor[offset]
-    //             {
-    //                 if index.module != namespaces.culture 
-    //                 {
-    //                     print(
-    //                         """
-    //                         warning: symbol '\(vertex.path)' has already been registered in a \
-    //                         different module (while loading symbolgraph of culture '\(graph.id)')
-    //                         """)
-    //                 }
-    //                 // already registered this symbol
-    //                 continue 
-    //             }
-    //             let index:Symbol.Index = self.newSymbols.insert(graph.identifiers[offset], 
-    //                 culture: namespaces.culture)
-    //             {
-    //                 (id:Symbol.ID, _:Symbol.Index) in 
-    //                 let route:Route.Key = .init(namespace, 
-    //                           stems.register(components: vertex.path.prefix), 
-    //                     .init(stems.register(component:  vertex.path.last), 
-    //                     orientation: vertex.community.orientation))
-    //                 // if the symbol could inherit features, generate a stem 
-    //                 // for its children from its full path. this stem will only 
-    //                 // go to waste if a concretetype is completely uninhabited, 
-    //                 // which is very rare.
-    //                 let kind:Symbol.Kind 
-    //                 switch vertex.community
-    //                 {
-    //                 case .associatedtype: 
-    //                     kind = .associatedtype 
-    //                 case .concretetype(let concrete): 
-    //                     kind = .concretetype(concrete, path: vertex.path.prefix.isEmpty ? 
-    //                         route.leaf.stem : stems.register(components: vertex.path))
-    //                 case .callable(let callable): 
-    //                     kind = .callable(callable)
-    //                 case .global(let global): 
-    //                     kind = .global(global)
-    //                 case .protocol: 
-    //                     kind = .protocol 
-    //                 case .typealias: 
-    //                     kind = .typealias
-    //                 }
-    //                 return .init(id: id, path: vertex.path, kind: kind, route: route)
-    //             }
-                
-    //             abstractor[offset] = index
-    //         }
-    //         let end:Symbol.Offset = self.newSymbols.endIndex 
-    //         if start < end
-    //         {
-    //             let colony:Module.Colony = .init(namespace: namespace, range: start ..< end)
-    //             switch namespaces.origin 
-    //             {
-    //             case .shared(let culture):
-    //                 self.updatedModules[culture, default: .init()].symbols.append(colony)
-    //             case .founded(let culture):
-    //                 self.newModules[local: culture].heads.symbols.append(colony)
-    //             }
-    //         }
-    //     }
-    // }
-    // mutating 
-    // func addExtensions(from graph:SymbolGraph, 
-    //     origin:CulturalBuffer<Module>.Origin, 
-    //     stems:inout Route.Stems) 
-    //     -> (articles:[Article.Index: Extension], extensions:[String: Extension])
-    // {
-    //     var articles:[Article.Index: Extension] = [:]
-    //     var extensions:[String: Extension] = [:] 
+    mutating 
+    func add(graph:SymbolGraph, namespaces:Namespaces, trunks:[Trunk], stems:inout Route.Stems) 
+        -> (_Abstractor, [Extension])
+    {
+        let (articles, _rendered):([Tree.Position<Article>?], [Extension]) = self.addExtensions(from: graph, 
+            namespace: namespaces.current, 
+            trunks: trunks, 
+            stems: &stems)
+        let symbols:[Tree.Position<Symbol>?] = self.addSymbols(from: graph, 
+            namespaces: namespaces, 
+            trunks: trunks, 
+            stems: &stems)
         
-    //     let start:Article.Offset = self.newArticles.endIndex
-    //     for (name, source):(name:String, source:String) in graph.extensions
-    //     {
-    //         let article:Extension = .init(markdown: source)
-    //         if let binding:String = article.binding 
-    //         {
-    //             extensions[binding] = article 
-    //             continue 
-    //         }
-    //         let path:Path 
-    //         if let explicit:Path = article.metadata.path 
-    //         {
-    //             path = explicit 
-    //         }
-    //         else if !name.isEmpty 
-    //         {
-    //             // replace spaces in the article name with hyphens
-    //             path = .init(last: .init(name.map { $0 == " " ? "-" : $0 }))
-    //         }
-    //         else 
-    //         {
-    //             print("warning: article with no filename must have an explicit @path(_:)")
-    //             continue 
-    //         }
-    //         // article namespace is always its culture. 
-    //         let route:Route.Key = .init(origin.index, 
-    //                   stems.register(components: path.prefix), 
-    //             .init(stems.register(component:  path.last), 
-    //             orientation: .straight))
-    //         let index:Article.Index = 
-    //             self.newArticles.insert(.init(route), culture: origin.index)
-    //         {
-    //             (id:Article.ID, _:Article.Index) in .init(id: id, path: path)
-    //         }
-    //         articles[index] = article
-    //     }
-    //     let end:Article.Offset = self.newArticles.endIndex
-    //     if start < end
-    //     {
-    //         switch origin 
-    //         {
-    //         case .shared(let culture):
-    //             self.updatedModules[culture, default: .init()].articles.append(start ..< end)
-    //         case .founded(let culture):
-    //             self.newModules[local: culture].heads.articles.append(start ..< end)
-    //         }
-    //     }
-    //     return (articles, extensions)
-    // }
+        assert(symbols.count == graph.vertices.count)
+
+        var abstractor:_Abstractor = .init(symbols: _move symbols, articles: articles, 
+            culture: namespaces.current.culture)
+            abstractor.extend(over: graph.identifiers, by: trunks.find(symbol:))
+        return (abstractor, _rendered)
+    }
+
+    private mutating 
+    func addSymbols(from graph:SymbolGraph, namespaces:Namespaces, trunks:[Trunk], 
+        stems:inout Route.Stems) 
+        -> [Tree.Position<Symbol>?]
+    {
+        var positions:[Tree.Position<Symbol>?] = []
+            positions.reserveCapacity(graph.identifiers.count)
+        for (namespace, vertices):(Module.ID, ArraySlice<SymbolGraph.Vertex<Int>>) in 
+            graph.colonies
+        {
+            // will always succeed for the core subgraph
+            guard let namespace:Module.Index = namespaces.positions[namespace]?.index
+            else 
+            {
+                print("warning: ignored colonial symbolgraph '\(graph.id)@\(namespace)'")
+                print("note: '\(namespace)' is not a known dependency of '\(graph.id)'")
+
+                positions.append(contentsOf: repeatElement(nil, count: vertices.count))
+                continue 
+            }
+            
+            let start:Symbol.Offset = self.newSymbols.endIndex
+            for (offset, vertex):(Int, SymbolGraph.Vertex<Int>) in 
+                zip(vertices.indices, vertices)
+            {
+                positions.append(self.addSymbol(graph.identifiers[offset], 
+                    culture: namespaces.current.culture, 
+                    trunks: trunks, 
+                    namespace: namespace, 
+                    community: vertex.community, 
+                    path: vertex.path, 
+                    stems: &stems))
+            }
+            let end:Symbol.Offset = self.newSymbols.endIndex 
+            if start < end
+            {
+                let colony:Module.Colony = .init(namespace: namespace, range: start ..< end)
+                if self.index == namespaces.current.position.branch 
+                {
+                    self.newModules[local: namespaces.current.culture].heads.symbols
+                        .append(colony)
+                }
+                else 
+                {
+                    self.updatedModules[namespaces.current.culture, default: .init()].symbols
+                        .append(colony)
+                }
+            }
+        }
+        return positions
+    }
+    private mutating 
+    func addSymbol(_ id:Symbol.ID, culture:Module.Index, trunks:[Trunk], 
+        namespace:Module.Index, 
+        community:Community, 
+        path:Path, 
+        stems:inout Route.Stems)
+        -> Tree.Position<Symbol>
+    {
+        if let existing:Tree.Position<Symbol> = trunks.find(symbol: id)
+        {
+            guard existing.index.module == culture 
+            else 
+            {
+                // swift encodes module names in symbol identifiers, so if a symbol changes culture, 
+                // something really weird has happened.
+                fatalError("symbol with id '\(id)' has already been registered in a different module! symbolgraph may have been corrupted!")
+            }
+            return existing 
+        }
+        let index:Symbol.Index = self.newSymbols.insert(id, culture: culture)
+        {
+            (id:Symbol.ID, _:Symbol.Index) in 
+            let route:Route.Key = .init(namespace, 
+                        stems.register(components: path.prefix), 
+                .init(stems.register(component:  path.last), 
+                orientation: community.orientation))
+            // if the symbol could inherit features, generate a stem 
+            // for its children from its full path. this stem will only 
+            // go to waste if a concretetype is completely uninhabited, 
+            // which is very rare.
+            let kind:Symbol.Kind 
+            switch community
+            {
+            case .associatedtype: 
+                kind = .associatedtype 
+            case .concretetype(let concrete): 
+                kind = .concretetype(concrete, path: path.prefix.isEmpty ? 
+                    route.leaf.stem : stems.register(components: path))
+            case .callable(let callable): 
+                kind = .callable(callable)
+            case .global(let global): 
+                kind = .global(global)
+            case .protocol: 
+                kind = .protocol 
+            case .typealias: 
+                kind = .typealias
+            }
+            return .init(id: id, path: path, kind: kind, route: route)
+        }
+        return self.position(index)
+    }
+
+    // TODO: ideally we want to be rendering markdown AOT. so once that is implemented 
+    // in the `SymbolGraphs` module, we can get rid of the ugly tuple return here.
+    private mutating 
+    func addExtensions(from graph:SymbolGraph, namespace:Namespace, trunks:[Trunk], 
+        stems:inout Route.Stems) 
+        -> ([Tree.Position<Article>?], [Extension])
+    {
+        let _extensions:[Extension] = graph.extensions.map
+        {
+            .init(markdown: $0.source, name: $0.name)
+        }
+
+        var positions:[Tree.Position<Article>?] = []
+            positions.reserveCapacity(graph.extensions.count)
+        let start:Article.Offset = self.newArticles.endIndex
+        for article:Extension in _extensions
+        {
+            switch (article.metadata.path, article.binding)
+            {
+            case    (.explicit(let path)?, _), 
+                    (.implicit(let path)?, nil):
+                // articles are always associated with modules, and the name
+                // of that module is part of the article identity.
+                positions.append(self.addArticle(.init(namespace.id, path), 
+                    culture: namespace.culture, 
+                    trunks: trunks, 
+                    stems: &stems))
+            
+            case    (.implicit(_)?, _?), (nil, _): 
+                positions.append(nil)
+            }
+        }
+        let end:Article.Offset = self.newArticles.endIndex
+        if start < end
+        {
+            if self.index == namespace.position.branch 
+            {
+                self.newModules[local: namespace.culture].heads.articles
+                    .append(start ..< end)
+            }
+            else 
+            {
+                self.updatedModules[namespace.culture, default: .init()].articles
+                    .append(start ..< end)
+            }
+        }
+        return (positions, _extensions)
+    }
+    private mutating 
+    func addArticle(_ id:Article.ID, culture:Module.Index, trunks:[Trunk], 
+        stems:inout Route.Stems)
+        -> Tree.Position<Article>
+    {
+        if let existing:Tree.Position<Article> = trunks.find(article: id)
+        {
+            guard existing.index.module == culture 
+            else 
+            {
+                fatalError("unreachable")
+            }
+            return existing 
+        }
+        let index:Article.Index = self.newArticles.insert(id, culture: culture)
+        {
+            (id:Article.ID, index:Article.Index) in 
+            // article namespace is always its culture. 
+            let route:Route.Key = .init(index.module, 
+                        stems.register(components: id.path.prefix), 
+                .init(stems.register(component:  id.path.last), 
+                orientation: .straight))
+            return .init(id: id, route: route)
+        }
+        return self.position(index)
+    }
 }

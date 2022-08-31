@@ -7,28 +7,97 @@
 //  a dictionary result in the local package, if the foreign package contains 
 //  a module that shadows one of the modules in the local package (as long 
 //  as the target itself does not also depend upon the shadowed local module.)
-struct Namespaces
+struct Namespace 
 {
     let id:Module.ID 
     let position:Tree.Position<Module>
-    let trunks:[Trunk]
+
+    var culture:Module.Index 
+    {
+        self.position.index
+    }
+
+    init(id:Module.ID, position:Tree.Position<Module>)
+    {
+        self.id = id 
+        self.position = position
+    }
+}
+struct Namespaces
+{
+    let current:Namespace
+    private(set)
+    var positions:[Module.ID: Tree.Position<Module>]
 
     subscript(namespace:Module.ID) -> Module.Index?
     {
         fatalError("unimplemented")
     }
     
-    init(id:Module.ID, position:Tree.Position<Module>, trunks:[Trunk])
+    init(_ current:Namespace)
     {
-        self.id = id 
-        self.position = position 
-        self.trunks = trunks 
+        self.current = current 
+        self.positions = [current.id: current.position]
+    }
+    init(id:Module.ID, position:Tree.Position<Module>)
+    {
+        self.init(.init(id: id, position: position))
     }
 
-    mutating 
-    func link(modules:[(id:Module.ID, position:Tree.Position<Module>)], trunks:[Trunk])
+    private mutating 
+    func link(id:Module.ID, position:Tree.Position<Module>)
     {
-        fatalError("unimplemented")
+        self.positions[id] = position
+    }
+    mutating 
+    func link(package:Package.ID, dependencies:[Module.ID]? = nil, 
+        linkable:[Package.Index: _Dependency], 
+        context:Packages) 
+        throws -> [Trunk]
+    {
+        guard let package:Package = context[package]
+        else 
+        {
+            throw _DependencyError.package(unavailable: package)
+        }
+        switch linkable[package.index] 
+        {
+        case nil:
+            throw _DependencyError.pin(unavailable: package.id)
+        case .unavailable(let requirement, let revision):
+            throw _DependencyError.version(unavailable: (requirement, revision), package.id)
+        case .available(let version):
+            let trunks:[Trunk] = package.tree.trunks(version)
+            if let dependencies:[Module.ID] 
+            {
+                for module:Module.ID in dependencies
+                {
+                    if let module:Tree.Position<Module> = trunks.find(module: module)
+                    {
+                        // use the stored id, not the requested id
+                        self.link(id: package.tree[local: module].id, position: module)
+                    }
+                    else 
+                    {
+                        let branch:Branch = package.tree[version.branch]
+                        throw _DependencyError.module(unavailable: module, 
+                            (branch.id, branch[version.revision].hash), 
+                            package.id)
+                    }
+                }
+            }
+            else 
+            {
+                for trunk:Trunk in trunks 
+                {
+                    for module:Module in trunk.modules
+                    {
+                        self.link(id: module.id, position: trunk.position(module.index))
+                    }
+                }
+            }
+            return trunks 
+        }
     }
 }
 

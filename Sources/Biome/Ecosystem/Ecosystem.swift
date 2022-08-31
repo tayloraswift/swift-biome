@@ -148,7 +148,7 @@ extension Ecosystem
         throws
     {
         try Task.checkCancellation()
-        try self.packages._add(id, resolved: resolved, graphs: graphs)
+        try self.packages._add(id, resolved: resolved, graphs: graphs, stems: &self.stems)
     }
 
     @discardableResult

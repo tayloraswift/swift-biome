@@ -26,32 +26,34 @@ struct Article:BranchElement, Sendable
     @usableFromInline 
     struct ID:Hashable, Sendable 
     {
-        let key:Route.Key 
+        let namespace:Module.ID 
+        let path:Path 
         
-        init(_ key:Route.Key)
+        init(_ namespace:Module.ID, _ path:Path)
         {
-            self.key = key
+            self.namespace = namespace 
+            self.path = path
         }
     }
     
     @usableFromInline 
     let id:ID 
-    let path:Path
+    let route:Route.Key
+    var heads:Heads
+
+    var path:Path
+    {
+        self.id.path
+    }
     var name:String 
     {
         self.path.last
     }
-    var heads:Heads
-
-    var route:Route.Key
-    {
-        self.id.key
-    }
     
-    init(id:ID, path:Path)
+    init(id:ID, route:Route.Key)
     {
         self.id = id
-        self.path = path
+        self.route = route
         self.heads = .init()
     }
 }

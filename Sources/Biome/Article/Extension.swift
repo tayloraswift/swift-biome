@@ -36,11 +36,15 @@ struct Extension:Sendable
         }
     }
     
-    init(markdown string:String)
+    init(markdown source:String, name:String = "")
     {
-        let root:Markdown.Document = .init(parsing: string, 
-            options: [ .parseBlockDirectives, .parseSymbolLinks ])
-        self.init(root: root)
+        self.init(root: .init(parsing: source, 
+            options: [ .parseBlockDirectives, .parseSymbolLinks ]))
+        // if there is no explicit `@path(_:)` directive, use the filename
+        if case nil = self.metadata.path
+        {
+            self.metadata.path = .implicit(normalizing: name)
+        }
     }
     private  
     init(root:Markdown.Document)

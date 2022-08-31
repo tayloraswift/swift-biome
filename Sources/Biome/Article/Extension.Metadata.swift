@@ -3,9 +3,21 @@ import Markdown
 
 extension Extension 
 {
+    enum PathDirective 
+    {
+        case explicit(Path)
+        case implicit(Path)
+
+        // replace spaces in the article name with hyphens
+        static 
+        func implicit(normalizing name:some StringProtocol) -> Self?
+        {
+            name.isEmpty ? nil : .implicit(.init(last: .init(name.map { $0 == " " ? "-" : $0 })))
+        }
+    }
     struct Metadata 
     {
-        var path:Path?
+        var path:PathDirective?
         var imports:Set<Module.ID> 
         var errors:[DirectiveArgumentText.ParseError]
         
@@ -40,13 +52,14 @@ extension Extension
             }
             // @path(_:)
             if  let matches:[BlockDirective] = directives["path"],
-                let match:BlockDirective = matches.last
-            {
-                self.path = .init(match.argumentText.segments
+                let match:BlockDirective = matches.last, 
+                let path:Path = .init(match.argumentText.segments
                     .map(\.trimmedText)
                     .joined()
                     .split(separator: "/")
                     .map(String.init(_:)))
+            {
+                self.path = .explicit(path)
             }
         }
     }

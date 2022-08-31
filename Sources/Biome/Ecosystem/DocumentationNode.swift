@@ -71,7 +71,7 @@ extension Ecosystem
                     scope: scope)
                 else 
                 {
-                    print("ignored extension '\(article.metadata.path?.description ?? "")' with unknown binding ``\(binding)``")
+                    print("ignored extension '\(article.metadata.path as Any)' with unknown binding ``\(binding)``")
                     continue 
                 }
                 // TODO: emit warning for colliding extensions
@@ -313,10 +313,9 @@ extension Ecosystem
     {
         let (path, fold):([String], Int) = uri.path.normalized 
         if  doclink,  
-            let article:Article.ID = 
-                self.stems[scope.culture, path].map(Article.ID.init(_:)),
+            let article:Path = .init(path),
             let article:Article.Index = 
-                self[scope.culture.package].articles.indices[article]
+                self[scope.culture.package].articles.indices[.init(self[scope.culture].id, article)]
         {
             return .init(.article(article), visible: path.endIndex - fold)
         }

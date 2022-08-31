@@ -1,3 +1,83 @@
+struct _Abstractor
+{
+    // the `prefix` excludes symbols that were once in the current package, 
+    // but for whatever reason were left out of the current version of the 
+    // current package.
+    // the `compactMap` excludes symbols that are not native to the current 
+    // module. this happens sometimes due to member inference.
+    struct Updates:RandomAccessCollection
+    {
+        let culture:Module.Index 
+        let symbols:ArraySlice<Tree.Position<Symbol>?>
+
+        var startIndex:Int
+        {
+            self.symbols.startIndex
+        }
+        var endIndex:Int
+        {
+            self.symbols.endIndex
+        }
+        subscript(index:Int) -> Symbol.Index? 
+        {
+            self.symbols[index].flatMap { $0.index.module == self.culture ? $0.index : nil }
+        }
+    }
+
+    let culture:Module.Index 
+    private 
+    let updated:Int
+    private(set)
+    var symbols:[Tree.Position<Symbol>?], 
+        articles:[Tree.Position<Article>?]
+
+    var updates:Updates 
+    {
+        .init(culture: self.culture, symbols: self.symbols[..<self.updated])
+    }
+    
+    var startIndex:Int
+    {
+        self.symbols.startIndex
+    }
+    var endIndex:Int
+    {
+        self.symbols.endIndex
+    }
+    subscript(index:Int) -> Tree.Position<Symbol>? 
+    {
+        _read 
+        {
+            yield  self.symbols[index]
+        }
+        _modify
+        {
+            yield &self.symbols[index]
+        }
+    }
+
+    init(symbols:__owned [Tree.Position<Symbol>?], 
+        articles:[Tree.Position<Article>?], 
+        culture:Module.Index)
+    {
+        self.culture = culture 
+        self.updated = symbols.endIndex
+        self.symbols = symbols
+        self.articles = articles
+    }
+
+    mutating 
+    func extend(over identifiers:[Symbol.ID], 
+        by find:(Symbol.ID) throws -> Tree.Position<Symbol>?) rethrows 
+    {
+        for external:Symbol.ID in identifiers.suffix(from: self.symbols.endIndex)
+        {
+            self.symbols.append(try find(external))
+        }
+    }
+}
+
+@available(*, deprecated)
 struct Abstractor:RandomAccessCollection, MutableCollection
 {
     // the `prefix` excludes symbols that were once in the current package, 
