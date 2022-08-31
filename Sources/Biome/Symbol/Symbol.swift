@@ -1,7 +1,7 @@
 import SymbolGraphs
 
 public
-struct Symbol:Cultured, Sendable, CustomStringConvertible  
+struct Symbol:BranchElement, Sendable, CustomStringConvertible  
 {
     public 
     typealias Culture = Module.Index 

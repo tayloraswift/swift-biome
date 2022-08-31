@@ -1,3 +1,4 @@
+@_exported import PackageResolution
 @_exported import SymbolGraphs
 @_exported import Versions
 import Resources
@@ -139,6 +140,17 @@ extension Ecosystem
         }
     }
     
+    public mutating 
+    func updatePackage(_ id:Package.ID, resolved:PackageResolution,
+        graphs:[SymbolGraph],
+        brand:String? = nil,
+        pins era:[Package.ID: MaskedVersion]) 
+        throws
+    {
+        try Task.checkCancellation()
+        try self.packages._add(id, resolved: resolved, graphs: graphs)
+    }
+
     @discardableResult
     public mutating 
     func updatePackage(_ id:Package.ID, 
@@ -147,24 +159,25 @@ extension Ecosystem
         pins era:[Package.ID: MaskedVersion]) 
         throws -> Package.Index
     {
-        try Task.checkCancellation()
+        fatalError("obsoleted")
+        // try Task.checkCancellation()
 
-        let graphs:[SymbolGraph]    = try Self.order(modules: unordered, package: id)
+        // let graphs:[SymbolGraph]    = try Self.order(modules: unordered, package: id)
 
-        let index:Package.Index     = self.packages.addPackage(id)
-        let cultures:[Module.Index] = self.packages[index].addModules(graphs.lazy.map(\.id))
+        // let index:Package.Index     = self.packages.addPackage(id)
+        // let cultures:[Module.Index] = self.packages[index].addModules(graphs.lazy.map(\.id))
 
-        if let brand:String 
-        {
-            self.packages[index].brand = brand
-        }
+        // if let brand:String 
+        // {
+        //     self.packages[index].brand = brand
+        // }
 
-        let scopes:[Module.Scope]   = try self.packages.resolveDependencies(graphs: graphs,
-            cultures: cultures)
+        // let scopes:[Module.Scope]   = try self.packages.resolveDependencies(graphs: graphs,
+        //     cultures: cultures)
         
-        self.updatePackage(index, graphs: graphs, scopes: scopes, era: era)
+        // self.updatePackage(index, graphs: graphs, scopes: scopes, era: era)
 
-        return index 
+        // return index 
     }
     private mutating 
     func updatePackage(_ index:Package.Index, 

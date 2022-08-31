@@ -1,3 +1,4 @@
+import PackageResolution
 import SymbolGraphs
 import Versions
 
@@ -50,6 +51,14 @@ struct Packages
             yield self.packages[article.module.package.offset][local: article]
         }
     } 
+
+    subscript(global module:Tree.Position<Module>) -> Module
+    {
+        _read 
+        {
+            yield self[module.index.package].tree[local: module]
+        }
+    } 
     
     var standardLibrary:Set<Module.Index>
     {
@@ -63,11 +72,35 @@ struct Packages
             fatalError("first package must be the swift standard library")
         }
     }
+
+    mutating 
+    func _add(_ id:Package.ID, resolved:PackageResolution, graphs:[SymbolGraph]) 
+        throws
+    {
+        let graphs:[SymbolGraph] = try Self.sort(id, graphs: graphs)
+        let index:Package.Index = self.addPackage(id)
+
+        let branch:_Version.Branch = self[index].tree.branch(resolved.pins[id])
+        let trunks:[Trunk] = self[index].tree.trunks(of: branch)
+
+        let linkable:[Package.Index: _Dependency] = self.find(pins: resolved.pins.values)
+
+        for graph:SymbolGraph in graphs 
+        {
+            let position:Tree.Position<Module> = self[index].tree[branch].addModule(graph.id, 
+                culture: index, 
+                trunks: trunks)
+            let namespaces:Namespaces = try self.computeDependencies(graph.dependencies, 
+                linkable: linkable,
+                position: position,
+                trunks: trunks) 
+        }
+    }
     
     /// Creates a package entry for the given package graph, if it does not already exist.
     /// 
     /// -   Returns: The index of the package, identified by its ``Package.ID``.
-    mutating 
+    private mutating 
     func addPackage(_ package:Package.ID) -> Package.Index
     {
         if let index:Package.Index = self.indices[package]
@@ -100,13 +133,111 @@ struct Packages
 }
 extension Packages 
 {
+    private 
+    func find(pins:some Sequence<PackageResolution.Pin>) -> [Package.Index: _Dependency]
+    {
+        var linkable:[Package.Index: _Dependency] = [:]
+        for pin:PackageResolution.Pin in pins 
+        {
+            if let package:Package = self[pin.id]
+            {
+                linkable[package.index] = package.tree.find(pin)
+            }
+        }
+        return linkable
+    }
+    func computeDependencies(_ dependencies:[SymbolGraph.Dependency], 
+        linkable:[Package.Index: _Dependency],
+        position:Tree.Position<Module>, 
+        trunks:[Trunk])
+        throws -> Namespaces
+    {
+        var namespaces:Namespaces = .init(id: self[global: position].id, 
+            position: position, 
+            trunks: trunks)
+        // add explicit dependencies 
+        for dependency:SymbolGraph.Dependency in dependencies
+        {
+            guard let package:Package = self[dependency.package]
+            else 
+            {
+                throw _DependencyError.package(unavailable: dependency.package)
+            }
+            switch linkable[package.index] 
+            {
+            case nil:
+                throw _DependencyError.pin(unavailable: package.id)
+            case .unavailable(let requirement, let revision):
+                throw _DependencyError.version(unavailable: (requirement, revision), package.id)
+            case .available(let version):
+                let trunks:[Trunk] = package.tree.trunks(version)
+                let modules:[(id:Module.ID, position:Tree.Position<Module>)] = 
+                    try dependency.modules.map
+                {
+                    if let module:Tree.Position<Module> = trunks.find(module: $0)
+                    {
+                        // use the stored id, not the requested id
+                        return (package.tree[local: module].id, module)
+                    }
+                    else 
+                    {
+                        let branch:Branch = package.tree[version.branch]
+                        throw _DependencyError.module(unavailable: $0, 
+                            (branch.id, branch[version.revision].hash), 
+                            package.id)
+                    }
+                }
+
+                namespaces.link(modules: modules, trunks: trunks)
+            }
+        }
+        // add implicit dependencies
+        switch self[position.index.package].kind
+        {
+        case .community(_): 
+            if  let core:Package = self[.core], 
+                case .available(let version)? = linkable[core.index] 
+            {
+                let trunks:[Trunk] = core.tree.trunks(version)
+                let modules:[(id:Module.ID, position:Tree.Position<Module>)] = trunks.flatMap 
+                {
+                    (trunk:Trunk) in trunk.modules.map 
+                    {
+                        ($0.id, trunk.position($0.index))
+                    }
+                }
+
+                namespaces.link(modules: modules, trunks: trunks)
+            }
+            fallthrough 
+        case .core: 
+            if  let swift:Package = self[.swift], 
+                case .available(let version)? = linkable[swift.index] 
+            {
+                let trunks:[Trunk] = swift.tree.trunks(version)
+                let modules:[(id:Module.ID, position:Tree.Position<Module>)] = trunks.flatMap 
+                {
+                    (trunk:Trunk) in trunk.modules.map 
+                    {
+                        ($0.id, trunk.position($0.index))
+                    }
+                }
+                
+                namespaces.link(modules: modules, trunks: trunks)
+            }
+        case .swift: 
+            break 
+        }
+        return namespaces
+    }
+    
     func resolveDependencies(graphs:[SymbolGraph], cultures:[Module.Index]) throws -> [Module.Scope]
     {
         var scopes:[Module.Scope] = []
             scopes.reserveCapacity(graphs.count)
         for (graph, culture):(SymbolGraph, Module.Index) in zip(graphs, cultures)
         {
-            var scope:Module.Scope = .init(origin: .founded(culture), id: self[culture].id)
+            var scope:Module.Scope = .init(culture: culture, id: self[culture].id)
             // add explicit dependencies 
             for dependency:SymbolGraph.Dependency in graph.dependencies
             {

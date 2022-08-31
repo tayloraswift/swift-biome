@@ -2,7 +2,7 @@ import struct SymbolGraphs.Path
 import HTML
 
 @usableFromInline 
-struct Article:Cultured, Sendable
+struct Article:BranchElement, Sendable
 {
     @usableFromInline 
     typealias Culture = Module.Index 

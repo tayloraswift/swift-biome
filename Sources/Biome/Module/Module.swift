@@ -3,7 +3,7 @@ import Notebook
 import URI
 
 public 
-struct Module:Cultured, Sendable
+struct Module:BranchElement, Sendable
 {
     public 
     typealias Culture = Package.Index 

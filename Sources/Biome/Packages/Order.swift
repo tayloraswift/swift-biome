@@ -1,9 +1,9 @@
 import SymbolGraphs 
 
-extension Ecosystem 
+extension Packages 
 {
     static 
-    func order(modules:[SymbolGraph], package:Package.ID) throws -> [SymbolGraph]
+    func sort(_ package:Package.ID, graphs modules:[SymbolGraph]) throws -> [SymbolGraph]
     {
         // collect intra-package dependencies
         var dependencies:[Module.ID: Set<Module.ID>] = [:]
