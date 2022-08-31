@@ -34,14 +34,23 @@ extension Branch
         {
             self.startIndex + Element.Offset.init(self.storage.count)
         }
+        @available(*, deprecated, renamed: "opaque")
+        var indices:[Element.ID: OpaqueIndex] 
+        {
+            _read 
+            {
+                yield self.opaque
+            }
+        }
+
         private(set)
-        var indices:[Element.ID: OpaqueIndex]
+        var opaque:[Element.ID: OpaqueIndex]
         
         init(startIndex:Element.Offset) 
         {
             self.startIndex = startIndex
             self.storage = []
-            self.indices = [:]
+            self.opaque = [:]
         }
     }
 }
@@ -121,8 +130,13 @@ extension Branch.Buffer
     }
     subscript(prefix:PartialRangeUpTo<Element.Offset>) -> SubSequence 
     {
-        .init(storage: self.storage, opaque: self.indices, 
+        .init(storage: self.storage, opaque: self.opaque, 
             indices: self.startIndex ..< prefix.upperBound)
+    }
+    subscript(_:UnboundedRange) -> SubSequence 
+    {
+        .init(storage: self.storage, opaque: self.opaque, 
+            indices: self.startIndex ..< self.endIndex)
     }
 
     @available(*, deprecated)
@@ -138,7 +152,7 @@ extension Branch.Buffer
     func insert(_ id:Element.ID, culture:Element.Culture, 
         _ create:(Element.ID, OpaqueIndex) throws -> Element) rethrows -> OpaqueIndex
     {
-        if let index:OpaqueIndex = self.indices[id]
+        if let index:OpaqueIndex = self.opaque[id]
         {
             return index 
         }
@@ -147,7 +161,7 @@ extension Branch.Buffer
             // create records for elements if they do not yet exist 
             let index:OpaqueIndex = .init(culture, offset: self.endIndex)
             self.storage.append(try create(id, index))
-            self.indices[id] = index
+            self.opaque[id] = index
             return index 
         }
     }

@@ -91,7 +91,7 @@ struct Packages
             name: .init(pin.requirement))
         // we are going to mutate `self[index].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
-        let trunks:[Trunk] = self[index].tree.trunks(of: branch)
+        let trunks:[Trunk] = self[index].tree.prefix(upTo: branch)
 
         // `pins` is a subset of `linkable`; it gets filled in gradually as we 
         // resolve dependencies. this allows us to discard unused dependencies 
@@ -114,15 +114,12 @@ struct Packages
             // add explicit dependencies 
             for dependency:SymbolGraph.Dependency in graph.dependencies
             {
-                let trunks:[Trunk] = try namespaces.link(package: dependency.package, 
+                // will return an empty array if these are local dependencies, so we 
+                // won’t accidentally capture the buffer we are trying to modify!
+                lenses.append(contentsOf: try namespaces.link(package: dependency.package, 
                     dependencies: dependency.modules, 
                     linkable: linkable, 
-                    context: self)
-                //  don’t accidentally capture the buffer we are trying to modify!
-                if  dependency.package != id 
-                {
-                    lenses.append(contentsOf: trunks)
-                }
+                    context: self))
             }
             // add implicit dependencies
             switch self[module.index.package].kind
@@ -151,8 +148,12 @@ struct Packages
             _extensions.append(_rendered)
         }
 
-        // successfully registered symbolgraph contents. push a ring to the branch
-        self[index].tree[branch].commit(pin.revision, pins: pins)
+        // successfully registered symbolgraph contents 
+        let version:_Version = self[index].tree[branch].commit(pin.revision, pins: pins)
+        for (package, pin):(Package.Index, _Version) in pins
+        {
+            self[package].tree[pin].consumers[index, default: []].insert(version)
+        }
     }
     
     /// Creates a package entry for the given package graph, if it does not already exist.

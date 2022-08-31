@@ -63,6 +63,31 @@ struct Namespaces
         {
             throw _DependencyError.package(unavailable: package)
         }
+        guard self.current.culture.package != package.index
+        else 
+        {
+            guard let dependencies:[Module.ID] 
+            else 
+            {
+                fatalError("unreachable")
+            }
+            // local dependency 
+            let trunks:[Trunk] = package.tree.prefix(through: self.current.position.branch)
+            for module:Module.ID in dependencies
+            {
+                if let module:Tree.Position<Module> = trunks.find(module: module)
+                {
+                    // use the stored id, not the requested id
+                    self.link(id: package.tree[local: module].id, position: module)
+                }
+                else 
+                {
+                    throw _DependencyError.target(unavailable: module, 
+                        package.tree[self.current.position.branch].id)
+                }
+            }
+            return []
+        }
         switch linkable[package.index] 
         {
         case nil:
@@ -70,7 +95,8 @@ struct Namespaces
         case .unavailable(let requirement, let revision):
             throw _DependencyError.version(unavailable: (requirement, revision), package.id)
         case .available(let version):
-            let trunks:[Trunk] = package.tree.trunks(version)
+            // upstream dependency 
+            let trunks:[Trunk] = package.tree.prefix(upTo: version)
             if let dependencies:[Module.ID] 
             {
                 for module:Module.ID in dependencies

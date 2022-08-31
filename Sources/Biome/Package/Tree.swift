@@ -44,6 +44,17 @@ struct Tree
             yield &self.storage[branch.index]
         }
     }
+    subscript(version:_Version) -> Branch.Revision
+    {
+        _read 
+        {
+            yield  self[version.branch][version.revision]
+        }
+        _modify
+        {
+            yield &self[version.branch][version.revision]
+        }
+    }
     subscript(local module:Position<Module>) -> Module 
     {
         _read 
@@ -62,7 +73,7 @@ struct Tree
         let branch:_Version.Branch = .init(self.storage.endIndex)
         if  let fork:_Version 
         {
-            let ring:Branch.Ring = self[fork.branch][fork.revision].ring
+            let ring:Branch.Ring = self[fork].ring
             self.storage.append(.init(id: name, index: branch, fork: (fork, ring)))
         }
         else 
@@ -73,7 +84,7 @@ struct Tree
         return branch 
     }
 
-    func trunks(_ version:_Version) -> [Trunk]
+    func prefix(upTo version:_Version) -> [Trunk]
     {
         var current:Branch = self[version.branch]
         var trunks:[Trunk] = [current[..<version.revision]]
@@ -84,10 +95,21 @@ struct Tree
         }
         return trunks
     }
-    func trunks(of branch:_Version.Branch) -> [Trunk]
+    func prefix(upTo branch:_Version.Branch) -> [Trunk]
     {
         var current:Branch = self[branch]
         var trunks:[Trunk] = []
+        while let fork:_Version = current.fork 
+        {
+            current = self[fork.branch]
+            trunks.append(current[..<fork.revision])
+        }
+        return trunks
+    }
+    func prefix(through branch:_Version.Branch) -> [Trunk]
+    {
+        var current:Branch = self[branch]
+        var trunks:[Trunk] = [current[...]]
         while let fork:_Version = current.fork 
         {
             current = self[fork.branch]

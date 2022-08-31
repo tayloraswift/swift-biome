@@ -11,6 +11,7 @@ enum _DependencyError:Error
     case pin                                    (unavailable:Package.ID)
     case version           (unavailable:(Branch.ID, String), Package.ID)
     case module (unavailable:Module.ID, (Branch.ID, String), Package.ID)
+    case target (unavailable:Module.ID,  Branch.ID)
 }
 struct _Version:Hashable, Sendable 
 {
@@ -101,7 +102,7 @@ struct Branch:Identifiable, Sendable
     // }
     struct Ring:Sendable 
     {
-        let revision:Int 
+        //let revision:Int 
         let modules:Module.Offset
         let symbols:Symbol.Offset
         let articles:Article.Offset
@@ -190,16 +191,25 @@ struct Branch:Identifiable, Sendable
             symbols: self.newSymbols[..<ring.symbols], 
             articles: self.newArticles[..<ring.articles])
     }
+    subscript(_:UnboundedRange) -> Trunk 
+    {
+        return .init(branch: self.index, 
+            modules: self.newModules[...], 
+            symbols: self.newSymbols[...], 
+            articles: self.newArticles[...])
+    }
 
     mutating 
-    func commit(_ hash:String, pins:[Package.Index: _Version]) 
+    func commit(_ hash:String, pins:[Package.Index: _Version]) -> _Version
     {
+        let commit:_Version.Revision = self.endIndex
         self.revisions.append(.init(hash: hash, 
-            ring: .init(revision: self.revisions.endIndex, 
+            ring: .init(
                 modules: self.newModules.endIndex, 
                 symbols: self.newSymbols.endIndex, 
                 articles: self.newArticles.endIndex), 
             pins: pins))
+        return .init(self.index, commit)
     }
 
     // FIXME: this could be made a lot more efficient
