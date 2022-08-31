@@ -53,16 +53,6 @@ struct Tree
     }
 
     mutating 
-    func branch(_ pin:PackageResolution.Pin?) -> _Version.Branch 
-    {
-        guard let pin:PackageResolution.Pin 
-        else 
-        {
-            fatalError("unimplemented")
-        }
-        return self.branch(from: nil, name: .init(pin.requirement))
-    }
-    private mutating 
     func branch(from fork:_Version?, name:Branch.ID) -> _Version.Branch 
     {
         if  let branch:_Version.Branch = self.branches[name]

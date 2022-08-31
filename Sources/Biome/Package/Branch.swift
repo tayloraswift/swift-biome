@@ -108,10 +108,18 @@ struct Branch:Identifiable, Sendable
     }
     struct Revision:Sendable 
     {
-        let ring:Ring
         let hash:String 
+        let ring:Ring
         let pins:[Package.Index: _Version]
         var consumers:[Package.Index: Set<_Version>]
+
+        init(hash:String, ring:Ring, pins:[Package.Index: _Version])
+        {
+            self.hash = hash 
+            self.ring = ring 
+            self.pins = pins 
+            self.consumers = [:]
+        }
     }
 
     public 
@@ -181,6 +189,17 @@ struct Branch:Identifiable, Sendable
             modules: self.newModules[..<ring.modules], 
             symbols: self.newSymbols[..<ring.symbols], 
             articles: self.newArticles[..<ring.articles])
+    }
+
+    mutating 
+    func commit(_ hash:String, pins:[Package.Index: _Version]) 
+    {
+        self.revisions.append(.init(hash: hash, 
+            ring: .init(revision: self.revisions.endIndex, 
+                modules: self.newModules.endIndex, 
+                symbols: self.newSymbols.endIndex, 
+                articles: self.newArticles.endIndex), 
+            pins: pins))
     }
 
     // FIXME: this could be made a lot more efficient

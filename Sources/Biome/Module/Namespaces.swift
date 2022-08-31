@@ -25,6 +25,8 @@ struct Namespace
 }
 struct Namespaces
 {
+    private(set)
+    var pins:[Package.Index: _Version]
     let current:Namespace
     private(set)
     var positions:[Module.ID: Tree.Position<Module>]
@@ -36,6 +38,7 @@ struct Namespaces
     
     init(_ current:Namespace)
     {
+        self.pins = [:]
         self.current = current 
         self.positions = [current.id: current.position]
     }
@@ -96,6 +99,7 @@ struct Namespaces
                     }
                 }
             }
+            self.pins[package.index] = version
             return trunks 
         }
     }

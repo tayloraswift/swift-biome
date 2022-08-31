@@ -79,15 +79,30 @@ struct Packages
         throws
     {
         let graphs:[SymbolGraph] = try Self.sort(id, graphs: graphs)
+        
+        guard let pin:PackageResolution.Pin = resolved.pins[id]
+        else 
+        {
+            fatalError("unimplemented")
+        }
+        
         let index:Package.Index = self.addPackage(id)
-
+        let branch:_Version.Branch = self[index].tree.branch(from: nil, 
+            name: .init(pin.requirement))
         // we are going to mutate `self[index].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
-        let branch:_Version.Branch = self[index].tree.branch(resolved.pins[id])
         let trunks:[Trunk] = self[index].tree.trunks(of: branch)
 
+        // `pins` is a subset of `linkable`; it gets filled in gradually as we 
+        // resolve dependencies. this allows us to discard unused dependencies 
+        // from the `Package.resolved` file.
         let linkable:[Package.Index: _Dependency] = self.find(pins: resolved.pins.values)
+        var pins:[Package.Index: _Version] = [:]
 
+        var abstractors:[_Abstractor] = []
+            abstractors.reserveCapacity(graphs.count)
+        var _extensions:[[Extension]] = []
+            _extensions.reserveCapacity(graphs.count)
         for graph:SymbolGraph in graphs 
         {
             let module:Tree.Position<Module> = self[index].tree[branch].add(module: graph.id, 
@@ -124,13 +139,20 @@ struct Packages
             case .swift: 
                 break 
             }
+
+            pins.merge(namespaces.pins) { $1 }
             // all of the trunks in `lenses` are from different branches, 
             // so this will not cause copy-on-write.
             let (abstractor, _rendered):(_Abstractor, [Extension]) = self[index].tree[branch].add(graph: graph, 
                 namespaces: namespaces, 
                 trunks: lenses, 
                 stems: &stems) 
+            abstractors.append(abstractor)
+            _extensions.append(_rendered)
         }
+
+        // successfully registered symbolgraph contents. push a ring to the branch
+        self[index].tree[branch].commit(pin.revision, pins: pins)
     }
     
     /// Creates a package entry for the given package graph, if it does not already exist.
