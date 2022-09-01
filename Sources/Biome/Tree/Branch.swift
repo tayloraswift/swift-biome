@@ -57,19 +57,21 @@ struct _Version:Hashable, Sendable
         self.revision = revision 
     }
 }
-struct Trunk:Sendable 
+
+extension _Version.Branch 
 {
-    let branch:_Version.Branch
-    let modules:Branch.Buffer<Module>.SubSequence, 
-        symbols:Branch.Buffer<Symbol>.SubSequence,
-        articles:Branch.Buffer<Article>.SubSequence
-    
-    func position<Element>(_ index:Element.Index) -> Tree.Position<Element> 
+    func pluralize<Element>(_ position:Branch.Position<Element>) -> Tree.Position<Element> 
         where Element:BranchElement 
     {
-        .init(index, branch: self.branch)
+        .init(position, branch: self)
+    }
+    func idealize<Element>(_ position:Tree.Position<Element>) -> Branch.Position<Element>?
+        where Element:BranchElement 
+    {
+        self == position.branch ? position.contemporary : nil 
     }
 }
+
 public 
 struct Branch:Identifiable, Sendable 
 {
@@ -133,13 +135,15 @@ struct Branch:Identifiable, Sendable
     var revisions:[Revision]
 
     private(set)
+    var routes:[Route.Key: Route.Stack]
+    private(set)
     var newModules:Buffer<Module>, 
         newSymbols:Buffer<Symbol>,
         newArticles:Buffer<Article>
     private(set)
-    var updatedModules:[Module.Index: Module.Heads], 
-        updatedSymbols:[Symbol.Index: Symbol.Heads], 
-        updatedArticles:[Article.Index: Article.Heads]
+    var updatedModules:[Position<Module>: Module.Heads], 
+        updatedSymbols:[Position<Symbol>: Symbol.Heads], 
+        updatedArticles:[Position<Article>: Article.Heads]
     
     var startIndex:_Version.Revision 
     {
@@ -174,6 +178,7 @@ struct Branch:Identifiable, Sendable
         self.heads = .init() 
         self.revisions = []
         
+        self.routes = [:]
         self.newModules = .init(startIndex: fork?.ring.modules ?? 0)
         self.newSymbols = .init(startIndex: fork?.ring.symbols ?? 0)
         self.newArticles = .init(startIndex: fork?.ring.articles ?? 0)
@@ -183,17 +188,19 @@ struct Branch:Identifiable, Sendable
         self.updatedArticles = [:]
     }
     
-    subscript(prefix:PartialRangeUpTo<_Version.Revision>) -> Trunk 
+    subscript(prefix:PartialRangeUpTo<_Version.Revision>) -> Fascis 
     {
         let ring:Ring = self.revisions[prefix.upperBound.index].ring
         return .init(branch: self.index, 
+            routes: self.routes, 
             modules: self.newModules[..<ring.modules], 
             symbols: self.newSymbols[..<ring.symbols], 
             articles: self.newArticles[..<ring.articles])
     }
-    subscript(_:UnboundedRange) -> Trunk 
+    subscript(_:UnboundedRange) -> Fascis 
     {
         return .init(branch: self.index, 
+            routes: self.routes, 
             modules: self.newModules[...], 
             symbols: self.newSymbols[...], 
             articles: self.newArticles[...])
@@ -232,79 +239,43 @@ struct Branch:Identifiable, Sendable
     }
 }
 
-extension Sequence<Trunk> 
-{
-    func find(module:Module.ID) -> Tree.Position<Module>? 
-    {
-        for trunk:Trunk in self 
-        {
-            if let module:Module.Index = trunk.modules.opaque(of: module)
-            {
-                return .init(module, branch: trunk.branch)
-            }
-        }
-        return nil
-    }
-    func find(symbol:Symbol.ID) -> Tree.Position<Symbol>? 
-    {
-        for trunk:Trunk in self 
-        {
-            if let symbol:Symbol.Index = trunk.symbols.opaque(of: symbol)
-            {
-                return .init(symbol, branch: trunk.branch)
-            }
-        }
-        return nil
-    }
-    func find(article:Article.ID) -> Tree.Position<Article>? 
-    {
-        for trunk:Trunk in self 
-        {
-            if let article:Article.Index = trunk.articles.opaque(of: article)
-            {
-                return .init(article, branch: trunk.branch)
-            }
-        }
-        return nil
-    }
-}
 extension Branch 
 {
     mutating 
-    func add(module id:Module.ID, culture:Package.Index, trunks:[Trunk]) 
+    func add(module id:Module.ID, culture:Package.Index, fasces:[Fascis]) 
         -> Tree.Position<Module>
     {
-        if let existing:Tree.Position<Module> = trunks.find(module: id)
+        if let existing:Tree.Position<Module> = fasces.find(module: id)
         {
             return existing 
         }
-        let index:Module.Index = self.newModules.insert(id, culture: culture, 
+        let index:Position<Module> = self.newModules.insert(id, culture: culture, 
             Module.init(id:index:))
         return self.position(index)
     }
     mutating 
-    func add(graph:SymbolGraph, namespaces:Namespaces, trunks:[Trunk], stems:inout Route.Stems) 
+    func add(graph:SymbolGraph, namespaces:Namespaces, fasces:[Fascis], stems:inout Route.Stems) 
         -> (_Abstractor, [Extension])
     {
         let (articles, _rendered):([Tree.Position<Article>?], [Extension]) = self.addExtensions(from: graph, 
-            namespace: namespaces.current, 
-            trunks: trunks, 
+            namespace: namespaces.module, 
+            fasces: fasces, 
             stems: &stems)
         let symbols:[Tree.Position<Symbol>?] = self.addSymbols(from: graph, 
             namespaces: namespaces, 
-            trunks: trunks, 
+            fasces: fasces, 
             stems: &stems)
         
         assert(symbols.count == graph.vertices.count)
 
         var abstractor:_Abstractor = .init(symbols: _move symbols, articles: articles, 
-            culture: namespaces.current.culture)
-            abstractor.extend(over: graph.identifiers, by: trunks.find(symbol:))
+            culture: namespaces.culture)
+            abstractor.extend(over: graph.identifiers, by: fasces.find(symbol:))
         return (abstractor, _rendered)
     }
 
     private mutating 
-    func addSymbols(from graph:SymbolGraph, namespaces:Namespaces, trunks:[Trunk], 
+    func addSymbols(from graph:SymbolGraph, namespaces:Namespaces, fasces:[Fascis], 
         stems:inout Route.Stems) 
         -> [Tree.Position<Symbol>?]
     {
@@ -314,7 +285,7 @@ extension Branch
             graph.colonies
         {
             // will always succeed for the core subgraph
-            guard let namespace:Module.Index = namespaces.positions[namespace]?.index
+            guard let namespace:Position<Module> = namespaces.positions[namespace]?.contemporary
             else 
             {
                 print("warning: ignored colonial symbolgraph '\(graph.id)@\(namespace)'")
@@ -329,8 +300,8 @@ extension Branch
                 zip(vertices.indices, vertices)
             {
                 positions.append(self.addSymbol(graph.identifiers[offset], 
-                    culture: namespaces.current.culture, 
-                    trunks: trunks, 
+                    culture: namespaces.culture, 
+                    fasces: fasces, 
                     namespace: namespace, 
                     community: vertex.community, 
                     path: vertex.path, 
@@ -340,14 +311,14 @@ extension Branch
             if start < end
             {
                 let colony:Module.Colony = .init(namespace: namespace, range: start ..< end)
-                if self.index == namespaces.current.position.branch 
+                if self.index == namespaces.module.position.branch 
                 {
-                    self.newModules[local: namespaces.current.culture].heads.symbols
+                    self.newModules[contemporary: namespaces.culture].heads.symbols
                         .append(colony)
                 }
                 else 
                 {
-                    self.updatedModules[namespaces.current.culture, default: .init()].symbols
+                    self.updatedModules[namespaces.culture, default: .init()].symbols
                         .append(colony)
                 }
             }
@@ -355,16 +326,16 @@ extension Branch
         return positions
     }
     private mutating 
-    func addSymbol(_ id:Symbol.ID, culture:Module.Index, trunks:[Trunk], 
-        namespace:Module.Index, 
+    func addSymbol(_ id:Symbol.ID, culture:Position<Module>, fasces:[Fascis], 
+        namespace:Position<Module>, 
         community:Community, 
         path:Path, 
         stems:inout Route.Stems)
         -> Tree.Position<Symbol>
     {
-        if let existing:Tree.Position<Symbol> = trunks.find(symbol: id)
+        if let existing:Tree.Position<Symbol> = fasces.find(symbol: id)
         {
-            guard existing.index.module == culture 
+            guard existing.contemporary.module == culture 
             else 
             {
                 // swift encodes module names in symbol identifiers, so if a symbol changes culture, 
@@ -409,7 +380,7 @@ extension Branch
     // TODO: ideally we want to be rendering markdown AOT. so once that is implemented 
     // in the `SymbolGraphs` module, we can get rid of the ugly tuple return here.
     private mutating 
-    func addExtensions(from graph:SymbolGraph, namespace:Namespace, trunks:[Trunk], 
+    func addExtensions(from graph:SymbolGraph, namespace:Namespace, fasces:[Fascis], 
         stems:inout Route.Stems) 
         -> ([Tree.Position<Article>?], [Extension])
     {
@@ -431,7 +402,7 @@ extension Branch
                 // of that module is part of the article identity.
                 positions.append(self.addArticle(.init(namespace.id, path), 
                     culture: namespace.culture, 
-                    trunks: trunks, 
+                    fasces: fasces, 
                     stems: &stems))
             
             case    (.implicit(_)?, _?), (nil, _): 
@@ -443,7 +414,7 @@ extension Branch
         {
             if self.index == namespace.position.branch 
             {
-                self.newModules[local: namespace.culture].heads.articles
+                self.newModules[contemporary: namespace.culture].heads.articles
                     .append(start ..< end)
             }
             else 
@@ -455,13 +426,13 @@ extension Branch
         return (positions, _extensions)
     }
     private mutating 
-    func addArticle(_ id:Article.ID, culture:Module.Index, trunks:[Trunk], 
+    func addArticle(_ id:Article.ID, culture:Position<Module>, fasces:[Fascis], 
         stems:inout Route.Stems)
         -> Tree.Position<Article>
     {
-        if let existing:Tree.Position<Article> = trunks.find(article: id)
+        if let existing:Tree.Position<Article> = fasces.find(article: id)
         {
-            guard existing.index.module == culture 
+            guard existing.contemporary.module == culture 
             else 
             {
                 fatalError("unreachable")
@@ -479,5 +450,66 @@ extension Branch
             return .init(id: id, route: route)
         }
         return self.position(index)
+    }
+}
+
+extension Branch 
+{
+    mutating 
+    func inferShapes(
+        _ facts:inout [Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>], 
+        lenses:[Lens],
+        stems:Route.Stems)
+    {
+        let lenses:[Branch.Position<Module>: Lens] = .init(uniqueKeysWithValues: 
+            lenses.map { ($0.culture, $0) })
+        for index:Dictionary<Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>>.Index in 
+            facts.indices
+        {
+            guard let contemporary:Position<Symbol> = self.index.idealize(facts.keys[index])
+            else 
+            {
+                // only perform inference for contemporary symbols. 
+                continue 
+            }
+            if let shape:Symbol.Shape<Tree.Position<Symbol>> = facts.values[index].shape 
+            {
+                // already have a shape from a member or requirement belief
+                self.newSymbols[contemporary: contemporary].shape = shape
+                continue 
+            }
+
+            let symbol:Symbol = self.newSymbols[contemporary: contemporary]
+            guard  case nil = symbol.shape, 
+                    let scope:Path = .init(symbol.path.prefix), 
+                    let lens:Lens = lenses[contemporary.module]
+            else 
+            {
+                continue 
+            }
+            // attempt to re-parent this symbol using lexical lookup
+            if  let scope:Route.Key = stems[symbol.route.namespace, scope],
+                case .one(let scope)? = lens.select(scope), 
+                let scope:Tree.Position<Symbol> = scope.natural
+            {
+                self.newSymbols[contemporary: contemporary].shape = .member(of: scope)
+                let member:Tree.Position<Symbol> = facts.keys[index]
+                if  lens.culture == contemporary.culture 
+                {
+                    facts[scope]?.predicates.primary
+                        .members.insert(member)
+                }
+                else 
+                {
+                    facts[scope]?.predicates.accepted[contemporary.culture, default: .init()]
+                        .members.insert(member)
+                }
+            }
+            else 
+            {
+                print("warning: orphaned symbol \(symbol)")
+                continue 
+            }
+        }
     }
 }

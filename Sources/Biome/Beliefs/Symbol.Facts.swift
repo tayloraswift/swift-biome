@@ -1,5 +1,8 @@
 import SymbolGraphs
 
+extension Symbol.Predicates:Sendable where Position:Sendable 
+{
+}
 extension Symbol 
 {
     @available(*, deprecated)
@@ -8,13 +11,13 @@ extension Symbol
     @available(*, deprecated, renamed: "Belief.Predicate")
     typealias Predicate = Belief.Predicate 
     
-    struct Predicates:Equatable, Sendable 
+    struct Predicates<Position>:Equatable where Position:Hashable
     {
-        let roles:Roles?
-        var primary:Traits
-        var accepted:[Module.Index: Traits]
+        let roles:Roles<Position>?
+        var primary:Traits<Position>
+        var accepted:[Module.Index: Traits<Position>]
         
-        init(roles:Roles?, primary:Traits = .init())
+        init(roles:Roles<Position>?, primary:Traits<Position> = .init())
         {
             self.roles = roles 
             self.primary = primary
@@ -22,19 +25,20 @@ extension Symbol
         }
         
         mutating 
-        func updateAcceptedTraits(_ traits:Traits, culture:Module.Index)
+        func updateAcceptedTraits(_ traits:Traits<Position>, culture:Module.Index)
         {
             self.accepted[culture] = traits.subtracting(self.primary)
         }
         
-        func featuresAssumingConcreteType() -> [(perpetrator:Module.Index?, features:Set<Index>)]
+        func featuresAssumingConcreteType() 
+            -> [(perpetrator:Module.Index?, features:Set<Position>)]
         {
-            var features:[(perpetrator:Module.Index?, features:Set<Index>)] = []
+            var features:[(perpetrator:Module.Index?, features:Set<Position>)] = []
             if !self.primary.features.isEmpty
             {
                 features.append((nil, self.primary.features))
             }
-            for (perpetrator, traits):(Module.Index, Traits) in self.accepted
+            for (perpetrator, traits):(Module.Index, Traits<Position>) in self.accepted
                 where !traits.features.isEmpty
             {
                 features.append((perpetrator, traits.features))
@@ -42,18 +46,24 @@ extension Symbol
             return features
         }
     }
-    struct Facts
+}
+extension Symbol.Facts:Sendable where Position:Sendable 
+{
+}
+extension Symbol 
+{
+    struct Facts<Position> where Position:Hashable
     {
-        var shape:Shape<Index>?
-        var predicates:Predicates
+        var shape:Shape<Position>?
+        var predicates:Predicates<Position>
         
-        init(traits:[Trait<Index>], roles:[Role<Index>], as community:Community)  
+        init(traits:[Trait<Position>], roles:[Role<Position>], as community:Community)  
         {
             self.shape = nil 
             // partition relationships buffer 
-            var superclass:Index? = nil 
-            var residuals:[Role<Index>] = []
-            for role:Role<Index> in roles
+            var superclass:Position? = nil 
+            var residuals:[Role<Position>] = []
+            for role:Role<Position> in roles
             {
                 switch (self.shape, role) 
                 {
@@ -95,7 +105,7 @@ extension Symbol
                 }
             }
             
-            let roles:Roles? = .init(residuals, 
+            let roles:Roles<Position>? = .init(residuals, 
                 superclass: superclass, 
                 shape: self.shape, 
                 as: community)

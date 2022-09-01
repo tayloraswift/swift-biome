@@ -14,7 +14,7 @@ struct Ecosystem:Sendable
         case package(Package.Index)
         case module(Module.Index)
         case article(Article.Index)
-        case composite(Symbol.Composite)
+        case composite(Branch.Composite)
         
         static 
         func symbol(_ natural:Symbol.Index) -> Self 
@@ -150,7 +150,7 @@ extension Ecosystem
         try Task.checkCancellation()
         // topological sort  
         let graphs:[SymbolGraph] = try graphs.topologicallySorted(for: id)
-        let _:Package.Index = try self.packages._add(id, 
+        let _:Package.Index = try self.packages._add(package: id, 
             resolved: resolved, 
             graphs: graphs, 
             stems: &self.stems)
@@ -182,89 +182,12 @@ extension Ecosystem
         
         // self.updatePackage(index, graphs: graphs, scopes: scopes, era: era)
 
-        // return index 
-    }
-    private mutating 
-    func updatePackage(_ index:Package.Index, 
-        graphs:[SymbolGraph], 
-        scopes:[Module.Scope],
-        era:[Package.ID: MaskedVersion]) 
-    {
-        let version:PreciseVersion = .init(era[self[index].id])
-
-        var articles:[[Article.Index: Extension]] = []
-            articles.reserveCapacity(scopes.count)
-        var extensions:[[String: Extension]] = []
-            extensions.reserveCapacity(scopes.count)
-        var abstractors:[Abstractor] = []
-            abstractors.reserveCapacity(scopes.count)
-        for (graph, scope):(SymbolGraph, Module.Scope) in zip(graphs, scopes)
-        {
-            var abstractor:Abstractor = graph.abstractor(context: self.packages, scope: scope)
-                self.packages[index].addSymbols(from: graph,
-                    abstractor: &abstractor,
-                    stems: &self.stems,
-                    scope: scope)
-            abstractors.append(abstractor)
-
-            let column:(articles:[Article.Index: Extension], extensions:[String: Extension]) =
-                self.packages[index].addExtensions(from: graph, 
-                    stems: &self.stems, 
-                    culture: scope.culture)
-            extensions.append(column.extensions)
-            articles.append(column.articles)
-        }
+        // func bold(_ string:String) -> String
+        // {
+        //     "\u{1B}[1m\(string)\u{1B}[0m"
+        // }
         
-        print("""
-            note: key table population: \(self.stems._count), \
-            total key size: \(self.stems._memoryFootprint) B
-            """)
-        // must call this *before* any other update methods 
-        let pins:Package.Pins = self.packages.updatePackageVersion(for: index, 
-            version: version, 
-            scopes: scopes, 
-            era: era)
-        
-        var beliefs:Beliefs = graphs.generateBeliefs(abstractors: abstractors, 
-            context: self.packages)
-        let trees:Route.Trees = beliefs.generateTrees(
-            context: self.packages)
-        self.packages[index].addNaturalRoutes(trees.natural)
-        self.packages[index].addSyntheticRoutes(trees.synthetic)
-
-        // write to the keyframe buffers
-        self.packages[index].pushBeliefs(&beliefs, stems: self.stems)
-        for scope:Module.Scope in scopes
-        {
-            self.packages[index].pushDependencies(scope.dependencies(), culture: scope.culture)
-        }
-        for (scope, articles):(Module.Scope, [Article.Index: Extension]) in zip(scopes, articles)
-        {
-            self.packages[index].pushExtensionMetadata(articles: articles, culture: scope.culture)
-        }
-        for (graph, abstractor):(SymbolGraph, Abstractor) in zip(graphs, abstractors)
-        {
-            self.packages[index].pushDeclarations(graph.declarations(abstractor: abstractor))
-            self.packages[index].pushToplevel(filtering: abstractor.updates)
-        }
-
-        self.packages.spread(from: index, beliefs: beliefs)
-
-        let compiled:[Index: DocumentationNode] = self.compile(
-            comments: graphs.generateComments(abstractors: abstractors),
-            extensions: extensions,
-            articles: articles,
-            scopes: scopes,
-            pins: pins)
-        
-        self.packages[index].pushDocumentation(compiled)
-        
-        func bold(_ string:String) -> String
-        {
-            "\u{1B}[1m\(string)\u{1B}[0m"
-        }
-        
-        print(bold("updated \(self[index].id) to version \(version)"))
+        //print(bold("updated \(self[index].id) to version \(version)"))
     }
 }
     
@@ -423,7 +346,7 @@ extension Ecosystem
             var trace:[Symbol.Composite] = []
                 trace.reserveCapacity(link.visible)
                 trace.append(composite)
-            var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.target
+            var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.target.contemporary
             while trace.count < link.visible
             {
                 guard let current:Symbol.Index = next 
@@ -434,7 +357,7 @@ extension Ecosystem
                 }
                 
                 trace.append(.init(natural: current))
-                next = self[current].shape?.target 
+                next = self[current].shape?.target.contemporary
             }
             return .composite(trace.reversed())
         }

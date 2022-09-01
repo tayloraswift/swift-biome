@@ -15,7 +15,7 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
         @History<Declaration<Index>>.Branch.Optional
         var declaration:History<Declaration<Index>>.Branch.Head?
         @History<Predicates>.Branch.Optional
-        var facts:History<Predicates>.Branch.Head?
+        var facts:History<Predicates<Symbol.Index>>.Branch.Head?
         
         init() 
         {
@@ -39,7 +39,7 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
     let path:Path
     let kind:Kind
     let route:Route.Key
-    var shape:Shape<Index>?
+    var shape:Shape<Tree.Position<Self>>?
     var heads:Heads
     var pollen:Set<Module.Pin>
     
@@ -67,7 +67,7 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
         switch self.community 
         {
         case .associatedtype, .callable(_):
-            return self.shape?.target 
+            return self.shape?.target.contemporary 
         default: 
             return nil
         }

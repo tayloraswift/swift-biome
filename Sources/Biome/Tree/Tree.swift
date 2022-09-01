@@ -15,18 +15,6 @@ extension Package
 
 struct Tree 
 {
-    struct Position<Element>:Hashable where Element:BranchElement
-    {
-        let index:Element.Index 
-        let branch:_Version.Branch 
-
-        init(_ index:Element.Index, branch:_Version.Branch)
-        {
-            self.index = index 
-            self.branch = branch
-        }
-    }
-
     let culture:Package.Index
     private 
     var storage:[Branch]
@@ -59,15 +47,23 @@ struct Tree
     {
         _read 
         {
-            yield  self[module.branch].newModules[local: module.index]
+            yield  self[module.branch].newModules[contemporary: module.contemporary]
         }
+        // _modify 
+        // {
+        //     yield &self[module.branch].newModules[contemporary: module.contemporary]
+        // }
     }
     subscript(local symbol:Position<Symbol>) -> Symbol 
     {
         _read 
         {
-            yield  self[symbol.branch].newSymbols[local: symbol.index]
+            yield  self[symbol.branch].newSymbols[contemporary: symbol.contemporary]
         }
+        // _modify 
+        // {
+        //     yield &self[symbol.branch].newSymbols[contemporary: symbol.contemporary]
+        // }
     }
 
     mutating 

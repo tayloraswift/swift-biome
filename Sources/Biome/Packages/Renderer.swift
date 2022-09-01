@@ -89,7 +89,7 @@ extension Packages
     }
     func renderFields(for composite:Symbol.Composite, 
         declaration:Declaration<Symbol.Index>, 
-        facts:Symbol.Predicates) 
+        facts:Symbol.Predicates<Symbol.Index>) 
         -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
     {
         let base:Symbol = self[composite.base]
@@ -163,7 +163,7 @@ extension Packages
     private 
     func renderNotes(for composite:Symbol.Composite,
         declaration:Declaration<Symbol.Index>, 
-        facts:Symbol.Predicates) 
+        facts:Symbol.Predicates<Symbol.Index>) 
         -> HTML.Element<Ecosystem.Index>?
     {
         let base:Symbol = self[composite.base]
@@ -175,7 +175,7 @@ extension Packages
             let subject:HTML.Element<Ecosystem.Index> = 
                 .highlight(escaped: "Self", .type, href: .symbol(host))
             let object:HTML.Element<Ecosystem.Index> = 
-                .highlight(self[interface].name, .type, href: .symbol(composite.base))
+                .highlight(self[interface.contemporary].name, .type, href: .symbol(composite.base))
             let sentence:[HTML.Element<Ecosystem.Index>] = 
             [
                 .init(escaped: "Available because "),
@@ -253,13 +253,13 @@ extension Packages
         let base:Symbol = self[composite.base]
         
         var crumbs:[HTML.Element<Ecosystem.Index>] = [.li(base.name)]
-        var next:Symbol.Index? = composite.host ?? base.shape?.target
+        var next:Symbol.Index? = composite.host ?? base.shape?.target.contemporary
         while let index:Symbol.Index = next
         {
             let current:Symbol = self[index]
             crumbs.append(.li(.a(.highlight(current.name, .type), 
                 attributes: [.init(anchor: .symbol(index))])))
-            next = current.shape?.target
+            next = current.shape?.target.contemporary
         }
         crumbs.reverse()
         return .ol(crumbs) 
@@ -525,7 +525,7 @@ extension Packages
         }
     }
     private 
-    func sort(_ roles:Symbol.Roles?) -> [(target:Symbol.Index, host:Symbol.Index)]
+    func sort(_ roles:Symbol.Roles<Symbol.Index>?) -> [(target:Symbol.Index, host:Symbol.Index)]
     {
         switch roles 
         {

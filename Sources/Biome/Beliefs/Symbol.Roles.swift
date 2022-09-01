@@ -1,65 +1,8 @@
-import SymbolGraphs
-
-extension Symbol.Role:Equatable where Target:Equatable {}
-extension Symbol.Role:Hashable where Target:Hashable {}
-extension Symbol.Role:Sendable where Target:Sendable {}
+extension Symbol.Roles:Sendable where Position:Sendable 
+{
+}
 extension Symbol 
 {
-    @frozen public
-    enum Role<Target>:CustomStringConvertible
-    {
-        case member(of:Target)
-        case implementation(of:Target)
-        case refinement(of:Target)
-        case subclass(of:Target)
-        case override(of:Target)
-        
-        case interface(of:Target)
-        case requirement(of:Target)
-        
-        func map<T>(_ transform:(Target) throws -> T) rethrows -> Role<T>
-        {
-            switch self 
-            {
-            case .member(of: let target): 
-                return .member(of: try transform(target))
-            case .implementation(of: let target): 
-                return .implementation(of: try transform(target))
-            case .refinement(of: let target): 
-                return .refinement(of: try transform(target))
-            case .subclass(of: let target): 
-                return .subclass(of: try transform(target))
-            case .override(of: let target): 
-                return .override(of: try transform(target))
-            case .interface(of: let target): 
-                return .interface(of: try transform(target))
-            case .requirement(of: let target): 
-                return .requirement(of: try transform(target))
-            }
-        }
-        @inlinable public
-        var description:String 
-        {
-            switch self 
-            {
-            case .member(of: let target): 
-                return "member of \(target)"
-            case .implementation(of: let target): 
-                return "implementation of \(target)"
-            case .refinement(of: let target): 
-                return "refinement of \(target)"
-            case .subclass(of: let target): 
-                return "subclass of \(target)"
-            case .override(of: let target): 
-                return "override of \(target)"
-            case .interface(of: let target): 
-                return "interface of \(target)"
-            case .requirement(of: let target): 
-                return "requirement of \(target)"
-            }
-        }
-    }
-    
     /// symbol relationships that are independent of, and unaffected by any 
     /// downstream module consumers. 
     /// 
@@ -103,14 +46,14 @@ extension Symbol
     /// -   classes can have a single role if they have a superclass.
     /// 
     /// -   other kinds of symbols never have roles.
-    enum Roles:Equatable, Sendable 
+    enum Roles<Position>:Equatable where Position:Hashable
     {
         // case none 
-        case one        (Index)
-        case many   (Set<Index>)
+        case one        (Position)
+        case many   (Set<Position>)
         
         private 
-        init?(_ symbols:[Index]) 
+        init?(_ symbols:[Position]) 
         {
             if symbols.isEmpty 
             {
@@ -125,11 +68,12 @@ extension Symbol
                 self = .many(.init(symbols))
             }
         }
-        init?<Roles>(_ roles:Roles, superclass:Index?, shape:Shape<Index>?, 
+        init?(_ roles:some Sequence<Role<Position>>, 
+            superclass:Position?, 
+            shape:Shape<Position>?, 
             as community:Community) 
-            where Roles:Sequence, Roles.Element == Role<Index>
         {
-            if  let superclass:Index = superclass 
+            if  let superclass:Position = superclass 
             {
                 switch  (community, shape)
                 {
@@ -141,7 +85,7 @@ extension Symbol
                     // should have thrown a ``ColorError`` earlier
                     fatalError("unreachable")
                 }
-                for _:Role<Index> in roles 
+                for _:Role<Position> in roles 
                 {
                     fatalError("unreachable")
                 }
@@ -172,7 +116,7 @@ extension Symbol
                 case    (.concretetype(_),  nil), 
                         (.typealias,          _), 
                         (.global(_),        nil):
-                    for _:Role<Index> in roles
+                    for _:Role<Position> in roles
                     {
                         fatalError("unreachable") 
                     }

@@ -84,7 +84,7 @@ struct Packages
     }
 
     mutating 
-    func _add(_ id:Package.ID, resolved:PackageResolution, graphs:[SymbolGraph], 
+    func _add(package id:Package.ID, resolved:PackageResolution, graphs:[SymbolGraph], 
         stems:inout Route.Stems) 
         throws -> Package.Index
     {
@@ -94,87 +94,121 @@ struct Packages
             fatalError("unimplemented")
         }
         
-        let index:Package.Index = self.addPackage(id)
+        let index:Package.Index = self.add(package: id)
         let branch:_Version.Branch = self[index].tree.branch(from: nil, 
             name: .init(pin.requirement))
         // we are going to mutate `self[index].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
-        let trunks:[Trunk] = self[index].tree.prefix(upTo: branch)
+        let fasces:[Fascis] = self[index].tree.prefix(upTo: branch)
 
         // `pins` is a subset of `linkable`; it gets filled in gradually as we 
         // resolve dependencies. this allows us to discard unused dependencies 
         // from the `Package.resolved` file.
         let linkable:[Package.Index: _Dependency] = self.find(pins: resolved.pins.values)
-        var pins:[Package.Index: _Version] = [:]
 
+        var targets:[Namespaces] = []
+            targets.reserveCapacity(graphs.count)
         var abstractors:[_Abstractor] = []
             abstractors.reserveCapacity(graphs.count)
         var _extensions:[[Extension]] = []
             _extensions.reserveCapacity(graphs.count)
         
         var beliefs:Beliefs = .init() 
+
         for graph:SymbolGraph in graphs 
         {
             let module:Tree.Position<Module> = self[index].tree[branch].add(module: graph.id, 
                 culture: index, 
-                trunks: trunks) 
+                fasces: fasces) 
             // use this instead of `graph.id` to prevent string duplication
-            var namespaces:Namespaces = .init(id: self[global: module].id, position: module) 
-            var lenses:[Trunk] = trunks 
+            var namespaces:Namespaces = .init(id: self[global: module].id, 
+                position: module, 
+                _branch: branch)
+            var fasces:[Fascis] = fasces 
             // add explicit dependencies 
             for dependency:SymbolGraph.Dependency in graph.dependencies
             {
                 // will return an empty array if these are local dependencies, so we 
                 // won’t accidentally capture the buffer we are trying to modify!
-                lenses.append(contentsOf: try namespaces.link(package: dependency.package, 
+                fasces.append(contentsOf: try namespaces.link(package: dependency.package, 
                     dependencies: dependency.modules, 
                     linkable: linkable, 
                     context: self))
             }
             // add implicit dependencies
-            switch self[module.index.package].kind
+            switch self[module.package].kind
             {
             case .community(_): 
-                lenses.append(contentsOf: try namespaces.link(package: .core, 
+                fasces.append(contentsOf: try namespaces.link(package: .core, 
                     linkable: linkable, 
                     context: self))
                 fallthrough 
             case .core: 
-                lenses.append(contentsOf: try namespaces.link(package: .swift, 
+                fasces.append(contentsOf: try namespaces.link(package: .swift, 
                     linkable: linkable, 
                     context: self))
             case .swift: 
                 break 
             }
 
-            pins.merge(namespaces.pins) { $1 }
-            // all of the trunks in `lenses` are from different branches, 
+            // all of the fasces in `fasces` are from different branches, 
             // so this will not cause copy-on-write.
             let (abstractor, _rendered):(_Abstractor, [Extension]) = self[index].tree[branch].add(graph: graph, 
                 namespaces: namespaces, 
-                trunks: lenses, 
+                fasces: fasces, 
                 stems: &stems) 
 
             beliefs.update(with: graph.edges, abstractor: abstractor, context: self)
 
+            targets.append(namespaces)
             abstractors.append(abstractor)
             _extensions.append(_rendered)
         }
+
         beliefs.integrate()
-
-        
-        // successfully registered symbolgraph contents 
-        let version:_Version = self[index].tree[branch].commit(pin.revision, pins: pins)
-        for (package, pin):(Package.Index, _Version) in pins
-        {
-            self[package].tree[pin].consumers[index, default: []].insert(version)
-        }
-
 
         let trees:Route.Trees = beliefs.generateTrees(
             context: self)
         self[index].addNaturalRoutes(trees.natural)
         self[index].addSyntheticRoutes(trees.synthetic)
+
+        // successfully registered symbolgraph contents 
+        self.commit(pin.revision, to: branch, of: index, pins: targets.reduce(into: [:]) 
+        { 
+            $0.merge($1.pins) { $1 } 
+        })
+
+        // we need to recollect the upstream fasces because we (potentially) wrote 
+        // to them during the call to ``commit(_:to:of:pins:)``.
+        let lenses:[Lens] = (_move targets).map { $0.lens(local: fasces, context: self) }
+
+        self[index].tree[branch].inferShapes(&beliefs.facts, lenses: lenses, stems: stems)
+        // write to the keyframe buffers
+        // self[index].pushBeliefs(&beliefs, stems: stems)
+        // for scope:Module.Scope in scopes
+        // {
+        //     self[index].pushDependencies(scope.dependencies(), culture: scope.culture)
+        // }
+        // for (scope, articles):(Module.Scope, [Article.Index: Extension]) in zip(scopes, articles)
+        // {
+        //     self[index].pushExtensionMetadata(articles: articles, culture: scope.culture)
+        // }
+        // for (graph, abstractor):(SymbolGraph, Abstractor) in zip(graphs, abstractors)
+        // {
+        //     self[index].pushDeclarations(graph.declarations(abstractor: abstractor))
+        //     self[index].pushToplevel(filtering: abstractor.updates)
+        // }
+
+        // self.spread(from: index, beliefs: beliefs)
+
+        // let compiled:[Ecosystem.Index: DocumentationNode] = self.compile(
+        //     comments: graphs.generateComments(abstractors: abstractors),
+        //     extensions: extensions,
+        //     articles: articles,
+        //     scopes: scopes,
+        //     pins: pins)
+        // 
+        // self[index].pushDocumentation(compiled)
 
         return index
     }
@@ -183,7 +217,7 @@ struct Packages
     /// 
     /// -   Returns: The index of the package, identified by its ``Package.ID``.
     private mutating 
-    func addPackage(_ package:Package.ID) -> Package.Index
+    func add(package:Package.ID) -> Package.Index
     {
         if let index:Package.Index = self.indices[package]
         {
@@ -197,20 +231,19 @@ struct Packages
             return index
         }
     }
-    mutating 
-    func updatePackageVersion(for index:Package.Index, 
-        version:PreciseVersion, 
-        scopes:[Module.Scope], 
-        era:[Package.ID: MaskedVersion])
-        -> Package.Pins
+
+    private mutating
+    func commit(_ revision:String, 
+        to branch:_Version.Branch, 
+        of index:Package.Index, 
+        pins:[Package.Index: _Version])
     {
-        let pins:Package.Pins = self[index].updateVersion(version, 
-            dependencies: self.computeUpstreamPins(scopes, era: era))
-        for (package, version):(Package.Index, Version) in pins.dependencies 
+        let version:_Version = self[index].tree[branch].commit(revision, pins: pins)
+        for (package, pin):(Package.Index, _Version) in pins
         {
-            self[package].versions[version].consumers[index, default: []].insert(pins.local.version)
+            assert(package != index)
+            self[package].tree[pin].consumers[index, default: []].insert(version)
         }
-        return pins
     }
 }
 extension Packages 
@@ -228,86 +261,17 @@ extension Packages
         }
         return linkable
     }
-    @available(*, deprecated)
-    func resolveDependencies(graphs:[SymbolGraph], cultures:[Module.Index]) throws -> [Module.Scope]
-    {
-        var scopes:[Module.Scope] = []
-            scopes.reserveCapacity(graphs.count)
-        for (graph, culture):(SymbolGraph, Module.Index) in zip(graphs, cultures)
-        {
-            var scope:Module.Scope = .init(culture: culture, id: self[culture].id)
-            // add explicit dependencies 
-            for dependency:SymbolGraph.Dependency in graph.dependencies
-            {
-                guard let package:Package = self[dependency.package]
-                else 
-                {
-                    throw DependencyError.packageNotFound(dependency.package)
-                }
-                for target:Module.ID in dependency.modules
-                {
-                    guard let index:Module.Index = package.modules.indices[target]
-                    else 
-                    {
-                        throw DependencyError.moduleNotFound(target, in: dependency.package)
-                    }
-                    // use the stored id, not `target`
-                    scope.insert(index, id: package[local: index].id)
-                }
-            }
-            // add implicit dependencies
-            switch self[culture.package].kind
-            {
-            case .community(_): 
-                for module:Module in self[.core]?.modules.all ?? []
-                {
-                    scope.insert(module.index, id: module.id)
-                } 
-                fallthrough 
-            case .core: 
-                for module:Module in self[.swift]?.modules.all ?? []
-                {
-                    scope.insert(module.index, id: module.id)
-                } 
-            case .swift: 
-                break 
-            }
-            scopes.append(scope)
-        }
-        return scopes
-    }
-
-    private 
-    func computeUpstreamPins(_ scopes:[Module.Scope], era:[Package.ID: MaskedVersion])
-        -> [Package.Index: Version]
-    {
-        var packages:Set<Package.Index> = []
-        for scope:Module.Scope in scopes 
-        {
-            for namespace:Module.Index in scope.filter 
-                where namespace.package != scope.culture.package
-            {
-                packages.insert(namespace.package)
-            }
-        }
-        // only include pins for actual package dependencies, this prevents 
-        // extraneous pins in a Package.resolved from disrupting the version cache.
-        return .init(uniqueKeysWithValues: packages.map
-        {
-            ($0, self[$0].versions.snap(era[self[$0].id]))
-        })
-    }
 }
 extension Packages 
 {
-    mutating 
-    func spread(from index:Package.Index, beliefs:Beliefs)
-    {
-        let current:Version = self[index].versions.latest
-        for diacritic:Symbol.Diacritic in beliefs.opinions.keys 
-        {
-            self[diacritic.host.module.package].pollinate(local: diacritic.host, 
-                from: .init(culture: diacritic.culture, version: current))
-        }
-    }
+    // mutating 
+    // func spread(from index:Package.Index, beliefs:Beliefs)
+    // {
+    //     let current:Version = self[index].versions.latest
+    //     for diacritic:Symbol.Diacritic in beliefs.opinions.keys 
+    //     {
+    //         self[diacritic.host.module.package].pollinate(local: diacritic.host, 
+    //             from: .init(culture: diacritic.culture, version: current))
+    //     }
+    // }
 }

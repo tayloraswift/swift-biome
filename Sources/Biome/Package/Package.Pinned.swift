@@ -175,7 +175,7 @@ extension Package.Pinned
             .at(self.version) ?? 
             .init(fallback: "<unavailable>")
     }
-    func facts(_ symbol:Symbol.Index) -> Symbol.Predicates 
+    func facts(_ symbol:Symbol.Index) -> Symbol.Predicates<Symbol.Index> 
     {
         // `nil` case should be unreachable in practice
         self.package.facts[self.package[local: symbol].heads.facts]

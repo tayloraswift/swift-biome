@@ -1,25 +1,7 @@
-extension Branch.Buffer.OpaqueIndex:Sendable 
-    where   Element.Offset:Sendable, Element.Culture:Sendable
-{
-}
 extension Branch.Buffer:Sendable 
     where   Element.Offset:Sendable, Element.Culture:Sendable, 
             Element:Sendable, Element.ID:Sendable
 {
-}
-extension Branch.Buffer.OpaqueIndex where Element.Culture == Package.Index
-{
-    var package:Package.Index 
-    {
-        self.culture 
-    }
-}
-extension Branch.Buffer.OpaqueIndex where Element.Culture == Module.Index
-{
-    var module:Module.Index 
-    {
-        self.culture 
-    }
 }
 
 extension Branch 
@@ -34,71 +16,31 @@ extension Branch
         {
             self.startIndex + Element.Offset.init(self.storage.count)
         }
-        @available(*, deprecated, renamed: "opaque")
-        var indices:[Element.ID: OpaqueIndex] 
+        @available(*, deprecated, renamed: "positions")
+        var indices:[Element.ID: Position<Element>] 
         {
             _read 
             {
-                yield self.opaque
+                yield self.positions
             }
         }
 
         private(set)
-        var opaque:[Element.ID: OpaqueIndex]
+        var positions:[Element.ID: Position<Element>]
         
         init(startIndex:Element.Offset) 
         {
             self.startIndex = startIndex
+            self.positions = [:]
             self.storage = []
-            self.opaque = [:]
         }
     }
 }
+
 extension Branch.Buffer 
 {
-    @frozen public 
-    struct OpaqueIndex:Hashable, Comparable
-    {
-        public 
-        let culture:Element.Culture
-        public 
-        let offset:Element.Offset
-        
-        @inlinable public 
-        init(_ culture:Element.Culture, offset:Element.Offset)
-        {
-            self.culture = culture
-            self.offset = offset
-        }
-
-        @inlinable public static 
-        func == (lhs:Self, rhs:Self) -> Bool
-        {
-            lhs.offset == rhs.offset && lhs.culture == rhs.culture 
-        }
-        @inlinable public static 
-        func < (lhs:Self, rhs:Self) -> Bool
-        {
-            lhs.offset < rhs.offset
-        }
-        @inlinable public 
-        func hash(into hasher:inout Hasher)
-        {
-            self.culture.hash(into: &hasher)
-            self.offset.hash(into: &hasher)
-        }
-
-        // @inlinable public
-        // func advanced(by stride:Offset.Stride) -> Self 
-        // {
-        //     .init(self.culture, offset: self.offset.advanced(by: stride))
-        // }
-        // @inlinable public
-        // func distance(to other:Self) -> Offset.Stride
-        // {
-        //     self.offset.distance(to: other.offset)
-        // }
-    }
+    @available(*, deprecated, renamed: "Branch.Position")
+    typealias OpaqueIndex = Branch.Position<Element>
 
     @available(*, unavailable)
     var count:Int 
@@ -117,25 +59,37 @@ extension Branch.Buffer
             yield &self.storage[.init(offset - self.startIndex)]
         }
     }
-    subscript(local index:OpaqueIndex) -> Element
+    @available(*, deprecated, renamed: "subscript(contemporary:)")
+    subscript(local position:Branch.Position<Element>) -> Element
     {
         _read
         {
-            yield self[index.offset]
+            yield self[position.offset]
         }
         _modify
         {
-            yield &self[index.offset]
+            yield &self[position.offset]
+        }
+    }
+    subscript(contemporary position:Branch.Position<Element>) -> Element
+    {
+        _read
+        {
+            yield self[position.offset]
+        }
+        _modify
+        {
+            yield &self[position.offset]
         }
     }
     subscript(prefix:PartialRangeUpTo<Element.Offset>) -> SubSequence 
     {
-        .init(storage: self.storage, opaque: self.opaque, 
+        .init(positions: self.positions, storage: self.storage, 
             indices: self.startIndex ..< prefix.upperBound)
     }
     subscript(_:UnboundedRange) -> SubSequence 
     {
-        .init(storage: self.storage, opaque: self.opaque, 
+        .init(positions: self.positions, storage: self.storage, 
             indices: self.startIndex ..< self.endIndex)
     }
 
@@ -150,19 +104,20 @@ extension Branch.Buffer
     
     mutating 
     func insert(_ id:Element.ID, culture:Element.Culture, 
-        _ create:(Element.ID, OpaqueIndex) throws -> Element) rethrows -> OpaqueIndex
+        _ create:(Element.ID, Branch.Position<Element>) throws -> Element) 
+        rethrows -> Branch.Position<Element>
     {
-        if let index:OpaqueIndex = self.opaque[id]
+        if let position:Branch.Position<Element> = self.positions[id]
         {
-            return index 
+            return position 
         }
         else 
         {
             // create records for elements if they do not yet exist 
-            let index:OpaqueIndex = .init(culture, offset: self.endIndex)
-            self.storage.append(try create(id, index))
-            self.opaque[id] = index
-            return index 
+            let position:Branch.Position<Element> = .init(culture, offset: self.endIndex)
+            self.storage.append(try create(id, position))
+            self.positions[id] = position
+            return position 
         }
     }
 }
@@ -177,7 +132,7 @@ extension Branch.Buffer
         let indices:Range<Element.Offset>
         private 
         let storage:[Element], 
-            opaque:[Element.ID: OpaqueIndex]
+            positions:[Element.ID: Branch.Position<Element>]
         
         var startIndex:Element.Offset
         {
@@ -196,7 +151,7 @@ extension Branch.Buffer
         }
         subscript(range:Range<Element.Offset>) -> Self
         {
-            .init(storage: self.storage, opaque: self.opaque, indices: range)
+            .init(positions: self.positions, storage: self.storage, indices: range)
         }
 
         func index(before base:Element.Offset) -> Element.Offset
@@ -212,18 +167,21 @@ extension Branch.Buffer
         //     Element.Offset.init(Int.init(base) + distance)
         // }
         
-        init(storage:[Element], opaque:[Element.ID: OpaqueIndex], indices:Range<Element.Offset>)
+        init(positions:[Element.ID: Branch.Position<Element>], 
+            storage:[Element], 
+            indices:Range<Element.Offset>)
         {
+            self.positions = positions 
             self.storage = storage 
-            self.opaque = opaque 
             self.indices = indices
         }
 
-        func opaque(of id:Element.ID) -> OpaqueIndex? 
+        func position(of id:Element.ID) -> Branch.Position<Element>? 
         {
-            if let opaque:OpaqueIndex = self.opaque[id], self.indices ~= opaque.offset
+            if  let position:Branch.Position<Element> = self.positions[id], 
+                self.indices ~= position.offset
             {
-                return opaque
+                return position
             }
             else 
             {

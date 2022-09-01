@@ -7,5 +7,5 @@ protocol BranchElement<Culture, Offset>:Identifiable
 extension BranchElement
 {
     public 
-    typealias Index = Branch.Buffer<Self>.OpaqueIndex
+    typealias Index = Branch.Position<Self>
 }

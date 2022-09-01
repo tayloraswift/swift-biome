@@ -1,71 +1,21 @@
 import SymbolGraphs
 
-extension Symbol.Trait:Equatable where Target:Equatable {}
-extension Symbol.Trait:Sendable where Target:Sendable {}
+extension Symbol.Traits:Sendable where Position:Sendable 
+{
+}
 extension Symbol 
 {
-    enum Trait<Target>
-    {
-        // members 
-        case member(Target)
-        case feature(Target)
-        // implementations 
-        case implementation(Target)
-        // downstream
-        case refinement(Target)
-        case subclass(Target)
-        case override(Target)
-        // conformers
-        case conformer(Generic.Conditional<Target>)
-        // conformances
-        case conformance(Generic.Conditional<Target>)
-        
-        var feature:Target? 
-        {
-            if case .feature(let feature) = self 
-            {
-                return feature
-            }
-            else 
-            {
-                return nil
-            }
-        }
-        
-        func map<T>(_ transform:(Target) throws -> T) rethrows -> Trait<T>
-        {
-            switch self 
-            {
-            case .member(let target): 
-                return .member(try transform(target))
-            case .feature(let target): 
-                return .feature(try transform(target))
-            case .implementation(let target): 
-                return .implementation(try transform(target))
-            case .refinement(let target): 
-                return .refinement(try transform(target))
-            case .subclass(let target): 
-                return .subclass(try transform(target))
-            case .override(let target): 
-                return .override(try transform(target))
-            case .conformer(let target): 
-                return .conformer(try target.map(transform))
-            case .conformance(let target): 
-                return .conformance(try target.map(transform))
-            }
-        }
-    }
-    struct Traits:Equatable, Sendable 
+    struct Traits<Position>:Equatable where Position:Hashable
     {
         /// if a concrete type, the members of this type, not including members 
         /// inherited through protocol conformances. 
         /// if a protocol, the members in extensions of this protocol. 
         /// 
         /// requirements and witnesses must not access this property.
-        var members:Set<Index>
+        var members:Set<Position>
         
         private 
-        var unconditional:Set<Index>
+        var unconditional:Set<Position>
         /// if a concrete type, members of this type inherited through 
         /// protocol conformances.
         /// 
@@ -76,7 +26,7 @@ extension Symbol
         /// > note: for concrete types, the module that an inherited member 
         /// originates from is not necessarily the perpetrator of the conformance 
         /// that trafficked it into its scope.
-        var features:Set<Index>
+        var features:Set<Position>
         {
             _read 
             {
@@ -93,7 +43,7 @@ extension Symbol
         /// 
         /// this shares backing storage with ``features``. types and witnesses 
         /// must not access this property.
-        var implementations:Set<Index>
+        var implementations:Set<Position>
         {
             _read 
             {
@@ -111,16 +61,16 @@ extension Symbol
         /// interface that also restate this requirement.
         /// if a witness, any subclass members that override this witness, if 
         /// it is a class member.
-        var downstream:Set<Index>
+        var downstream:Set<Position>
         
         private 
-        var conditional:[Index: [Generic.Constraint<Index>]]
+        var conditional:[Position: [Generic.Constraint<Position>]]
         /// if a protocol, concrete types that implement this protocol.
         /// 
         /// this shares backing storage with ``conformances``. concrete types 
         /// should access ``conformances`` instead. requirements and witnesses 
         /// must not access this property.
-        var conformers:[Index: [Generic.Constraint<Index>]]
+        var conformers:[Position: [Generic.Constraint<Position>]]
         {
             _read 
             {
@@ -136,7 +86,7 @@ extension Symbol
         /// this shares backing storage with ``conformers``. protocols 
         /// should access ``conformers`` instead. requirements and witnesses 
         /// must not access this property.
-        var conformances:[Index: [Generic.Constraint<Index>]]
+        var conformances:[Position: [Generic.Constraint<Position>]]
         {
             _read 
             {
@@ -156,21 +106,19 @@ extension Symbol
             self.conditional = [:]
         }
         
-        init<Traits>(_ traits:Traits, as community:Community)
-            where Traits:Sequence, Traits.Element == Trait<Index>
+        init(_ traits:some Sequence<Trait<Position>>, as community:Community)
         {
             self.init()
             self.update(with: traits, as: community)
         }
         
         mutating 
-        func update<Traits>(with traits:Traits, as community:Community) 
-            where Traits:Sequence, Traits.Element == Trait<Index>
+        func update(with traits:some Sequence<Trait<Position>>, as community:Community) 
         {
             switch community 
             {
             case .associatedtype:
-                for trait:Trait<Index> in traits 
+                for trait:Trait<Position> in traits 
                 {
                     switch trait 
                     {
@@ -188,7 +136,7 @@ extension Symbol
                 }
             
             case .protocol:
-                for trait:Trait<Index> in traits 
+                for trait:Trait<Position> in traits 
                 {
                     switch trait 
                     {
@@ -208,13 +156,13 @@ extension Symbol
                 }
             
             case .typealias, .global(_): 
-                for _:Trait<Index> in traits 
+                for _:Trait<Position> in traits 
                 {
                     fatalError("unreachable")
                 }
             
             case .concretetype(_):
-                for trait:Trait<Index> in traits 
+                for trait:Trait<Position> in traits 
                 {
                     switch trait 
                     {
@@ -236,7 +184,7 @@ extension Symbol
                 }
             
             case .callable(_):
-                for trait:Trait<Index> in traits 
+                for trait:Trait<Position> in traits 
                 {
                     switch trait 
                     {
@@ -261,10 +209,10 @@ extension Symbol
             self.members.subtract(other.members)
             self.downstream.subtract(other.downstream)
             self.unconditional.subtract(other.unconditional)
-            for (symbol, conditions):(Index, [Generic.Constraint<Index>]) in 
+            for (symbol, conditions):(Position, [Generic.Constraint<Position>]) in 
                 other.conditional
             {
-                if  let counterpart:Dictionary<Index, [Generic.Constraint<Index>]>.Index = 
+                if  let counterpart:Dictionary<Position, [Generic.Constraint<Position>]>.Index = 
                     self.conditional.index(forKey: symbol), 
                     self.conditional.values[counterpart] == conditions 
                 {

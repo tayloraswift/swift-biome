@@ -29,7 +29,7 @@ struct _Abstractor
         }
         subscript(index:Int) -> Tree.Position<Symbol>? 
         {
-            self.symbols[index].flatMap { $0.index.module == self.culture ? $0 : nil }
+            self.symbols[index].flatMap { $0.contemporary.module == self.culture ? $0 : nil }
         }
     }
 
@@ -276,7 +276,7 @@ extension SymbolGraph.Edge<Tree.Position<Symbol>>
             return
                 (
                     nil,
-                    .init(target, .has(.feature(source.index)))
+                    .init(target, .has(.feature(source)))
                 )
         
         case    (.concretetype, let source, is: .member,    of: .concretetype,  let target), 
@@ -287,39 +287,37 @@ extension SymbolGraph.Edge<Tree.Position<Symbol>>
                 (.callable,     let source, is: .member,    of: .protocol,      let target):
             return 
                 (
-                    .init(source,  .is(.member(of: target.index))), 
-                    .init(target, .has(.member(    source.index)))
+                    .init(source,  .is(.member(of: target))), 
+                    .init(target, .has(.member(    source)))
                 )
         
         case    (.concretetype, let source, is: .conformer(let conditions), of: .protocol, let target):
-            let conditions:[Generic.Constraint<Symbol.Index>] = 
-                conditions.map { $0.map(\.index) }
             return 
                 (
-                    .init(source, .has(.conformance(.init(target.index, where: conditions)))), 
-                    .init(target, .has(  .conformer(.init(source.index, where: conditions))))
+                    .init(source, .has(.conformance(.init(target, where: conditions)))), 
+                    .init(target, .has(  .conformer(.init(source, where: conditions))))
                 )
          
         case    (.protocol, let source, is: .conformer([]), of: .protocol, let target):
             return 
                 (
-                    .init(source,  .is(.refinement(of: target.index))), 
-                    .init(target, .has(.refinement(    source.index)))
+                    .init(source,  .is(.refinement(of: target))), 
+                    .init(target, .has(.refinement(    source)))
                 ) 
         
         case    (.class, let source, is: .subclass, of: .class, let target):
             return 
                 (
-                    .init(source,  .is(.subclass(of: target.index))), 
-                    .init(target, .has(.subclass(    source.index)))
+                    .init(source,  .is(.subclass(of: target))), 
+                    .init(target, .has(.subclass(    source)))
                 ) 
          
         case    (.associatedtype,   let source, is: .override, of: .associatedtype, let target),
                 (.callable,         let source, is: .override, of: .callable,       let target):
             return 
                 (
-                    .init(source,  .is(.override(of: target.index))), 
-                    .init(target, .has(.override(    source.index)))
+                    .init(source,  .is(.override(of: target))), 
+                    .init(target, .has(.override(    source)))
                 ) 
          
         case    (.associatedtype,   let source, is:         .requirement, of: .protocol, let target),
@@ -328,15 +326,15 @@ extension SymbolGraph.Edge<Tree.Position<Symbol>>
                 (.callable,         let source, is: .optionalRequirement, of: .protocol, let target):
             return 
                 (
-                    .init(source,  .is(.requirement(of: target.index))), 
-                    .init(target,  .is(  .interface(of: source.index)))
+                    .init(source,  .is(.requirement(of: target))), 
+                    .init(target,  .is(  .interface(of: source)))
                 ) 
          
         case    (.callable, let source, is: .defaultImplementation, of: .callable, let target):
             return 
                 (
-                    .init(source,  .is(.implementation(of: target.index))), 
-                    .init(target, .has(.implementation(    source.index)))
+                    .init(source,  .is(.implementation(of: target))), 
+                    .init(target, .has(.implementation(    source)))
                 ) 
         
         default:

@@ -166,7 +166,7 @@ extension Page
         //  2. base package 
         //  3. culture
         let topics:Topics
-        let facts:Symbol.Predicates
+        let facts:Symbol.Predicates<Symbol.Index>
         if let host:Symbol.Index = composite.natural 
         {
             facts = self.pin(host.module.package).facts(host)

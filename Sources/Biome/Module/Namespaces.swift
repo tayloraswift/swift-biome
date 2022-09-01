@@ -12,9 +12,9 @@ struct Namespace
     let id:Module.ID 
     let position:Tree.Position<Module>
 
-    var culture:Module.Index 
+    var culture:Branch.Position<Module>
     {
-        self.position.index
+        self.position.contemporary
     }
 
     init(id:Module.ID, position:Tree.Position<Module>)
@@ -27,19 +27,34 @@ struct Namespaces
 {
     private(set)
     var pins:[Package.Index: _Version]
-    let current:Namespace
+    // this branch may be *different* from `current.position.branch`, 
+    // which refers to the branch in which the module itself was founded.
+    let _branch:_Version.Branch
+    let module:Namespace
     private(set)
     var positions:[Module.ID: Tree.Position<Module>]
+
+    @available(*, deprecated, renamed: "module")
+    var current:Namespace 
+    {
+        self.module
+    }
+
+    var culture:Branch.Position<Module> 
+    {
+        self.module.culture
+    }
     
-    init(_ current:Namespace)
+    init(_ module:Namespace, _branch:_Version.Branch)
     {
         self.pins = [:]
-        self.current = current 
-        self.positions = [current.id: current.position]
+        self._branch = _branch
+        self.module = module 
+        self.positions = [module.id: module.position]
     }
-    init(id:Module.ID, position:Tree.Position<Module>)
+    init(id:Module.ID, position:Tree.Position<Module>, _branch:_Version.Branch)
     {
-        self.init(.init(id: id, position: position))
+        self.init(.init(id: id, position: position), _branch: _branch)
     }
 
     private mutating 
@@ -51,14 +66,14 @@ struct Namespaces
     func link(package:Package.ID, dependencies:[Module.ID]? = nil, 
         linkable:[Package.Index: _Dependency], 
         context:Packages) 
-        throws -> [Trunk]
+        throws -> [Fascis]
     {
         guard let package:Package = context[package]
         else 
         {
             throw _DependencyError.package(unavailable: package)
         }
-        guard self.current.culture.package != package.index
+        guard self.culture.package != package.index
         else 
         {
             guard let dependencies:[Module.ID] 
@@ -67,10 +82,10 @@ struct Namespaces
                 fatalError("unreachable")
             }
             // local dependency 
-            let trunks:[Trunk] = package.tree.prefix(through: self.current.position.branch)
+            let fasces:[Fascis] = package.tree.prefix(through: self._branch)
             for module:Module.ID in dependencies
             {
-                if let module:Tree.Position<Module> = trunks.find(module: module)
+                if let module:Tree.Position<Module> = fasces.find(module: module)
                 {
                     // use the stored id, not the requested id
                     self.link(id: package.tree[local: module].id, position: module)
@@ -78,7 +93,7 @@ struct Namespaces
                 else 
                 {
                     throw _DependencyError.target(unavailable: module, 
-                        package.tree[self.current.position.branch].id)
+                        package.tree[self._branch].id)
                 }
             }
             return []
@@ -91,12 +106,12 @@ struct Namespaces
             throw _DependencyError.version(unavailable: (requirement, revision), package.id)
         case .available(let version):
             // upstream dependency 
-            let trunks:[Trunk] = package.tree.prefix(upTo: version)
+            let fasces:[Fascis] = package.tree.prefix(upTo: version)
             if let dependencies:[Module.ID] 
             {
                 for module:Module.ID in dependencies
                 {
-                    if let module:Tree.Position<Module> = trunks.find(module: module)
+                    if let module:Tree.Position<Module> = fasces.find(module: module)
                     {
                         // use the stored id, not the requested id
                         self.link(id: package.tree[local: module].id, position: module)
@@ -112,17 +127,46 @@ struct Namespaces
             }
             else 
             {
-                for trunk:Trunk in trunks 
+                for fascis:Fascis in fasces 
                 {
-                    for module:Module in trunk.modules
+                    for module:Module in fascis.modules
                     {
-                        self.link(id: module.id, position: trunk.position(module.index))
+                        self.link(id: module.id, position: fascis.branch.pluralize(module.index))
                     }
                 }
             }
             self.pins[package.index] = version
-            return trunks 
+            return fasces 
         }
+    }
+}
+extension Namespaces 
+{
+    func lens(local fasces:[Fascis], context:Packages) -> Lens 
+    {
+        var fasces:[Fascis] = fasces 
+        for (upstream, version):(Package.Index, _Version) in self.pins 
+        {
+            fasces.append(contentsOf: context[upstream].tree.prefix(upTo: version))
+        }
+        return .init(namespaces: self, fasces: fasces, 
+            routes: context[self.culture.package].tree[self._branch].routes)
+    }
+}
+struct Lens 
+{
+    let namespaces:Namespaces
+    let fasces:[Fascis]
+    let routes:[Route.Key: Route.Stack]
+
+    var culture:Branch.Position<Module> 
+    {
+        self.namespaces.culture
+    }
+
+    func select(_ route:Route.Key) -> Route._Selection<Tree.Composite>?
+    {
+        fatalError("unimplemented")
     }
 }
 

@@ -13,8 +13,8 @@ struct Belief
 {
     enum Predicate 
     {
-        case `is`(Symbol.Role<Symbol.Index>)
-        case has(Symbol.Trait<Symbol.Index>)
+        case `is`(Symbol.Role<Tree.Position<Symbol>>)
+        case has(Symbol.Trait<Tree.Position<Symbol>>)
     }
 
     let subject:Tree.Position<Symbol>
@@ -28,9 +28,9 @@ struct Belief
 }
 struct Beliefs 
 {
-    var facts:[Symbol.Index: Symbol.Facts] 
-    var opinions:[Symbol.Diacritic: Symbol.Traits] 
-
+    var facts:[Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>]
+    var opinions:[Tree.Diacritic: Symbol.Traits<Tree.Position<Symbol>>]
+    
     init()
     {
         self.facts = [:]
@@ -40,54 +40,43 @@ struct Beliefs
     private mutating 
     func insert(_ beliefs:[Belief], symbols:_Abstractor.UpdatedSymbols, context:Packages) 
     {
-        typealias UncheckedFacts = 
-        (
-            roles:[Symbol.Role<Symbol.Index>], 
-            traits:[Symbol.Trait<Symbol.Index>]
-        )
-        typealias UncheckedOpinions = 
-        (
-            branch:_Version.Branch, 
-            traits:[Symbol.Trait<Symbol.Index>]
-        )
-
-        var facts:[Symbol.Index: UncheckedFacts] = [:]
-        var opinions:[Symbol.Index: UncheckedOpinions] = [:]
+        var opinions:[Tree.Position<Symbol>: [Symbol.Trait<Tree.Position<Symbol>>]] = [:]
+        var traits:[Tree.Position<Symbol>: [Symbol.Trait<Tree.Position<Symbol>>]] = [:]
+        var roles:[Tree.Position<Symbol>: [Symbol.Role<Tree.Position<Symbol>>]] = [:]
         for belief:Belief in beliefs 
         {
-            let key:Symbol.Index = belief.subject.index
-            switch (symbols.culture == key.module, belief.predicate)
+            switch (symbols.culture == belief.subject.contemporary.culture, belief.predicate)
             {
             case (false,  .is(_)):
                 fatalError("unimplemented")
             case (false, .has(let trait)):
-                opinions[key, default: (belief.subject.branch, [])].traits.append(trait)
+                opinions[belief.subject, default: []].append(trait)
             case (true,  .has(let trait)):
-                facts[key, default: ([], [])].traits.append(trait)
+                traits[belief.subject, default: []].append(trait)
             case (true,   .is(let role)):
-                facts[key, default: ([], [])].roles.append(role)
+                roles[belief.subject, default: []].append(role)
             }
         }
         for symbol:Tree.Position<Symbol>? in symbols 
         {
             if let symbol:Tree.Position<Symbol>
             {
-                let (roles, traits):UncheckedFacts = facts.removeValue(forKey: symbol.index) ?? 
-                    ([],    [])
-                self.facts[symbol.index] = .init(traits: traits, roles: roles, 
+                self.facts[symbol] = .init(
+                    traits: traits.removeValue(forKey: symbol) ?? [], 
+                    roles: roles.removeValue(forKey: symbol) ?? [], 
                     as: context[global: symbol].community) 
             }
         }
-        guard facts.isEmpty 
+        guard traits.isEmpty, roles.isEmpty 
         else 
         {
             fatalError("unimplemented")
         }
-        for (symbol, (branch, traits)):(Symbol.Index, UncheckedOpinions) in opinions 
+        for (symbol, traits):(Tree.Position<Symbol>, [Symbol.Trait<Tree.Position<Symbol>>]) in 
+            opinions
         {
-            let position:Tree.Position<Symbol> = .init(symbol, branch: branch)
-            let diacritic:Symbol.Diacritic = .init(host: symbol, culture: symbols.culture)
-            self.opinions[diacritic] = .init(traits, as: context[global: position].community)
+            let diacritic:Tree.Diacritic = .init(host: symbol, culture: symbols.culture)
+            self.opinions[diacritic] = .init(traits, as: context[global: symbol].community)
         }
     }
 
@@ -110,16 +99,16 @@ struct Beliefs
     {
         self.opinions = self.opinions.filter 
         {
-            guard $0.key.host.module.package == $0.key.culture.package, 
-                    let index:Dictionary<Symbol.Index, Symbol.Facts>.Index = 
-                        self.facts.index(forKey: $0.key.host)
+            if $0.key.host.package == $0.key.culture.package, 
+                case ()? = self.facts[$0.key.host]?.predicates.updateAcceptedTraits($0.value, 
+                    culture: $0.key.culture)
+            {
+                return false 
+            }
             else 
             {
                 return true 
             }
-            self.facts.values[index].predicates.updateAcceptedTraits($0.value, 
-                culture: $0.key.culture)
-            return false 
         }
     }
 }
@@ -129,34 +118,36 @@ extension Beliefs
     {
         var natural:[Route.NaturalTree] = []
         var synthetic:[Route.SyntheticTree] = []
-        for (symbol, facts):(Symbol.Index, Symbol.Facts) in self.facts
+        for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
+            self.facts
         {
-            let host:Symbol = context[symbol]
+            let host:Symbol = context[global: symbol]
             
-            natural.append(.init(key: host.route, target: symbol))
+            natural.append(.init(key: host.route, target: symbol.index))
             
             if let stem:Route.Stem = host.kind.path
             {
-                for (culture, features):(Module.Index?, Set<Symbol.Index>) in 
+                for (culture, features):(Module.Index?, Set<Tree.Position<Symbol>>) in 
                     facts.predicates.featuresAssumingConcreteType()
                 {
                     synthetic.append(.init(namespace: host.namespace, stem: stem,
-                        diacritic: .init(host: symbol, culture: culture ?? symbol.module), 
-                        features: features.map { ($0, context[$0].route.leaf) }))
+                        diacritic: .init(host: symbol.index, culture: culture ?? symbol.index.module), 
+                        features: features.map { ($0.index, context[global: $0].route.leaf) }))
                 } 
             }
         }
-        for (diacritic, traits):(Symbol.Diacritic, Symbol.Traits) in self.opinions
+        for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in 
+            self.opinions
         {
             // can have external traits that do not have to do with features
             if !traits.features.isEmpty 
             {
-                let host:Symbol = context[diacritic.host]
+                let host:Symbol = context[global: diacritic.host]
                 if let stem:Route.Stem = host.kind.path
                 {
-                    synthetic.append(.init(namespace: host.namespace, stem: stem, 
-                        diacritic: diacritic, 
-                        features: traits.features.map { ($0, context[$0].route.leaf) }))
+                    // synthetic.append(.init(namespace: host.namespace, stem: stem, 
+                    //     diacritic: diacritic, 
+                    //     features: traits.features.map { ($0.index, context[global: $0].route.leaf) }))
                 }
             }
         }
