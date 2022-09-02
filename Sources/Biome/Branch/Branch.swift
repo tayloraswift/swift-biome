@@ -397,23 +397,20 @@ extension Branch
 extension Branch 
 {
     mutating 
-    func inferScopes(
-        _ facts:inout [Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>], 
-        lenses:[Lens],
-        stems:Route.Stems)
+    func inferScopes(_ beliefs:inout Beliefs, lenses:[Lens], stems:Route.Stems)
     {
         let lenses:[Branch.Position<Module>: Lens] = .init(uniqueKeysWithValues: 
             lenses.map { ($0.culture, $0) })
         for index:Dictionary<Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>>.Index in 
-            facts.indices
+            beliefs.facts.indices
         {
-            guard let contemporary:Position<Symbol> = self.index.idealize(facts.keys[index])
+            guard let contemporary:Position<Symbol> = self.index.idealize(beliefs.facts.keys[index])
             else 
             {
                 // only perform inference for contemporary symbols. 
                 continue 
             }
-            if let shape:Symbol.Shape<Tree.Position<Symbol>> = facts.values[index].shape 
+            if let shape:Symbol.Shape<Tree.Position<Symbol>> = beliefs.facts.values[index].shape 
             {
                 // already have a shape from a member or requirement belief
                 self.newSymbols[contemporary: contemporary].shape = shape
@@ -434,15 +431,15 @@ extension Branch
                 let scope:Tree.Position<Symbol> = scope.natural.flatMap(lens.fasces.pluralize(_:))
             {
                 self.newSymbols[contemporary: contemporary].shape = .member(of: scope)
-                let member:Tree.Position<Symbol> = facts.keys[index]
+                let member:Tree.Position<Symbol> = beliefs.facts.keys[index]
                 if  scope.contemporary.culture == contemporary.culture 
                 {
-                    facts[scope]?.predicates.primary
+                    beliefs.facts[scope]?.predicates.primary
                         .members.insert(member)
                 }
                 else 
                 {
-                    facts[scope]?.predicates.accepted[contemporary.culture, default: .init()]
+                    beliefs.facts[scope]?.predicates.accepted[contemporary.culture, default: .init()]
                         .members.insert(member)
                 }
             }

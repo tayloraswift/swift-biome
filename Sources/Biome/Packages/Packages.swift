@@ -189,9 +189,9 @@ struct Packages
         // in the current cohort.
         let lenses:[Lens] = (_move targets).map { $0.lens(local: fasces, context: self) }
 
-        self[index].tree[branch].inferScopes(&beliefs.facts, lenses: lenses, stems: stems)
+        self[index].tree[branch].inferScopes(&beliefs, lenses: lenses, stems: stems)
         // write to the keyframe buffers
-        // self[index].pushBeliefs(&beliefs, stems: stems)
+        self[index].pushBeliefs(_move beliefs)
         // for scope:Module.Scope in scopes
         // {
         //     self[index].pushDependencies(scope.dependencies(), culture: scope.culture)

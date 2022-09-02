@@ -8,6 +8,22 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
     public 
     typealias Offset = UInt32 
     
+    struct _Heads 
+    {
+        @Branch.Field<DocumentationNode>
+        var documentation:Branch.Head<DocumentationNode>?
+        @Branch.Field<Declaration<Branch.Position<Symbol>>>
+        var declaration:Branch.Head<Declaration<Branch.Position<Symbol>>>?
+        @Branch.Field<Predicates<Branch.Position<Symbol>>>
+        var facts:Branch.Head<Predicates<Branch.Position<Symbol>>>?
+        
+        init() 
+        {
+            self._documentation = .init()
+            self._declaration = .init()
+            self._facts = .init()
+        }
+    }
     struct Heads 
     {
         @History<DocumentationNode>.Branch.Optional

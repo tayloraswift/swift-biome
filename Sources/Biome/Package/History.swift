@@ -1,5 +1,58 @@
 import Forest 
 
+struct _History<Value> where Value:Equatable
+{
+    typealias Index = Forest<Keyframe>.Index 
+
+    struct Keyframe
+    {
+        var since:_Version.Revision
+        let value:Value
+        
+        init(_ value:Value, since:_Version.Revision)
+        {
+            self.value = value 
+            self.since = since
+        }
+    }
+
+    private 
+    var forest:Forest<Keyframe>
+
+    private(set)
+    subscript(index:Index) -> Keyframe
+    {
+        _read 
+        {
+            yield  self.forest[index].value
+        }
+        _modify
+        {
+            yield &self.forest[index].value
+        }
+    }
+
+    init() 
+    {
+        self.forest = .init()
+    }
+
+    mutating 
+    func add(_ value:Value, revision:_Version.Revision, to tree:inout Branch.Head<Value>?) 
+    {
+        guard let head:Index = tree?.index  
+        else 
+        {
+            tree = self.forest.insert(root: .init(value, since: revision))
+            return
+        }
+        if  self[head].value != value 
+        {
+            self.forest.push(min: .init(value, since: revision), into: &tree)
+        }
+    }
+}
+
 struct History<Value> where Value:Equatable
 {
     typealias Index = Forest<Keyframe>.Index 
@@ -60,7 +113,7 @@ struct History<Value> where Value:Equatable
 }
 extension History 
 {
-    subscript(branch:Branch.Head?) -> Branch  
+    subscript(branch:Branch.Head?) -> Branch 
     {
         .init(self.forest[branch])
     }

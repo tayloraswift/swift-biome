@@ -378,23 +378,21 @@ struct Package:Identifiable, Sendable
 
 extension Package 
 {
-    // mutating 
-    // func pushBeliefs(_ beliefs:inout Beliefs, stems:Route.Stems)
-    // {
-    //     self.inferShapes(&beliefs.facts, stems: stems)
-
-    //     let current:Version = self.versions.latest
-    //     for (index, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in beliefs.facts
-    //     {
-    //         self.facts.push(facts.predicates, version: current, 
-    //             into: &self.symbols[local: index].heads.facts)
-    //     }
-    //     for (diacritic, traits):(Symbol.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in beliefs.opinions 
-    //     {
-    //         self.opinions.push(traits, version: current, 
-    //             into: &self.external[diacritic])
-    //     }
-    // }
+    mutating 
+    func pushBeliefs(_ beliefs:__owned Beliefs)
+    {
+        let current:Version = self.versions.latest
+        for (index, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in beliefs.facts
+        {
+            self.facts.push(facts.predicates, version: current, 
+                into: &self.symbols[local: index].heads.facts)
+        }
+        for (diacritic, traits):(Symbol.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in beliefs.opinions 
+        {
+            self.opinions.push(traits, version: current, 
+                into: &self.external[diacritic])
+        }
+    }
     mutating 
     func pushDependencies(_ dependencies:Set<Module.Index>, culture:Module.Index)
     {
