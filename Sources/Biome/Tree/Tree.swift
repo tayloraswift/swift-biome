@@ -87,38 +87,38 @@ struct Tree
         return branch 
     }
 
-    func prefix(upTo version:_Version) -> [Trunk]
+    func fasces(upTo branch:_Version.Branch) -> [Fascis]
+    {
+        var current:Branch = self[branch]
+        var fasces:[Fascis] = []
+        while let fork:_Version = current.fork 
+        {
+            current = self[fork.branch]
+            fasces.append(current[...fork.revision])
+        }
+        return fasces
+    }
+    func fasces(through branch:_Version.Branch) -> [Fascis]
+    {
+        var current:Branch = self[branch]
+        var fasces:[Fascis] = [current[...]]
+        while let fork:_Version = current.fork 
+        {
+            current = self[fork.branch]
+            fasces.append(current[...fork.revision])
+        }
+        return fasces
+    }
+    func fasces(through version:_Version) -> [Fascis]
     {
         var current:Branch = self[version.branch]
-        var trunks:[Trunk] = [current[..<version.revision]]
+        var fasces:[Fascis] = [current[...version.revision]]
         while let fork:_Version = current.fork 
         {
             current = self[fork.branch]
-            trunks.append(current[..<fork.revision])
+            fasces.append(current[...fork.revision])
         }
-        return trunks
-    }
-    func prefix(upTo branch:_Version.Branch) -> [Trunk]
-    {
-        var current:Branch = self[branch]
-        var trunks:[Trunk] = []
-        while let fork:_Version = current.fork 
-        {
-            current = self[fork.branch]
-            trunks.append(current[..<fork.revision])
-        }
-        return trunks
-    }
-    func prefix(through branch:_Version.Branch) -> [Trunk]
-    {
-        var current:Branch = self[branch]
-        var trunks:[Trunk] = [current[...]]
-        while let fork:_Version = current.fork 
-        {
-            current = self[fork.branch]
-            trunks.append(current[..<fork.revision])
-        }
-        return trunks
+        return fasces
     }
 
     func find(_ pin:PackageResolution.Pin) -> _Dependency 

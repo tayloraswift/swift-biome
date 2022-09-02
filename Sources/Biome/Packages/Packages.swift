@@ -99,7 +99,7 @@ struct Packages
             name: .init(pin.requirement))
         // we are going to mutate `self[index].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
-        let fasces:[Fascis] = self[index].tree.prefix(upTo: branch)
+        let fasces:[Fascis] = self[index].tree.fasces(upTo: branch)
 
         // `pins` is a subset of `linkable`; it gets filled in gradually as we 
         // resolve dependencies. this allows us to discard unused dependencies 
@@ -167,16 +167,17 @@ struct Packages
 
         beliefs.integrate()
 
+        // successfully registered symbolgraph contents 
+        let revision:_Version.Revision = self.commit(pin.revision, to: branch, of: index, 
+            pins: targets.reduce(into: [:]) 
+            { 
+                $0.merge($1.pins) { $1 } 
+            })
+
         let trees:Route.Trees = beliefs.generateTrees(
             context: self)
-        self[index].addNaturalRoutes(trees.natural)
-        self[index].addSyntheticRoutes(trees.synthetic)
-
-        // successfully registered symbolgraph contents 
-        self.commit(pin.revision, to: branch, of: index, pins: targets.reduce(into: [:]) 
-        { 
-            $0.merge($1.pins) { $1 } 
-        })
+        self[index].addNaturalRoutes(trees.natural, revision: revision)
+        self[index].addSyntheticRoutes(trees.synthetic, revision: revision)
 
         // we need to recollect the upstream fasces because we (potentially) wrote 
         // to them during the call to ``commit(_:to:of:pins:)``.
@@ -237,6 +238,7 @@ struct Packages
         to branch:_Version.Branch, 
         of index:Package.Index, 
         pins:[Package.Index: _Version])
+        -> _Version.Revision
     {
         let version:_Version = self[index].tree[branch].commit(revision, pins: pins)
         for (package, pin):(Package.Index, _Version) in pins
@@ -244,6 +246,7 @@ struct Packages
             assert(package != index)
             self[package].tree[pin].consumers[index, default: []].insert(version)
         }
+        return version.revision
     }
 }
 extension Packages 

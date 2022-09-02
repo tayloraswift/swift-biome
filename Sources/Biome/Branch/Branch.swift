@@ -13,64 +13,6 @@ enum _DependencyError:Error
     case module (unavailable:Module.ID, (Branch.ID, String), Package.ID)
     case target (unavailable:Module.ID,  Branch.ID)
 }
-struct _Version:Hashable, Sendable 
-{
-    struct Branch:Hashable, Sendable 
-    {
-        let index:Int 
-
-        init(_ index:Int)
-        {
-            self.index = index
-        }
-    }
-    struct Revision:Hashable, Strideable, Sendable
-    {
-        let index:Int 
-
-        init(_ index:Int)
-        {
-            self.index = index
-        }
-
-        static 
-        func < (lhs:Self, rhs:Self) -> Bool
-        {
-            lhs.index < rhs.index
-        }
-        func advanced(by stride:Int.Stride) -> Self 
-        {
-            .init(self.index.advanced(by: stride))
-        }
-        func distance(to other:Self) -> Int.Stride
-        {
-            self.index.distance(to: other.index)
-        }
-    }
-
-    var branch:Branch
-    var revision:Revision
-
-    init(_ branch:Branch, _ revision:Revision)
-    {
-        self.branch = branch 
-        self.revision = revision 
-    }
-}
-
-extension _Version.Branch 
-{
-    func pluralize<Element>(_ position:Branch.Position<Element>) -> Tree.Position<Element> 
-        where Element:BranchElement 
-    {
-        .init(position, branch: self)
-    }
-    func idealize<Element>(_ position:Tree.Position<Element>) -> Branch.Position<Element>?
-        where Element:BranchElement 
-    {
-        self == position.branch ? position.contemporary : nil 
-    }
-}
 
 public 
 struct Branch:Identifiable, Sendable 
@@ -135,7 +77,7 @@ struct Branch:Identifiable, Sendable
     var revisions:[Revision]
 
     private(set)
-    var routes:[Route.Key: Route.Stack]
+    var routes:Table<Route.Key>
     private(set)
     var newModules:Buffer<Module>, 
         newSymbols:Buffer<Symbol>,
@@ -147,11 +89,11 @@ struct Branch:Identifiable, Sendable
     
     var startIndex:_Version.Revision 
     {
-        .init(self.revisions.startIndex)
+        .init(.init(self.revisions.startIndex))
     }
     var endIndex:_Version.Revision 
     {
-        .init(self.revisions.endIndex)
+        .init(.init(self.revisions.endIndex))
     }
     var indices:Range<_Version.Revision> 
     {
@@ -161,11 +103,11 @@ struct Branch:Identifiable, Sendable
     {
         _read 
         {
-            yield  self.revisions[revision.index]
+            yield  self.revisions[.init(revision.index)]
         }
         _modify
         {
-            yield &self.revisions[revision.index]
+            yield &self.revisions[.init(revision.index)]
         }
     }
 
@@ -188,11 +130,11 @@ struct Branch:Identifiable, Sendable
         self.updatedArticles = [:]
     }
     
-    subscript(prefix:PartialRangeUpTo<_Version.Revision>) -> Fascis 
+    subscript(range:PartialRangeThrough<_Version.Revision>) -> Fascis 
     {
-        let ring:Ring = self.revisions[prefix.upperBound.index].ring
+        let ring:Ring = self[range.upperBound].ring
         return .init(branch: self.index, 
-            routes: self.routes, 
+            routes: self.routes[range], 
             modules: self.newModules[..<ring.modules], 
             symbols: self.newSymbols[..<ring.symbols], 
             articles: self.newArticles[..<ring.articles])
@@ -200,7 +142,7 @@ struct Branch:Identifiable, Sendable
     subscript(_:UnboundedRange) -> Fascis 
     {
         return .init(branch: self.index, 
-            routes: self.routes, 
+            routes: self.routes[...], 
             modules: self.newModules[...], 
             symbols: self.newSymbols[...], 
             articles: self.newArticles[...])

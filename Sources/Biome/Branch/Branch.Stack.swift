@@ -1,4 +1,4 @@
-extension Route 
+extension Branch 
 {
     enum SelectionError<Element>:Error 
     {
@@ -47,17 +47,17 @@ extension Route
     }
 }
 
-extension Route 
+extension Branch 
 {
     // 24B stride. the ``many`` case should be quite rare, since we are now 
     // encoding path orientation in the leaf key.
     enum Stack:Sendable 
     {
         // if there is no feature index, the natural index is duplicated. 
-        case one ((Branch.Composite, UInt16))
-        case many([Branch.Position<Symbol>: Substack])
+        case one ((Composite, _Version.Revision))
+        case many([Position<Symbol>: Substack])
                 
-        func forEach(_ body:(Branch.Composite) throws -> ()) rethrows 
+        func forEach(_ body:(Composite) throws -> ()) rethrows 
         {
             switch self
             {
@@ -65,7 +65,7 @@ extension Route
                 try body(composite)
             
             case .many(let composites):
-                for (base, diacritics):(Branch.Position<Symbol>, Substack) in composites 
+                for (base, diacritics):(Position<Symbol>, Substack) in composites 
                 {
                     switch diacritics
                     {
@@ -73,7 +73,7 @@ extension Route
                         try body(.init(base, diacritic))
                     
                     case .many(let diacritics):
-                        for diacritic:Branch.Diacritic in diacritics.keys 
+                        for diacritic:Diacritic in diacritics.keys 
                         {
                             try body(.init(base, diacritic))
                         }
@@ -83,78 +83,47 @@ extension Route
         }
     }
 }
-extension Route.Stack? 
+extension Branch.Stack? 
 {
     mutating 
-    func insert(_ element:Branch.Composite)
+    func insert(_ element:Branch.Composite, revision:_Version.Revision)
     {
         switch _move self
         {
         case nil: 
-            self = .one((element, 1))
-        case .one((element, let retains))?: 
-            self = .one((element, retains + 1))
-        case .one((let other, let retains))?: 
-            let two:[Branch.Position<Symbol>: Route.Substack]
+            self = .one((element, revision))
+        case .one((element, let revision))?: 
+            self = .one((element, revision)) 
+        case .one(let other)?: 
+            let two:[Branch.Position<Symbol>: Branch.Substack]
             // overloading on host id is extremely rare; the column 
             // array layout is inefficient, but allows us to represent the 
             // more-common row layout efficiently
-            if other.base == element.base 
+            if other.0.base == element.base 
             {
                 two = 
                 [
-                    other.base: .many([other.diacritic: retains, element.diacritic: 1])
+                    other.0.base: .many([other.0.diacritic: other.1, element.diacritic: revision])
                 ]
             }
             else 
             {
                 two = 
                 [
-                    other.base: .one((other.diacritic, retains)), 
-                    element.base: .one((element.diacritic, 1))
+                    other.0.base: .one((other.0.diacritic, other.1)), 
+                    element.base: .one((element.diacritic, revision))
                 ]
             }
             self = .many(two)
         
         case .many(var subgroups)?:
-            subgroups[element.base].insert(element.diacritic)
+            subgroups[element.base].insert(element.diacritic, revision: revision)
             self = .many(subgroups)
         }
     }
+    @available(*, unavailable)
     mutating 
     func remove(_ element:Branch.Composite)
     {
-        switch _move self
-        {
-        case nil: 
-            break
-        case .one((let occupant, let retains))?: 
-            guard element == occupant 
-            else 
-            {
-                break 
-            }
-            self = retains == 1 ? nil : .one((element, retains - 1))
-            return 
-        
-        case .many(var subgroups)?: 
-            subgroups[element.base].remove(element.diacritic)
-            if subgroups.count > 1 
-            {
-                self = .many(subgroups)
-                return 
-            }
-            switch subgroups.first 
-            {
-            case nil: 
-                fatalError("unreachable, \(#function) should never remove more than one element at a time")
-            case (let base, .one((let diacritic, let retains)))?:
-                self = .one((.init(base, diacritic), retains))
-            case (_, .many(_))?: 
-                self = .many(subgroups)
-            }
-            return 
-        }
-        fatalError("cannot remove element from group it does not appear in")
     }
 }

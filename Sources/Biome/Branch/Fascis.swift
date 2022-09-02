@@ -4,14 +4,13 @@ typealias Trunk = Fascis
 struct Fascis:Sendable 
 {
     let branch:_Version.Branch
-    private 
-    let routes:[Route.Key: Route.Stack]
+    let routes:Branch.Table<Route.Key>.Prefix
     let modules:Branch.Buffer<Module>.SubSequence, 
         symbols:Branch.Buffer<Symbol>.SubSequence,
         articles:Branch.Buffer<Article>.SubSequence
     
     init(branch:_Version.Branch,
-        routes:[Route.Key: Route.Stack],
+        routes:Branch.Table<Route.Key>.Prefix,
         modules:Branch.Buffer<Module>.SubSequence, 
         symbols:Branch.Buffer<Symbol>.SubSequence,
         articles:Branch.Buffer<Article>.SubSequence)

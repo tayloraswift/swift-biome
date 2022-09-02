@@ -82,7 +82,7 @@ struct Namespaces
                 fatalError("unreachable")
             }
             // local dependency 
-            let fasces:[Fascis] = package.tree.prefix(through: self._branch)
+            let fasces:[Fascis] = package.tree.fasces(through: self._branch)
             for module:Module.ID in dependencies
             {
                 if let module:Tree.Position<Module> = fasces.find(module: module)
@@ -106,7 +106,7 @@ struct Namespaces
             throw _DependencyError.version(unavailable: (requirement, revision), package.id)
         case .available(let version):
             // upstream dependency 
-            let fasces:[Fascis] = package.tree.prefix(upTo: version)
+            let fasces:[Fascis] = package.tree.fasces(through: version)
             if let dependencies:[Module.ID] 
             {
                 for module:Module.ID in dependencies
@@ -147,7 +147,7 @@ extension Namespaces
         var fasces:[Fascis] = fasces 
         for (upstream, version):(Package.Index, _Version) in self.pins 
         {
-            fasces.append(contentsOf: context[upstream].tree.prefix(upTo: version))
+            fasces.append(contentsOf: context[upstream].tree.fasces(through: version))
         }
         return .init(namespaces: self, fasces: fasces, 
             routes: context[self.culture.package].tree[self._branch].routes)
@@ -157,14 +157,14 @@ struct Lens
 {
     let namespaces:Namespaces
     let fasces:[Fascis]
-    let routes:[Route.Key: Route.Stack]
+    let routes:Branch.Table<Route.Key>
 
     var culture:Branch.Position<Module> 
     {
         self.namespaces.culture
     }
 
-    func select(_ route:Route.Key) -> Route._Selection<Tree.Composite>?
+    func select(_ route:Route.Key) -> Branch._Selection<Tree.Composite>?
     {
         fatalError("unimplemented")
     }
