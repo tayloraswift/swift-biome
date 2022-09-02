@@ -32,7 +32,7 @@ struct Namespaces
     let _branch:_Version.Branch
     let module:Namespace
     private(set)
-    var positions:[Module.ID: Tree.Position<Module>]
+    var linked:[Module.ID: Tree.Position<Module>]
 
     @available(*, deprecated, renamed: "module")
     var current:Namespace 
@@ -40,6 +40,10 @@ struct Namespaces
         self.module
     }
 
+    var package:Package.Index
+    {
+        self.culture.package
+    }
     var culture:Branch.Position<Module> 
     {
         self.module.culture
@@ -50,7 +54,7 @@ struct Namespaces
         self.pins = [:]
         self._branch = _branch
         self.module = module 
-        self.positions = [module.id: module.position]
+        self.linked = [module.id: module.position]
     }
     init(id:Module.ID, position:Tree.Position<Module>, _branch:_Version.Branch)
     {
@@ -60,7 +64,7 @@ struct Namespaces
     private mutating 
     func link(id:Module.ID, position:Tree.Position<Module>)
     {
-        self.positions[id] = position
+        self.linked[id] = position
     }
     mutating 
     func link(package:Package.ID, dependencies:[Module.ID]? = nil, 
@@ -73,7 +77,7 @@ struct Namespaces
         {
             throw _DependencyError.package(unavailable: package)
         }
-        guard self.culture.package != package.index
+        guard self.package != package.index
         else 
         {
             guard let dependencies:[Module.ID] 
@@ -144,29 +148,66 @@ extension Namespaces
 {
     func lens(local fasces:[Fascis], context:Packages) -> Lens 
     {
-        var fasces:[Fascis] = fasces 
+        var lens:Lens = .init(namespaces: self, local: fasces, 
+            routes: context[self.package].tree[self._branch].routes)
         for (upstream, version):(Package.Index, _Version) in self.pins 
         {
-            fasces.append(contentsOf: context[upstream].tree.fasces(through: version))
+            lens.fasces.append(contentsOf: context[upstream].tree.fasces(through: version))
         }
-        return .init(namespaces: self, fasces: fasces, 
-            routes: context[self.culture.package].tree[self._branch].routes)
+        return lens
     }
 }
 struct Lens 
 {
     let namespaces:Namespaces
-    let fasces:[Fascis]
+    let linked:Set<Branch.Position<Module>>
     let routes:Branch.Table<Route.Key>
+    var fasces:[Fascis]
+    let local:PartialRangeUpTo<Int>
 
     var culture:Branch.Position<Module> 
     {
         self.namespaces.culture
     }
 
+    init(namespaces:Namespaces, local fasces:[Fascis], routes:Branch.Table<Route.Key>)
+    {
+        self.namespaces = namespaces 
+        self.linked = .init(self.namespaces.linked.values.lazy.map(\.contemporary))
+        self.routes = routes
+        self.fasces = fasces 
+        self.local = ..<self.fasces.endIndex 
+    }
+
+    func select(local route:Route.Key) -> Branch._Selection<Tree.Composite>?
+    {
+        self.select(route: route, fasces: self.fasces[self.local])
+    }
     func select(_ route:Route.Key) -> Branch._Selection<Tree.Composite>?
     {
-        fatalError("unimplemented")
+        // upstream dependencies cannot possibly contain a route 
+        // with a namespace whose culture is one of its consumers, 
+        // so we can skip searching them entirely.
+        self.namespaces.package != route.namespace.package ?
+            self.select(route: route, fasces: self.fasces) :
+            self.select(local: route)
+    }
+    private 
+    func select(route:Route.Key, fasces:some Sequence<Fascis>) 
+        -> Branch._Selection<Tree.Composite>
+    {
+        var selection:Branch._Selection<Tree.Composite> = .none
+        for fascis:Fascis in fasces 
+        {
+            fascis.routes.select(route)
+            {
+                if self.linked.contains($0.culture) 
+                {
+                    selection.append(fascis.branch.pluralize($0))
+                }
+            }
+        }
+        return selection
     }
 }
 

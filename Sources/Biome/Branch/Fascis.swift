@@ -21,14 +21,6 @@ struct Fascis:Sendable
         self.symbols = symbols
         self.articles = articles
     }
-
-    func select(_ key:Route.Key, _ body:(Branch.Composite) throws -> ()) rethrows 
-    {
-        fatalError("unimplemented")
-        // try self.routes[key]?.forEach 
-        // {
-        // }
-    }
 }
 
 extension Sequence<Fascis> 

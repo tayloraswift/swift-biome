@@ -179,8 +179,6 @@ struct Packages
         self[index].addNaturalRoutes(trees.natural, revision: revision)
         self[index].addSyntheticRoutes(trees.synthetic, revision: revision)
 
-        // we need to recollect the upstream fasces because we (potentially) wrote 
-        // to them during the call to ``commit(_:to:of:pins:)``.
         let lenses:[Lens] = (_move targets).map { $0.lens(local: fasces, context: self) }
 
         self[index].tree[branch].inferShapes(&beliefs.facts, lenses: lenses, stems: stems)
@@ -199,6 +197,9 @@ struct Packages
         //     self[index].pushDeclarations(graph.declarations(abstractor: abstractor))
         //     self[index].pushToplevel(filtering: abstractor.updates)
         // }
+
+        // we need to recollect the upstream fasces because we (potentially) wrote 
+        // to them during the call to ``commit(_:to:of:pins:)``.
 
         // self.spread(from: index, beliefs: beliefs)
 

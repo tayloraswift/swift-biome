@@ -48,14 +48,18 @@ struct _Version:Hashable, Sendable
 
 extension _Version.Branch 
 {
+    func idealize<Element>(_ position:Tree.Position<Element>) -> Branch.Position<Element>?
+        where Element:BranchElement 
+    {
+        self == position.branch ? position.contemporary : nil 
+    }
     func pluralize<Element>(_ position:Branch.Position<Element>) -> Tree.Position<Element> 
         where Element:BranchElement 
     {
         .init(position, branch: self)
     }
-    func idealize<Element>(_ position:Tree.Position<Element>) -> Branch.Position<Element>?
-        where Element:BranchElement 
+    func pluralize(_ position:Branch.Composite) -> Tree.Composite
     {
-        self == position.branch ? position.contemporary : nil 
+        fatalError("unimplemented")
     }
 }

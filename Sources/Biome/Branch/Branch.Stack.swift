@@ -2,14 +2,19 @@ extension Branch
 {
     enum SelectionError<Element>:Error 
     {
+        case none
         case many([Element])
     }
     enum _Selection<Element>
     {
+        // we have to absorb the optional, because this type is 
+        // generic, and we cannot vend an extension on an optional generic type.
+
+        case none 
         case one(Element)
         case many([Element])
                 
-        init?(_ elements:[Element]) 
+        init(_ elements:[Element]) 
         {
             if let first:Element = elements.first 
             {
@@ -17,7 +22,7 @@ extension Branch
             }
             else 
             {
-                return nil
+                self = .none
             }
         }
         
@@ -25,6 +30,8 @@ extension Branch
         {
             switch self 
             {
+            case .none: 
+                throw SelectionError<Element>.none
             case .one(let element):
                 return element
             case .many(let elements): 
@@ -37,6 +44,8 @@ extension Branch
         {
             switch _move self 
             {
+            case .none: 
+                self = .one(element)
             case .one(let first): 
                 self = .many([first, element])
             case .many(var elements): 
@@ -56,26 +65,31 @@ extension Branch
         // if there is no feature index, the natural index is duplicated. 
         case one ((Composite, _Version.Revision))
         case many([Position<Symbol>: Substack])
-                
+        
+        @available(*, deprecated)
         func forEach(_ body:(Composite) throws -> ()) rethrows 
+        {
+            try self.forEach { (composite, _) in try body(composite) }
+        }
+        func forEach(_ body:(Composite, _Version.Revision) throws -> ()) rethrows 
         {
             switch self
             {
-            case .one((let composite, _)):
-                try body(composite)
+            case .one((let composite, let revision)):
+                try body(composite, revision)
             
             case .many(let composites):
                 for (base, diacritics):(Position<Symbol>, Substack) in composites 
                 {
                     switch diacritics
                     {
-                    case .one((let diacritic, _)):
-                        try body(.init(base, diacritic))
+                    case .one((let diacritic, let revision)):
+                        try body(.init(base, diacritic), revision)
                     
                     case .many(let diacritics):
-                        for diacritic:Diacritic in diacritics.keys 
+                        for (diacritic, revision):(Diacritic, _Version.Revision) in diacritics
                         {
-                            try body(.init(base, diacritic))
+                            try body(.init(base, diacritic), revision)
                         }
                     }
                 }

@@ -227,7 +227,7 @@ extension Branch
             graph.colonies
         {
             // will always succeed for the core subgraph
-            guard let namespace:Position<Module> = namespaces.positions[namespace]?.contemporary
+            guard let namespace:Position<Module> = namespaces.linked[namespace]?.contemporary
             else 
             {
                 print("warning: ignored colonial symbolgraph '\(graph.id)@\(namespace)'")
@@ -424,19 +424,19 @@ extension Branch
             let symbol:Symbol = self.newSymbols[contemporary: contemporary]
             guard  case nil = symbol.shape, 
                     let scope:Path = .init(symbol.path.prefix), 
-                    let lens:Lens = lenses[contemporary.module]
+                    let lens:Lens = lenses[contemporary.culture]
             else 
             {
                 continue 
             }
             // attempt to re-parent this symbol using lexical lookup
             if  let scope:Route.Key = stems[symbol.route.namespace, scope],
-                case .one(let scope)? = lens.select(scope), 
+                case .one(let scope)? = lens.select(local: scope), 
                 let scope:Tree.Position<Symbol> = scope.natural
             {
                 self.newSymbols[contemporary: contemporary].shape = .member(of: scope)
                 let member:Tree.Position<Symbol> = facts.keys[index]
-                if  lens.culture == contemporary.culture 
+                if  scope.contemporary.culture == contemporary.culture 
                 {
                     facts[scope]?.predicates.primary
                         .members.insert(member)

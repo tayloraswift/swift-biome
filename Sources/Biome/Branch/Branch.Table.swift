@@ -21,6 +21,11 @@ extension Branch
         {
             self.items = .init(uniqueKeysWithValues: dictionaryLiteral)
         }
+
+        func select(_ key:Key, _ body:(Branch.Composite) throws -> ()) rethrows 
+        {
+            try self.items[key]?.forEach { (composite, _) in try body(composite) }
+        }
     }
 }
 
@@ -39,6 +44,17 @@ extension Branch.Table
         {
             self.items = items 
             self.limit = limit
+        }
+
+        func select(_ key:Key, _ body:(Branch.Composite) throws -> ()) rethrows 
+        {
+            try self.items[key]?.forEach 
+            {
+                if $1 <= self.limit 
+                {
+                    try body($0)
+                }
+            }
         }
     }
 }
