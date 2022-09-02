@@ -179,11 +179,11 @@ struct Lens
         self.local = ..<self.fasces.endIndex 
     }
 
-    func select(local route:Route.Key) -> Branch._Selection<Tree.Composite>?
+    func select(local route:Route.Key) -> Branch._Selection<Branch.Composite>?
     {
         self.select(route: route, fasces: self.fasces[self.local])
     }
-    func select(_ route:Route.Key) -> Branch._Selection<Tree.Composite>?
+    func select(_ route:Route.Key) -> Branch._Selection<Branch.Composite>?
     {
         // upstream dependencies cannot possibly contain a route 
         // with a namespace whose culture is one of its consumers, 
@@ -194,16 +194,16 @@ struct Lens
     }
     private 
     func select(route:Route.Key, fasces:some Sequence<Fascis>) 
-        -> Branch._Selection<Tree.Composite>
+        -> Branch._Selection<Branch.Composite>
     {
-        var selection:Branch._Selection<Tree.Composite> = .none
+        var selection:Branch._Selection<Branch.Composite> = .none
         for fascis:Fascis in fasces 
         {
             fascis.routes.select(route)
             {
                 if self.linked.contains($0.culture) 
                 {
-                    selection.append(fascis.branch.pluralize($0))
+                    selection.append($0)
                 }
             }
         }

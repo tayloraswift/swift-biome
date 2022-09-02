@@ -58,8 +58,9 @@ extension _Version.Branch
     {
         .init(position, branch: self)
     }
+    @available(*, unavailable, message: "a composite can have up to three independent branches")
     func pluralize(_ position:Branch.Composite) -> Tree.Composite
     {
-        fatalError("unimplemented")
+        fatalError("unavailable")
     }
 }

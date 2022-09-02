@@ -26,6 +26,15 @@ extension Branch
         {
             try self.items[key]?.forEach { (composite, _) in try body(composite) }
         }
+
+        mutating 
+        func stack(routes:some Sequence<(Key, Composite)>, revision:_Version.Revision) 
+        {
+            for (key, composite):(Key, Composite) in routes 
+            {
+                self.items[key].insert(composite, revision: revision)
+            }
+        }
     }
 }
 

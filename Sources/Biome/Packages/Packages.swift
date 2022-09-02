@@ -174,14 +174,22 @@ struct Packages
                 $0.merge($1.pins) { $1 } 
             })
 
-        let trees:Route.Trees = beliefs.generateTrees(
-            context: self)
-        self[index].addNaturalRoutes(trees.natural, revision: revision)
-        self[index].addSyntheticRoutes(trees.synthetic, revision: revision)
+        // we must compute the entire cohort before performing any writes, 
+        // to avoid copy-on-write.
+        let cohort:Route.Cohort = .init(beliefs: beliefs, context: self)
+        self[index].tree[branch].routes.stack(routes: cohort.naturals, 
+            revision: revision)
+        self[index].tree[branch].routes.stack(routes: cohort.synthetics.joined(), 
+            revision: revision)
 
+        // we need to recollect the upstream fasces because we (potentially) wrote 
+        // to them during the call to ``commit(_:to:of:pins:)``.
+        // we also cannot allow ``Namespaces.lens(local:context:)`` to retain a reference 
+        // to `self[index].tree[branch].routes` until after we have added all the routes 
+        // in the current cohort.
         let lenses:[Lens] = (_move targets).map { $0.lens(local: fasces, context: self) }
 
-        self[index].tree[branch].inferShapes(&beliefs.facts, lenses: lenses, stems: stems)
+        self[index].tree[branch].inferScopes(&beliefs.facts, lenses: lenses, stems: stems)
         // write to the keyframe buffers
         // self[index].pushBeliefs(&beliefs, stems: stems)
         // for scope:Module.Scope in scopes
@@ -198,8 +206,6 @@ struct Packages
         //     self[index].pushToplevel(filtering: abstractor.updates)
         // }
 
-        // we need to recollect the upstream fasces because we (potentially) wrote 
-        // to them during the call to ``commit(_:to:of:pins:)``.
 
         // self.spread(from: index, beliefs: beliefs)
 

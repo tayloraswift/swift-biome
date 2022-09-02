@@ -480,28 +480,3 @@ extension Package
             into: &self.modules[local: updates.culture].heads.toplevel)
     }
 }
-
-extension Package 
-{
-
-    mutating 
-    func addNaturalRoutes(_ trees:[Route.NaturalTree], revision:_Version.Revision)
-    {
-        for tree:Route.NaturalTree in trees 
-        {
-            let route:Route = tree.route 
-            self.groups[route.key].insert(route.target, revision: revision)
-        }
-    }
-    mutating 
-    func addSyntheticRoutes(_ trees:[Route.SyntheticTree], revision:_Version.Revision)
-    {
-        for tree:Route.SyntheticTree in trees 
-        {
-            for route:Route in tree 
-            {
-                self.groups[route.key].insert(route.target, revision: revision)
-            }
-        }
-    }
-}

@@ -76,7 +76,6 @@ struct Branch:Identifiable, Sendable
     private 
     var revisions:[Revision]
 
-    private(set)
     var routes:Table<Route.Key>
     private(set)
     var newModules:Buffer<Module>, 
@@ -398,7 +397,7 @@ extension Branch
 extension Branch 
 {
     mutating 
-    func inferShapes(
+    func inferScopes(
         _ facts:inout [Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>], 
         lenses:[Lens],
         stems:Route.Stems)
@@ -432,7 +431,7 @@ extension Branch
             // attempt to re-parent this symbol using lexical lookup
             if  let scope:Route.Key = stems[symbol.route.namespace, scope],
                 case .one(let scope)? = lens.select(local: scope), 
-                let scope:Tree.Position<Symbol> = scope.natural
+                let scope:Tree.Position<Symbol> = scope.natural.flatMap(lens.fasces.pluralize(_:))
             {
                 self.newSymbols[contemporary: contemporary].shape = .member(of: scope)
                 let member:Tree.Position<Symbol> = facts.keys[index]

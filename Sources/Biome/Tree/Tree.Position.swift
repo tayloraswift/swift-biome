@@ -47,6 +47,11 @@ extension Tree
     {
         let host:Position<Symbol>
         let culture:Branch.Position<Module>
+
+        var contemporary:Branch.Diacritic 
+        {
+            .init(host: self.host.contemporary, culture: self.culture)
+        }
         
         init(host:Position<Symbol>, culture:Branch.Position<Module>)
         {
@@ -62,9 +67,26 @@ extension Tree
     }
     struct Composite:Hashable, Sendable
     {
+        let base:Branch.Position<Symbol>
+        let diacritic:Diacritic 
+
+        var culture:Branch.Position<Module>
+        {
+            self.diacritic.culture
+        }
+
+        var isNatural:Bool 
+        {
+            // only need to compare the contemporary portions
+            self.base == self.diacritic.host.contemporary
+        }
+        var host:Position<Symbol>? 
+        {
+            self.isNatural ? nil : self.diacritic.host 
+        }
         var natural:Position<Symbol>? 
         {
-            fatalError("unimplemented")
+            self.isNatural ? self.diacritic.host : nil
         }
     }
 }
