@@ -99,6 +99,9 @@ struct Package:Identifiable, Sendable
     {
         self.id.kind
     }
+
+    var tree:Tree
+    var _facts:_History<Symbol.Predicates<Branch.Position<Symbol>>>
     
     init(id:ID, index:Index)
     {
@@ -128,6 +131,9 @@ struct Package:Identifiable, Sendable
         
         self.documentation = .init()
         self.excerpts = .init()
+
+        self._facts = .init()
+        self.tree = .init(culture: index)
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -379,18 +385,22 @@ struct Package:Identifiable, Sendable
 extension Package 
 {
     mutating 
-    func pushBeliefs(_ beliefs:__owned Beliefs)
+    func pushBeliefs(_ beliefs:__owned Beliefs, version:_Version, fasces:[Fascis])
     {
-        let current:Version = self.versions.latest
-        for (index, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in beliefs.facts
+        for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
+            beliefs.facts
         {
-            self.facts.push(facts.predicates, version: current, 
-                into: &self.symbols[local: index].heads.facts)
+            self.tree[version.branch].add(min: facts.predicates.map(\.contemporary),
+                revision: version.revision, 
+                fasces: fasces, 
+                symbol: symbol.contemporary, 
+                field: \.facts, 
+                to: &self._facts)
         }
-        for (diacritic, traits):(Symbol.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in beliefs.opinions 
+        for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in beliefs.opinions 
         {
-            self.opinions.push(traits, version: current, 
-                into: &self.external[diacritic])
+            // self.opinions.push(traits, version: current, 
+            //     into: &self.external[diacritic])
         }
     }
     mutating 

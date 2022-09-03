@@ -8,7 +8,8 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
     public 
     typealias Offset = UInt32 
     
-    struct _Heads 
+    public
+    struct _Heads:Sendable 
     {
         @Branch.Field<DocumentationNode>
         var documentation:Branch.Head<DocumentationNode>?
@@ -57,6 +58,17 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
     let route:Route.Key
     var shape:Shape<Tree.Position<Self>>?
     var heads:Heads
+    var _heads:_Heads
+    {
+        _read 
+        {
+            fatalError("unimplemented")
+        }
+        _modify
+        {
+            fatalError("unimplemented")
+        }
+    }
     var pollen:Set<Module.Pin>
     
     var community:Community 

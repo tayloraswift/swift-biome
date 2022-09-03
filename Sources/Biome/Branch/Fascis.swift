@@ -4,19 +4,24 @@ typealias Trunk = Fascis
 struct Fascis:Sendable 
 {
     let branch:_Version.Branch
+    @available(*, unavailable)
+    var revision:_Version.Revision 
+    {
+        fatalError()
+    }
     let routes:Branch.Table<Route.Key>.Prefix
     let modules:Branch.Buffer<Module>.SubSequence, 
         symbols:Branch.Buffer<Symbol>.SubSequence,
         articles:Branch.Buffer<Article>.SubSequence
-    
+
     init(branch:_Version.Branch,
         routes:Branch.Table<Route.Key>.Prefix,
         modules:Branch.Buffer<Module>.SubSequence, 
         symbols:Branch.Buffer<Symbol>.SubSequence,
         articles:Branch.Buffer<Article>.SubSequence)
     {
-        self.branch = branch
         self.routes = routes
+        self.branch = branch
         self.modules = modules
         self.symbols = symbols
         self.articles = articles

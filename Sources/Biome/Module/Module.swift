@@ -23,7 +23,10 @@ struct Module:BranchElement, Sendable
         var version:Version
     }
     
-    struct Heads 
+    public 
+    typealias _Heads = Heads
+    public 
+    struct Heads:Sendable 
     {
         var symbols:[Colony]
         var articles:[Range<Article.Offset>]

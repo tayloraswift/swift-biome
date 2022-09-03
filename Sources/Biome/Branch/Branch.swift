@@ -78,13 +78,51 @@ struct Branch:Identifiable, Sendable
 
     var routes:Table<Route.Key>
     private(set)
-    var newModules:Buffer<Module>, 
-        newSymbols:Buffer<Symbol>,
-        newArticles:Buffer<Article>
+    var modules:Buffer<Module>,
+        symbols:Buffer<Symbol>,
+        articles:Buffer<Article>
+    @available(*, deprecated, renamed: "modules")
     private(set)
-    var updatedModules:[Position<Module>: Module.Heads], 
-        updatedSymbols:[Position<Symbol>: Symbol.Heads], 
-        updatedArticles:[Position<Article>: Article.Heads]
+    var newModules:Buffer<Module>
+    {
+        _read { yield self.modules }
+        _modify { yield &self.modules }
+    }
+    @available(*, deprecated, renamed: "symbols")
+    private(set)
+    var newSymbols:Buffer<Symbol>
+    {
+        _read { yield self.symbols }
+        _modify { yield &self.symbols }
+    }
+    @available(*, deprecated, renamed: "articles")
+    private(set)
+    var newArticles:Buffer<Article>
+    {
+        _read { yield self.articles }
+        _modify { yield &self.articles }
+    }
+    @available(*, deprecated, renamed: "modules.overlay")
+    private(set) 
+    var updatedModules:[Position<Module>: Module.Heads]
+    {
+        _read { yield self.modules.overlay }
+        _modify { yield &self.modules.overlay }
+    }
+    @available(*, deprecated, renamed: "symbols.overlay")
+    private(set) 
+    var updatedSymbols:[Position<Symbol>: Symbol._Heads]
+    {
+        _read { yield self.symbols.overlay }
+        _modify { yield &self.symbols.overlay }
+    }
+    @available(*, deprecated, renamed: "articles.overlay")
+    private(set) 
+    var updatedArticles:[Position<Article>: Article.Heads]
+    {
+        _read { yield self.articles.overlay }
+        _modify { yield &self.articles.overlay }
+    }
     
     var startIndex:_Version.Revision 
     {
@@ -120,31 +158,27 @@ struct Branch:Identifiable, Sendable
         self.revisions = []
         
         self.routes = [:]
-        self.newModules = .init(startIndex: fork?.ring.modules ?? 0)
-        self.newSymbols = .init(startIndex: fork?.ring.symbols ?? 0)
-        self.newArticles = .init(startIndex: fork?.ring.articles ?? 0)
-
-        self.updatedModules = [:]
-        self.updatedSymbols = [:]
-        self.updatedArticles = [:]
+        self.modules = .init(startIndex: fork?.ring.modules ?? 0)
+        self.symbols = .init(startIndex: fork?.ring.symbols ?? 0)
+        self.articles = .init(startIndex: fork?.ring.articles ?? 0)
     }
     
     subscript(range:PartialRangeThrough<_Version.Revision>) -> Fascis 
     {
         let ring:Ring = self[range.upperBound].ring
-        return .init(branch: self.index, 
+        return .init(branch: self.index,
             routes: self.routes[range], 
-            modules: self.newModules[..<ring.modules], 
-            symbols: self.newSymbols[..<ring.symbols], 
-            articles: self.newArticles[..<ring.articles])
+            modules: self.modules[..<ring.modules], 
+            symbols: self.symbols[..<ring.symbols], 
+            articles: self.articles[..<ring.articles])
     }
     subscript(_:UnboundedRange) -> Fascis 
     {
         return .init(branch: self.index, 
-            routes: self.routes[...], 
-            modules: self.newModules[...], 
-            symbols: self.newSymbols[...], 
-            articles: self.newArticles[...])
+            routes: self.routes[...],
+            modules: self.modules[...],
+            symbols: self.symbols[...],
+            articles: self.articles[...])
     }
 
     mutating 
@@ -153,9 +187,9 @@ struct Branch:Identifiable, Sendable
         let commit:_Version.Revision = self.endIndex
         self.revisions.append(.init(hash: hash, 
             ring: .init(
-                modules: self.newModules.endIndex, 
-                symbols: self.newSymbols.endIndex, 
-                articles: self.newArticles.endIndex), 
+                modules: self.modules.endIndex, 
+                symbols: self.symbols.endIndex, 
+                articles: self.articles.endIndex), 
             pins: pins))
         return .init(self.index, commit)
     }
@@ -190,7 +224,7 @@ extension Branch
         {
             return existing 
         }
-        let index:Position<Module> = self.newModules.insert(id, culture: culture, 
+        let index:Position<Module> = self.modules.insert(id, culture: culture, 
             Module.init(id:index:))
         return self.position(index)
     }
@@ -236,7 +270,7 @@ extension Branch
                 continue 
             }
             
-            let start:Symbol.Offset = self.newSymbols.endIndex
+            let start:Symbol.Offset = self.symbols.endIndex
             for (offset, vertex):(Int, SymbolGraph.Vertex<Int>) in 
                 zip(vertices.indices, vertices)
             {
@@ -248,18 +282,18 @@ extension Branch
                     path: vertex.path, 
                     stems: &stems))
             }
-            let end:Symbol.Offset = self.newSymbols.endIndex 
+            let end:Symbol.Offset = self.symbols.endIndex 
             if start < end
             {
                 let colony:Module.Colony = .init(namespace: namespace, range: start ..< end)
                 if self.index == namespaces.module.position.branch 
                 {
-                    self.newModules[contemporary: namespaces.culture].heads.symbols
+                    self.modules[contemporary: namespaces.culture].heads.symbols
                         .append(colony)
                 }
                 else 
                 {
-                    self.updatedModules[namespaces.culture, default: .init()].symbols
+                    self.modules.overlay[namespaces.culture, default: .init()].symbols
                         .append(colony)
                 }
             }
@@ -285,7 +319,7 @@ extension Branch
             }
             return existing 
         }
-        let index:Symbol.Index = self.newSymbols.insert(id, culture: culture)
+        let index:Symbol.Index = self.symbols.insert(id, culture: culture)
         {
             (id:Symbol.ID, _:Symbol.Index) in 
             let route:Route.Key = .init(namespace, 
@@ -332,7 +366,7 @@ extension Branch
 
         var positions:[Tree.Position<Article>?] = []
             positions.reserveCapacity(graph.extensions.count)
-        let start:Article.Offset = self.newArticles.endIndex
+        let start:Article.Offset = self.articles.endIndex
         for article:Extension in _extensions
         {
             switch (article.metadata.path, article.binding)
@@ -350,17 +384,17 @@ extension Branch
                 positions.append(nil)
             }
         }
-        let end:Article.Offset = self.newArticles.endIndex
+        let end:Article.Offset = self.articles.endIndex
         if start < end
         {
             if self.index == namespace.position.branch 
             {
-                self.newModules[contemporary: namespace.culture].heads.articles
+                self.modules[contemporary: namespace.culture].heads.articles
                     .append(start ..< end)
             }
             else 
             {
-                self.updatedModules[namespace.culture, default: .init()].articles
+                self.modules.overlay[namespace.culture, default: .init()].articles
                     .append(start ..< end)
             }
         }
@@ -380,7 +414,7 @@ extension Branch
             }
             return existing 
         }
-        let index:Article.Index = self.newArticles.insert(id, culture: culture)
+        let index:Article.Index = self.articles.insert(id, culture: culture)
         {
             (id:Article.ID, index:Article.Index) in 
             // article namespace is always its culture. 
@@ -413,11 +447,11 @@ extension Branch
             if let shape:Symbol.Shape<Tree.Position<Symbol>> = beliefs.facts.values[index].shape 
             {
                 // already have a shape from a member or requirement belief
-                self.newSymbols[contemporary: contemporary].shape = shape
+                self.symbols[contemporary: contemporary].shape = shape
                 continue 
             }
 
-            let symbol:Symbol = self.newSymbols[contemporary: contemporary]
+            let symbol:Symbol = self.symbols[contemporary: contemporary]
             guard  case nil = symbol.shape, 
                     let scope:Path = .init(symbol.path.prefix), 
                     let lens:Lens = lenses[contemporary.culture]
@@ -430,7 +464,7 @@ extension Branch
                 case .one(let scope)? = lens.select(local: scope), 
                 let scope:Tree.Position<Symbol> = scope.natural.flatMap(lens.fasces.pluralize(_:))
             {
-                self.newSymbols[contemporary: contemporary].shape = .member(of: scope)
+                self.symbols[contemporary: contemporary].shape = .member(of: scope)
                 let member:Tree.Position<Symbol> = beliefs.facts.keys[index]
                 if  scope.contemporary.culture == contemporary.culture 
                 {
@@ -447,6 +481,40 @@ extension Branch
             {
                 print("warning: orphaned symbol \(symbol)")
                 continue 
+            }
+        }
+    }
+}
+
+extension Branch
+{
+    mutating 
+    func add<Versioned>(min value:Versioned, 
+        revision:_Version.Revision, 
+        fasces:[Fascis], 
+        symbol:Position<Symbol>, 
+        field:WritableKeyPath<Symbol._Heads, Head<Versioned>?>, 
+        to history:inout _History<Versioned>)
+        where Versioned:Equatable
+    {
+        guard symbol.offset < self.symbols.startIndex 
+        else 
+        {
+            // symbol is contemporary to this branch. 
+            history.add(min: value, revision: revision, 
+                to: &self.symbols[contemporary: symbol]._heads[keyPath: field])
+            return 
+        }
+        for fascis:Fascis in fasces 
+        {
+            if let head:Head<Versioned> = fascis.symbols.overlay[symbol]?[keyPath: field]
+            {
+                fatalError("unimplemented")
+            }
+            guard symbol.offset < fascis.symbols.startIndex 
+            else 
+            {
+                break
             }
         }
     }

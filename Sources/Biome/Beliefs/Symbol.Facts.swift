@@ -45,6 +45,12 @@ extension Symbol
             }
             return features
         }
+
+        func map<T>(_ transform:(Position) throws -> T) rethrows -> Predicates<T> 
+            where T:Hashable
+        {
+            fatalError("unimplemented")
+        }
     }
 }
 extension Symbol.Facts:Sendable where Position:Sendable 
@@ -57,6 +63,12 @@ extension Symbol
         var shape:Shape<Position>?
         var predicates:Predicates<Position>
         
+        private 
+        init(shape:Shape<Position>?, predicates:Predicates<Position>)
+        {
+            self.shape = shape 
+            self.predicates = predicates
+        }
         init(traits:[Trait<Position>], roles:[Role<Position>], as community:Community)  
         {
             self.shape = nil 
@@ -110,6 +122,13 @@ extension Symbol
                 shape: self.shape, 
                 as: community)
             self.predicates = .init(roles: roles, primary: .init(traits, as: community))
+        }
+
+        func map<T>(_ transform:(Position) throws -> T) rethrows -> Facts<T>
+            where T:Hashable
+        {
+            .init(shape: try self.shape?.map(transform), 
+                predicates: try self.predicates.map(transform))
         }
     }
 }

@@ -38,7 +38,7 @@ struct _History<Value> where Value:Equatable
     }
 
     mutating 
-    func add(_ value:Value, revision:_Version.Revision, to tree:inout Branch.Head<Value>?) 
+    func add(min value:Value, revision:_Version.Revision, to tree:inout Branch.Head<Value>?) 
     {
         guard let head:Index = tree?.index  
         else 

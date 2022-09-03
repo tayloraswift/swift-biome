@@ -1,6 +1,6 @@
 extension Branch.Buffer:Sendable 
     where   Element.Offset:Sendable, Element.Culture:Sendable, 
-            Element:Sendable, Element.ID:Sendable
+            Element:Sendable, Element.ID:Sendable, Element._Heads:Sendable
 {
 }
 
@@ -27,11 +27,13 @@ extension Branch
 
         private(set)
         var positions:[Element.ID: Position<Element>]
+        var overlay:[Position<Element>: Element._Heads]
         
         init(startIndex:Element.Offset) 
         {
             self.startIndex = startIndex
             self.positions = [:]
+            self.overlay = [:]
             self.storage = []
         }
     }
@@ -84,12 +86,12 @@ extension Branch.Buffer
     }
     subscript(prefix:PartialRangeUpTo<Element.Offset>) -> SubSequence 
     {
-        .init(positions: self.positions, storage: self.storage, 
+        .init(positions: self.positions, overlay: self.overlay, storage: self.storage, 
             indices: self.startIndex ..< prefix.upperBound)
     }
     subscript(_:UnboundedRange) -> SubSequence 
     {
-        .init(positions: self.positions, storage: self.storage, 
+        .init(positions: self.positions, overlay: self.overlay, storage: self.storage, 
             indices: self.startIndex ..< self.endIndex)
     }
 
@@ -131,8 +133,10 @@ extension Branch.Buffer
 
         let indices:Range<Element.Offset>
         private 
-        let storage:[Element], 
-            positions:[Element.ID: Branch.Position<Element>]
+        let storage:[Element]
+        let overlay:[Branch.Position<Element>: Element._Heads]
+        private 
+        let positions:[Element.ID: Branch.Position<Element>]
         
         var startIndex:Element.Offset
         {
@@ -151,7 +155,10 @@ extension Branch.Buffer
         }
         subscript(range:Range<Element.Offset>) -> Self
         {
-            .init(positions: self.positions, storage: self.storage, indices: range)
+            .init(positions: self.positions, 
+                overlay: self.overlay, 
+                storage: self.storage, 
+                indices: range)
         }
 
         func index(before base:Element.Offset) -> Element.Offset
@@ -168,10 +175,12 @@ extension Branch.Buffer
         // }
         
         init(positions:[Element.ID: Branch.Position<Element>], 
+            overlay:[Branch.Position<Element>: Element._Heads],
             storage:[Element], 
             indices:Range<Element.Offset>)
         {
             self.positions = positions 
+            self.overlay = overlay
             self.storage = storage 
             self.indices = indices
         }

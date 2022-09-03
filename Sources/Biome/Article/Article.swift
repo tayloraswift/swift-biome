@@ -8,8 +8,11 @@ struct Article:BranchElement, Sendable
     typealias Culture = Module.Index 
     @usableFromInline 
     typealias Offset = UInt32 
+    @usableFromInline 
+    typealias _Heads = Heads 
 
-    struct Heads 
+    @usableFromInline 
+    struct Heads:Sendable
     {
         @History<Excerpt>.Branch.Optional 
         var excerpt:History<Excerpt>.Branch.Head?

@@ -168,7 +168,7 @@ struct Packages
         beliefs.integrate()
 
         // successfully registered symbolgraph contents 
-        let revision:_Version.Revision = self.commit(pin.revision, to: branch, of: index, 
+        let version:_Version = self.commit(pin.revision, to: branch, of: index, 
             pins: targets.reduce(into: [:]) 
             { 
                 $0.merge($1.pins) { $1 } 
@@ -178,9 +178,9 @@ struct Packages
         // to avoid copy-on-write.
         let cohort:Route.Cohort = .init(beliefs: beliefs, context: self)
         self[index].tree[branch].routes.stack(routes: cohort.naturals, 
-            revision: revision)
+            revision: version.revision)
         self[index].tree[branch].routes.stack(routes: cohort.synthetics.joined(), 
-            revision: revision)
+            revision: version.revision)
 
         // we need to recollect the upstream fasces because we (potentially) wrote 
         // to them during the call to ``commit(_:to:of:pins:)``.
@@ -191,7 +191,7 @@ struct Packages
 
         self[index].tree[branch].inferScopes(&beliefs, lenses: lenses, stems: stems)
         // write to the keyframe buffers
-        self[index].pushBeliefs(_move beliefs)
+        self[index].pushBeliefs(_move beliefs, version: version, fasces: fasces)
         // for scope:Module.Scope in scopes
         // {
         //     self[index].pushDependencies(scope.dependencies(), culture: scope.culture)
@@ -245,7 +245,7 @@ struct Packages
         to branch:_Version.Branch, 
         of index:Package.Index, 
         pins:[Package.Index: _Version])
-        -> _Version.Revision
+        -> _Version
     {
         let version:_Version = self[index].tree[branch].commit(revision, pins: pins)
         for (package, pin):(Package.Index, _Version) in pins
@@ -253,7 +253,7 @@ struct Packages
             assert(package != index)
             self[package].tree[pin].consumers[index, default: []].insert(version)
         }
-        return version.revision
+        return version
     }
 }
 extension Packages 

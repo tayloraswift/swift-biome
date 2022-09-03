@@ -1,18 +1,3 @@
-extension Package 
-{
-    var tree:Tree
-    {
-        _read 
-        {
-            fatalError("unimplemented")
-        }
-        _modify
-        {
-            fatalError("unimplemented")
-        }
-    }
-}
-
 struct Tree 
 {
     let culture:Package.Index
@@ -20,6 +5,13 @@ struct Tree
     var storage:[Branch]
     private(set)
     var branches:[Branch.ID: _Version.Branch]
+
+    init(culture:Package.Index)
+    {
+        self.culture = culture 
+        self.storage = []
+        self.branches = [:]
+    }
 
     subscript(branch:_Version.Branch) -> Branch 
     {
@@ -47,22 +39,22 @@ struct Tree
     {
         _read 
         {
-            yield  self[module.branch].newModules[contemporary: module.contemporary]
+            yield  self[module.branch].modules[contemporary: module.contemporary]
         }
         // _modify 
         // {
-        //     yield &self[module.branch].newModules[contemporary: module.contemporary]
+        //     yield &self[module.branch].modules[contemporary: module.contemporary]
         // }
     }
     subscript(local symbol:Position<Symbol>) -> Symbol 
     {
         _read 
         {
-            yield  self[symbol.branch].newSymbols[contemporary: symbol.contemporary]
+            yield  self[symbol.branch].symbols[contemporary: symbol.contemporary]
         }
         // _modify 
         // {
-        //     yield &self[symbol.branch].newSymbols[contemporary: symbol.contemporary]
+        //     yield &self[symbol.branch].symbols[contemporary: symbol.contemporary]
         // }
     }
 
