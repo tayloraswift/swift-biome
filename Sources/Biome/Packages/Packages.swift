@@ -100,6 +100,8 @@ struct Packages
         // we are going to mutate `self[index].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
         let fasces:[Fascis] = self[index].tree.fasces(upTo: branch)
+        var missing:Set<Tree.Position<Module>> = self[index].tree[branch].allModules(
+            fasces: fasces)
 
         // `pins` is a subset of `linkable`; it gets filled in gradually as we 
         // resolve dependencies. this allows us to discard unused dependencies 
@@ -120,6 +122,9 @@ struct Packages
             let module:Tree.Position<Module> = self[index].tree[branch].add(module: graph.id, 
                 culture: index, 
                 fasces: fasces) 
+            
+            missing.remove(module)
+
             // use this instead of `graph.id` to prevent string duplication
             var namespaces:Namespaces = .init(id: self[global: module].id, 
                 position: module, 
@@ -187,11 +192,13 @@ struct Packages
         // we also cannot allow ``Namespaces.lens(local:context:)`` to retain a reference 
         // to `self[index].tree[branch].routes` until after we have added all the routes 
         // in the current cohort.
-        let lenses:[Lens] = (_move targets).map { $0.lens(local: fasces, context: self) }
+        let lenses:Lenses = .init(_move targets, local: _move fasces, context: self)
 
         self[index].tree[branch].inferScopes(&beliefs, lenses: lenses, stems: stems)
         // write to the keyframe buffers
-        self[index].pushBeliefs(_move beliefs, version: version, fasces: fasces)
+        self[index]._pushModuleMetadata(version: version, missing: missing, lenses: lenses)
+        
+        //self[index].pushBeliefs(_move beliefs, version: version, fasces: fasces)
         // for scope:Module.Scope in scopes
         // {
         //     self[index].pushDependencies(scope.dependencies(), culture: scope.culture)

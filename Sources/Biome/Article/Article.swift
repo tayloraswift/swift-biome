@@ -9,7 +9,9 @@ struct Article:BranchElement, Sendable
     @usableFromInline 
     typealias Offset = UInt32 
     @usableFromInline 
-    typealias _Heads = Heads 
+    struct Divergence 
+    {
+    }
 
     @usableFromInline 
     struct Heads:Sendable

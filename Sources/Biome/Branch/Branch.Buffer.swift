@@ -1,6 +1,6 @@
 extension Branch.Buffer:Sendable 
     where   Element.Offset:Sendable, Element.Culture:Sendable, 
-            Element:Sendable, Element.ID:Sendable, Element._Heads:Sendable
+            Element:Sendable, Element.ID:Sendable, Element.Divergence:Sendable
 {
 }
 
@@ -9,13 +9,6 @@ extension Branch
     public 
     struct Buffer<Element> where Element:BranchElement
     {
-        let startIndex:Element.Offset
-        private 
-        var storage:[Element] 
-        var endIndex:Element.Offset
-        {
-            self.startIndex + Element.Offset.init(self.storage.count)
-        }
         @available(*, deprecated, renamed: "positions")
         var indices:[Element.ID: Position<Element>] 
         {
@@ -25,16 +18,23 @@ extension Branch
             }
         }
 
+        var divergences:Divergences<Element>
         private(set)
         var positions:[Element.ID: Position<Element>]
-        var overlay:[Position<Element>: Element._Heads]
+        private 
+        var storage:[Element] 
+        let startIndex:Element.Offset
+        var endIndex:Element.Offset
+        {
+            self.startIndex + Element.Offset.init(self.storage.count)
+        }
         
         init(startIndex:Element.Offset) 
         {
-            self.startIndex = startIndex
+            self.divergences = [:]
             self.positions = [:]
-            self.overlay = [:]
             self.storage = []
+            self.startIndex = startIndex
         }
     }
 }
@@ -84,14 +84,19 @@ extension Branch.Buffer
             yield &self[position.offset]
         }
     }
+
     subscript(prefix:PartialRangeUpTo<Element.Offset>) -> SubSequence 
     {
-        .init(positions: self.positions, overlay: self.overlay, storage: self.storage, 
+        .init(divergences: self.divergences, 
+            positions: self.positions, 
+            storage: self.storage, 
             indices: self.startIndex ..< prefix.upperBound)
     }
     subscript(_:UnboundedRange) -> SubSequence 
     {
-        .init(positions: self.positions, overlay: self.overlay, storage: self.storage, 
+        .init(divergences: self.divergences, 
+            positions: self.positions, 
+            storage: self.storage, 
             indices: self.startIndex ..< self.endIndex)
     }
 
@@ -131,12 +136,12 @@ extension Branch.Buffer
         typealias Index = Element.Offset 
         typealias SubSequence = Self 
 
-        let indices:Range<Element.Offset>
-        private 
-        let storage:[Element]
-        let overlay:[Branch.Position<Element>: Element._Heads]
+        let divergences:Branch.Divergences<Element>
         private 
         let positions:[Element.ID: Branch.Position<Element>]
+        private 
+        let storage:[Element]
+        let indices:Range<Element.Offset>
         
         var startIndex:Element.Offset
         {
@@ -155,8 +160,8 @@ extension Branch.Buffer
         }
         subscript(range:Range<Element.Offset>) -> Self
         {
-            .init(positions: self.positions, 
-                overlay: self.overlay, 
+            .init(divergences: self.divergences,
+                positions: self.positions, 
                 storage: self.storage, 
                 indices: range)
         }
@@ -174,13 +179,13 @@ extension Branch.Buffer
         //     Element.Offset.init(Int.init(base) + distance)
         // }
         
-        init(positions:[Element.ID: Branch.Position<Element>], 
-            overlay:[Branch.Position<Element>: Element._Heads],
+        init(divergences:Branch.Divergences<Element>, 
+            positions:[Element.ID: Branch.Position<Element>], 
             storage:[Element], 
             indices:Range<Element.Offset>)
         {
+            self.divergences = divergences
             self.positions = positions 
-            self.overlay = overlay
             self.storage = storage 
             self.indices = indices
         }

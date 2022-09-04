@@ -24,8 +24,6 @@ struct Module:BranchElement, Sendable
     }
     
     public 
-    typealias _Heads = Heads
-    public 
     struct Heads:Sendable 
     {
         var symbols:[Colony]
@@ -57,6 +55,10 @@ struct Module:BranchElement, Sendable
     public 
     let id:ModuleIdentifier
     let index:Index 
+
+    var symbols:[Colony]
+    var articles:[Range<Article.Offset>]
+    var metadata:Branch.Head<Metadata>?
     
     var heads:Heads
     var redirect:(module:Redirect?, articles:Redirect?)
@@ -82,6 +84,10 @@ struct Module:BranchElement, Sendable
         self.index = index
         self.heads = .init()
         self.redirect = (nil, nil)
+
+        self.symbols = []
+        self.articles = []
+        self.metadata = nil
     }
     
     var fragments:[Notebook<Highlight, Never>.Fragment] 
@@ -91,5 +97,24 @@ struct Module:BranchElement, Sendable
             .init(" ",          color: .text),
             .init(self.name,    color: .identifier),
         ]
+    }
+}
+
+extension Module 
+{
+    public 
+    struct Divergence:Sendable 
+    {
+        var symbols:[Colony]
+        var articles:[Range<Article.Offset>]
+
+        var metadata:Branch.Divergence<Metadata>?
+
+        init() 
+        {
+            self.symbols = []
+            self.articles = []
+            self.metadata = nil
+        }
     }
 }

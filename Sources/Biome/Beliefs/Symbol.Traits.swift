@@ -226,5 +226,11 @@ extension Symbol
             traits.subtract(other)
             return traits
         }
+
+        func map<T>(_ transform:(Position) throws -> T) rethrows -> Traits<T>
+            where T:Hashable
+        {
+            fatalError("unimplemented")
+        }
     }
 }

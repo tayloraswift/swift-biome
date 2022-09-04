@@ -102,27 +102,6 @@ struct Branch:Identifiable, Sendable
         _read { yield self.articles }
         _modify { yield &self.articles }
     }
-    @available(*, deprecated, renamed: "modules.overlay")
-    private(set) 
-    var updatedModules:[Position<Module>: Module.Heads]
-    {
-        _read { yield self.modules.overlay }
-        _modify { yield &self.modules.overlay }
-    }
-    @available(*, deprecated, renamed: "symbols.overlay")
-    private(set) 
-    var updatedSymbols:[Position<Symbol>: Symbol._Heads]
-    {
-        _read { yield self.symbols.overlay }
-        _modify { yield &self.symbols.overlay }
-    }
-    @available(*, deprecated, renamed: "articles.overlay")
-    private(set) 
-    var updatedArticles:[Position<Article>: Article.Heads]
-    {
-        _read { yield self.articles.overlay }
-        _modify { yield &self.articles.overlay }
-    }
     
     var startIndex:_Version.Revision 
     {
@@ -216,6 +195,34 @@ struct Branch:Identifiable, Sendable
 
 extension Branch 
 {
+    func allModules(fasces:[Fascis]) -> Set<Tree.Position<Module>> 
+    {
+        var positions:Set<Tree.Position<Module>> = []
+        for module:Module in self.modules[...]
+        {
+            positions.insert(self.index.pluralize(module.index))
+        }
+        for fascis:Fascis in fasces
+        {
+            for module:Module in fascis.modules 
+            {
+                positions.insert(fascis.branch.pluralize(module.index))
+            }
+        }
+        return positions 
+    }
+    // func allSymbols(fasces:[Fascis]) -> Set<Tree.Position<Symbol>> 
+    // {
+    //     var symbols:Set<Tree.Position<Symbol>> = []
+    //     for fascis:Fascis in fasces 
+    //     {
+    //         fasces.symbols
+    //     }
+    // }
+}
+
+extension Branch 
+{
     mutating 
     func add(module id:Module.ID, culture:Package.Index, fasces:[Fascis]) 
         -> Tree.Position<Module>
@@ -288,12 +295,12 @@ extension Branch
                 let colony:Module.Colony = .init(namespace: namespace, range: start ..< end)
                 if self.index == namespaces.module.position.branch 
                 {
-                    self.modules[contemporary: namespaces.culture].heads.symbols
+                    self.modules[contemporary: namespaces.culture].symbols
                         .append(colony)
                 }
                 else 
                 {
-                    self.modules.overlay[namespaces.culture, default: .init()].symbols
+                    self.modules.divergences[filling: namespaces.culture].symbols
                         .append(colony)
                 }
             }
@@ -389,12 +396,12 @@ extension Branch
         {
             if self.index == namespace.position.branch 
             {
-                self.modules[contemporary: namespace.culture].heads.articles
+                self.modules[contemporary: namespace.culture].articles
                     .append(start ..< end)
             }
             else 
             {
-                self.modules.overlay[namespace.culture, default: .init()].articles
+                self.modules.divergences[filling: namespace.culture].articles
                     .append(start ..< end)
             }
         }
@@ -431,7 +438,7 @@ extension Branch
 extension Branch 
 {
     mutating 
-    func inferScopes(_ beliefs:inout Beliefs, lenses:[Lens], stems:Route.Stems)
+    func inferScopes(_ beliefs:inout Beliefs, lenses:Lenses, stems:Route.Stems)
     {
         let lenses:[Branch.Position<Module>: Lens] = .init(uniqueKeysWithValues: 
             lenses.map { ($0.culture, $0) })
@@ -462,18 +469,18 @@ extension Branch
             // attempt to re-parent this symbol using lexical lookup
             if  let scope:Route.Key = stems[symbol.route.namespace, scope],
                 case .one(let scope)? = lens.select(local: scope), 
-                let scope:Tree.Position<Symbol> = scope.natural.flatMap(lens.fasces.pluralize(_:))
+                let scope:Tree.Position<Symbol> = scope.natural.flatMap(lens.local.pluralize(_:))
             {
                 self.symbols[contemporary: contemporary].shape = .member(of: scope)
                 let member:Tree.Position<Symbol> = beliefs.facts.keys[index]
                 if  scope.contemporary.culture == contemporary.culture 
                 {
-                    beliefs.facts[scope]?.predicates.primary
+                    beliefs.facts[scope]?.primary
                         .members.insert(member)
                 }
                 else 
                 {
-                    beliefs.facts[scope]?.predicates.accepted[contemporary.culture, default: .init()]
+                    beliefs.facts[scope]?.accepted[contemporary.culture, default: .init()]
                         .members.insert(member)
                 }
             }
@@ -491,31 +498,59 @@ extension Branch
     mutating 
     func add<Versioned>(min value:Versioned, 
         revision:_Version.Revision, 
-        fasces:[Fascis], 
-        symbol:Position<Symbol>, 
-        field:WritableKeyPath<Symbol._Heads, Head<Versioned>?>, 
+        fasces:some Sequence<Fascis>, 
+        module:Position<Module>, 
+        field:
+        (
+            contemporary:WritableKeyPath<Module, Head<Versioned>?>, 
+            divergent:WritableKeyPath<Module.Divergence, Divergence<Versioned>?>
+        ),
         to history:inout _History<Versioned>)
         where Versioned:Equatable
     {
-        guard symbol.offset < self.symbols.startIndex 
+        guard module.offset < self.modules.startIndex 
         else 
         {
             // symbol is contemporary to this branch. 
             history.add(min: value, revision: revision, 
-                to: &self.symbols[contemporary: symbol]._heads[keyPath: field])
+                to: &self.modules[contemporary: module][keyPath: field.contemporary])
             return 
         }
         for fascis:Fascis in fasces 
         {
-            if let head:Head<Versioned> = fascis.symbols.overlay[symbol]?[keyPath: field]
+            if  let head:Head<Versioned> = 
+                fascis.modules.divergences.head(module, field.divergent, containing: revision)
             {
-                fatalError("unimplemented")
+                // not possible for this to fail, since we already checked for containment
+                let previous:Versioned = history.value(rewinding: head, to: revision)!
+                if  previous != value 
+                {
+                    fatalError("unimplemented")
+                }
             }
-            guard symbol.offset < fascis.symbols.startIndex 
+            else if module.offset < fascis.modules.startIndex 
+            {
+                continue 
+            }
             else 
             {
                 break
             }
         }
+    }
+    mutating 
+    func add<Versioned>(min value:Versioned, 
+        revision:_Version.Revision, 
+        fasces:some Sequence<Fascis>, 
+        symbol:Position<Symbol>, 
+        field:
+        (
+            contemporary:WritableKeyPath<Symbol, Head<Versioned>?>, 
+            divergent:WritableKeyPath<Symbol.Divergence, Divergence<Versioned>?>
+        ),
+        to history:inout _History<Versioned>)
+        where Versioned:Equatable
+    {
+        fatalError("unimplemented")
     }
 }

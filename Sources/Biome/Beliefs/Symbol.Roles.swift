@@ -164,5 +164,11 @@ extension Symbol
                 }
             }
         }
+
+        func map<T>(_ transform:(Position) throws -> T) rethrows -> Roles<T>
+            where T:Hashable
+        {
+            fatalError("unimplemented")
+        }
     }
 }

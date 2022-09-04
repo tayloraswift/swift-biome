@@ -144,44 +144,23 @@ struct Namespaces
         }
     }
 }
-extension Namespaces 
-{
-    func lens(local fasces:[Fascis], context:Packages) -> Lens 
-    {
-        var lens:Lens = .init(namespaces: self, local: fasces, 
-            routes: context[self.package].tree[self._branch].routes)
-        for (upstream, version):(Package.Index, _Version) in self.pins 
-        {
-            lens.fasces.append(contentsOf: context[upstream].tree.fasces(through: version))
-        }
-        return lens
-    }
-}
+
 struct Lens 
 {
     let namespaces:Namespaces
-    let linked:Set<Branch.Position<Module>>
+    let upstream:[Fascis]
+    let local:[Fascis]
     let routes:Branch.Table<Route.Key>
-    var fasces:[Fascis]
-    let local:PartialRangeUpTo<Int>
+    let linked:Set<Branch.Position<Module>>
 
     var culture:Branch.Position<Module> 
     {
         self.namespaces.culture
     }
 
-    init(namespaces:Namespaces, local fasces:[Fascis], routes:Branch.Table<Route.Key>)
-    {
-        self.namespaces = namespaces 
-        self.linked = .init(self.namespaces.linked.values.lazy.map(\.contemporary))
-        self.routes = routes
-        self.fasces = fasces 
-        self.local = ..<self.fasces.endIndex 
-    }
-
     func select(local route:Route.Key) -> Branch._Selection<Branch.Composite>?
     {
-        self.select(route: route, fasces: self.fasces[self.local])
+        self.select(route: route, fasces: self.local)
     }
     func select(_ route:Route.Key) -> Branch._Selection<Branch.Composite>?
     {
@@ -189,7 +168,7 @@ struct Lens
         // with a namespace whose culture is one of its consumers, 
         // so we can skip searching them entirely.
         self.namespaces.package != route.namespace.package ?
-            self.select(route: route, fasces: self.fasces) :
+            self.select(route: route, fasces: [self.local, self.upstream].joined()) :
             self.select(local: route)
     }
     private 
@@ -210,7 +189,54 @@ struct Lens
         return selection
     }
 }
+struct Lenses:RandomAccessCollection 
+{
+    struct Target 
+    {
+        let namespaces:Namespaces
+        let upstream:[Fascis]
+        let routes:Branch.Table<Route.Key>
+        let linked:Set<Branch.Position<Module>>
+    }
 
+    let local:[Fascis]
+    private 
+    let targets:[Target]
+
+    var startIndex:Int 
+    {
+        self.targets.startIndex
+    }
+    var endIndex:Int 
+    {
+        self.targets.endIndex
+    }
+    subscript(index:Int) -> Lens 
+    {
+        let target:Target = self.targets[index]
+        return .init(namespaces: target.namespaces, 
+            upstream: target.upstream, 
+            local: self.local, 
+            routes: target.routes, 
+            linked: target.linked)
+    }
+
+    init(_ namespaces:__owned [Namespaces], local:__owned [Fascis], context:__shared Packages)
+    {
+        self.local = local
+        self.targets = namespaces.map 
+        { 
+            var upstream:[Fascis] = []
+            for (dependency, version):(Package.Index, _Version) in $0.pins 
+            {
+                upstream.append(contentsOf: context[dependency].tree.fasces(through: version))
+            }
+            return .init(namespaces: $0, upstream: upstream, 
+                routes: context[$0.package].tree[$0._branch].routes, 
+                linked: .init($0.linked.values.lazy.map(\.contemporary)))
+        }
+    }
+}
 
 extension Module 
 {

@@ -9,22 +9,16 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
     typealias Offset = UInt32 
     
     public
-    struct _Heads:Sendable 
+    struct Divergence:Sendable 
     {
-        @Branch.Field<DocumentationNode>
-        var documentation:Branch.Head<DocumentationNode>?
-        @Branch.Field<Declaration<Branch.Position<Symbol>>>
-        var declaration:Branch.Head<Declaration<Branch.Position<Symbol>>>?
-        @Branch.Field<Predicates<Branch.Position<Symbol>>>
-        var facts:Branch.Head<Predicates<Branch.Position<Symbol>>>?
+        var metadata:Branch.Divergence<Metadata>?
         
         init() 
         {
-            self._documentation = .init()
-            self._declaration = .init()
-            self._facts = .init()
+            self.metadata = nil
         }
     }
+
     struct Heads 
     {
         @History<DocumentationNode>.Branch.Optional
@@ -58,17 +52,9 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
     let route:Route.Key
     var shape:Shape<Tree.Position<Self>>?
     var heads:Heads
-    var _heads:_Heads
-    {
-        _read 
-        {
-            fatalError("unimplemented")
-        }
-        _modify
-        {
-            fatalError("unimplemented")
-        }
-    }
+    
+    var metadata:Branch.Head<Metadata>?
+
     var pollen:Set<Module.Pin>
     
     var community:Community 
@@ -119,6 +105,9 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
         self.shape = nil
         
         self.heads = .init()
+
+        self.metadata = nil 
+        
         self.pollen = []
     }
 }

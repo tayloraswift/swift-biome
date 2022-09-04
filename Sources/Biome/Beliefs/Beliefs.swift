@@ -100,8 +100,8 @@ struct Beliefs
         self.opinions = self.opinions.filter 
         {
             if $0.key.host.package == $0.key.culture.package, 
-                case ()? = self.facts[$0.key.host]?.predicates.updateAcceptedTraits($0.value, 
-                    culture: $0.key.culture)
+                case ()? = self.facts[$0.key.host]?.update(acceptedCulture: $0.key.culture, 
+                    with: $0.value)
             {
                 return false 
             }

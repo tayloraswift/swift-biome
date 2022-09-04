@@ -3,7 +3,7 @@ protocol BranchElement<Culture, Offset>:Identifiable
 {
     associatedtype Culture:Hashable 
     associatedtype Offset:UnsignedInteger
-    associatedtype _Heads
+    associatedtype Divergence
 }
 extension BranchElement
 {

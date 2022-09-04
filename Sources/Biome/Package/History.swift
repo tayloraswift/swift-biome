@@ -37,6 +37,15 @@ struct _History<Value> where Value:Equatable
         self.forest = .init()
     }
 
+    func rewind(_ head:Forest<Keyframe>.Tree.Head, to revision:_Version.Revision) -> Index?
+    {
+        self.forest[head].first { $0.since <= revision }
+    }
+    func value(rewinding head:Forest<Keyframe>.Tree.Head, to revision:_Version.Revision) -> Value?
+    {
+        self.rewind(head, to: revision).map { self.forest[$0].value.value }
+    }
+
     mutating 
     func add(min value:Value, revision:_Version.Revision, to tree:inout Branch.Head<Value>?) 
     {

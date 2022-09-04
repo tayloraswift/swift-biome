@@ -2,8 +2,6 @@ import Forest
 
 extension Branch 
 {
-    typealias Head<Value> = Forest<_History<Value>.Keyframe>.Tree.Head where Value:Equatable
-
     @propertyWrapper
     struct Field<Value>:Sendable where Value:Equatable
     {

@@ -24,12 +24,6 @@ extension Symbol
             self.accepted = [:]
         }
         
-        mutating 
-        func updateAcceptedTraits(_ traits:Traits<Position>, culture:Module.Index)
-        {
-            self.accepted[culture] = traits.subtracting(self.primary)
-        }
-        
         func featuresAssumingConcreteType() 
             -> [(perpetrator:Module.Index?, features:Set<Position>)]
         {
@@ -61,28 +55,40 @@ extension Symbol
     struct Facts<Position> where Position:Hashable
     {
         var shape:Shape<Position>?
+        var roles:Roles<Position>?
+        var primary:Traits<Position>
+        var accepted:[Module.Index: Traits<Position>]
+
+        @available(*, deprecated)
         var predicates:Predicates<Position>
+        {
+            fatalError("obsoleted")
+        }
         
-        private 
-        init(shape:Shape<Position>?, predicates:Predicates<Position>)
+        init(shape:Shape<Position>?, 
+            roles:Roles<Position>?,
+            primary:Traits<Position>,
+            accepted:[Module.Index: Traits<Position>] = [:])
         {
             self.shape = shape 
-            self.predicates = predicates
+            self.roles = roles 
+            self.primary = primary 
+            self.accepted = accepted
         }
         init(traits:[Trait<Position>], roles:[Role<Position>], as community:Community)  
         {
-            self.shape = nil 
+            var shape:Shape<Position>? = nil 
             // partition relationships buffer 
             var superclass:Position? = nil 
             var residuals:[Role<Position>] = []
             for role:Role<Position> in roles
             {
-                switch (self.shape, role) 
+                switch (shape, role) 
                 {
                 case  (nil,            .member(of: let type)): 
-                    self.shape =       .member(of:     type) 
+                    shape =            .member(of:     type) 
                 case (nil,        .requirement(of: let interface)): 
-                    self.shape =  .requirement(of:     interface) 
+                    shape =       .requirement(of:     interface) 
                 
                 case (let shape?,      .member(of: let type)):
                     guard case         .member(of:     type) = shape 
@@ -117,18 +123,31 @@ extension Symbol
                 }
             }
             
-            let roles:Roles<Position>? = .init(residuals, 
-                superclass: superclass, 
-                shape: self.shape, 
-                as: community)
-            self.predicates = .init(roles: roles, primary: .init(traits, as: community))
+            self.init(shape: shape, 
+                roles: .init(residuals, superclass: superclass, shape: shape, as: community), 
+                primary: .init(traits, as: community))
         }
 
         func map<T>(_ transform:(Position) throws -> T) rethrows -> Facts<T>
             where T:Hashable
         {
             .init(shape: try self.shape?.map(transform), 
-                predicates: try self.predicates.map(transform))
+                roles: try self.roles?.map(transform),
+                primary: try self.primary.map(transform),
+                accepted: try self.accepted.mapValues { try $0.map(transform) })
         }
+
+        mutating 
+        func update(acceptedCulture culture:Module.Index, with traits:Traits<Position>)
+        {
+            self.accepted[culture] = traits.subtracting(self.primary)
+        }
+    }
+}
+extension Symbol.Facts<Tree.Position<Symbol>>
+{
+    func metadata() -> Symbol.Metadata 
+    {
+        fatalError("unimplemented")
     }
 }

@@ -101,7 +101,8 @@ struct Package:Identifiable, Sendable
     }
 
     var tree:Tree
-    var _facts:_History<Symbol.Predicates<Branch.Position<Symbol>>>
+    var moduleMetadata:_History<Module.Metadata>
+    var symbolMetadata:_History<Symbol.Metadata>
     
     init(id:ID, index:Index)
     {
@@ -132,8 +133,9 @@ struct Package:Identifiable, Sendable
         self.documentation = .init()
         self.excerpts = .init()
 
-        self._facts = .init()
         self.tree = .init(culture: index)
+        self.moduleMetadata = .init()
+        self.symbolMetadata = .init()
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -385,24 +387,49 @@ struct Package:Identifiable, Sendable
 extension Package 
 {
     mutating 
-    func pushBeliefs(_ beliefs:__owned Beliefs, version:_Version, fasces:[Fascis])
+    func _pushModuleMetadata(version:_Version, 
+        missing:Set<Tree.Position<Module>>, 
+        lenses:Lenses)
     {
-        for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
-            beliefs.facts
+        for missing:Tree.Position<Module> in missing 
         {
-            self.tree[version.branch].add(min: facts.predicates.map(\.contemporary),
+            self.tree[version.branch].add(min: .missing, 
                 revision: version.revision, 
-                fasces: fasces, 
-                symbol: symbol.contemporary, 
-                field: \.facts, 
-                to: &self._facts)
+                fasces: lenses.local, 
+                module: missing.contemporary, 
+                field: (\.metadata, \.metadata),
+                to: &self.moduleMetadata)
         }
-        for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in beliefs.opinions 
+        for lens:Lens in lenses 
         {
-            // self.opinions.push(traits, version: current, 
-            //     into: &self.external[diacritic])
+            self.tree[version.branch].add(min: .present(dependencies: lens.linked), 
+                revision: version.revision, 
+                fasces: lens.local, 
+                module: lens.culture, 
+                field: (\.metadata, \.metadata),
+                to: &self.moduleMetadata)
         }
     }
+    // mutating 
+    // func pushBeliefs(_ beliefs:__owned Beliefs, version:_Version, fasces:[Fascis])
+    // {
+    //     for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
+    //         beliefs.facts
+    //     {
+    //         self.tree[version.branch].add(min: facts.metadata(),
+    //             revision: version.revision, 
+    //             fasces: fasces, 
+    //             symbol: symbol.contemporary, 
+    //             field: \.facts, 
+    //             to: &self.symbolMetadata)
+    //     }
+    //     // for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in 
+    //     //     beliefs.opinions 
+    //     // {
+    //     //     self.opinions.push(traits, version: current, 
+    //     //         into: &self.external[diacritic])
+    //     // }
+    // }
     mutating 
     func pushDependencies(_ dependencies:Set<Module.Index>, culture:Module.Index)
     {
