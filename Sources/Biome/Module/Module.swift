@@ -103,12 +103,26 @@ struct Module:BranchElement, Sendable
 extension Module 
 {
     public 
-    struct Divergence:Sendable 
+    struct Divergence:Voidable, Sendable 
     {
         var symbols:[Colony]
         var articles:[Range<Article.Offset>]
 
         var metadata:Branch.Divergence<Metadata>?
+
+        var isEmpty:Bool 
+        {
+            if  self.symbols.isEmpty,
+                self.articles.isEmpty,
+                case nil = self.metadata
+            {
+                return true 
+            }
+            else 
+            {
+                return false
+            }
+        }
 
         init() 
         {

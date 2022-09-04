@@ -393,19 +393,19 @@ extension Package
     {
         for missing:Tree.Position<Module> in missing 
         {
-            self.tree[version.branch].add(min: .missing, 
+            self.tree[version.branch].modules.add(min: .missing, 
+                timeline: lenses.local.lazy.map(\.modules), 
+                position: missing.contemporary, 
                 revision: version.revision, 
-                fasces: lenses.local, 
-                module: missing.contemporary, 
                 field: (\.metadata, \.metadata),
                 to: &self.moduleMetadata)
         }
         for lens:Lens in lenses 
         {
-            self.tree[version.branch].add(min: .present(dependencies: lens.linked), 
+            self.tree[version.branch].modules.add(min: .present(dependencies: lens.linked), 
+                timeline: lens.local.lazy.map(\.modules), 
+                position: lens.culture, 
                 revision: version.revision, 
-                fasces: lens.local, 
-                module: lens.culture, 
                 field: (\.metadata, \.metadata),
                 to: &self.moduleMetadata)
         }

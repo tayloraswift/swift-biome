@@ -77,7 +77,6 @@ struct Branch:Identifiable, Sendable
     var revisions:[Revision]
 
     var routes:Table<Route.Key>
-    private(set)
     var modules:Buffer<Module>,
         symbols:Buffer<Symbol>,
         articles:Buffer<Article>
@@ -493,64 +492,69 @@ extension Branch
     }
 }
 
-extension Branch
+extension _History
+{
+    func isConsistent<Element>(with value:Value, 
+        timeline:some Sequence<Branch.Buffer<Element>.SubSequence>, 
+        position:Branch.Position<Element>, 
+        revision:_Version.Revision, 
+        field:WritableKeyPath<Element.Divergence, Branch.Divergence<Value>?>) -> Bool
+        where Element:BranchElement
+    {
+        for segment:Branch.Buffer<Element>.SubSequence in timeline
+        {
+            if  let head:Branch.Head<Value> = segment.divergences.head(position, field, 
+                    containing: revision)
+            {
+                guard let previous:Value = self.value(rewinding: head, to: revision)
+                else 
+                {
+                    fatalError("unreachable: containment check succeeded but revision was not found")
+                }
+                return previous == value 
+            }
+            guard position.offset < segment.startIndex 
+            else 
+            {
+                return false
+            }
+        }
+        fatalError("unreachable: incomplete timeline!")
+    }
+}
+extension Branch.Buffer where Element.Divergence:Voidable
 {
     mutating 
-    func add<Versioned>(min value:Versioned, 
+    func add<Versioned>(min value:__owned Versioned, 
+        timeline:some Sequence<Branch.Buffer<Element>.SubSequence>, 
+        position:Branch.Position<Element>, 
         revision:_Version.Revision, 
-        fasces:some Sequence<Fascis>, 
-        module:Position<Module>, 
         field:
         (
-            contemporary:WritableKeyPath<Module, Head<Versioned>?>, 
-            divergent:WritableKeyPath<Module.Divergence, Divergence<Versioned>?>
+            contemporary:WritableKeyPath<Element, Branch.Head<Versioned>?>, 
+            divergent:WritableKeyPath<Element.Divergence, Branch.Divergence<Versioned>?>
         ),
         to history:inout _History<Versioned>)
         where Versioned:Equatable
     {
-        guard module.offset < self.modules.startIndex 
+        guard position.offset < self.startIndex 
         else 
         {
             // symbol is contemporary to this branch. 
-            history.add(min: value, revision: revision, 
-                to: &self.modules[contemporary: module][keyPath: field.contemporary])
+            history.add(_move value, revision: revision, 
+                to: &self[contemporary: position][keyPath: field.contemporary])
             return 
         }
-        for fascis:Fascis in fasces 
+        guard history.isConsistent(with: value, 
+            timeline: timeline, 
+            position: position, 
+            revision: revision, 
+            field: field.divergent)
+        else
         {
-            if  let head:Head<Versioned> = 
-                fascis.modules.divergences.head(module, field.divergent, containing: revision)
-            {
-                // not possible for this to fail, since we already checked for containment
-                let previous:Versioned = history.value(rewinding: head, to: revision)!
-                if  previous != value 
-                {
-                    fatalError("unimplemented")
-                }
-            }
-            else if module.offset < fascis.modules.startIndex 
-            {
-                continue 
-            }
-            else 
-            {
-                break
-            }
+            history.push(_move value, revision: revision, 
+                to: &self.divergences[filling: position][keyPath: field.divergent])
+            return
         }
-    }
-    mutating 
-    func add<Versioned>(min value:Versioned, 
-        revision:_Version.Revision, 
-        fasces:some Sequence<Fascis>, 
-        symbol:Position<Symbol>, 
-        field:
-        (
-            contemporary:WritableKeyPath<Symbol, Head<Versioned>?>, 
-            divergent:WritableKeyPath<Symbol.Divergence, Divergence<Versioned>?>
-        ),
-        to history:inout _History<Versioned>)
-        where Versioned:Equatable
-    {
-        fatalError("unimplemented")
     }
 }

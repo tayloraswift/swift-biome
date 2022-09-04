@@ -45,7 +45,7 @@ extension Branch
         }
     }
 }
-extension Branch.Divergences<Module> 
+extension Branch.Divergences where Element.Divergence:Voidable
 {
     subscript(filling key:Branch.Position<Element>) -> Element.Divergence
     {

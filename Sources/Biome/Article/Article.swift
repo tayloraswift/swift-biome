@@ -9,8 +9,12 @@ struct Article:BranchElement, Sendable
     @usableFromInline 
     typealias Offset = UInt32 
     @usableFromInline 
-    struct Divergence 
+    struct Divergence:Voidable, Sendable
     {
+        var isEmpty:Bool
+        {
+            true
+        }
     }
 
     @usableFromInline 

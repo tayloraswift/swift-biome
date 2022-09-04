@@ -45,19 +45,38 @@ struct _History<Value> where Value:Equatable
     {
         self.rewind(head, to: revision).map { self.forest[$0].value.value }
     }
-
+    /// Unconditionally pushes the given value to the head of the given tree.
     mutating 
-    func add(min value:Value, revision:_Version.Revision, to tree:inout Branch.Head<Value>?) 
+    func push(_ value:__owned Value, revision:_Version.Revision, 
+        to tree:inout Branch.Divergence<Value>?) 
     {
-        guard let head:Index = tree?.index  
+        if let divergence:Branch.Divergence<Value> = tree
+        {
+            tree = .init(head: self.forest.insert(.init(_move value, since: revision), 
+                before: divergence.head), 
+                start: divergence.start)
+        }
         else 
         {
-            tree = self.forest.insert(root: .init(value, since: revision))
+            tree = .init(head: self.forest.insert(.init(_move value, since: revision)), 
+                start: revision)
+        }
+    }
+    /// Pushes the given value to the head of the given tree if it is not equivalent 
+    /// to the existing min-value.
+    mutating 
+    func add(_ value:__owned Value, revision:_Version.Revision, 
+        to tree:inout Branch.Head<Value>?) 
+    {
+        guard let head:Branch.Head<Value> = tree
+        else 
+        {
+            tree = self.forest.insert(.init(_move value, since: revision))
             return
         }
-        if  self[head].value != value 
+        if  self[head.index].value != value 
         {
-            self.forest.push(min: .init(value, since: revision), into: &tree)
+            tree = self.forest.insert(.init(_move value, since: revision), before: head)
         }
     }
 }

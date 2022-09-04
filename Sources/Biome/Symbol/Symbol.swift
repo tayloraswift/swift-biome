@@ -9,10 +9,22 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
     typealias Offset = UInt32 
     
     public
-    struct Divergence:Sendable 
+    struct Divergence:Voidable, Sendable 
     {
         var metadata:Branch.Divergence<Metadata>?
         
+        var isEmpty:Bool 
+        {
+            if  case nil = self.metadata
+            {
+                return true 
+            }
+            else 
+            {
+                return false
+            }
+        }
+
         init() 
         {
             self.metadata = nil
