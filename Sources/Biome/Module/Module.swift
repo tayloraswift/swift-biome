@@ -58,7 +58,7 @@ struct Module:BranchElement, Sendable
 
     var symbols:[(range:Range<Symbol.Offset>, namespace:Branch.Position<Module>)]
     var articles:[Range<Article.Offset>]
-    var metadata:Branch.Head<Metadata>?
+    var metadata:_History<Metadata>.Head?
     
     var heads:Heads
     var redirect:(module:Redirect?, articles:Redirect?)
@@ -108,7 +108,7 @@ extension Module
         var symbols:[(range:Range<Symbol.Offset>, namespace:Branch.Position<Module>)]
         var articles:[Range<Article.Offset>]
 
-        var metadata:Branch.Divergence<Metadata>?
+        var metadata:_History<Metadata>.Divergent?
         
         init()
         {

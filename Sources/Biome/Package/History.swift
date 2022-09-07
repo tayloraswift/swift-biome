@@ -1,13 +1,5 @@
 import Forest 
 
-extension Branch 
-{
-    @available(*, deprecated, renamed: "History.Head")
-    typealias Head<Value> = _History<Value>.Head where Value:Equatable
-
-    @available(*, deprecated, renamed: "History.Divergent")
-    typealias Divergence<Value> = _History<Value>.Divergent where Value:Equatable
-}
 struct _History<Value> where Value:Equatable
 {
     typealias Head = Forest<Keyframe>.Tree.Head 
