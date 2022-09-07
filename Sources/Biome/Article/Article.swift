@@ -11,10 +11,6 @@ struct Article:BranchElement, Sendable
     @usableFromInline 
     struct Divergence:Voidable, Sendable
     {
-        var isEmpty:Bool
-        {
-            true
-        }
     }
 
     @usableFromInline 

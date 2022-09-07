@@ -6,8 +6,7 @@ extension Branch.Buffer:Sendable
 
 extension Branch 
 {
-    public 
-    struct Buffer<Element> where Element:BranchElement
+    struct Buffer<Element> where Element:BranchElement, Element.Divergence:Voidable
     {
         @available(*, deprecated, renamed: "positions")
         var indices:[Element.ID: Position<Element>] 
@@ -18,7 +17,7 @@ extension Branch
             }
         }
 
-        var divergences:Divergences<Element>
+        var divergences:[Position<Element>: Element.Divergence]
         private(set)
         var positions:[Element.ID: Position<Element>]
         private 
@@ -35,6 +34,46 @@ extension Branch
             self.positions = [:]
             self.storage = []
             self.startIndex = startIndex
+        }
+
+        mutating 
+        func update<Value>(_ position:Position<Element>, with value:__owned Value, 
+            revision:_Version.Revision, 
+            trunk:some Sequence<Epoch<Element>>,
+            field:
+            (
+                contemporary:WritableKeyPath<Element, _History<Value>.Head?>,
+                divergent:WritableKeyPath<Element.Divergence, _History<Value>.Divergent?>
+            ),
+            in history:inout _History<Value>)
+            where Value:Equatable
+        {
+            guard position.offset < self.startIndex 
+            else 
+            {
+                // symbol is contemporary to this branch. 
+                history.add(_move value, revision: revision, 
+                    to: &self[contemporary: position][keyPath: field.contemporary])
+                return 
+            }
+            if let previous:Value = (self.divergences[position]?[keyPath: field.divergent])
+                    .map({ history[$0.head.index].value })
+            {
+                if previous == value 
+                {
+                    // symbol is not contemporary, but has already diverged in this 
+                    // epoch, and its divergent value matches.
+                    return 
+                }
+            }
+            else if case value? = history.value(of: position, field: field, in: trunk)
+            {
+                // symbol is not contemporary, has not diverged in this epoch, 
+                // but its value (divergent or not) matches.
+                return 
+            }
+            history.push(_move value, revision: revision, 
+                to: &self.divergences[position, default: .init()][keyPath: field.divergent])
         }
     }
 }
@@ -136,8 +175,7 @@ extension Branch.Buffer
         typealias Index = Element.Offset 
         typealias SubSequence = Self 
 
-        let divergences:Branch.Divergences<Element>
-        private 
+        let divergences:[Branch.Position<Element>: Element.Divergence]
         let positions:[Element.ID: Branch.Position<Element>]
         private 
         let storage:[Element]
@@ -155,6 +193,7 @@ extension Branch.Buffer
         {
             _read 
             {
+                assert(self.indices ~= offset)
                 yield  self.storage[.init(offset - self.startIndex)]
             }
         }
@@ -165,21 +204,28 @@ extension Branch.Buffer
                 storage: self.storage, 
                 indices: range)
         }
+        subscript(contemporary position:Branch.Position<Element>) -> Element
+        {
+            _read
+            {
+                yield self[position.offset]
+            }
+        }
 
-        func index(before base:Element.Offset) -> Element.Offset
-        {
-            base - 1
-        }
-        func index(after base:Element.Offset) -> Element.Offset
-        {
-            base + 1
-        }
+        // func index(before base:Element.Offset) -> Element.Offset
+        // {
+        //     base - 1
+        // }
+        // func index(after base:Element.Offset) -> Element.Offset
+        // {
+        //     base + 1
+        // }
         // func index(_ base:Element.Offset, offsetBy distance:Int) -> Element.Offset
         // {
         //     Element.Offset.init(Int.init(base) + distance)
         // }
         
-        init(divergences:Branch.Divergences<Element>, 
+        init(divergences:[Branch.Position<Element>: Element.Divergence], 
             positions:[Element.ID: Branch.Position<Element>], 
             storage:[Element], 
             indices:Range<Element.Offset>)
@@ -188,19 +234,6 @@ extension Branch.Buffer
             self.positions = positions 
             self.storage = storage 
             self.indices = indices
-        }
-
-        func position(of id:Element.ID) -> Branch.Position<Element>? 
-        {
-            if  let position:Branch.Position<Element> = self.positions[id], 
-                self.indices ~= position.offset
-            {
-                return position
-            }
-            else 
-            {
-                return nil
-            }
         }
     }
 }

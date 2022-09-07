@@ -26,7 +26,7 @@ struct Module:BranchElement, Sendable
     public 
     struct Heads:Sendable 
     {
-        var symbols:[Colony]
+        var symbols:[(range:Range<Symbol.Offset>, namespace:Branch.Position<Module>)]
         var articles:[Range<Article.Offset>]
         
         @History<Set<Index>>.Branch.Optional 
@@ -56,7 +56,7 @@ struct Module:BranchElement, Sendable
     let id:ModuleIdentifier
     let index:Index 
 
-    var symbols:[Colony]
+    var symbols:[(range:Range<Symbol.Offset>, namespace:Branch.Position<Module>)]
     var articles:[Range<Article.Offset>]
     var metadata:Branch.Head<Metadata>?
     
@@ -105,26 +105,12 @@ extension Module
     public 
     struct Divergence:Voidable, Sendable 
     {
-        var symbols:[Colony]
+        var symbols:[(range:Range<Symbol.Offset>, namespace:Branch.Position<Module>)]
         var articles:[Range<Article.Offset>]
 
         var metadata:Branch.Divergence<Metadata>?
-
-        var isEmpty:Bool 
-        {
-            if  self.symbols.isEmpty,
-                self.articles.isEmpty,
-                case nil = self.metadata
-            {
-                return true 
-            }
-            else 
-            {
-                return false
-            }
-        }
-
-        init() 
+        
+        init()
         {
             self.symbols = []
             self.articles = []

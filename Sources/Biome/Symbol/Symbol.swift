@@ -11,19 +11,7 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
     public
     struct Divergence:Voidable, Sendable 
     {
-        var metadata:Branch.Divergence<Metadata>?
-        
-        var isEmpty:Bool 
-        {
-            if  case nil = self.metadata
-            {
-                return true 
-            }
-            else 
-            {
-                return false
-            }
-        }
+        var metadata:_History<Metadata>.Divergent?
 
         init() 
         {
@@ -65,7 +53,7 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
     var shape:Shape<Tree.Position<Self>>?
     var heads:Heads
     
-    var metadata:Branch.Head<Metadata>?
+    var metadata:_History<Metadata>.Head?
 
     var pollen:Set<Module.Pin>
     

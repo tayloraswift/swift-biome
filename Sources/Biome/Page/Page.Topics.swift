@@ -4,7 +4,7 @@ extension Page
 {
     enum Card 
     {
-        case composite(Symbol.Composite, Declaration<Symbol.Index>)
+        case composite(Branch.Composite, Declaration<Symbol.Index>)
         case article(Article.Index, Article.Excerpt)
     }
     
@@ -38,7 +38,7 @@ extension Page
     {
         enum Key:Hashable, Sendable 
         {
-            case composite(Symbol.Composite)
+            case composite(Branch.Composite)
             case article(Article.Index)
             case href(Ecosystem.Index)
         }
@@ -241,7 +241,7 @@ extension Page
         }
     }
     private 
-    func add(member composite:Symbol.Composite, culture:Module._Culture, to topics:inout Topics)
+    func add(member composite:Branch.Composite, culture:Module._Culture, to topics:inout Topics)
     {
         let sublist:Sublist = .community(self.ecosystem[composite.base].community)
         let declaration:Declaration<Symbol.Index> = 

@@ -55,19 +55,19 @@ extension Route
         var naturals:Naturals
         var synthetics:[Synthetics]
 
-        init(beliefs:__shared Beliefs, context:__shared Packages)
+        init(surface:__shared Surface, context:__shared Packages)
         {
             self.naturals = []
             self.synthetics = []
-            self.update(with: beliefs.facts, context: context)
-            self.update(with: beliefs.opinions, context: context)
+            self.update(with: surface.symbols, context: context)
+            self.update(with: surface.diacritics, context: context)
         }
         private mutating 
-        func update(with facts:[Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>], 
+        func update(with symbols:[Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>], 
             context:Packages)
         {
             for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
-                facts
+                symbols
             {
                 let host:Symbol = context[global: symbol]
                 
@@ -76,7 +76,7 @@ extension Route
                 if let stem:Route.Stem = host.kind.path
                 {
                     for (culture, features):(Branch.Position<Module>?, Set<Tree.Position<Symbol>>) in 
-                        facts.predicates.featuresAssumingConcreteType()
+                        facts.featuresAssumingConcreteType()
                     {
                         let diacritic:Branch.Diacritic = .init(host: symbol.contemporary, 
                             culture: culture ?? symbol.contemporary.culture)
@@ -88,11 +88,11 @@ extension Route
             }
         }
         private mutating 
-        func update(with opinions:[Tree.Diacritic: Symbol.Traits<Tree.Position<Symbol>>], 
+        func update(with diacritics:[Tree.Diacritic: Symbol.Traits<Tree.Position<Symbol>>], 
             context:Packages)
         {
             for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in 
-                opinions
+                diacritics
             {
                 // can have external traits that do not have to do with features
                 if !traits.features.isEmpty 

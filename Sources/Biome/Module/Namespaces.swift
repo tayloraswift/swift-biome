@@ -1,3 +1,4 @@
+import SymbolGraphs
 //  the endpoints of a graph edge can reference symbols in either this 
 //  package or one of its dependencies. since imports are module-wise, and 
 //  not package-wise, it’s possible for multiple index dictionaries to 
@@ -61,47 +62,71 @@ struct Namespaces
         self.init(.init(id: id, position: position), _branch: _branch)
     }
 
-    private mutating 
-    func link(id:Module.ID, position:Tree.Position<Module>)
-    {
-        self.linked[id] = position
-    }
     mutating 
-    func link(package:Package.ID, dependencies:[Module.ID]? = nil, 
+    func link(dependencies:[SymbolGraph.Dependency], 
+        linkable:[Package.Index: _Dependency], 
+        fasces:Fasces, 
+        context:Packages)
+        throws -> Fasces
+    {
+        var global:Fasces = fasces
+        // add explicit dependencies 
+        for dependency:SymbolGraph.Dependency in dependencies
+        {
+            guard let package:Package = context[dependency.package]
+            else 
+            {
+                throw _DependencyError.package(unavailable: dependency.package)
+            }
+            guard self.package != package.index 
+            else 
+            {
+                try self.link(local: package, dependencies: dependency.modules, 
+                    fasces: fasces)
+                continue 
+            }
+
+            global.append(contentsOf: try self.link(upstream: package, 
+                dependencies: dependency.modules, 
+                linkable: linkable))
+        }
+        // add implicit dependencies
+        switch context[self.package].kind
+        {
+        case .community(_): 
+            global.append(contentsOf: try self.link(upstream: .core, 
+                linkable: linkable, 
+                context: context))
+            fallthrough 
+        case .core: 
+            global.append(contentsOf: try self.link(upstream: .swift, 
+                linkable: linkable, 
+                context: context))
+        case .swift: 
+            break 
+        }
+        return global
+    }
+    private mutating 
+    func link(upstream package:Package.ID, 
         linkable:[Package.Index: _Dependency], 
         context:Packages) 
-        throws -> [Fascis]
+        throws -> Fasces
     {
-        guard let package:Package = context[package]
+        if let package:Package = context[package]
+        {
+            return try self.link(upstream: package, linkable: linkable)
+        }
         else 
         {
             throw _DependencyError.package(unavailable: package)
         }
-        guard self.package != package.index
-        else 
-        {
-            guard let dependencies:[Module.ID] 
-            else 
-            {
-                fatalError("unreachable")
-            }
-            // local dependency 
-            let fasces:[Fascis] = package.tree.fasces(through: self._branch)
-            for module:Module.ID in dependencies
-            {
-                if let module:Tree.Position<Module> = fasces.find(module: module)
-                {
-                    // use the stored id, not the requested id
-                    self.link(id: package.tree[local: module].id, position: module)
-                }
-                else 
-                {
-                    throw _DependencyError.target(unavailable: module, 
-                        package.tree[self._branch].id)
-                }
-            }
-            return []
-        }
+    }
+    private mutating 
+    func link(upstream package:Package, dependencies:[Module.ID]? = nil, 
+        linkable:[Package.Index: _Dependency]) 
+        throws -> Fasces
+    {
         switch linkable[package.index] 
         {
         case nil:
@@ -110,15 +135,15 @@ struct Namespaces
             throw _DependencyError.version(unavailable: (requirement, revision), package.id)
         case .available(let version):
             // upstream dependency 
-            let fasces:[Fascis] = package.tree.fasces(through: version)
+            let fasces:Fasces = package.tree.fasces(through: version)
             if let dependencies:[Module.ID] 
             {
                 for module:Module.ID in dependencies
                 {
-                    if let module:Tree.Position<Module> = fasces.find(module: module)
+                    if let module:Tree.Position<Module> = fasces.modules.find(module)
                     {
                         // use the stored id, not the requested id
-                        self.link(id: package.tree[local: module].id, position: module)
+                        self.linked[package.tree[local: module].id] = module
                     }
                     else 
                     {
@@ -131,16 +156,37 @@ struct Namespaces
             }
             else 
             {
-                for fascis:Fascis in fasces 
+                for epoch:Branch.Epoch<Module> in fasces.modules 
                 {
-                    for module:Module in fascis.modules
+                    for module:Module in epoch 
                     {
-                        self.link(id: module.id, position: fascis.branch.pluralize(module.index))
+                        self.linked[module.id] = epoch.branch.pluralize(module.index)
                     }
                 }
             }
             self.pins[package.index] = version
-            return fasces 
+            return fasces
+        }
+    }
+    private mutating 
+    func link(local package:Package, dependencies:[Module.ID], fasces:Fasces) throws 
+    {
+        let contemporary:Branch.Buffer<Module>.SubSequence = 
+            package.tree[self._branch].modules[...]
+        for module:Module.ID in dependencies
+        {
+            if  let module:Tree.Position<Module> = 
+                    contemporary.positions[module].map(self._branch.pluralize(_:)) ?? 
+                    fasces.modules.find(module) 
+            {
+                // use the stored id, not the requested id
+                self.linked[package.tree[local: module].id] = module
+            }
+            else 
+            {
+                throw _DependencyError.target(unavailable: module, 
+                    package.tree[self._branch].id)
+            }
         }
     }
 }
@@ -148,34 +194,49 @@ struct Namespaces
 struct Lens 
 {
     let namespaces:Namespaces
-    let upstream:[Fascis]
-    let local:[Fascis]
-    let routes:Branch.Table<Route.Key>
+    let upstream:Fasces
+    let local:Fasces
+    let routes:[Route.Key: Branch.Stack]
     let linked:Set<Branch.Position<Module>>
 
     var culture:Branch.Position<Module> 
     {
         self.namespaces.culture
     }
+    var package:Package.Index
+    {
+        self.culture.package
+    }
 
-    func select(local route:Route.Key) -> Branch._Selection<Branch.Composite>?
+    func select(_local route:Route.Key) -> _Selection<Tree.Position<Symbol>>?
+    {
+        fatalError("unimplemented")
+    }
+    func select(local route:Route.Key) -> _Selection<Branch.Composite>?
     {
         self.select(route: route, fasces: self.local)
     }
-    func select(_ route:Route.Key) -> Branch._Selection<Branch.Composite>?
+    func select(global route:Route.Key) -> _Selection<Branch.Composite>?
     {
         // upstream dependencies cannot possibly contain a route 
         // with a namespace whose culture is one of its consumers, 
         // so we can skip searching them entirely.
-        self.namespaces.package != route.namespace.package ?
+        self.package != route.namespace.package ?
             self.select(route: route, fasces: [self.local, self.upstream].joined()) :
             self.select(local: route)
     }
     private 
     func select(route:Route.Key, fasces:some Sequence<Fascis>) 
-        -> Branch._Selection<Branch.Composite>
+        -> _Selection<Branch.Composite>
     {
-        var selection:Branch._Selection<Branch.Composite> = .none
+        var selection:_Selection<Branch.Composite> = .none
+        self.routes.select(route)
+        {
+            if self.linked.contains($0.culture) 
+            {
+                selection.append($0)
+            }
+        }
         for fascis:Fascis in fasces 
         {
             fascis.routes.select(route)
@@ -194,12 +255,12 @@ struct Lenses:RandomAccessCollection
     struct Target 
     {
         let namespaces:Namespaces
-        let upstream:[Fascis]
-        let routes:Branch.Table<Route.Key>
+        let upstream:Fasces
+        let routes:[Route.Key: Branch.Stack]
         let linked:Set<Branch.Position<Module>>
     }
 
-    let local:[Fascis]
+    let local:Fasces
     private 
     let targets:[Target]
 
@@ -221,12 +282,12 @@ struct Lenses:RandomAccessCollection
             linked: target.linked)
     }
 
-    init(_ namespaces:__owned [Namespaces], local:__owned [Fascis], context:__shared Packages)
+    init(_ namespaces:__owned [Namespaces], local:__owned Fasces, context:__shared Packages)
     {
         self.local = local
         self.targets = namespaces.map 
         { 
-            var upstream:[Fascis] = []
+            var upstream:Fasces = []
             for (dependency, version):(Package.Index, _Version) in $0.pins 
             {
                 upstream.append(contentsOf: context[dependency].tree.fasces(through: version))

@@ -87,7 +87,7 @@ extension Packages
         ]
         return substitutions.mapValues { .init(freezing: $0) }
     }
-    func renderFields(for composite:Symbol.Composite, 
+    func renderFields(for composite:Branch.Composite, 
         declaration:Declaration<Symbol.Index>, 
         facts:Symbol.Predicates<Symbol.Index>) 
         -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
@@ -133,7 +133,7 @@ extension Packages
         
         return substitutions.mapValues { .init(freezing: $0) }
     }
-    func renderFields(for choices:[Symbol.Composite], uri:URI) -> [Page.Key: [UInt8]]
+    func renderFields(for choices:[Branch.Composite], uri:URI) -> [Page.Key: [UInt8]]
     {
         // does not use percent-encoding
         var name:String = ""
@@ -161,7 +161,7 @@ extension Packages
     }
     
     private 
-    func renderNotes(for composite:Symbol.Composite,
+    func renderNotes(for composite:Branch.Composite,
         declaration:Declaration<Symbol.Index>, 
         facts:Symbol.Predicates<Symbol.Index>) 
         -> HTML.Element<Ecosystem.Index>?
@@ -248,7 +248,7 @@ extension Packages
         return items.isEmpty ? nil : .ul(items, attributes: [.class("notes")])
     }
     private 
-    func renderBreadcrumbs(for composite:Symbol.Composite) -> HTML.Element<Ecosystem.Index>
+    func renderBreadcrumbs(for composite:Branch.Composite) -> HTML.Element<Ecosystem.Index>
     {
         let base:Symbol = self[composite.base]
         

@@ -1,8 +1,8 @@
 public 
 protocol BranchElement<Culture, Offset>:Identifiable
 {
+    associatedtype Offset:UnsignedInteger where Offset.Stride == Int
     associatedtype Culture:Hashable 
-    associatedtype Offset:UnsignedInteger
     associatedtype Divergence
 }
 extension BranchElement

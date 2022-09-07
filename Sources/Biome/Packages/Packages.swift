@@ -99,10 +99,9 @@ struct Packages
             name: .init(pin.requirement))
         // we are going to mutate `self[index].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
-        let fasces:[Fascis] = self[index].tree.fasces(upTo: branch)
-        var missing:Set<Tree.Position<Module>> = self[index].tree[branch].allModules(
-            fasces: fasces)
+        let fasces:Fasces = self[index].tree.fasces(upTo: branch)
 
+        var surface:Surface = .init(branch: self[index].tree[branch], fasces: fasces)
         // `pins` is a subset of `linkable`; it gets filled in gradually as we 
         // resolve dependencies. this allows us to discard unused dependencies 
         // from the `Package.resolved` file.
@@ -115,73 +114,46 @@ struct Packages
         var _extensions:[[Extension]] = []
             _extensions.reserveCapacity(graphs.count)
         
-        var beliefs:Beliefs = .init() 
-
         for graph:SymbolGraph in graphs 
         {
             let module:Tree.Position<Module> = self[index].tree[branch].add(module: graph.id, 
                 culture: index, 
-                fasces: fasces) 
-            
-            missing.remove(module)
+                fasces: fasces)
 
             // use this instead of `graph.id` to prevent string duplication
             var namespaces:Namespaces = .init(id: self[global: module].id, 
                 position: module, 
                 _branch: branch)
-            var fasces:[Fascis] = fasces 
-            // add explicit dependencies 
-            for dependency:SymbolGraph.Dependency in graph.dependencies
-            {
-                // will return an empty array if these are local dependencies, so we 
-                // won’t accidentally capture the buffer we are trying to modify!
-                fasces.append(contentsOf: try namespaces.link(package: dependency.package, 
-                    dependencies: dependency.modules, 
-                    linkable: linkable, 
-                    context: self))
-            }
-            // add implicit dependencies
-            switch self[module.package].kind
-            {
-            case .community(_): 
-                fasces.append(contentsOf: try namespaces.link(package: .core, 
-                    linkable: linkable, 
-                    context: self))
-                fallthrough 
-            case .core: 
-                fasces.append(contentsOf: try namespaces.link(package: .swift, 
-                    linkable: linkable, 
-                    context: self))
-            case .swift: 
-                break 
-            }
+            let combined:Fasces = try namespaces.link(dependencies: graph.dependencies, 
+                linkable: linkable, 
+                fasces: fasces,
+                context: self)
 
             // all of the fasces in `fasces` are from different branches, 
             // so this will not cause copy-on-write.
             let (abstractor, _rendered):(_Abstractor, [Extension]) = self[index].tree[branch].add(graph: graph, 
                 namespaces: namespaces, 
-                fasces: fasces, 
-                stems: &stems) 
+                fasces: combined, 
+                stems: &stems)
 
-            beliefs.update(with: graph.edges, abstractor: abstractor, context: self)
+            //surface.symbols.confirm(abstractor.updatedSymbols)
+            surface.update(with: graph.edges, abstractor: abstractor, context: self)
 
             targets.append(namespaces)
             abstractors.append(abstractor)
             _extensions.append(_rendered)
         }
 
-        beliefs.integrate()
-
         // successfully registered symbolgraph contents 
         let version:_Version = self.commit(pin.revision, to: branch, of: index, 
             pins: targets.reduce(into: [:]) 
             { 
-                $0.merge($1.pins) { $1 } 
+                $0.merge($1.pins) { $1 }
             })
 
         // we must compute the entire cohort before performing any writes, 
         // to avoid copy-on-write.
-        let cohort:Route.Cohort = .init(beliefs: beliefs, context: self)
+        let cohort:Route.Cohort = .init(surface: surface, context: self)
         self[index].tree[branch].routes.stack(routes: cohort.naturals, 
             revision: version.revision)
         self[index].tree[branch].routes.stack(routes: cohort.synthetics.joined(), 
@@ -194,11 +166,12 @@ struct Packages
         // in the current cohort.
         let lenses:Lenses = .init(_move targets, local: _move fasces, context: self)
 
-        self[index].tree[branch].inferScopes(&beliefs, lenses: lenses, stems: stems)
+        self[index].tree[branch].inferScopes(&surface, lenses: lenses, stems: stems)
+
+        //surface.foreign.confirm(beliefs.opinions.keys)
+
         // write to the keyframe buffers
-        self[index]._pushModuleMetadata(version: version, missing: missing, lenses: lenses)
-        
-        //self[index].pushBeliefs(_move beliefs, version: version, fasces: fasces)
+        self[index].updateMetadata(surface, version: version, lenses: lenses)
         // for scope:Module.Scope in scopes
         // {
         //     self[index].pushDependencies(scope.dependencies(), culture: scope.culture)

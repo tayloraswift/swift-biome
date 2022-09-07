@@ -1,63 +1,5 @@
 extension Branch 
 {
-    enum SelectionError<Element>:Error 
-    {
-        case none
-        case many([Element])
-    }
-    enum _Selection<Element>
-    {
-        // we have to absorb the optional, because this type is 
-        // generic, and we cannot vend an extension on an optional generic type.
-
-        case none 
-        case one(Element)
-        case many([Element])
-                
-        init(_ elements:[Element]) 
-        {
-            if let first:Element = elements.first 
-            {
-                self = elements.count < 2 ? .one(first) : .many(elements)
-            }
-            else 
-            {
-                self = .none
-            }
-        }
-        
-        func unique() throws -> Element
-        {
-            switch self 
-            {
-            case .none: 
-                throw SelectionError<Element>.none
-            case .one(let element):
-                return element
-            case .many(let elements): 
-                throw SelectionError<Element>.many(elements)
-            }
-        }
-
-        mutating 
-        func append(_ element:Element) 
-        {
-            switch _move self 
-            {
-            case .none: 
-                self = .one(element)
-            case .one(let first): 
-                self = .many([first, element])
-            case .many(var elements): 
-                elements.append(element)
-                self = .many(elements)
-            }
-        }
-    }
-}
-
-extension Branch 
-{
     // 24B stride. the ``many`` case should be quite rare, since we are now 
     // encoding path orientation in the leaf key.
     enum Stack:Sendable 
@@ -139,5 +81,35 @@ extension Branch.Stack?
     mutating 
     func remove(_ element:Branch.Composite)
     {
+    }
+}
+
+extension Dictionary where Value == Branch.Stack 
+{
+    func select(_ key:Key, _ body:(Branch.Composite) throws -> ()) rethrows 
+    {
+        try self[key]?.forEach { (composite, _) in try body(composite) }
+    }
+
+    mutating 
+    func stack(routes:some Sequence<(Key, Branch.Composite)>, revision:_Version.Revision) 
+    {
+        for (key, composite):(Key, Branch.Composite) in routes 
+        {
+            self[key].insert(composite, revision: revision)
+        }
+    }
+}
+extension Divergences where Value == Branch.Stack
+{
+    func select(_ key:Key, _ body:(Branch.Composite) throws -> ()) rethrows 
+    {
+        try self[key]?.forEach 
+        {
+            if $1 <= self.limit 
+            {
+                try body($0)
+            }
+        }
     }
 }

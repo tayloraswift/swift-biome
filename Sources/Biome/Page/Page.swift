@@ -78,10 +78,10 @@ struct Page
 extension Page 
 {
     mutating 
-    func generate(for choices:[Symbol.Composite], uri:URI)
+    func generate(for choices:[Branch.Composite], uri:URI)
     {
         let segregated:[Module.Index: [Card]] = 
-            [Module.Index: [Symbol.Composite]]
+            [Module.Index: [Branch.Composite]]
             .init(grouping: choices, by: \.culture)
             .mapValues 
         {
@@ -159,7 +159,7 @@ extension Page
         }
     }
     private mutating 
-    func generate(for composite:Symbol.Composite, exhibit:Version?) 
+    func generate(for composite:Branch.Composite, exhibit:Version?) 
     {
         //  up to three pinned packages involved for a composite: 
         //  1. host package (optional)
@@ -246,7 +246,7 @@ extension Page
     private mutating 
     func expand(_ link:Ecosystem.Link) -> HTML.Element<Never>
     {
-        let composites:[Symbol.Composite]
+        let composites:[Branch.Composite]
         var crumbs:[HTML.Element<Never>] = []
         switch self.ecosystem.expand(link)
         {
@@ -269,7 +269,7 @@ extension Page
             composites = trace 
             crumbs.reserveCapacity(2 * trace.count - 1)
         }
-        for composite:Symbol.Composite in composites
+        for composite:Branch.Composite in composites
         {
             if !crumbs.isEmpty 
             {

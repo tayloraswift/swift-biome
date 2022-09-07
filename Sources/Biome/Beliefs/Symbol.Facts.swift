@@ -23,22 +23,7 @@ extension Symbol
             self.primary = primary
             self.accepted = [:]
         }
-        
-        func featuresAssumingConcreteType() 
-            -> [(perpetrator:Module.Index?, features:Set<Position>)]
-        {
-            var features:[(perpetrator:Module.Index?, features:Set<Position>)] = []
-            if !self.primary.features.isEmpty
-            {
-                features.append((nil, self.primary.features))
-            }
-            for (perpetrator, traits):(Module.Index, Traits<Position>) in self.accepted
-                where !traits.features.isEmpty
-            {
-                features.append((perpetrator, traits.features))
-            }
-            return features
-        }
+
 
         func map<T>(_ transform:(Position) throws -> T) rethrows -> Predicates<T> 
             where T:Hashable
@@ -137,6 +122,22 @@ extension Symbol
                 accepted: try self.accepted.mapValues { try $0.map(transform) })
         }
 
+        func featuresAssumingConcreteType() 
+            -> [(perpetrator:Module.Index?, features:Set<Position>)]
+        {
+            var features:[(perpetrator:Module.Index?, features:Set<Position>)] = []
+            if !self.primary.features.isEmpty
+            {
+                features.append((nil, self.primary.features))
+            }
+            for (perpetrator, traits):(Module.Index, Traits<Position>) in self.accepted
+                where !traits.features.isEmpty
+            {
+                features.append((perpetrator, traits.features))
+            }
+            return features
+        }
+
         mutating 
         func update(acceptedCulture culture:Module.Index, with traits:Traits<Position>)
         {
@@ -148,6 +149,8 @@ extension Symbol.Facts<Tree.Position<Symbol>>
 {
     func metadata() -> Symbol.Metadata 
     {
-        fatalError("unimplemented")
+        .present(roles: self.roles?.map(\.contemporary), 
+            primary: self.primary.map(\.contemporary), 
+            accepted: self.accepted.mapValues { $0.map(\.contemporary) })
     }
 }

@@ -1,9 +1,24 @@
 import Forest 
 
+extension Branch 
+{
+    @available(*, deprecated, renamed: "History.Head")
+    typealias Head<Value> = _History<Value>.Head where Value:Equatable
+
+    @available(*, deprecated, renamed: "History.Divergent")
+    typealias Divergence<Value> = _History<Value>.Divergent where Value:Equatable
+}
 struct _History<Value> where Value:Equatable
 {
+    typealias Head = Forest<Keyframe>.Tree.Head 
     typealias Index = Forest<Keyframe>.Index 
 
+    struct Divergent
+    {
+        var head:Head
+        /// The first revision in which this field diverged from its parent branch.
+        var start:_Version.Revision
+    }
     struct Keyframe
     {
         var since:_Version.Revision
@@ -45,16 +60,75 @@ struct _History<Value> where Value:Equatable
     {
         self.rewind(head, to: revision).map { self.forest[$0].value.value }
     }
+        
+    func value<Key, Divergence>(of key:Key, 
+        field:KeyPath<Divergence, Divergent?>,
+        in trunk:some Sequence<Divergences<Key, Divergence>>)
+        -> Value?
+        where Key:Hashable
+    {
+        for divergences:Divergences<Key, Divergence> in trunk
+        {
+            if let head:Head = divergences[key, field]
+            {
+                if  let previous:Value = 
+                    self.value(rewinding: head, to: divergences.limit)
+                {
+                    return previous
+                }
+                else 
+                {
+                    fatalError("unreachable: divergent containment check succeeded but revision was not found")
+                }
+            }
+        }
+        return nil
+    }
+    func value<Element>(of position:Branch.Position<Element>, 
+        field:
+        (
+            contemporary:KeyPath<Element, Head?>,
+            divergent:KeyPath<Element.Divergence, Divergent?>
+        ),
+        in trunk:some Sequence<Branch.Epoch<Element>>) 
+        -> Value?
+        where Element:BranchElement
+    {
+        for epoch:Branch.Epoch<Element> in trunk
+        {
+            if let contemporary:Element = epoch[position] 
+            {
+                // symbol is contemporary to this epoch.
+                return contemporary[keyPath: field.contemporary].flatMap 
+                {
+                    self.value(rewinding: $0, to: epoch.limit)
+                }
+            } 
+            if let head:Head = epoch.divergences[position, field.divergent]
+            {
+                if  let previous:Value = 
+                    self.value(rewinding: head, to: epoch.limit)
+                {
+                    return previous
+                }
+                else 
+                {
+                    fatalError("unreachable: divergent containment check succeeded but revision was not found")
+                }
+            }
+        }
+        fatalError("unreachable: incomplete timeline!")
+    }
+
     /// Unconditionally pushes the given value to the head of the given tree.
     mutating 
-    func push(_ value:__owned Value, revision:_Version.Revision, 
-        to tree:inout Branch.Divergence<Value>?) 
+    func push(_ value:__owned Value, revision:_Version.Revision, to tree:inout Divergent?) 
     {
-        if let divergence:Branch.Divergence<Value> = tree
+        if let divergent:Divergent = tree
         {
             tree = .init(head: self.forest.insert(.init(_move value, since: revision), 
-                before: divergence.head), 
-                start: divergence.start)
+                before: divergent.head), 
+                start: divergent.start)
         }
         else 
         {
@@ -65,10 +139,9 @@ struct _History<Value> where Value:Equatable
     /// Pushes the given value to the head of the given tree if it is not equivalent 
     /// to the existing min-value.
     mutating 
-    func add(_ value:__owned Value, revision:_Version.Revision, 
-        to tree:inout Branch.Head<Value>?) 
+    func add(_ value:__owned Value, revision:_Version.Revision, to tree:inout Head?) 
     {
-        guard let head:Branch.Head<Value> = tree
+        guard let head:Head = tree
         else 
         {
             tree = self.forest.insert(.init(_move value, since: revision))

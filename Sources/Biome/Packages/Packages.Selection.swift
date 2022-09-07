@@ -5,12 +5,12 @@ extension Packages
     @usableFromInline
     enum Selection
     {
-        case one(Symbol.Composite)
-        case many([Symbol.Composite])
+        case one(Branch.Composite)
+        case many([Branch.Composite])
                 
-        init?(_ matches:[Symbol.Composite]) 
+        init?(_ matches:[Branch.Composite]) 
         {
-            guard let first:Symbol.Composite = matches.first 
+            guard let first:Branch.Composite = matches.first 
             else 
             {
                 return nil
@@ -25,7 +25,7 @@ extension Packages
             }
         }
         
-        func composite() throws -> Symbol.Composite 
+        func composite() throws -> Branch.Composite 
         {
             switch self 
             {
@@ -67,11 +67,11 @@ extension Packages
         }
     }
     func selectExtant<Lenses>(_ route:Route.Key, lenses:Lenses, 
-        where predicate:(Symbol.Composite) throws -> Bool) 
+        where predicate:(Branch.Composite) throws -> Bool) 
         rethrows -> Selection?
         where Lenses:Sequence, Lenses.Element == Package.Pinned
     {
-        var matches:[Symbol.Composite] = []
+        var matches:[Branch.Composite] = []
         for pinned:Package.Pinned in lenses 
         {
             try pinned.package.groups[route]?.forEach 
@@ -99,10 +99,10 @@ extension Packages
     }
     private
     func selectHistorical(_ route:Route.Key, lens:Package, 
-        where predicate:(Symbol.Composite) throws -> Bool) 
+        where predicate:(Branch.Composite) throws -> Bool) 
         rethrows -> Selection?
     {
-        var matches:[Symbol.Composite] = []
+        var matches:[Branch.Composite] = []
         try lens.groups[route]?.forEach 
         {
             if try predicate($0)
@@ -113,7 +113,7 @@ extension Packages
         return .init(matches)
     }
     
-    func filter(_ composite:Symbol.Composite, by disambiguator:Symbol.Disambiguator) 
+    func filter(_ composite:Branch.Composite, by disambiguator:Symbol.Disambiguator) 
         -> Bool
     {
         let host:Symbol = self[composite.diacritic.host]

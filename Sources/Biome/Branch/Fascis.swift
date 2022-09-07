@@ -1,130 +1,122 @@
-@available(*, deprecated, renamed: "Fascis")
-typealias Trunk = Fascis 
-
 struct Fascis:Sendable 
 {
+    private
+    let _modules:Branch.Buffer<Module>.SubSequence, 
+        _symbols:Branch.Buffer<Symbol>.SubSequence,
+        _articles:Branch.Buffer<Article>.SubSequence
+    private 
+    let _opinions:[Branch.Diacritic: _ForeignDivergence], 
+        _routes:[Route.Key: Branch.Stack]
+    /// The index of the original branch this fascis was cut from.
+    /// 
+    /// This is the branch that contains the fascis, not the branch 
+    /// the fascis was forked from.
     let branch:_Version.Branch
-    @available(*, unavailable)
-    var revision:_Version.Revision 
-    {
-        fatalError()
-    }
-    let routes:Branch.Table<Route.Key>.Prefix
-    let modules:Branch.Buffer<Module>.SubSequence, 
-        symbols:Branch.Buffer<Symbol>.SubSequence,
-        articles:Branch.Buffer<Article>.SubSequence
+    /// The index of the last revision contained within this fascis.
+    let limit:_Version.Revision 
 
-    init(branch:_Version.Branch,
-        routes:Branch.Table<Route.Key>.Prefix,
+    init(
         modules:Branch.Buffer<Module>.SubSequence, 
         symbols:Branch.Buffer<Symbol>.SubSequence,
-        articles:Branch.Buffer<Article>.SubSequence)
+        articles:Branch.Buffer<Article>.SubSequence, 
+        opinions:[Branch.Diacritic: _ForeignDivergence],
+        routes:[Route.Key: Branch.Stack],
+        branch:_Version.Branch, 
+        limit:_Version.Revision)
     {
-        self.routes = routes
+        self._modules = modules
+        self._symbols = symbols
+        self._articles = articles
+        self._opinions = opinions
+        self._routes = routes
+
         self.branch = branch
-        self.modules = modules
-        self.symbols = symbols
-        self.articles = articles
+        self.limit = limit
+    }
+
+    var modules:Branch.Epoch<Module> 
+    {
+        .init(self._modules, branch: self.branch, limit: self.limit)
+    }
+    var symbols:Branch.Epoch<Symbol> 
+    {
+        .init(self._symbols, branch: self.branch, limit: self.limit)
+    }
+    var articles:Branch.Epoch<Article> 
+    {
+        .init(self._articles, branch: self.branch, limit: self.limit)
+    }
+    var opinions:Divergences<Branch.Diacritic, _ForeignDivergence> 
+    {
+        .init(self._opinions, limit: self.limit)
+    }
+    var routes:Divergences<Route.Key, Branch.Stack> 
+    {
+        .init(self._routes, limit: self.limit)
     }
 }
 
-extension Sequence<Fascis> 
-{
-    func find(module:Module.ID) -> Tree.Position<Module>? 
-    {
-        for fascis:Fascis in self 
-        {
-            if let module:Branch.Position<Module> = fascis.modules.position(of: module)
-            {
-                return fascis.branch.pluralize(module)
-            }
-        }
-        return nil
-    }
-    func find(symbol:Symbol.ID) -> Tree.Position<Symbol>? 
-    {
-        for fascis:Fascis in self 
-        {
-            if let symbol:Branch.Position<Symbol> = fascis.symbols.position(of: symbol)
-            {
-                return fascis.branch.pluralize(symbol)
-            }
-        }
-        return nil
-    }
-    func find(article:Article.ID) -> Tree.Position<Article>? 
-    {
-        for fascis:Fascis in self 
-        {
-            if let article:Branch.Position<Article> = fascis.articles.position(of: article)
-            {
-                return fascis.branch.pluralize(article)
-            }
-        }
-        return nil
-    }
-}
-extension RandomAccessCollection<Fascis>
-{
-    func pluralize(_ position:Branch.Position<Symbol>) -> Tree.Position<Symbol>?
-    {
-        self.pluralize(position, in: \.symbols)
-    }
-    private 
-    func pluralize<T>(_ position:Branch.Position<T>, 
-        in buffer:KeyPath<Fascis, Branch.Buffer<T>.SubSequence>) -> Tree.Position<T>?
-        where T:BranchElement 
-    {
-        let fascis:Fascis? = self.search 
-        {
-            if      position.offset < $0[keyPath: buffer].indices.lowerBound 
-            {
-                return .lower 
-            }
-            else if position.offset < $0[keyPath: buffer].indices.upperBound 
-            {
-                return nil 
-            }
-            else 
-            {
-                return .upper
-            }
-        }
-        return fascis?.branch.pluralize(position)
-    }
-}
+// extension RandomAccessCollection<Fascis>
+// {
+//     func pluralize(_ position:Branch.Position<Symbol>) -> Tree.Position<Symbol>?
+//     {
+//         self.pluralize(position, in: \.symbols)
+//     }
+//     private 
+//     func pluralize<T>(_ position:Branch.Position<T>, 
+//         in buffer:KeyPath<Fascis, Branch.Buffer<T>.SubSequence>) -> Tree.Position<T>?
+//         where T:BranchElement 
+//     {
+//         let fascis:Fascis? = self.search 
+//         {
+//             if      position.offset < $0[keyPath: buffer].indices.lowerBound 
+//             {
+//                 return .lower 
+//             }
+//             else if position.offset < $0[keyPath: buffer].indices.upperBound 
+//             {
+//                 return nil 
+//             }
+//             else 
+//             {
+//                 return .upper
+//             }
+//         }
+//         return fascis?.branch.pluralize(position)
+//     }
+// }
 
-private
-enum BinarySearchPartition 
-{
-    case lower 
-    case upper
-}
-extension RandomAccessCollection 
-{
-    private
-    func search(by partition:(Element) throws -> BinarySearchPartition?) rethrows -> Element?
-    {
-        var count:Int = self.count
-        var current:Index = self.startIndex
+// private
+// enum BinarySearchPartition 
+// {
+//     case lower 
+//     case upper
+// }
+// extension RandomAccessCollection 
+// {
+//     private
+//     func search(by partition:(Element) throws -> BinarySearchPartition?) rethrows -> Element?
+//     {
+//         var count:Int = self.count
+//         var current:Index = self.startIndex
         
-        while 0 < count
-        {
-            let half:Int = count >> 1
-            let median:Index = self.index(current, offsetBy: half)
+//         while 0 < count
+//         {
+//             let half:Int = count >> 1
+//             let median:Index = self.index(current, offsetBy: half)
 
-            let element:Element = self[median]
-            switch try partition(element)
-            {
-            case .lower?:
-                count = half
-            case nil: 
-                return element
-            case .upper?:
-                current = self.index(after: median)
-                count -= half + 1
-            }
-        }
-        return nil
-    }
-}
+//             let element:Element = self[median]
+//             switch try partition(element)
+//             {
+//             case .lower?:
+//                 count = half
+//             case nil: 
+//                 return element
+//             case .upper?:
+//                 current = self.index(after: median)
+//                 count -= half + 1
+//             }
+//         }
+//         return nil
+//     }
+// }

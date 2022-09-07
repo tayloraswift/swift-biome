@@ -79,7 +79,7 @@ struct Tree
         return branch 
     }
 
-    func fasces(upTo branch:_Version.Branch) -> [Fascis]
+    func fasces(upTo branch:_Version.Branch) -> Fasces
     {
         var current:Branch = self[branch]
         var fasces:[Fascis] = []
@@ -88,20 +88,20 @@ struct Tree
             current = self[fork.branch]
             fasces.append(current[...fork.revision])
         }
-        return fasces
+        return .init(fasces)
     }
-    func fasces(through branch:_Version.Branch) -> [Fascis]
-    {
-        var current:Branch = self[branch]
-        var fasces:[Fascis] = [current[...]]
-        while let fork:_Version = current.fork 
-        {
-            current = self[fork.branch]
-            fasces.append(current[...fork.revision])
-        }
-        return fasces
-    }
-    func fasces(through version:_Version) -> [Fascis]
+    // func fasces(through branch:_Version.Branch) -> [Fascis]
+    // {
+    //     var current:Branch = self[branch]
+    //     var fasces:[Fascis] = [current[...]]
+    //     while let fork:_Version = current.fork 
+    //     {
+    //         current = self[fork.branch]
+    //         fasces.append(current[...fork.revision])
+    //     }
+    //     return fasces
+    // }
+    func fasces(through version:_Version) -> Fasces
     {
         var current:Branch = self[version.branch]
         var fasces:[Fascis] = [current[...version.revision]]
@@ -110,7 +110,7 @@ struct Tree
             current = self[fork.branch]
             fasces.append(current[...fork.revision])
         }
-        return fasces
+        return .init(fasces)
     }
 
     func find(_ pin:PackageResolution.Pin) -> _Dependency 

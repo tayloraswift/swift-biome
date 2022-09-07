@@ -103,6 +103,7 @@ struct Package:Identifiable, Sendable
     var tree:Tree
     var moduleMetadata:_History<Module.Metadata>
     var symbolMetadata:_History<Symbol.Metadata>
+    var foreignMetadata:_History<_ForeignMetadata>
     
     init(id:ID, index:Index)
     {
@@ -136,6 +137,7 @@ struct Package:Identifiable, Sendable
         self.tree = .init(culture: index)
         self.moduleMetadata = .init()
         self.symbolMetadata = .init()
+        self.foreignMetadata = .init()
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -387,55 +389,96 @@ struct Package:Identifiable, Sendable
 extension Package 
 {
     mutating 
-    func _pushModuleMetadata(version:_Version, 
-        missing:Set<Tree.Position<Module>>, 
-        lenses:Lenses)
+    func updateMetadata(_ surface:Surface, version:_Version, lenses:Lenses)
     {
-        for missing:Tree.Position<Module> in missing 
-        {
-            self.tree[version.branch].modules.add(min: .missing, 
-                timeline: lenses.local.lazy.map(\.modules), 
-                position: missing.contemporary, 
-                revision: version.revision, 
-                field: (\.metadata, \.metadata),
-                to: &self.moduleMetadata)
-        }
+        self.clearMetadata(for: surface.missingModules, 
+            version: version, 
+            lenses: lenses)
+        self.clearMetadata(for: surface.missingSymbols, 
+            version: version, 
+            lenses: lenses)
+        self.clearMetadata(for: surface.missingDiacritics, 
+            version: version, 
+            lenses: lenses)
+        
         for lens:Lens in lenses 
         {
-            self.tree[version.branch].modules.add(min: .present(dependencies: lens.linked), 
-                timeline: lens.local.lazy.map(\.modules), 
-                position: lens.culture, 
+            self.tree[version.branch].modules.update(lens.culture, 
+                with: .present(dependencies: lens.linked), 
                 revision: version.revision, 
+                trunk: lens.local.modules, 
                 field: (\.metadata, \.metadata),
-                to: &self.moduleMetadata)
+                in: &self.moduleMetadata)
+        }
+        for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
+            surface.symbols
+        {
+            self.tree[version.branch].symbols.update(symbol.contemporary, with: facts.metadata(),
+                revision: version.revision, 
+                trunk: lenses.local.symbols, 
+                field: (\.metadata, \.metadata), 
+                in: &self.symbolMetadata)
+        }
+        for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in 
+            surface.diacritics
+        {
+            let key:Branch.Diacritic = diacritic.contemporary
+            let value:_ForeignMetadata = traits.map(\.contemporary) 
+            if let previous:_ForeignMetadata = (self.tree[version.branch].opinions[key]?.metadata)
+                    .map({ self.foreignMetadata[$0.head.index].value })
+            {
+                if previous == value 
+                {
+                    continue 
+                }
+            }
+            else if case value? = self.foreignMetadata.value(of: key, field: \.metadata, 
+                in: lenses.local.lazy.map(\.opinions))
+            {
+                continue 
+            }
+
+            self.foreignMetadata.push(value, revision: version.revision, 
+                to: &self.tree[version.branch].opinions[key, default: .init()].metadata)
         }
     }
-    // mutating 
-    // func pushBeliefs(_ beliefs:__owned Beliefs, version:_Version, fasces:[Fascis])
-    // {
-    //     for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
-    //         beliefs.facts
-    //     {
-    //         self.tree[version.branch].add(min: facts.metadata(),
-    //             revision: version.revision, 
-    //             fasces: fasces, 
-    //             symbol: symbol.contemporary, 
-    //             field: \.facts, 
-    //             to: &self.symbolMetadata)
-    //     }
-    //     // for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in 
-    //     //     beliefs.opinions 
-    //     // {
-    //     //     self.opinions.push(traits, version: current, 
-    //     //         into: &self.external[diacritic])
-    //     // }
-    // }
-    mutating 
-    func pushDependencies(_ dependencies:Set<Module.Index>, culture:Module.Index)
+
+    private mutating 
+    func clearMetadata(for missing:Set<Branch.Position<Module>>, 
+        version:_Version, 
+        lenses:Lenses)
     {
-        self.dependencies.push(dependencies, version: self.versions.latest,
-            into: &self.modules[local: culture].heads.dependencies)
+        for missing:Branch.Position<Module> in missing 
+        {
+            self.tree[version.branch].modules.update(missing, with: .missing, 
+                revision: version.revision, 
+                trunk: lenses.local.modules, 
+                field: (\.metadata, \.metadata),
+                in: &self.moduleMetadata)
+        }
     }
+    private mutating 
+    func clearMetadata(for missing:Set<Branch.Position<Symbol>>, 
+        version:_Version, 
+        lenses:Lenses)
+    {
+        for missing:Branch.Position<Symbol> in missing 
+        {
+            self.tree[version.branch].symbols.update(missing, with: .missing,
+                revision: version.revision, 
+                trunk: lenses.local.symbols, 
+                field: (\.metadata, \.metadata),
+                in: &self.symbolMetadata)
+        }
+    }
+    private mutating 
+    func clearMetadata(for missing:Set<Branch.Diacritic>, 
+        version:_Version, 
+        lenses:Lenses)
+    {
+        fatalError("unimplemented")
+    }
+
     mutating 
     func pushDeclarations(_ declarations:[(Symbol.Index, Declaration<Symbol.Index>)]) 
     {
