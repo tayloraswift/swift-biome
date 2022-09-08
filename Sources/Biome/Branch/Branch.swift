@@ -3,13 +3,13 @@ import PackageResolution
 enum _Dependency:Sendable 
 {
     case available(_Version)
-    case unavailable(Branch.ID, String)
+    case unavailable(Tag, String)
 }
 enum _DependencyError:Error 
 {
     case package                                (unavailable:Package.ID)
     case pin                                    (unavailable:Package.ID)
-    case version           (unavailable:(Branch.ID, String), Package.ID)
+    case version                 (unavailable:(Tag, String), Package.ID)
     case module (unavailable:Module.ID, (Branch.ID, String), Package.ID)
     case target (unavailable:Module.ID,  Branch.ID)
 }
@@ -17,26 +17,17 @@ enum _DependencyError:Error
 public 
 struct Branch:Identifiable, Sendable 
 {
-    public 
-    enum ID:Hashable, Sendable 
-    {
-        case master 
-        case custom(String)
-        case semantic(SemanticVersion)
+    // public 
+    // enum ID:Hashable, Sendable 
+    // {
+    //     case master 
+    //     case custom(String)
+    //     case semantic(SemanticVersion)
 
-        init(_ requirement:PackageResolution.Requirement)
-        {
-            switch requirement 
-            {
-            case .version(let version): 
-                self = .semantic(version)
-            case .branch("master"), .branch("main"): 
-                self = .master
-            case .branch(let name): 
-                self = .custom(name)
-            }
-        }
-    }
+
+
+
+    // }
     // struct Date:Hashable, Sendable 
     // {
     //     var year:UInt16 
@@ -68,7 +59,7 @@ struct Branch:Identifiable, Sendable
     }
 
     public 
-    let id:ID
+    let id:String
     let index:_Version.Branch
 
     let fork:_Version?
@@ -81,6 +72,11 @@ struct Branch:Identifiable, Sendable
         articles:Buffer<Article>
     var opinions:[Diacritic: _ForeignDivergence]
     var routes:[Route.Key: Stack]
+
+    var _head:_Version.Revision? 
+    {
+        self.indices.last
+    }
 
     var startIndex:_Version.Revision 
     {

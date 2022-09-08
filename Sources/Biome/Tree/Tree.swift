@@ -5,12 +5,20 @@ struct Tree
     var storage:[Branch]
     private(set)
     var branches:[Branch.ID: _Version.Branch]
+    private
+    var tags:[Tag: _Version]
+
+    var `default`:_Version? 
+    {
+        nil
+    }
 
     init(culture:Package.Index)
     {
         self.culture = culture 
         self.storage = []
         self.branches = [:]
+        self.tags = [:]
     }
 
     subscript(branch:_Version.Branch) -> Branch 
@@ -113,17 +121,21 @@ struct Tree
         return .init(fasces)
     }
 
-    func find(_ pin:PackageResolution.Pin) -> _Dependency 
+    func find(_ tag:Tag) -> _Version?
     {
-        let name:Branch.ID = .init(pin.requirement)
-        if  let branch:_Version.Branch = self.branches[name], 
-            let revision:_Version.Revision = self[branch].find(pin.revision)
+        if  let version:_Version = self.tags[tag]
         {
-            return .available(.init(branch, revision))
+            return version 
+        }
+        if case .named(let name) = tag, 
+            let branch:_Version.Branch = self.branches[name], 
+            let revision:_Version.Revision = self[branch]._head
+        {
+            return .init(branch, revision)
         }
         else 
         {
-            return .unavailable(name, pin.revision)
+            return nil
         }
     }
 }

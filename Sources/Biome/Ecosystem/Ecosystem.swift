@@ -141,10 +141,10 @@ extension Ecosystem
     }
     
     public mutating 
-    func updatePackage(_ id:Package.ID, resolved:PackageResolution,
-        graphs:[SymbolGraph],
-        brand:String? = nil,
-        pins era:[Package.ID: MaskedVersion]) 
+    func updatePackage(_ id:Package.ID, 
+        resolved:PackageResolution,
+        branch:String, 
+        graphs:[SymbolGraph]) 
         throws
     {
         try Task.checkCancellation()
@@ -152,6 +152,7 @@ extension Ecosystem
         let graphs:[SymbolGraph] = try graphs.topologicallySorted(for: id)
         let _:Package.Index = try self.packages._add(package: id, 
             resolved: resolved, 
+            branch: branch, 
             graphs: graphs, 
             stems: &self.stems)
     }

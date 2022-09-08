@@ -84,7 +84,10 @@ struct Packages
     }
 
     mutating 
-    func _add(package id:Package.ID, resolved:PackageResolution, graphs:[SymbolGraph], 
+    func _add(package id:Package.ID, 
+        resolved:PackageResolution, 
+        branch:String, 
+        graphs:[SymbolGraph], 
         stems:inout Route.Stems) 
         throws -> Package.Index
     {
@@ -96,7 +99,7 @@ struct Packages
         
         let index:Package.Index = self.add(package: id)
         let branch:_Version.Branch = self[index].tree.branch(from: nil, 
-            name: .init(pin.requirement))
+            name: branch)
         // we are going to mutate `self[index].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
         let fasces:Fasces = self[index].tree.fasces(upTo: branch)
@@ -172,10 +175,6 @@ struct Packages
 
         // write to the keyframe buffers
         self[index].updateMetadata(surface, version: version, lenses: lenses)
-        // for scope:Module.Scope in scopes
-        // {
-        //     self[index].pushDependencies(scope.dependencies(), culture: scope.culture)
-        // }
         // for (scope, articles):(Module.Scope, [Article.Index: Extension]) in zip(scopes, articles)
         // {
         //     self[index].pushExtensionMetadata(articles: articles, culture: scope.culture)
@@ -244,9 +243,20 @@ extension Packages
         var linkable:[Package.Index: _Dependency] = [:]
         for pin:PackageResolution.Pin in pins 
         {
-            if let package:Package = self[pin.id]
+            guard let package:Package = self[pin.id]
+            else 
             {
-                linkable[package.index] = package.tree.find(pin)
+                continue 
+            }
+            let tag:Tag = .init(pin.requirement)
+            if  let version:_Version = package.tree.find(tag),
+                    package.tree[version].hash == pin.revision
+            {
+                linkable[package.index] = .available(version)
+            }
+            else 
+            {
+                linkable[package.index] = .unavailable(tag, pin.revision)
             }
         }
         return linkable

@@ -197,7 +197,7 @@ struct Package:Identifiable, Sendable
             return .init(title)
         }
     }
-    
+
     func pinned() -> Pinned 
     {
         .init(self, at: self.versions.latest)
