@@ -80,15 +80,6 @@ extension Branch
 
 extension Branch.Buffer 
 {
-    @available(*, deprecated, renamed: "Branch.Position")
-    typealias OpaqueIndex = Branch.Position<Element>
-
-    @available(*, unavailable)
-    var count:Int 
-    {
-        self.storage.count
-    }
-
     subscript(offset:Element.Offset) -> Element
     {
         _read 
@@ -211,19 +202,6 @@ extension Branch.Buffer
                 yield self[position.offset]
             }
         }
-
-        // func index(before base:Element.Offset) -> Element.Offset
-        // {
-        //     base - 1
-        // }
-        // func index(after base:Element.Offset) -> Element.Offset
-        // {
-        //     base + 1
-        // }
-        // func index(_ base:Element.Offset, offsetBy distance:Int) -> Element.Offset
-        // {
-        //     Element.Offset.init(Int.init(base) + distance)
-        // }
         
         init(divergences:[Branch.Position<Element>: Element.Divergence], 
             positions:[Element.ID: Branch.Position<Element>], 
