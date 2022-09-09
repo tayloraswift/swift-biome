@@ -389,26 +389,23 @@ struct Package:Identifiable, Sendable
 extension Package 
 {
     mutating 
-    func updateMetadata(_ surface:Surface, version:_Version, lenses:Lenses)
+    func updateMetadata(_ surface:Surface, version:_Version, 
+        namespaces:[Namespaces], 
+        fasces:Fasces)
     {
-        self.clearMetadata(for: surface.missingModules, 
-            version: version, 
-            lenses: lenses)
-        self.clearMetadata(for: surface.missingSymbols, 
-            version: version, 
-            lenses: lenses)
-        self.clearMetadata(for: surface.missingDiacritics, 
-            version: version, 
-            lenses: lenses)
+        self.clearMetadata(for: surface.missingModules, version: version, trunk: fasces.modules)
+        self.clearMetadata(for: surface.missingSymbols, version: version, trunk: fasces.symbols)
+        self.clearMetadata(for: surface.missingDiacritics, version: version)
         
-        for lens:Lens in lenses 
+        for namespaces:Namespaces in namespaces 
         {
-            self.moduleMetadata.update(&self.tree[version.branch].modules, 
-                with: .present(dependencies: lens.linked), 
-                position: lens.culture, 
+            let metadata:Module.Metadata = .present(
+                dependencies: .init(namespaces.linked.values.lazy.map(\.contemporary)))
+            self.moduleMetadata.update(&self.tree[version.branch].modules, with: metadata, 
+                position: namespaces.culture, 
                 revision: version.revision, 
-                trunk: lens.local.modules, 
-                field: (\.metadata, \.metadata))
+                field: (\.metadata, \.metadata),
+                trunk: fasces.modules)
         }
         for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
             surface.symbols
@@ -416,8 +413,8 @@ extension Package
             self.symbolMetadata.update(&self.tree[version.branch].symbols, with: facts.metadata(),
                 position: symbol.contemporary, 
                 revision: version.revision, 
-                trunk: lenses.local.symbols, 
-                field: (\.metadata, \.metadata))
+                field: (\.metadata, \.metadata),
+                trunk: fasces.symbols) 
         }
         for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in 
             surface.diacritics
@@ -433,7 +430,7 @@ extension Package
                 }
             }
             else if case value? = self.foreignMetadata.value(of: key, field: \.metadata, 
-                in: lenses.local.lazy.map(\.opinions))
+                in: fasces.lazy.map(\.opinions))
             {
                 continue 
             }
@@ -444,37 +441,33 @@ extension Package
     }
 
     private mutating 
-    func clearMetadata(for missing:Set<Branch.Position<Module>>, 
-        version:_Version, 
-        lenses:Lenses)
+    func clearMetadata(for missing:Set<Branch.Position<Module>>, version:_Version, 
+        trunk:some Sequence<Branch.Epoch<Module>>)
     {
         for missing:Branch.Position<Module> in missing 
         {
             self.moduleMetadata.update(&self.tree[version.branch].modules, with: .missing, 
                 position: missing, 
                 revision: version.revision, 
-                trunk: lenses.local.modules, 
-                field: (\.metadata, \.metadata))
+                field: (\.metadata, \.metadata),
+                trunk: trunk)
         }
     }
     private mutating 
-    func clearMetadata(for missing:Set<Branch.Position<Symbol>>, 
-        version:_Version, 
-        lenses:Lenses)
+    func clearMetadata(for missing:Set<Branch.Position<Symbol>>, version:_Version, 
+        trunk:some Sequence<Branch.Epoch<Symbol>>)
     {
         for missing:Branch.Position<Symbol> in missing 
         {
             self.symbolMetadata.update(&self.tree[version.branch].symbols, with: .missing,
                 position: missing, 
                 revision: version.revision, 
-                trunk: lenses.local.symbols, 
-                field: (\.metadata, \.metadata))
+                field: (\.metadata, \.metadata),
+                trunk: trunk)
         }
     }
     private mutating 
-    func clearMetadata(for missing:Set<Branch.Diacritic>, 
-        version:_Version, 
-        lenses:Lenses)
+    func clearMetadata(for missing:Set<Branch.Diacritic>, version:_Version)
     {
         fatalError("unimplemented")
     }

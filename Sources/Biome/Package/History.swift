@@ -152,12 +152,12 @@ struct _History<Value> where Value:Equatable
         with value:__owned Value, 
         position:Branch.Position<Element>, 
         revision:_Version.Revision, 
-        trunk:some Sequence<Branch.Epoch<Element>>,
         field:
         (
             contemporary:WritableKeyPath<Element, _History<Value>.Head?>,
             divergent:WritableKeyPath<Element.Divergence, _History<Value>.Divergent?>
-        ))
+        ),
+        trunk:some Sequence<Branch.Epoch<Element>>)
         where Element:BranchElement, Element.Divergence:Voidable
     {
         guard position.offset < buffer.startIndex 

@@ -173,11 +173,12 @@ struct Packages
             stems: stems)
 
         //surface.foreign.confirm(beliefs.opinions.keys)
+        self[index].updateMetadata(surface, version: version, 
+            namespaces: targets, 
+            fasces: fasces)
 
         let lenses:Lenses = .init(_move targets, local: _move fasces, context: self)
 
-        // write to the keyframe buffers
-        self[index].updateMetadata(surface, version: version, lenses: lenses)
         // for (scope, articles):(Module.Scope, [Article.Index: Extension]) in zip(scopes, articles)
         // {
         //     self[index].pushExtensionMetadata(articles: articles, culture: scope.culture)
