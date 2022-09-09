@@ -403,21 +403,21 @@ extension Package
         
         for lens:Lens in lenses 
         {
-            self.tree[version.branch].modules.update(lens.culture, 
+            self.moduleMetadata.update(&self.tree[version.branch].modules, 
                 with: .present(dependencies: lens.linked), 
+                position: lens.culture, 
                 revision: version.revision, 
                 trunk: lens.local.modules, 
-                field: (\.metadata, \.metadata),
-                in: &self.moduleMetadata)
+                field: (\.metadata, \.metadata))
         }
         for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
             surface.symbols
         {
-            self.tree[version.branch].symbols.update(symbol.contemporary, with: facts.metadata(),
+            self.symbolMetadata.update(&self.tree[version.branch].symbols, with: facts.metadata(),
+                position: symbol.contemporary, 
                 revision: version.revision, 
                 trunk: lenses.local.symbols, 
-                field: (\.metadata, \.metadata), 
-                in: &self.symbolMetadata)
+                field: (\.metadata, \.metadata))
         }
         for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in 
             surface.diacritics
@@ -450,11 +450,11 @@ extension Package
     {
         for missing:Branch.Position<Module> in missing 
         {
-            self.tree[version.branch].modules.update(missing, with: .missing, 
+            self.moduleMetadata.update(&self.tree[version.branch].modules, with: .missing, 
+                position: missing, 
                 revision: version.revision, 
                 trunk: lenses.local.modules, 
-                field: (\.metadata, \.metadata),
-                in: &self.moduleMetadata)
+                field: (\.metadata, \.metadata))
         }
     }
     private mutating 
@@ -464,11 +464,11 @@ extension Package
     {
         for missing:Branch.Position<Symbol> in missing 
         {
-            self.tree[version.branch].symbols.update(missing, with: .missing,
+            self.symbolMetadata.update(&self.tree[version.branch].symbols, with: .missing,
+                position: missing, 
                 revision: version.revision, 
                 trunk: lenses.local.symbols, 
-                field: (\.metadata, \.metadata),
-                in: &self.symbolMetadata)
+                field: (\.metadata, \.metadata))
         }
     }
     private mutating 

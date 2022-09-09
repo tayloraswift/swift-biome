@@ -44,10 +44,12 @@ struct _History<Value> where Value:Equatable
         self.forest = .init()
     }
 
+    private 
     func rewind(_ head:Forest<Keyframe>.Tree.Head, to revision:_Version.Revision) -> Index?
     {
         self.forest[head].first { $0.since <= revision }
     }
+    private 
     func value(rewinding head:Forest<Keyframe>.Tree.Head, to revision:_Version.Revision) -> Value?
     {
         self.rewind(head, to: revision).map { self.forest[$0].value.value }
@@ -130,7 +132,7 @@ struct _History<Value> where Value:Equatable
     }
     /// Pushes the given value to the head of the given tree if it is not equivalent 
     /// to the existing min-value.
-    mutating 
+    private mutating 
     func add(_ value:__owned Value, revision:_Version.Revision, to tree:inout Head?) 
     {
         guard let head:Head = tree
@@ -143,6 +145,47 @@ struct _History<Value> where Value:Equatable
         {
             tree = self.forest.insert(.init(_move value, since: revision), before: head)
         }
+    }
+
+    mutating 
+    func update<Element>(_ buffer:inout Branch.Buffer<Element>,
+        with value:__owned Value, 
+        position:Branch.Position<Element>, 
+        revision:_Version.Revision, 
+        trunk:some Sequence<Branch.Epoch<Element>>,
+        field:
+        (
+            contemporary:WritableKeyPath<Element, _History<Value>.Head?>,
+            divergent:WritableKeyPath<Element.Divergence, _History<Value>.Divergent?>
+        ))
+        where Element:BranchElement, Element.Divergence:Voidable
+    {
+        guard position.offset < buffer.startIndex 
+        else 
+        {
+            // symbol is contemporary to this branch. 
+            self.add(_move value, revision: revision, 
+                to: &buffer[contemporary: position][keyPath: field.contemporary])
+            return 
+        }
+        if let previous:Value = (buffer.divergences[position]?[keyPath: field.divergent])
+                .map({ self[$0.head.index].value })
+        {
+            if previous == value 
+            {
+                // symbol is not contemporary, but has already diverged in this 
+                // epoch, and its divergent value matches.
+                return 
+            }
+        }
+        else if case value? = self.value(of: position, field: field, in: trunk)
+        {
+            // symbol is not contemporary, has not diverged in this epoch, 
+            // but its value (divergent or not) matches.
+            return 
+        }
+        self.push(_move value, revision: revision, 
+            to: &buffer.divergences[position, default: .init()][keyPath: field.divergent])
     }
 }
 

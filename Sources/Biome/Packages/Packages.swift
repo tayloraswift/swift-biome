@@ -167,11 +167,14 @@ struct Packages
         // we also cannot allow ``Namespaces.lens(local:context:)`` to retain a reference 
         // to `self[index].tree[branch].routes` until after we have added all the routes 
         // in the current cohort.
-        let lenses:Lenses = .init(_move targets, local: _move fasces, context: self)
 
-        self[index].tree[branch].inferScopes(&surface, lenses: lenses, stems: stems)
+        surface.inferScopes(for: &self[index].tree[branch], 
+            fasces: fasces, 
+            stems: stems)
 
         //surface.foreign.confirm(beliefs.opinions.keys)
+
+        let lenses:Lenses = .init(_move targets, local: _move fasces, context: self)
 
         // write to the keyframe buffers
         self[index].updateMetadata(surface, version: version, lenses: lenses)

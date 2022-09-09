@@ -17,17 +17,6 @@ enum _DependencyError:Error
 public 
 struct Branch:Identifiable, Sendable 
 {
-    // public 
-    // enum ID:Hashable, Sendable 
-    // {
-    //     case master 
-    //     case custom(String)
-    //     case semantic(SemanticVersion)
-
-
-
-
-    // }
     // struct Date:Hashable, Sendable 
     // {
     //     var year:UInt16 
@@ -382,52 +371,5 @@ extension Branch
             return .init(id: id, route: route)
         }
         return self.position(index)
-    }
-}
-
-extension Branch 
-{
-    mutating 
-    func inferScopes(_ surface:inout Surface, lenses:Lenses, stems:Route.Stems)
-    {
-        let lenses:[Branch.Position<Module>: Lens] = .init(uniqueKeysWithValues: 
-            lenses.map { ($0.culture, $0) })
-        for (member, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
-            surface.symbols
-        {
-            guard let contemporary:Position<Symbol> = self.index.idealize(member)
-            else 
-            {
-                // only perform inference for contemporary symbols. 
-                continue 
-            }
-            if let shape:Symbol.Shape<Tree.Position<Symbol>> = facts.shape 
-            {
-                // already have a shape from a member or requirement belief
-                self.symbols[contemporary: contemporary].shape = shape
-                continue 
-            }
-
-            let symbol:Symbol = self.symbols[contemporary: contemporary]
-            guard  case nil = symbol.shape, 
-                    let scope:Path = .init(symbol.path.prefix), 
-                    let lens:Lens = lenses[contemporary.culture]
-            else 
-            {
-                continue 
-            }
-            // attempt to re-parent this symbol using lexical lookup
-            if  let scope:Route.Key = stems[symbol.route.namespace, scope],
-                case .one(let scope)? = lens.select(_local: scope)
-            {
-                self.symbols[contemporary: contemporary].shape = .member(of: scope)
-                surface.add(member: member, to: scope) 
-            }
-            else 
-            {
-                print("warning: orphaned symbol \(symbol)")
-                continue 
-            }
-        }
     }
 }

@@ -37,43 +37,22 @@ extension Branch
         }
 
         mutating 
-        func update<Value>(_ position:Position<Element>, with value:__owned Value, 
-            revision:_Version.Revision, 
-            trunk:some Sequence<Epoch<Element>>,
-            field:
-            (
-                contemporary:WritableKeyPath<Element, _History<Value>.Head?>,
-                divergent:WritableKeyPath<Element.Divergence, _History<Value>.Divergent?>
-            ),
-            in history:inout _History<Value>)
-            where Value:Equatable
+        func insert(_ id:Element.ID, culture:Element.Culture, 
+            _ create:(Element.ID, Position<Element>) throws -> Element) 
+            rethrows -> Position<Element>
         {
-            guard position.offset < self.startIndex 
+            if let position:Position<Element> = self.positions[id]
+            {
+                return position 
+            }
             else 
             {
-                // symbol is contemporary to this branch. 
-                history.add(_move value, revision: revision, 
-                    to: &self[contemporary: position][keyPath: field.contemporary])
-                return 
+                // create records for elements if they do not yet exist 
+                let position:Position<Element> = .init(culture, offset: self.endIndex)
+                self.storage.append(try create(id, position))
+                self.positions[id] = position
+                return position 
             }
-            if let previous:Value = (self.divergences[position]?[keyPath: field.divergent])
-                    .map({ history[$0.head.index].value })
-            {
-                if previous == value 
-                {
-                    // symbol is not contemporary, but has already diverged in this 
-                    // epoch, and its divergent value matches.
-                    return 
-                }
-            }
-            else if case value? = history.value(of: position, field: field, in: trunk)
-            {
-                // symbol is not contemporary, has not diverged in this epoch, 
-                // but its value (divergent or not) matches.
-                return 
-            }
-            history.push(_move value, revision: revision, 
-                to: &self.divergences[position, default: .init()][keyPath: field.divergent])
         }
     }
 }
@@ -136,25 +115,6 @@ extension Branch.Buffer
         _read 
         {
             yield self.storage
-        }
-    }
-    
-    mutating 
-    func insert(_ id:Element.ID, culture:Element.Culture, 
-        _ create:(Element.ID, Branch.Position<Element>) throws -> Element) 
-        rethrows -> Branch.Position<Element>
-    {
-        if let position:Branch.Position<Element> = self.positions[id]
-        {
-            return position 
-        }
-        else 
-        {
-            // create records for elements if they do not yet exist 
-            let position:Branch.Position<Element> = .init(culture, offset: self.endIndex)
-            self.storage.append(try create(id, position))
-            self.positions[id] = position
-            return position 
         }
     }
 }

@@ -69,6 +69,52 @@ struct Fasces
             self.segments[index].articles
         }
     }
+    struct RoutingView
+    {
+        private 
+        let segments:[Fascis]
+        private 
+        let layered:(branch:_Version.Branch, routes:[Route.Key: Branch.Stack])?
+
+        init(_ segments:__owned [Fascis], layering branch:__shared Branch?)
+        {
+            self.segments = segments
+            self.layered = branch.map { ($0.index, $0.routes) }
+        }
+
+        func select<T>(_ key:Route.Key, 
+            _ filter:(_Version.Branch, Branch.Composite) throws -> T?) rethrows -> _Selection<T>
+        {
+            var selection:_Selection<T> = .none
+            try self.select(key)
+            {
+                if let selected:T = try filter($0, $1)
+                {
+                    selection.append(selected)
+                }
+            }
+            return selection
+        }
+        private 
+        func select(_ key:Route.Key, 
+            _ body:(_Version.Branch, Branch.Composite) throws -> ()) rethrows 
+        {
+            if case let (branch, routes)? = self.layered 
+            {
+                try routes.select(key) 
+                { 
+                    try body(branch, $0) 
+                }
+            }
+            for fascis:Fascis in self.segments 
+            {
+                try fascis.routes.select(key) 
+                { 
+                    try body(fascis.branch, $0)
+                }
+            }
+        }
+    }
 
     private
     var segments:[Fascis]
@@ -94,6 +140,11 @@ struct Fasces
     {
         .init(self.segments)
     }
+    func routes(layering branch:Branch?) -> RoutingView 
+    {
+        .init(self.segments, layering: branch)
+    }
+
 }
 extension Fasces:ExpressibleByArrayLiteral 
 {

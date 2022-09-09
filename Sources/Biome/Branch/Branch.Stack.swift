@@ -86,11 +86,6 @@ extension Branch.Stack?
 
 extension Dictionary where Value == Branch.Stack 
 {
-    func select(_ key:Key, _ body:(Branch.Composite) throws -> ()) rethrows 
-    {
-        try self[key]?.forEach { (composite, _) in try body(composite) }
-    }
-
     mutating 
     func stack(routes:some Sequence<(Key, Branch.Composite)>, revision:_Version.Revision) 
     {
@@ -98,6 +93,11 @@ extension Dictionary where Value == Branch.Stack
         {
             self[key].insert(composite, revision: revision)
         }
+    }
+
+    func select(_ key:Key, _ body:(Branch.Composite) throws -> ()) rethrows 
+    {
+        try self[key]?.forEach { (composite, _) in try body(composite) }
     }
 }
 extension Divergences where Value == Branch.Stack
