@@ -28,9 +28,6 @@ struct Namespaces
 {
     private(set)
     var pins:[Package.Index: _Version]
-    // this branch may be *different* from `current.position.branch`, 
-    // which refers to the branch in which the module itself was founded.
-    let _branch:_Version.Branch
     let module:Namespace
     private(set)
     var linked:[Module.ID: Tree.Position<Module>]
@@ -50,21 +47,22 @@ struct Namespaces
         self.module.culture
     }
     
-    init(_ module:Namespace, _branch:_Version.Branch)
+    init(_ module:Namespace)
     {
         self.pins = [:]
-        self._branch = _branch
         self.module = module 
         self.linked = [module.id: module.position]
     }
-    init(id:Module.ID, position:Tree.Position<Module>, _branch:_Version.Branch)
+    init(id:Module.ID, position:Tree.Position<Module>)
     {
-        self.init(.init(id: id, position: position), _branch: _branch)
+        self.init(.init(id: id, position: position))
     }
-
+    // the `branch` parameter may be *different* from `module.position.branch`, 
+    // which refers to the branch in which the module itself was founded.
     mutating 
     func link(dependencies:[SymbolGraph.Dependency], 
         linkable:[Package.Index: _Dependency], 
+        branch:_Version.Branch, 
         fasces:Fasces, 
         context:Packages)
         throws -> Fasces
@@ -82,6 +80,7 @@ struct Namespaces
             else 
             {
                 try self.link(local: package, dependencies: dependency.modules, 
+                    branch: branch, 
                     fasces: fasces)
                 continue 
             }
@@ -169,14 +168,17 @@ struct Namespaces
         }
     }
     private mutating 
-    func link(local package:Package, dependencies:[Module.ID], fasces:Fasces) throws 
+    func link(local package:Package, dependencies:[Module.ID], 
+        branch:_Version.Branch, 
+        fasces:Fasces) 
+        throws 
     {
         let contemporary:Branch.Buffer<Module>.SubSequence = 
-            package.tree[self._branch].modules[...]
+            package.tree[branch].modules[...]
         for module:Module.ID in dependencies
         {
             if  let module:Tree.Position<Module> = 
-                    contemporary.positions[module].map(self._branch.pluralize(_:)) ?? 
+                    contemporary.positions[module].map(branch.pluralize(_:)) ?? 
                     fasces.modules.find(module) 
             {
                 // use the stored id, not the requested id
@@ -185,7 +187,7 @@ struct Namespaces
             else 
             {
                 throw _DependencyError.target(unavailable: module, 
-                    package.tree[self._branch].id)
+                    package.tree[branch].id)
             }
         }
     }

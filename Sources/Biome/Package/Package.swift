@@ -101,9 +101,7 @@ struct Package:Identifiable, Sendable
     }
 
     var tree:Tree
-    var moduleMetadata:_History<Module.Metadata>
-    var symbolMetadata:_History<Symbol.Metadata>
-    var foreignMetadata:_History<_ForeignMetadata>
+    var metadata:Metadata
     
     init(id:ID, index:Index)
     {
@@ -135,9 +133,7 @@ struct Package:Identifiable, Sendable
         self.excerpts = .init()
 
         self.tree = .init(culture: index)
-        self.moduleMetadata = .init()
-        self.symbolMetadata = .init()
-        self.foreignMetadata = .init()
+        self.metadata = .init()
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -389,89 +385,16 @@ struct Package:Identifiable, Sendable
 extension Package 
 {
     mutating 
-    func updateMetadata(_ surface:Surface, version:_Version, 
-        namespaces:[Namespaces], 
+    func updateMetadata(to version:_Version, 
+        interfaces:[ModuleInterface], 
+        surface:Surface, 
         fasces:Fasces)
     {
-        self.clearMetadata(for: surface.missingModules, version: version, trunk: fasces.modules)
-        self.clearMetadata(for: surface.missingSymbols, version: version, trunk: fasces.symbols)
-        self.clearMetadata(for: surface.missingDiacritics, version: version)
-        
-        for namespaces:Namespaces in namespaces 
-        {
-            let metadata:Module.Metadata = .present(
-                dependencies: .init(namespaces.linked.values.lazy.map(\.contemporary)))
-            self.moduleMetadata.update(&self.tree[version.branch].modules, with: metadata, 
-                position: namespaces.culture, 
-                revision: version.revision, 
-                field: (\.metadata, \.metadata),
-                trunk: fasces.modules)
-        }
-        for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
-            surface.symbols
-        {
-            self.symbolMetadata.update(&self.tree[version.branch].symbols, with: facts.metadata(),
-                position: symbol.contemporary, 
-                revision: version.revision, 
-                field: (\.metadata, \.metadata),
-                trunk: fasces.symbols) 
-        }
-        for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in 
-            surface.diacritics
-        {
-            let key:Branch.Diacritic = diacritic.contemporary
-            let value:_ForeignMetadata = traits.map(\.contemporary) 
-            if let previous:_ForeignMetadata = (self.tree[version.branch].opinions[key]?.metadata)
-                    .map({ self.foreignMetadata[$0.head.index].value })
-            {
-                if previous == value 
-                {
-                    continue 
-                }
-            }
-            else if case value? = self.foreignMetadata.value(of: key, field: \.metadata, 
-                in: fasces.lazy.map(\.opinions))
-            {
-                continue 
-            }
-
-            self.foreignMetadata.push(value, revision: version.revision, 
-                to: &self.tree[version.branch].opinions[key, default: .init()].metadata)
-        }
+        self.metadata.update(&self.tree[version.branch], to: version.revision, 
+            interfaces: interfaces, 
+            surface: surface, 
+            fasces: fasces)
     }
-
-    private mutating 
-    func clearMetadata(for missing:Set<Branch.Position<Module>>, version:_Version, 
-        trunk:some Sequence<Branch.Epoch<Module>>)
-    {
-        for missing:Branch.Position<Module> in missing 
-        {
-            self.moduleMetadata.update(&self.tree[version.branch].modules, with: .missing, 
-                position: missing, 
-                revision: version.revision, 
-                field: (\.metadata, \.metadata),
-                trunk: trunk)
-        }
-    }
-    private mutating 
-    func clearMetadata(for missing:Set<Branch.Position<Symbol>>, version:_Version, 
-        trunk:some Sequence<Branch.Epoch<Symbol>>)
-    {
-        for missing:Branch.Position<Symbol> in missing 
-        {
-            self.symbolMetadata.update(&self.tree[version.branch].symbols, with: .missing,
-                position: missing, 
-                revision: version.revision, 
-                field: (\.metadata, \.metadata),
-                trunk: trunk)
-        }
-    }
-    private mutating 
-    func clearMetadata(for missing:Set<Branch.Diacritic>, version:_Version)
-    {
-        fatalError("unimplemented")
-    }
-
     mutating 
     func pushDeclarations(_ declarations:[(Symbol.Index, Declaration<Symbol.Index>)]) 
     {

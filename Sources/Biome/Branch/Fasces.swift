@@ -1,5 +1,31 @@
+// protocol TrunkView<Axis>:RandomAccessCollection where Element == Branch.Epoch<Axis>
+// {
+//     associatedtype Axis:BranchElement where Axis.Divergence:Voidable
+// }
+
+// extension Branch 
+// {
+//     struct AugmentedEpochs<Trunk> where Trunk:TrunkView, Trunk.Element == Epoch<Trunk.Axis>
+//     {
+//         let trunk:Trunk
+//         let layer:Trunk.Layer
+//         let branch:_Version.Branch 
+//     }
+
+// }
+// extension Augmented
+// {
+
+// }
+
 struct Fasces
 {
+    // struct Augmented<Trunk> where Trunk:TrunkView
+    // {
+    //     let trunk:Trunk
+    //     let layer:Branch.Buffer<Trunk.Axis>
+    //     let branch:_Version.Branch 
+    // }
     struct ModuleView:RandomAccessCollection
     {
         private 
@@ -74,12 +100,13 @@ struct Fasces
         private 
         let segments:[Fascis]
         private 
-        let layered:(branch:_Version.Branch, routes:[Route.Key: Branch.Stack])?
+        let layered:(routes:[Route.Key: Branch.Stack], branch:_Version.Branch)?
 
-        init(_ segments:__owned [Fascis], layering branch:__shared Branch?)
+        init(_ segments:__owned [Fascis], 
+            layering layered:(routes:[Route.Key: Branch.Stack], branch:_Version.Branch)?)
         {
             self.segments = segments
-            self.layered = branch.map { ($0.index, $0.routes) }
+            self.layered = layered
         }
 
         func select<T>(_ key:Route.Key, 
@@ -99,7 +126,7 @@ struct Fasces
         func select(_ key:Route.Key, 
             _ body:(_Version.Branch, Branch.Composite) throws -> ()) rethrows 
         {
-            if case let (branch, routes)? = self.layered 
+            if case let (routes, branch)? = self.layered 
             {
                 try routes.select(key) 
                 { 
@@ -142,7 +169,11 @@ struct Fasces
     }
     func routes(layering branch:Branch?) -> RoutingView 
     {
-        .init(self.segments, layering: branch)
+        .init(self.segments, layering: branch.map { ($0.routes, $0.index) })
+    }
+    func routes(layering routes:[Route.Key: Branch.Stack], branch:_Version.Branch) -> RoutingView 
+    {
+        .init(self.segments, layering: (routes, branch))
     }
 
 }
@@ -177,43 +208,16 @@ extension Fasces:RandomAccessCollection, RangeReplaceableCollection
     }
 }
 
-extension Sequence<Branch.Epoch<Module>>
+extension Sequence 
 {
-    func find(_ module:Module.ID) -> Tree.Position<Module>? 
+    func find<Axis>(_ id:Axis.ID) -> Tree.Position<Axis>? 
+        where Element == Branch.Epoch<Axis>
     {
-        for modules:Branch.Epoch<Module> in self 
+        for segment:Branch.Epoch<Axis> in self 
         {
-            if let module:Branch.Position<Module> = modules.position(of: module)
+            if let position:Branch.Position<Axis> = segment.position(of: id)
             {
-                return modules.branch.pluralize(module)
-            }
-        }
-        return nil
-    }
-}
-extension Sequence<Branch.Epoch<Symbol>>
-{
-    func find(_ symbol:Symbol.ID) -> Tree.Position<Symbol>? 
-    {
-        for symbols:Branch.Epoch<Symbol> in self 
-        {
-            if let symbol:Branch.Position<Symbol> = symbols.position(of: symbol)
-            {
-                return symbols.branch.pluralize(symbol)
-            }
-        }
-        return nil
-    }
-}
-extension Sequence<Branch.Epoch<Article>>
-{
-    func find(_ article:Article.ID) -> Tree.Position<Article>? 
-    {
-        for articles:Branch.Epoch<Article> in self 
-        {
-            if let article:Branch.Position<Article> = articles.position(of: article)
-            {
-                return articles.branch.pluralize(article)
+                return segment.branch.pluralize(position)
             }
         }
         return nil

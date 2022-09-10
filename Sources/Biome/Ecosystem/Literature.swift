@@ -1,53 +1,56 @@
 import SymbolGraphs 
 
-extension Sequence<SymbolGraph> 
+struct Literature 
 {
-    //        "abc"                     module C
-    //          |
-    //  --------|-------------------
-    //          ↓            
-    //         nil -----→ "abc"         module B
-    //                      |
-    //  --------------------|-------
-    //                      ↓
-    //                    "abc"         module A
-    func generateComments(abstractors:[Abstractor]) 
-        -> [Symbol.Index: Documentation<String, Symbol.Index>]
+    let articles:[(Branch.Position<Article>, Article.Template<Ecosystem.Link>)]
+    let symbols:[(Branch.Position<Symbol>, Documentation<Article.Template<Ecosystem.Link>, Symbol.Index>)]
+    let modules:[(Branch.Position<Module>, Article.Template<Ecosystem.Link>)]
+
+    init(compiling graphs:__owned [SymbolGraph], 
+        interfaces:__owned [ModuleInterface], 
+        fasces:__owned Fasces)
     {
-        guard let culture:Package.Index = abstractors.first?.culture.package 
+        guard let culture:Package.Index = interfaces.first?.culture.package 
         else 
         {
-            return [:]
+            //return [:]
+            fatalError("unimplemented")
         }
 
         var pruned:Int = 0
-        var comments:[Symbol.Index: Documentation<String, Symbol.Index>] = [:]
-        for (graph, abstractor):(SymbolGraph, Abstractor) in zip(self, abstractors)
+        var comments:[Tree.Position<Symbol>: Documentation<String, Tree.Position<Symbol>>] = [:]
+        for (graph, interface):(SymbolGraph, ModuleInterface) in zip(_move graphs, interfaces)
         {
-            for (index, vertex):(Symbol.Index?, SymbolGraph.Vertex<Int>) in 
-                zip(abstractor.updates, graph.vertices)
+            for (position, vertex):(Tree.Position<Symbol>?, SymbolGraph.Vertex<Int>) in 
+                zip(interface.citizenSymbols, graph.vertices)
             {
-                guard   let index:Symbol.Index,
-                        let documentation:Documentation<String, Symbol.Index> = 
-                            vertex.documentation?.flatMap({ abstractor[$0] })
+                guard   let position:Tree.Position<Symbol>,
+                        let documentation:Documentation<String, Tree.Position<Symbol>> = 
+                            vertex.documentation?.flatMap({ interface.symbols[$0] })
                 else 
                 {
                     continue 
                 }
                 if  case .extends(let origin?, with: let comment) = documentation, 
-                        origin.module != abstractor.culture,
+                        origin.contemporary.culture != interface.culture,
                     case .extends(_, with: comment)? = comments[origin]
                 {
                     // inherited a comment from a *different* module. 
                     // if it were from the same module, symbolgraphconvert 
                     // should have deleted it. 
-                    comments[index] = .inherits(origin)
+                    comments[position] = .inherits(origin)
                     pruned += 1
                 }
                 else 
                 {
-                    comments[index] = documentation
+                    comments[position] = documentation
                 }
+            }
+
+            for (position, _extension):(Tree.Position<Article>?, Extension) in 
+                zip(interface.citizenArticles, interface._extensions)
+            {
+                // TODO: handle merge behavior block directive 
             }
         }
         if pruned != 0 
@@ -63,11 +66,11 @@ extension Sequence<SymbolGraph>
             {
                 // fast-forward until we either reach a package boundary, 
                 // or a local symbol that has documentation
-                var visited:Set<Symbol.Index> = []
+                var visited:Set<Branch.Position<Symbol>> = []
                 fastforwarding:
-                while origin.module.package == culture
+                while origin.package == culture
                 {
-                    if  case _? = visited.update(with: origin)
+                    if  case _? = visited.update(with: origin.contemporary)
                     {
                         fatalError("detected cycle in doccomment inheritance graph")
                     }
@@ -98,6 +101,7 @@ extension Sequence<SymbolGraph>
         {
             print("pruned \(dropped) nil-terminating doccomment inheritance chains")
         }
-        return comments 
+        //return comments 
+        fatalError("unimplemented")
     }
 }

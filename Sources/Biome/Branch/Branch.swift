@@ -56,9 +56,9 @@ struct Branch:Identifiable, Sendable
     private 
     var revisions:[Revision]
 
-    var modules:Buffer<Module>,
+    var articles:Buffer<Article>, 
         symbols:Buffer<Symbol>,
-        articles:Buffer<Article>
+        modules:Buffer<Module>
     var opinions:[Diacritic: _ForeignDivergence]
     var routes:[Route.Key: Stack]
 
@@ -100,20 +100,20 @@ struct Branch:Identifiable, Sendable
         self.heads = .init() 
         self.revisions = []
         
-        self.opinions = [:]
-        self.routes = [:]
-        self.modules = .init(startIndex: fork?.ring.modules ?? 0)
-        self.symbols = .init(startIndex: fork?.ring.symbols ?? 0)
         self.articles = .init(startIndex: fork?.ring.articles ?? 0)
+        self.symbols = .init(startIndex: fork?.ring.symbols ?? 0)
+        self.modules = .init(startIndex: fork?.ring.modules ?? 0)
+        self.routes = [:]
+        self.opinions = [:]
     }
     
     subscript(range:PartialRangeThrough<_Version.Revision>) -> Fascis
     {
         let ring:Ring = self[range.upperBound].ring
         return .init(
-            modules: self.modules[..<ring.modules], 
-            symbols: self.symbols[..<ring.symbols], 
             articles: self.articles[..<ring.articles],
+            symbols: self.symbols[..<ring.symbols], 
+            modules: self.modules[..<ring.modules], 
             opinions: self.opinions, 
             routes: self.routes, 
             branch: self.index,
@@ -176,30 +176,33 @@ extension Branch
         return self.position(index)
     }
     mutating 
-    func add(graph:SymbolGraph, namespaces:Namespaces, fasces:Fasces, stems:inout Route.Stems) 
-        -> (_Abstractor, [Extension])
+    func add(graph:SymbolGraph, namespaces:__owned Namespaces, fasces:Fasces, 
+        stems:inout Route.Stems) 
+        -> ModuleInterface
     {
-        let (articles, _rendered):([Tree.Position<Article>?], [Extension]) = self.addExtensions(from: graph, 
+        let (articles, _extensions):(ModuleInterface.Abstractor<Article>, [Extension]) = self.addExtensions(from: graph, 
             namespace: namespaces.module, 
             trunk: fasces.articles, 
             stems: &stems)
-        let symbols:[Tree.Position<Symbol>?] = self.addSymbols(from: graph, 
+        var symbols:ModuleInterface.Abstractor<Symbol> = self.addSymbols(from: graph, 
             namespaces: namespaces, 
             trunk: fasces.symbols, 
             stems: &stems)
         
         assert(symbols.count == graph.vertices.count)
 
-        var abstractor:_Abstractor = .init(symbols: _move symbols, articles: articles, 
-            culture: namespaces.culture)
-            abstractor.extend(over: graph.identifiers, by: fasces.symbols.find(_:))
-        return (abstractor, _rendered)
+        symbols.extend(over: graph.identifiers, by: fasces.symbols.find(_:))
+
+        return .init(namespaces: _move namespaces, 
+            _extensions: _move _extensions,
+            articles: _move articles,
+            symbols: _move symbols)
     }
 
     private mutating 
     func addSymbols(from graph:SymbolGraph, namespaces:Namespaces, trunk:Fasces.SymbolView, 
         stems:inout Route.Stems) 
-        -> [Tree.Position<Symbol>?]
+        -> ModuleInterface.Abstractor<Symbol>
     {
         var positions:[Tree.Position<Symbol>?] = []
             positions.reserveCapacity(graph.identifiers.count)
@@ -244,7 +247,7 @@ extension Branch
                 }
             }
         }
-        return positions
+        return .init(_move positions)
     }
     private mutating 
     func addSymbol(_ id:Symbol.ID, culture:Position<Module>, trunk:Fasces.SymbolView, 
@@ -303,7 +306,7 @@ extension Branch
     private mutating 
     func addExtensions(from graph:SymbolGraph, namespace:Namespace, trunk:Fasces.ArticleView, 
         stems:inout Route.Stems) 
-        -> ([Tree.Position<Article>?], [Extension])
+        -> (ModuleInterface.Abstractor<Article>, [Extension])
     {
         let _extensions:[Extension] = graph.extensions.map
         {
@@ -344,7 +347,7 @@ extension Branch
                     .append(start ..< end)
             }
         }
-        return (positions, _extensions)
+        return (.init(_move positions), _extensions)
     }
     private mutating 
     func addArticle(_ id:Article.ID, culture:Position<Module>, trunk:Fasces.ArticleView, 

@@ -1,9 +1,9 @@
 struct Fascis:Sendable 
 {
     private
-    let _modules:Branch.Buffer<Module>.SubSequence, 
+    let _articles:Branch.Buffer<Article>.SubSequence, 
         _symbols:Branch.Buffer<Symbol>.SubSequence,
-        _articles:Branch.Buffer<Article>.SubSequence
+        _modules:Branch.Buffer<Module>.SubSequence 
     private 
     let _opinions:[Branch.Diacritic: _ForeignDivergence], 
         _routes:[Route.Key: Branch.Stack]
@@ -16,35 +16,35 @@ struct Fascis:Sendable
     let limit:_Version.Revision 
 
     init(
-        modules:Branch.Buffer<Module>.SubSequence, 
-        symbols:Branch.Buffer<Symbol>.SubSequence,
         articles:Branch.Buffer<Article>.SubSequence, 
+        symbols:Branch.Buffer<Symbol>.SubSequence,
+        modules:Branch.Buffer<Module>.SubSequence, 
         opinions:[Branch.Diacritic: _ForeignDivergence],
         routes:[Route.Key: Branch.Stack],
         branch:_Version.Branch, 
         limit:_Version.Revision)
     {
-        self._modules = modules
-        self._symbols = symbols
         self._articles = articles
-        self._opinions = opinions
+        self._symbols = symbols
+        self._modules = modules
         self._routes = routes
+        self._opinions = opinions
 
         self.branch = branch
         self.limit = limit
     }
 
-    var modules:Branch.Epoch<Module> 
+    var articles:Branch.Epoch<Article> 
     {
-        .init(self._modules, branch: self.branch, limit: self.limit)
+        .init(self._articles, branch: self.branch, limit: self.limit)
     }
     var symbols:Branch.Epoch<Symbol> 
     {
         .init(self._symbols, branch: self.branch, limit: self.limit)
     }
-    var articles:Branch.Epoch<Article> 
+    var modules:Branch.Epoch<Module> 
     {
-        .init(self._articles, branch: self.branch, limit: self.limit)
+        .init(self._modules, branch: self.branch, limit: self.limit)
     }
     var opinions:Divergences<Branch.Diacritic, _ForeignDivergence> 
     {

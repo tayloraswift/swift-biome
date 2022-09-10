@@ -1,3 +1,9 @@
+// protocol BranchSegment<Element>:RandomAccessCollection where Element:BranchElement
+// {
+//     func position(of id:Element.ID) -> Branch.Position<Element>? 
+//     var branch:_Version.Branch { get }
+// }
+
 extension Branch.Epoch:Sendable where Element:Sendable 
 {
 }

@@ -73,21 +73,21 @@ struct Surface
     }
 
     mutating 
-    func update(with edges:[SymbolGraph.Edge<Int>], abstractor:_Abstractor, context:Packages)
+    func update(with edges:[SymbolGraph.Edge<Int>], interface:ModuleInterface, context:Packages)
     {
-        let (beliefs, errors):([Belief], [_Abstractor.LookupError]) = 
-            abstractor.translate(edges: edges, context: context)
+        let (beliefs, errors):([Belief], [ModuleInterface.LookupError]) = 
+            interface.symbols.translate(edges: edges, context: context)
         
         if !errors.isEmpty 
         {
             print("warning: dropped \(errors.count) edges")
         }
         
-        self.insert(beliefs, symbols: abstractor.updatedSymbols, context: context)
+        self.insert(beliefs, symbols: interface.citizenSymbols, context: context)
     }
 
     private mutating 
-    func insert(_ beliefs:[Belief], symbols:_Abstractor.UpdatedSymbols, context:Packages) 
+    func insert(_ beliefs:[Belief], symbols:ModuleInterface.Citizens<Symbol>, context:Packages) 
     {
         var opinions:[Tree.Position<Symbol>: [Symbol.Trait<Tree.Position<Symbol>>]] = [:]
         var traits:[Tree.Position<Symbol>: [Symbol.Trait<Tree.Position<Symbol>>]] = [:]

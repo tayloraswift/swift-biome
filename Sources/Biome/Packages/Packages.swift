@@ -85,9 +85,9 @@ struct Packages
 
     mutating 
     func _add(package id:Package.ID, 
-        resolved:PackageResolution, 
+        resolved:__owned PackageResolution, 
         branch:String, 
-        graphs:[SymbolGraph], 
+        graphs:__owned [SymbolGraph], 
         stems:inout Route.Stems) 
         throws -> Package.Index
     {
@@ -110,13 +110,8 @@ struct Packages
         // from the `Package.resolved` file.
         let linkable:[Package.Index: _Dependency] = self.find(pins: resolved.pins.values)
 
-        var targets:[Namespaces] = []
-            targets.reserveCapacity(graphs.count)
-        var abstractors:[_Abstractor] = []
-            abstractors.reserveCapacity(graphs.count)
-        var _extensions:[[Extension]] = []
-            _extensions.reserveCapacity(graphs.count)
-        
+        var interfaces:[ModuleInterface] = []
+            interfaces.reserveCapacity(graphs.count)
         for graph:SymbolGraph in graphs 
         {
             let module:Tree.Position<Module> = self[index].tree[branch].add(module: graph.id, 
@@ -125,31 +120,27 @@ struct Packages
 
             // use this instead of `graph.id` to prevent string duplication
             var namespaces:Namespaces = .init(id: self[global: module].id, 
-                position: module, 
-                _branch: branch)
+                position: module)
             let combined:Fasces = try namespaces.link(dependencies: graph.dependencies, 
                 linkable: linkable, 
+                branch: branch,
                 fasces: fasces,
                 context: self)
 
             // all of the fasces in `fasces` are from different branches, 
             // so this will not cause copy-on-write.
-            let (abstractor, _rendered):(_Abstractor, [Extension]) = self[index].tree[branch].add(graph: graph, 
-                namespaces: namespaces, 
+            let interface:ModuleInterface = self[index].tree[branch].add(graph: graph, 
+                namespaces: _move namespaces, 
                 fasces: combined, 
                 stems: &stems)
 
-            //surface.symbols.confirm(abstractor.updatedSymbols)
-            surface.update(with: graph.edges, abstractor: abstractor, context: self)
-
-            targets.append(namespaces)
-            abstractors.append(abstractor)
-            _extensions.append(_rendered)
+            surface.update(with: graph.edges, interface: interface, context: self)
+            interfaces.append(interface)
         }
 
         // successfully registered symbolgraph contents 
         let version:_Version = self.commit(pin.revision, to: branch, of: index, 
-            pins: targets.reduce(into: [:]) 
+            pins: interfaces.reduce(into: [:]) 
             { 
                 $0.merge($1.pins) { $1 }
             })
@@ -173,11 +164,11 @@ struct Packages
             stems: stems)
 
         //surface.foreign.confirm(beliefs.opinions.keys)
-        self[index].updateMetadata(surface, version: version, 
-            namespaces: targets, 
+        self[index].updateMetadata(to: version, 
+            interfaces: interfaces, 
+            surface: surface,
             fasces: fasces)
 
-        let lenses:Lenses = .init(_move targets, local: _move fasces, context: self)
 
         // for (scope, articles):(Module.Scope, [Article.Index: Extension]) in zip(scopes, articles)
         // {
@@ -188,7 +179,13 @@ struct Packages
         //     self[index].pushDeclarations(graph.declarations(abstractor: abstractor))
         //     self[index].pushToplevel(filtering: abstractor.updates)
         // }
+        let literature:Literature = .init(compiling: _move graphs, 
+            interfaces: _move interfaces, 
+            fasces: _move fasces)
 
+        // let lenses:Lenses = .init(.init(self[index], branch: branch, fasces: _move fasces), 
+        //     namespaces: _move targets, 
+        //     context: self)
 
         // self.spread(from: index, beliefs: beliefs)
 
