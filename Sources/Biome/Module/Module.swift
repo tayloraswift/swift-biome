@@ -3,7 +3,7 @@ import Notebook
 import URI
 
 public 
-struct Module:BranchElement, Sendable
+struct Module:Sendable
 {
     public 
     typealias Culture = Package.Index 
@@ -58,7 +58,7 @@ struct Module:BranchElement, Sendable
 
     var symbols:[(range:Range<Symbol.Offset>, namespace:Branch.Position<Module>)]
     var articles:[Range<Article.Offset>]
-    var metadata:_History<Metadata>.Head?
+    var metadata:_History<Metadata?>.Head?
     
     var heads:Heads
     var redirect:(module:Redirect?, articles:Redirect?)
@@ -97,24 +97,5 @@ struct Module:BranchElement, Sendable
             .init(" ",          color: .text),
             .init(self.name,    color: .identifier),
         ]
-    }
-}
-
-extension Module 
-{
-    public 
-    struct Divergence:Voidable, Sendable 
-    {
-        var symbols:[(range:Range<Symbol.Offset>, namespace:Branch.Position<Module>)]
-        var articles:[Range<Article.Offset>]
-
-        var metadata:_History<Metadata>.Divergent?
-        
-        init()
-        {
-            self.symbols = []
-            self.articles = []
-            self.metadata = nil
-        }
     }
 }

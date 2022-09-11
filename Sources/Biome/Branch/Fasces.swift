@@ -1,32 +1,6 @@
-// protocol TrunkView<Axis>:RandomAccessCollection where Element == Branch.Epoch<Axis>
-// {
-//     associatedtype Axis:BranchElement where Axis.Divergence:Voidable
-// }
-
-// extension Branch 
-// {
-//     struct AugmentedEpochs<Trunk> where Trunk:TrunkView, Trunk.Element == Epoch<Trunk.Axis>
-//     {
-//         let trunk:Trunk
-//         let layer:Trunk.Layer
-//         let branch:_Version.Branch 
-//     }
-
-// }
-// extension Augmented
-// {
-
-// }
-
 struct Fasces
 {
-    // struct Augmented<Trunk> where Trunk:TrunkView
-    // {
-    //     let trunk:Trunk
-    //     let layer:Branch.Buffer<Trunk.Axis>
-    //     let branch:_Version.Branch 
-    // }
-    struct ModuleView:RandomAccessCollection
+    struct ForeignView:RandomAccessCollection
     {
         private 
         let segments:[Fascis]
@@ -44,32 +18,9 @@ struct Fasces
         {
             self.segments.endIndex
         }
-        subscript(index:Int) -> Branch.Epoch<Module> 
+        subscript(index:Int) -> Divergences<Branch.Diacritic, Symbol.ForeignDivergence>
         {
-            self.segments[index].modules
-        }
-    }
-    struct SymbolView:RandomAccessCollection
-    {
-        private 
-        let segments:[Fascis]
-
-        init(_ segments:__owned [Fascis])
-        {
-            self.segments = segments
-        }
-
-        var startIndex:Int 
-        {
-            self.segments.startIndex
-        }
-        var endIndex:Int 
-        {
-            self.segments.endIndex
-        }
-        subscript(index:Int) -> Branch.Epoch<Symbol>
-        {
-            self.segments[index].symbols
+            self.segments[index].foreign
         }
     }
     struct ArticleView:RandomAccessCollection
@@ -90,9 +41,55 @@ struct Fasces
         {
             self.segments.endIndex
         }
-        subscript(index:Int) -> Branch.Epoch<Article> 
+        subscript(index:Int) -> Epoch<Article> 
         {
             self.segments[index].articles
+        }
+    }
+    struct SymbolView:RandomAccessCollection
+    {
+        private 
+        let segments:[Fascis]
+
+        init(_ segments:__owned [Fascis])
+        {
+            self.segments = segments
+        }
+
+        var startIndex:Int 
+        {
+            self.segments.startIndex
+        }
+        var endIndex:Int 
+        {
+            self.segments.endIndex
+        }
+        subscript(index:Int) -> Epoch<Symbol>
+        {
+            self.segments[index].symbols
+        }
+    }
+    struct ModuleView:RandomAccessCollection
+    {
+        private 
+        let segments:[Fascis]
+
+        init(_ segments:__owned [Fascis])
+        {
+            self.segments = segments
+        }
+
+        var startIndex:Int 
+        {
+            self.segments.startIndex
+        }
+        var endIndex:Int 
+        {
+            self.segments.endIndex
+        }
+        subscript(index:Int) -> Epoch<Module> 
+        {
+            self.segments[index].modules
         }
     }
     struct RoutingView:RandomAccessCollection
@@ -178,7 +175,7 @@ struct Fasces
         self.segments = segments
     }
 
-    var modules:ModuleView 
+    var articles:ArticleView 
     {
         .init(self.segments)
     }
@@ -186,7 +183,11 @@ struct Fasces
     {
         .init(self.segments)
     }
-    var articles:ArticleView 
+    var modules:ModuleView 
+    {
+        .init(self.segments)
+    }
+    var foreign:ForeignView 
     {
         .init(self.segments)
     }
@@ -233,10 +234,9 @@ extension Fasces:RandomAccessCollection, RangeReplaceableCollection
 
 extension Sequence 
 {
-    func find<Axis>(_ id:Axis.ID) -> Tree.Position<Axis>? 
-        where Element == Branch.Epoch<Axis>
+    func find<Axis>(_ id:Axis.ID) -> Tree.Position<Axis>? where Element == Epoch<Axis>
     {
-        for segment:Branch.Epoch<Axis> in self 
+        for segment:Epoch<Axis> in self 
         {
             if let position:Branch.Position<Axis> = segment.position(of: id)
             {

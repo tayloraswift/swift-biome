@@ -155,7 +155,7 @@ struct Namespaces
             }
             else 
             {
-                for epoch:Branch.Epoch<Module> in fasces.modules 
+                for epoch:Epoch<Module> in fasces.modules 
                 {
                     for module:Module in epoch 
                     {

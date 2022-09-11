@@ -5,7 +5,7 @@ struct Fascis:Sendable
         _symbols:Branch.Buffer<Symbol>.SubSequence,
         _modules:Branch.Buffer<Module>.SubSequence 
     private 
-    let _opinions:[Branch.Diacritic: _ForeignDivergence], 
+    let _foreign:[Branch.Diacritic: Symbol.ForeignDivergence], 
         _routes:[Route.Key: Branch.Stack]
     /// The index of the original branch this fascis was cut from.
     /// 
@@ -19,7 +19,7 @@ struct Fascis:Sendable
         articles:Branch.Buffer<Article>.SubSequence, 
         symbols:Branch.Buffer<Symbol>.SubSequence,
         modules:Branch.Buffer<Module>.SubSequence, 
-        opinions:[Branch.Diacritic: _ForeignDivergence],
+        foreign:[Branch.Diacritic: Symbol.ForeignDivergence],
         routes:[Route.Key: Branch.Stack],
         branch:_Version.Branch, 
         limit:_Version.Revision)
@@ -27,28 +27,28 @@ struct Fascis:Sendable
         self._articles = articles
         self._symbols = symbols
         self._modules = modules
+        self._foreign = foreign
         self._routes = routes
-        self._opinions = opinions
 
         self.branch = branch
         self.limit = limit
     }
 
-    var articles:Branch.Epoch<Article> 
+    var articles:Epoch<Article> 
     {
         .init(self._articles, branch: self.branch, limit: self.limit)
     }
-    var symbols:Branch.Epoch<Symbol> 
+    var symbols:Epoch<Symbol> 
     {
         .init(self._symbols, branch: self.branch, limit: self.limit)
     }
-    var modules:Branch.Epoch<Module> 
+    var modules:Epoch<Module> 
     {
         .init(self._modules, branch: self.branch, limit: self.limit)
     }
-    var opinions:Divergences<Branch.Diacritic, _ForeignDivergence> 
+    var foreign:Divergences<Branch.Diacritic, Symbol.ForeignDivergence> 
     {
-        .init(self._opinions, limit: self.limit)
+        .init(self._foreign, limit: self.limit)
     }
     var routes:Divergences<Route.Key, Branch.Stack> 
     {

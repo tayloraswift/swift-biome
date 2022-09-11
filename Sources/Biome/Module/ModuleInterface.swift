@@ -124,11 +124,6 @@ struct ModuleInterface
 
         self._extensions = _extensions
     }
-
-    func metadata() -> Module.Metadata 
-    {
-        .present(dependencies: .init(namespaces.linked.values.lazy.map(\.contemporary)))
-    }
 }
 extension ModuleInterface.Abstractor<Symbol> 
 {

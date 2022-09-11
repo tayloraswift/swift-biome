@@ -1,23 +1,12 @@
 import SymbolGraphs
 
 public
-struct Symbol:BranchElement, Sendable, CustomStringConvertible  
+struct Symbol:Sendable, CustomStringConvertible  
 {
     public 
     typealias Culture = Module.Index 
     public 
-    typealias Offset = UInt32 
-    
-    public
-    struct Divergence:Voidable, Sendable 
-    {
-        var metadata:_History<Metadata>.Divergent?
-
-        init() 
-        {
-            self.metadata = nil
-        }
-    }
+    typealias Offset = UInt32
 
     struct Heads 
     {
@@ -53,7 +42,7 @@ struct Symbol:BranchElement, Sendable, CustomStringConvertible
     var shape:Shape<Tree.Position<Self>>?
     var heads:Heads
     
-    var metadata:_History<Metadata>.Head?
+    var metadata:_History<Metadata?>.Head?
 
     var pollen:Set<Module.Pin>
     

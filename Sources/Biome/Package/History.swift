@@ -84,11 +84,11 @@ struct _History<Value> where Value:Equatable
             contemporary:KeyPath<Element, Head?>,
             divergent:KeyPath<Element.Divergence, Divergent?>
         ),
-        in trunk:some Sequence<Branch.Epoch<Element>>) 
+        in trunk:some Sequence<Epoch<Element>>) 
         -> Value?
         where Element:BranchElement
     {
-        for epoch:Branch.Epoch<Element> in trunk
+        for epoch:Epoch<Element> in trunk
         {
             if let contemporary:Element = epoch[position] 
             {
@@ -148,16 +148,40 @@ struct _History<Value> where Value:Equatable
     }
 
     mutating 
-    func update<Element>(_ buffer:inout Branch.Buffer<Element>,
+    func update<Key, Divergence>(_ divergences:inout [Key: Divergence], key:Key, 
         with value:__owned Value, 
+        revision:_Version.Revision, 
+        field:WritableKeyPath<Divergence, Divergent?>,
+        trunk:some Sequence<Divergences<Key, Divergence>>)
+        where Key:Hashable, Divergence:Voidable
+    {
+        if let previous:Value = divergences[key]?[keyPath: field]
+                .map({ self[$0.head.index].value })
+        {
+            if previous == value
+            {
+                return 
+            }
+        }
+        else if case value? = self.value(of: key, field: field, in: trunk)
+        {
+            return
+        }
+
+        self.push(_move value, revision: revision, 
+           to: &divergences[key, default: .init()][keyPath: field])
+    }
+    mutating 
+    func update<Element>(_ buffer:inout Branch.Buffer<Element>, 
         position:Branch.Position<Element>, 
+        with value:__owned Value, 
         revision:_Version.Revision, 
         field:
         (
             contemporary:WritableKeyPath<Element, _History<Value>.Head?>,
             divergent:WritableKeyPath<Element.Divergence, _History<Value>.Divergent?>
         ),
-        trunk:some Sequence<Branch.Epoch<Element>>)
+        trunk:some Sequence<Epoch<Element>>)
         where Element:BranchElement, Element.Divergence:Voidable
     {
         guard position.offset < buffer.startIndex 

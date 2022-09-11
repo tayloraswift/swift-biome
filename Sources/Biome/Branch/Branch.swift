@@ -56,10 +56,10 @@ struct Branch:Identifiable, Sendable
     private 
     var revisions:[Revision]
 
+    var foreign:[Diacritic: Symbol.ForeignDivergence]
     var articles:Buffer<Article>, 
         symbols:Buffer<Symbol>,
         modules:Buffer<Module>
-    var opinions:[Diacritic: _ForeignDivergence]
     var routes:[Route.Key: Stack]
 
     var _head:_Version.Revision? 
@@ -100,11 +100,11 @@ struct Branch:Identifiable, Sendable
         self.heads = .init() 
         self.revisions = []
         
+        self.foreign = [:]
         self.articles = .init(startIndex: fork?.ring.articles ?? 0)
         self.symbols = .init(startIndex: fork?.ring.symbols ?? 0)
         self.modules = .init(startIndex: fork?.ring.modules ?? 0)
         self.routes = [:]
-        self.opinions = [:]
     }
     
     subscript(range:PartialRangeThrough<_Version.Revision>) -> Fascis
@@ -114,7 +114,7 @@ struct Branch:Identifiable, Sendable
             articles: self.articles[..<ring.articles],
             symbols: self.symbols[..<ring.symbols], 
             modules: self.modules[..<ring.modules], 
-            opinions: self.opinions, 
+            foreign: self.foreign, 
             routes: self.routes, 
             branch: self.index,
             limit: range.upperBound)

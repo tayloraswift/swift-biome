@@ -22,21 +22,32 @@ struct Surface
     private(set)
     var missingModules:Set<Branch.Position<Module>>, 
         missingSymbols:Set<Branch.Position<Symbol>>, 
-        missingDiacritics:Set<Branch.Diacritic>
+        missingHosts:Set<Branch.Diacritic>
     
-    private(set)
+    @available(*, deprecated, renamed: "local")
     var symbols:[Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>]
-    private(set)
+    {
+        self.local 
+    }
+    @available(*, deprecated, renamed: "foreign")
     var diacritics:[Tree.Diacritic: Symbol.Traits<Tree.Position<Symbol>>]
+    {
+        self.foreign
+    }
+
+    private(set)
+    var local:[Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>]
+    private(set)
+    var foreign:[Tree.Diacritic: Symbol.Traits<Tree.Position<Symbol>>]
     
     init(branch:__shared Branch, fasces:Fasces)
     {
-        self.symbols = [:]
-        self.diacritics = [:]
+        self.local = [:]
+        self.foreign = [:]
 
         self.missingModules = []
         self.missingSymbols = []
-        self.missingDiacritics = []
+        self.missingHosts = []
 
         // TODO: this should not require an unbounded range slice
         for module:Module in branch.modules[...] 
@@ -113,7 +124,7 @@ struct Surface
             if let symbol:Tree.Position<Symbol>
             {
                 self.missingSymbols.remove(symbol.contemporary)
-                self.symbols[symbol] = .init(
+                self.local[symbol] = .init(
                     traits: traits.removeValue(forKey: symbol) ?? [], 
                     roles: roles.removeValue(forKey: symbol) ?? [], 
                     as: context[global: symbol].community) 
@@ -132,12 +143,12 @@ struct Surface
             
             if  subject.package == symbols.culture.package 
             {
-                self.symbols[subject]?.update(acceptedCulture: symbols.culture, with: traits)
+                self.local[subject]?.update(acceptedCulture: symbols.culture, with: traits)
             }
             else 
             {
                 let diacritic:Tree.Diacritic = .init(host: subject, culture: symbols.culture)
-                self.diacritics[diacritic] = traits
+                self.foreign[diacritic] = traits
             }
         }
     }
@@ -147,12 +158,12 @@ struct Surface
     {
         if  scope.contemporary.culture == member.contemporary.culture 
         {
-            self.symbols[scope]?.primary
+            self.local[scope]?.primary
                 .members.insert(member)
         }
         else 
         {
-            self.symbols[scope]?.accepted[member.contemporary.culture, default: .init()]
+            self.local[scope]?.accepted[member.contemporary.culture, default: .init()]
                 .members.insert(member)
         }
     }
@@ -173,7 +184,7 @@ extension Surface
         stems:Route.Stems)
     {
         for (member, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
-            self.symbols
+            self.local
         {
             // we know that every key in ``Surface.symbols`` is part of the current 
             // package, and that they are all part of the current timeline, so it 

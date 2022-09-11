@@ -59,15 +59,15 @@ extension Route
         {
             self.naturals = []
             self.synthetics = []
-            self.update(with: surface.symbols, context: context)
-            self.update(with: surface.diacritics, context: context)
+            self.update(with: surface.local, context: context)
+            self.update(with: surface.foreign, context: context)
         }
         private mutating 
-        func update(with symbols:[Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>], 
+        func update(with local:[Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>], 
             context:Packages)
         {
             for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
-                symbols
+                local
             {
                 let host:Symbol = context[global: symbol]
                 
@@ -88,11 +88,11 @@ extension Route
             }
         }
         private mutating 
-        func update(with diacritics:[Tree.Diacritic: Symbol.Traits<Tree.Position<Symbol>>], 
+        func update(with foreign:[Tree.Diacritic: Symbol.Traits<Tree.Position<Symbol>>], 
             context:Packages)
         {
             for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in 
-                diacritics
+                foreign
             {
                 // can have external traits that do not have to do with features
                 if !traits.features.isEmpty 

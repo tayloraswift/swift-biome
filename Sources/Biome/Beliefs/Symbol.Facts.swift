@@ -145,12 +145,3 @@ extension Symbol
         }
     }
 }
-extension Symbol.Facts<Tree.Position<Symbol>>
-{
-    func metadata() -> Symbol.Metadata 
-    {
-        .present(roles: self.roles?.map(\.contemporary), 
-            primary: self.primary.map(\.contemporary), 
-            accepted: self.accepted.mapValues { $0.map(\.contemporary) })
-    }
-}

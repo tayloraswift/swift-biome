@@ -35,22 +35,29 @@ extension Package
         }
 
         private 
+        func metadata(foreign diacritic:Branch.Diacritic) -> Symbol.ForeignMetadata?
+        {
+            self.package.metadata.foreign.value(of: diacritic, 
+                field: \.metadata, 
+                in: self.fasces.foreign) ?? nil
+        }
+        private 
         func metadata(local symbol:Branch.Position<Symbol>) -> Symbol.Metadata?
         {
             self.package.metadata.symbols.value(of: symbol, 
                 field: (\.metadata, \.metadata), 
-                in: self.fasces.symbols)
+                in: self.fasces.symbols) ?? nil
         }
         private 
         func metadata(local module:Branch.Position<Module>) -> Module.Metadata?
         {
             self.package.metadata.modules.value(of: module, 
                 field: (\.metadata, \.metadata), 
-                in: self.fasces.modules)
+                in: self.fasces.modules) ?? nil
         }
         func exists(_ symbol:Branch.Position<Symbol>) -> Bool
         {
-            if case .present? = self.metadata(local: symbol)
+            if case _? = self.metadata(local: symbol)
             {
                 return true 
             }
@@ -68,22 +75,13 @@ extension Package
             }
             if self.package.index == host.package
             {
-                // primary or accepted culture
-                if  case .present(roles: _, primary: let primary, accepted: let accepted) = 
-                        self.metadata(local: host),
-                    let traits:Symbol.Traits<Branch.Position<Symbol>> = 
-                        composite.culture == host.module ? primary : accepted[composite.culture]
-                {
-                    return traits.features.contains(composite.base)
-                }
-                else 
-                {
-                    return false
-                }
+                return self.metadata(local: host)?
+                    .contains(feature: composite) ?? false 
             }
             else 
             {
-                fatalError("unimplemented")
+                return self.metadata(foreign: composite.diacritic)?
+                    .contains(feature: composite.base) ?? false
             }
         }
         func resolve(composite:Branch.Composite) -> ResolvedLink?
