@@ -31,34 +31,37 @@ struct Article:BranchElement, Sendable
     @usableFromInline 
     struct ID:Hashable, Sendable 
     {
-        let namespace:Module.ID 
-        let path:Path 
+        let route:Route.Key
         
-        init(_ namespace:Module.ID, _ path:Path)
+        init(_ route:Route.Key)
         {
-            self.namespace = namespace 
-            self.path = path
+            self.route = route
+        }
+        init(_ culture:Branch.Position<Module>, _ stem:Route.Stem, _ leaf:Route.Stem)
+        {
+            self.init(.init(culture, stem, .init(leaf, orientation: .straight)))
         }
     }
     
     @usableFromInline 
     let id:ID 
-    let route:Route.Key
+    
     var heads:Heads
 
     var path:Path
-    {
-        self.id.path
-    }
     var name:String 
     {
         self.path.last
     }
+    var route:Route.Key 
+    {
+        self.id.route
+    }
     
-    init(id:ID, route:Route.Key)
+    init(id:ID, path:Path)
     {
         self.id = id
-        self.route = route
+        self.path = path
         self.heads = .init()
     }
 }

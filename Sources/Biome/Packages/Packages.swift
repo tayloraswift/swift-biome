@@ -186,20 +186,8 @@ struct Packages
             context: self, 
             stems: stems)
 
-        // let lenses:Lenses = .init(.init(self[index], branch: branch, fasces: _move fasces), 
-        //     namespaces: _move targets, 
-        //     context: self)
-
-        // self.spread(from: index, beliefs: beliefs)
-
-        // let compiled:[Ecosystem.Index: DocumentationNode] = self.compile(
-        //     comments: graphs.generateComments(abstractors: abstractors),
-        //     extensions: extensions,
-        //     articles: articles,
-        //     scopes: scopes,
-        //     pins: pins)
-        // 
         // self[index].pushDocumentation(compiled)
+        // self.spread(from: index, beliefs: beliefs)
 
         return index
     }

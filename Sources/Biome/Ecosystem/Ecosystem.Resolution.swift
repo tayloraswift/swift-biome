@@ -88,9 +88,10 @@ extension Ecosystem
                 // passing a symbol link to ``Stems.subscript(_:_:)`` directly will 
                 // strip the characters after the first hyphen in each component. 
                 // so we need to manually re-extract the path components.
-                if  let article:SymbolGraphs.Path = .init(implicit.map(\.string)),
+                if  let article:Article.ID = 
+                        self.stems[namespace, straight: implicit.map(\.string)].map(Article.ID.init(_:)),
                     let article:Article.Index = 
-                        self[namespace.package].articles.indices[.init(self[namespace].id, article)]
+                        self[namespace.package].articles.indices[article]
                 {
                     if let pins:Package.Pins = self[namespace.package].versions.pins(at: arrival)
                     {

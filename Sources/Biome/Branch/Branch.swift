@@ -153,12 +153,6 @@ struct Branch:Identifiable, Sendable
         }
         return nil 
     }
-
-    func position<Element>(_ index:Element.Index) -> Tree.Position<Element> 
-        where Element:BranchElement 
-    {
-        .init(index, branch: self.index)
-    }
 }
 
 extension Branch 
@@ -171,9 +165,9 @@ extension Branch
         {
             return existing 
         }
-        let index:Position<Module> = self.modules.insert(id, culture: culture, 
+        let position:Position<Module> = self.modules.insert(id, culture: culture, 
             Module.init(id:index:))
-        return self.position(index)
+        return self.index.pluralize(position)
     }
     mutating 
     func add(graph:SymbolGraph, namespaces:__owned Namespaces, fasces:Fasces, 
@@ -268,9 +262,9 @@ extension Branch
             }
             return existing 
         }
-        let index:Symbol.Index = self.symbols.insert(id, culture: culture)
+        let position:Position<Symbol> = self.symbols.insert(id, culture: culture)
         {
-            (id:Symbol.ID, _:Symbol.Index) in 
+            (id:Symbol.ID, _:Position<Symbol>) in 
             let route:Route.Key = .init(namespace, 
                         stems.register(components: path.prefix), 
                 .init(stems.register(component:  path.last), 
@@ -298,7 +292,7 @@ extension Branch
             }
             return .init(id: id, path: path, kind: kind, route: route)
         }
-        return self.position(index)
+        return self.index.pluralize(position)
     }
 
     // TODO: ideally we want to be rendering markdown AOT. so once that is implemented 
@@ -324,7 +318,7 @@ extension Branch
                     (.implicit(let path)?, nil):
                 // articles are always associated with modules, and the name
                 // of that module is part of the article identity.
-                positions.append(self.addArticle(.init(namespace.id, path), 
+                positions.append(self.addArticle(path, 
                     culture: namespace.culture, 
                     trunk: trunk, 
                     stems: &stems))
@@ -350,10 +344,16 @@ extension Branch
         return (.init(_move positions), _extensions)
     }
     private mutating 
-    func addArticle(_ id:Article.ID, culture:Position<Module>, trunk:Fasces.ArticleView, 
+    func addArticle(_ path:Path, culture:Position<Module>, trunk:Fasces.ArticleView, 
         stems:inout Route.Stems)
         -> Tree.Position<Article>
     {
+        // article namespace is always its culture. 
+        let stem:Route.Stem = stems.register(components: path.prefix) 
+        let leaf:Route.Stem = stems.register(component: path.last)
+
+        let id:Article.ID = .init(culture, stem, leaf)
+
         if let existing:Tree.Position<Article> = trunk.find(id)
         {
             guard existing.contemporary.module == culture 
@@ -363,16 +363,11 @@ extension Branch
             }
             return existing 
         }
-        let index:Article.Index = self.articles.insert(id, culture: culture)
+        let position:Position<Article> = self.articles.insert(id, culture: culture)
         {
-            (id:Article.ID, index:Article.Index) in 
-            // article namespace is always its culture. 
-            let route:Route.Key = .init(index.module, 
-                        stems.register(components: id.path.prefix), 
-                .init(stems.register(component:  id.path.last), 
-                orientation: .straight))
-            return .init(id: id, route: route)
+            (id:Article.ID, _:Position<Article>) in 
+            .init(id: id, path: path)
         }
-        return self.position(index)
+        return self.index.pluralize(position)
     }
 }

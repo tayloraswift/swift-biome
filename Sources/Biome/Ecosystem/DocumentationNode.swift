@@ -313,9 +313,10 @@ extension Ecosystem
     {
         let (path, fold):([String], Int) = uri.path.normalized 
         if  doclink,  
-            let article:Path = .init(path),
+            let article:Article.ID = 
+                self.stems[scope.culture, straight: path].map(Article.ID.init(_:)),
             let article:Article.Index = 
-                self[scope.culture.package].articles.indices[.init(self[scope.culture].id, article)]
+                self[scope.culture.package].articles.indices[article]
         {
             return .init(.article(article), visible: path.endIndex - fold)
         }
