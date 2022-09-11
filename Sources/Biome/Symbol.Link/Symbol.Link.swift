@@ -37,11 +37,7 @@ extension Symbol
                 self.hyphen = hyphen
             }
         }
-        enum Orientation:Unicode.Scalar
-        {
-            case gay        = "."
-            case straight   = "/"
-        }
+        typealias Orientation = _SymbolLink.Orientation
 
         private
         var path:[Component]

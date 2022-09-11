@@ -95,24 +95,50 @@ struct Fasces
             self.segments[index].articles
         }
     }
-    struct RoutingView
+    struct RoutingView:RandomAccessCollection
     {
         private 
         let segments:[Fascis]
-        private 
-        let layered:(routes:[Route.Key: Branch.Stack], branch:_Version.Branch)?
 
-        init(_ segments:__owned [Fascis], 
-            layering layered:(routes:[Route.Key: Branch.Stack], branch:_Version.Branch)?)
+        init(_ segments:__owned [Fascis])
         {
             self.segments = segments
-            self.layered = layered
+        }
+
+        var startIndex:Int 
+        {
+            self.segments.startIndex
+        }
+        var endIndex:Int 
+        {
+            self.segments.endIndex
+        }
+        subscript(index:Int) -> Divergences<Route.Key, Branch.Stack> 
+        {
+            self.segments[index].routes
+        }
+    }
+    struct AugmentedRoutingView
+    {
+        private 
+        let trunk:[Fascis], 
+            routes:[Route.Key: Branch.Stack], 
+            branch:_Version.Branch
+
+        init(_ trunk:[Fascis], 
+            routes:[Route.Key: Branch.Stack], 
+            branch:_Version.Branch)
+        {
+            self.trunk = trunk 
+            self.routes = routes
+            self.branch = branch
         }
 
         func select<T>(_ key:Route.Key, 
-            _ filter:(_Version.Branch, Branch.Composite) throws -> T?) rethrows -> _Selection<T>
+            where filter:(_Version.Branch, Branch.Composite) throws -> T?) 
+            rethrows -> _Selection<T>?
         {
-            var selection:_Selection<T> = .none
+            var selection:_Selection<T>? = nil
             try self.select(key)
             {
                 if let selected:T = try filter($0, $1)
@@ -126,14 +152,11 @@ struct Fasces
         func select(_ key:Route.Key, 
             _ body:(_Version.Branch, Branch.Composite) throws -> ()) rethrows 
         {
-            if case let (routes, branch)? = self.layered 
-            {
-                try routes.select(key) 
-                { 
-                    try body(branch, $0) 
-                }
+            try self.routes.select(key) 
+            { 
+                try body(self.branch, $0) 
             }
-            for fascis:Fascis in self.segments 
+            for fascis:Fascis in self.trunk 
             {
                 try fascis.routes.select(key) 
                 { 
@@ -167,15 +190,15 @@ struct Fasces
     {
         .init(self.segments)
     }
-    func routes(layering branch:Branch?) -> RoutingView 
+    var routes:RoutingView 
     {
-        .init(self.segments, layering: branch.map { ($0.routes, $0.index) })
+        .init(self.segments)
     }
-    func routes(layering routes:[Route.Key: Branch.Stack], branch:_Version.Branch) -> RoutingView 
+    func routes(layering routes:[Route.Key: Branch.Stack], branch:_Version.Branch) 
+        -> AugmentedRoutingView 
     {
-        .init(self.segments, layering: (routes, branch))
+        .init(self.segments, routes: routes, branch: branch)
     }
-
 }
 extension Fasces:ExpressibleByArrayLiteral 
 {

@@ -1,14 +1,52 @@
 import SymbolGraphs 
+import DOM
+import URI
+
+enum ExpandedLink:Hashable, Sendable 
+{
+    case article(Tree.Position<Article>)
+    case package(Package.Index)
+    case implicit                        ([Tree.Position<Symbol>])
+    case qualified(Tree.Position<Module>, [Tree.Position<Symbol>] = [])
+}
+enum ResolvedLink:Hashable, Sendable 
+{
+    case article(Branch.Position<Article>)
+    case module(Branch.Position<Module>)
+    case package(Package.Index)
+    case composite(Branch.Composite)
+}
 
 struct Literature 
 {
-    let articles:[(Branch.Position<Article>, Article.Template<Ecosystem.Link>)]
-    let symbols:[(Branch.Position<Symbol>, Documentation<Article.Template<Ecosystem.Link>, Symbol.Index>)]
-    let modules:[(Branch.Position<Module>, Article.Template<Ecosystem.Link>)]
+    struct Compiled 
+    {
+        struct Link:Hashable, Sendable
+        {
+            let target:ResolvedLink
+            let visible:Int
+            
+            init(_ target:ResolvedLink, visible:Int)
+            {
+                self.target = target 
+                self.visible = visible
+            }
+        }
+        
+        let errors:[any Error]
+        let card:DOM.Flattened<Link>
+        let body:DOM.Flattened<Link>
+    }
+
+    let articles:[(Branch.Position<Article>, Compiled)]
+    let symbols:[(Branch.Position<Symbol>, Documentation<Compiled, Symbol.Index>)]
+    let modules:[(Branch.Position<Module>, Compiled)]
 
     init(compiling graphs:__owned [SymbolGraph], 
         interfaces:__owned [ModuleInterface], 
-        fasces:__owned Fasces)
+        version:_Version, 
+        context:__shared Packages, 
+        stems:__shared Route.Stems)
     {
         guard let culture:Package.Index = interfaces.first?.culture.package 
         else 
@@ -16,6 +54,8 @@ struct Literature
             //return [:]
             fatalError("unimplemented")
         }
+
+        let local:Package._Pinned = .init(context[culture], version: version)
 
         var pruned:Int = 0
         var comments:[Tree.Position<Symbol>: Documentation<String, Tree.Position<Symbol>>] = [:]
@@ -47,10 +87,26 @@ struct Literature
                 }
             }
 
+
+            let upstream:[Package._Pinned] = interface.pins.map 
+            {
+                .init(context[$0.key], version: $0.value)
+            }
+
             for (position, _extension):(Tree.Position<Article>?, Extension) in 
                 zip(interface.citizenArticles, interface._extensions)
             {
                 // TODO: handle merge behavior block directive 
+                if let position:Tree.Position<Article> 
+                {
+
+                }
+                // else if let binding:String = _extension.binding, 
+                //         let binding:URI = try? .init(relative: binding), 
+                //     case .one(let binding)? = try? local._resolve(binding, stems: stems)
+                // {
+                    
+                // }
             }
         }
         if pruned != 0 

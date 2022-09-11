@@ -164,12 +164,12 @@ extension Surface
     func inferScopes(for branch:inout Branch, fasces:Fasces, stems:Route.Stems)
     {
         self.inferScopes(for: &branch.symbols, 
-            trunk: fasces.routes(layering: branch), 
+            routes: fasces.routes(layering: branch.routes, branch: branch.index), 
             stems: stems)
     }
     private mutating 
     func inferScopes(for symbols:inout Branch.Buffer<Symbol>, 
-        trunk:Fasces.RoutingView, 
+        routes:Fasces.AugmentedRoutingView, 
         stems:Route.Stems)
     {
         for (member, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
@@ -198,13 +198,13 @@ extension Surface
             }
             //  attempt to re-parent this symbol using lexical lookup. 
             //  this is a *very* heuristical process.
-            if  let scope:Route.Key = stems[symbol.route.namespace, scope]
+            if  let scope:Route.Key = stems[symbol.route.namespace, straight: scope]
             {
-                let selection:_Selection<Tree.Position<Symbol>> = trunk.select(scope)
+                let selection:_Selection<Tree.Position<Symbol>>? = routes.select(scope)
                 {
                     $1.natural.map($0.pluralize(_:))
                 }
-                if case .one(let scope) = selection 
+                if case .one(let scope)? = selection 
                 {
                     symbols[contemporary: member.contemporary].shape = .member(of: scope)
                     self.add(member: member, to: scope) 

@@ -58,6 +58,19 @@ extension Route
 
         
         private 
+        subscript(leaf component:_SymbolLink.Component) -> Stem? 
+        {
+            if let hyphen:String.Index = component.hyphen 
+            {
+                return self[leaf: component.string[..<hyphen]]
+            }
+            else 
+            {
+                return self[leaf: component.string]
+            }
+        }
+        
+        private 
         subscript(leaf component:Symbol.Link.Component) -> Stem? 
         {
             if let hyphen:String.Index = component.hyphen 
@@ -70,10 +83,11 @@ extension Route
             }
         }
 
-        subscript<Path>(namespace:Module.Index, infix:Path) -> Key? 
-            where Path:BidirectionalCollection, Path.Element:StringProtocol 
+        subscript<Component>(namespace:Module.Index, 
+            straight infix:some BidirectionalCollection<Component>) -> Key? 
+            where Component:StringProtocol
         {
-            if  let leaf:Path.Element = infix.last,
+            if  let leaf:Component = infix.last,
                 let leaf:Stem = self[leaf: leaf],
                 let stem:Stem = self[stem: infix.dropLast()]
             {
@@ -84,6 +98,42 @@ extension Route
                 return nil
             }
         }
+        subscript<Component>(namespace:Module.Index, 
+            infix:some BidirectionalCollection<Component>, 
+            suffix:_SymbolLink) -> Key? 
+            where Component:StringProtocol
+        {
+            guard   let leaf:_SymbolLink.Component = suffix.path.last,
+                    let leaf:Stem = self[leaf: leaf]
+            else 
+            {
+                return nil 
+            }
+
+            let stem:Stem? 
+            if  suffix.count <= 1
+            {
+                stem = self[stem: infix]
+            }
+            else if infix.isEmpty
+            {
+                stem = self[stem: suffix.dropLast()]
+            }
+            else 
+            {
+                stem = self[stem: infix.map(String.init(_:)) + suffix.dropLast()]
+            }
+            return stem.map 
+            {
+                .init(namespace, $0, leaf, orientation: suffix.path.orientation)
+            }
+        }
+        subscript(namespace:Module.Index, suffix:_SymbolLink) -> Key? 
+        {
+            self[namespace, EmptyCollection<String>.init(), suffix]
+        }
+
+
         subscript(namespace:Module.Index, infix:[String], suffix:Symbol.Link) -> Key? 
         {
             if  let leaf:Symbol.Link.Component = suffix.last,

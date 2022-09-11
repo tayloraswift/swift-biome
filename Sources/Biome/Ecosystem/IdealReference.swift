@@ -37,9 +37,9 @@ struct IdealReference
 
             // we must parse the symbol link *now*, otherwise references to things 
             // like global vars (`Swift.min(_:_:)`) won’t work
-            guard   let link:_SymbolLink = try? .init(path: _move path, 
+            guard   let link:_SymbolLink = try? .init(revealing: _move path, 
                         base: plural.base, 
-                        host: plural.host).revealed
+                        host: plural.host)
             else 
             {
                 // every article path is a valid symbol link (just with extra 
@@ -49,14 +49,14 @@ struct IdealReference
             }
             //  we can store a module id in a ``Symbol/Link``, because every 
             //  ``Module/ID`` is a valid ``Symbol/Link/Component``.
-            guard let module:Module.ID = (link.first?.string).map(Module.ID.init(_:)) 
+            guard let module:Module.ID = link.first.map(Module.ID.init(_:)) 
             else 
             {
                 continue 
             }
 
             let namespace:Package._Pinned = .init(namespace, version: arrival)
-            if let module:Tree.Position<Module> = namespace.fasces.modules.find(module)
+            if let module:Tree.Position<Module> = namespace._fasces.modules.find(module)
             {
                 self.namespace = module 
                 self.culture = plural.culture ?? namespace 

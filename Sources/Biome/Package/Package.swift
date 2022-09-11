@@ -395,82 +395,82 @@ extension Package
             surface: surface, 
             fasces: fasces)
     }
-    mutating 
-    func pushDeclarations(_ declarations:[(Symbol.Index, Declaration<Symbol.Index>)]) 
-    {
-        let current:Version = self.versions.latest
-        for (index, declaration):(Symbol.Index, Declaration<Symbol.Index>) in declarations
-        {
-            self.declarations.push(declaration, version: current, 
-                into: &self.symbols[local: index].heads.declaration)
-        }
-    }
-    mutating 
-    func pushDocumentation(_ compiled:[Ecosystem.Index: DocumentationNode])
-    {
-        let current:Version = self.versions.latest
-        for (index, documentation):(Ecosystem.Index, DocumentationNode) in compiled 
-        {
-            switch index 
-            {
-            case .composite(let composite):
-                guard case nil = composite.host 
-                else 
-                {
-                    fatalError("unimplemented")
-                }
-                self.documentation.push(documentation, version: current, 
-                    into: &self.symbols[local: composite.base].heads.documentation)
+    // mutating 
+    // func pushDeclarations(_ declarations:[(Symbol.Index, Declaration<Symbol.Index>)]) 
+    // {
+    //     let current:Version = self.versions.latest
+    //     for (index, declaration):(Symbol.Index, Declaration<Symbol.Index>) in declarations
+    //     {
+    //         self.declarations.push(declaration, version: current, 
+    //             into: &self.symbols[local: index].heads.declaration)
+    //     }
+    // }
+    // mutating 
+    // func pushDocumentation(_ compiled:[Ecosystem.Index: DocumentationNode])
+    // {
+    //     let current:Version = self.versions.latest
+    //     for (index, documentation):(Ecosystem.Index, DocumentationNode) in compiled 
+    //     {
+    //         switch index 
+    //         {
+    //         case .composite(let composite):
+    //             guard case nil = composite.host 
+    //             else 
+    //             {
+    //                 fatalError("unimplemented")
+    //             }
+    //             self.documentation.push(documentation, version: current, 
+    //                 into: &self.symbols[local: composite.base].heads.documentation)
                 
-            case .article(let index): 
-                self.documentation.push(documentation, version: current, 
-                    into: &self.articles[local: index].heads.documentation)
+    //         case .article(let index): 
+    //             self.documentation.push(documentation, version: current, 
+    //                 into: &self.articles[local: index].heads.documentation)
                 
-            case .module(let index): 
-                self.documentation.push(documentation, version: current, 
-                    into: &self.modules[local: index].heads.documentation)
-            case .package(self.index): 
-                self.documentation.push(documentation, version: current, 
-                    into: &self.heads.documentation)
+    //         case .module(let index): 
+    //             self.documentation.push(documentation, version: current, 
+    //                 into: &self.modules[local: index].heads.documentation)
+    //         case .package(self.index): 
+    //             self.documentation.push(documentation, version: current, 
+    //                 into: &self.heads.documentation)
             
-            case .package(_): 
-                fatalError("unreachable")
-            }
-        }
-    }
-    mutating 
-    func pushExtensionMetadata(articles:[Article.Index: Extension], culture:Module.Index) 
-    {
-        let current:Version = self.versions.latest
-        for (index, article):(Article.Index, Extension) in articles
-        {
-            let excerpt:Article.Excerpt = .init(title: article.headline.plainText,
-                headline: article.headline.rendered(as: [UInt8].self),
-                snippet: article.snippet)
-            self.excerpts.push(excerpt, version: current, 
-                into: &self.articles[local: index].heads.excerpt)
-        }
-        let guides:Set<Article.Index> = .init(articles.keys)
-        if !guides.isEmpty 
-        {
-            self.guides.push(guides, version: current, 
-                into: &self.modules[local: culture].heads.guides)
-        }
-    }
-    mutating 
-    func pushToplevel(filtering updates:Abstractor.Updates)
-    {
-        var toplevel:Set<Symbol.Index> = [] 
-        for symbol:Symbol.Index? in updates 
-        {
-            if let symbol:Symbol.Index, self[local: symbol].path.prefix.isEmpty
-            {
-                // a symbol is toplevel if it has a single path component. this 
-                // is not the same thing as having a `nil` shape.
-                toplevel.insert(symbol)
-            }
-        }
-        self.toplevels.push(toplevel, version: self.versions.latest, 
-            into: &self.modules[local: updates.culture].heads.toplevel)
-    }
+    //         case .package(_): 
+    //             fatalError("unreachable")
+    //         }
+    //     }
+    // }
+    // mutating 
+    // func pushExtensionMetadata(articles:[Article.Index: Extension], culture:Module.Index) 
+    // {
+    //     let current:Version = self.versions.latest
+    //     for (index, article):(Article.Index, Extension) in articles
+    //     {
+    //         let excerpt:Article.Excerpt = .init(title: article.headline.plainText,
+    //             headline: article.headline.rendered(as: [UInt8].self),
+    //             snippet: article.snippet)
+    //         self.excerpts.push(excerpt, version: current, 
+    //             into: &self.articles[local: index].heads.excerpt)
+    //     }
+    //     let guides:Set<Article.Index> = .init(articles.keys)
+    //     if !guides.isEmpty 
+    //     {
+    //         self.guides.push(guides, version: current, 
+    //             into: &self.modules[local: culture].heads.guides)
+    //     }
+    // }
+    // mutating 
+    // func pushToplevel(filtering updates:Abstractor.Updates)
+    // {
+    //     var toplevel:Set<Symbol.Index> = [] 
+    //     for symbol:Symbol.Index? in updates 
+    //     {
+    //         if let symbol:Symbol.Index, self[local: symbol].path.prefix.isEmpty
+    //         {
+    //             // a symbol is toplevel if it has a single path component. this 
+    //             // is not the same thing as having a `nil` shape.
+    //             toplevel.insert(symbol)
+    //         }
+    //     }
+    //     self.toplevels.push(toplevel, version: self.versions.latest, 
+    //         into: &self.modules[local: updates.culture].heads.toplevel)
+    // }
 }

@@ -113,3 +113,28 @@ extension Divergences where Value == Branch.Stack
         }
     }
 }
+extension Sequence 
+{
+    func select<Key>(_ key:Key, _ body:(Branch.Composite) throws -> ()) rethrows 
+        where Element == Divergences<Key, Branch.Stack>
+    {
+        for divergences:Divergences<Key, Branch.Stack> in self 
+        {
+            try divergences.select(key, body)
+        }
+    }
+    func select<Key, T>(_ key:Key, where filter:(Branch.Composite) throws -> T?) rethrows 
+        -> _Selection<T>?
+        where Element == Divergences<Key, Branch.Stack>
+    {
+        var selection:_Selection<T>? = nil
+        try self.select(key) 
+        {
+            if let selected:T = try filter($0)
+            {
+                selection.append(selected)
+            }
+        }
+        return selection
+    }
+}

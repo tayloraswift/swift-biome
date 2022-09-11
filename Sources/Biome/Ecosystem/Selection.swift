@@ -5,14 +5,10 @@ enum SelectionError<Element>:Error
 }
 enum _Selection<Element>
 {
-    // we have to absorb the optional, because this type is 
-    // generic, and we cannot vend an extension on an optional generic type.
-
-    case none 
     case one(Element)
     case many([Element])
             
-    init(_ elements:[Element]) 
+    init?(_ elements:[Element]) 
     {
         if let first:Element = elements.first 
         {
@@ -20,33 +16,42 @@ enum _Selection<Element>
         }
         else 
         {
-            self = .none
+            return nil
         }
     }
-    
-    func unique() throws -> Element
+
+    @available(*, unavailable, 
+        message: "append(_:) is only available on Optional<Self>, to prevent accidental dropping of values.")
+    mutating 
+    func append(_:Element) 
+    {
+    }
+}
+extension Optional 
+{
+    func unique<Element>() throws -> Element where Wrapped == _Selection<Element>
     {
         switch self 
         {
-        case .none: 
+        case nil: 
             throw SelectionError<Element>.none
-        case .one(let element):
+        case .one(let element)?:
             return element
-        case .many(let elements): 
+        case .many(let elements)?: 
             throw SelectionError<Element>.many(elements)
         }
     }
 
     mutating 
-    func append(_ element:Element) 
+    func append<Element>(_ element:Element) where Wrapped == _Selection<Element>
     {
         switch _move self 
         {
-        case .none: 
+        case nil: 
             self = .one(element)
-        case .one(let first): 
+        case .one(let first)?: 
             self = .many([first, element])
-        case .many(var elements): 
+        case .many(var elements)?: 
             elements.append(element)
             self = .many(elements)
         }

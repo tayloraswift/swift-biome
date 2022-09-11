@@ -3,26 +3,6 @@ import URI
 
 struct _SymbolLink:RandomAccessCollection
 {
-    struct Disambiguator 
-    {
-        enum DocC 
-        {
-            case community(Community)
-            case fnv(hash:UInt32)
-        }
-
-        let base:Symbol.ID?
-        let host:Symbol.ID?
-        var docC:DocC?
-
-        init(base:Symbol.ID?, host:Symbol.ID?)
-        {
-            self.base = base 
-            self.host = host 
-            self.docC = nil
-        }
-    }
-
     // warning: do not make ``Equatable``, unless we enforce the correctness 
     // of the `hyphen` field!
     struct Component 
@@ -72,6 +52,142 @@ struct _SymbolLink:RandomAccessCollection
             return disambiguator
         }
     }
+    struct Path:RandomAccessCollection 
+    {
+        private
+        var components:[Component]
+        private(set)
+        var startIndex:Int
+        private(set)
+        var orientation:Orientation
+        
+        var endIndex:Int 
+        {
+            self.components.endIndex
+        }
+        subscript(index:Int) -> Component
+        {
+            _read 
+            {
+                yield  self.components[index]
+            }
+            _modify
+            {
+                yield &self.components[index]
+            }
+        }
+
+        init(_ components:some Collection<some StringProtocol>) throws 
+        {
+            try self.init(components: components, fold: components.startIndex)
+        }
+        init(_ vectors:some Collection<URI.Vector?>) throws 
+        {
+            let (components, fold):([String], Int) = vectors.normalized 
+            try self.init(components: components, fold: fold)
+        }
+        init<Path>(components:Path, fold:Path.Index) throws
+            where Path:Collection, Path.Element:StringProtocol
+        {
+            // iii. semantic segmentation 
+            //
+            // [     'foo',       'bar',       'baz.bar',                     '.Foo',          '..'] becomes
+            // [.big("foo"), .big("bar"), .big("baz"), .little("bar"), .little("Foo"), .little("..")] 
+            //                                                                         ^~~~~~~~~~~~~~~
+            //                                                                          (visible = 1)
+            self.orientation = .straight
+            self.components = []
+            self.components.reserveCapacity(components.underestimatedCount)
+            self.startIndex = self.components.startIndex 
+            // it is valid to pass an index for `fold` that is outside the bounds of 
+            // the components collection!
+            if components.startIndex < fold
+            {
+                try self.append(components: components[..<fold])
+                self.startIndex = self.components.endIndex
+                try self.append(components: components[fold...])
+            }
+            else 
+            {
+                try self.append(components: components)
+            }
+        }
+
+        var revealed:Self 
+        {
+            var revealed:Self = self 
+                revealed.startIndex = revealed.components.startIndex 
+            return revealed
+        }
+        var suffix:Self?
+        {
+            var suffix:Self = self 
+                suffix.startIndex += 1
+            return suffix.isEmpty ? nil : suffix 
+        }
+        var outed:Self? 
+        {
+            switch self.orientation 
+            {
+            case .gay: 
+                return nil 
+            case .straight: 
+                var outed:Self = self 
+                    outed.orientation = .gay 
+                return outed 
+            }
+        }
+
+        private mutating 
+        func append<S>(components:some Sequence<S>) throws where S:StringProtocol 
+        {
+            for component:S in components
+            {
+                switch try Symbol.Link.ComponentSegmentation<String.Index>.init(parsing: component)
+                {
+                case .opaque(let hyphen): 
+                    self.components.append(.init(String.init(component), hyphen: hyphen))
+                    self.orientation = .straight 
+                case .big:
+                    self.components.append(.init(String.init(component)))
+                    self.orientation = .straight 
+                
+                case .little                      (let start):
+                    // an isolated little-component implies an empty big-predecessor, 
+                    // and therefore resets the visibility counter
+                    self.startIndex = self.components.endIndex
+                    self.components.append(.init(String.init(component[start...])))
+                    self.orientation = .gay 
+                
+                case .reveal(big: let end, little: let start):
+                    self.components.append(.init(String.init(component[..<end])))
+                    self.components.append(.init(String.init(component[start...])))
+                    self.orientation = .gay 
+                }
+            }
+        }
+    }
+    struct Disambiguator 
+    {
+        enum DocC 
+        {
+            case community(Community)
+            case fnv(hash:UInt32)
+        }
+
+        let base:Symbol.ID?
+        let host:Symbol.ID?
+        var docC:DocC?
+
+        init(base:Symbol.ID?, host:Symbol.ID?)
+        {
+            self.base = base 
+            self.host = host 
+            self.docC = nil
+        }
+    }
+
+
     enum Orientation:Unicode.Scalar
     {
         case gay        = "."
@@ -79,87 +195,57 @@ struct _SymbolLink:RandomAccessCollection
     }
 
     private(set)
-    var disambiguator:Disambiguator,
-        orientation:Orientation
-    private
-    var path:[Component]
-    
-    private(set)
-    var startIndex:Int
-    var endIndex:Int 
+    var path:Path, 
+        disambiguator:Disambiguator
+
+    var startIndex:Path.Index
+    {
+        self.path.startIndex
+    }
+    var endIndex:Path.Index
     {
         self.path.endIndex
     }
-    subscript(index:Int) -> Component
+    subscript(index:Path.Index) -> String
     {
         _read 
         {
-            yield self.path[index]
+            yield self.path[index].string
         }
     }
     
-    func prefix(prepending prefix:[String]) -> [String]
+    init(revealing path:some Collection<some StringProtocol>, base:Symbol.ID?, host:Symbol.ID?) 
+        throws 
     {
-        prefix.isEmpty ? self.dropLast().map(\.string) : 
-                prefix + self.dropLast().lazy.map(\.string)
+        self.init(path: try Path.init(path).revealed, base: base, host: host)
+    }
+    init(path:some Collection<some StringProtocol>, base:Symbol.ID?, host:Symbol.ID?) 
+        throws 
+    {
+        self.init(path: try .init(path), base: base, host: host)
+    }
+    init(path:Path, base:Symbol.ID?, host:Symbol.ID?) 
+    {
+        self.init(path: path, disambiguator: .init(base: base, host: host))
+    }
+    private 
+    init(path:Path, disambiguator:Disambiguator) 
+    {
+        self.path = path
+        self.disambiguator = disambiguator
+    }
+
+    var revealed:Self 
+    {
+        .init(path: self.path.revealed, disambiguator: self.disambiguator)
     }
     var suffix:Self?
     {
-        var suffix:Self = self 
-            suffix.startIndex += 1
-        return suffix.isEmpty ? nil : suffix 
+        self.path.suffix.map { .init(path: $0, disambiguator: self.disambiguator) }
     }
-    
-    var revealed:Self 
+    var outed:Self?
     {
-        var revealed:Self = self 
-            revealed.startIndex = revealed.path.startIndex 
-        return revealed
-    }
-    var outed:Self? 
-    {
-        switch self.orientation 
-        {
-        case .gay: 
-            return nil 
-        case .straight: 
-            var outed:Self = self 
-                outed.orientation = .gay 
-            return outed 
-        }
-    }
-
-    init(path:some Collection<some StringProtocol>, base:Symbol.ID?, host:Symbol.ID?) throws 
-    {
-        try self.init(path: (path, path.startIndex), base: base, host: host)
-    }
-    init<Path>(path:(components:Path, fold:Path.Index), base:Symbol.ID?, host:Symbol.ID?) 
-        throws
-        where Path:Collection, Path.Element:StringProtocol
-    {
-        // iii. semantic segmentation 
-        //
-        // [     'foo',       'bar',       'baz.bar',                     '.Foo',          '..'] becomes
-        // [.big("foo"), .big("bar"), .big("baz"), .little("bar"), .little("Foo"), .little("..")] 
-        //                                                                         ^~~~~~~~~~~~~~~
-        //                                                                          (visible = 1)
-        self.disambiguator = .init(base: base, host: host)
-        self.orientation = .straight
-        self.path = []
-        self.path.reserveCapacity(path.components.underestimatedCount)
-        self.startIndex = self.path.startIndex 
-        // it is valid to pass an index for `fold` that is outside the bounds of 
-        // the components collection!
-        if path.components.startIndex < path.fold
-        {
-            try self.append(components: path.components[..<path.fold])
-            self.startIndex = self.path.endIndex
-            try self.append(components: path.components[path.fold...])
-        }
-        else 
-        {
-            try self.append(components: path.components)
-        }
+        self.path.outed.map { .init(path: $0, disambiguator: self.disambiguator) }
     }
 
     mutating 
@@ -167,38 +253,9 @@ struct _SymbolLink:RandomAccessCollection
     {
         if  let last:Int = self.path.indices.last, 
             let disambiguator:Disambiguator.DocC = 
-                self.path[last].removeDocCFragment(global: self.count == 1)
+                self.path[last].removeDocCFragment(global: self.path.count == 1)
         {
             self.disambiguator.docC = disambiguator
-        }
-    }
-
-    private mutating 
-    func append<S>(components:some Sequence<S>) throws where S:StringProtocol 
-    {
-        for component:S in components
-        {
-            switch try Symbol.Link.ComponentSegmentation<String.Index>.init(parsing: component)
-            {
-            case .opaque(let hyphen): 
-                self.path.append(.init(String.init(component), hyphen: hyphen))
-                self.orientation = .straight 
-            case .big:
-                self.path.append(.init(String.init(component)))
-                self.orientation = .straight 
-            
-            case .little                      (let start):
-                // an isolated little-component implies an empty big-predecessor, 
-                // and therefore resets the visibility counter
-                self.startIndex = self.path.endIndex
-                self.path.append(.init(String.init(component[start...])))
-                self.orientation = .gay 
-            
-            case .reveal(big: let end, little: let start):
-                self.path.append(.init(String.init(component[..<end])))
-                self.path.append(.init(String.init(component[start...])))
-                self.orientation = .gay 
-            }
         }
     }
 }

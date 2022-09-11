@@ -169,6 +169,7 @@ struct Packages
             surface: surface,
             fasces: fasces)
 
+        _ = _move fasces 
 
         // for (scope, articles):(Module.Scope, [Article.Index: Extension]) in zip(scopes, articles)
         // {
@@ -181,7 +182,9 @@ struct Packages
         // }
         let literature:Literature = .init(compiling: _move graphs, 
             interfaces: _move interfaces, 
-            fasces: _move fasces)
+            version: version, 
+            context: self, 
+            stems: stems)
 
         // let lenses:Lenses = .init(.init(self[index], branch: branch, fasces: _move fasces), 
         //     namespaces: _move targets, 
