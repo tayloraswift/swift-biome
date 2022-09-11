@@ -94,7 +94,9 @@ struct ModuleInterface
     var articles:Abstractor<Article>
     var symbols:Abstractor<Symbol>
 
-    let _extensions:[Extension]
+    // this does not belong here! once AOT article rendering lands in the `SymbolGraphs` module, 
+    // we can get rid of it
+    let _cachedMarkdown:[Extension]
 
     var citizenArticles:Citizens<Article> 
     {
@@ -122,7 +124,7 @@ struct ModuleInterface
         self.articles = articles
         self.symbols = symbols
 
-        self._extensions = _extensions
+        self._cachedMarkdown = _extensions
     }
 }
 extension ModuleInterface.Abstractor<Symbol> 

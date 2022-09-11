@@ -85,7 +85,7 @@ struct Literature
                 namespaces: interface.namespaces)
 
             for (position, _extension):(Tree.Position<Article>?, Extension) in 
-                zip(interface.citizenArticles, interface._extensions)
+                zip(interface.citizenArticles, interface._cachedMarkdown)
             {
                 let imports:Set<Branch.Position<Module>> = 
                     interface.namespaces.import(_extension.metadata.imports)

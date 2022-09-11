@@ -135,6 +135,7 @@ struct Packages
                 stems: &stems)
 
             surface.update(with: graph.edges, interface: interface, context: self)
+            
             interfaces.append(interface)
         }
 

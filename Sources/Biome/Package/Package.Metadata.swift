@@ -3,12 +3,14 @@ extension Package
     struct Metadata 
     {
         private(set)
-        var modules:_History<Module.Metadata?>, 
+        var articles:_History<Article.Metadata?>,
+            modules:_History<Module.Metadata?>, 
             symbols:_History<Symbol.Metadata?>, 
             foreign:_History<Symbol.ForeignMetadata?>
 
         init() 
         {
+            self.articles = .init()
             self.modules = .init()
             self.symbols = .init()
             self.foreign = .init()
@@ -24,12 +26,34 @@ extension Package.Metadata
         surface:Surface, 
         fasces:Fasces)
     {
-        self.update(&branch.modules, missing: surface.missingModules, revision: revision, 
-            trunk: fasces.modules)
-        self.update(&branch.symbols, missing: surface.missingSymbols, revision: revision, 
-            trunk: fasces.symbols)
-        self.update(&branch.foreign, missing: surface.missingHosts, revision: revision, 
-            trunk: fasces.foreign)
+        for missing:Branch.Position<Module> in surface.missingModules 
+        {
+            self.modules.update(&branch.modules, position: missing, with: nil, 
+                revision: revision, 
+                field: (\.metadata, \.metadata),
+                trunk: fasces.modules)
+        }
+        for missing:Branch.Position<Article> in surface.missingArticles 
+        {
+            self.articles.update(&branch.articles, position: missing, with: nil, 
+                revision: revision, 
+                field: (\.metadata, \.metadata),
+                trunk: fasces.articles)
+        }
+        for missing:Branch.Position<Symbol> in surface.missingSymbols 
+        {
+            self.symbols.update(&branch.symbols, position: missing, with: nil, 
+                revision: revision, 
+                field: (\.metadata, \.metadata),
+                trunk: fasces.symbols)
+        }
+        for missing:Branch.Diacritic in surface.missingHosts 
+        {
+            self.foreign.update(&branch.foreign, key: missing, with: nil, 
+                revision: revision, 
+                field: \.metadata,
+                trunk: fasces.foreign)
+        }
         
         for interface:ModuleInterface in interfaces 
         {
@@ -38,6 +62,15 @@ extension Package.Metadata
                 revision: revision, 
                 field: (\.metadata, \.metadata),
                 trunk: fasces.modules)
+        }
+        for (article, metadata):(Branch.Position<Article>, Article.Metadata) in 
+            surface.articles
+        {
+            self.articles.update(&branch.articles, position: article, 
+                with: metadata,
+                revision: revision, 
+                field: (\.metadata, \.metadata),
+                trunk: fasces.articles) 
         }
         for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
             surface.local
@@ -56,47 +89,6 @@ extension Package.Metadata
                 revision: revision, 
                 field: \.metadata, 
                 trunk: fasces.foreign)
-        }
-    }
-
-    private mutating 
-    func update(_ modules:inout Branch.Buffer<Module>, missing:Set<Branch.Position<Module>>, 
-        revision:_Version.Revision, 
-        trunk:some Sequence<Epoch<Module>>)
-    {
-        for missing:Branch.Position<Module> in missing 
-        {
-            self.modules.update(&modules, position: missing, with: nil, 
-                revision: revision, 
-                field: (\.metadata, \.metadata),
-                trunk: trunk)
-        }
-    }
-    private mutating 
-    func update(_ symbols:inout Branch.Buffer<Symbol>, missing:Set<Branch.Position<Symbol>>, 
-        revision:_Version.Revision, 
-        trunk:some Sequence<Epoch<Symbol>>)
-    {
-        for missing:Branch.Position<Symbol> in missing 
-        {
-            self.symbols.update(&symbols, position: missing, with: nil, 
-                revision: revision, 
-                field: (\.metadata, \.metadata),
-                trunk: trunk)
-        }
-    }
-    private mutating 
-    func update(_ foreign:inout [Branch.Diacritic: Symbol.ForeignDivergence], 
-        missing:Set<Branch.Diacritic>, 
-        revision:_Version.Revision, 
-        trunk:some Sequence<Divergences<Branch.Diacritic, Symbol.ForeignDivergence>>)
-    {
-        for missing:Branch.Diacritic in missing 
-        {
-            self.foreign.update(&foreign, key: missing, with: nil, 
-                revision: revision, 
-                field: \.metadata,
-                trunk: trunk)
         }
     }
 }

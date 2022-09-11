@@ -20,8 +20,9 @@ struct Belief
 struct Surface 
 {
     private(set)
-    var missingModules:Set<Branch.Position<Module>>, 
+    var missingArticles:Set<Branch.Position<Article>>, 
         missingSymbols:Set<Branch.Position<Symbol>>, 
+        missingModules:Set<Branch.Position<Module>>, 
         missingHosts:Set<Branch.Diacritic>
     
     @available(*, deprecated, renamed: "local")
@@ -39,14 +40,19 @@ struct Surface
     var local:[Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>]
     private(set)
     var foreign:[Tree.Diacritic: Symbol.Traits<Tree.Position<Symbol>>]
+
+    private(set)
+    var articles:[(Branch.Position<Article>, Article.Metadata)]
     
-    init(branch:__shared Branch, fasces:Fasces)
+    init(branch:__shared Branch, fasces:__shared Fasces)
     {
         self.local = [:]
         self.foreign = [:]
+        self.articles = []
 
-        self.missingModules = []
+        self.missingArticles = []
         self.missingSymbols = []
+        self.missingModules = []
         self.missingHosts = []
 
         // TODO: this should not require an unbounded range slice
@@ -86,6 +92,16 @@ struct Surface
     mutating 
     func update(with edges:[SymbolGraph.Edge<Int>], interface:ModuleInterface, context:Packages)
     {
+        for (article, _cached):(Tree.Position<Article>?, Extension) in 
+            zip(interface.citizenArticles, interface._cachedMarkdown)
+        {
+            if let article:Tree.Position<Article>
+            {
+                self.missingArticles.remove(article.contemporary)
+                self.articles.append((article.contemporary, .init(_extension: _cached)))
+            }
+        }
+        
         let (beliefs, errors):([Belief], [ModuleInterface.LookupError]) = 
             interface.symbols.translate(edges: edges, context: context)
         

@@ -2,16 +2,12 @@ import struct SymbolGraphs.Path
 import HTML
 
 @usableFromInline 
-struct Article:BranchElement, Sendable
+struct Article:Sendable
 {
     @usableFromInline 
     typealias Culture = Module.Index 
     @usableFromInline 
     typealias Offset = UInt32 
-    @usableFromInline 
-    struct Divergence:Voidable, Sendable
-    {
-    }
 
     @usableFromInline 
     struct Heads:Sendable
@@ -42,13 +38,22 @@ struct Article:BranchElement, Sendable
             self.init(.init(culture, stem, .init(leaf, orientation: .straight)))
         }
     }
+
+    var heads:Heads
     
     @usableFromInline 
     let id:ID 
-    
-    var heads:Heads
-
     var path:Path
+
+    var metadata:_History<Metadata?>.Head?
+    
+    init(id:ID, path:Path)
+    {
+        self.id = id
+        self.path = path
+        self.heads = .init()
+    }
+
     var name:String 
     {
         self.path.last
@@ -56,12 +61,5 @@ struct Article:BranchElement, Sendable
     var route:Route.Key 
     {
         self.id.route
-    }
-    
-    init(id:ID, path:Path)
-    {
-        self.id = id
-        self.path = path
-        self.heads = .init()
     }
 }
