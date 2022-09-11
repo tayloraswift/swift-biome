@@ -148,6 +148,7 @@ struct Surface
             else 
             {
                 let diacritic:Tree.Diacritic = .init(host: subject, culture: symbols.culture)
+                self.missingHosts.remove(diacritic.contemporary)
                 self.foreign[diacritic] = traits
             }
         }

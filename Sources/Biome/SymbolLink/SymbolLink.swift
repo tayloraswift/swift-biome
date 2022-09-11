@@ -259,3 +259,28 @@ struct _SymbolLink:RandomAccessCollection
         }
     }
 }
+
+extension _SymbolLink 
+{
+    init(_ uri:URI) throws 
+    {
+        var host:Symbol.ID? = nil
+        var base:Symbol.ID? = nil
+        for (key, value):(String, String) in uri.query ?? [] 
+        {
+            // slightly different from the parser in `PluralReference.swift`
+            if  let key:PluralReference.Parameter = .init(rawValue: key), 
+                let id:Symbol.ID = try? USR.Rule<String.Index>.OpaqueName.parse(value.utf8)
+            {
+                switch key 
+                {
+                case .host: host = id
+                case .base: base = id 
+                case .culture: continue
+                }
+            }
+        }
+        
+        self.init(path: try .init(uri.path), base: base, host: host)
+    }
+}

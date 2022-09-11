@@ -32,6 +32,17 @@ struct Namespaces
     private(set)
     var linked:[Module.ID: Tree.Position<Module>]
 
+    init(_ module:Namespace)
+    {
+        self.pins = [:]
+        self.module = module 
+        self.linked = [module.id: module.position]
+    }
+    init(id:Module.ID, position:Tree.Position<Module>)
+    {
+        self.init(.init(id: id, position: position))
+    }
+
     @available(*, deprecated, renamed: "module")
     var current:Namespace 
     {
@@ -47,16 +58,20 @@ struct Namespaces
         self.module.culture
     }
     
-    init(_ module:Namespace)
+    func `import`(_ modules:some Sequence<Module.ID>) -> Set<Branch.Position<Module>>
     {
-        self.pins = [:]
-        self.module = module 
-        self.linked = [module.id: module.position]
+        var imported:Set<Branch.Position<Module>> = []
+            imported.reserveCapacity(modules.underestimatedCount)
+        for module:Module.ID in modules 
+        {
+            if let position:Branch.Position<Module> = self.linked[module]?.contemporary
+            {
+                imported.insert(position)
+            }
+        }
+        return imported
     }
-    init(id:Module.ID, position:Tree.Position<Module>)
-    {
-        self.init(.init(id: id, position: position))
-    }
+
     // the `branch` parameter may be *different* from `module.position.branch`, 
     // which refers to the branch in which the module itself was founded.
     mutating 

@@ -10,6 +10,21 @@ struct _Scope
         self.namespace = namespace 
         self.path = path
     }
+
+    func scan<T>(concatenating link:_SymbolLink, stems:Route.Stems, 
+        until match:(Route.Key) throws -> T?) rethrows -> T?
+    {
+        for level:Int in self.path.indices.reversed()
+        {
+            if  let key:Route.Key = 
+                    stems[self.namespace, self.path.prefix(through: level), link],
+                let match:T = try match(key)
+            {
+                return match
+            }
+        }
+        return try stems[self.namespace, link].flatMap(match)
+    }
 }
 
 extension Package 
@@ -32,6 +47,11 @@ extension Package
             self.package = package
             self.version = version
             self.fasces = self.package.tree.fasces(through: self.version)
+        }
+
+        var routes:Fasces.RoutingView 
+        {
+            self.fasces.routes
         }
 
         private 
@@ -84,77 +104,41 @@ extension Package
                     .contains(feature: composite.base) ?? false
             }
         }
-        func resolve(composite:Branch.Composite) -> ResolvedLink?
-        {
-            self.exists(composite) ? .composite(composite) : nil
-        }
 
-        func _resolve(_ uri:URI, scope:_Scope?, stems:Route.Stems) 
-            throws -> _Selection<ResolvedLink>?
+        func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems) 
+            -> _SymbolLink.Resolution?
         {
-            var host:Symbol.ID? = nil
-            var base:Symbol.ID? = nil
-            for (key, value):(String, String) in uri.query ?? [] 
-            {
-                // slightly different from the parser in `PluralReference.swift`
-                if  let key:PluralReference.Parameter = .init(rawValue: key), 
-                    let id:Symbol.ID = try? USR.Rule<String.Index>.OpaqueName.parse(value.utf8)
-                {
-                    switch key 
-                    {
-                    case .host: host = id
-                    case .base: base = id 
-                    case .culture: continue
-                    }
-                }
-            }
-
-            let expression:_SymbolLink = .init(path: try .init(uri.path), 
-                base: base, 
-                host: host)
-            let link:_SymbolLink = expression.revealed 
-            if  let selection:_Selection<ResolvedLink> = self.resolve(link, 
+            if  let resolution:_SymbolLink.Resolution = self.resolve(link, 
                     scope: scope, 
                     stems: stems, 
-                    where: self.resolve(composite:))
+                    where: self.exists(_:))
             {
-                return selection 
+                return resolution 
             }
             if  let link:_SymbolLink = link.outed, 
-                let selection:_Selection<ResolvedLink> = self.resolve(link, 
+                let resolution:_SymbolLink.Resolution = self.resolve(link, 
                     scope: scope, 
                     stems: stems, 
-                    where: self.resolve(composite:))
+                    where: self.exists(_:))
             {
-                return selection
+                return resolution
             }
             else 
             {
                 return nil 
             }
         }
+        private 
         func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
-            where filter:(Branch.Composite) throws -> ResolvedLink?) 
-            rethrows -> _Selection<ResolvedLink>?
+            where predicate:(Branch.Composite) throws -> Bool) 
+            rethrows -> _SymbolLink.Resolution?
         {
-            if let scope:_Scope 
+            if  let scope:_Scope, 
+                let selection:_Selection<Branch.Composite> = try scope.scan(concatenating: link, 
+                    stems: stems, 
+                    until: { try self.routes.select($0, where: predicate) })
             {
-                for level:Int in scope.path.indices.reversed()
-                {
-                    if  let key:Route.Key = 
-                            stems[scope.namespace, scope.path.prefix(through: level), link],
-                        let selection:_Selection<ResolvedLink> = 
-                            try self.fasces.routes.select(key, where: filter)
-                    {
-                        return selection
-                    }
-                }
-                if  let key:Route.Key = stems[scope.namespace, link],
-                    let selection:_Selection<ResolvedLink> = 
-                        try self.fasces.routes.select(key, where: filter)
-                {
-                    return selection
-                }
+                return .init(selection)
             }
             guard   let namespace:Module.ID = link.first.map(Module.ID.init(_:)), 
                     let namespace:Tree.Position<Module> = self.fasces.modules.find(namespace)
@@ -162,16 +146,20 @@ extension Package
             {
                 return nil
             }
-            if let link:_SymbolLink = link.suffix 
+            guard let link:_SymbolLink = link.suffix 
+            else 
             {
-                return try stems[namespace.contemporary, link].flatMap 
-                {
-                    try self.fasces.routes.select($0, where: filter)
-                }
+                return .module(namespace.contemporary)
+            }
+            if  let key:Route.Key = stems[namespace.contemporary, link], 
+                let selection:_Selection<Branch.Composite> = try self.routes.select(key, 
+                    where: predicate)
+            {
+                return .init(selection)
             }
             else 
             {
-                return .one(.module(namespace.contemporary))
+                return nil
             }
         }
     }
