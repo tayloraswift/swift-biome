@@ -98,12 +98,15 @@ extension Symbol
             }
         }
         
-        init() 
+        init(members:Set<Position> = [],
+            downstream:Set<Position> = [],
+            unconditional:Set<Position> = [],
+            conditional:[Position: [Generic.Constraint<Position>]] = [:]) 
         {
-            self.members = []
-            self.downstream = []
-            self.unconditional = []
-            self.conditional = [:]
+            self.members = members
+            self.downstream = downstream
+            self.unconditional = unconditional
+            self.conditional = conditional
         }
         
         init(_ traits:some Sequence<Trait<Position>>, as community:Community)
@@ -203,34 +206,45 @@ extension Symbol
             }
         }
         
-        mutating 
-        func subtract(_ other:Self) 
-        {
-            self.members.subtract(other.members)
-            self.downstream.subtract(other.downstream)
-            self.unconditional.subtract(other.unconditional)
-            for (symbol, conditions):(Position, [Generic.Constraint<Position>]) in 
-                other.conditional
-            {
-                if  let counterpart:Dictionary<Position, [Generic.Constraint<Position>]>.Index = 
-                    self.conditional.index(forKey: symbol), 
-                    self.conditional.values[counterpart] == conditions 
-                {
-                    self.conditional.remove(at: counterpart)
-                }
-            }
-        }
-        func subtracting(_ other:Self) -> Self
-        {
-            var traits:Self = self 
-            traits.subtract(other)
-            return traits
-        }
-
         func map<T>(_ transform:(Position) throws -> T) rethrows -> Traits<T>
             where T:Hashable
         {
             fatalError("unimplemented")
         }
+    }
+}
+extension Symbol.Traits<Tree.Position<Symbol>> 
+{
+    func subtracting(_ other:Symbol.Traits<Branch.Position<Symbol>>) 
+        -> Symbol.Traits<Tree.Position<Symbol>>
+    {
+        .init(
+            members: self.members.filter 
+            {
+                !other.members.contains($0.contemporary)
+            },
+            downstream: self.downstream.filter 
+            {
+                !other.downstream.contains($0.contemporary)
+            },
+            unconditional: self.unconditional.filter 
+            {
+                !other.unconditional.contains($0.contemporary)
+            },
+            conditional: self.conditional.filter 
+            {
+                if  let counterpart:[Generic.Constraint<Branch.Position<Symbol>>] = 
+                        other.conditional[$0.key.contemporary]
+                {
+                    return counterpart.elementsEqual($0.value.lazy.map 
+                    { 
+                        $0.map(\.contemporary) 
+                    }) 
+                }
+                else 
+                {
+                    return true 
+                }
+            })
     }
 }

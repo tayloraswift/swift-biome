@@ -54,7 +54,7 @@ struct _History<Value> where Value:Equatable
     {
         self.rewind(head, to: revision).map { self.forest[$0].value.value }
     }
-        
+    
     func value<Key, Divergence>(of key:Key, 
         field:KeyPath<Divergence, Divergent?>,
         in trunk:some Sequence<Divergences<Key, Divergence>>)

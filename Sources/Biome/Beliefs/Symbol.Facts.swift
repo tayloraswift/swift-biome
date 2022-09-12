@@ -60,58 +60,7 @@ extension Symbol
             self.primary = primary 
             self.accepted = accepted
         }
-        init(traits:[Trait<Position>], roles:[Role<Position>], as community:Community)  
-        {
-            var shape:Shape<Position>? = nil 
-            // partition relationships buffer 
-            var superclass:Position? = nil 
-            var residuals:[Role<Position>] = []
-            for role:Role<Position> in roles
-            {
-                switch (shape, role) 
-                {
-                case  (nil,            .member(of: let type)): 
-                    shape =            .member(of:     type) 
-                case (nil,        .requirement(of: let interface)): 
-                    shape =       .requirement(of:     interface) 
-                
-                case (let shape?,      .member(of: let type)):
-                    guard case         .member(of:     type) = shape 
-                    else 
-                    {
-                        fatalError("unimplemented")
-                        // throw PoliticalError.conflict(is: shape.role, 
-                        //     and: .member(of: type))
-                    }
-                case (let shape?, .requirement(of: let interface)): 
-                    guard case    .requirement(of:     interface) = shape 
-                    else 
-                    {
-                        fatalError("unimplemented")
-                        // throw PoliticalError.conflict(is: shape.role, 
-                        //     and: .requirement(of: interface))
-                    }
-                    
-                case (_,             .subclass(of: let type)): 
-                    switch superclass 
-                    {
-                    case nil, type?:
-                        superclass = type
-                    case _?:
-                        fatalError("unimplemented")
-                        // throw PoliticalError.conflict(is: .subclass(of: superclass), 
-                        //     and: .subclass(of: type))
-                    }
-                    
-                default: 
-                    residuals.append(role)
-                }
-            }
-            
-            self.init(shape: shape, 
-                roles: .init(residuals, superclass: superclass, shape: shape, as: community), 
-                primary: .init(traits, as: community))
-        }
+
 
         func map<T>(_ transform:(Position) throws -> T) rethrows -> Facts<T>
             where T:Hashable
@@ -122,26 +71,26 @@ extension Symbol
                 accepted: try self.accepted.mapValues { try $0.map(transform) })
         }
 
-        func featuresAssumingConcreteType() 
-            -> [(perpetrator:Module.Index?, features:Set<Position>)]
-        {
-            var features:[(perpetrator:Module.Index?, features:Set<Position>)] = []
-            if !self.primary.features.isEmpty
-            {
-                features.append((nil, self.primary.features))
-            }
-            for (perpetrator, traits):(Module.Index, Traits<Position>) in self.accepted
-                where !traits.features.isEmpty
-            {
-                features.append((perpetrator, traits.features))
-            }
-            return features
-        }
+        // func featuresAssumingConcreteType() 
+        //     -> [(perpetrator:Module.Index?, features:Set<Position>)]
+        // {
+        //     var features:[(perpetrator:Module.Index?, features:Set<Position>)] = []
+        //     if !self.primary.features.isEmpty
+        //     {
+        //         features.append((nil, self.primary.features))
+        //     }
+        //     for (perpetrator, traits):(Module.Index, Traits<Position>) in self.accepted
+        //         where !traits.features.isEmpty
+        //     {
+        //         features.append((perpetrator, traits.features))
+        //     }
+        //     return features
+        // }
 
-        mutating 
-        func update(acceptedCulture culture:Module.Index, with traits:Traits<Position>)
-        {
-            self.accepted[culture] = traits.subtracting(self.primary)
-        }
+        // mutating 
+        // func update(acceptedCulture culture:Module.Index, with traits:Traits<Position>)
+        // {
+        //     self.accepted[culture] = traits.subtracting(self.primary)
+        // }
     }
 }

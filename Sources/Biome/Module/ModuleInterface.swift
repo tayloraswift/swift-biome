@@ -129,7 +129,7 @@ struct ModuleInterface
 }
 extension ModuleInterface.Abstractor<Symbol> 
 {
-    func translate(edges:[SymbolGraph.Edge<Int>], context:Packages) 
+    func translate(edges:[SymbolGraph.Edge<Int>], context:SurfaceBuilder.Context) 
         -> (beliefs:[Belief], errors:[ModuleInterface.LookupError])
     {
         var errors:[ModuleInterface.LookupError] = []

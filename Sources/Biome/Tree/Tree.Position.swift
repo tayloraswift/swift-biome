@@ -21,7 +21,7 @@ extension Tree
         }
     }
 }
-extension Tree.Position<Symbol> 
+extension Tree.Position where Element.Culture == Branch.Position<Module>
 {
     var package:Package.Index 
     {

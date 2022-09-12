@@ -57,7 +57,15 @@ struct Namespaces
     {
         self.module.culture
     }
+
+    /// Returns a set containing all modules that can be imported.
+    func `import`() -> Set<Branch.Position<Module>>
+    {
+        .init(self.linked.values.lazy.map(\.contemporary))
+    }
     
+    /// Returns a set containing all modules that can be imported, among the requested 
+    /// list of module names.
     func `import`(_ modules:some Sequence<Module.ID>) -> Set<Branch.Position<Module>>
     {
         var imported:Set<Branch.Position<Module>> = []
@@ -80,9 +88,10 @@ struct Namespaces
         branch:_Version.Branch, 
         fasces:Fasces, 
         context:Packages)
-        throws -> Fasces
+        throws -> [Package.Index: Package._Pinned]
     {
-        var global:Fasces = fasces
+        var pinned:[Package.Index: Package._Pinned] = [:]
+            pinned.reserveCapacity(dependencies.count + 2)
         // add explicit dependencies 
         for dependency:SymbolGraph.Dependency in dependencies
         {
@@ -100,7 +109,7 @@ struct Namespaces
                 continue 
             }
 
-            global.append(contentsOf: try self.link(upstream: package, 
+            pinned.update(with: try self.link(upstream: package, 
                 dependencies: dependency.modules, 
                 linkable: linkable))
         }
@@ -108,28 +117,28 @@ struct Namespaces
         switch context[self.package].kind
         {
         case .community(_): 
-            global.append(contentsOf: try self.link(upstream: .core, 
+            pinned.update(with: try self.link(upstream: .core, 
                 linkable: linkable, 
                 context: context))
             fallthrough 
         case .core: 
-            global.append(contentsOf: try self.link(upstream: .swift, 
+            pinned.update(with: try self.link(upstream: .swift, 
                 linkable: linkable, 
                 context: context))
         case .swift: 
             break 
         }
-        return global
+        return pinned
     }
     private mutating 
     func link(upstream package:Package.ID, 
         linkable:[Package.Index: _Dependency], 
         context:Packages) 
-        throws -> Fasces
+        throws -> Package._Pinned
     {
         if let package:Package = context[package]
         {
-            return try self.link(upstream: package, linkable: linkable)
+            return try self.link(upstream: _move package, linkable: linkable)
         }
         else 
         {
@@ -137,9 +146,9 @@ struct Namespaces
         }
     }
     private mutating 
-    func link(upstream package:Package, dependencies:[Module.ID]? = nil, 
+    func link(upstream package:__owned Package, dependencies:[Module.ID]? = nil, 
         linkable:[Package.Index: _Dependency]) 
-        throws -> Fasces
+        throws -> Package._Pinned
     {
         switch linkable[package.index] 
         {
@@ -149,28 +158,28 @@ struct Namespaces
             throw _DependencyError.version(unavailable: (requirement, revision), package.id)
         case .available(let version):
             // upstream dependency 
-            let fasces:Fasces = package.tree.fasces(through: version)
+            let pinned:Package._Pinned = .init(_move package, version: version)
             if let dependencies:[Module.ID] 
             {
                 for module:Module.ID in dependencies
                 {
-                    if let module:Tree.Position<Module> = fasces.modules.find(module)
+                    if let module:Tree.Position<Module> = pinned.modules.find(module)
                     {
                         // use the stored id, not the requested id
-                        self.linked[package.tree[local: module].id] = module
+                        self.linked[pinned.package.tree[local: module].id] = module
                     }
                     else 
                     {
-                        let branch:Branch = package.tree[version.branch]
+                        let branch:Branch = pinned.package.tree[version.branch]
                         throw _DependencyError.module(unavailable: module, 
                             (branch.id, branch[version.revision].hash), 
-                            package.id)
+                            pinned.package.id)
                     }
                 }
             }
             else 
             {
-                for epoch:Epoch<Module> in fasces.modules 
+                for epoch:Epoch<Module> in pinned.modules 
                 {
                     for module:Module in epoch 
                     {
@@ -178,8 +187,8 @@ struct Namespaces
                     }
                 }
             }
-            self.pins[package.index] = version
-            return fasces
+            self.pins[pinned.package.index] = version
+            return pinned
         }
     }
     private mutating 

@@ -27,6 +27,15 @@ struct _Scope
     }
 }
 
+extension [Package.Index: Package._Pinned] 
+{
+    mutating 
+    func update(with pinned:__owned Package._Pinned) 
+    {
+        self[pinned.package.index] = pinned
+    }
+}
+
 extension Package 
 {
     struct _Pinned:Sendable 
@@ -49,118 +58,174 @@ extension Package
             self.fasces = self.package.tree.fasces(through: self.version)
         }
 
+        var articles:Fasces.ArticleView
+        {
+            self.fasces.articles
+        }
+        var symbols:Fasces.SymbolView
+        {
+            self.fasces.symbols
+        }
+        var modules:Fasces.ModuleView
+        {
+            self.fasces.modules
+        }
         var routes:Fasces.RoutingView 
         {
             self.fasces.routes
         }
+    }
+}
+extension Package._Pinned 
+{
+    func metadata(local article:Branch.Position<Article>) -> Article.Metadata?
+    {
+        self.package.metadata.articles.value(of: article, 
+            field: (\.metadata, \.metadata), 
+            in: self.fasces.articles) ?? nil
+    }
+    func metadata(local symbol:Branch.Position<Symbol>) -> Symbol.Metadata?
+    {
+        self.package.metadata.symbols.value(of: symbol, 
+            field: (\.metadata, \.metadata), 
+            in: self.fasces.symbols) ?? nil
+    }
+    func metadata(local module:Branch.Position<Module>) -> Module.Metadata?
+    {
+        self.package.metadata.modules.value(of: module, 
+            field: (\.metadata, \.metadata), 
+            in: self.fasces.modules) ?? nil
+    }
+    func metadata(foreign diacritic:Branch.Diacritic) -> Symbol.ForeignMetadata?
+    {
+        self.package.metadata.foreign.value(of: diacritic, 
+            field: \.metadata, 
+            in: self.fasces.foreign) ?? nil
+    }
 
-        private 
-        func metadata(foreign diacritic:Branch.Diacritic) -> Symbol.ForeignMetadata?
+    func exists(_ article:Branch.Position<Article>) -> Bool
+    {
+        self.metadata(local: article) != nil 
+    }
+    func exists(_ symbol:Branch.Position<Symbol>) -> Bool
+    {
+        self.metadata(local: symbol) != nil 
+    }
+    func exists(_ module:Branch.Position<Module>) -> Bool
+    {
+        self.metadata(local: module) != nil
+    }
+    func exists(_ diacritic:Branch.Diacritic) -> Bool
+    {
+        self.metadata(foreign: diacritic) != nil 
+    }
+    func exists(_ composite:Branch.Composite) -> Bool
+    {
+        guard let host:Branch.Position<Symbol> = composite.host 
+        else 
         {
-            self.package.metadata.foreign.value(of: diacritic, 
-                field: \.metadata, 
-                in: self.fasces.foreign) ?? nil
+            return self.exists(composite.base)
         }
-        private 
-        func metadata(local symbol:Branch.Position<Symbol>) -> Symbol.Metadata?
+        if self.package.index == host.package
         {
-            self.package.metadata.symbols.value(of: symbol, 
-                field: (\.metadata, \.metadata), 
-                in: self.fasces.symbols) ?? nil
+            return self.metadata(local: host)?
+                .contains(feature: composite) ?? false 
         }
-        private 
-        func metadata(local module:Branch.Position<Module>) -> Module.Metadata?
+        else 
         {
-            self.package.metadata.modules.value(of: module, 
-                field: (\.metadata, \.metadata), 
-                in: self.fasces.modules) ?? nil
+            return self.metadata(foreign: composite.diacritic)?
+                .contains(feature: composite.base) ?? false
         }
-        func exists(_ symbol:Branch.Position<Symbol>) -> Bool
-        {
-            if case _? = self.metadata(local: symbol)
-            {
-                return true 
-            }
-            else 
-            {
-                return false 
-            }
-        }
-        func exists(_ composite:Branch.Composite) -> Bool
-        {
-            guard let host:Branch.Position<Symbol> = composite.host 
-            else 
-            {
-                return self.exists(composite.base)
-            }
-            if self.package.index == host.package
-            {
-                return self.metadata(local: host)?
-                    .contains(feature: composite) ?? false 
-            }
-            else 
-            {
-                return self.metadata(foreign: composite.diacritic)?
-                    .contains(feature: composite.base) ?? false
-            }
-        }
+    }
 
-        func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems) 
-            -> _SymbolLink.Resolution?
+    func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems) 
+        -> _SymbolLink.Resolution?
+    {
+        if  let resolution:_SymbolLink.Resolution = self.resolve(link, 
+                scope: scope, 
+                stems: stems, 
+                where: self.exists(_:))
         {
-            if  let resolution:_SymbolLink.Resolution = self.resolve(link, 
-                    scope: scope, 
-                    stems: stems, 
-                    where: self.exists(_:))
-            {
-                return resolution 
-            }
-            if  let link:_SymbolLink = link.outed, 
-                let resolution:_SymbolLink.Resolution = self.resolve(link, 
-                    scope: scope, 
-                    stems: stems, 
-                    where: self.exists(_:))
-            {
-                return resolution
-            }
-            else 
-            {
-                return nil 
-            }
+            return resolution 
         }
-        private 
-        func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
-            where predicate:(Branch.Composite) throws -> Bool) 
-            rethrows -> _SymbolLink.Resolution?
+        if  let link:_SymbolLink = link.outed, 
+            let resolution:_SymbolLink.Resolution = self.resolve(link, 
+                scope: scope, 
+                stems: stems, 
+                where: self.exists(_:))
         {
-            if  let scope:_Scope, 
-                let selection:_Selection<Branch.Composite> = try scope.scan(concatenating: link, 
-                    stems: stems, 
-                    until: { try self.routes.select($0, where: predicate) })
-            {
-                return .init(selection)
-            }
-            guard   let namespace:Module.ID = link.first.map(Module.ID.init(_:)), 
-                    let namespace:Tree.Position<Module> = self.fasces.modules.find(namespace)
-            else 
-            {
-                return nil
-            }
-            guard let link:_SymbolLink = link.suffix 
-            else 
-            {
-                return .module(namespace.contemporary)
-            }
-            if  let key:Route.Key = stems[namespace.contemporary, link], 
-                let selection:_Selection<Branch.Composite> = try self.routes.select(key, 
-                    where: predicate)
-            {
-                return .init(selection)
-            }
-            else 
-            {
-                return nil
-            }
+            return resolution
+        }
+        else 
+        {
+            return nil 
+        }
+    }
+    private 
+    func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
+        where predicate:(Branch.Composite) throws -> Bool) 
+        rethrows -> _SymbolLink.Resolution?
+    {
+        if  let scope:_Scope, 
+            let selection:_Selection<Branch.Composite> = try scope.scan(concatenating: link, 
+                stems: stems, 
+                until: { try self.routes.select($0, where: predicate) })
+        {
+            return .init(selection)
+        }
+        guard   let namespace:Module.ID = link.first.map(Module.ID.init(_:)), 
+                let namespace:Tree.Position<Module> = self.fasces.modules.find(namespace)
+        else 
+        {
+            return nil
+        }
+        guard let link:_SymbolLink = link.suffix 
+        else 
+        {
+            return .module(namespace.contemporary)
+        }
+        if  let key:Route.Key = stems[namespace.contemporary, link], 
+            let selection:_Selection<Branch.Composite> = try self.routes.select(key, 
+                where: predicate)
+        {
+            return .init(selection)
+        }
+        else 
+        {
+            return nil
         }
     }
 }
+// extension Package._Pinned 
+// {
+//     func _all() 
+//     {
+//         let modules:Set<Branch.Position<Module>> = self._allModules()
+//         for epoch:Epoch<Module> in self.fasces.modules 
+//         {
+//             for (module, divergence):(Branch.Position<Module>, Module.Divergence) in 
+//                 epoch.divergences
+//             {
+//                 for (range, _):(Range<Symbol.Offset>, Branch.Position<Module>) in divergence.symbols 
+//                 {
+//                     for offset:Symbol.Offset in range 
+//                     {
+//                         self.missingSymbols.insert(.init(module, offset: offset))
+//                     }
+//                 }
+//             }
+//         }
+//     }
+//     func _allModules() -> Set<Branch.Position<Module>>
+//     {
+//         var modules:Set<Branch.Position<Module>> = []
+//         for module:Module in self.fasces.modules.joined()
+//         {
+//             if self.exists(module.index)
+//             {
+//                 modules.insert(module.index)
+//             }
+//         }
+//         return modules
+//     }
+// }

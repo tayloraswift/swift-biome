@@ -84,18 +84,6 @@ extension Branch
             self.host = natural 
             self.culture = natural.module
         }
-
-        func inflect(_ bases:Set<Tree.Position<Symbol>>, 
-            namespace:Position<Module>, 
-            stem:Route.Stem,
-            context:Packages)
-            -> Route.Cohort.Synthetics 
-        {
-            .init(namespace: namespace, stem: stem, diacritic: self, matrix: bases.map 
-            { 
-                ($0.contemporary, context[global: $0].route.leaf) 
-            })
-        }
     }
 
     // 20 B size, 24 B stride

@@ -43,16 +43,13 @@ struct Tree
             yield &self[version.branch][version.revision]
         }
     }
-    subscript(local module:Position<Module>) -> Module 
+
+    subscript(local article:Position<Article>) -> Article 
     {
         _read 
         {
-            yield  self[module.branch].modules[contemporary: module.contemporary]
+            yield  self[article.branch].articles[contemporary: article.contemporary]
         }
-        // _modify 
-        // {
-        //     yield &self[module.branch].modules[contemporary: module.contemporary]
-        // }
     }
     subscript(local symbol:Position<Symbol>) -> Symbol 
     {
@@ -60,10 +57,26 @@ struct Tree
         {
             yield  self[symbol.branch].symbols[contemporary: symbol.contemporary]
         }
-        // _modify 
-        // {
-        //     yield &self[symbol.branch].symbols[contemporary: symbol.contemporary]
-        // }
+    }
+    subscript(local module:Position<Module>) -> Module 
+    {
+        _read 
+        {
+            yield  self[module.branch].modules[contemporary: module.contemporary]
+        }
+    }
+
+    subscript(article:Position<Article>) -> Article? 
+    {
+        self.culture == article.package ? self[local: article] : nil
+    }
+    subscript(symbol:Position<Symbol>) -> Symbol? 
+    {
+        self.culture == symbol.package ? self[local: symbol] : nil
+    }
+    subscript(module:Position<Module>) -> Module? 
+    {
+        self.culture == module.package ? self[local: module] : nil
     }
 
     mutating 

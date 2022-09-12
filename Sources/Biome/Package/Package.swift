@@ -390,12 +390,12 @@ extension Package
     mutating 
     func updateMetadata(to version:_Version, 
         interfaces:[ModuleInterface], 
-        surface:Surface, 
+        builder:SurfaceBuilder, 
         fasces:Fasces)
     {
         self.metadata.update(&self.tree[version.branch], to: version.revision, 
             interfaces: interfaces, 
-            surface: surface, 
+            builder: builder, 
             fasces: fasces)
     }
     mutating 

@@ -10,7 +10,7 @@ extension Module:BranchElement
         }
         init(namespaces:__shared Namespaces)
         {
-            self.init(dependencies: .init(namespaces.linked.values.lazy.map(\.contemporary)))
+            self.init(dependencies: namespaces.import())
         }
     }
 

@@ -104,7 +104,7 @@ struct Packages
         // capture that buffer or any slice of it!
         let fasces:Fasces = self[index].tree.fasces(upTo: branch)
 
-        var surface:Surface = .init(branch: self[index].tree[branch], fasces: fasces)
+        var surface:SurfaceBuilder = .init(previous: .init())
         // `pins` is a subset of `linkable`; it gets filled in gradually as we 
         // resolve dependencies. this allows us to discard unused dependencies 
         // from the `Package.resolved` file.
@@ -121,7 +121,8 @@ struct Packages
             // use this instead of `graph.id` to prevent string duplication
             var namespaces:Namespaces = .init(id: self[global: module].id, 
                 position: module)
-            let combined:Fasces = try namespaces.link(dependencies: graph.dependencies, 
+            let upstream:[Package.Index: Package._Pinned] = try namespaces.link(
+                dependencies: graph.dependencies, 
                 linkable: linkable, 
                 branch: branch,
                 fasces: fasces,
@@ -131,10 +132,13 @@ struct Packages
             // so this will not cause copy-on-write.
             let interface:ModuleInterface = self[index].tree[branch].add(graph: graph, 
                 namespaces: _move namespaces, 
-                fasces: combined, 
+                upstream: upstream,
+                fasces: fasces, 
                 stems: &stems)
 
-            surface.update(with: graph.edges, interface: interface, context: self)
+            surface.update(with: graph.edges, interface: interface, 
+                upstream: upstream, 
+                local: self[index])
             
             interfaces.append(interface)
         }
@@ -146,12 +150,9 @@ struct Packages
                 $0.merge($1.pins) { $1 }
             })
 
-        // we must compute the entire cohort before performing any writes, 
-        // to avoid copy-on-write.
-        let cohort:Route.Cohort = .init(surface: surface, context: self)
-        self[index].tree[branch].routes.stack(routes: cohort.naturals, 
+        self[index].tree[branch].routes.stack(routes: surface.routes.natural, 
             revision: version.revision)
-        self[index].tree[branch].routes.stack(routes: cohort.synthetics.joined(), 
+        self[index].tree[branch].routes.stack(routes: surface.routes.synthetic.joined(), 
             revision: version.revision)
 
         surface.inferScopes(for: &self[index].tree[branch], 
@@ -160,7 +161,7 @@ struct Packages
 
         self[index].updateMetadata(to: version, 
             interfaces: interfaces, 
-            surface: surface,
+            builder: surface,
             fasces: fasces)
 
         _ = _move surface

@@ -23,31 +23,31 @@ extension Package.Metadata
     mutating 
     func update(_ branch:inout Branch, to revision:_Version.Revision, 
         interfaces:[ModuleInterface], 
-        surface:Surface, 
+        builder:SurfaceBuilder, 
         fasces:Fasces)
     {
-        for missing:Branch.Position<Module> in surface.missingModules 
+        for missing:Branch.Position<Module> in builder.previous.modules 
         {
             self.modules.update(&branch.modules, position: missing, with: nil, 
                 revision: revision, 
                 field: (\.metadata, \.metadata),
                 trunk: fasces.modules)
         }
-        for missing:Branch.Position<Article> in surface.missingArticles 
+        for missing:Branch.Position<Article> in builder.previous.articles 
         {
             self.articles.update(&branch.articles, position: missing, with: nil, 
                 revision: revision, 
                 field: (\.metadata, \.metadata),
                 trunk: fasces.articles)
         }
-        for missing:Branch.Position<Symbol> in surface.missingSymbols 
+        for missing:Branch.Position<Symbol> in builder.previous.symbols
         {
             self.symbols.update(&branch.symbols, position: missing, with: nil, 
                 revision: revision, 
                 field: (\.metadata, \.metadata),
                 trunk: fasces.symbols)
         }
-        for missing:Branch.Diacritic in surface.missingHosts 
+        for missing:Branch.Diacritic in builder.previous.foreign 
         {
             self.foreign.update(&branch.foreign, key: missing, with: nil, 
                 revision: revision, 
@@ -64,28 +64,25 @@ extension Package.Metadata
                 trunk: fasces.modules)
         }
         for (article, metadata):(Branch.Position<Article>, Article.Metadata) in 
-            surface.articles
+            builder.articles
         {
-            self.articles.update(&branch.articles, position: article, 
-                with: metadata,
+            self.articles.update(&branch.articles, position: article, with: metadata,
                 revision: revision, 
                 field: (\.metadata, \.metadata),
                 trunk: fasces.articles) 
         }
-        for (symbol, facts):(Tree.Position<Symbol>, Symbol.Facts<Tree.Position<Symbol>>) in 
-            surface.local
+        for (symbol, metadata):(Branch.Position<Symbol>, Symbol.Metadata) in 
+            builder.symbols
         {
-            self.symbols.update(&branch.symbols, position: symbol.contemporary, 
-                with: .init(facts: facts),
+            self.symbols.update(&branch.symbols, position: symbol, with: metadata,
                 revision: revision, 
                 field: (\.metadata, \.metadata),
                 trunk: fasces.symbols) 
         }
-        for (diacritic, traits):(Tree.Diacritic, Symbol.Traits<Tree.Position<Symbol>>) in 
-            surface.foreign
+        for (diacritic, metadata):(Branch.Diacritic, Symbol.ForeignMetadata) in 
+            builder.foreign
         {
-            self.foreign.update(&branch.foreign, key: diacritic.contemporary, 
-                with: .init(traits: traits), 
+            self.foreign.update(&branch.foreign, key: diacritic, with: metadata, 
                 revision: revision, 
                 field: \.metadata, 
                 trunk: fasces.foreign)

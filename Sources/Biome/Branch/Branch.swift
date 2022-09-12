@@ -170,7 +170,9 @@ extension Branch
         return self.index.pluralize(position)
     }
     mutating 
-    func add(graph:SymbolGraph, namespaces:__owned Namespaces, fasces:Fasces, 
+    func add(graph:SymbolGraph, namespaces:__owned Namespaces, 
+        upstream:[Package.Index: Package._Pinned],
+        fasces:Fasces, 
         stems:inout Route.Stems) 
         -> ModuleInterface
     {
@@ -180,6 +182,7 @@ extension Branch
             stems: &stems)
         var symbols:ModuleInterface.Abstractor<Symbol> = self.addSymbols(from: graph, 
             namespaces: namespaces, 
+            upstream: upstream, 
             trunk: fasces.symbols, 
             stems: &stems)
         
@@ -194,10 +197,14 @@ extension Branch
     }
 
     private mutating 
-    func addSymbols(from graph:SymbolGraph, namespaces:Namespaces, trunk:Fasces.SymbolView, 
+    func addSymbols(from graph:SymbolGraph, namespaces:Namespaces, 
+        upstream:[Package.Index: Package._Pinned], 
+        trunk:Fasces.SymbolView, 
         stems:inout Route.Stems) 
         -> ModuleInterface.Abstractor<Symbol>
     {
+        let linked:Set<Position<Module>> = namespaces.import()
+
         var positions:[Tree.Position<Symbol>?] = []
             positions.reserveCapacity(graph.identifiers.count)
         for (namespace, vertices):(Module.ID, ArraySlice<SymbolGraph.Vertex<Int>>) in 
@@ -220,10 +227,11 @@ extension Branch
             {
                 positions.append(self.addSymbol(graph.identifiers[offset], 
                     culture: namespaces.culture, 
-                    trunk: trunk, 
                     namespace: namespace, 
-                    community: vertex.community, 
-                    path: vertex.path, 
+                    linked: linked, 
+                    vertex: vertex, 
+                    upstream: upstream, 
+                    trunk: trunk, 
                     stems: &stems))
             }
             let end:Symbol.Offset = self.symbols.endIndex 
@@ -244,43 +252,54 @@ extension Branch
         return .init(_move positions)
     }
     private mutating 
-    func addSymbol(_ id:Symbol.ID, culture:Position<Module>, trunk:Fasces.SymbolView, 
-        namespace:Position<Module>, 
-        community:Community, 
-        path:Path, 
+    func addSymbol(_ id:Symbol.ID, culture:Position<Module>, namespace:Position<Module>, 
+        linked:Set<Position<Module>>,
+        vertex:SymbolGraph.Vertex<Int>,
+        upstream:[Package.Index: Package._Pinned], 
+        trunk:Fasces.SymbolView, 
         stems:inout Route.Stems)
         -> Tree.Position<Symbol>
     {
         if let existing:Tree.Position<Symbol> = trunk.find(id)
         {
-            guard existing.contemporary.module == culture 
+            // swift encodes module names in symbol identifiers, so if a symbol changes culture, 
+            // something really weird has happened.
+            if existing.contemporary.module == culture 
+            {
+                return existing 
+            }
             else 
             {
-                // swift encodes module names in symbol identifiers, so if a symbol changes culture, 
-                // something really weird has happened.
                 fatalError("symbol with id '\(id)' has already been registered in a different module! symbolgraph may have been corrupted!")
             }
-            return existing 
+        } 
+        for upstream:Package._Pinned in upstream.values 
+        {
+            if  let restated:Tree.Position<Symbol> = upstream.symbols.find(id), 
+                    linked.contains(restated.contemporary.culture)
+            {
+                return restated 
+            }
         }
         let position:Position<Symbol> = self.symbols.insert(id, culture: culture)
         {
             (id:Symbol.ID, _:Position<Symbol>) in 
             let route:Route.Key = .init(namespace, 
-                        stems.register(components: path.prefix), 
-                .init(stems.register(component:  path.last), 
-                orientation: community.orientation))
+                        stems.register(components: vertex.path.prefix), 
+                .init(stems.register(component:  vertex.path.last), 
+                orientation: vertex.community.orientation))
             // if the symbol could inherit features, generate a stem 
             // for its children from its full path. this stem will only 
             // go to waste if a concretetype is completely uninhabited, 
             // which is very rare.
             let kind:Symbol.Kind 
-            switch community
+            switch vertex.community
             {
             case .associatedtype: 
                 kind = .associatedtype 
             case .concretetype(let concrete): 
-                kind = .concretetype(concrete, path: path.prefix.isEmpty ? 
-                    route.leaf.stem : stems.register(components: path))
+                kind = .concretetype(concrete, path: vertex.path.prefix.isEmpty ? 
+                    route.leaf.stem : stems.register(components: vertex.path))
             case .callable(let callable): 
                 kind = .callable(callable)
             case .global(let global): 
@@ -290,7 +309,7 @@ extension Branch
             case .typealias: 
                 kind = .typealias
             }
-            return .init(id: id, path: path, kind: kind, route: route)
+            return .init(id: id, path: vertex.path, kind: kind, route: route)
         }
         return self.index.pluralize(position)
     }
