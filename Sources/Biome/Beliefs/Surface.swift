@@ -25,17 +25,6 @@ struct Surface
         missingModules:Set<Branch.Position<Module>>, 
         missingHosts:Set<Branch.Diacritic>
     
-    @available(*, deprecated, renamed: "local")
-    var symbols:[Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>]
-    {
-        self.local 
-    }
-    @available(*, deprecated, renamed: "foreign")
-    var diacritics:[Tree.Diacritic: Symbol.Traits<Tree.Position<Symbol>>]
-    {
-        self.foreign
-    }
-
     private(set)
     var local:[Tree.Position<Symbol>: Symbol.Facts<Tree.Position<Symbol>>]
     private(set)
