@@ -154,33 +154,26 @@ struct Packages
         self[index].tree[branch].routes.stack(routes: cohort.synthetics.joined(), 
             revision: version.revision)
 
-        // we need to recollect the upstream fasces because we (potentially) wrote 
-        // to them during the call to ``commit(_:to:of:pins:)``.
-        // we also cannot allow ``Namespaces.lens(local:context:)`` to retain a reference 
-        // to `self[index].tree[branch].routes` until after we have added all the routes 
-        // in the current cohort.
-
         surface.inferScopes(for: &self[index].tree[branch], 
             fasces: fasces, 
             stems: stems)
 
-        //surface.foreign.confirm(beliefs.opinions.keys)
         self[index].updateMetadata(to: version, 
             interfaces: interfaces, 
             surface: surface,
             fasces: fasces)
 
+        _ = _move surface
+
+        for (graph, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interfaces)
+        {
+            self[index].updateData(to: version, graph: graph, 
+                interface: interface, 
+                fasces: fasces) 
+        }
+
         _ = _move fasces 
 
-        // for (scope, articles):(Module.Scope, [Article.Index: Extension]) in zip(scopes, articles)
-        // {
-        //     self[index].pushExtensionMetadata(articles: articles, culture: scope.culture)
-        // }
-        // for (graph, abstractor):(SymbolGraph, Abstractor) in zip(graphs, abstractors)
-        // {
-        //     self[index].pushDeclarations(graph.declarations(abstractor: abstractor))
-        //     self[index].pushToplevel(filtering: abstractor.updates)
-        // }
         let literature:Literature = .init(compiling: _move graphs, 
             interfaces: _move interfaces, 
             version: version, 

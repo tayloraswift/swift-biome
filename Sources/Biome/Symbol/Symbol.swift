@@ -43,6 +43,7 @@ struct Symbol:Sendable, CustomStringConvertible
     var heads:Heads
     
     var metadata:_History<Metadata?>.Head?
+    var declaration:_History<Declaration<Branch.Position<Symbol>>>.Head?
 
     var pollen:Set<Module.Pin>
     
@@ -96,6 +97,7 @@ struct Symbol:Sendable, CustomStringConvertible
         self.heads = .init()
 
         self.metadata = nil 
+        self.declaration = nil
         
         self.pollen = []
     }

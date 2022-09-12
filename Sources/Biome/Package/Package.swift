@@ -100,8 +100,10 @@ struct Package:Identifiable, Sendable
         self.id.kind
     }
 
+    private(set)
+    var metadata:Metadata, 
+        data:Data 
     var tree:Tree
-    var metadata:Metadata
     
     init(id:ID, index:Index)
     {
@@ -132,8 +134,9 @@ struct Package:Identifiable, Sendable
         self.documentation = .init()
         self.excerpts = .init()
 
-        self.tree = .init(culture: index)
         self.metadata = .init()
+        self.data = .init()
+        self.tree = .init(culture: index)
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -395,16 +398,45 @@ extension Package
             surface: surface, 
             fasces: fasces)
     }
-    // mutating 
-    // func pushDeclarations(_ declarations:[(Symbol.Index, Declaration<Symbol.Index>)]) 
-    // {
-    //     let current:Version = self.versions.latest
-    //     for (index, declaration):(Symbol.Index, Declaration<Symbol.Index>) in declarations
-    //     {
-    //         self.declarations.push(declaration, version: current, 
-    //             into: &self.symbols[local: index].heads.declaration)
-    //     }
-    // }
+    mutating 
+    func updateData(to version:_Version, graph:SymbolGraph, 
+        interface:ModuleInterface, 
+        fasces:Fasces)
+    {
+        self.data.updateDeclarations(&self.tree[version.branch], to: version.revision, 
+            interface: interface, 
+            graph: graph, 
+            trunk: fasces.symbols)
+        
+
+        var topLevelSymbols:Set<Branch.Position<Symbol>> = [] 
+        for position:Tree.Position<Symbol>? in interface.citizenSymbols
+        {
+            if  let position:Tree.Position<Symbol>, 
+                self.tree[local: position].path.prefix.isEmpty
+            {
+                // a symbol is toplevel if it has a single path component. this 
+                // is not the same thing as having a `nil` shape.
+                topLevelSymbols.insert(position.contemporary)
+            }
+        }
+        self.data.topLevelSymbols.update(&self.tree[version.branch].modules, 
+            position: interface.culture, 
+            with: _move topLevelSymbols, 
+            revision: version.revision, 
+            field: (\.topLevelSymbols, \.topLevelSymbols),
+            trunk: fasces.modules)
+        
+
+        let topLevelArticles:Set<Branch.Position<Article>> = 
+            .init(interface.citizenArticles.lazy.compactMap { $0?.contemporary })
+        self.data.topLevelArticles.update(&self.tree[version.branch].modules, 
+            position: interface.culture, 
+            with: _move topLevelArticles, 
+            revision: version.revision, 
+            field: (\.topLevelArticles, \.topLevelArticles),
+            trunk: fasces.modules)
+    }
     // mutating 
     // func pushDocumentation(_ compiled:[Ecosystem.Index: DocumentationNode])
     // {
@@ -437,40 +469,5 @@ extension Package
     //             fatalError("unreachable")
     //         }
     //     }
-    // }
-    // mutating 
-    // func pushExtensionMetadata(articles:[Article.Index: Extension], culture:Module.Index) 
-    // {
-    //     let current:Version = self.versions.latest
-    //     for (index, article):(Article.Index, Extension) in articles
-    //     {
-    //         let excerpt:Article.Excerpt = .init(title: article.headline.plainText,
-    //             headline: article.headline.rendered(as: [UInt8].self),
-    //             snippet: article.snippet)
-    //         self.excerpts.push(excerpt, version: current, 
-    //             into: &self.articles[local: index].heads.excerpt)
-    //     }
-    //     let guides:Set<Article.Index> = .init(articles.keys)
-    //     if !guides.isEmpty 
-    //     {
-    //         self.guides.push(guides, version: current, 
-    //             into: &self.modules[local: culture].heads.guides)
-    //     }
-    // }
-    // mutating 
-    // func pushToplevel(filtering updates:Abstractor.Updates)
-    // {
-    //     var toplevel:Set<Symbol.Index> = [] 
-    //     for symbol:Symbol.Index? in updates 
-    //     {
-    //         if let symbol:Symbol.Index, self[local: symbol].path.prefix.isEmpty
-    //         {
-    //             // a symbol is toplevel if it has a single path component. this 
-    //             // is not the same thing as having a `nil` shape.
-    //             toplevel.insert(symbol)
-    //         }
-    //     }
-    //     self.toplevels.push(toplevel, version: self.versions.latest, 
-    //         into: &self.modules[local: updates.culture].heads.toplevel)
     // }
 }

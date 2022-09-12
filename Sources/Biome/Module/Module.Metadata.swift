@@ -21,12 +21,19 @@ extension Module:BranchElement
         var articles:[Range<Article.Offset>]
 
         var metadata:_History<Metadata?>.Divergent?
+
+        var topLevelArticles:_History<Set<Branch.Position<Article>>>.Divergent?
+        var topLevelSymbols:_History<Set<Branch.Position<Symbol>>>.Divergent?
         
         init()
         {
             self.symbols = []
             self.articles = []
+
             self.metadata = nil
+            
+            self.topLevelArticles = nil
+            self.topLevelSymbols = nil
         }
     }
 }

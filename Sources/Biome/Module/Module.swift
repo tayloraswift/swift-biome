@@ -58,7 +58,11 @@ struct Module:Sendable
 
     var symbols:[(range:Range<Symbol.Offset>, namespace:Branch.Position<Module>)]
     var articles:[Range<Article.Offset>]
+    
     var metadata:_History<Metadata?>.Head?
+
+    var topLevelArticles:_History<Set<Branch.Position<Article>>>.Head?
+    var topLevelSymbols:_History<Set<Branch.Position<Symbol>>>.Head?
     
     var heads:Heads
     var redirect:(module:Redirect?, articles:Redirect?)

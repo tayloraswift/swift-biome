@@ -41,10 +41,12 @@ extension Symbol:BranchElement
     struct Divergence:Voidable, Sendable 
     {
         var metadata:_History<Metadata?>.Divergent?
+        var declaration:_History<Declaration<Branch.Position<Symbol>>>.Divergent?
 
         init() 
         {
             self.metadata = nil
+            self.declaration = nil
         }
     }
 
