@@ -137,8 +137,7 @@ struct Packages
                 stems: &stems)
 
             surface.update(with: graph.edges, interface: interface, 
-                upstream: upstream, 
-                local: self[index])
+                context: .init(upstream: upstream, local: self[index]))
             
             interfaces.append(interface)
         }
