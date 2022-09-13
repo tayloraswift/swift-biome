@@ -160,7 +160,13 @@ struct Extension:Sendable
         }
     }
     
+    @available(*, deprecated)
     func render() -> Article.Template<String>
+    {
+        fatalError("obsoleted")
+    }
+
+    func rendered() -> (DOM.Flattened<String>, DOM.Flattened<String>)
     {
         var renderer:Renderer = .init(rank: self.headline.rank)
         // note: we *never* render the top-level heading. this will either be 
@@ -198,6 +204,10 @@ struct Extension:Sendable
         {
             summary = .init()
         }
-        return .init(errors: renderer.errors, summary: summary, discussion: discussion)
+        if !renderer.errors.isEmpty
+        {
+            print("warning: ignored \(renderer.errors.count) markdown rendering errors")
+        }
+        return (summary, discussion)
     }
 }

@@ -48,11 +48,13 @@ struct _Version:Hashable, Sendable
 
 extension _Version.Branch 
 {
+    @available(*, deprecated, renamed: "Tree.Position.idealized(_:)")
     func idealize<Element>(_ position:Tree.Position<Element>) -> Branch.Position<Element>?
         where Element:BranchElement 
     {
         self == position.branch ? position.contemporary : nil 
     }
+    @available(*, deprecated, renamed: "Branch.Position.pluralized(_:)")
     func pluralize<Element>(_ position:Branch.Position<Element>) -> Tree.Position<Element> 
         where Element:BranchElement 
     {

@@ -266,14 +266,9 @@ struct SymbolGraph:Identifiable, Sendable
     {
         for (source, origin):(Int, Int) in hints 
         {
-            switch self.vertices[source].documentation
+            if case nil = self.vertices[source].comment.extends 
             {
-            case .inherits(_)?, .extends(_?, with: _): 
-                break 
-            case .extends(nil, with: let comment)?:
-                self.vertices[source].documentation = .extends(origin, with: comment)
-            case nil: 
-                self.vertices[source].documentation = .inherits(origin)
+                self.vertices[source].comment.extends = origin
             }
         }
         // delete comments if a hint indicates it is duplicated. 
@@ -282,13 +277,13 @@ struct SymbolGraph:Identifiable, Sendable
         var pruned:Int = 0
         for index:Int in self.vertices.indices
         {
-            if  case .extends(let origin?, with: let comment)? = 
-                    self.vertices[index].documentation,
+            let comment:Vertex<Int>.Comment = self.vertices[index].comment 
+            if  let string:String = comment.string, 
+                let origin:Int = comment.extends, 
                     origin < self.vertices.endIndex, 
-                case .extends(_, with: comment)? = 
-                    self.vertices[origin].documentation
+                case string? = self.vertices[origin].comment.string
             {
-                self.vertices[index].documentation = .inherits(origin)
+                self.vertices[index].comment.string = nil
                 pruned += 1
             }
         }

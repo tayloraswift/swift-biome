@@ -140,7 +140,7 @@ extension SymbolGraph
                         path: .init(prefix: [mythical.name], last: symbol.vertex.path.last), 
                         community: symbol.vertex.community, 
                         declaration: symbol.vertex.declaration, 
-                        documentation: symbol.vertex.documentation)
+                        comment: symbol.vertex.comment)
                     
                     if case true? = vertex.declaration.availability.general?.unavailable
                     {

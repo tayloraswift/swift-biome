@@ -10,6 +10,16 @@ struct _Scope
         self.namespace = namespace 
         self.path = path
     }
+    init(_ symbol:__shared Symbol)
+    {
+        switch symbol.orientation 
+        {
+        case .gay:
+            self.init(symbol.namespace, symbol.path.prefix)
+        case .straight:
+            self.init(symbol.namespace, .init(symbol.path))
+        }
+    }
 
     func scan<T>(concatenating link:_SymbolLink, stems:Route.Stems, 
         until match:(Route.Key) throws -> T?) rethrows -> T?
@@ -76,6 +86,7 @@ extension Package
         }
     }
 }
+
 extension Package._Pinned 
 {
     func metadata(local article:Branch.Position<Article>) -> Article.Metadata?

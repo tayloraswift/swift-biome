@@ -21,6 +21,76 @@ extension Tree
         }
     }
 }
+// extension Tree.Position 
+// {
+//     func idealized(_ branch:_Version.Branch) -> Branch.Position<Element>?
+//     {
+//         self.branch == branch ? self.contemporary : nil 
+//     }
+// }
+extension Branch.Position 
+{
+    func pluralized(_ branch:_Version.Branch) -> Tree.Position<Element>
+    {
+        .init(self, branch: branch)
+    }
+    func pluralized(bisecting trunk:some RandomAccessCollection<Epoch<Element>>) 
+        -> Tree.Position<Element>?
+    {
+        let epoch:Epoch<Element>? = trunk.search 
+        {
+            if      self.offset < $0.indices.lowerBound 
+            {
+                return .lower 
+            }
+            else if self.offset < $0.indices.upperBound 
+            {
+                return nil 
+            }
+            else 
+            {
+                return .upper
+            }
+        }
+        return (epoch?.branch).map(self.pluralized(_:))
+    }
+}
+
+private
+enum BinarySearchPartition 
+{
+    case lower 
+    case upper
+}
+private 
+extension RandomAccessCollection 
+{
+    func search(by partition:(Element) throws -> BinarySearchPartition?) rethrows -> Element?
+    {
+        var count:Int = self.count
+        var current:Index = self.startIndex
+        
+        while 0 < count
+        {
+            let half:Int = count >> 1
+            let median:Index = self.index(current, offsetBy: half)
+
+            let element:Element = self[median]
+            switch try partition(element)
+            {
+            case .lower?:
+                count = half
+            case nil: 
+                return element
+            case .upper?:
+                current = self.index(after: median)
+                count -= half + 1
+            }
+        }
+        return nil
+    }
+}
+
 extension Tree.Position where Element.Culture == Branch.Position<Module>
 {
     var package:Package.Index 

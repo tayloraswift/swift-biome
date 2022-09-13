@@ -580,7 +580,8 @@ extension SurfaceBuilder
             {
                 let selection:_Selection<Tree.Position<Symbol>>? = routes.select(scope)
                 {
-                    $1.natural.map($0.pluralize(_:))
+                    (branch:_Version.Branch, composite:Branch.Composite) in 
+                    composite.natural.map { $0.pluralized(branch) }
                 }
                 if case .one(let scope)? = selection 
                 {

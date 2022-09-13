@@ -2,86 +2,191 @@ import SymbolGraphs
 import DOM
 import URI
 
-enum ExpandedLink:Hashable, Sendable 
+struct DocumentationExtension<Position> 
 {
-    case article(Tree.Position<Article>)
-    case package(Package.Index)
-    case implicit                        ([Tree.Position<Symbol>])
-    case qualified(Tree.Position<Module>, [Tree.Position<Symbol>] = [])
+    var extends:Position
+    var errors:[any Error]
+    let card:DOM.Flattened<_SymbolLink.Presentation>
+    let body:DOM.Flattened<_SymbolLink.Presentation>
+
+    init(compiling _extension:__owned Extension, extending extends:Position? = nil,
+        resolver:Resolver,
+        imports:Set<Branch.Position<Module>>, 
+        scope:_Scope?, 
+        stems:Route.Stems) 
+    {
+        let (summary, body):(DOM.Flattened<String>, DOM.Flattened<String>) = 
+            _extension.rendered()
+
+        // summary.transform 
+        // {
+        //     (string:String) -> DOM.Substitution<_SymbolLink.Presentation, [UInt8]> in 
+        // }
+        fatalError("unimplemented")
+    }
 }
-enum ResolvedLink:Hashable, Sendable 
-{
-    case article(Branch.Position<Article>)
-    case module(Branch.Position<Module>)
-    case package(Package.Index)
-    case composite(Branch.Composite)
-}
+
 
 struct Literature 
 {
+    private 
+    struct Comments 
+    {
+        enum Node 
+        {
+            case inherits(Branch.Position<Symbol>)
+            case extends(Branch.Position<Symbol>?, with:String)
+        }
+
+        private 
+        var uptree:[Branch.Position<Symbol>: Node] = [:]
+        private(set)
+        var pruned:Int
+
+        init() 
+        {
+            self.uptree = [:]
+            self.pruned = 0
+        }
+
+        mutating 
+        func update(with graph:SymbolGraph, interface:ModuleInterface)
+        {
+            for (position, vertex):(Tree.Position<Symbol>?, SymbolGraph.Vertex<Int>) in 
+                zip(interface.citizenSymbols, graph.vertices)
+            {
+                guard let position:Branch.Position<Symbol> = position?.contemporary
+                else 
+                {
+                    continue 
+                }
+                
+                switch 
+                (
+                    vertex.comment.string, 
+                    vertex.comment.extends.flatMap { interface.symbols[$0]?.contemporary }
+                )
+                {
+                case (nil, nil): 
+                    continue 
+                
+                case (let comment?, nil):
+                    self.uptree[position] = .extends(nil, with: comment)
+                
+                case (let comment?, let origin?):
+                    if  origin.culture != interface.culture,
+                        case .extends(_, with: comment)? = self.uptree[origin]
+                    {
+                        // inherited a comment from a *different* module. 
+                        // if it were from the same module, symbolgraphconvert 
+                        // should have deleted it. 
+                        self.uptree[position] = .inherits(origin)
+                        pruned += 1
+                    }
+                    else 
+                    {
+                        self.uptree[position] = .extends(origin, with: comment)
+                    }
+                
+                case (nil, let origin?):
+                    self.uptree[position] = .inherits(origin)
+                }
+            }
+        }
+
+        func consolidated(culture:Package.Index) -> [Branch.Position<Symbol>: Node]
+        {
+            var skipped:Int = 0,
+                dropped:Int = 0
+            defer 
+            {
+                if skipped != 0 
+                {
+                    print("shortened \(skipped) doccomment inheritance links")
+                }
+                if dropped != 0 
+                {
+                    print("pruned \(dropped) nil-terminating doccomment inheritance chains")
+                }
+            }
+            return self.uptree.compactMapValues 
+            {
+                if case .inherits(var origin) = $0 
+                {
+                    // fast-forward until we either reach a package boundary, 
+                    // or a local symbol that has documentation
+                    var visited:Set<Branch.Position<Symbol>> = []
+                    fastforwarding:
+                    while origin.package == culture
+                    {
+                        if  case _? = visited.update(with: origin)
+                        {
+                            fatalError("detected cycle in doccomment inheritance graph")
+                        }
+                        switch self.uptree[origin] 
+                        {
+                        case nil: 
+                            dropped += 1
+                            return nil 
+                        case .extends(_, with: _)?: 
+                            break fastforwarding
+                        case .inherits(let next)?: 
+                            origin = next 
+                            skipped += 1
+                        }
+                    }
+                    return .inherits(origin)
+                }
+                else 
+                {
+                    return $0
+                }
+            }
+        }
+    }
     private(set) 
-    var articles:[(Branch.Position<Article>, CompiledDocumentation)]
+    var articles:[(Branch.Position<Article>, DocumentationExtension<Void>)]
     private(set) 
-    var symbols:[(Branch.Position<Symbol>, Documentation<CompiledDocumentation, Symbol.Index>)]
+    var symbols:[(Branch.Position<Symbol>, DocumentationExtension<Symbol.Index>)]
     private(set) 
-    var modules:[(Branch.Position<Module>, CompiledDocumentation)]
+    var modules:[(Branch.Position<Module>, DocumentationExtension<Void>)]
     private(set) 
-    var package:CompiledDocumentation?
+    var package:DocumentationExtension<Void>?
 
     init(compiling graphs:__owned [SymbolGraph], 
         interfaces:__owned [ModuleInterface], 
+        package local:Package.Index, 
         version:_Version, 
         context:__shared Packages, 
         stems:__shared Route.Stems)
     {
-        guard let culture:Package.Index = interfaces.first?.culture.package 
-        else 
-        {
-            //return [:]
-            fatalError("unimplemented")
-        }
-
         self.articles = []
         self.symbols = []
         self.modules = []
         self.package = nil
 
-        let local:Package._Pinned = .init(context[culture], version: version)
+        let local:Package._Pinned = .init(context[local], version: version)
 
-        var pruned:Int = 0
-        var comments:[Tree.Position<Symbol>: Documentation<String, Tree.Position<Symbol>>] = [:]
-        for (graph, interface):(SymbolGraph, ModuleInterface) in zip(_move graphs, interfaces)
+        var comments:Comments = .init()
+        for (graph, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interfaces)
         {
-            for (position, vertex):(Tree.Position<Symbol>?, SymbolGraph.Vertex<Int>) in 
-                zip(interface.citizenSymbols, graph.vertices)
-            {
-                guard   let position:Tree.Position<Symbol>,
-                        let documentation:Documentation<String, Tree.Position<Symbol>> = 
-                            vertex.documentation?.flatMap({ interface.symbols[$0] })
-                else 
-                {
-                    continue 
-                }
-                if  case .extends(let origin?, with: let comment) = documentation, 
-                        origin.contemporary.culture != interface.culture,
-                    case .extends(_, with: comment)? = comments[origin]
-                {
-                    // inherited a comment from a *different* module. 
-                    // if it were from the same module, symbolgraphconvert 
-                    // should have deleted it. 
-                    comments[position] = .inherits(origin)
-                    pruned += 1
-                }
-                else 
-                {
-                    comments[position] = documentation
-                }
-            }
+            comments.update(with: graph, interface: interface)
+        }
+        if  comments.pruned != 0 
+        {
+            print("pruned \(comments.pruned) duplicate comments")
+        }
 
-            let compiler:Compiler = .init(local: local, upstream: interface.pins.map 
-                {
-                    .init(context[$0.key], version: $0.value)
-                }, 
+        let nodes:[Branch.Position<Symbol>: Comments.Node] = 
+            (_move comments).consolidated(culture: local.package.index)
+
+        for (_, interface):(SymbolGraph, ModuleInterface) in zip(_move graphs, interfaces)
+        {
+            let upstream:[Package._Pinned] = interface.pins.map 
+            {
+                .init(context[$0.key], version: $0.value)
+            }
+            let resolver:Resolver = .init(local: local, upstream: upstream, 
                 namespaces: interface.namespaces)
 
             for (position, _extension):(Tree.Position<Article>?, Extension) in 
@@ -92,7 +197,9 @@ struct Literature
                 // TODO: handle merge behavior block directive 
                 if let position:Tree.Position<Article> 
                 {
-                    self.articles.append((position.contemporary, compiler.compile(_move _extension, 
+                    self.articles.append((position.contemporary, .init(
+                        compiling: _move _extension, 
+                        resolver: resolver, 
                         imports: imports, 
                         scope: .init(interface.culture), 
                         stems: stems)))
@@ -101,85 +208,66 @@ struct Literature
                         let binding:URI = try? .init(relative: binding),
                         let binding:_SymbolLink = try? .init(binding)
                 {
-                    switch local.resolve(binding.revealed, 
+                    switch local.resolve(binding.revealed.disambiguated(), 
                         scope: .init(interface.culture), 
                         stems: stems)
                     {
                     case nil: 
-                        break 
-                    case .package(_): 
-                        self.package = compiler.compile(_move _extension, 
-                            imports: imports, 
-                            scope: nil, 
-                            stems: stems)
+                        print("warning: documentation extension has no resolved binding, skipping")
+                        continue 
+                    
+                    // case .package(_): 
+                    //     self.package = .init(compiling: _move _extension, 
+                    //         resolver: resolver, 
+                    //         imports: imports, 
+                    //         scope: nil, 
+                    //         stems: stems)
                     
                     case .module(let module): 
-                        self.modules.append((module, compiler.compile(_move _extension, 
+                        self.modules.append((module, .init(compiling: _move _extension, 
+                            resolver: resolver, 
                             imports: imports, 
                             scope: .init(module), 
                             stems: stems)))
-                    case .composite(_):
-                        break 
+                    
+                    case .composite(let composite):
+                        guard   let natural:Branch.Position<Symbol> = composite.natural 
+                        else 
+                        {
+                            print("warning: documentation extensions for composite APIs are unsupported, skipping")
+                            continue 
+                        }
+                        if case .extends? = nodes[natural] 
+                        {
+                            print("warning: documentation extension would overwrite existing documentation, skipping")
+                            continue 
+                        }
+                        guard   let position:Tree.Position<Symbol> = 
+                                    natural.pluralized(bisecting: local.symbols)
+                        else 
+                        {
+                            fatalError("unreachable")
+                        }
+                        let symbol:Symbol = local.package.tree[local: position]
+                        self.symbols.append((natural, .init(compiling: _move _extension, 
+                            resolver: resolver,
+                            imports: imports, 
+                            scope: .init(symbol), 
+                            stems: stems)))
+                    
                     case .composites(_):
-                        break 
+                        print("warning: documentation extension has multiple possible bindings, skipping")
+                        continue  
                     }
                 }
             }
-        }
-        if pruned != 0 
-        {
-            print("pruned \(pruned) duplicate comments")
-        }
-
-        var skipped:Int = 0,
-            dropped:Int = 0
-        comments = comments.compactMapValues 
-        {
-            if case .inherits(var origin) = $0 
-            {
-                // fast-forward until we either reach a package boundary, 
-                // or a local symbol that has documentation
-                var visited:Set<Branch.Position<Symbol>> = []
-                fastforwarding:
-                while origin.package == culture
-                {
-                    if  case _? = visited.update(with: origin.contemporary)
-                    {
-                        fatalError("detected cycle in doccomment inheritance graph")
-                    }
-                    switch comments[origin] 
-                    {
-                    case nil: 
-                        dropped += 1
-                        return nil 
-                    case .extends(_, with: _)?: 
-                        break fastforwarding
-                    case .inherits(let next)?: 
-                        origin = next 
-                        skipped += 1
-                    }
-                }
-                return .inherits(origin)
-            }
-            else 
-            {
-                return $0
-            }
-        }
-        if skipped != 0 
-        {
-            print("shortened \(skipped) doccomment inheritance links")
-        }
-        if dropped != 0 
-        {
-            print("pruned \(dropped) nil-terminating doccomment inheritance chains")
         }
         //return comments 
         fatalError("unimplemented")
     }
 }
 
-struct Compiler 
+struct Resolver 
 {
     private 
     struct Lenses:RandomAccessCollection
@@ -228,6 +316,23 @@ struct Compiler
     }
 
     private 
+    enum Scheme 
+    {
+        case symbol
+        case doc
+    }
+    private 
+    enum Hierarchy 
+    {
+        // '//swift-foo/foomodule/footype.foomember(_:)'
+        case authority 
+        // '/foomodule/footype.foomember(_:)'
+        case absolute 
+        // 'footype.foomember(_:)'
+        case opaque
+    }
+
+    private 
     let lenses:Lenses 
     private 
     let namespaces:Namespaces
@@ -238,20 +343,109 @@ struct Compiler
         self.namespaces = namespaces
     }
 
-    func compile(_ _extension:__owned Extension, 
+    func resolve(_ link:String, 
         imports:Set<Branch.Position<Module>>, 
         scope:_Scope?, 
-        stems:Route.Stems) -> CompiledDocumentation
+        stems:Route.Stems) throws -> _SymbolLink.Presentation
     {
+        let schemeless:Substring 
+        let scheme:Scheme 
+        if  let colon:String.Index = link.firstIndex(of: ":")
+        {
+            if link[..<colon] == "doc" 
+            {
+                scheme = .doc 
+            }
+            else 
+            {
+                throw _SymbolLink.ResolutionError.init(link, problem: .scheme)
+            }
+            schemeless = link[link.index(after: colon)...]
+        }
+        else 
+        {
+            scheme = .symbol
+            schemeless = link[...]
+        }
+        var slashes:Int = 0
+        for index:String.Index in schemeless.indices 
+        {
+            if  slashes <  2, schemeless[index] == "/" 
+            {
+                slashes += 1
+                continue 
+            }
+            
+            let hierarchy:Hierarchy
+            switch slashes 
+            {
+            case 0: hierarchy = .opaque
+            case 1: hierarchy = .absolute
+            case _: hierarchy = .authority
+            }
+            do 
+            {
+                let uri:URI = try .init(relative: schemeless[index...])
+                let link:_SymbolLink = try .init(uri)
+                let resolution:_SymbolLink.Target = try self.resolve(scheme: scheme, 
+                    hierarchy: hierarchy,
+                    revealed: link.revealed, 
+                    imports: imports, 
+                    scope: scope, 
+                    stems: stems)
+                return .init(resolution, visible: link.count)
+            }
+            catch let error 
+            {
+                throw _SymbolLink.ResolutionError.init(link, error)
+            }
+        }
+        throw _SymbolLink.ResolutionError.init(link, problem: .empty)
+    }
+    private 
+    func resolve(scheme:Scheme, hierarchy:Hierarchy, revealed:_SymbolLink, 
+        imports:Set<Branch.Position<Module>>, 
+        scope:_Scope?, 
+        stems:Route.Stems) throws -> _SymbolLink.Target
+    {
+        let scope:_Scope? = hierarchy == .opaque ? scope : nil 
+        let link:_SymbolLink
+        if case .authority = hierarchy 
+        {
+            fatalError("unimplemented")
+        }
+        else 
+        {
+            link = revealed
+        }
+        if case .doc = scheme 
+        {
+            // guard   let namespace:Module.ID = link.first.map(Module.ID.init(_:)), 
+            //         let namespace:Tree.Position<Module> = self.namespaces.linked[namespace], 
+            //             imports.contains(namespace.contemporary)
+            // else 
+            // {
+            //     throw SelectionError<Branch.Composite>.none 
+            // }
+            // guard   let link:_SymbolLink = link.suffix 
+            // else 
+            // {
+            //     return .module(namespace.contemporary)
+            // }
+            // if  let key:Route.Key = stems[namespace.contemporary, straight: link], 
+            //     let selection:_Selection<Branch.Composite> = self.lenses.select(key, 
+            //         imports: imports)
+            // {
+            //     return .init(selection)
+            // }
+        }
         fatalError("unimplemented")
     }
-
     private 
     func resolve(_ link:_SymbolLink, 
         imports:Set<Branch.Position<Module>>, 
         scope:_Scope?, 
-        stems:Route.Stems)
-        -> _SymbolLink.Resolution?
+        stems:Route.Stems) -> _SymbolLink.Resolution?
     {
         if  let scope:_Scope, 
             let selection:_Selection<Branch.Composite> = scope.scan(concatenating: link, 
@@ -262,13 +456,13 @@ struct Compiler
         }
         // can’t use a namespace as a key field if that namespace was not imported
         guard   let namespace:Module.ID = link.first.map(Module.ID.init(_:)), 
-                let namespace:Tree.Position<Module> = namespaces.linked[namespace], 
+                let namespace:Tree.Position<Module> = self.namespaces.linked[namespace], 
                     imports.contains(namespace.contemporary)
         else 
         {
             return nil
         }
-        guard let link:_SymbolLink = link.suffix 
+        guard   let link:_SymbolLink = link.suffix 
         else 
         {
             return .module(namespace.contemporary)
@@ -286,24 +480,6 @@ struct Compiler
     }
 }
 
-struct CompiledDocumentation
-{
-    struct Link:Hashable, Sendable
-    {
-        let target:ResolvedLink
-        let visible:Int
-        
-        init(_ target:ResolvedLink, visible:Int)
-        {
-            self.target = target 
-            self.visible = visible
-        }
-    }
-
-    let card:DOM.Flattened<Link>
-    let body:DOM.Flattened<Link>
-    var errors:[any Error]
-
     // init(compiling _extension:Extension, 
     //     compiler:__shared Compiler,
     //     scope:_Scope?, 
@@ -314,20 +490,7 @@ struct CompiledDocumentation
     //     {
     //         (string:String, errors:inout [Error]) -> DOM.Substitution<Link, [UInt8]> in 
             
-    //         let doclink:Bool
-    //         let suffix:Substring 
-    //         if  let start:String.Index = 
-    //                 string.index(string.startIndex, offsetBy: 4, limitedBy: string.endIndex), 
-    //             string[..<start] == "doc:"
-    //         {
-    //             doclink = true 
-    //             suffix = string[start...]
-    //         }
-    //         else 
-    //         {
-    //             doclink = false 
-    //             suffix = string[...]
-    //         }
+
     //         do 
     //         {
     //             // must attempt to parse absolute first, otherwise 
@@ -365,4 +528,3 @@ struct CompiledDocumentation
     //         }
     //     }
     // }
-}

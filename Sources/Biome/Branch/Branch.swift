@@ -167,7 +167,7 @@ extension Branch
         }
         let position:Position<Module> = self.modules.insert(id, culture: culture, 
             Module.init(id:index:))
-        return self.index.pluralize(position)
+        return position.pluralized(self.index)
     }
     mutating 
     func add(graph:SymbolGraph, namespaces:__owned Namespaces, 
@@ -311,7 +311,7 @@ extension Branch
             }
             return .init(id: id, path: vertex.path, kind: kind, route: route)
         }
-        return self.index.pluralize(position)
+        return position.pluralized(self.index)
     }
 
     // TODO: ideally we want to be rendering markdown AOT. so once that is implemented 
@@ -387,6 +387,6 @@ extension Branch
             (id:Article.ID, _:Position<Article>) in 
             .init(id: id, path: path)
         }
-        return self.index.pluralize(position)
+        return position.pluralized(self.index)
     }
 }

@@ -183,7 +183,7 @@ struct Namespaces
                 {
                     for module:Module in epoch 
                     {
-                        self.linked[module.id] = epoch.branch.pluralize(module.index)
+                        self.linked[module.id] = module.index.pluralized(epoch.branch)
                     }
                 }
             }
@@ -202,7 +202,7 @@ struct Namespaces
         for module:Module.ID in dependencies
         {
             if  let module:Tree.Position<Module> = 
-                    contemporary.positions[module].map(branch.pluralize(_:)) ?? 
+                    contemporary.positions[module].map({ $0.pluralized(branch) }) ?? 
                     fasces.modules.find(module) 
             {
                 // use the stored id, not the requested id

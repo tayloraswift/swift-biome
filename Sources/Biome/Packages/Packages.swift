@@ -97,12 +97,12 @@ struct Packages
             fatalError("unimplemented")
         }
         
-        let index:Package.Index = self.add(package: id)
-        let branch:_Version.Branch = self[index].tree.branch(from: nil, 
+        let package:Package.Index = self.add(package: id)
+        let branch:_Version.Branch = self[package].tree.branch(from: nil, 
             name: branch)
-        // we are going to mutate `self[index].tree[branch]`, so we must not 
+        // we are going to mutate `self[package].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
-        let fasces:Fasces = self[index].tree.fasces(upTo: branch)
+        let fasces:Fasces = self[package].tree.fasces(upTo: branch)
 
         var surface:SurfaceBuilder = .init(previous: .init())
         // `pins` is a subset of `linkable`; it gets filled in gradually as we 
@@ -114,8 +114,8 @@ struct Packages
             interfaces.reserveCapacity(graphs.count)
         for graph:SymbolGraph in graphs 
         {
-            let module:Tree.Position<Module> = self[index].tree[branch].add(module: graph.id, 
-                culture: index, 
+            let module:Tree.Position<Module> = self[package].tree[branch].add(module: graph.id, 
+                culture: package, 
                 fasces: fasces)
 
             // use this instead of `graph.id` to prevent string duplication
@@ -130,35 +130,35 @@ struct Packages
 
             // all of the fasces in `fasces` are from different branches, 
             // so this will not cause copy-on-write.
-            let interface:ModuleInterface = self[index].tree[branch].add(graph: graph, 
+            let interface:ModuleInterface = self[package].tree[branch].add(graph: graph, 
                 namespaces: _move namespaces, 
                 upstream: upstream,
                 fasces: fasces, 
                 stems: &stems)
 
             surface.update(with: graph.edges, interface: interface, 
-                context: .init(upstream: upstream, local: self[index]))
+                context: .init(upstream: upstream, local: self[package]))
             
             interfaces.append(interface)
         }
 
         // successfully registered symbolgraph contents 
-        let version:_Version = self.commit(pin.revision, to: branch, of: index, 
+        let version:_Version = self.commit(pin.revision, to: branch, of: package, 
             pins: interfaces.reduce(into: [:]) 
             { 
                 $0.merge($1.pins) { $1 }
             })
 
-        self[index].tree[branch].routes.stack(routes: surface.routes.natural, 
+        self[package].tree[branch].routes.stack(routes: surface.routes.natural, 
             revision: version.revision)
-        self[index].tree[branch].routes.stack(routes: surface.routes.synthetic.joined(), 
+        self[package].tree[branch].routes.stack(routes: surface.routes.synthetic.joined(), 
             revision: version.revision)
 
-        surface.inferScopes(for: &self[index].tree[branch], 
+        surface.inferScopes(for: &self[package].tree[branch], 
             fasces: fasces, 
             stems: stems)
 
-        self[index].updateMetadata(to: version, 
+        self[package].updateMetadata(to: version, 
             interfaces: interfaces, 
             builder: surface,
             fasces: fasces)
@@ -167,7 +167,7 @@ struct Packages
 
         for (graph, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interfaces)
         {
-            self[index].updateData(to: version, graph: graph, 
+            self[package].updateData(to: version, graph: graph, 
                 interface: interface, 
                 fasces: fasces) 
         }
@@ -176,14 +176,15 @@ struct Packages
 
         let literature:Literature = .init(compiling: _move graphs, 
             interfaces: _move interfaces, 
-            version: version, 
+            package: package, 
+            version: version,
             context: self, 
             stems: stems)
 
         // self[index].pushDocumentation(compiled)
         // self.spread(from: index, beliefs: beliefs)
 
-        return index
+        return package
     }
     
     /// Creates a package entry for the given package graph, if it does not already exist.

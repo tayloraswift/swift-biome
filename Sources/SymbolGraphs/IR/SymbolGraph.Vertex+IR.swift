@@ -48,8 +48,8 @@ extension SymbolGraph.Vertex<Int>
                     {
                         try $0.map(Generic.init(from:))
                     } ?? []),
-                documentation: .extends(try $0.pop(IR.Vertex.origin, as: Int.self), 
-                    with: try $0.pop(IR.Vertex.comment, as: String.self))) 
+                comment: .init(try $0.pop(IR.Vertex.comment, as: String.self), 
+                    extends: try $0.pop(IR.Vertex.origin, as: Int.self))) 
         }
     }
     var serialized:JSON 
@@ -80,17 +80,12 @@ extension SymbolGraph.Vertex<Int>
             items.append((IR.Declaration.generics, 
                 .array(self.declaration.generics.map(\.serialized))))
         }
-        switch self.documentation 
+        if let comment:String = self.comment.string 
         {
-        case nil: 
-            break 
-        case .extends(nil, with: let comment):
             items.append((IR.Vertex.comment, .string(comment)))
-        
-        case .extends(let origin?, with: let comment):
-            items.append((IR.Vertex.comment, .string(comment)))
-            fallthrough 
-        case .inherits(let origin)?:
+        }
+        if let origin:Int = self.comment.extends 
+        {
             items.append((IR.Vertex.origin, .number(origin)))
         }
         return .object(items)

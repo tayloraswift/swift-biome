@@ -156,8 +156,7 @@ extension SymbolGraph.Symbol
                     }
                 }
             }
-            let vertex:SymbolGraph.Vertex = .init(path: path,
-                community: community, 
+            let vertex:SymbolGraph.Vertex = .init(path: path, community: community, 
                 declaration: .init(
                     fragments: fragments, 
                     signature: signature, 
@@ -165,7 +164,7 @@ extension SymbolGraph.Symbol
                     extensionConstraints: extensionConstraints, 
                     genericConstraints: genericConstraints, 
                     generics: generics), 
-                documentation: .extends(nil, with: comment))
+                comment: .init(comment))
             return (id, location, vertex)
         }
     }

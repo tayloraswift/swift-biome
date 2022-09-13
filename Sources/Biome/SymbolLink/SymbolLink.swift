@@ -248,6 +248,11 @@ struct _SymbolLink:RandomAccessCollection
         self.path.outed.map { .init(path: $0, disambiguator: self.disambiguator) }
     }
 
+    /// Parses and removes the DocC suffix from the end of this symbollink. 
+    /// 
+    /// This operation may invalidate links to a package or an article. 
+    /// Only call this if you are sure this symbollink is supposed to point 
+    /// to a symbol.
     mutating 
     func disambiguate() 
     {
@@ -257,6 +262,12 @@ struct _SymbolLink:RandomAccessCollection
         {
             self.disambiguator.docC = disambiguator
         }
+    }
+    func disambiguated() -> Self 
+    {
+        var link:Self = self 
+            link.disambiguate() 
+        return link
     }
 }
 

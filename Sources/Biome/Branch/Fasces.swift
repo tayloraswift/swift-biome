@@ -240,7 +240,7 @@ extension Sequence
         {
             if let position:Branch.Position<Axis> = segment.position(of: id)
             {
-                return segment.branch.pluralize(position)
+                return position.pluralized(segment.branch)
             }
         }
         return nil
