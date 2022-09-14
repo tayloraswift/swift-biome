@@ -58,18 +58,31 @@ struct Namespaces
         self.module.culture
     }
 
-    /// Returns a set containing all modules that can be imported.
+    /// Returns a set containing all modules the current module depends on. 
+    /// 
+    /// This is similar to ``import``, except it excludes the current module.
+    func dependencies() -> Set<Branch.Position<Module>>
+    {
+        .init(self.linked.values.lazy.compactMap 
+        { 
+            $0.contemporary == self.culture ? nil : $0.contemporary 
+        })
+    }
+
+    /// Returns a set containing all modules that can be imported, including the 
+    /// current module.
     func `import`() -> Set<Branch.Position<Module>>
     {
         .init(self.linked.values.lazy.map(\.contemporary))
     }
     
     /// Returns a set containing all modules that can be imported, among the requested 
-    /// list of module names.
+    /// list of module names. The current module is always included in the set, 
+    /// even if not explicitly requested.
     func `import`(_ modules:some Sequence<Module.ID>) -> Set<Branch.Position<Module>>
     {
         var imported:Set<Branch.Position<Module>> = []
-            imported.reserveCapacity(modules.underestimatedCount)
+            imported.reserveCapacity(modules.underestimatedCount + 1)
         for module:Module.ID in modules 
         {
             if let position:Branch.Position<Module> = self.linked[module]?.contemporary
@@ -77,6 +90,7 @@ struct Namespaces
                 imported.insert(position)
             }
         }
+        imported.insert(self.culture)
         return imported
     }
 
@@ -114,19 +128,18 @@ struct Namespaces
                 linkable: linkable))
         }
         // add implicit dependencies
-        switch context[self.package].kind
+        if self.package != .swift 
         {
-        case .community(_): 
-            pinned.update(with: try self.link(upstream: .core, 
-                linkable: linkable, 
-                context: context))
-            fallthrough 
-        case .core: 
             pinned.update(with: try self.link(upstream: .swift, 
                 linkable: linkable, 
                 context: context))
-        case .swift: 
-            break 
+            
+            if self.package != .core 
+            {
+                pinned.update(with: try self.link(upstream: .core, 
+                    linkable: linkable, 
+                    context: context))
+            }
         }
         return pinned
     }

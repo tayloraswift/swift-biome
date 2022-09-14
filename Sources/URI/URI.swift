@@ -1,6 +1,6 @@
 import Grammar
 
-extension Collection where Element == URI.Vector?
+extension Sequence where Element == URI.Vector?
 {
     @inlinable public
     var normalized:(components:[String], fold:Int)

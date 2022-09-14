@@ -1,8 +1,8 @@
-enum SelectionError<Element>:Error 
-{
-    case none
-    case many([Element])
-}
+// enum SelectionError<Element>:Error 
+// {
+//     case none
+//     case many([Element])
+// }
 enum _Selection<Element>
 {
     case one(Element)
@@ -29,18 +29,18 @@ enum _Selection<Element>
 }
 extension Optional 
 {
-    func unique<Element>() throws -> Element where Wrapped == _Selection<Element>
-    {
-        switch self 
-        {
-        case nil: 
-            throw SelectionError<Element>.none
-        case .one(let element)?:
-            return element
-        case .many(let elements)?: 
-            throw SelectionError<Element>.many(elements)
-        }
-    }
+    // func unique<Element>() throws -> Element where Wrapped == _Selection<Element>
+    // {
+    //     switch self 
+    //     {
+    //     case nil: 
+    //         throw SelectionError<Element>.none
+    //     case .one(let element)?:
+    //         return element
+    //     case .many(let elements)?: 
+    //         throw SelectionError<Element>.many(elements)
+    //     }
+    // }
 
     mutating 
     func append<Element>(_ element:Element) where Wrapped == _Selection<Element>

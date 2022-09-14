@@ -63,6 +63,7 @@ struct Module:Sendable
 
     var topLevelArticles:_History<Set<Branch.Position<Article>>>.Head?
     var topLevelSymbols:_History<Set<Branch.Position<Symbol>>>.Head?
+    var documentation:_History<DocumentationExtension<Never>>.Head?
     
     var heads:Heads
     var redirect:(module:Redirect?, articles:Redirect?)
@@ -91,7 +92,11 @@ struct Module:Sendable
 
         self.symbols = []
         self.articles = []
+
         self.metadata = nil
+        self.topLevelArticles = nil 
+        self.topLevelSymbols = nil 
+        self.documentation = nil
     }
     
     var fragments:[Notebook<Highlight, Never>.Fragment] 

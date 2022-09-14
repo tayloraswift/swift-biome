@@ -10,7 +10,7 @@ extension Module:BranchElement
         }
         init(namespaces:__shared Namespaces)
         {
-            self.init(dependencies: namespaces.import())
+            self.init(dependencies: namespaces.dependencies())
         }
     }
 
@@ -24,6 +24,7 @@ extension Module:BranchElement
 
         var topLevelArticles:_History<Set<Branch.Position<Article>>>.Divergent?
         var topLevelSymbols:_History<Set<Branch.Position<Symbol>>>.Divergent?
+        var documentation:_History<DocumentationExtension<Never>>.Divergent?
         
         init()
         {
@@ -34,6 +35,7 @@ extension Module:BranchElement
             
             self.topLevelArticles = nil
             self.topLevelSymbols = nil
+            self.documentation = nil
         }
     }
 }

@@ -148,22 +148,28 @@ extension Package._Pinned
                 .contains(feature: composite.base) ?? false
         }
     }
-
+    
     func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems) 
         -> _SymbolLink.Resolution?
     {
-        if  let resolution:_SymbolLink.Resolution = self.resolve(link, 
+        self.resolve(link, scope: scope, stems: stems, where: self.exists(_:))
+    }
+    func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
+        where predicate:(Branch.Composite) throws -> Bool) 
+        rethrows -> _SymbolLink.Resolution?
+    {
+        if  let resolution:_SymbolLink.Resolution = try self.resolve(exactly: link, 
                 scope: scope, 
                 stems: stems, 
-                where: self.exists(_:))
+                where: predicate)
         {
             return resolution 
         }
         if  let link:_SymbolLink = link.outed, 
-            let resolution:_SymbolLink.Resolution = self.resolve(link, 
+            let resolution:_SymbolLink.Resolution = try self.resolve(exactly: link, 
                 scope: scope, 
                 stems: stems, 
-                where: self.exists(_:))
+                where: predicate)
         {
             return resolution
         }
@@ -173,7 +179,7 @@ extension Package._Pinned
         }
     }
     private 
-    func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
+    func resolve(exactly link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
         where predicate:(Branch.Composite) throws -> Bool) 
         rethrows -> _SymbolLink.Resolution?
     {
@@ -184,13 +190,12 @@ extension Package._Pinned
         {
             return .init(selection)
         }
-        guard   let namespace:Module.ID = link.first.map(Module.ID.init(_:)), 
-                let namespace:Tree.Position<Module> = self.fasces.modules.find(namespace)
+        guard let namespace:Tree.Position<Module> = self.fasces.modules.find(.init(link.first))
         else 
         {
             return nil
         }
-        guard let link:_SymbolLink = link.suffix 
+        guard let link:_SymbolLink = link.suffix
         else 
         {
             return .module(namespace.contemporary)

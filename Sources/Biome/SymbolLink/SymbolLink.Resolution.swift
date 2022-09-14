@@ -1,13 +1,19 @@
 extension _SymbolLink 
 {
+    enum ResolutionProblem:Error 
+    {
+        case empty
+        case scheme 
+        case residency
+        // case residentVersion
+        case nationality
+        case nationalVersion
+
+        case noResults
+        case multipleResults([Branch.Composite])
+    }
     struct ResolutionError:Error 
     {
-        enum Problem:Error 
-        {
-            case empty
-            case scheme 
-        }
-
         let link:String 
         let problem:any Error 
 
@@ -16,7 +22,7 @@ extension _SymbolLink
             self.link = link 
             self.problem = error
         }
-        init(_ link:String, problem:Problem)
+        init(_ link:String, problem:ResolutionProblem)
         {
             self.link = link 
             self.problem = problem
@@ -48,6 +54,21 @@ extension _SymbolLink
         case module(Branch.Position<Module>)
         case package(Package.Index)
         case composite(Branch.Composite)
+
+        init(_ resolution:Resolution?) throws 
+        {
+            switch resolution 
+            {
+            case nil: 
+                throw ResolutionProblem.noResults
+            case .module(let module): 
+                self = .module(module)
+            case .composite(let composite): 
+                self = .composite(composite)
+            case .composites(let composites): 
+                throw ResolutionProblem.multipleResults(composites)
+            }
+        }
     }
     enum TargetExpansion:Hashable, Sendable 
     {
@@ -57,15 +78,26 @@ extension _SymbolLink
         case qualified(Tree.Position<Module>, [Tree.Position<Symbol>] = [])
     }
 
-    struct Presentation:Hashable, Sendable
+    enum Presentation:Hashable, Sendable
     {
-        let target:Target
-        let visible:Int
-        
+        case article(Branch.Position<Article>)
+        case module(Branch.Position<Module>)
+        case package(Package.Index)
+        case composite(Branch.Composite, visible:Int)
+
         init(_ target:Target, visible:Int)
         {
-            self.target = target 
-            self.visible = visible
+            switch target 
+            {
+            case .article(let article):
+                self = .article(article)
+            case .module(let module):
+                self = .module(module)
+            case .package(let package):
+                self = .package(package)
+            case .composite(let composite):
+                self = .composite(composite, visible: visible)
+            }
         }
     }
 }

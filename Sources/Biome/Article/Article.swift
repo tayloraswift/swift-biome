@@ -46,12 +46,16 @@ struct Article:Sendable
     var path:Path
 
     var metadata:_History<Metadata?>.Head?
+    var documentation:_History<DocumentationExtension<Never>>.Head?
     
     init(id:ID, path:Path)
     {
         self.id = id
         self.path = path
         self.heads = .init()
+
+        self.metadata = nil 
+        self.documentation = nil
     }
 
     var name:String 

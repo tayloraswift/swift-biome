@@ -39,6 +39,13 @@ extension Article:BranchElement
     struct Divergence:Voidable, Sendable
     {
         var metadata:_History<Metadata?>.Divergent?
+        var documentation:_History<DocumentationExtension<Never>>.Divergent?
+
+        init()
+        {
+            self.metadata = nil 
+            self.documentation = nil
+        }
     }
     
 

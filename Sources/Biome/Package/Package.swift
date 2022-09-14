@@ -437,37 +437,38 @@ extension Package
             field: (\.topLevelArticles, \.topLevelArticles),
             trunk: fasces.modules)
     }
-    // mutating 
-    // func pushDocumentation(_ compiled:[Ecosystem.Index: DocumentationNode])
-    // {
-    //     let current:Version = self.versions.latest
-    //     for (index, documentation):(Ecosystem.Index, DocumentationNode) in compiled 
-    //     {
-    //         switch index 
-    //         {
-    //         case .composite(let composite):
-    //             guard case nil = composite.host 
-    //             else 
-    //             {
-    //                 fatalError("unimplemented")
-    //             }
-    //             self.documentation.push(documentation, version: current, 
-    //                 into: &self.symbols[local: composite.base].heads.documentation)
-                
-    //         case .article(let index): 
-    //             self.documentation.push(documentation, version: current, 
-    //                 into: &self.articles[local: index].heads.documentation)
-                
-    //         case .module(let index): 
-    //             self.documentation.push(documentation, version: current, 
-    //                 into: &self.modules[local: index].heads.documentation)
-    //         case .package(self.index): 
-    //             self.documentation.push(documentation, version: current, 
-    //                 into: &self.heads.documentation)
-            
-    //         case .package(_): 
-    //             fatalError("unreachable")
-    //         }
-    //     }
-    // }
+    mutating 
+    func updateDocumentation(to version:_Version, literature:__owned Literature, fasces:Fasces)
+    {
+        for (position, documentation):(Branch.Position<Module>, DocumentationExtension<Never>)
+            in literature.modules 
+        {
+            self.data.standaloneDocumentation.update(&self.tree[version.branch].modules, 
+                position: position, 
+                with: documentation, 
+                revision: version.revision, 
+                field: (\.documentation, \.documentation),
+                trunk: fasces.modules)
+        }
+        for (position, documentation):(Branch.Position<Article>, DocumentationExtension<Never>)
+            in literature.articles 
+        {
+            self.data.standaloneDocumentation.update(&self.tree[version.branch].articles, 
+                position: position, 
+                with: documentation, 
+                revision: version.revision, 
+                field: (\.documentation, \.documentation),
+                trunk: fasces.articles)
+        }
+        for (position, documentation):(Branch.Position<Symbol>, DocumentationExtension<Branch.Position<Symbol>>)
+            in literature.symbols 
+        {
+            self.data.symbolDocumentation.update(&self.tree[version.branch].symbols, 
+                position: position, 
+                with: documentation, 
+                revision: version.revision, 
+                field: (\.documentation, \.documentation),
+                trunk: fasces.symbols)
+        }
+    }
 }

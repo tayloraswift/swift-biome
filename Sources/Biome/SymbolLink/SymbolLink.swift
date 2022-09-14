@@ -1,6 +1,121 @@
 import SymbolGraphs
 import URI
 
+struct GlobalLink:RandomAccessCollection 
+{
+    enum Parameter:String 
+    {
+        case base     = "overload"
+        case host     = "self"
+        case culture  = "from"
+    }
+
+    var nationality:_SymbolLink.Nationality?
+    var base:Symbol.ID?
+    var host:Symbol.ID?
+
+    private 
+    let components:[String]
+    private(set)
+    var startIndex:Int 
+    let fold:Int 
+    var endIndex:Int 
+    {
+        self.components.endIndex
+    }
+    subscript(index:Int) -> String
+    {
+        _read 
+        {
+            yield self.components[index]
+        }
+    }
+
+    init(_ uri:URI)  
+    {
+        self.init(uri.path)
+        if let query:[URI.Parameter] = uri.query 
+        {
+            self.update(with: query)
+        }
+    }
+    
+    init(_ vectors:some Sequence<URI.Vector?>)  
+    {
+        (self.components, self.fold) = vectors.normalized
+        self.startIndex = self.components.startIndex
+        self.nationality = nil 
+        self.base = nil 
+        self.host = nil 
+    }
+
+    mutating 
+    func update(with parameters:some Sequence<URI.Parameter>)
+    {
+        for (key, value):(String, String) in parameters 
+        {
+            switch Parameter.init(rawValue: key)
+            {
+            case nil: 
+                continue 
+            
+            case .culture?:
+                // either 'from=swift-foo' or 'from=swift-foo/0.1.2'. 
+                // we do not tolerate missing slashes
+                var separator:String.Index = value.firstIndex(of: "/") ?? value.endIndex
+                let package:Package.ID = .init(value[..<separator])
+
+                while separator < value.endIndex, value[separator] != "/"
+                {
+                    value.formIndex(after: &separator)
+                }
+                self.nationality = .init(package: package, 
+                    version: .init(parsing: value[separator...]))
+            
+            case .host?:
+                // if the mangled name contained a colon ('SymbolGraphGen style'), 
+                // the parsing rule will remove it.
+                if  let host:Symbol.ID = 
+                        try? USR.Rule<String.Index>.OpaqueName.parse(value.utf8)
+                {
+                    self.host = host
+                }
+            
+            case .base?: 
+                switch try? USR.init(parsing: value.utf8) 
+                {
+                case nil: 
+                    continue 
+                
+                case .natural(let base)?:
+                    self.base = base
+                
+                case .synthesized(from: let base, for: let host)?:
+                    // this is supported for backwards-compatibility, 
+                    // but the `::SYNTHESIZED::` infix is deprecated, 
+                    // so this will end up causing a redirect 
+                    self.host = host
+                    self.base = base 
+                }
+            }
+        }
+    }
+
+    mutating 
+    func descend() -> String?
+    {
+        if let first:String = self.first 
+        {
+            self.startIndex += 1 
+            return first
+        }
+        else 
+        {
+            return nil 
+        }
+    }
+}
+
 struct _SymbolLink:RandomAccessCollection
 {
     // warning: do not make ``Equatable``, unless we enforce the correctness 
@@ -77,16 +192,39 @@ struct _SymbolLink:RandomAccessCollection
             }
         }
 
-        init(_ components:some Collection<some StringProtocol>) throws 
+        var first:Component 
+        {
+            _read 
+            {
+                yield  self.components[self.startIndex]
+            }
+            _modify 
+            {
+                yield &self.components[self.startIndex]
+            }
+        }
+        var last:Component 
+        {
+            _read 
+            {
+                yield  self.components[self.index(before: self.endIndex)]
+            }
+            _modify 
+            {
+                yield &self.components[self.index(before: self.endIndex)]
+            }
+        }
+
+        init?(_ components:some Collection<some StringProtocol>) throws 
         {
             try self.init(components: components, fold: components.startIndex)
         }
-        init(_ vectors:some Collection<URI.Vector?>) throws 
+        init?(_ vectors:some Collection<URI.Vector?>) throws 
         {
             let (components, fold):([String], Int) = vectors.normalized 
             try self.init(components: components, fold: fold)
         }
-        init<Path>(components:Path, fold:Path.Index) throws
+        init?<Path>(components:Path, fold:Path.Index) throws
             where Path:Collection, Path.Element:StringProtocol
         {
             // iii. semantic segmentation 
@@ -111,6 +249,10 @@ struct _SymbolLink:RandomAccessCollection
             {
                 try self.append(components: components)
             }
+            if self.isEmpty 
+            {
+                return nil 
+            }
         }
 
         var revealed:Self 
@@ -123,7 +265,7 @@ struct _SymbolLink:RandomAccessCollection
         {
             var suffix:Self = self 
                 suffix.startIndex += 1
-            return suffix.isEmpty ? nil : suffix 
+            return suffix.startIndex < suffix.endIndex ? suffix : nil
         }
         var outed:Self? 
         {
@@ -175,18 +317,22 @@ struct _SymbolLink:RandomAccessCollection
             case fnv(hash:UInt32)
         }
 
-        let base:Symbol.ID?
-        let host:Symbol.ID?
+        var base:Symbol.ID?
+        var host:Symbol.ID?
         var docC:DocC?
 
-        init(base:Symbol.ID?, host:Symbol.ID?)
+        init(base:Symbol.ID? = nil, host:Symbol.ID? = nil)
         {
             self.base = base 
             self.host = host 
             self.docC = nil
         }
     }
-
+    struct Nationality 
+    {
+        let package:Package.ID 
+        let version:Tag?
+    }
 
     enum Orientation:Unicode.Scalar
     {
@@ -196,6 +342,7 @@ struct _SymbolLink:RandomAccessCollection
 
     private(set)
     var path:Path, 
+        nationality:Nationality?,
         disambiguator:Disambiguator
 
     var startIndex:Path.Index
@@ -213,39 +360,55 @@ struct _SymbolLink:RandomAccessCollection
             yield self.path[index].string
         }
     }
-    
-    init(revealing path:some Collection<some StringProtocol>, base:Symbol.ID?, host:Symbol.ID?) 
-        throws 
-    {
-        self.init(path: try Path.init(path).revealed, base: base, host: host)
-    }
-    init(path:some Collection<some StringProtocol>, base:Symbol.ID?, host:Symbol.ID?) 
-        throws 
-    {
-        self.init(path: try .init(path), base: base, host: host)
-    }
-    init(path:Path, base:Symbol.ID?, host:Symbol.ID?) 
-    {
-        self.init(path: path, disambiguator: .init(base: base, host: host))
-    }
+
+    // init(revealing path:some Collection<some StringProtocol>, base:Symbol.ID?, host:Symbol.ID?) 
+    //     throws 
+    // {
+    //     self.init(path: try Path.init(path).revealed, base: base, host: host)
+    // }
+    // init(path:some Collection<some StringProtocol>, base:Symbol.ID?, host:Symbol.ID?) 
+    //     throws 
+    // {
+    //     self.init(path: try .init(path), base: base, host: host)
+    // }
     private 
-    init(path:Path, disambiguator:Disambiguator) 
+    init(path:Path, nationality:Nationality?, disambiguator:Disambiguator) 
     {
         self.path = path
+        self.nationality = nationality
         self.disambiguator = disambiguator
     }
+    init(path:Path) 
+    {
+        self.init(path: path, nationality: nil, disambiguator: .init())
+    }
 
+    var first:String
+    {
+        _read 
+        {
+            yield self.path.first.string
+        }
+    }
     var revealed:Self 
     {
-        .init(path: self.path.revealed, disambiguator: self.disambiguator)
+        .init(path: self.path.revealed, 
+            nationality: self.nationality,
+            disambiguator: self.disambiguator)
     }
     var suffix:Self?
     {
-        self.path.suffix.map { .init(path: $0, disambiguator: self.disambiguator) }
+        self.path.suffix.map 
+        { 
+            .init(path: $0, nationality: self.nationality, disambiguator: self.disambiguator) 
+        }
     }
     var outed:Self?
     {
-        self.path.outed.map { .init(path: $0, disambiguator: self.disambiguator) }
+        self.path.outed.map 
+        { 
+            .init(path: $0, nationality: self.nationality, disambiguator: self.disambiguator) 
+        }
     }
 
     /// Parses and removes the DocC suffix from the end of this symbollink. 
@@ -256,9 +419,8 @@ struct _SymbolLink:RandomAccessCollection
     mutating 
     func disambiguate() 
     {
-        if  let last:Int = self.path.indices.last, 
-            let disambiguator:Disambiguator.DocC = 
-                self.path[last].removeDocCFragment(global: self.path.count == 1)
+        if  let disambiguator:Disambiguator.DocC = 
+                self.path.last.removeDocCFragment(global: self.path.count == 1)
         {
             self.disambiguator.docC = disambiguator
         }
@@ -273,25 +435,46 @@ struct _SymbolLink:RandomAccessCollection
 
 extension _SymbolLink 
 {
-    init(_ uri:URI) throws 
+    init?(_ global:GlobalLink) throws 
     {
-        var host:Symbol.ID? = nil
-        var base:Symbol.ID? = nil
-        for (key, value):(String, String) in uri.query ?? [] 
+        guard let path:Path = try .init(components: global, fold: global.fold)
+        else 
+        {
+            return nil 
+        }
+        self.init(path: path, 
+            nationality: global.nationality, 
+            disambiguator: .init(base: global.base, host: global.host))
+    }
+    init?(_ uri:URI) throws 
+    {
+        guard let path:Path = try .init(uri.path)
+        else 
+        {
+            return nil 
+        }
+        self.init(path: path)
+        if let query:[URI.Parameter] = uri.query 
+        {
+            self.update(with: query)
+        }
+    }
+    mutating 
+    func update(with parameters:some Sequence<URI.Parameter>)
+    {
+        for (key, value):(String, String) in parameters 
         {
             // slightly different from the parser in `PluralReference.swift`
-            if  let key:PluralReference.Parameter = .init(rawValue: key), 
+            if  let key:GlobalLink.Parameter = .init(rawValue: key), 
                 let id:Symbol.ID = try? USR.Rule<String.Index>.OpaqueName.parse(value.utf8)
             {
                 switch key 
                 {
-                case .host: host = id
-                case .base: base = id 
+                case .host: self.disambiguator.host = id
+                case .base: self.disambiguator.base = id
                 case .culture: continue
                 }
             }
         }
-        
-        self.init(path: try .init(uri.path), base: base, host: host)
     }
 }

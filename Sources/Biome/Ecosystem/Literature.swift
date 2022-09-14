@@ -2,27 +2,62 @@ import SymbolGraphs
 import DOM
 import URI
 
+extension DocumentationExtension:Equatable where Position:Equatable 
+{
+    static 
+    func == (lhs:Self, rhs:Self) -> Bool 
+    {
+        lhs.extends == rhs.extends && 
+        lhs.card == rhs.card && 
+        lhs.body == rhs.body 
+    }
+}
 struct DocumentationExtension<Position> 
 {
-    var extends:Position
+    var extends:Position?
     var errors:[any Error]
     let card:DOM.Flattened<_SymbolLink.Presentation>
     let body:DOM.Flattened<_SymbolLink.Presentation>
 
+    init(inheriting extends:Position)
+    {
+        self.extends = extends 
+        self.errors = []
+        self.card = .init()
+        self.body = .init()
+    }
     init(compiling _extension:__owned Extension, extending extends:Position? = nil,
         resolver:Resolver,
         imports:Set<Branch.Position<Module>>, 
         scope:_Scope?, 
         stems:Route.Stems) 
     {
-        let (summary, body):(DOM.Flattened<String>, DOM.Flattened<String>) = 
+        let (card, body):(DOM.Flattened<String>, DOM.Flattened<String>) = 
             _extension.rendered()
+        
+        var errors:[any Error] = []
 
-        // summary.transform 
-        // {
-        //     (string:String) -> DOM.Substitution<_SymbolLink.Presentation, [UInt8]> in 
-        // }
-        fatalError("unimplemented")
+        func resolve(expression:String) 
+            -> DOM.Substitution<_SymbolLink.Presentation, String.UTF8View>
+        {
+            do 
+            {
+                return .key(try resolver.resolve(expression: expression, 
+                    imports: imports, 
+                    scope: scope, 
+                    stems: stems))
+            }
+            catch let error 
+            {
+                errors.append(error)
+                return .segment(expression.utf8)
+            }
+        }
+
+        self.extends = extends 
+        self.card = card.transform(resolve(expression:))
+        self.body = body.transform(resolve(expression:))
+        self.errors = errors
     }
 }
 
@@ -30,7 +65,7 @@ struct DocumentationExtension<Position>
 struct Literature 
 {
     private 
-    struct Comments 
+    struct Comment 
     {
         enum Node 
         {
@@ -38,8 +73,20 @@ struct Literature
             case extends(Branch.Position<Symbol>?, with:String)
         }
 
+        let node:Node 
+        let branch:_Version.Branch 
+
+        init(_ node:Node, branch:_Version.Branch)
+        {
+            self.node = node 
+            self.branch = branch
+        }
+    }
+    private 
+    struct Comments 
+    {
         private 
-        var uptree:[Branch.Position<Symbol>: Node] = [:]
+        var uptree:[Branch.Position<Symbol>: Comment] = [:]
         private(set)
         var pruned:Int
 
@@ -55,11 +102,13 @@ struct Literature
             for (position, vertex):(Tree.Position<Symbol>?, SymbolGraph.Vertex<Int>) in 
                 zip(interface.citizenSymbols, graph.vertices)
             {
-                guard let position:Branch.Position<Symbol> = position?.contemporary
+                guard let position:Tree.Position<Symbol> = position
                 else 
                 {
                     continue 
                 }
+
+                assert(position.contemporary.culture == interface.culture)
                 
                 switch 
                 (
@@ -71,30 +120,34 @@ struct Literature
                     continue 
                 
                 case (let comment?, nil):
-                    self.uptree[position] = .extends(nil, with: comment)
+                    self.uptree[position.contemporary] = .init(.extends(nil, with: comment), 
+                        branch: position.branch)
                 
                 case (let comment?, let origin?):
                     if  origin.culture != interface.culture,
-                        case .extends(_, with: comment)? = self.uptree[origin]
+                        case .extends(_, with: comment)? = self.uptree[origin]?.node
                     {
                         // inherited a comment from a *different* module. 
                         // if it were from the same module, symbolgraphconvert 
                         // should have deleted it. 
-                        self.uptree[position] = .inherits(origin)
+                        self.uptree[position.contemporary] = .init(.inherits(origin), 
+                            branch: position.branch)
                         pruned += 1
                     }
                     else 
                     {
-                        self.uptree[position] = .extends(origin, with: comment)
+                        self.uptree[position.contemporary] = .init(.extends(origin, with: comment), 
+                            branch: position.branch)
                     }
                 
                 case (nil, let origin?):
-                    self.uptree[position] = .inherits(origin)
+                    self.uptree[position.contemporary] = .init(.inherits(origin), 
+                        branch: position.branch)
                 }
             }
         }
 
-        func consolidated(culture:Package.Index) -> [Branch.Position<Symbol>: Node]
+        func consolidated(culture:Package.Index) -> [Branch.Position<Symbol>: Comment]
         {
             var skipped:Int = 0,
                 dropped:Int = 0
@@ -111,7 +164,7 @@ struct Literature
             }
             return self.uptree.compactMapValues 
             {
-                if case .inherits(var origin) = $0 
+                if case .inherits(var origin) = $0.node 
                 {
                     // fast-forward until we either reach a package boundary, 
                     // or a local symbol that has documentation
@@ -119,11 +172,11 @@ struct Literature
                     fastforwarding:
                     while origin.package == culture
                     {
-                        if  case _? = visited.update(with: origin)
+                        if case _? = visited.update(with: origin)
                         {
                             fatalError("detected cycle in doccomment inheritance graph")
                         }
-                        switch self.uptree[origin] 
+                        switch self.uptree[origin]?.node
                         {
                         case nil: 
                             dropped += 1
@@ -135,7 +188,7 @@ struct Literature
                             skipped += 1
                         }
                     }
-                    return .inherits(origin)
+                    return .init(.inherits(origin), branch: $0.branch)
                 }
                 else 
                 {
@@ -145,16 +198,15 @@ struct Literature
         }
     }
     private(set) 
-    var articles:[(Branch.Position<Article>, DocumentationExtension<Void>)]
+    var articles:[(Branch.Position<Article>, DocumentationExtension<Never>)]
     private(set) 
-    var symbols:[(Branch.Position<Symbol>, DocumentationExtension<Symbol.Index>)]
+    var symbols:[(Branch.Position<Symbol>, DocumentationExtension<Branch.Position<Symbol>>)]
     private(set) 
-    var modules:[(Branch.Position<Module>, DocumentationExtension<Void>)]
+    var modules:[(Branch.Position<Module>, DocumentationExtension<Never>)]
     private(set) 
-    var package:DocumentationExtension<Void>?
+    var package:DocumentationExtension<Never>?
 
-    init(compiling graphs:__owned [SymbolGraph], 
-        interfaces:__owned [ModuleInterface], 
+    init(compiling graphs:__owned [SymbolGraph], interfaces:__owned [ModuleInterface], 
         package local:Package.Index, 
         version:_Version, 
         context:__shared Packages, 
@@ -164,8 +216,6 @@ struct Literature
         self.symbols = []
         self.modules = []
         self.package = nil
-
-        let local:Package._Pinned = .init(context[local], version: version)
 
         var comments:Comments = .init()
         for (graph, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interfaces)
@@ -177,10 +227,22 @@ struct Literature
             print("pruned \(comments.pruned) duplicate comments")
         }
 
-        let nodes:[Branch.Position<Symbol>: Comments.Node] = 
-            (_move comments).consolidated(culture: local.package.index)
-
-        for (_, interface):(SymbolGraph, ModuleInterface) in zip(_move graphs, interfaces)
+        self.compile(graphs: _move graphs, interfaces: _move interfaces, 
+            comments: (_move comments).consolidated(culture: local),
+            package: .init(context[local], version: version), 
+            context: context, 
+            stems: stems)
+    }
+    private mutating 
+    func compile(graphs:__owned [SymbolGraph], 
+        interfaces:__owned [ModuleInterface], 
+        comments:__owned [Branch.Position<Symbol>: Comment], 
+        package local:Package._Pinned, 
+        context:Packages,
+        stems:Route.Stems)
+    {
+        var resolvers:[Branch.Position<Module>: Resolver] = .init(minimumCapacity: graphs.count)
+        for (_, interface):(SymbolGraph, ModuleInterface) in zip(_move graphs, _move interfaces)
         {
             let upstream:[Package._Pinned] = interface.pins.map 
             {
@@ -237,7 +299,7 @@ struct Literature
                             print("warning: documentation extensions for composite APIs are unsupported, skipping")
                             continue 
                         }
-                        if case .extends? = nodes[natural] 
+                        if case .extends? = comments[natural]?.node
                         {
                             print("warning: documentation extension would overwrite existing documentation, skipping")
                             continue 
@@ -261,270 +323,41 @@ struct Literature
                     }
                 }
             }
+
+            resolvers[interface.culture] = resolver
         }
-        //return comments 
-        fatalError("unimplemented")
+        self.compile(comments: _move comments, resolvers: _move resolvers, stems: stems)
     }
-}
-
-struct Resolver 
-{
-    private 
-    struct Lenses:RandomAccessCollection
+    private mutating 
+    func compile(comments:__owned [Branch.Position<Symbol>: Comment],
+        resolvers:__owned [Branch.Position<Module>: Resolver], 
+        stems:Route.Stems)
     {
-        let local:Package._Pinned
-        let upstream:[Package._Pinned]
-
-        var startIndex:Int 
+        for (position, comment):(Branch.Position<Symbol>, Comment) in comments 
         {
-            -1 
-        }
-        var endIndex:Int
-        {
-            self.upstream.endIndex
-        }
-        subscript(index:Int) -> Package._Pinned 
-        {
-            _read 
-            {
-                yield index < 0 ? self.local : self.upstream[index]
-            }
-        }
-
-        init(local:Package._Pinned, upstream:[Package._Pinned])
-        {
-            self.local = local
-            self.upstream = upstream 
-        }
-
-        func select(_ key:Route.Key, imports:Set<Branch.Position<Module>>)
-            -> _Selection<Branch.Composite>?
-        {
-            var selection:_Selection<Branch.Composite>? = nil 
-            for lens:Package._Pinned in self
-            {
-                lens.routes.select(key)
-                {
-                    if  imports.contains($0.culture), lens.exists($0) 
-                    {
-                        selection.append($0)
-                    }
-                } as ()
-            }
-            return selection
-        }
-    }
-
-    private 
-    enum Scheme 
-    {
-        case symbol
-        case doc
-    }
-    private 
-    enum Hierarchy 
-    {
-        // '//swift-foo/foomodule/footype.foomember(_:)'
-        case authority 
-        // '/foomodule/footype.foomember(_:)'
-        case absolute 
-        // 'footype.foomember(_:)'
-        case opaque
-    }
-
-    private 
-    let lenses:Lenses 
-    private 
-    let namespaces:Namespaces
-
-    init(local:Package._Pinned, upstream:[Package._Pinned], namespaces:Namespaces)
-    {
-        self.lenses = .init(local: local, upstream: upstream)
-        self.namespaces = namespaces
-    }
-
-    func resolve(_ link:String, 
-        imports:Set<Branch.Position<Module>>, 
-        scope:_Scope?, 
-        stems:Route.Stems) throws -> _SymbolLink.Presentation
-    {
-        let schemeless:Substring 
-        let scheme:Scheme 
-        if  let colon:String.Index = link.firstIndex(of: ":")
-        {
-            if link[..<colon] == "doc" 
-            {
-                scheme = .doc 
-            }
+            guard let resolver:Resolver = resolvers[position.culture] 
             else 
             {
-                throw _SymbolLink.ResolutionError.init(link, problem: .scheme)
+                fatalError("unreachable")
             }
-            schemeless = link[link.index(after: colon)...]
-        }
-        else 
-        {
-            scheme = .symbol
-            schemeless = link[...]
-        }
-        var slashes:Int = 0
-        for index:String.Index in schemeless.indices 
-        {
-            if  slashes <  2, schemeless[index] == "/" 
+
+            let documentation:DocumentationExtension<Branch.Position<Symbol>>
+            switch comment.node 
             {
-                slashes += 1
-                continue 
-            }
+            case .inherits(let origin):
+                documentation = .init(inheriting: origin)
             
-            let hierarchy:Hierarchy
-            switch slashes 
-            {
-            case 0: hierarchy = .opaque
-            case 1: hierarchy = .absolute
-            case _: hierarchy = .authority
-            }
-            do 
-            {
-                let uri:URI = try .init(relative: schemeless[index...])
-                let link:_SymbolLink = try .init(uri)
-                let resolution:_SymbolLink.Target = try self.resolve(scheme: scheme, 
-                    hierarchy: hierarchy,
-                    revealed: link.revealed, 
-                    imports: imports, 
-                    scope: scope, 
+            case .extends(let origin, with: let markdown):
+                let _extension:Extension = .init(markdown: markdown)
+                let symbol:Symbol = 
+                    resolver.local.package.tree[local: position.pluralized(comment.branch)]
+                documentation = .init(compiling: _extension, 
+                    resolver: resolver,
+                    imports: resolver.namespaces.import(_extension.metadata.imports), 
+                    scope: .init(symbol), 
                     stems: stems)
-                return .init(resolution, visible: link.count)
             }
-            catch let error 
-            {
-                throw _SymbolLink.ResolutionError.init(link, error)
-            }
-        }
-        throw _SymbolLink.ResolutionError.init(link, problem: .empty)
-    }
-    private 
-    func resolve(scheme:Scheme, hierarchy:Hierarchy, revealed:_SymbolLink, 
-        imports:Set<Branch.Position<Module>>, 
-        scope:_Scope?, 
-        stems:Route.Stems) throws -> _SymbolLink.Target
-    {
-        let scope:_Scope? = hierarchy == .opaque ? scope : nil 
-        let link:_SymbolLink
-        if case .authority = hierarchy 
-        {
-            fatalError("unimplemented")
-        }
-        else 
-        {
-            link = revealed
-        }
-        if case .doc = scheme 
-        {
-            // guard   let namespace:Module.ID = link.first.map(Module.ID.init(_:)), 
-            //         let namespace:Tree.Position<Module> = self.namespaces.linked[namespace], 
-            //             imports.contains(namespace.contemporary)
-            // else 
-            // {
-            //     throw SelectionError<Branch.Composite>.none 
-            // }
-            // guard   let link:_SymbolLink = link.suffix 
-            // else 
-            // {
-            //     return .module(namespace.contemporary)
-            // }
-            // if  let key:Route.Key = stems[namespace.contemporary, straight: link], 
-            //     let selection:_Selection<Branch.Composite> = self.lenses.select(key, 
-            //         imports: imports)
-            // {
-            //     return .init(selection)
-            // }
-        }
-        fatalError("unimplemented")
-    }
-    private 
-    func resolve(_ link:_SymbolLink, 
-        imports:Set<Branch.Position<Module>>, 
-        scope:_Scope?, 
-        stems:Route.Stems) -> _SymbolLink.Resolution?
-    {
-        if  let scope:_Scope, 
-            let selection:_Selection<Branch.Composite> = scope.scan(concatenating: link, 
-                stems: stems, 
-                until: { self.lenses.select($0, imports: imports) })
-        {
-            return .init(selection)
-        }
-        // can’t use a namespace as a key field if that namespace was not imported
-        guard   let namespace:Module.ID = link.first.map(Module.ID.init(_:)), 
-                let namespace:Tree.Position<Module> = self.namespaces.linked[namespace], 
-                    imports.contains(namespace.contemporary)
-        else 
-        {
-            return nil
-        }
-        guard   let link:_SymbolLink = link.suffix 
-        else 
-        {
-            return .module(namespace.contemporary)
-        }
-        if  let key:Route.Key = stems[namespace.contemporary, link], 
-            let selection:_Selection<Branch.Composite> = self.lenses.select(key, 
-                imports: imports)
-        {
-            return .init(selection)
-        }
-        else 
-        {
-            return nil
+            self.symbols.append((position, documentation))
         }
     }
 }
-
-    // init(compiling _extension:Extension, 
-    //     compiler:__shared Compiler,
-    //     scope:_Scope?, 
-    //     stems:__shared Route.Stems)
-    // {
-    //     self.errors = []
-    //     _extension.render().transform 
-    //     {
-    //         (string:String, errors:inout [Error]) -> DOM.Substitution<Link, [UInt8]> in 
-            
-
-    //         do 
-    //         {
-    //             // must attempt to parse absolute first, otherwise 
-    //             // '/foo' will parse to ["", "foo"]
-    //             let resolved:Link?
-    //             // global "doc:" links not supported yet
-    //             if !doclink, let uri:URI = try? .init(absolute: suffix)
-    //             {
-    //                 resolved = try self.resolveWithRedirect(globalLink: uri, 
-    //                     lenses: lenses, 
-    //                     scope: scope)
-    //             }
-    //             else 
-    //             {
-    //                 let uri:URI = try .init(relative: suffix)
-                    
-    //                 resolved = try self.resolveWithRedirect(visibleLink: uri, nest: nest,
-    //                     doclink: doclink,
-    //                     lenses: lenses, 
-    //                     scope: scope)
-    //             }
-    //             if let resolved:Link
-    //             {
-    //                 return .key(resolved)
-    //             }
-    //             else 
-    //             {
-    //                 throw Packages.SelectionError.none
-    //             }
-    //         }
-    //         catch let error 
-    //         {
-    //             errors.append(LinkResolutionError.init(link: string, error: error))
-    //             return .segment(HTML.Element<Never>.code(string).node.rendered(as: [UInt8].self))
-    //         }
-    //     }
-    // }

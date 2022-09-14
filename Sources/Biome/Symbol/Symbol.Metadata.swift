@@ -35,11 +35,13 @@ extension Symbol:BranchElement
     {
         var metadata:_History<Metadata?>.Divergent?
         var declaration:_History<Declaration<Branch.Position<Symbol>>>.Divergent?
+        var documentation:_History<DocumentationExtension<Branch.Position<Symbol>>>.Divergent?
 
         init() 
         {
             self.metadata = nil
             self.declaration = nil
+            self.documentation = nil
         }
     }
 

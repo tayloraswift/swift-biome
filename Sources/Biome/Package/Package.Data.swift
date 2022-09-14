@@ -9,11 +9,17 @@ extension Package
         private(set)
         var declarations:_History<Declaration<Branch.Position<Symbol>>>
 
+        var standaloneDocumentation:_History<DocumentationExtension<Never>>
+        var symbolDocumentation:_History<DocumentationExtension<Branch.Position<Symbol>>>
+
         init() 
         {
             self.topLevelArticles = .init()
             self.topLevelSymbols = .init()
             self.declarations = .init()
+
+            self.standaloneDocumentation = .init()
+            self.symbolDocumentation = .init()
         }
     }
 }

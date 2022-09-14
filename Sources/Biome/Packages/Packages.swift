@@ -2,6 +2,13 @@ import PackageResolution
 import SymbolGraphs
 import Versions
 
+extension Package.Index 
+{
+    static 
+    let swift:Self = .init(offset: 0)
+    static 
+    let core:Self = .init(offset: 1)
+}
 struct Packages 
 {
     private 
@@ -13,6 +20,14 @@ struct Packages
     {
         self.packages = []
         self.indices = [:]
+
+        // swift-standard-library is always index = 0
+        // swift-core-libraries is always index = 1
+        let swift:Package.Index = self.add(package: .swift)
+        let core:Package.Index = self.add(package: .core)
+
+        precondition(swift == .swift) 
+        precondition(core == .swift) 
     }
     
     subscript(package:Package.ID) -> Package?
@@ -59,14 +74,14 @@ struct Packages
     {
         _read 
         {
-            yield self[module.index.package].tree[local: module]
+            yield self[module.package].tree[local: module]
         }
     } 
     subscript(global symbol:Tree.Position<Symbol>) -> Symbol
     {
         _read 
         {
-            yield self[symbol.index.module.package].tree[local: symbol]
+            yield self[symbol.package].tree[local: symbol]
         }
     } 
     
@@ -97,6 +112,7 @@ struct Packages
             fatalError("unimplemented")
         }
         
+        let linkable:[Package.Index: _Dependency] = self.find(pins: resolved.pins.values)
         let package:Package.Index = self.add(package: id)
         let branch:_Version.Branch = self[package].tree.branch(from: nil, 
             name: branch)
@@ -105,10 +121,6 @@ struct Packages
         let fasces:Fasces = self[package].tree.fasces(upTo: branch)
 
         var surface:SurfaceBuilder = .init(previous: .init())
-        // `pins` is a subset of `linkable`; it gets filled in gradually as we 
-        // resolve dependencies. this allows us to discard unused dependencies 
-        // from the `Package.resolved` file.
-        let linkable:[Package.Index: _Dependency] = self.find(pins: resolved.pins.values)
 
         var interfaces:[ModuleInterface] = []
             interfaces.reserveCapacity(graphs.count)
@@ -172,8 +184,6 @@ struct Packages
                 fasces: fasces) 
         }
 
-        _ = _move fasces 
-
         let literature:Literature = .init(compiling: _move graphs, 
             interfaces: _move interfaces, 
             package: package, 
@@ -181,9 +191,10 @@ struct Packages
             context: self, 
             stems: stems)
 
-        // self[index].pushDocumentation(compiled)
-        // self.spread(from: index, beliefs: beliefs)
-
+        self[package].updateDocumentation(to: version, 
+            literature: _move literature, 
+            fasces: fasces)
+        
         return package
     }
     
@@ -230,12 +241,12 @@ extension Packages
         var linkable:[Package.Index: _Dependency] = [:]
         for pin:PackageResolution.Pin in pins 
         {
-            guard let package:Package = self[pin.id]
+            guard   let package:Package = self[pin.id],
+                    let tag:Tag = .init(pin.requirement)
             else 
             {
                 continue 
             }
-            let tag:Tag = .init(pin.requirement)
             if  let version:_Version = package.tree.find(tag),
                     package.tree[version].hash == pin.revision
             {

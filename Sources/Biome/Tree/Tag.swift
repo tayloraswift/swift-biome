@@ -23,14 +23,18 @@ enum Tag:Hashable, Sendable
     case semantic(Semantic)
     case named(String)
 
-    init(parsing string:some StringProtocol) 
+    init?(parsing string:some StringProtocol) 
     {
+        if string.isEmpty 
+        {
+            return nil 
+        }
         self =  (try? Rule<String.Index>.Concise.parse(string.unicodeScalars)) ?? 
                 (try? Rule<String.Index>.Toolchain.parse(string.unicodeScalars)) ?? 
                 .named(String.init(string))
     }
 
-    init(_ requirement:PackageResolution.Requirement)
+    init?(_ requirement:PackageResolution.Requirement)
     {
         switch requirement 
         {

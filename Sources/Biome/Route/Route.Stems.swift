@@ -103,25 +103,24 @@ extension Route
             suffix:_SymbolLink) -> Key? 
             where Component:StringProtocol
         {
-            guard   let leaf:_SymbolLink.Component = suffix.path.last,
-                    let leaf:Stem = self[leaf: leaf]
+            guard let leaf:Stem = self[leaf: suffix.path.last]
             else 
             {
                 return nil 
             }
-
+            let slice:_SymbolLink.SubSequence = suffix.dropLast()
             let stem:Stem? 
-            if  suffix.count <= 1
+            if  slice.isEmpty
             {
                 stem = self[stem: infix]
             }
             else if infix.isEmpty
             {
-                stem = self[stem: suffix.dropLast()]
+                stem = self[stem: slice]
             }
             else 
             {
-                stem = self[stem: infix.map(String.init(_:)) + suffix.dropLast()]
+                stem = self[stem: infix.map(String.init(_:)) + slice]
             }
             return stem.map 
             {
