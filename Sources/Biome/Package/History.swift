@@ -113,7 +113,9 @@ struct _History<Value> where Value:Equatable
         }
         fatalError("unreachable: incomplete timeline!")
     }
-
+}
+extension _History 
+{
     /// Unconditionally pushes the given value to the head of the given tree.
     mutating 
     func push(_ value:__owned Value, revision:_Version.Revision, to tree:inout Divergent?) 

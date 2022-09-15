@@ -159,12 +159,6 @@ struct Extension:Sendable
             return nil
         }
     }
-    
-    @available(*, deprecated)
-    func render() -> Article.Template<String>
-    {
-        fatalError("obsoleted")
-    }
 
     func rendered() -> (DOM.Flattened<String>, DOM.Flattened<String>)
     {

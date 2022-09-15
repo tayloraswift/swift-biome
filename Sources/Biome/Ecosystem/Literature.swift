@@ -16,8 +16,8 @@ struct DocumentationExtension<Position>
 {
     var extends:Position?
     var errors:[any Error]
-    let card:DOM.Flattened<_SymbolLink.Presentation>
-    let body:DOM.Flattened<_SymbolLink.Presentation>
+    let card:DOM.Flattened<GlobalLink.Presentation>
+    let body:DOM.Flattened<GlobalLink.Presentation>
 
     init(inheriting extends:Position)
     {
@@ -38,7 +38,7 @@ struct DocumentationExtension<Position>
         var errors:[any Error] = []
 
         func resolve(expression:String) 
-            -> DOM.Substitution<_SymbolLink.Presentation, String.UTF8View>
+            -> DOM.Substitution<GlobalLink.Presentation, String.UTF8View>
         {
             do 
             {
@@ -244,12 +244,11 @@ struct Literature
         var resolvers:[Branch.Position<Module>: Resolver] = .init(minimumCapacity: graphs.count)
         for (_, interface):(SymbolGraph, ModuleInterface) in zip(_move graphs, _move interfaces)
         {
-            let upstream:[Package._Pinned] = interface.pins.map 
-            {
-                .init(context[$0.key], version: $0.value)
-            }
-            let resolver:Resolver = .init(local: local, upstream: upstream, 
-                namespaces: interface.namespaces)
+            // use the interface-level pins and not the package-level pins, 
+            // to reduce the size of the search context
+            let resolver:Resolver = .init(local: local, pins: interface.pins,
+                namespaces: interface.namespaces,
+                context: context)
 
             for (position, _extension):(Tree.Position<Article>?, Extension) in 
                 zip(interface.citizenArticles, interface._cachedMarkdown)
@@ -270,9 +269,14 @@ struct Literature
                         let binding:URI = try? .init(relative: binding),
                         let binding:_SymbolLink = try? .init(binding)
                 {
-                    switch local.resolve(binding.revealed.disambiguated(), 
+                    let binding:_SymbolLink.Resolution? = local.resolve(binding.revealed.disambiguated(), 
                         scope: .init(interface.culture), 
                         stems: stems)
+                    {
+                        local.exists($0) && 
+                        binding.disambiguator.matches($0, context: resolver.context)
+                    }
+                    switch binding
                     {
                     case nil: 
                         print("warning: documentation extension has no resolved binding, skipping")
@@ -351,7 +355,7 @@ struct Literature
                 let _extension:Extension = .init(markdown: markdown)
                 let symbol:Symbol = 
                     resolver.local.package.tree[local: position.pluralized(comment.branch)]
-                documentation = .init(compiling: _extension, 
+                documentation = .init(compiling: _extension, extending: origin, 
                     resolver: resolver,
                     imports: resolver.namespaces.import(_extension.metadata.imports), 
                     scope: .init(symbol), 

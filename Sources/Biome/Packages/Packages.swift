@@ -9,6 +9,7 @@ extension Package.Index
     static 
     let core:Self = .init(offset: 1)
 }
+public 
 struct Packages 
 {
     private 
@@ -28,6 +29,21 @@ struct Packages
 
         precondition(swift == .swift) 
         precondition(core == .swift) 
+    }
+
+    var swift:Package 
+    {
+        _read 
+        {
+            yield self[.swift]
+        }
+    }
+    var core:Package 
+    {
+        _read 
+        {
+            yield self[.core]
+        }
     }
     
     subscript(package:Package.ID) -> Package?

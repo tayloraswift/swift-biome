@@ -1,3 +1,80 @@
+extension GlobalLink 
+{
+    struct Endpoint 
+    {
+        enum Request 
+        {
+            case target(Target)
+            case disambiguation([Branch.Composite])
+        }
+
+        let request:Request 
+        let version:_Version
+
+        init(_ request:Request, version:_Version)
+        {
+            self.request = request 
+            self.version = version 
+        }
+        init(_ target:Target, version:_Version)
+        {
+            self.init(.target(target), version: version)
+        }
+    }
+    enum Target:Hashable, Sendable 
+    {
+        case article(Branch.Position<Article>)
+        case module(Branch.Position<Module>)
+        case package(Package.Index)
+        case composite(Branch.Composite)
+
+        init(_ resolution:_SymbolLink.Resolution?) throws 
+        {
+            switch resolution 
+            {
+            case nil: 
+                throw _SymbolLink.ResolutionProblem.noResults
+            case .module(let module): 
+                self = .module(module)
+            case .composite(let composite): 
+                self = .composite(composite)
+            case .composites(let composites): 
+                throw _SymbolLink.ResolutionProblem.multipleResults(composites)
+            }
+        }
+    }
+    enum TargetExpansion:Hashable, Sendable 
+    {
+        case article(Tree.Position<Article>)
+        case package(Package.Index)
+        case implicit                        ([Tree.Position<Symbol>])
+        case qualified(Tree.Position<Module>, [Tree.Position<Symbol>] = [])
+    }
+
+    enum Presentation:Hashable, Sendable
+    {
+        case article(Branch.Position<Article>)
+        case module(Branch.Position<Module>)
+        case package(Package.Index)
+        case composite(Branch.Composite, visible:Int)
+
+        init(_ target:Target, visible:Int)
+        {
+            switch target 
+            {
+            case .article(let article):
+                self = .article(article)
+            case .module(let module):
+                self = .module(module)
+            case .package(let package):
+                self = .package(package)
+            case .composite(let composite):
+                self = .composite(composite, visible: visible)
+            }
+        }
+    }
+}
+
 extension _SymbolLink 
 {
     enum ResolutionProblem:Error 
@@ -44,59 +121,6 @@ extension _SymbolLink
                 self = .composite(composite)
             case .many(let composites): 
                 self = .composites(composites)
-            }
-        }
-    }
-
-    enum Target:Hashable, Sendable 
-    {
-        case article(Branch.Position<Article>)
-        case module(Branch.Position<Module>)
-        case package(Package.Index)
-        case composite(Branch.Composite)
-
-        init(_ resolution:Resolution?) throws 
-        {
-            switch resolution 
-            {
-            case nil: 
-                throw ResolutionProblem.noResults
-            case .module(let module): 
-                self = .module(module)
-            case .composite(let composite): 
-                self = .composite(composite)
-            case .composites(let composites): 
-                throw ResolutionProblem.multipleResults(composites)
-            }
-        }
-    }
-    enum TargetExpansion:Hashable, Sendable 
-    {
-        case article(Tree.Position<Article>)
-        case package(Package.Index)
-        case implicit                        ([Tree.Position<Symbol>])
-        case qualified(Tree.Position<Module>, [Tree.Position<Symbol>] = [])
-    }
-
-    enum Presentation:Hashable, Sendable
-    {
-        case article(Branch.Position<Article>)
-        case module(Branch.Position<Module>)
-        case package(Package.Index)
-        case composite(Branch.Composite, visible:Int)
-
-        init(_ target:Target, visible:Int)
-        {
-            switch target 
-            {
-            case .article(let article):
-                self = .article(article)
-            case .module(let module):
-                self = .module(module)
-            case .package(let package):
-                self = .package(package)
-            case .composite(let composite):
-                self = .composite(composite, visible: visible)
             }
         }
     }

@@ -1,52 +1,58 @@
 import URI
 
+public 
+enum Scheme 
+{
+    case symbol
+    case doc
+}
 struct Resolver 
 {
-    private 
-    struct LinkedPackages 
-    {
-        private 
-        let indexed:[Package.Index: Package._Pinned]
-        private 
-        let identified:[Package.ID: Package._Pinned]
+    // private 
+    // struct LinkedPackages 
+    // {
+    //     private 
+    //     let indexed:[Package.Index: Package._Pinned]
+    //     private 
+    //     let identified:[Package.ID: Package._Pinned]
 
-        subscript(index:Package.Index) -> Package._Pinned? 
-        {
-            _read 
-            {
-                yield self.indexed[index]
-            }
-        }
-        subscript(id:Package.ID) -> Package._Pinned? 
-        {
-            _read 
-            {
-                yield self.identified[id]
-            }
-        }
+    //     subscript(index:Package.Index) -> Package._Pinned? 
+    //     {
+    //         _read 
+    //         {
+    //             yield self.indexed[index]
+    //         }
+    //     }
+    //     subscript(id:Package.ID) -> Package._Pinned? 
+    //     {
+    //         _read 
+    //         {
+    //             yield self.identified[id]
+    //         }
+    //     }
 
-        init(local:Package._Pinned, upstream:__shared [Package._Pinned])
-        {
-            var identified:[Package.ID: Package._Pinned] = [local.package.id: local] 
-            var indexed:[Package.Index: Package._Pinned] = [local.package.index: local] 
+    //     init(local:Package._Pinned, upstream:__shared [Package._Pinned])
+    //     {
+    //         var identified:[Package.ID: Package._Pinned] = [local.package.id: local] 
+    //         var indexed:[Package.Index: Package._Pinned] = [local.package.index: local] 
 
-            identified.reserveCapacity(upstream.count + 1)
-            indexed.reserveCapacity(upstream.count + 1)
+    //         identified.reserveCapacity(upstream.count + 1)
+    //         indexed.reserveCapacity(upstream.count + 1)
 
-            for pinned:Package._Pinned in upstream 
-            {
-                identified[pinned.package.id] = pinned 
-                indexed[pinned.package.index] = pinned 
-            }
+    //         for pinned:Package._Pinned in upstream 
+    //         {
+    //             identified[pinned.package.id] = pinned 
+    //             indexed[pinned.package.index] = pinned 
+    //         }
 
-            self.identified = identified
-            self.indexed = indexed
-        }
-    }
+    //         self.identified = identified
+    //         self.indexed = indexed
+    //     }
+    // }
     private 
     struct Lenses:RandomAccessCollection
     {
-        let local:Package._Pinned
+        let context:Package.Context 
         private 
         let upstream:[Package._Pinned]
 
@@ -62,17 +68,19 @@ struct Resolver
         {
             _read 
             {
-                yield index < 0 ? self.local : self.upstream[index]
+                yield index < 0 ? self.context.local : self.upstream[index]
             }
         }
 
-        init(local:Package._Pinned, upstream:[Package._Pinned])
+        init(_ context:Package.Context)
         {
-            self.local = local
-            self.upstream = upstream 
+            self.upstream = .init(context.upstream.values) 
+            self.context = context
         }
 
-        func select(_ key:Route.Key, imports:Set<Branch.Position<Module>>)
+        func select(_ key:Route.Key, 
+            disambiguator:_SymbolLink.Disambiguator, 
+            imports:Set<Branch.Position<Module>>)
             -> _Selection<Branch.Composite>?
         {
             var selection:_Selection<Branch.Composite>? = nil 
@@ -80,7 +88,9 @@ struct Resolver
             {
                 lens.routes.select(key)
                 {
-                    if  imports.contains($0.culture), lens.exists($0) 
+                    if  imports.contains($0.culture), 
+                        lens.exists($0), 
+                        disambiguator.matches($0, context: self.context)
                     {
                         selection.append($0)
                     }
@@ -91,37 +101,46 @@ struct Resolver
     }
 
     private 
-    enum Scheme 
-    {
-        case symbol
-        case doc
-    }
-
-    private 
     let lenses:Lenses 
     private 
-    let linked:LinkedPackages
+    let linked:[Package.ID: Package._Pinned]
     let namespaces:Namespaces
 
-    init(local:Package._Pinned, upstream:[Package._Pinned], namespaces:Namespaces)
+    init(local:Package._Pinned, pins:__shared [Package.Index: _Version], 
+        namespaces:Namespaces, 
+        context:__shared Packages)
     {
-        self.linked = .init(local: local, upstream:       upstream)
-        self.lenses = .init(local: local, upstream: _move upstream)
+        let context:Package.Context = .init(local: _move local, pins: pins, context: context)
+        var linked:[Package.ID: Package._Pinned] = .init(minimumCapacity: pins.count + 1)
+            linked[context.local.package.id] = context.local 
+        for upstream:Package._Pinned in context.upstream.values 
+        {
+            linked[upstream.package.id] = upstream
+        }
         self.namespaces = namespaces
+        self.lenses = .init(_move context)
+        self.linked = linked
     }
 
+    var context:Package.Context 
+    {
+        _read 
+        {
+            yield self.lenses.context
+        }
+    }
     var local:Package._Pinned 
     {
         _read 
         {
-            yield self.lenses.local
+            yield self.context.local
         }
     }
 
     func resolve(expression:String, 
         imports:Set<Branch.Position<Module>>, 
         scope:_Scope?, 
-        stems:Route.Stems) throws -> _SymbolLink.Presentation
+        stems:Route.Stems) throws -> GlobalLink.Presentation
     {
         let schemeless:Substring 
         let scheme:Scheme 
@@ -204,7 +223,7 @@ struct Resolver
     func resolve(scheme:Scheme, symbolLink link:_SymbolLink, 
         imports:Set<Branch.Position<Module>>, 
         scope:_Scope?, 
-        stems:Route.Stems) throws -> _SymbolLink.Presentation
+        stems:Route.Stems) throws -> GlobalLink.Presentation
     {
         if  case .doc = scheme, 
             let article:Branch.Position<Article> = self.resolve(docLink: link, 
@@ -235,7 +254,9 @@ struct Resolver
             // filtering by import set is still useful, even with a nationality
             resolution = local.resolve(link.revealed, scope: scope, stems: stems)
             {
-                imports.contains($0.culture) && local.exists($0)
+                imports.contains($0.culture) && 
+                local.exists($0) && 
+                link.disambiguator.matches($0, context: self.context)
             }
         }
         else 
@@ -256,7 +277,7 @@ struct Resolver
         if  let scope:_Scope, 
             let article:Tree.Position<Article> = scope.scan(concatenating: link, 
                 stems: stems, 
-                until: { self.linked[$0.namespace.package]?.articles.find(.init($0)) })
+                until: { self.context[$0.namespace.package]?.articles.find(.init($0)) })
         {
             return article.contemporary
         }
@@ -264,10 +285,9 @@ struct Resolver
         if  let path:_SymbolLink = link.suffix,
             let namespace:Tree.Position<Module> = self.namespaces.linked[.init(link.first)], 
                 imports.contains(namespace.contemporary), 
-            let pinned:Package._Pinned = self.linked[namespace.package],
-            let article:Article.ID = 
-                stems[namespace.contemporary, straight: path].map(Article.ID.init(_:)), 
-            let article:Tree.Position<Article> = pinned.articles.find(article)
+            let pinned:Package._Pinned = self.context[namespace.package],
+            let article:Route.Key = stems[namespace.contemporary, straight: path], 
+            let article:Tree.Position<Article> = pinned.articles.find(.init(article))
         {
             return article.contemporary
         }
@@ -285,7 +305,10 @@ struct Resolver
         if  let scope:_Scope, 
             let selection:_Selection<Branch.Composite> = scope.scan(concatenating: link, 
                 stems: stems, 
-                until: { self.lenses.select($0, imports: imports) })
+                until: 
+                { 
+                    self.lenses.select($0, disambiguator: link.disambiguator, imports: imports) 
+                })
         {
             return .init(selection)
         }
@@ -302,8 +325,8 @@ struct Resolver
             return .module(namespace.contemporary)
         }
         if  let key:Route.Key = stems[namespace.contemporary, link], 
-            let selection:_Selection<Branch.Composite> = self.lenses.select(key, 
-                imports: imports)
+            let selection:_Selection<Branch.Composite> = 
+                self.lenses.select(key, disambiguator: link.disambiguator, imports: imports)
         {
             return .init(selection)
         }

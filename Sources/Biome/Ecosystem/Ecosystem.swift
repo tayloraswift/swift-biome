@@ -144,13 +144,12 @@ extension Ecosystem
     func updatePackage(_ id:Package.ID, 
         resolved:PackageResolution,
         branch:String, 
-        graphs:[SymbolGraph]) 
-        throws
+        graphs:[SymbolGraph]) throws -> Package.Index
     {
         try Task.checkCancellation()
         // topological sort  
         let graphs:[SymbolGraph] = try graphs.topologicallySorted(for: id)
-        let _:Package.Index = try self.packages._add(package: id, 
+        return try self.packages._add(package: id, 
             resolved: resolved, 
             branch: branch, 
             graphs: graphs, 

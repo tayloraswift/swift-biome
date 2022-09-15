@@ -48,18 +48,54 @@ extension [Package.Index: Package._Pinned]
 
 extension Package 
 {
+    // this isn’t *quite* ``SurfaceBuilder.Context``, because ``local`` is pinned here.
+    struct Context:Sendable 
+    {
+        let upstream:[Index: _Pinned]
+        let local:_Pinned 
+
+        init(local:_Pinned, context:__shared Packages)
+        {
+            self.init(local: local, pins: local.package.tree[local.version].pins, 
+                context: context)
+        }
+        init(local:_Pinned, pins:__shared [Index: _Version], context:__shared Packages)
+        {
+            self.local = local 
+            var upstream:[Index: _Pinned] = .init(minimumCapacity: pins.count)
+            for (index, version):(Index, _Version) in pins 
+            {
+                upstream[index] = .init(context[index], version: version)
+            }
+            self.upstream = upstream
+        }
+        subscript(package:Package.Index) -> Package._Pinned?
+        {
+            _read 
+            {
+                yield self.local.package.index == package ? self.local : self.upstream[package]
+            }
+        }
+        func find(symbol:Branch.Position<Symbol>) -> Symbol?
+        {
+            if  let pinned:Package._Pinned = self[symbol.package], 
+                let position:Tree.Position<Symbol> = 
+                    symbol.pluralized(bisecting: pinned.symbols)
+            {
+                return pinned.package.tree[local: position]
+            }
+            else 
+            {
+                return nil
+            }
+        }
+    }
     struct _Pinned:Sendable 
     {
         let package:Package 
         let version:_Version
         private 
         let fasces:Fasces 
-
-        @available(*, deprecated)
-        var _fasces:Fasces 
-        {
-            self.fasces
-        }
         
         init(_ package:Package, version:_Version)
         {
@@ -149,11 +185,6 @@ extension Package._Pinned
         }
     }
     
-    func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems) 
-        -> _SymbolLink.Resolution?
-    {
-        self.resolve(link, scope: scope, stems: stems, where: self.exists(_:))
-    }
     func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
         where predicate:(Branch.Composite) throws -> Bool) 
         rethrows -> _SymbolLink.Resolution?

@@ -114,6 +114,20 @@ struct GlobalLink:RandomAccessCollection
             return nil 
         }
     }
+    mutating 
+    func descend<T>(where transform:(String) throws -> T?) rethrows -> T? 
+    {
+        if  let first:String = self.first, 
+            let transformed:T = try transform(first)
+        {
+            self.startIndex += 1 
+            return transformed
+        }
+        else 
+        {
+            return nil 
+        }
+    }
 }
 
 struct _SymbolLink:RandomAccessCollection
@@ -326,6 +340,49 @@ struct _SymbolLink:RandomAccessCollection
             self.base = base 
             self.host = host 
             self.docC = nil
+        }
+
+        func disambiguate(_ selection:inout _Selection<Branch.Composite>, context:Package.Context) 
+        {
+            if  case .many(let composites) = selection,
+                let filtered:_Selection<Branch.Composite> = .init(composites.filter 
+                { 
+                    self.matches($0, context: context) 
+                })
+            {
+                selection = filtered
+            }
+        }
+        // in general, we cannot assume anything about the locality of the base or host 
+        // components in a synthetic composite.
+        func matches(_ composite:Branch.Composite, context:Package.Context) -> Bool 
+        {
+            if  let host:Branch.Position<Symbol> = composite.host
+            {
+                if  let id:Symbol.ID = self.host, 
+                    let host:Symbol = context.find(symbol: host), 
+                        host.id != id 
+                {
+                    return false 
+                }
+            }
+            else 
+            {
+                guard case nil = self.host 
+                else 
+                {
+                    return false 
+                }
+            }
+            if  let id:Symbol.ID = self.base, 
+                let base:Symbol = context.find(symbol: composite.base)
+            {
+                return base.id == id 
+            }
+            else 
+            {
+                return true
+            }
         }
     }
     struct Nationality 
