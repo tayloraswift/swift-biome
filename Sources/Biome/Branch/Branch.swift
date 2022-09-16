@@ -33,7 +33,7 @@ struct Branch:Identifiable, Sendable
     }
     struct Revision:Sendable 
     {
-        let hash:String 
+        let hash:String
         let ring:Ring
         let pins:[Package.Index: _Version]
         var consumers:[Package.Index: Set<_Version>]
@@ -101,7 +101,7 @@ struct Branch:Identifiable, Sendable
         self.index = index 
 
         self.fork = fork?.version
-        
+
         self.revisions = []
         
         self.foreign = [:]

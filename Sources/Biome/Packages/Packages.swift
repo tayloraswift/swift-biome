@@ -100,19 +100,6 @@ struct Packages
             yield self[symbol.package].tree[local: symbol]
         }
     } 
-    
-    var standardLibrary:Set<Module.Index>
-    {
-        if let swift:Package = self[.swift]
-        {
-            return .init(swift.modules.indices.values)
-        }
-        else 
-        {
-            // must register standard library before any other packages 
-            fatalError("first package must be the swift standard library")
-        }
-    }
 
     mutating 
     func _add(package id:Package.ID, 
