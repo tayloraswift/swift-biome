@@ -1,14 +1,70 @@
 import Resources
 import WebSemantics
+import DOM
 import URI
+
+public typealias Ecosystem = Service 
 
 public 
 struct Service 
 {
     private 
-    var functions:Functions, 
-        packages:Packages, 
+    var functions:Functions
+    // private 
+    var packages:Packages, 
         stems:Route.Stems
+    
+    //private
+    var template:DOM.Flattened<Page.Key>
+
+
+
+
+    var logo:[UInt8]
+    {
+        fatalError("obsoleted")
+    }
+    var whitelist:[Package.ID]
+    {
+        fatalError("obsoleted")
+    }
+    
+    var roots:[Route.Stem: Root]
+    {
+        fatalError("obsoleted")
+    }
+    var root:
+    (    
+        master:URI,
+        article:URI,
+        sitemap:URI,
+        searchIndex:URI
+    )
+    {
+        fatalError("obsoleted")
+    }
+    var redirects:[String: Redirect]
+    {
+        get 
+        {
+            fatalError("obsoleted")
+        }
+        set 
+        {
+            fatalError("obsoleted")
+        }
+    }
+    var caches:[Package.Index: Cache]
+    {
+        get 
+        {
+            fatalError("obsoleted")
+        }
+        set 
+        {
+            fatalError("obsoleted")
+        }
+    }
 
     public 
     init() 
@@ -16,6 +72,26 @@ struct Service
         self.functions = .init([:])
         self.packages = .init()
         self.stems = .init()
+
+        self.template = .init(freezing: Page.html)
+    }
+}
+extension Service 
+{
+    public mutating 
+    func updatePackage(_ id:Package.ID, 
+        resolved:PackageResolution,
+        branch:String, 
+        graphs:[SymbolGraph]) throws -> Package.Index
+    {
+        try Task.checkCancellation()
+        // topological sort  
+        let graphs:[SymbolGraph] = try graphs.topologicallySorted(for: id)
+        return try self.packages._add(package: id, 
+            resolved: resolved, 
+            branch: branch, 
+            graphs: graphs, 
+            stems: &self.stems)
     }
 }
 extension Service 
@@ -24,24 +100,26 @@ extension Service
     {
         var normalized:GlobalLink = .init(uri)
 
-        guard   let first:String = normalized.descend(), 
-                let function:Function = self.functions[first]
-        else 
+        if  let first:String = normalized.descend(), 
+            let function:Function = self.functions[first]
         {
-            return .init(uri: uri.description, results: .none, 
-                payload: .init("page not found.")) 
+            switch function 
+            {
+            case .sitemap: 
+                break 
+            case .lunr: 
+                break 
+            
+            case .documentation(let scheme):
+                if  let endpoint:GlobalLink.Endpoint = self._get(scheme: scheme, 
+                        request: _move normalized)
+                {
+                    return self.response(for: endpoint, template: self.template)
+                }
+            }
         }
-        switch function 
-        {
-        case .sitemap: 
-            fatalError("unimplemented")
-        case .lunr: 
-            fatalError("unimplemented")
-        
-        case .documentation(let scheme):
-            self._get(scheme: scheme, request: _move normalized)
-            fatalError("unimplemented")
-        }
+        return .init(uri: uri.description, results: .none, 
+            payload: .init("page not found.")) 
     }
 
     func _get(scheme:Scheme, request:__owned GlobalLink) -> GlobalLink.Endpoint?
@@ -182,5 +260,14 @@ extension Service
         {
             return nil
         }
+    }
+}
+
+extension Service 
+{
+    func response(for endpoint:GlobalLink.Endpoint, template:DOM.Flattened<Page.Key>) 
+        -> WebSemantics.Response<Resource>
+    {
+        fatalError("unimplemented")
     }
 }

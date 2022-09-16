@@ -62,7 +62,7 @@ struct Packages
         }
     } 
 
-    @available(*, deprecated, renamed: "subscript(global:)")
+    //@available(*, deprecated, renamed: "subscript(global:)")
     subscript(module:Module.Index) -> Module
     {
         _read 
@@ -70,7 +70,7 @@ struct Packages
             yield self.packages[       module.package.offset][local: module]
         }
     } 
-    @available(*, deprecated, renamed: "subscript(global:)")
+    //@available(*, deprecated, renamed: "subscript(global:)")
     subscript(symbol:Symbol.Index) -> Symbol
     {
         _read 

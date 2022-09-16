@@ -19,7 +19,7 @@ extension Packages
     enum SelectionError:Error 
     {
         case none 
-        case many([Symbol.Composite])
+        case many([Branch.Composite])
     }
 }
 extension Symbol 

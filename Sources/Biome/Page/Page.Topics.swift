@@ -145,7 +145,7 @@ extension Page
         for source:Module.Index in 
             Set<Module.Index>.init(self.ecosystem[host].pollen.lazy.map(\.culture))
         {
-            let diacritic:Symbol.Diacritic = .init(host: host, culture: source)
+            let diacritic:Branch.Diacritic = .init(host: host, culture: source)
             if  let traits:Symbol.Traits<Symbol.Index> = 
                 self.ecosystem[source.package].currentOpinion(diacritic)
             {
@@ -165,7 +165,7 @@ extension Page
         traits:Symbol.Traits<Symbol.Index>, 
         host:Symbol.Index)
     {
-        let diacritic:Symbol.Diacritic 
+        let diacritic:Branch.Diacritic 
         switch culture 
         {
         case .primary:

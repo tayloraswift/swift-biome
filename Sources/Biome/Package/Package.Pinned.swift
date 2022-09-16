@@ -28,7 +28,7 @@ extension Package.Pinned
     }
     
     private 
-    func depth(of composite:Symbol.Composite, route:Route.Key) -> (host:Bool, base:Bool)
+    func depth(of composite:Branch.Composite, route:Route.Key) -> (host:Bool, base:Bool)
     {
         self.package.depth(of: composite, at: self.version, route: route)
     }
@@ -48,7 +48,7 @@ extension Package.Pinned
             return [self.package.name]
         }
     }
-    func path(to composite:Symbol.Composite, ecosystem:Ecosystem) -> [String]
+    func path(to composite:Branch.Composite, ecosystem:Ecosystem) -> [String]
     {
         // same as host if composite is natural
         let base:Symbol = ecosystem[composite.base]
@@ -70,7 +70,7 @@ extension Package.Pinned
         }
         return path
     }
-    func query(to composite:Symbol.Composite, ecosystem:Ecosystem) -> Symbol.Link.Query
+    func query(to composite:Branch.Composite, ecosystem:Ecosystem) -> Symbol.Link.Query
     {
         // same as host if composite is natural
         let base:Symbol = ecosystem[composite.base]
@@ -183,7 +183,7 @@ extension Package.Pinned
             .init(roles: nil)
     }
     
-    func contains(_ composite:Symbol.Composite) -> Bool 
+    func contains(_ composite:Branch.Composite) -> Bool 
     {
         self.package.contains(composite, at: self.version)
     }

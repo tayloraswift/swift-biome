@@ -5,9 +5,96 @@ import Resources
 import DOM
 import URI
 
-public
-struct Ecosystem:Sendable 
-{    
+// public
+// struct Ecosystem:Sendable 
+// {    
+
+    
+//     /* func describe(_ error:LinkResolutionError) -> String 
+//     {
+//         switch error 
+//         {
+//         case .none(let expression): 
+//             return "symbol link '\(expression)' matches no known symbols"
+//         case .many(let expression, let possibilities):
+//             return 
+//                 """
+//                 symbol link '\(expression)' matches multiple symbols:
+//                 \(possibilities.enumerated().map 
+//                 {
+//                     let symbol:Symbol = self[$0.1.base]
+//                     if let host:Symbol.Index = $0.1.host 
+//                     {
+//                         return "\($0.0). \(self[host].path).\(symbol.name) (\(symbol.id.string))"
+//                     }
+//                     else 
+//                     {
+//                         return "\($0.0). \(symbol.path) (\(symbol.id.string))"
+//                     }
+//                 }.joined(separator: "\n"))
+//                 """
+//         }
+//     } */
+    
+//     let logo:[UInt8]
+//     let whitelist:[Package.ID]
+    
+//     private(set)
+//     var template:DOM.Flattened<Page.Key>
+//     let roots:[Route.Stem: Root]
+//     let root:
+//     (    
+//         master:URI,
+//         article:URI,
+//         sitemap:URI,
+//         searchIndex:URI
+//     )
+//     private(set)
+//     var redirects:[String: Redirect]
+    
+//     private(set)
+//     var stems:Route.Stems
+//     private(set)
+//     var caches:[Package.Index: Cache]
+
+//     private(set)
+//     var packages:Packages 
+    
+//     public
+//     init(roots:[Root: String] = [:], whitelist:[Package.ID] = [])
+//     {
+//         self.logo = Self.logo
+//         self.whitelist = whitelist
+        
+//         let master:String       = roots[.master,      default: "reference"],
+//             article:String      = roots[.article,     default: "learn"],
+//             sitemap:String      = roots[.sitemap,     default: "sitemaps"],
+//             searchIndex:String  = roots[.searchIndex, default: "lunr"]
+        
+//         self.root = 
+//         (
+//             master:         .init(root: master),
+//             article:        .init(root: article),
+//             sitemap:        .init(root: sitemap),
+//             searchIndex:    .init(root: searchIndex)
+//         )
+//         self.redirects = [:]
+//         self.stems = .init()
+//         self.roots = 
+//         [
+//             self.stems.register(component: master):         .master,
+//             self.stems.register(component: article):        .article,
+//             self.stems.register(component: sitemap):        .sitemap,
+//             self.stems.register(component: searchIndex):    .searchIndex,
+//         ]
+        
+//         self.template = .init(freezing: Page.html)
+//         self.packages = .init()
+//         self.caches = [:]
+//     }
+// }
+extension Ecosystem 
+{
     @usableFromInline 
     enum Index:Hashable, Sendable
     {
@@ -29,8 +116,8 @@ struct Ecosystem:Sendable
         {
             case package(Package.Index)
             case article(Article.Index)
-            case module(Module.Index, [Symbol.Composite] = [])
-            case composite           ([Symbol.Composite])
+            case module(Module.Index, [Branch.Composite] = [])
+            case composite           ([Branch.Composite])
         }
         
         let target:Index 
@@ -42,92 +129,6 @@ struct Ecosystem:Sendable
             self.visible = visible
         }
     }
-    
-    /* func describe(_ error:LinkResolutionError) -> String 
-    {
-        switch error 
-        {
-        case .none(let expression): 
-            return "symbol link '\(expression)' matches no known symbols"
-        case .many(let expression, let possibilities):
-            return 
-                """
-                symbol link '\(expression)' matches multiple symbols:
-                \(possibilities.enumerated().map 
-                {
-                    let symbol:Symbol = self[$0.1.base]
-                    if let host:Symbol.Index = $0.1.host 
-                    {
-                        return "\($0.0). \(self[host].path).\(symbol.name) (\(symbol.id.string))"
-                    }
-                    else 
-                    {
-                        return "\($0.0). \(symbol.path) (\(symbol.id.string))"
-                    }
-                }.joined(separator: "\n"))
-                """
-        }
-    } */
-    
-    let logo:[UInt8]
-    let whitelist:[Package.ID]
-    
-    private(set)
-    var template:DOM.Flattened<Page.Key>
-    let roots:[Route.Stem: Root]
-    let root:
-    (    
-        master:URI,
-        article:URI,
-        sitemap:URI,
-        searchIndex:URI
-    )
-    private(set)
-    var redirects:[String: Redirect]
-    
-    private(set)
-    var stems:Route.Stems
-    private(set)
-    var caches:[Package.Index: Cache]
-
-    private(set)
-    var packages:Packages 
-    
-    public
-    init(roots:[Root: String] = [:], whitelist:[Package.ID] = [])
-    {
-        self.logo = Self.logo
-        self.whitelist = whitelist
-        
-        let master:String       = roots[.master,      default: "reference"],
-            article:String      = roots[.article,     default: "learn"],
-            sitemap:String      = roots[.sitemap,     default: "sitemaps"],
-            searchIndex:String  = roots[.searchIndex, default: "lunr"]
-        
-        self.root = 
-        (
-            master:         .init(root: master),
-            article:        .init(root: article),
-            sitemap:        .init(root: sitemap),
-            searchIndex:    .init(root: searchIndex)
-        )
-        self.redirects = [:]
-        self.stems = .init()
-        self.roots = 
-        [
-            self.stems.register(component: master):         .master,
-            self.stems.register(component: article):        .article,
-            self.stems.register(component: sitemap):        .sitemap,
-            self.stems.register(component: searchIndex):    .searchIndex,
-        ]
-        
-        self.template = .init(freezing: Page.html)
-        self.packages = .init()
-        self.caches = [:]
-    }
-}
-extension Ecosystem 
-{
     public mutating 
     func regenerateCaches() 
     {
@@ -139,29 +140,13 @@ extension Ecosystem
                 search: self.generateSearchIndex(for: package))
         }
     }
-    
-    public mutating 
-    func updatePackage(_ id:Package.ID, 
-        resolved:PackageResolution,
-        branch:String, 
-        graphs:[SymbolGraph]) throws -> Package.Index
-    {
-        try Task.checkCancellation()
-        // topological sort  
-        let graphs:[SymbolGraph] = try graphs.topologicallySorted(for: id)
-        return try self.packages._add(package: id, 
-            resolved: resolved, 
-            branch: branch, 
-            graphs: graphs, 
-            stems: &self.stems)
-    }
 
     @discardableResult
     public mutating 
     func updatePackage(_ id:Package.ID, 
         graphs unordered:[SymbolGraph],
         brand:String? = nil,
-        pins era:[Package.ID: MaskedVersion]) 
+        pins era:[Package.ID: PackageResolution.Pin]) 
         throws -> Package.Index
     {
         fatalError("obsoleted")
@@ -296,7 +281,7 @@ extension Ecosystem
         }
         return uri
     }
-    func uri(of composite:Symbol.Composite, in pinned:Package.Pinned) -> URI
+    func uri(of composite:Branch.Composite, in pinned:Package.Pinned) -> URI
     {
         var uri:URI = self.root.master 
         
@@ -305,11 +290,11 @@ extension Ecosystem
         uri.insert(parameters: pinned.query(to: composite, ecosystem: self))
         return uri
     }
-    func uri(of choices:[Symbol.Composite], pins:Package.Pins) -> URI
+    func uri(of choices:[Branch.Composite], pins:Package.Pins) -> URI
     {
         // `first` should always exist, if not, something has gone seriously 
         // wrong in swift-biome...
-        guard let exemplar:Symbol.Composite = choices.first 
+        guard let exemplar:Branch.Composite = choices.first 
         else 
         {
             fatalError("empty disambiguation group")
@@ -343,7 +328,7 @@ extension Ecosystem
         case .article(let article): 
             return .article(article)
         case .composite(let composite):
-            var trace:[Symbol.Composite] = []
+            var trace:[Branch.Composite] = []
                 trace.reserveCapacity(link.visible)
                 trace.append(composite)
             var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.target.contemporary

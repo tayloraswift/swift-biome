@@ -69,7 +69,7 @@ struct Package:Identifiable, Sendable
         symbols:CulturalBuffer<Symbol>,
         articles:CulturalBuffer<Article>
     private(set)
-    var external:[Symbol.Diacritic: History<Symbol.Traits<Symbol.Index>>.Branch.Head]
+    var external:[Branch.Diacritic: History<Symbol.Traits<Symbol.Index>>.Branch.Head]
     // per-module buffers
     private(set)
     var dependencies:History<Set<Module.Index>>, // always populated 
@@ -89,7 +89,7 @@ struct Package:Identifiable, Sendable
     private(set) 
     var documentation:History<DocumentationNode>
     private(set)
-    var groups:[Route.Key: Symbol.Group]
+    var groups:[Route.Key: Branch.Stack]
     
     var name:String 
     {
@@ -143,21 +143,21 @@ struct Package:Identifiable, Sendable
     {
         _read 
         {
-            yield self.modules[local: module]
+            yield self.modules[contemporary: module]
         }
     }
     subscript(local symbol:Symbol.Index) -> Symbol
     {
         _read 
         {
-            yield self.symbols[local: symbol]
+            yield self.symbols[contemporary: symbol]
         }
     } 
     subscript(local article:Article.Index) -> Article
     {
         _read 
         {
-            yield self.articles[local: article]
+            yield self.articles[contemporary: article]
         }
     } 
     
@@ -223,7 +223,7 @@ struct Package:Identifiable, Sendable
         }
     }
     
-    func depth(of composite:Symbol.Composite, at version:Version, route:Route.Key)
+    func depth(of composite:Branch.Composite, at version:Version, route:Route.Key)
         -> (host:Bool, base:Bool)
     {
         var explicit:(host:Bool, base:Bool) = (false, false)
@@ -237,7 +237,7 @@ struct Package:Identifiable, Sendable
         
         case .many(let occupants)?:
             filtering:
-            for (base, diacritics):(Symbol.Index, Symbol.Subgroup) in occupants
+            for (base, diacritics):(Symbol.Index, Branch.Substack) in occupants
             {
                 switch (base == composite.base, diacritics)
                 {
@@ -251,7 +251,7 @@ struct Package:Identifiable, Sendable
                     }
                     
                 case (true, .many(let diacritics)):
-                    for diacritic:Symbol.Diacritic in diacritics.keys 
+                    for diacritic:Branch.Diacritic in diacritics.keys 
                         where diacritic != composite.diacritic 
                     {
                         if self.contains(.init(base, diacritic), at: version)
@@ -263,7 +263,7 @@ struct Package:Identifiable, Sendable
                     }
                 
                 case (false, .many(let diacritics)):
-                    for diacritic:Symbol.Diacritic in diacritics.keys 
+                    for diacritic:Branch.Diacritic in diacritics.keys 
                     {
                         if self.contains(.init(base, diacritic), at: version)
                         {
@@ -277,7 +277,7 @@ struct Package:Identifiable, Sendable
         return explicit
     }
     
-    func allVersions(of composite:Symbol.Composite) -> [Version]
+    func allVersions(of composite:Branch.Composite) -> [Version]
     {
         self.versions.indices.filter { self.contains(composite, at: $0) }
     }
@@ -307,7 +307,7 @@ struct Package:Identifiable, Sendable
         self.versions.push(version, dependencies: dependencies)
     }
 
-    // we don’t use this quite the same as `contains(_:at:)` for ``Symbol.Composite``, 
+    // we don’t use this quite the same as `contains(_:at:)` for ``Branch.Composite``, 
     // because we still allow accessing module pages outside their availability ranges. 
     // 
     // we mainly use this to limit the results in the version menu dropdown.
@@ -327,7 +327,7 @@ struct Package:Identifiable, Sendable
     }
     // FIXME: the complexity of this becomes quadratic-ish if we test *every* 
     // package version with this method, which we do for the version menu dropdowns
-    func contains(_ composite:Symbol.Composite, at version:Version) -> Bool 
+    func contains(_ composite:Branch.Composite, at version:Version) -> Bool 
     {
         guard let host:Symbol.Index = composite.host
         else 
@@ -379,7 +379,7 @@ struct Package:Identifiable, Sendable
         return self.versions.pins(at: self.versions.latest)
     }
     
-    func currentOpinion(_ diacritic:Symbol.Diacritic) -> Symbol.Traits<Symbol.Index>?
+    func currentOpinion(_ diacritic:Branch.Diacritic) -> Symbol.Traits<Symbol.Index>?
     {
         self.external[diacritic].map { self.opinions[$0.index].value }
     }
