@@ -120,8 +120,8 @@ extension Ecosystem
             {
                 // if this is a synthetic feature, set the canonical page to 
                 // its generic base (which may be in a completely different package)
-                let canonical:URI = self.uri(of: .init(natural: composite.base), 
-                    in: self[composite.base.module.package].pinned())
+                let canonical:URI = { fatalError("unimplemented") }() //self.uri(of: .init(natural: composite.base), 
+                // in: self[composite.base.module.package].pinned())
                 return (exact: uri, canonical: canonical)
             }
         
@@ -135,7 +135,7 @@ extension Ecosystem
             uri = self.uri(of: pinned)
         }
         
-        if pinned.version == pinned.package.versions.latest 
+        if case pinned.version? = pinned.package.tree.default
         {
             return (exact: uri, nil)
         }
@@ -143,7 +143,8 @@ extension Ecosystem
         {
             // if this is an old version, set the canonical version to 
             // the latest version 
-            return (exact: uri, self.uri(of: index, in: pinned.package.pinned()))
+            fatalError("unimplemented")
+            //return (exact: uri, self.uri(of: index, in: pinned.package.pinned()))
         }
     }
     private 

@@ -56,23 +56,26 @@ struct Page
     
     func pin(_ package:Package.Index) -> Package.Pinned 
     {
-        self.ecosystem[package].pinned(self.pins)
+        fatalError("unimplemented")
+        //self.ecosystem[package].pinned(self.pins)
     }
-    func template(_ documentation:DocumentationNode) -> Article.Template<Ecosystem.Link> 
+    func template(_ documentation:DocumentationExtension<Branch.Position<Symbol>>) 
+        -> DocumentationExtension<Never>
     {
-        var documentation:DocumentationNode = documentation
-        while true 
-        {
-            switch documentation 
-            {
-            case .inherits(let origin):
-                documentation = self.pin(origin.module.package)
-                    .documentation(origin)
+        fatalError("unimplemented")
+        // var documentation:DocumentationNode = documentation
+        // while true 
+        // {
+        //     switch documentation 
+        //     {
+        //     case .inherits(let origin):
+        //         documentation = self.pin(origin.module.package)
+        //             .documentation(origin)
             
-            case .extends(_, with: let template):
-                return template
-            }
-        }
+        //     case .extends(_, with: let template):
+        //         return template
+        //     }
+        // }
     }
 }
 extension Page 
@@ -87,7 +90,7 @@ extension Page
         {
             $0.map 
             {
-                .composite($0, self.pin($0.base.module.package).declaration($0.base))
+                .composite($0, self.pin($0.base.module.package).declaration(for: $0.base))
             }
         }
         self.substitutions.merge(
@@ -130,12 +133,12 @@ extension Page
     {
         let pinned:Package.Pinned = self.pin(module.package)
         let topics:Topics = self.organize(
-            toplevel: pinned.toplevel(module),
-            guides: pinned.guides(module))
+            toplevel: pinned.topLevelSymbols(of: module),
+            guides: pinned.topLevelArticles(of: module))
         
         self.add(fields: self.ecosystem.packages.renderFields(for: module))
         self.add(topics: self.ecosystem.packages.render(topics: topics))
-        self.add(article: self.template(pinned.documentation(module)))
+        self.add(article: pinned.documentation(for: module))
         self.add(availableVersions: pinned.package.allVersions(of: module), 
             currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
@@ -149,8 +152,8 @@ extension Page
         let pinned:Package.Pinned = self.pin(article.module.package)
         
         self.add(fields: self.ecosystem.packages.renderFields(for: article, 
-            excerpt: pinned.excerpt(article)))
-        self.add(article: self.template(pinned.documentation(article)))
+            excerpt: pinned.metadata(local: article)!))
+        self.add(article: pinned.documentation(for: article))
         self.add(availableVersions: pinned.package.allVersions(of: article), 
             currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
@@ -169,7 +172,7 @@ extension Page
         let facts:Symbol.Predicates<Symbol.Index>
         if let host:Symbol.Index = composite.natural 
         {
-            facts = self.pin(host.module.package).facts(host)
+            facts = { fatalError("unimplemented") }() // self.pin(host.module.package).facts(host)
             topics = self.organize(facts: facts, host: host)
         }
         else 
@@ -183,10 +186,10 @@ extension Page
         let pinned:Package.Pinned = self.pin(composite.culture.package)
         
         self.add(fields: self.ecosystem.packages.renderFields(for: composite, 
-            declaration: base.declaration(composite.base),
+            declaration: base.declaration(for: composite.base),
             facts: facts))
         self.add(topics: self.ecosystem.packages.render(topics: topics))
-        self.add(article: self.template(base.documentation(composite.base)))
+        self.add(article: self.template(base.documentation(for: composite.base)))
         self.add(availableVersions: pinned.package.allVersions(of: composite), 
             currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
@@ -237,38 +240,45 @@ extension Page
             return cached 
         }
         
-        let excerpt:Article.Excerpt = 
-            self.pin(article.module.package).excerpt(article)
-        self.cache.headlines[article] = excerpt.headline
-        return excerpt.headline
+        guard let excerpt:Article.Metadata = 
+            self.pin(article.module.package).metadata(local: article)
+        else 
+        {
+            fatalError("unimplemented")
+        }
+        let _utf8:[UInt8] = .init(excerpt.headline.formatted.utf8)
+        self.cache.headlines[article] = _utf8
+        return _utf8
     }
     
     private mutating 
-    func expand(_ link:Ecosystem.Link) -> HTML.Element<Never>
+    func expand(_ link:GlobalLink.Presentation) -> HTML.Element<Never>
     {
         let composites:[Branch.Composite]
         var crumbs:[HTML.Element<Never>] = []
-        switch self.ecosystem.expand(link)
-        {
-        case .package(let package): 
-            return .code(.a(self.ecosystem[package].name, 
-                attributes: [.href(self.uri(of: .package(package)))]))
+
+        fatalError("unimplemented")
+        // switch self.ecosystem.expand(link)
+        // {
+        // case .package(let package): 
+        //     return .code(.a(self.ecosystem[package].name, 
+        //         attributes: [.href(self.uri(of: .package(package)))]))
         
-        case .article(let article):
-            return .cite(.a(.init(escaped: self.headline(of: article)), 
-                attributes: [.href(self.uri(of: .article(article)))])) 
+        // case .article(let article):
+        //     return .cite(.a(.init(escaped: self.headline(of: article)), 
+        //         attributes: [.href(self.uri(of: .article(article)))])) 
         
-        case .module(let module, let trace):
-            composites = trace 
-            // not `title`!
-            crumbs.reserveCapacity(2 * trace.count + 1)
-            crumbs.append(.a(self.ecosystem[module].name, 
-                attributes: [.href(self.uri(of: .module(module)))]))
+        // case .module(let module, let trace):
+        //     composites = trace 
+        //     // not `title`!
+        //     crumbs.reserveCapacity(2 * trace.count + 1)
+        //     crumbs.append(.a(self.ecosystem[module].name, 
+        //         attributes: [.href(self.uri(of: .module(module)))]))
         
-        case .composite(let trace): 
-            composites = trace 
-            crumbs.reserveCapacity(2 * trace.count - 1)
-        }
+        // case .composite(let trace): 
+        //     composites = trace 
+        //     crumbs.reserveCapacity(2 * trace.count - 1)
+        // }
         for composite:Branch.Composite in composites
         {
             if !crumbs.isEmpty 
@@ -284,18 +294,18 @@ extension Page
 extension Page 
 {
     mutating 
-    func add(article:Article.Template<Ecosystem.Link>)
+    func add(article:DocumentationExtension<Never>)
     {
-        if !article.summary.isEmpty
+        if !article.card.isEmpty
         {
-            self.substitutions[.summary] = article.summary.rendered
+            self.substitutions[.summary] = article.card.rendered
             {
                 self.expand($0).node.rendered(as: [UInt8].self)
             }
         }
-        if !article.discussion.isEmpty
+        if !article.body.isEmpty
         {
-            self.substitutions[.discussion] = article.discussion.rendered
+            self.substitutions[.discussion] = article.body.rendered
             {
                 self.expand($0).node.rendered(as: [UInt8].self)
             }
@@ -319,25 +329,25 @@ extension Page
         {
             return 
         }
-        self.substitutions[.topics] = topics.rendered 
-        {
-            let documentation:DocumentationNode
-            switch $0 
-            {
-            case .href(let index):
-                return [UInt8].init(self.href(index))
-            case .article(let article):
-                documentation = self.pin(article.module.package)
-                    .documentation(article)
-            case .composite(let composite):
-                documentation = self.pin(composite.base.module.package)
-                    .documentation(composite.base)
-            }
-            return self.template(documentation).summary.rendered 
-            {
-                self.expand($0).node.rendered(as: [UInt8].self)
-            }
-        }
+        // self.substitutions[.topics] = topics.rendered 
+        // {
+        //     let documentation:DocumentationNode
+        //     switch $0 
+        //     {
+        //     case .href(let index):
+        //         return [UInt8].init(self.href(index))
+        //     case .article(let article):
+        //         documentation = self.pin(article.module.package)
+        //             .documentation(for: article)
+        //     case .composite(let composite):
+        //         documentation = self.pin(composite.base.module.package)
+        //             .documentation(for: composite.base)
+        //     }
+        //     return self.template(documentation).summary.rendered 
+        //     {
+        //         self.expand($0).node.rendered(as: [UInt8].self)
+        //     }
+        // }
     }
     // this takes separate ``Version`` and ``Package`` arguments instead of a 
     // combined `Package.Pinned` argument to avoid confusion
@@ -350,11 +360,11 @@ extension Page
         var counts:[MaskedVersion: Int] = [:]
         for version:Version in availableVersions 
         {
-            counts[package.versions[version].version.triplet, default: 0] += 1
+            counts[package.tree[version].version.triplet, default: 0] += 1
         }
         let strings:[String] = availableVersions.map
         {
-            let precise:PreciseVersion = package.versions[$0].version
+            let precise:PreciseVersion = package.tree[$0].version
             let triplet:MaskedVersion = precise.triplet
             return counts[triplet, default: 1] == 1 ? 
                 triplet.description : precise.quadruplet.description
@@ -391,7 +401,7 @@ extension Page
         if  let current:String 
         {
             let current:HTML.Element<Never> = .span(
-                escaped: currentVersion == package.versions.latest ? "latest" : current, 
+                escaped: currentVersion == package.tree.default ? "latest" : current, 
                 attributes: [.class("version")]) 
             self.substitutions[.pin] = name.node.rendered(as: [UInt8].self) + 
                 current.node.rendered(as: [UInt8].self)
@@ -400,8 +410,9 @@ extension Page
         {
             self.substitutions[.pin] = name.node.rendered(as: [UInt8].self) 
             
-            let snapped:Int = availableVersions.lastIndex { $0 < currentVersion } ?? 
-                availableVersions.startIndex
+            let snapped:Int = { fatalError("unimplemented") }()
+            //    availableVersions.lastIndex { $0 < currentVersion } ?? 
+            //    availableVersions.startIndex
             let uri:URI = try uri(self.ecosystem, 
                 .init(package, at: availableVersions[snapped]))
             

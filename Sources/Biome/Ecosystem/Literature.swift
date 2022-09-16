@@ -19,6 +19,13 @@ struct DocumentationExtension<Position>
     let card:DOM.Flattened<GlobalLink.Presentation>
     let body:DOM.Flattened<GlobalLink.Presentation>
 
+    init()
+    {
+        self.extends = nil
+        self.errors = []
+        self.card = .init()
+        self.body = .init()
+    }
     init(inheriting extends:Position)
     {
         self.extends = extends 

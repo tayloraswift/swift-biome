@@ -1,4 +1,6 @@
-struct _Version:Hashable, Sendable 
+typealias _Version = Version
+@usableFromInline
+struct Version:Hashable, Sendable
 {
     struct Branch:Hashable, Sendable 
     {

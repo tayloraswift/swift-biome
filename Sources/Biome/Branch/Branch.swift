@@ -38,6 +38,11 @@ struct Branch:Identifiable, Sendable
         let pins:[Package.Index: _Version]
         var consumers:[Package.Index: Set<_Version>]
 
+        var version:PreciseVersion 
+        {
+            fatalError("obsoleted")
+        }
+
         init(hash:String, ring:Ring, pins:[Package.Index: _Version])
         {
             self.hash = hash 
@@ -52,7 +57,6 @@ struct Branch:Identifiable, Sendable
     let index:_Version.Branch
 
     let fork:_Version?
-    var heads:Package.Heads
     private 
     var revisions:[Revision]
 
@@ -97,7 +101,7 @@ struct Branch:Identifiable, Sendable
         self.index = index 
 
         self.fork = fork?.version
-        self.heads = .init() 
+        
         self.revisions = []
         
         self.foreign = [:]

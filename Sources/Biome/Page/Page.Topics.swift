@@ -5,7 +5,7 @@ extension Page
     enum Card 
     {
         case composite(Branch.Composite, Declaration<Symbol.Index>)
-        case article(Article.Index, Article.Excerpt)
+        case article(Article.Index, Article.Metadata)
     }
     
     enum Sublist:Hashable, CaseIterable, Sendable
@@ -96,9 +96,11 @@ extension Page
         var topics:Topics = .init()
         for article:Article.Index in guides
         {
-            let excerpt:Article.Excerpt = 
-                self.pin(article.module.package).excerpt(article)
-            topics.feed.append(.article(article, excerpt))
+            if  let metadata:Article.Metadata = 
+                    self.pin(article.module.package).metadata(local: article)
+            {
+                topics.feed.append(.article(article, metadata))
+            }
         }
         for symbol:Symbol.Index in toplevel
         {

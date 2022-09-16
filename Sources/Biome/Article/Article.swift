@@ -10,21 +10,6 @@ struct Article:Sendable
     typealias Offset = UInt32 
 
     @usableFromInline 
-    struct Heads:Sendable
-    {
-        @History<Excerpt>.Branch.Optional 
-        var excerpt:History<Excerpt>.Branch.Head?
-        @History<DocumentationNode>.Branch.Optional 
-        var documentation:History<DocumentationNode>.Branch.Head?
-        
-        init() 
-        {
-            self._excerpt = .init()
-            self._documentation = .init()
-        }
-    }
-    
-    @usableFromInline 
     struct ID:Hashable, Sendable 
     {
         let route:Route.Key
@@ -39,8 +24,6 @@ struct Article:Sendable
         }
     }
 
-    var heads:Heads
-    
     @usableFromInline 
     let id:ID 
     var path:Path
@@ -52,7 +35,6 @@ struct Article:Sendable
     {
         self.id = id
         self.path = path
-        self.heads = .init()
 
         self.metadata = nil 
         self.documentation = nil

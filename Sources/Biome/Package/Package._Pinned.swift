@@ -127,14 +127,16 @@ extension Package.Context
 
 extension Package 
 {
-    struct _Pinned:Sendable 
+    typealias _Pinned = Pinned 
+
+    struct Pinned:Sendable 
     {
         let package:Package 
-        let version:_Version
+        let version:Version
         private 
         let fasces:Fasces 
         
-        init(_ package:Package, version:_Version)
+        init(_ package:Package, version:Version)
         {
             self.package = package
             self.version = version
@@ -160,7 +162,7 @@ extension Package
     }
 }
 
-extension Package._Pinned 
+extension Package.Pinned 
 {
     func metadata(local article:Branch.Position<Article>) -> Article.Metadata?
     {
@@ -187,7 +189,7 @@ extension Package._Pinned
             in: self.fasces.foreign) ?? nil
     }
 }
-extension Package._Pinned 
+extension Package.Pinned 
 {
     func exists(_ article:Branch.Position<Article>) -> Bool
     {
@@ -224,7 +226,7 @@ extension Package._Pinned
         }
     }
 }
-extension Package._Pinned 
+extension Package.Pinned 
 {
     func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
         where predicate:(Branch.Composite) throws -> Bool) 
@@ -284,6 +286,95 @@ extension Package._Pinned
         }
     }
 }
+
+extension Package.Pinned 
+{
+    func documentation() -> DocumentationExtension<Never>
+    {
+        fatalError("unimplemented")
+    }
+
+    @available(*, deprecated, renamed: "documentation(for:)")
+    func documentation(_ symbol:Branch.Position<Symbol>) 
+        -> DocumentationExtension<Branch.Position<Symbol>>
+    {
+        self.documentation(for: symbol)
+    }
+    @available(*, deprecated, renamed: "documentation(for:)")
+    func documentation(_ article:Branch.Position<Article>) -> DocumentationExtension<Never>
+    {
+        self.documentation(for: article)
+    }
+    @available(*, deprecated, renamed: "documentation(for:)")
+    func documentation(_ module:Branch.Position<Module>) -> DocumentationExtension<Never>
+    {
+        self.documentation(for: module)
+    }
+
+    func documentation(for symbol:Branch.Position<Symbol>) 
+        -> DocumentationExtension<Branch.Position<Symbol>>
+    {
+        self.package.data.symbolDocumentation.value(of: symbol, 
+            field: (\.documentation, \.documentation), 
+            in: self.fasces.symbols) ?? .init()
+    }
+    func documentation(for article:Branch.Position<Article>) -> DocumentationExtension<Never>
+    {
+        self.package.data.standaloneDocumentation.value(of: article, 
+            field: (\.documentation, \.documentation), 
+            in: self.fasces.articles) ?? .init()
+    }
+    func documentation(for module:Branch.Position<Module>) -> DocumentationExtension<Never>
+    {
+        self.package.data.standaloneDocumentation.value(of: module, 
+            field: (\.documentation, \.documentation), 
+            in: self.fasces.modules) ?? .init()
+    }
+    
+    func topLevelSymbols(of module:Branch.Position<Module>) -> Set<Branch.Position<Symbol>>
+    {
+        self.package.data.topLevelSymbols.value(of: module, 
+            field: (\.topLevelSymbols, \.topLevelSymbols), 
+            in: self.fasces.modules) ?? []
+    }
+    func topLevelArticles(of module:Branch.Position<Module>) -> Set<Branch.Position<Article>>
+    {
+        self.package.data.topLevelArticles.value(of: module, 
+            field: (\.topLevelArticles, \.topLevelArticles), 
+            in: self.fasces.modules) ?? []
+    }
+
+    @available(*, deprecated, renamed: "topLevelSymbols(of:)")
+    func toplevel(_ module:Module.Index) -> Set<Symbol.Index>
+    {
+        self.topLevelSymbols(of: module)
+    }
+    @available(*, deprecated, renamed: "topLevelArticles(of:)")
+    func guides(_ module:Module.Index) -> Set<Article.Index>
+    {
+        self.topLevelArticles(of: module)
+    }
+    
+    @available(*, deprecated, renamed: "declaration(for:)")
+    func declaration(_ symbol:Symbol.Index) -> Declaration<Symbol.Index>
+    {
+        self.declaration(for: symbol)
+    }
+
+    func declaration(for symbol:Branch.Position<Symbol>) -> Declaration<Branch.Position<Symbol>>
+    {
+        self.package.data.declarations.value(of: symbol, 
+            field: (\.declaration, \.declaration), 
+            in: self.fasces.symbols) ?? .init(fallback: "<unavailable>")
+    }
+    
+    @available(*, deprecated, renamed: "exists(_:)")
+    func contains(_ composite:Branch.Composite) -> Bool 
+    {
+        self.exists(composite)
+    }
+}
+
 extension Branch 
 {
     enum CompositeDepth:Error 

@@ -1,22 +1,20 @@
 import Versions
 
-extension Package 
+extension Package.Pinned
 {
-    struct Pinned:Sendable 
+    // exhibited version can be different from true version, due to 
+    // implementation of historical pages. this is only used by the top-level 
+    // url redirection system, content links do not use exhibitions
+    @available(*, deprecated)
+    var exhibit:Version?
     {
-        let package:Package 
-        let version:Version
-        // exhibited version can be different from true version, due to 
-        // implementation of historical pages. this is only used by the top-level 
-        // url redirection system, content links do not use exhibitions
-        let exhibit:Version?
-        
-        init(_ package:Package, at version:Version, exhibit:Version? = nil)
-        {
-            self.version = version  
-            self.package = package
-            self.exhibit = exhibit
-        }
+        nil 
+    }
+    
+    @available(*, deprecated)
+    init(_ package:Package, at version:Version, exhibit:Version? = nil)
+    {
+        fatalError("obsoleted")
     }
 }
 extension Package.Pinned 
@@ -24,13 +22,8 @@ extension Package.Pinned
     private 
     var abbreviatedVersion:MaskedVersion? 
     {
-        self.package.versions.abbreviate(self.exhibit ?? self.version)
-    }
-    
-    private 
-    func depth(of composite:Branch.Composite, route:Route.Key) -> (host:Bool, base:Bool)
-    {
-        self.package.depth(of: composite, at: self.version, route: route)
+        fatalError("unimplemented")
+        //self.package.tree.abbreviate(self.exhibit ?? self.version)
     }
     
     var prefix:[String]
@@ -88,14 +81,14 @@ extension Package.Pinned
             let route:Route.Key = .init(host.namespace, stem, base.route.leaf)
             switch self.depth(of: composite, route: route)
             {
-            case (host: false, base: false): 
+            case nil: 
                 break 
             
-            case (host: true,  base: _): 
+            case .host?: 
                 query.host = host.id
                 fallthrough 
                 
-            case (host: false, base: true): 
+            case .base?: 
                 query.base = base.id
             }
         }
@@ -103,9 +96,9 @@ extension Package.Pinned
         {
             switch self.depth(of: composite, route: base.route)
             {
-            case (host: _, base: false): 
+            case nil: 
                 break 
-            case (host: _, base: true): 
+            case _?: 
                 query.base = base.id
             }
         }
@@ -115,76 +108,5 @@ extension Package.Pinned
             query.lens = .init(self.package.id, at: self.abbreviatedVersion)
         }
         return query
-    }
-}
-extension Package.Pinned 
-{
-    func documentation() -> DocumentationNode
-    {
-        self.package.documentation[self.package.heads.documentation]
-            .at(self.version) ?? 
-            .extends(nil, with: .init())
-    }
-    func documentation(_ module:Module.Index) -> DocumentationNode
-    {
-        self.package.documentation[self.package[local: module].heads.documentation]
-            .at(self.version) ?? 
-            .extends(nil, with: .init())
-    }
-    func documentation(_ symbol:Symbol.Index) -> DocumentationNode
-    {
-        self.package.documentation[self.package[local: symbol].heads.documentation]
-            .at(self.version) ?? 
-            .extends(nil, with: .init())
-    }
-    func documentation(_ article:Article.Index) -> DocumentationNode
-    {
-        self.package.documentation[self.package[local: article].heads.documentation]
-            .at(self.version) ?? 
-            .extends(nil, with: .init())
-    }
-    func excerpt(_ article:Article.Index) -> Article.Excerpt
-    {
-        self.package.excerpts[self.package[local: article].heads.excerpt]
-            .at(self.version) ?? 
-            .init("Untitled")
-    }
-    
-    func dependencies(_ module:Module.Index) -> Set<Module.Index>
-    {
-        // `nil` case should be unreachable in practice
-        self.package.dependencies[self.package[local: module].heads.dependencies]
-            .at(self.version) ?? []
-    }
-    func toplevel(_ module:Module.Index) -> Set<Symbol.Index>
-    {
-        // `nil` case should be unreachable in practice
-        self.package.toplevels[self.package[local: module].heads.toplevel]
-            .at(self.version) ?? []
-    }
-    func guides(_ module:Module.Index) -> Set<Article.Index>
-    {
-        self.package.guides[self.package[local: module].heads.guides]
-            .at(self.version) ?? []
-    }
-    
-    func declaration(_ symbol:Symbol.Index) -> Declaration<Symbol.Index>
-    {
-        // `nil` case should be unreachable in practice
-        self.package.declarations[self.package[local: symbol].heads.declaration]
-            .at(self.version) ?? 
-            .init(fallback: "<unavailable>")
-    }
-    func facts(_ symbol:Symbol.Index) -> Symbol.Predicates<Symbol.Index> 
-    {
-        // `nil` case should be unreachable in practice
-        self.package.facts[self.package[local: symbol].heads.facts]
-            .at(self.version) ?? 
-            .init(roles: nil)
-    }
-    
-    func contains(_ composite:Branch.Composite) -> Bool 
-    {
-        self.package.contains(composite, at: self.version)
     }
 }

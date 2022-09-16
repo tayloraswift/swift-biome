@@ -23,6 +23,12 @@ extension Article:BranchElement
         let headline:Headline 
         let excerpt:String 
 
+        @available(*, deprecated, renamed: "excerpt")
+        var snippet:String 
+        {
+            self.excerpt
+        }
+
         init(headline:Headline, excerpt:String = "")
         {
             self.headline = headline 
@@ -48,22 +54,6 @@ extension Article:BranchElement
         }
     }
     
-
-    struct Excerpt:Equatable 
-    {
-        let title:String
-        let headline:[UInt8]
-        let snippet:String
-        
-        init(_ title:String)
-        {
-            self.init(title: title, headline: .init(title.utf8), snippet: "")
-        }
-        init(title:String, headline:[UInt8], snippet:String)
-        {
-            self.headline = headline 
-            self.snippet = snippet
-            self.title = title 
-        }
-    }
+    @available(*, deprecated, renamed: "Metadata")
+    typealias Excerpt = Metadata
 }

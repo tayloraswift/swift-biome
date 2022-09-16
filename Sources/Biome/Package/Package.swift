@@ -43,53 +43,17 @@ struct Package:Identifiable, Sendable
     public 
     typealias Kind = ID.Kind 
     
-    struct Heads 
-    {
-        @History<DocumentationNode>.Branch.Optional
-        var documentation:History<DocumentationNode>.Branch.Head?
-        
-        init() 
-        {
-            self._documentation = .init()
-        }
-    }
-    
     public 
     let id:PackageIdentifier
     var index:Index 
     {
-        self.versions.package
+        self.tree.nationality
     }
     var brand:String?
-    private(set)
-    var heads:Heads
-    var versions:Versions
     private(set) 
     var modules:CulturalBuffer<Module>, 
         symbols:CulturalBuffer<Symbol>,
         articles:CulturalBuffer<Article>
-    private(set)
-    var external:[Branch.Diacritic: History<Symbol.Traits<Symbol.Index>>.Branch.Head]
-    // per-module buffers
-    private(set)
-    var dependencies:History<Set<Module.Index>>, // always populated 
-        toplevels:History<Set<Symbol.Index>>, // always populated 
-        guides:History<Set<Article.Index>> // *not* always populated
-    // per-article buffers
-    private(set)
-    var excerpts:History<Article.Excerpt>
-    // per-symbol buffers 
-    private(set)
-    var declarations:History<Declaration<Symbol.Index>>, // always populated 
-        facts:History<Symbol.Predicates<Symbol.Index>> // always populated
-    // per-(external) host buffers 
-    private(set)
-    var opinions:History<Symbol.Traits<Symbol.Index>>
-    // shared buffer. 
-    private(set) 
-    var documentation:History<DocumentationNode>
-    private(set)
-    var groups:[Route.Key: Branch.Stack]
     
     var name:String 
     {
@@ -104,6 +68,12 @@ struct Package:Identifiable, Sendable
     var metadata:Metadata, 
         data:Data 
     var tree:Tree
+
+    @available(*, deprecated, renamed: "tree")
+    var versions:Tree
+    {
+        self.tree
+    }
     
     init(id:ID, index:Index)
     {
@@ -115,28 +85,14 @@ struct Package:Identifiable, Sendable
         case .community(_):
             self.brand = nil
         }
-        self.heads = .init()
-        self.versions = .init(package: index)
         
-        self.groups = .init()
         self.modules = .init(startIndex: 0)
         self.symbols = .init(startIndex: 0)
         self.articles = .init(startIndex: 0)
-        self.external = [:]
-        self.toplevels = .init()
-        self.guides = .init()
-        self.dependencies = .init()
-        self.declarations = .init()
         
-        self.facts = .init()
-        self.opinions = .init()
-        
-        self.documentation = .init()
-        self.excerpts = .init()
-
         self.metadata = .init()
         self.data = .init()
-        self.tree = .init(culture: index)
+        self.tree = .init(nationality: index)
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -197,14 +153,14 @@ struct Package:Identifiable, Sendable
         }
     }
 
-    func pinned() -> Pinned 
-    {
-        .init(self, at: self.versions.latest)
-    }
-    func pinned(_ pins:Pins) -> Pinned 
-    {
-        .init(self, at: pins[self.index] ?? self.versions.latest)
-    }
+    // func pinned() -> Pinned 
+    // {
+    //     .init(self, at: self.versions.latest)
+    // }
+    // func pinned(_ pins:Pins) -> Pinned 
+    // {
+    //     .init(self, at: pins[self.index] ?? self.versions.latest)
+    // }
     
     func prefix(arrival:MaskedVersion?) -> [String]
     {
@@ -223,75 +179,75 @@ struct Package:Identifiable, Sendable
         }
     }
     
-    func depth(of composite:Branch.Composite, at version:Version, route:Route.Key)
-        -> (host:Bool, base:Bool)
-    {
-        var explicit:(host:Bool, base:Bool) = (false, false)
-        switch self.groups[route]
-        {
-        case nil: 
-            assert(false)
+    // func depth(of composite:Branch.Composite, at version:Version, route:Route.Key)
+    //     -> (host:Bool, base:Bool)
+    // {
+    //     var explicit:(host:Bool, base:Bool) = (false, false)
+    //     switch self.groups[route]
+    //     {
+    //     case nil: 
+    //         assert(false)
         
-        case .one((let occupant, _))?:
-            assert(occupant == composite)
+    //     case .one((let occupant, _))?:
+    //         assert(occupant == composite)
         
-        case .many(let occupants)?:
-            filtering:
-            for (base, diacritics):(Symbol.Index, Branch.Substack) in occupants
-            {
-                switch (base == composite.base, diacritics)
-                {
-                case (true, .one((let diacritic, _))):
-                    assert(diacritic == composite.diacritic)
+    //     case .many(let occupants)?:
+    //         filtering:
+    //         for (base, diacritics):(Symbol.Index, Branch.Substack) in occupants
+    //         {
+    //             switch (base == composite.base, diacritics)
+    //             {
+    //             case (true, .one((let diacritic, _))):
+    //                 assert(diacritic == composite.diacritic)
                 
-                case (false, .one((let diacritic, _))):
-                    if self.contains(.init(base, diacritic), at: version)
-                    {
-                        explicit.base = true 
-                    }
+    //             case (false, .one((let diacritic, _))):
+    //                 if self.contains(.init(base, diacritic), at: version)
+    //                 {
+    //                     explicit.base = true 
+    //                 }
                     
-                case (true, .many(let diacritics)):
-                    for diacritic:Branch.Diacritic in diacritics.keys 
-                        where diacritic != composite.diacritic 
-                    {
-                        if self.contains(.init(base, diacritic), at: version)
-                        {
-                            explicit.base = true 
-                            explicit.host = true 
-                            break filtering
-                        }
-                    }
+    //             case (true, .many(let diacritics)):
+    //                 for diacritic:Branch.Diacritic in diacritics.keys 
+    //                     where diacritic != composite.diacritic 
+    //                 {
+    //                     if self.contains(.init(base, diacritic), at: version)
+    //                     {
+    //                         explicit.base = true 
+    //                         explicit.host = true 
+    //                         break filtering
+    //                     }
+    //                 }
                 
-                case (false, .many(let diacritics)):
-                    for diacritic:Branch.Diacritic in diacritics.keys 
-                    {
-                        if self.contains(.init(base, diacritic), at: version)
-                        {
-                            explicit.base = true 
-                            continue filtering
-                        }
-                    }
-                }
-            }
-        }
-        return explicit
-    }
+    //             case (false, .many(let diacritics)):
+    //                 for diacritic:Branch.Diacritic in diacritics.keys 
+    //                 {
+    //                     if self.contains(.init(base, diacritic), at: version)
+    //                     {
+    //                         explicit.base = true 
+    //                         continue filtering
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     return explicit
+    // }
     
     func allVersions(of composite:Branch.Composite) -> [Version]
     {
-        self.versions.indices.filter { self.contains(composite, at: $0) }
+        [] //self.versions.indices.filter { self.contains(composite, at: $0) }
     }
     func allVersions(of article:Article.Index) -> [Version]
     {
-        self.versions.indices.filter { self.contains(article, at: $0) }
+        [] //self.versions.indices.filter { self.contains(article, at: $0) }
     } 
     func allVersions(of module:Module.Index) -> [Version]
     {
-        self.versions.indices.filter { self.contains(module, at: $0) }
+        [] //self.versions.indices.filter { self.contains(module, at: $0) }
     } 
     func allVersions() -> [Version]
     {
-        .init(self.versions.indices)
+        [] //.init(self.versions.indices)
     } 
     
     //  each ecosystem entity has a type of versioned node that stores 
@@ -301,11 +257,11 @@ struct Package:Identifiable, Sendable
     //  - articles: self.templates 
     //  - local symbols: self.facts 
     //  - external symbols: self.opinions 
-    mutating 
-    func updateVersion(_ version:PreciseVersion, dependencies:[Index: Version]) -> Package.Pins
-    {
-        self.versions.push(version, dependencies: dependencies)
-    }
+    // mutating 
+    // func updateVersion(_ version:PreciseVersion, dependencies:[Index: Version]) -> Package.Pins
+    // {
+    //     self.versions.push(version, dependencies: dependencies)
+    // }
 
     // we don’t use this quite the same as `contains(_:at:)` for ``Branch.Composite``, 
     // because we still allow accessing module pages outside their availability ranges. 
@@ -315,50 +271,24 @@ struct Package:Identifiable, Sendable
     // package version with this method.
     func contains(_ module:Module.Index, at version:Version) -> Bool 
     {
-        self.dependencies[self[local: module].heads.dependencies].contains(version)
+        fatalError("obsoleted")
+        // self.dependencies[self[local: module].heads.dependencies].contains(version)
     }
     func contains(_ article:Article.Index, at version:Version) -> Bool 
     {
-        self.documentation[self[local: article].heads.documentation].contains(version)
+        fatalError("obsoleted")
+        // self.documentation[self[local: article].heads.documentation].contains(version)
     }
     func contains(_ symbol:Symbol.Index, at version:Version) -> Bool 
     {
-        self.facts[self.symbols[local: symbol].heads.facts].contains(version)
+        fatalError("obsoleted")
+        // self.facts[self.symbols[local: symbol].heads.facts].contains(version)
     }
     // FIXME: the complexity of this becomes quadratic-ish if we test *every* 
     // package version with this method, which we do for the version menu dropdowns
     func contains(_ composite:Branch.Composite, at version:Version) -> Bool 
     {
-        guard let host:Symbol.Index = composite.host
-        else 
-        {
-            // natural symbol 
-            return self.contains(composite.base, at: version)
-        }
-        if let heads:Symbol.Heads = self[host]?.heads
-        {
-            // local host (primary or accepted culture)
-            if  let predicates:Symbol.Predicates = self.facts[heads.facts].at(version), 
-                let traits:Symbol.Traits<Symbol.Index> = composite.culture == host.module ? 
-                    predicates.primary : predicates.accepted[composite.culture]
-            {
-                return traits.features.contains(composite.base)
-            }
-            else 
-            {
-                return false 
-            }
-        }
-        // external host
-        else if let traits:Symbol.Traits = 
-            self.opinions[self.external[composite.diacritic]].at(version)
-        {
-            return traits.features.contains(composite.base)
-        }
-        else 
-        {
-            return false 
-        }
+        fatalError("obsoleted")
     }
     
     mutating 
@@ -369,19 +299,22 @@ struct Package:Identifiable, Sendable
     mutating 
     func move(module:Module.Index, to uri:URI) -> Pins
     {
-        self.modules[local: module].redirect.module = (uri, self.versions.latest)
-        return self.versions.pins(at: self.versions.latest)
+        fatalError("unimplemented")
+        // self.modules[local: module].redirect.module = (uri, self.versions.latest)
+        // return self.versions.pins(at: self.versions.latest)
     }
     mutating 
     func move(articles module:Module.Index, to uri:URI) -> Pins
     {
-        self.modules[local: module].redirect.articles = (uri, self.versions.latest)
-        return self.versions.pins(at: self.versions.latest)
+        fatalError("unimplemented")
+        // self.modules[local: module].redirect.articles = (uri, self.versions.latest)
+        // return self.versions.pins(at: self.versions.latest)
     }
     
     func currentOpinion(_ diacritic:Branch.Diacritic) -> Symbol.Traits<Symbol.Index>?
     {
-        self.external[diacritic].map { self.opinions[$0.index].value }
+        fatalError("unimplemented")
+        // self.external[diacritic].map { self.opinions[$0.index].value }
     }
 }
 

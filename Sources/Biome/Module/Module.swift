@@ -23,33 +23,6 @@ struct Module:Sendable
         var version:Version
     }
     
-    public 
-    struct Heads:Sendable 
-    {
-        var symbols:[(range:Range<Symbol.Offset>, namespace:Branch.Position<Module>)]
-        var articles:[Range<Article.Offset>]
-        
-        @History<Set<Index>>.Branch.Optional 
-        var dependencies:History<Set<Index>>.Branch.Head?
-        @History<Set<Symbol.Index>>.Branch.Optional 
-        var toplevel:History<Set<Symbol.Index>>.Branch.Head?
-        @History<Set<Article.Index>>.Branch.Optional 
-        var guides:History<Set<Article.Index>>.Branch.Head?
-        @History<DocumentationNode>.Branch.Optional 
-        var documentation:History<DocumentationNode>.Branch.Head?
-        
-        init() 
-        {
-            self.symbols = []
-            self.articles = []
-            
-            self._dependencies = .init()
-            self._toplevel = .init()
-            self._guides = .init()
-            self._documentation = .init()
-        }
-    }
-    
     typealias Redirect = (uri:URI, version:Version)
     
     public 
@@ -65,7 +38,6 @@ struct Module:Sendable
     var topLevelSymbols:_History<Set<Branch.Position<Symbol>>>.Head?
     var documentation:_History<DocumentationExtension<Never>>.Head?
     
-    var heads:Heads
     var redirect:(module:Redirect?, articles:Redirect?)
     
     /// this module’s exact identifier string, e.g. '_Concurrency'
@@ -87,7 +59,6 @@ struct Module:Sendable
     {
         self.id = id 
         self.index = index
-        self.heads = .init()
         self.redirect = (nil, nil)
 
         self.symbols = []

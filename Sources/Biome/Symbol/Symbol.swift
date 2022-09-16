@@ -7,29 +7,6 @@ struct Symbol:Sendable, CustomStringConvertible
     typealias Culture = Module.Index 
     public 
     typealias Offset = UInt32
-
-    struct Heads 
-    {
-        @History<DocumentationNode>.Branch.Optional
-        var documentation:History<DocumentationNode>.Branch.Head?
-        @History<Declaration<Index>>.Branch.Optional
-        var declaration:History<Declaration<Index>>.Branch.Head?
-        @History<Predicates>.Branch.Optional
-        var facts:History<Predicates<Symbol.Index>>.Branch.Head?
-        
-        init() 
-        {
-            self._documentation = .init()
-            self._declaration = .init()
-            self._facts = .init()
-        }
-    }
-    
-    struct Nest 
-    {
-        let namespace:Module.Index 
-        let prefix:[String]
-    }
     
     // these stored properties are constant with respect to symbol identity. 
     public
@@ -40,8 +17,7 @@ struct Symbol:Sendable, CustomStringConvertible
     let kind:Kind
     let route:Route.Key
     var shape:Shape<Tree.Position<Self>>?
-    var heads:Heads
-    
+
     var metadata:_History<Metadata?>.Head?
     var declaration:_History<Declaration<Branch.Position<Symbol>>>.Head?
     var documentation:_History<DocumentationExtension<Branch.Position<Symbol>>>.Head?
@@ -61,11 +37,6 @@ struct Symbol:Sendable, CustomStringConvertible
     var namespace:Module.Index 
     {
         self.route.namespace
-    }
-    var nest:Nest?
-    {
-        self.path.prefix.isEmpty ? 
-            nil : .init(namespace: self.namespace, prefix: self.path.prefix)
     }
     var type:Index?
     {
@@ -95,8 +66,6 @@ struct Symbol:Sendable, CustomStringConvertible
         self.route = route
         self.shape = nil
         
-        self.heads = .init()
-
         self.metadata = nil 
         self.declaration = nil
         self.documentation = nil

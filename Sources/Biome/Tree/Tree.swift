@@ -1,6 +1,6 @@
 struct Tree 
 {
-    let culture:Package.Index
+    let nationality:Package.Index
     private 
     var storage:[Branch]
     private(set)
@@ -13,9 +13,9 @@ struct Tree
         nil
     }
 
-    init(culture:Package.Index)
+    init(nationality:Package.Index)
     {
-        self.culture = culture 
+        self.nationality = nationality 
         self.storage = []
         self.branches = [:]
         self.tags = [:]
@@ -68,15 +68,15 @@ struct Tree
 
     subscript(article:Position<Article>) -> Article? 
     {
-        self.culture == article.package ? self[local: article] : nil
+        self.nationality == article.package ? self[local: article] : nil
     }
     subscript(symbol:Position<Symbol>) -> Symbol? 
     {
-        self.culture == symbol.package ? self[local: symbol] : nil
+        self.nationality == symbol.package ? self[local: symbol] : nil
     }
     subscript(module:Position<Module>) -> Module? 
     {
-        self.culture == module.package ? self[local: module] : nil
+        self.nationality == module.package ? self[local: module] : nil
     }
 
     mutating 
