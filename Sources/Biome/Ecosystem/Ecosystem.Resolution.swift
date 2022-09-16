@@ -19,17 +19,6 @@ extension Ecosystem
         
         case choices([Branch.Composite], pins:Package.Pins)
         case resource(Resource, uri:URI)
-        
-        init(_ selection:Packages.Selection, pins:Package.Pins)
-        {
-            switch selection 
-            {
-            case .one(let composite): 
-                self = .index(.composite(composite), pins: pins)
-            case .many(let composites):
-                self = .choices(composites, pins: pins)
-            }
-        }
     }
     
     @usableFromInline
