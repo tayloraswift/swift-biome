@@ -293,24 +293,7 @@ extension Package.Pinned
     {
         fatalError("unimplemented")
     }
-
-    @available(*, deprecated, renamed: "documentation(for:)")
-    func documentation(_ symbol:Branch.Position<Symbol>) 
-        -> DocumentationExtension<Branch.Position<Symbol>>
-    {
-        self.documentation(for: symbol)
-    }
-    @available(*, deprecated, renamed: "documentation(for:)")
-    func documentation(_ article:Branch.Position<Article>) -> DocumentationExtension<Never>
-    {
-        self.documentation(for: article)
-    }
-    @available(*, deprecated, renamed: "documentation(for:)")
-    func documentation(_ module:Branch.Position<Module>) -> DocumentationExtension<Never>
-    {
-        self.documentation(for: module)
-    }
-
+    
     func documentation(for symbol:Branch.Position<Symbol>) 
         -> DocumentationExtension<Branch.Position<Symbol>>
     {
@@ -342,23 +325,6 @@ extension Package.Pinned
         self.package.data.topLevelArticles.value(of: module, 
             field: (\.topLevelArticles, \.topLevelArticles), 
             in: self.fasces.modules) ?? []
-    }
-
-    @available(*, deprecated, renamed: "topLevelSymbols(of:)")
-    func toplevel(_ module:Module.Index) -> Set<Symbol.Index>
-    {
-        self.topLevelSymbols(of: module)
-    }
-    @available(*, deprecated, renamed: "topLevelArticles(of:)")
-    func guides(_ module:Module.Index) -> Set<Article.Index>
-    {
-        self.topLevelArticles(of: module)
-    }
-    
-    @available(*, deprecated, renamed: "declaration(for:)")
-    func declaration(_ symbol:Symbol.Index) -> Declaration<Symbol.Index>
-    {
-        self.declaration(for: symbol)
     }
 
     func declaration(for symbol:Branch.Position<Symbol>) -> Declaration<Branch.Position<Symbol>>

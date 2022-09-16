@@ -247,7 +247,7 @@ extension Page
     {
         let sublist:Sublist = .community(self.ecosystem[composite.base].community)
         let declaration:Declaration<Symbol.Index> = 
-            self.pin(composite.base.module.package).declaration(composite.base)
+            self.pin(composite.base.module.package).declaration(for: composite.base)
         // every sublist has a sub-sublist for the primary culture, even if it 
         // is empty. this is more css-grid friendly.
         var empty:[Module._Culture: [Card]] { [.primary: []] }
@@ -276,7 +276,7 @@ extension Page
             // this is always valid, because non-protocol roles are always 
             // requirements, and requirements always live in the same package as 
             // the protocol they are part of.
-            let declaration:Declaration<Symbol.Index> = pinned.declaration(role)
+            let declaration:Declaration<Symbol.Index> = pinned.declaration(for: role)
             topics.requirements[sublist, default: []]
                 .append(.composite(.init(natural: role), declaration))
         }
