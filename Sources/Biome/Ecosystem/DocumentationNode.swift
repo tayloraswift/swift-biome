@@ -1,1 +1,0 @@
-typealias DocumentationNode = DocumentationExtension<Branch.Position<Symbol>>
