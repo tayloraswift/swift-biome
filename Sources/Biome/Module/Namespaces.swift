@@ -58,9 +58,14 @@ struct Namespaces
         self.module
     }
 
+    @available(*, deprecated, renamed: "nationality")
     var package:Package.Index
     {
         self.culture.package
+    }
+    var nationality:Package.Index
+    {
+        self.culture.nationality
     }
     var culture:Branch.Position<Module> 
     {
@@ -123,7 +128,7 @@ struct Namespaces
             {
                 throw _DependencyError.package(unavailable: dependency.package)
             }
-            guard self.package != package.index 
+            guard self.nationality != package.nationality 
             else 
             {
                 try self.link(local: package, dependencies: dependency.modules, 
@@ -137,13 +142,13 @@ struct Namespaces
                 linkable: linkable))
         }
         // add implicit dependencies
-        if self.package != .swift 
+        if self.nationality != .swift 
         {
             pinned.update(with: try self.link(upstream: .swift, 
                 linkable: linkable, 
                 context: context))
             
-            if self.package != .core 
+            if self.nationality != .core 
             {
                 pinned.update(with: try self.link(upstream: .core, 
                     linkable: linkable, 
@@ -172,7 +177,7 @@ struct Namespaces
         linkable:[Package.Index: _Dependency]) 
         throws -> Package._Pinned
     {
-        switch linkable[package.index] 
+        switch linkable[package.nationality] 
         {
         case nil:
             throw _DependencyError.pin(unavailable: package.id)
@@ -194,7 +199,7 @@ struct Namespaces
                     {
                         let branch:Branch = pinned.package.tree[version.branch]
                         throw _DependencyError.module(unavailable: module, 
-                            (branch.id, branch[version.revision].hash), 
+                            (branch.id, branch.revisions[version.revision].hash), 
                             pinned.package.id)
                     }
                 }
@@ -209,7 +214,7 @@ struct Namespaces
                     }
                 }
             }
-            self.pins[pinned.package.index] = version
+            self.pins[pinned.nationality] = version
             return pinned
         }
     }

@@ -36,11 +36,11 @@ struct Tree
     {
         _read 
         {
-            yield  self[version.branch][version.revision]
+            yield  self[version.branch].revisions[version.revision]
         }
         _modify
         {
-            yield &self[version.branch][version.revision]
+            yield &self[version.branch].revisions[version.revision]
         }
     }
 
@@ -80,7 +80,7 @@ struct Tree
     }
 
     mutating 
-    func branch(from fork:_Version?, name:Branch.ID) -> _Version.Branch 
+    func branch(_ name:Branch.ID, from fork:_Version?) -> _Version.Branch 
     {
         if  let branch:_Version.Branch = self.branches[name]
         {
@@ -126,29 +126,90 @@ struct Tree
     {
         var current:Branch = self[version.branch]
         var fasces:[Fascis] = [current[...version.revision]]
-        while let fork:_Version = current.fork 
+        while let fork:Version = current.fork 
         {
             current = self[fork.branch]
             fasces.append(current[...fork.revision])
         }
         return .init(fasces)
     }
-
-    func find(_ tag:Tag) -> _Version?
+    /// Returns the version pointed to by the given version selector, if it exists. 
+    /// 
+    /// If the selector specifies a date, the tag component (if present) is 
+    /// assumed to point to a branch. If no tag component is specified, 
+    /// the default branch is used.
+    func find(_ selector:Version.Selector) -> Version? 
     {
-        if  let version:_Version = self.tags[tag]
+        switch selector 
+        {
+        case .tag(let tag):
+            return self.find(tag)
+        case .date(nil, let date):
+            if  let branch:Version.Branch = self.default?.branch, 
+                let revision:Version.Revision = self[branch].revisions.find(date)
+            {
+                return .init(branch, revision)
+            }
+            else 
+            {
+                return nil 
+            }
+        
+        case .date(let tag?, let date):
+            if  let branch:Version.Branch = self.branches[tag], 
+                let revision:Version.Revision = self[branch].revisions.find(date)
+            {
+                return .init(branch, revision)
+            }
+            else 
+            {
+                return nil 
+            }
+        }
+    }
+    /// Returns the version pointed to by the given tag, if it exists. 
+    /// 
+    /// If the given tag refers to a branch, this method returns the 
+    /// head of that branch.
+    func find(_ tag:Tag) -> Version?
+    {
+        if  let version:Version = self.tags[tag]
         {
             return version 
         }
-        if case .named(let name) = tag, 
-            let branch:_Version.Branch = self.branches[name], 
-            let revision:_Version.Revision = self[branch]._head
+        if  let branch:Version.Branch = self.branches[tag], 
+            let revision:Version.Revision = self[branch].head
         {
             return .init(branch, revision)
         }
         else 
         {
             return nil
+        }
+    }
+    func abbreviate(_ version:Version) -> Version.Selector?
+    {
+        let branch:Branch = self[version.branch]
+        let revision:Branch.Revision = branch.revisions[version.revision]
+        if case version? = self.default 
+        {
+            return nil
+        }
+        else if case version.revision? = branch.head 
+        {
+            return .tag(branch.id)
+        }
+        else if let custom:Tag = revision.tag 
+        {
+            return .tag(custom)
+        }
+        else if case version.branch? = self.default?.branch
+        {
+            return .date(nil, revision.date)
+        }
+        else 
+        {
+            return .date(branch.id, revision.date)
         }
     }
 }

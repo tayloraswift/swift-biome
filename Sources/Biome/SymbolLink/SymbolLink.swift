@@ -63,14 +63,13 @@ struct GlobalLink:RandomAccessCollection
                 // either 'from=swift-foo' or 'from=swift-foo/0.1.2'. 
                 // we do not tolerate missing slashes
                 var separator:String.Index = value.firstIndex(of: "/") ?? value.endIndex
-                let package:Package.ID = .init(value[..<separator])
+                let id:Package.ID = .init(value[..<separator])
 
                 while separator < value.endIndex, value[separator] != "/"
                 {
                     value.formIndex(after: &separator)
                 }
-                self.nationality = .init(package: package, 
-                    version: .init(parsing: value[separator...]))
+                self.nationality = .init(id: id, version: .init(parsing: value[separator...]))
             
             case .host?:
                 // if the mangled name contained a colon ('SymbolGraphGen style'), 
@@ -360,7 +359,7 @@ struct _SymbolLink:RandomAccessCollection
             if  let host:Branch.Position<Symbol> = composite.host
             {
                 if  let id:Symbol.ID = self.host, 
-                    let host:Symbol = context.find(symbol: host), 
+                    let host:Symbol = context.load(host), 
                         host.id != id 
                 {
                     return false 
@@ -375,7 +374,7 @@ struct _SymbolLink:RandomAccessCollection
                 }
             }
             if  let id:Symbol.ID = self.base, 
-                let base:Symbol = context.find(symbol: composite.base)
+                let base:Symbol = context.load(composite.base)
             {
                 return base.id == id 
             }
@@ -387,8 +386,8 @@ struct _SymbolLink:RandomAccessCollection
     }
     struct Nationality 
     {
-        let package:Package.ID 
-        let version:Tag?
+        let id:Package.ID 
+        let version:Version.Selector?
     }
 
     enum Orientation:Unicode.Scalar

@@ -7,7 +7,12 @@ extension Package.Index
     static 
     let swift:Self = .init(offset: 0)
     static 
-    let core:Self = .init(offset: 1)
+    let core:Self = .init(offset: 1) 
+
+    var isCommunityPackage:Bool
+    {
+        self.offset > 1
+    }
 }
 public 
 struct Packages 
@@ -67,7 +72,7 @@ struct Packages
     {
         _read 
         {
-            yield self.packages[       module.package.offset][local: module]
+            yield self.packages[module.nationality.offset][local: module]
         }
     } 
     //@available(*, deprecated, renamed: "subscript(global:)")
@@ -75,14 +80,14 @@ struct Packages
     {
         _read 
         {
-            yield self.packages[symbol.module.package.offset][local: symbol]
+            yield self.packages[symbol.nationality.offset][local: symbol]
         }
     } 
     subscript(article:Article.Index) -> Article
     {
         _read 
         {
-            yield self.packages[article.module.package.offset][local: article]
+            yield self.packages[article.nationality.offset][local: article]
         }
     } 
 
@@ -104,7 +109,10 @@ struct Packages
     mutating 
     func _add(package id:Package.ID, 
         resolved:__owned PackageResolution, 
-        branch:String, 
+        branch:Tag, 
+        fork:Version.Selector?,
+        date:Date, 
+        tag:Tag?, 
         graphs:__owned [SymbolGraph], 
         stems:inout Route.Stems) 
         throws -> Package.Index
@@ -114,11 +122,11 @@ struct Packages
         {
             fatalError("unimplemented")
         }
-        
+
+        let (package, branch):(Package.Index, Version.Branch) = self.add(package: id, 
+            branch: branch, 
+            fork: fork)
         let linkable:[Package.Index: _Dependency] = self.find(pins: resolved.pins.values)
-        let package:Package.Index = self.add(package: id)
-        let branch:_Version.Branch = self[package].tree.branch(from: nil, 
-            name: branch)
         // we are going to mutate `self[package].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
         let fasces:Fasces = self[package].tree.fasces(upTo: branch)
@@ -136,7 +144,7 @@ struct Packages
             // use this instead of `graph.id` to prevent string duplication
             var namespaces:Namespaces = .init(id: self[global: module].id, 
                 position: module)
-            let upstream:[Package.Index: Package._Pinned] = try namespaces.link(
+            let upstream:[Package.Index: Package.Pinned] = try namespaces.link(
                 dependencies: graph.dependencies, 
                 linkable: linkable, 
                 branch: branch,
@@ -148,7 +156,7 @@ struct Packages
             let interface:ModuleInterface = self[package].tree[branch].add(graph: graph, 
                 namespaces: _move namespaces, 
                 upstream: upstream,
-                fasces: fasces, 
+                fasces: fasces,
                 stems: &stems)
 
             surface.update(with: graph.edges, interface: interface, 
@@ -158,11 +166,13 @@ struct Packages
         }
 
         // successfully registered symbolgraph contents 
-        let version:_Version = self.commit(pin.revision, to: branch, of: package, 
+        let version:Version = self.commit(pin.revision, to: branch, of: package, 
             pins: interfaces.reduce(into: [:]) 
             { 
                 $0.merge($1.pins) { $1 }
-            })
+            }, 
+            date: date, 
+            tag: tag)
 
         self[package].tree[branch].routes.stack(routes: surface.routes.natural, 
             revision: version.revision)
@@ -201,6 +211,26 @@ struct Packages
         return package
     }
     
+    private mutating 
+    func add(package id:Package.ID, branch:Tag, fork:Version.Selector?) 
+        -> (Package.Index, Version.Branch)
+    {
+        if  let fork:Version.Selector 
+        {
+            guard   let package:Package.Index = self.indices[id], 
+                    let fork:Version = self[package].tree.find(fork)
+            else 
+            {
+                fatalError("couldn’t find tag to fork from")
+            }
+            return (package, self[package].tree.branch(branch, from: fork))
+        }
+        else 
+        {
+            let package:Package.Index = self.add(package: id)
+            return (package, self[package].tree.branch(branch, from: nil))
+        }
+    }
     /// Creates a package entry for the given package graph, if it does not already exist.
     /// 
     /// -   Returns: The index of the package, identified by its ``Package.ID``.
@@ -222,13 +252,16 @@ struct Packages
 
     private mutating
     func commit(_ revision:String, 
-        to branch:_Version.Branch, 
+        to branch:Version.Branch, 
         of index:Package.Index, 
-        pins:[Package.Index: _Version])
-        -> _Version
+        pins:[Package.Index: Version], 
+        date:Date, 
+        tag:Tag?) -> Version
     {
-        let version:_Version = self[index].tree[branch].commit(revision, pins: pins)
-        for (package, pin):(Package.Index, _Version) in pins
+        let version:Version = self[index].tree[branch].commit(hash: revision, pins: pins, 
+            date: date, 
+            tag: tag)
+        for (package, pin):(Package.Index, Version) in pins
         {
             assert(package != index)
             self[package].tree[pin].consumers[index, default: []].insert(version)
@@ -250,14 +283,14 @@ extension Packages
             {
                 continue 
             }
-            if  let version:_Version = package.tree.find(tag),
+            if  let version:Version = package.tree.find(tag),
                     package.tree[version].hash == pin.revision
             {
-                linkable[package.index] = .available(version)
+                linkable[package.nationality] = .available(version)
             }
             else 
             {
-                linkable[package.index] = .unavailable(tag, pin.revision)
+                linkable[package.nationality] = .unavailable(tag, pin.revision)
             }
         }
         return linkable

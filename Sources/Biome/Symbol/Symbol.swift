@@ -34,9 +34,13 @@ struct Symbol:Sendable, CustomStringConvertible
     }
     //  this is only the same as the perpetrator if this symbol is part of its 
     //  core symbol graph.
-    var namespace:Module.Index 
+    var namespace:Branch.Position<Module>
     {
         self.route.namespace
+    }
+    var residency:Package.Index 
+    {
+        self.route.namespace.nationality
     }
     var type:Index?
     {

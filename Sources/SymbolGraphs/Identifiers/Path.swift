@@ -63,6 +63,13 @@ struct Path:Hashable, RandomAccessCollection, CustomStringConvertible, Sendable
         self.last = last 
         self.prefix = .init(components.dropLast())
     }
+
+    @inlinable public mutating 
+    func append(_ component:String)
+    {
+        self.prefix.append(self.last)
+        self.last = component
+    }
     
     @inlinable public
     var description:String 

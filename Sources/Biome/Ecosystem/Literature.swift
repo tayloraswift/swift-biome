@@ -177,7 +177,7 @@ struct Literature
                     // or a local symbol that has documentation
                     var visited:Set<Branch.Position<Symbol>> = []
                     fastforwarding:
-                    while origin.package == culture
+                    while origin.nationality == culture
                     {
                         if case _? = visited.update(with: origin)
                         {

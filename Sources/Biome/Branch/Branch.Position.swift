@@ -1,16 +1,29 @@
 extension Branch.Position where Element.Culture == Package.Index
 {
-    var package:Package.Index 
+    var nationality:Package.Index 
     {
         self.culture 
+    }
+
+    @available(*, deprecated, renamed: "nationality")
+    var package:Package.Index 
+    {
+        self.nationality 
     }
 }
 extension Branch.Position where Element.Culture == Branch.Position<Module>
 {
+    var nationality:Package.Index
+    {
+        self.culture.culture
+    }
+
+    @available(*, deprecated, renamed: "nationality")
     var package:Package.Index
     {
-        self.culture.package
+        self.nationality
     }
+    @available(*, deprecated, renamed: "culture")
     var module:Branch.Position<Module>
     {
         self.culture 
@@ -82,7 +95,12 @@ extension Branch
         init(natural:Position<Symbol>)
         {
             self.host = natural 
-            self.culture = natural.module
+            self.culture = natural.culture
+        }
+
+        var nationality:Package.Index 
+        {
+            self.culture.culture 
         }
     }
 
@@ -96,11 +114,27 @@ extension Branch
         //  3. perpetrator culture
         let base:Position<Symbol>
         let diacritic:Diacritic 
-        
+                
+        init(natural:Position<Symbol>) 
+        {
+            self.base = natural
+            self.diacritic = .init(natural: natural)
+        }
+        init(_ base:Position<Symbol>, _ diacritic:Diacritic) 
+        {
+            self.base = base 
+            self.diacritic = diacritic
+        }
+
         var culture:Position<Module>
         {
             self.diacritic.culture
         }
+        var nationality:Package.Index 
+        {
+            self.diacritic.nationality 
+        }
+
         var isNatural:Bool 
         {
             self.base == self.diacritic.host
@@ -112,17 +146,6 @@ extension Branch
         var natural:Position<Symbol>? 
         {
             self.isNatural ? self.base : nil
-        }
-        
-        init(natural:Position<Symbol>) 
-        {
-            self.base = natural
-            self.diacritic = .init(natural: natural)
-        }
-        init(_ base:Position<Symbol>, _ diacritic:Diacritic) 
-        {
-            self.base = base 
-            self.diacritic = diacritic
         }
     }
 }

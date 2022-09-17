@@ -65,48 +65,6 @@ extension Package.Pinned
     }
     func query(to composite:Branch.Composite, ecosystem:Ecosystem) -> Symbol.Link.Query
     {
-        // same as host if composite is natural
-        let base:Symbol = ecosystem[composite.base]
-        let host:Symbol = ecosystem[composite.diacritic.host] 
-
-        var query:Symbol.Link.Query = .init()
-        if composite.base != composite.diacritic.host
-        {
-            guard let stem:Route.Stem = host.kind.path
-            else 
-            {
-                fatalError("unreachable: (host: \(host), base: \(base))")
-            }
-            
-            let route:Route.Key = .init(host.namespace, stem, base.route.leaf)
-            switch self.depth(of: composite, route: route)
-            {
-            case nil: 
-                break 
-            
-            case .host?: 
-                query.host = host.id
-                fallthrough 
-                
-            case .base?: 
-                query.base = base.id
-            }
-        }
-        else 
-        {
-            switch self.depth(of: composite, route: base.route)
-            {
-            case nil: 
-                break 
-            case _?: 
-                query.base = base.id
-            }
-        }
-        
-        if composite.culture.package != host.namespace.package
-        {
-            query.lens = .init(self.package.id, at: self.abbreviatedVersion)
-        }
-        return query
+        fatalError("obsoleted")
     }
 }

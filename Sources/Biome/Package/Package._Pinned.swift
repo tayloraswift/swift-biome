@@ -42,86 +42,7 @@ extension [Package.Index: Package._Pinned]
     mutating 
     func update(with pinned:__owned Package._Pinned) 
     {
-        self[pinned.package.index] = pinned
-    }
-}
-
-extension Package 
-{
-    // this isn’t *quite* ``SurfaceBuilder.Context``, because ``local`` is pinned here.
-    struct Context:Sendable 
-    {
-        let upstream:[Index: _Pinned]
-        let local:_Pinned 
-
-        init(local:_Pinned, context:__shared Packages)
-        {
-            self.init(local: local, pins: local.package.tree[local.version].pins, 
-                context: context)
-        }
-        init(local:_Pinned, pins:__shared [Index: _Version], context:__shared Packages)
-        {
-            self.local = local 
-            var upstream:[Index: _Pinned] = .init(minimumCapacity: pins.count)
-            for (index, version):(Index, _Version) in pins 
-            {
-                upstream[index] = .init(context[index], version: version)
-            }
-            self.upstream = upstream
-        }
-        subscript(package:Index) -> _Pinned?
-        {
-            _read 
-            {
-                yield self.local.package.index == package ? self.local : self.upstream[package]
-            }
-        }
-    }
-}
-
-struct Address 
-{
-    var function:Service.Function 
-    var global:GlobalAddress
-}
-struct GlobalAddress 
-{
-    var residency:Package.ID?
-    var tag:Tag?
-    var local:LocalAddress?
-}
-struct LocalAddress 
-{
-    var namespace:Module.ID 
-    var symbol:SymbolAddress?
-}
-struct SymbolAddress 
-{
-    var orientation:_SymbolLink.Orientation 
-    var path:Path 
-    var host:Symbol.ID? 
-    var base:Symbol.ID?
-    var nationality:_SymbolLink.Nationality?
-}
-extension Package.Context 
-{
-    func address(of composite:Branch.Composite) 
-    {
-        
-    }
-
-    func find(symbol:Branch.Position<Symbol>) -> Symbol?
-    {
-        if  let pinned:Package._Pinned = self[symbol.package], 
-            let position:Tree.Position<Symbol> = 
-                symbol.pluralized(bisecting: pinned.symbols)
-        {
-            return pinned.package.tree[local: position]
-        }
-        else 
-        {
-            return nil
-        }
+        self[pinned.nationality] = pinned
     }
 }
 
@@ -143,6 +64,11 @@ extension Package
             self.fasces = self.package.tree.fasces(through: self.version)
         }
 
+        var nationality:Package.Index 
+        {
+            self.package.nationality
+        }
+
         var articles:Fasces.ArticleView
         {
             self.fasces.articles
@@ -162,6 +88,42 @@ extension Package
     }
 }
 
+extension Package.Pinned 
+{
+    func load(local article:Branch.Position<Article>) -> Article?
+    {
+        if let position:Tree.Position<Article> = article.pluralized(bisecting: self.articles)
+        {
+            return self.package.tree[local: position]
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    func load(local symbol:Branch.Position<Symbol>) -> Symbol?
+    {
+        if let position:Tree.Position<Symbol> = symbol.pluralized(bisecting: self.symbols)
+        {
+            return self.package.tree[local: position]
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    func load(local module:Branch.Position<Module>) -> Module?
+    {
+        if let position:Tree.Position<Module> = module.pluralized(bisecting: self.modules)
+        {
+            return self.package.tree[local: position]
+        }
+        else 
+        {
+            return nil
+        }
+    }
+}
 extension Package.Pinned 
 {
     func metadata(local article:Branch.Position<Article>) -> Article.Metadata?
@@ -214,7 +176,7 @@ extension Package.Pinned
         {
             return self.exists(composite.base)
         }
-        if self.package.index == host.package
+        if self.nationality == host.nationality
         {
             return self.metadata(local: host)?
                 .contains(feature: composite) ?? false 
@@ -293,7 +255,7 @@ extension Package.Pinned
     {
         fatalError("unimplemented")
     }
-    
+
     func documentation(for symbol:Branch.Position<Symbol>) 
         -> DocumentationExtension<Branch.Position<Symbol>>
     {
@@ -343,15 +305,43 @@ extension Package.Pinned
 
 extension Branch 
 {
+    enum NaturalDepth:Error 
+    {
+        case base 
+    }
     enum CompositeDepth:Error 
     {
         case base 
         case host 
     }
 }
-extension Package._Pinned 
+extension Package.Pinned 
 {
-    func depth(of composite:Branch.Composite, route:Route.Key) -> Branch.CompositeDepth?
+    func depth(of route:Route.Key, natural:Branch.Position<Symbol>) -> Branch.NaturalDepth?
+    {
+        do 
+        {
+            try self.routes.select(route) 
+            {
+                guard self.exists($0)
+                else 
+                {
+                    return () 
+                }
+                if $0.base != natural 
+                {
+                    throw Branch.NaturalDepth.base 
+                }
+            } as ()
+            return nil  
+        }
+        catch 
+        {
+            return .base
+        }
+    }
+    func depth(of route:Route.Key, host:Branch.Position<Symbol>, base:Branch.Position<Symbol>) 
+        -> Branch.CompositeDepth?
     {
         do 
         {
@@ -363,26 +353,24 @@ extension Package._Pinned
                 {
                     return () 
                 }
-                if $0.base != composite.base 
+                if $0.base != base 
                 {
                     depth = .base 
                 }
-                else if let host:Branch.Position<Symbol> = composite.host, 
-                        let overload:Branch.Position<Symbol> = $0.host, 
-                            overload != host 
+                else if case host? = $0.host
+                {
+                    return ()
+                }
+                else 
                 {
                     throw Branch.CompositeDepth.host
                 }
             } as ()
             return depth 
         }
-        catch let depth as Branch.CompositeDepth 
-        {
-            return depth
-        }
         catch 
         {
-            fatalError("unreachable")
+            return .host 
         }
     }
 }

@@ -8,6 +8,26 @@ public typealias Ecosystem = Service
 public 
 struct Service 
 {
+    // struct Exception:Error, CustomStringConvertible 
+    // {
+    //     let description:String 
+
+    //     init(_ message:String = "", 
+    //         function:String = #function, 
+    //         file:String = #file, 
+    //         line:Int = #line)
+    //     {
+    //         self.description = 
+    //         """
+    //         exception: \(message)
+    //         {
+    //             function: \(function)
+    //             location: \(file):\(line)
+    //         }
+    //         """
+    //     }
+    // }
+
     private 
     var functions:Functions
     // private 
@@ -82,14 +102,27 @@ extension Service
     func updatePackage(_ id:Package.ID, 
         resolved:PackageResolution,
         branch:String, 
+        fork:String? = nil,
+        date:Date, 
+        tag:String? = nil,
         graphs:[SymbolGraph]) throws -> Package.Index
     {
         try Task.checkCancellation()
+        guard let branch:Tag = .init(parsing: branch) 
+        else 
+        {
+            fatalError("branch name cannot be empty")
+        }
+        let fork:Version.Selector? = fork.flatMap(Version.Selector.init(parsing:))
+        let tag:Tag? = tag.flatMap(Tag.init(parsing:))
         // topological sort  
         let graphs:[SymbolGraph] = try graphs.topologicallySorted(for: id)
         return try self.packages._add(package: id, 
             resolved: resolved, 
             branch: branch, 
+            fork: fork,
+            date: date,
+            tag: tag,
             graphs: graphs, 
             stems: &self.stems)
     }
@@ -161,11 +194,11 @@ extension Service
         throws -> GlobalLink.Endpoint?
     {
         var request:GlobalLink = request
-        let arrival:_Version? = request.descend 
+        let arrival:Version? = request.descend 
         {
-            Tag.init(parsing: $0).flatMap(residency.tree.find(_:))
+            Version.Selector.init(parsing: $0).flatMap(residency.tree.find(_:))
         } 
-        guard let arrival:_Version = arrival ?? residency.tree.default 
+        guard let arrival:Version = arrival ?? residency.tree.default 
         else 
         {
             return nil 
@@ -176,11 +209,11 @@ extension Service
         guard let request:_SymbolLink = try .init(request)
         else 
         {
-            return .init(.package(residency.index), version: arrival)
+            return .init(.package(residency.nationality), version: arrival)
         }
         //  we can store a module id in a ``Symbol/Link``, because every 
         //  ``Module/ID`` is a valid ``Symbol/Link/Component``.
-        let residency:Package._Pinned = .init(_move residency, version: arrival)
+        let residency:Package.Pinned = .init(_move residency, version: arrival)
         guard let namespace:Tree.Position<Module> = residency.modules.find(.init(request.first))
         else 
         {
@@ -193,8 +226,8 @@ extension Service
         }
 
         if  let nationality:_SymbolLink.Nationality = request.nationality,
-            let package:Package = self.packages[nationality.package],
-            let version:_Version = 
+            let package:Package = self.packages[nationality.id],
+            let version:Version = 
                 nationality.version.map(package.tree.find(_:)) ?? package.tree.default,
             let endpoint:GlobalLink.Endpoint.Request = self._get(scheme: scheme, 
                 nationality: .init(_move package, version: version), 
@@ -210,7 +243,7 @@ extension Service
             .init($0, version: arrival)
         }
     }
-    func _get(scheme:Scheme, nationality:__owned Package._Pinned, 
+    func _get(scheme:Scheme, nationality:__owned Package.Pinned, 
         namespace:Branch.Position<Module>, 
         request:__owned _SymbolLink)
         -> GlobalLink.Endpoint.Request?

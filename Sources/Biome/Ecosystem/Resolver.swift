@@ -8,53 +8,12 @@ enum Scheme
 }
 struct Resolver 
 {
-    // private 
-    // struct LinkedPackages 
-    // {
-    //     private 
-    //     let indexed:[Package.Index: Package._Pinned]
-    //     private 
-    //     let identified:[Package.ID: Package._Pinned]
-
-    //     subscript(index:Package.Index) -> Package._Pinned? 
-    //     {
-    //         _read 
-    //         {
-    //             yield self.indexed[index]
-    //         }
-    //     }
-    //     subscript(id:Package.ID) -> Package._Pinned? 
-    //     {
-    //         _read 
-    //         {
-    //             yield self.identified[id]
-    //         }
-    //     }
-
-    //     init(local:Package._Pinned, upstream:__shared [Package._Pinned])
-    //     {
-    //         var identified:[Package.ID: Package._Pinned] = [local.package.id: local] 
-    //         var indexed:[Package.Index: Package._Pinned] = [local.package.index: local] 
-
-    //         identified.reserveCapacity(upstream.count + 1)
-    //         indexed.reserveCapacity(upstream.count + 1)
-
-    //         for pinned:Package._Pinned in upstream 
-    //         {
-    //             identified[pinned.package.id] = pinned 
-    //             indexed[pinned.package.index] = pinned 
-    //         }
-
-    //         self.identified = identified
-    //         self.indexed = indexed
-    //     }
-    // }
     private 
     struct Lenses:RandomAccessCollection
     {
         let context:Package.Context 
         private 
-        let upstream:[Package._Pinned]
+        let upstream:[Package.Pinned]
 
         var startIndex:Int 
         {
@@ -64,7 +23,7 @@ struct Resolver
         {
             self.upstream.endIndex
         }
-        subscript(index:Int) -> Package._Pinned 
+        subscript(index:Int) -> Package.Pinned 
         {
             _read 
             {
@@ -84,7 +43,7 @@ struct Resolver
             -> _Selection<Branch.Composite>?
         {
             var selection:_Selection<Branch.Composite>? = nil 
-            for lens:Package._Pinned in self
+            for lens:Package.Pinned in self
             {
                 lens.routes.select(key)
                 {
@@ -103,17 +62,17 @@ struct Resolver
     private 
     let lenses:Lenses 
     private 
-    let linked:[Package.ID: Package._Pinned]
+    let linked:[Package.ID: Package.Pinned]
     let namespaces:Namespaces
 
-    init(local:Package._Pinned, pins:__shared [Package.Index: _Version], 
+    init(local:Package.Pinned, pins:__shared [Package.Index: _Version], 
         namespaces:Namespaces, 
         context:__shared Packages)
     {
         let context:Package.Context = .init(local: _move local, pins: pins, context: context)
-        var linked:[Package.ID: Package._Pinned] = .init(minimumCapacity: pins.count + 1)
+        var linked:[Package.ID: Package.Pinned] = .init(minimumCapacity: pins.count + 1)
             linked[context.local.package.id] = context.local 
-        for upstream:Package._Pinned in context.upstream.values 
+        for upstream:Package.Pinned in context.upstream.values 
         {
             linked[upstream.package.id] = upstream
         }
@@ -129,7 +88,7 @@ struct Resolver
             yield self.lenses.context
         }
     }
-    var local:Package._Pinned 
+    var local:Package.Pinned 
     {
         _read 
         {
@@ -178,7 +137,7 @@ struct Resolver
                     // uri begins with an authority component (package residency).
                     // '//swift-foo/foomodule/footype.foomember(_:)'.
                     guard   let residency:Package.ID = link.descend().map(Package.ID.init(_:)),
-                            let residency:Package._Pinned = self.linked[residency]
+                            let residency:Package.Pinned = self.linked[residency]
                     else 
                     {
                         throw _SymbolLink.ResolutionProblem.residency
@@ -191,7 +150,7 @@ struct Resolver
                     guard let link:_SymbolLink = try .init(link)
                     else 
                     {
-                        return .package(residency.package.index)
+                        return .package(residency.nationality)
                     }
                     // if there are additional path components after the package name, 
                     // then the package name is irrelevant, since all module namespaces 
@@ -237,7 +196,7 @@ struct Resolver
         let resolution:_SymbolLink.Resolution?
         if  let nationality:_SymbolLink.Nationality = link.nationality
         {
-            guard let local:Package._Pinned = self.linked[nationality.package]
+            guard let local:Package.Pinned = self.linked[nationality.id]
             else 
             {
                 throw _SymbolLink.ResolutionProblem.nationality
@@ -245,7 +204,7 @@ struct Resolver
             // we *could* support re-slicing a pinned package to a version that 
             // is an ancestor of the current (branch, revision) tuple. 
             // but currently, we do not.
-            if  let version:Tag = nationality.version, 
+            if  let version:Version.Selector = nationality.version, 
                 let version:_Version = local.package.tree.find(version), 
                     version != local.version
             {
@@ -277,7 +236,7 @@ struct Resolver
         if  let scope:_Scope, 
             let article:Tree.Position<Article> = scope.scan(concatenating: link, 
                 stems: stems, 
-                until: { self.context[$0.namespace.package]?.articles.find(.init($0)) })
+                until: { self.context[$0.namespace.nationality]?.articles.find(.init($0)) })
         {
             return article.contemporary
         }
@@ -285,7 +244,7 @@ struct Resolver
         if  let path:_SymbolLink = link.suffix,
             let namespace:Tree.Position<Module> = self.namespaces.linked[.init(link.first)], 
                 imports.contains(namespace.contemporary), 
-            let pinned:Package._Pinned = self.context[namespace.package],
+            let pinned:Package.Pinned = self.context[namespace.package],
             let article:Route.Key = stems[namespace.contemporary, straight: path], 
             let article:Tree.Position<Article> = pinned.articles.find(.init(article))
         {

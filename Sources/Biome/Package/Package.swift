@@ -45,10 +45,6 @@ struct Package:Identifiable, Sendable
     
     public 
     let id:PackageIdentifier
-    var index:Index 
-    {
-        self.tree.nationality
-    }
     var brand:String?
     private(set) 
     var modules:CulturalBuffer<Module>, 
@@ -95,6 +91,16 @@ struct Package:Identifiable, Sendable
         self.tree = .init(nationality: index)
     }
 
+    var nationality:Index 
+    {
+        self.tree.nationality
+    }
+    @available(*, deprecated, renamed: "nationality")
+    var index:Index 
+    {
+        self.nationality
+    }
+
     subscript(local module:Module.Index) -> Module 
     {
         _read 
@@ -119,15 +125,15 @@ struct Package:Identifiable, Sendable
     
     subscript(module:Module.Index) -> Module?
     {
-        self.index ==        module.package ? self[local: module] : nil
+        self.nationality ==        module.package ? self[local: module] : nil
     }
     subscript(symbol:Symbol.Index) -> Symbol?
     {
-        self.index == symbol.module.package ? self[local: symbol] : nil
+        self.nationality == symbol.module.package ? self[local: symbol] : nil
     }
     subscript(article:Article.Index) -> Article?
     {
-        self.index == article.module.package ? self[local: article] : nil
+        self.nationality == article.module.package ? self[local: article] : nil
     }
     
     var title:String 

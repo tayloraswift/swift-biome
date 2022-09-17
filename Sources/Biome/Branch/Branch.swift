@@ -17,48 +17,12 @@ enum _DependencyError:Error
 public 
 struct Branch:Identifiable, Sendable 
 {
-    // struct Date:Hashable, Sendable 
-    // {
-    //     var year:UInt16 
-    //     var month:UInt16 
-    //     var day:UInt16 
-    //     var hour:UInt8
-    // }
-    struct Ring:Sendable 
-    {
-        //let revision:Int 
-        let modules:Module.Offset
-        let symbols:Symbol.Offset
-        let articles:Article.Offset
-    }
-    struct Revision:Sendable 
-    {
-        let hash:String
-        let ring:Ring
-        let pins:[Package.Index: _Version]
-        var consumers:[Package.Index: Set<_Version>]
-
-        var version:PreciseVersion 
-        {
-            fatalError("obsoleted")
-        }
-
-        init(hash:String, ring:Ring, pins:[Package.Index: _Version])
-        {
-            self.hash = hash 
-            self.ring = ring 
-            self.pins = pins 
-            self.consumers = [:]
-        }
-    }
-
     public 
-    let id:String
-    let index:_Version.Branch
+    let id:Tag
+    let index:Version.Branch
 
-    let fork:_Version?
-    private 
-    var revisions:[Revision]
+    let fork:Version?
+    var revisions:Revisions
 
     var foreign:[Diacritic: Symbol.ForeignDivergence]
     var articles:Buffer<Article>, 
@@ -66,43 +30,47 @@ struct Branch:Identifiable, Sendable
         modules:Buffer<Module>
     var routes:[Route.Key: Stack]
 
-    var _head:_Version.Revision? 
+    var head:Version.Revision? 
     {
-        self.indices.last
+        self.revisions.indices.last
     }
 
-    var startIndex:_Version.Revision 
-    {
-        .init(.init(self.revisions.startIndex))
-    }
-    var endIndex:_Version.Revision 
-    {
-        .init(.init(self.revisions.endIndex))
-    }
-    var indices:Range<_Version.Revision> 
-    {
-        self.startIndex ..< self.endIndex
-    }
-    subscript(revision:_Version.Revision) -> Revision
-    {
-        _read 
-        {
-            yield  self.revisions[.init(revision.index)]
-        }
-        _modify
-        {
-            yield &self.revisions[.init(revision.index)]
-        }
-    }
+    // @available(*, deprecated, renamed: "revisions.startIndex")
+    // var startIndex:Version.Revision 
+    // {
+    //     self.revisions.startIndex
+    // }
+    // @available(*, deprecated, renamed: "revisions.endIndex")
+    // var endIndex:Version.Revision 
+    // {
+    //     self.revisions.endIndex
+    // }
+    // @available(*, deprecated, renamed: "revisions.indices")
+    // var indices:Range<Version.Revision> 
+    // {
+    //     self.revisions.indices 
+    // }
+    // @available(*, deprecated, renamed: "revisions.subscript(_:)")
+    // subscript(revision:Version.Revision) -> Revision
+    // {
+    //     _read 
+    //     {
+    //         yield  self.revisions[revision]
+    //     }
+    //     _modify
+    //     {
+    //         yield &self.revisions[revision]
+    //     }
+    // }
 
-    init(id:ID, index:_Version.Branch, fork:(version:_Version, ring:Ring)?)
+    init(id:ID, index:Version.Branch, fork:(version:Version, ring:Ring)?)
     {
         self.id = id 
         self.index = index 
 
         self.fork = fork?.version
 
-        self.revisions = []
+        self.revisions = .init()
         
         self.foreign = [:]
         self.articles = .init(startIndex: fork?.ring.articles ?? 0)
@@ -111,9 +79,9 @@ struct Branch:Identifiable, Sendable
         self.routes = [:]
     }
     
-    subscript(range:PartialRangeThrough<_Version.Revision>) -> Fascis
+    subscript(range:PartialRangeThrough<Version.Revision>) -> Fascis
     {
-        let ring:Ring = self[range.upperBound].ring
+        let ring:Ring = self.revisions[range.upperBound].ring
         return .init(
             articles: self.articles[..<ring.articles],
             symbols: self.symbols[..<ring.symbols], 
@@ -133,29 +101,18 @@ struct Branch:Identifiable, Sendable
     // }
 
     mutating 
-    func commit(_ hash:String, pins:[Package.Index: _Version]) -> _Version
+    func commit(hash:String, pins:[Package.Index: Version], date:Date, tag:Tag?) -> Version
     {
-        let commit:_Version.Revision = self.endIndex
+        let commit:Version.Revision = self.revisions.endIndex
         self.revisions.append(.init(hash: hash, 
             ring: .init(
                 modules: self.modules.endIndex, 
                 symbols: self.symbols.endIndex, 
                 articles: self.articles.endIndex), 
-            pins: pins))
+            pins: pins, 
+            date: date, 
+            tag: tag))
         return .init(self.index, commit)
-    }
-
-    // FIXME: this could be made a lot more efficient
-    func find(_ hash:String) -> _Version.Revision?
-    {
-        for revision:_Version.Revision in self.indices
-        {
-            if self[revision].hash == hash 
-            {
-                return revision 
-            }
-        }
-        return nil 
     }
 }
 
@@ -268,7 +225,7 @@ extension Branch
         {
             // swift encodes module names in symbol identifiers, so if a symbol changes culture, 
             // something really weird has happened.
-            if existing.contemporary.module == culture 
+            if existing.contemporary.culture == culture 
             {
                 return existing 
             }
@@ -379,7 +336,7 @@ extension Branch
 
         if let existing:Tree.Position<Article> = trunk.find(id)
         {
-            guard existing.contemporary.module == culture 
+            guard existing.contemporary.culture == culture 
             else 
             {
                 fatalError("unreachable")

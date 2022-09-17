@@ -1,4 +1,5 @@
 typealias _Version = Version
+
 @usableFromInline
 struct Version:Hashable, Sendable
 {
