@@ -5,9 +5,9 @@ struct GlobalLink:RandomAccessCollection
 {
     enum Parameter:String 
     {
-        case base     = "overload"
-        case host     = "self"
-        case culture  = "from"
+        case base           = "overload"
+        case host           = "self"
+        case nationality    = "from"
     }
 
     var nationality:_SymbolLink.Nationality?
@@ -59,7 +59,7 @@ struct GlobalLink:RandomAccessCollection
             case nil: 
                 continue 
             
-            case .culture?:
+            case .nationality?:
                 // either 'from=swift-foo' or 'from=swift-foo/0.1.2'. 
                 // we do not tolerate missing slashes
                 var separator:String.Index = value.firstIndex(of: "/") ?? value.endIndex
@@ -528,7 +528,7 @@ extension _SymbolLink
                 {
                 case .host: self.disambiguator.host = id
                 case .base: self.disambiguator.base = id
-                case .culture: continue
+                case .nationality: continue
                 }
             }
         }

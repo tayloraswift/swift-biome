@@ -1,3 +1,5 @@
+import URI 
+
 extension Service 
 {
     public 
@@ -12,7 +14,7 @@ extension Service
     {
         private 
         let table:[String: Function]
-        private(set) 
+        private
         var sitemap:String, 
             lunr:String, 
             doc:String,
@@ -52,6 +54,19 @@ extension Service
                 self.doc: .documentation(.doc),
                 self.symbol: .documentation(.symbol),
             ]
+        }
+    }
+}
+extension Service.Functions 
+{
+    func uri(_ function:Service.Function) -> URI
+    {
+        switch function 
+        {
+        case .sitemap:                  return .init(root: self.sitemap)
+        case .lunr:                     return .init(root: self.lunr)
+        case .documentation(.doc):      return .init(root: self.doc)
+        case .documentation(.symbol):   return .init(root: self.symbol)
         }
     }
 }

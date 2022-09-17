@@ -127,6 +127,60 @@ extension Service
             stems: &self.stems)
     }
 }
+
+struct DocumentationQuery
+{
+    let target:GlobalLink.Target 
+    let version:Version 
+
+    let _objects:Never?
+
+    var nationality:Package.Index 
+    {
+        switch self.target 
+        {
+        case .package(let nationality): 
+            return nationality 
+        case .module(let module): 
+            return module.nationality 
+        case .article(let article): 
+            return article.nationality 
+        case .composite(let composite): 
+            return composite.nationality 
+        }
+    }
+}
+struct DisambiguationQuery
+{
+    let nationality:Package.Index
+    let version:Version 
+    let choices:[Branch.Composite]
+}
+
+struct GetRequest 
+{
+    enum Query 
+    {
+        case redirect 
+        case documentation(DocumentationQuery)
+        case disambiguation(DisambiguationQuery)
+    }
+
+    let uri:URI
+    var query:Query
+
+    init(uri:URI, query:DocumentationQuery)
+    {
+        self.uri = uri 
+        self.query = .documentation(query)
+    }
+    init(uri:URI, query:DisambiguationQuery)
+    {
+        self.uri = uri 
+        self.query = .disambiguation(query)
+    }
+}
+
 extension Service 
 {
     func get(_ uri:URI) -> WebSemantics.Response<Resource>
@@ -144,7 +198,7 @@ extension Service
                 break 
             
             case .documentation(let scheme):
-                if  let endpoint:GlobalLink.Endpoint = self._get(scheme: scheme, 
+                if  let endpoint:GetRequest = self._get(scheme: scheme, 
                         request: _move normalized)
                 {
                     return self.response(for: endpoint, template: self.template)
@@ -155,7 +209,7 @@ extension Service
             payload: .init("page not found.")) 
     }
 
-    func _get(scheme:Scheme, request:__owned GlobalLink) -> GlobalLink.Endpoint?
+    func _get(scheme:Scheme, request:__owned GlobalLink) -> GetRequest?
     {
         var request:GlobalLink = _move request
         if  let residency:Package = request.descend(where: { self.packages[.init($0)] }) 
@@ -167,31 +221,32 @@ extension Service
             self._get(scheme: scheme, implicit: self.packages.core, request: request)
     }
     func _get(scheme:Scheme, explicit residency:__owned Package, request:__owned GlobalLink) 
-        -> GlobalLink.Endpoint?
+        -> GetRequest?
     {
         try? self._get(scheme: scheme, residency: _move residency, request: request)
     }
     func _get(scheme:Scheme, implicit residency:__owned Package, request:__owned GlobalLink) 
-        -> GlobalLink.Endpoint?
+        -> GetRequest?
     {
-        guard   let endpoint:GlobalLink.Endpoint = try? self._get(scheme: scheme, 
+        guard   let request:GetRequest = try? self._get(scheme: scheme, 
                     residency: _move residency, 
                     request: request)
         else 
         {
             return nil 
         }
-        if case .target(.package) = endpoint.request
+        if  case .documentation(let query) = request.query, 
+            case .package = query.target 
         {
             return nil 
         }
         else 
         {
-            return endpoint
+            return request
         }
     }
     func _get(scheme:Scheme, residency:__owned Package, request:__owned GlobalLink) 
-        throws -> GlobalLink.Endpoint?
+        throws -> GetRequest?
     {
         var request:GlobalLink = request
         let arrival:Version? = request.descend 
@@ -204,16 +259,19 @@ extension Service
             return nil 
         }
 
+        let residency:Package.Pinned = .init(_move residency, version: _move arrival)
         // we must parse the symbol link *now*, otherwise references to things 
         // like global vars (`Swift.min(_:_:)`) won’t work
         guard let request:_SymbolLink = try .init(request)
         else 
         {
-            return .init(.package(residency.nationality), version: arrival)
+            let uri:URI = residency.address().uri(functions: self.functions)
+            return .init(uri: uri, query: .init(target: .package(residency.nationality), 
+                version: residency.version, 
+                _objects: nil))
         }
         //  we can store a module id in a ``Symbol/Link``, because every 
         //  ``Module/ID`` is a valid ``Symbol/Link/Component``.
-        let residency:Package.Pinned = .init(_move residency, version: arrival)
         guard let namespace:Tree.Position<Module> = residency.modules.find(.init(request.first))
         else 
         {
@@ -222,42 +280,45 @@ extension Service
         guard let request:_SymbolLink = request.suffix 
         else 
         {
-            return .init(.module(namespace.contemporary), version: arrival)
+            let address:Address = residency.address(of: residency.package.tree[local: namespace])
+            let uri:URI = address.uri(functions: self.functions) 
+            return .init(uri: uri, query: .init(target: .module(namespace.contemporary), 
+                version: residency.version, 
+                _objects: nil))
         }
-
-        if  let nationality:_SymbolLink.Nationality = request.nationality,
-            let package:Package = self.packages[nationality.id],
-            let version:Version = 
-                nationality.version.map(package.tree.find(_:)) ?? package.tree.default,
-            let endpoint:GlobalLink.Endpoint.Request = self._get(scheme: scheme, 
-                nationality: .init(_move package, version: version), 
-                namespace: namespace.contemporary, 
-                request: request) 
+        // doc scheme never uses nationality query parameter 
+        if      case .doc = scheme, 
+                let key:Route.Key = self.stems[namespace.contemporary, straight: request], 
+                let article:Tree.Position<Article> = residency.articles.find(.init(key))
         {
-            return .init(endpoint, version: version)
+            let address:Address = residency.address(of: residency.package.tree[local: article], 
+                namespace: residency.package.tree[local: namespace])
+            let uri:URI = address.uri(functions: self.functions) 
+            return .init(uri: uri, query: .init(target: .article(article.contemporary), 
+                version: residency.version, 
+                _objects: nil))
         }
-        return self._get(scheme: scheme, nationality: _move residency, 
+        else if let nationality:_SymbolLink.Nationality = request.nationality,
+                let package:Package = self.packages[nationality.id],
+                let version:Version = 
+                    nationality.version.map(package.tree.find(_:)) ?? package.tree.default,
+                let endpoint:GetRequest = self._get(scheme: scheme, 
+                    nationality: .init(_move package, version: version), 
+                    namespace: namespace.contemporary, 
+                    request: request.disambiguated()) 
+        {
+            return endpoint
+        }
+        return self._get(scheme: scheme, 
+            nationality: _move residency, 
             namespace: namespace.contemporary, 
-            request: request).map 
-        {
-            .init($0, version: arrival)
-        }
+            request: request.disambiguated())
     }
     func _get(scheme:Scheme, nationality:__owned Package.Pinned, 
         namespace:Branch.Position<Module>, 
-        request:__owned _SymbolLink)
-        -> GlobalLink.Endpoint.Request?
+        request:__owned _SymbolLink) -> GetRequest?
     {
-        if      case .doc = scheme, 
-                let key:Route.Key = self.stems[namespace, straight: request], 
-                let article:Tree.Position<Article> = nationality.articles.find(.init(key))
-        {
-            return .target(.article(article.contemporary))
-        }
-
-        let request:_SymbolLink = request.disambiguated()
-
-        guard   let key:Route.Key = self.stems[namespace, request]
+        guard let key:Route.Key = self.stems[namespace, request]
         else 
         {
             return nil 
@@ -269,36 +330,49 @@ extension Service
                     where: context.local.exists(_:))
         {
             request.disambiguator.disambiguate(&selection, context: context) 
-            switch selection
-            {
-            case .one(let composite): 
-                return .target(.composite(composite))
-            case .many(let composites): 
-                return .disambiguation(composites)
-            }
+            return self._get(selection: selection, context: context)
         }
         else if var selection:_Selection<Branch.Composite> = context.local.routes.select(key, 
                     where: { _ in true })
         {
             request.disambiguator.disambiguate(&selection, context: context) 
-            switch selection 
-            {
-            case .one(let composite):
-                return .target(.composite(composite))
-            case .many(let composites):
-                return .disambiguation(composites)
-            }
+            return self._get(selection: selection, context: context)
         }
         else 
         {
             return nil
         }
     }
+    private 
+    func _get(selection:_Selection<Branch.Composite>, context:Package.Context) -> GetRequest? 
+    {
+        switch selection 
+        {
+        case .one(let composite):
+            if  let uri:URI = context.address(of: composite)?.uri(functions: self.functions)
+            {
+                return .init(uri: uri, query: .init(target: .composite(composite), 
+                    version: context.local.version, 
+                    _objects: nil))
+            }
+        
+        case .many(let composites):
+            if  let exemplar:Branch.Composite = composites.first, 
+                let address:Address = context.address(of: exemplar, disambiguate: false)
+            {
+                let uri:URI = address.uri(functions: self.functions)
+                return .init(uri: uri, query: .init(nationality: context.local.nationality,
+                    version: context.local.version, 
+                    choices: composites))
+            }
+        }
+        return nil 
+    }
 }
 
 extension Service 
 {
-    func response(for endpoint:GlobalLink.Endpoint, template:DOM.Flattened<Page.Key>) 
+    func response(for endpoint:GetRequest, template:DOM.Flattened<Page.Key>) 
         -> WebSemantics.Response<Resource>
     {
         fatalError("unimplemented")

@@ -303,6 +303,56 @@ extension Package.Pinned
     }
 }
 
+extension Package.Pinned 
+{
+    /// Returns the address of the specified package, if it is defined in this context.
+    /// 
+    /// The returned address always includes the package name, even if it is the 
+    /// standard library or one of the core libraries.
+    func address(function:Service.Function = .documentation(.symbol)) -> Address
+    {
+        return .init(function: .documentation(.symbol), global: .init(
+            residency: self.package.id, 
+            version: self.package.tree.abbreviate(self.version)))
+    }
+    /// Returns the address of the specified module, assuming it is local to this package.
+    func address(local module:Branch.Position<Module>) -> Address?
+    {
+        self.load(local: module).map(self.address(of:))
+    }
+    func address(of module:Module) -> Address
+    {
+        let global:Address.Global = .init(
+            residency: module.nationality.isCommunityPackage ? self.package.id : nil, 
+            version: self.package.tree.abbreviate(self.version), 
+            local: .init(namespace: module.id))
+        return .init(function: .documentation(.symbol), global: _move global)
+    }
+    /// Returns the address of the specified article, assuming it is local to this package.
+    func address(local article:Branch.Position<Article>) -> Address?
+    {
+        if  let namespace:Module = self.load(local: article.culture),
+            let article:Article = self.load(local: article)
+        {
+            return self.address(of: article, namespace: namespace)
+        }
+        else 
+        {
+            return nil 
+        }
+    }
+    func address(of article:Article, namespace:Module) -> Address
+    {
+        let local:Address.Local = .init(namespace: namespace.id, 
+            symbolic: .init(path: article.path, orientation: .straight))
+        let global:Address.Global = .init(
+            residency: namespace.nationality.isCommunityPackage ? self.package.id : nil, 
+            version: self.package.tree.abbreviate(self.version), 
+            local: _move local)
+        return .init(function: .documentation(.doc), global: _move global)
+    }
+}
+
 extension Branch 
 {
     enum NaturalDepth:Error 

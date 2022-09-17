@@ -1,26 +1,5 @@
 extension GlobalLink 
 {
-    struct Endpoint 
-    {
-        enum Request 
-        {
-            case target(Target)
-            case disambiguation([Branch.Composite])
-        }
-
-        let request:Request 
-        let version:_Version
-
-        init(_ request:Request, version:_Version)
-        {
-            self.request = request 
-            self.version = version 
-        }
-        init(_ target:Target, version:_Version)
-        {
-            self.init(.target(target), version: version)
-        }
-    }
     enum Target:Hashable, Sendable 
     {
         case article(Branch.Position<Article>)

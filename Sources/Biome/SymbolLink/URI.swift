@@ -1,40 +1,7 @@
 import URI 
 import Versions
 
-extension RangeReplaceableCollection where Element == URI.Vector? 
-{
-    mutating 
-    func append<Components>(components:Components, 
-        orientation:Symbol.Link.Orientation)
-        where Components:BidirectionalCollection, Components.Element == String
-    {
-        guard case .gay = orientation, components.startIndex < components.endIndex
-        else 
-        {
-            self.append(components: components)
-            return 
-        }
-        
-        let ultimate:Components.Index = components.index(before: components.endIndex)
-        
-        guard components.startIndex < ultimate 
-        else 
-        {
-            self.append(components: components)
-            return 
-        }
-        
-        let penultimate:Components.Index = components.index(before: ultimate)
-        
-        self.reserveCapacity(self.underestimatedCount + 
-            components[..<ultimate].underestimatedCount)
-        for component:String in components[..<penultimate]
-        {
-            self.append(component: component)
-        }
-        self.append(component: "\(components[penultimate]).\(components[ultimate])")
-    }
-}
+
 extension URI 
 {
     mutating 
@@ -62,5 +29,39 @@ extension URI
         {
             self.insert(parameter: (Symbol.Link.Query.lens, lens.culture.string))
         }
+    }
+}
+extension RangeReplaceableCollection where Element == URI.Vector? 
+{
+    @available(*, deprecated)
+    mutating 
+    func append<Components>(components:Components, orientation:_SymbolLink.Orientation)
+        where Components:BidirectionalCollection, Components.Element == String
+    {
+        guard case .gay = orientation, components.startIndex < components.endIndex
+        else 
+        {
+            self.append(components: components)
+            return 
+        }
+        
+        let ultimate:Components.Index = components.index(before: components.endIndex)
+        
+        guard components.startIndex < ultimate 
+        else 
+        {
+            self.append(components: components)
+            return 
+        }
+        
+        let penultimate:Components.Index = components.index(before: ultimate)
+        
+        self.reserveCapacity(self.underestimatedCount + 
+            components[..<ultimate].underestimatedCount)
+        for component:String in components[..<penultimate]
+        {
+            self.append(component: component)
+        }
+        self.append(component: "\(components[penultimate]).\(components[ultimate])")
     }
 }

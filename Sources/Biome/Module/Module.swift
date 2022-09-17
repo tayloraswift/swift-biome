@@ -39,21 +39,7 @@ struct Module:Sendable
     var documentation:_History<DocumentationExtension<Never>>.Head?
     
     var redirect:(module:Redirect?, articles:Redirect?)
-    
-    /// this module’s exact identifier string, e.g. '_Concurrency'
-    var name:String 
-    {
-        self.id.string 
-    }
-    /// this module’s identifier string with leading underscores removed, e.g. 'Concurrency'
-    var title:Substring 
-    {
-        self.id.title
-    }
-    var path:Path 
-    {
-        .init(last: self.id.string)
-    }
+
     
     init(id:ID, index:Index)
     {
@@ -70,6 +56,24 @@ struct Module:Sendable
         self.documentation = nil
     }
     
+    /// this module’s exact identifier string, e.g. '_Concurrency'
+    var name:String 
+    {
+        self.id.string 
+    }
+    /// this module’s identifier string with leading underscores removed, e.g. 'Concurrency'
+    var title:Substring 
+    {
+        self.id.title
+    }
+    var path:Path 
+    {
+        .init(last: self.id.string)
+    }
+    var nationality:Package.Index 
+    {
+        self.index.nationality
+    }
     var fragments:[Notebook<Highlight, Never>.Fragment] 
     {
         [
