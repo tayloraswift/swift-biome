@@ -106,6 +106,10 @@ struct ModuleInterface
     {
         self.symbols.citizens(culture: self.culture)
     }
+    var nationality:Package.Index
+    {
+        self.namespaces.nationality
+    }
     var culture:Branch.Position<Module> 
     {
         self.namespaces.culture 

@@ -137,7 +137,7 @@ extension Page
             traits: facts.primary,
             host: host)
         
-        for (culture, traits):(Module.Index, Symbol.Traits<Symbol.Index>) in facts.accepted
+        for (culture, traits):(Module.Index, Branch.SymbolTraits) in facts.accepted
         {
             self.organize(topics: &topics, 
                 culture: .accepted(culture),
@@ -148,7 +148,7 @@ extension Page
             Set<Module.Index>.init(self.ecosystem[host].pollen.lazy.map(\.culture))
         {
             let diacritic:Branch.Diacritic = .init(host: host, culture: source)
-            if  let traits:Symbol.Traits<Symbol.Index> = 
+            if  let traits:Branch.SymbolTraits = 
                 self.ecosystem[source.package].currentOpinion(diacritic)
             {
                 self.organize(topics: &topics, 
@@ -164,7 +164,7 @@ extension Page
     private 
     func organize(topics:inout Topics, 
         culture:Module._Culture, 
-        traits:Symbol.Traits<Symbol.Index>, 
+        traits:Branch.SymbolTraits, 
         host:Symbol.Index)
     {
         let diacritic:Branch.Diacritic 

@@ -525,7 +525,7 @@ extension Packages
         }
     }
     private 
-    func sort(_ roles:Symbol.Roles<Symbol.Index>?) -> [(target:Symbol.Index, host:Symbol.Index)]
+    func sort(_ roles:Branch.SymbolRoles?) -> [(target:Symbol.Index, host:Symbol.Index)]
     {
         switch roles 
         {

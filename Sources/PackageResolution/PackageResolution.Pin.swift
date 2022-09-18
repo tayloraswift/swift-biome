@@ -22,6 +22,17 @@ extension PackageResolution
         let revision:String
         public
         let requirement:Requirement 
+
+        public 
+        init(id:PackageIdentifier, location:String? = nil, 
+            revision:String, 
+            requirement:Requirement)
+        {
+            self.id = id 
+            self.location = location 
+            self.revision = revision 
+            self.requirement = requirement
+        }
         
         public 
         init(from json:JSON) throws 

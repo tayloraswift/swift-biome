@@ -1,7 +1,8 @@
-extension Symbol.Roles:Sendable where Position:Sendable 
-{
-}
 extension Symbol 
+{
+
+}
+extension Branch
 {
     /// symbol relationships that are independent of, and unaffected by any 
     /// downstream module consumers. 
@@ -46,14 +47,13 @@ extension Symbol
     /// -   classes can have a single role if they have a superclass.
     /// 
     /// -   other kinds of symbols never have roles.
-    enum Roles<Position>:Equatable where Position:Hashable
+    enum SymbolRoles:Equatable, Sendable
     {
-        // case none 
-        case one        (Position)
-        case many   (Set<Position>)
+        case one        (Position<Symbol>)
+        case many   (Set<Position<Symbol>>)
         
         private 
-        init?(_ symbols:[Position]) 
+        init?(_ symbols:[Position<Symbol>]) 
         {
             if symbols.isEmpty 
             {
@@ -68,12 +68,12 @@ extension Symbol
                 self = .many(.init(symbols))
             }
         }
-        init?(_ roles:some Sequence<Role<Position>>, 
-            superclass:Position?, 
-            shape:Shape<Position>?, 
+        init?(_ roles:some Sequence<Symbol.Role<Position<Symbol>>>, 
+            superclass:Position<Symbol>?, 
+            shape:Symbol.Shape<Position<Symbol>>?, 
             as community:Community) 
         {
-            if  let superclass:Position = superclass 
+            if  let superclass:Position<Symbol> = superclass 
             {
                 switch  (community, shape)
                 {
@@ -85,7 +85,7 @@ extension Symbol
                     // should have thrown a ``ColorError`` earlier
                     fatalError("unreachable")
                 }
-                for _:Role<Position> in roles 
+                for _:Symbol.Role<Position<Symbol>> in roles 
                 {
                     fatalError("unreachable")
                 }
@@ -116,7 +116,7 @@ extension Symbol
                 case    (.concretetype(_),  nil), 
                         (.typealias,          _), 
                         (.global(_),        nil):
-                    for _:Role<Position> in roles
+                    for _:Symbol.Role<Position<Symbol>> in roles
                     {
                         fatalError("unreachable") 
                     }
@@ -163,12 +163,6 @@ extension Symbol
                     fatalError("unreachable")
                 }
             }
-        }
-
-        func map<T>(_ transform:(Position) throws -> T) rethrows -> Roles<T>
-            where T:Hashable
-        {
-            fatalError("unimplemented")
         }
     }
 }

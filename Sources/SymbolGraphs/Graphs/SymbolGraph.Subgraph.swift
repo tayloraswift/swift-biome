@@ -14,14 +14,14 @@ extension SymbolGraph
             hints:[Hint<SymbolIdentifier>]
         
         @inlinable public 
-        init<UTF8>(utf8:UTF8, culture:ModuleIdentifier, namespace:ModuleIdentifier) throws 
+        init<UTF8>(utf8:UTF8, culture:ModuleIdentifier, namespace:ModuleIdentifier? = nil) throws 
             where UTF8:Collection<UInt8>
         {
             try self.init(from: try JSON.init(parsing: utf8), 
                 culture: culture, namespace: namespace)
         }
         public  
-        init(from json:JSON, culture:ModuleIdentifier, namespace:ModuleIdentifier) throws 
+        init(from json:JSON, culture:ModuleIdentifier, namespace:ModuleIdentifier? = nil) throws 
         {
             let (symbols, relationships):([Symbol], [Relationship]) = 
                 try json.lint(whitelisting: ["metadata"]) 
@@ -52,7 +52,7 @@ extension SymbolGraph
                 return (symbols, relationships)
             }
             
-            self.init(culture: culture, namespace: namespace, symbols: symbols, 
+            self.init(culture: culture, namespace: namespace ?? culture, symbols: symbols, 
                 relationships: relationships)
         }
         private 

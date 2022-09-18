@@ -63,7 +63,7 @@ extension Branch.Buffer
     {
         _read 
         {
-            yield  self.storage[.init(offset - self.startIndex)]
+            yield self.storage[.init(offset - self.startIndex)]
         }
         _modify
         {
@@ -73,20 +73,25 @@ extension Branch.Buffer
     @available(*, deprecated, renamed: "subscript(contemporary:)")
     subscript(local position:Branch.Position<Element>) -> Element
     {
-        _read
+        get 
         {
-            yield self[position.offset]
+            fatalError()
         }
-        _modify
+        set 
         {
-            yield &self[position.offset]
+            fatalError()
         }
+    }
+    // needed to workaround a compiler crash: https://github.com/apple/swift/issues/60841
+    subscript(_contemporary position:Branch.Position<Element>) -> Element
+    {
+        self[position.offset]
     }
     subscript(contemporary position:Branch.Position<Element>) -> Element
     {
         _read
         {
-            yield self[position.offset]
+            yield  self[position.offset]
         }
         _modify
         {

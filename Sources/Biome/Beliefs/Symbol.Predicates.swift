@@ -13,11 +13,11 @@ extension Symbol
     
     struct Predicates<Position>:Equatable where Position:Hashable
     {
-        let roles:Roles<Position>?
-        var primary:Traits<Position>
-        var accepted:[Module.Index: Traits<Position>]
+        let roles:Branch.SymbolRoles?
+        var primary:Branch.SymbolTraits
+        var accepted:[Module.Index: Branch.SymbolTraits]
         
-        init(roles:Roles<Position>?, primary:Traits<Position> = .init())
+        init(roles:Branch.SymbolRoles?, primary:Branch.SymbolTraits = .init())
         {
             self.roles = roles 
             self.primary = primary

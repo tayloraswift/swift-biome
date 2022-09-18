@@ -274,7 +274,7 @@ struct SymbolGraph:Identifiable, Sendable
         // delete comments if a hint indicates it is duplicated. 
         // this does not preclude the need to prune again when documentation 
         // from multiple modules in the same package are combined (yet)
-        var pruned:Int = 0
+        // var pruned:Int = 0
         for index:Int in self.vertices.indices
         {
             let comment:Vertex<Int>.Comment = self.vertices[index].comment 
@@ -284,9 +284,9 @@ struct SymbolGraph:Identifiable, Sendable
                 case string? = self.vertices[origin].comment.string
             {
                 self.vertices[index].comment.string = nil
-                pruned += 1
+                // pruned += 1
             }
         }
-        print("pruned \(pruned) duplicate comments")
+        // print("pruned \(pruned) duplicate comments")
     }
 }

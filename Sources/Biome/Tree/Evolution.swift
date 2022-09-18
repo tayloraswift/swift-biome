@@ -10,6 +10,7 @@ extension Symbol.Metadata?
         }
     }
 }
+
 struct Evolution 
 {
     enum Label 
@@ -44,6 +45,7 @@ struct Evolution
             position: symbol.contemporary, 
             history: history)
     }
+    
     private mutating 
     func scan(founder:Version.Branch, tree:Tree,
         position:Branch.Position<Symbol>, 
@@ -53,6 +55,10 @@ struct Evolution
         var keyframes:History<Symbol.Metadata?>.Iterator = 
             history[branch.symbols[contemporary: position].metadata].makeIterator()
 
+        for x in Array.init(history[branch.symbols[contemporary: position].metadata])
+        {
+            print(tree[founder].revisions[x.since].date, x.value as Any)
+        }
         guard var regime:History<Symbol.Metadata?>.Keyframe = keyframes.next()
         else 
         {

@@ -98,6 +98,7 @@ struct Service
 }
 extension Service 
 {
+    @discardableResult
     public mutating 
     func updatePackage(_ id:Package.ID, 
         resolved:PackageResolution,

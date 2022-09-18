@@ -33,7 +33,7 @@ struct Packages
         let core:Package.Index = self.add(package: .core)
 
         precondition(swift == .swift) 
-        precondition(core == .swift) 
+        precondition(core == .core) 
     }
 
     var swift:Package 
@@ -130,8 +130,9 @@ struct Packages
         // we are going to mutate `self[package].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
         let fasces:Fasces = self[package].tree.fasces(upTo: branch)
-
-        var surface:SurfaceBuilder = .init(previous: .init())
+        // FIXME: there is a bug here, this will not work if we forked from another 
+        // branch, because we will not have a previous surface
+        var api:SurfaceBuilder = .init(previous: self[package].tree[branch]._surface)
 
         var interfaces:[ModuleInterface] = []
             interfaces.reserveCapacity(graphs.count)
@@ -159,7 +160,7 @@ struct Packages
                 fasces: fasces,
                 stems: &stems)
 
-            surface.update(with: graph.edges, interface: interface, 
+            api.update(with: graph.edges, interface: interface, 
                 context: .init(upstream: upstream, local: self[package]))
             
             interfaces.append(interface)
@@ -173,22 +174,23 @@ struct Packages
             }, 
             date: date, 
             tag: tag)
-
-        self[package].tree[branch].routes.stack(routes: surface.routes.natural, 
+        self[package].tree[branch]._surface = api.surface()
+        
+        self[package].tree[branch].routes.stack(routes: api.routes.natural, 
             revision: version.revision)
-        self[package].tree[branch].routes.stack(routes: surface.routes.synthetic.joined(), 
+        self[package].tree[branch].routes.stack(routes: api.routes.synthetic.joined(), 
             revision: version.revision)
 
-        surface.inferScopes(for: &self[package].tree[branch], 
+        api.inferScopes(for: &self[package].tree[branch], 
             fasces: fasces, 
             stems: stems)
 
         self[package].updateMetadata(to: version, 
             interfaces: interfaces, 
-            builder: surface,
+            builder: api,
             fasces: fasces)
 
-        _ = _move surface
+        _ = _move api
 
         for (graph, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interfaces)
         {

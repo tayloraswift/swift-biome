@@ -30,6 +30,8 @@ struct Branch:Identifiable, Sendable
         modules:Buffer<Module>
     var routes:[Route.Key: Stack]
 
+    var _surface:Surface 
+
     init(id:ID, index:Version.Branch, fork:(version:Version, ring:Ring)?)
     {
         self.id = id 
@@ -44,6 +46,8 @@ struct Branch:Identifiable, Sendable
         self.symbols = .init(startIndex: fork?.ring.symbols ?? 0)
         self.modules = .init(startIndex: fork?.ring.modules ?? 0)
         self.routes = [:]
+
+        self._surface = .init()
     }
 
     var head:Version.Revision? 

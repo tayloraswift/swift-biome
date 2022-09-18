@@ -2,13 +2,13 @@ extension Symbol:BranchElement
 {
     struct Metadata:Equatable, Sendable
     {
-        let roles:Roles<Branch.Position<Symbol>>?
-        var primary:Traits<Branch.Position<Symbol>>
-        var accepted:[Branch.Position<Module>: Traits<Branch.Position<Symbol>>] 
+        let roles:Branch.SymbolRoles?
+        var primary:Branch.SymbolTraits
+        var accepted:[Branch.Position<Module>: Branch.SymbolTraits] 
 
-        init(roles:Roles<Branch.Position<Symbol>>?,
-            primary:Traits<Branch.Position<Symbol>>,
-            accepted:[Branch.Position<Module>: Traits<Branch.Position<Symbol>>] = [:])
+        init(roles:Branch.SymbolRoles?,
+            primary:Branch.SymbolTraits,
+            accepted:[Branch.Position<Module>: Branch.SymbolTraits] = [:])
         {
             self.roles = roles
             self.primary = primary
@@ -47,9 +47,9 @@ extension Symbol:BranchElement
 
     struct ForeignMetadata:Equatable, Sendable 
     {
-        let traits:Traits<Branch.Position<Symbol>>
+        let traits:Branch.SymbolTraits
 
-        init(traits:Traits<Branch.Position<Symbol>>)
+        init(traits:Branch.SymbolTraits)
         {
             self.traits = traits 
         }
