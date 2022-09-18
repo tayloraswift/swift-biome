@@ -30,39 +30,6 @@ struct Branch:Identifiable, Sendable
         modules:Buffer<Module>
     var routes:[Route.Key: Stack]
 
-    var head:Version.Revision? 
-    {
-        self.revisions.indices.last
-    }
-
-    // @available(*, deprecated, renamed: "revisions.startIndex")
-    // var startIndex:Version.Revision 
-    // {
-    //     self.revisions.startIndex
-    // }
-    // @available(*, deprecated, renamed: "revisions.endIndex")
-    // var endIndex:Version.Revision 
-    // {
-    //     self.revisions.endIndex
-    // }
-    // @available(*, deprecated, renamed: "revisions.indices")
-    // var indices:Range<Version.Revision> 
-    // {
-    //     self.revisions.indices 
-    // }
-    // @available(*, deprecated, renamed: "revisions.subscript(_:)")
-    // subscript(revision:Version.Revision) -> Revision
-    // {
-    //     _read 
-    //     {
-    //         yield  self.revisions[revision]
-    //     }
-    //     _modify
-    //     {
-    //         yield &self.revisions[revision]
-    //     }
-    // }
-
     init(id:ID, index:Version.Branch, fork:(version:Version, ring:Ring)?)
     {
         self.id = id 
@@ -78,6 +45,11 @@ struct Branch:Identifiable, Sendable
         self.modules = .init(startIndex: fork?.ring.modules ?? 0)
         self.routes = [:]
     }
+
+    var head:Version.Revision? 
+    {
+        self.revisions.indices.last
+    }
     
     subscript(range:PartialRangeThrough<Version.Revision>) -> Fascis
     {
@@ -91,15 +63,9 @@ struct Branch:Identifiable, Sendable
             branch: self.index,
             limit: range.upperBound)
     }
-    // subscript(_:UnboundedRange) -> Fascis 
-    // {
-    //     return .init(branch: self.index, 
-    //         routes: self.routes[...],
-    //         modules: self.modules[...],
-    //         symbols: self.symbols[...],
-    //         articles: self.articles[...])
-    // }
-
+}
+extension Branch 
+{
     mutating 
     func commit(hash:String, pins:[Package.Index: Version], date:Date, tag:Tag?) -> Version
     {
@@ -115,7 +81,6 @@ struct Branch:Identifiable, Sendable
         return .init(self.index, commit)
     }
 }
-
 extension Branch 
 {
     mutating 

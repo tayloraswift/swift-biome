@@ -1,30 +1,63 @@
 import Forest 
 
-struct History<Value> where Value:Equatable
+extension History 
 {
-    typealias Head = Forest<Keyframe>.Tree.Head 
-    typealias Index = Forest<Keyframe>.Index 
-
+    /// A descriptor for a field of a symbol that was founded in a different 
+    /// branch than the branch the descriptor lives in, whose value has diverged 
+    /// from the value it held when the descriptor’s branch was forked from 
+    /// its trunk.
     struct Divergent
     {
         var head:Head
         /// The first revision in which this field diverged from its parent branch.
-        var start:_Version.Revision
+        var start:Version.Revision
     }
     struct Keyframe
     {
-        var since:_Version.Revision
+        var since:Version.Revision
         let value:Value
         
-        init(_ value:Value, since:_Version.Revision)
+        init(_ value:Value, since:Version.Revision)
         {
             self.value = value 
             self.since = since
         }
     }
 
+    typealias Head = Forest<Keyframe>.Tree.Head 
+    typealias Index = Forest<Keyframe>.Index 
+    typealias Iterator = Forest<Keyframe>.Tree.Iterator 
+
+    typealias SparseField<Divergence> = KeyPath<Divergence, Divergent?>
+    typealias DenseField<Element> = 
+    (
+        contemporary:KeyPath<Element, Head?>,
+        divergent:KeyPath<Element.Divergence, Divergent?>
+    )
+    where Element:BranchElement
+
+    typealias WritableSparseField<Divergence> = WritableKeyPath<Divergence, Divergent?>
+    typealias WritableDenseField<Element> = 
+    (
+        contemporary:WritableKeyPath<Element, Head?>,
+        divergent:WritableKeyPath<Element.Divergence, Divergent?>
+    )
+    where Element:BranchElement
+}
+struct History<Value> where Value:Equatable
+{
     private 
     var forest:Forest<Keyframe>
+
+    init() 
+    {
+        self.forest = .init()
+    }
+
+    subscript(head:Head?) -> Forest<Keyframe>.Tree
+    {
+        self.forest[head]
+    }
 
     private(set)
     subscript(index:Index) -> Keyframe
@@ -38,27 +71,22 @@ struct History<Value> where Value:Equatable
             yield &self.forest[index].value
         }
     }
-
-    init() 
-    {
-        self.forest = .init()
-    }
-
+}
+extension History 
+{
     private 
-    func rewind(_ head:Forest<Keyframe>.Tree.Head, to revision:_Version.Revision) -> Index?
+    func rewind(_ head:Head, to revision:Version.Revision) -> Index?
     {
         self.forest[head].first { $0.since <= revision }
     }
     private 
-    func value(rewinding head:Forest<Keyframe>.Tree.Head, to revision:_Version.Revision) -> Value?
+    func value(rewinding head:Head, to revision:Version.Revision) -> Value?
     {
         self.rewind(head, to: revision).map { self.forest[$0].value.value }
     }
     
-    func value<Key, Divergence>(of key:Key, 
-        field:KeyPath<Divergence, Divergent?>,
-        in trunk:some Sequence<Divergences<Key, Divergence>>)
-        -> Value?
+    func value<Key, Divergence>(of key:Key, field:SparseField<Divergence>,
+        in trunk:some Sequence<Divergences<Key, Divergence>>) -> Value?
         where Key:Hashable
     {
         for divergences:Divergences<Key, Divergence> in trunk
@@ -78,14 +106,8 @@ struct History<Value> where Value:Equatable
         }
         return nil
     }
-    func value<Element>(of position:Branch.Position<Element>, 
-        field:
-        (
-            contemporary:KeyPath<Element, Head?>,
-            divergent:KeyPath<Element.Divergence, Divergent?>
-        ),
-        in trunk:some Sequence<Epoch<Element>>) 
-        -> Value?
+    func value<Element>(of position:Branch.Position<Element>, field:DenseField<Element>,
+        in trunk:some Sequence<Epoch<Element>>) -> Value?
         where Element:BranchElement
     {
         for epoch:Epoch<Element> in trunk
@@ -118,7 +140,7 @@ extension History
 {
     /// Unconditionally pushes the given value to the head of the given tree.
     mutating 
-    func push(_ value:__owned Value, revision:_Version.Revision, to tree:inout Divergent?) 
+    func push(_ value:__owned Value, revision:Version.Revision, to tree:inout Divergent?) 
     {
         if let divergent:Divergent = tree
         {
@@ -135,7 +157,7 @@ extension History
     /// Pushes the given value to the head of the given tree if it is not equivalent 
     /// to the existing min-value.
     private mutating 
-    func add(_ value:__owned Value, revision:_Version.Revision, to tree:inout Head?) 
+    func add(_ value:__owned Value, revision:Version.Revision, to tree:inout Head?) 
     {
         guard let head:Head = tree
         else 
@@ -152,8 +174,8 @@ extension History
     mutating 
     func update<Key, Divergence>(_ divergences:inout [Key: Divergence], key:Key, 
         with value:__owned Value, 
-        revision:_Version.Revision, 
-        field:WritableKeyPath<Divergence, Divergent?>,
+        revision:Version.Revision, 
+        field:WritableSparseField<Divergence>,
         trunk:some Sequence<Divergences<Key, Divergence>>)
         where Key:Hashable, Divergence:Voidable
     {
@@ -177,12 +199,8 @@ extension History
     func update<Element>(_ buffer:inout Branch.Buffer<Element>, 
         position:Branch.Position<Element>, 
         with value:__owned Value, 
-        revision:_Version.Revision, 
-        field:
-        (
-            contemporary:WritableKeyPath<Element, Head?>,
-            divergent:WritableKeyPath<Element.Divergence, Divergent?>
-        ),
+        revision:Version.Revision, 
+        field:WritableDenseField<Element>,
         trunk:some Sequence<Epoch<Element>>)
         where Element:BranchElement, Element.Divergence:Voidable
     {
