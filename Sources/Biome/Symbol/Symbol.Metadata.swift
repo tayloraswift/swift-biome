@@ -33,9 +33,9 @@ extension Symbol:BranchElement
     public
     struct Divergence:Voidable, Sendable 
     {
-        var metadata:_History<Metadata?>.Divergent?
-        var declaration:_History<Declaration<Branch.Position<Symbol>>>.Divergent?
-        var documentation:_History<DocumentationExtension<Branch.Position<Symbol>>>.Divergent?
+        var metadata:History<Metadata?>.Divergent?
+        var declaration:History<Declaration<Branch.Position<Symbol>>>.Divergent?
+        var documentation:History<DocumentationExtension<Branch.Position<Symbol>>>.Divergent?
 
         init() 
         {
@@ -62,7 +62,7 @@ extension Symbol:BranchElement
     
     struct ForeignDivergence:Voidable
     {
-        var metadata:_History<ForeignMetadata?>.Divergent?
+        var metadata:History<ForeignMetadata?>.Divergent?
 
         init() 
         {

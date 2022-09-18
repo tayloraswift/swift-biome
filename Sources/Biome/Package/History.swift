@@ -1,6 +1,6 @@
 import Forest 
 
-struct _History<Value> where Value:Equatable
+struct History<Value> where Value:Equatable
 {
     typealias Head = Forest<Keyframe>.Tree.Head 
     typealias Index = Forest<Keyframe>.Index 
@@ -114,7 +114,7 @@ struct _History<Value> where Value:Equatable
         fatalError("unreachable: incomplete timeline!")
     }
 }
-extension _History 
+extension History 
 {
     /// Unconditionally pushes the given value to the head of the given tree.
     mutating 
@@ -180,8 +180,8 @@ extension _History
         revision:_Version.Revision, 
         field:
         (
-            contemporary:WritableKeyPath<Element, _History<Value>.Head?>,
-            divergent:WritableKeyPath<Element.Divergence, _History<Value>.Divergent?>
+            contemporary:WritableKeyPath<Element, Head?>,
+            divergent:WritableKeyPath<Element.Divergence, Divergent?>
         ),
         trunk:some Sequence<Epoch<Element>>)
         where Element:BranchElement, Element.Divergence:Voidable

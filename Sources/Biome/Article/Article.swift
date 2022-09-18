@@ -28,8 +28,8 @@ struct Article:Sendable
     let id:ID 
     var path:Path
 
-    var metadata:_History<Metadata?>.Head?
-    var documentation:_History<DocumentationExtension<Never>>.Head?
+    var metadata:History<Metadata?>.Head?
+    var documentation:History<DocumentationExtension<Never>>.Head?
     
     init(id:ID, path:Path)
     {

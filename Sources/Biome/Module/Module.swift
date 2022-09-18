@@ -32,11 +32,11 @@ struct Module:Sendable
     var symbols:[(range:Range<Symbol.Offset>, namespace:Branch.Position<Module>)]
     var articles:[Range<Article.Offset>]
     
-    var metadata:_History<Metadata?>.Head?
+    var metadata:History<Metadata?>.Head?
 
-    var topLevelArticles:_History<Set<Branch.Position<Article>>>.Head?
-    var topLevelSymbols:_History<Set<Branch.Position<Symbol>>>.Head?
-    var documentation:_History<DocumentationExtension<Never>>.Head?
+    var topLevelArticles:History<Set<Branch.Position<Article>>>.Head?
+    var topLevelSymbols:History<Set<Branch.Position<Symbol>>>.Head?
+    var documentation:History<DocumentationExtension<Never>>.Head?
     
     var redirect:(module:Redirect?, articles:Redirect?)
 

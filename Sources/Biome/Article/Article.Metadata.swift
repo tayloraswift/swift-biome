@@ -44,8 +44,8 @@ extension Article:BranchElement
     @usableFromInline 
     struct Divergence:Voidable, Sendable
     {
-        var metadata:_History<Metadata?>.Divergent?
-        var documentation:_History<DocumentationExtension<Never>>.Divergent?
+        var metadata:History<Metadata?>.Divergent?
+        var documentation:History<DocumentationExtension<Never>>.Divergent?
 
         init()
         {

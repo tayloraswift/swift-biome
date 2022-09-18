@@ -3,10 +3,10 @@ extension Package
     struct Metadata 
     {
         private(set)
-        var articles:_History<Article.Metadata?>,
-            modules:_History<Module.Metadata?>, 
-            symbols:_History<Symbol.Metadata?>, 
-            foreign:_History<Symbol.ForeignMetadata?>
+        var articles:History<Article.Metadata?>,
+            modules:History<Module.Metadata?>, 
+            symbols:History<Symbol.Metadata?>, 
+            foreign:History<Symbol.ForeignMetadata?>
 
         init() 
         {

@@ -20,11 +20,11 @@ extension Module:BranchElement
         var symbols:[(range:Range<Symbol.Offset>, namespace:Branch.Position<Module>)]
         var articles:[Range<Article.Offset>]
 
-        var metadata:_History<Metadata?>.Divergent?
+        var metadata:History<Metadata?>.Divergent?
 
-        var topLevelArticles:_History<Set<Branch.Position<Article>>>.Divergent?
-        var topLevelSymbols:_History<Set<Branch.Position<Symbol>>>.Divergent?
-        var documentation:_History<DocumentationExtension<Never>>.Divergent?
+        var topLevelArticles:History<Set<Branch.Position<Article>>>.Divergent?
+        var topLevelSymbols:History<Set<Branch.Position<Symbol>>>.Divergent?
+        var documentation:History<DocumentationExtension<Never>>.Divergent?
         
         init()
         {

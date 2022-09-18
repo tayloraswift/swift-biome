@@ -18,9 +18,9 @@ struct Symbol:Sendable, CustomStringConvertible
     let route:Route.Key
     var shape:Shape<Tree.Position<Self>>?
 
-    var metadata:_History<Metadata?>.Head?
-    var declaration:_History<Declaration<Branch.Position<Symbol>>>.Head?
-    var documentation:_History<DocumentationExtension<Branch.Position<Symbol>>>.Head?
+    var metadata:History<Metadata?>.Head?
+    var declaration:History<Declaration<Branch.Position<Symbol>>>.Head?
+    var documentation:History<DocumentationExtension<Branch.Position<Symbol>>>.Head?
 
     var pollen:Set<Module.Pin>
     

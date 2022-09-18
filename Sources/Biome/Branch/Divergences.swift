@@ -24,10 +24,10 @@ struct Divergences<Key, Value> where Key:Hashable
     /// ``Buffer/SubSequence`` it was obtained from, if applicable. However 
     /// if this method returns a non-nil result, the specified revision 
     /// is guaranteed to exist in the associated chain.
-    subscript<Field>(key:Key, field:KeyPath<Value, _History<Field>.Divergent?>) 
-        -> _History<Field>.Head?
+    subscript<Field>(key:Key, field:KeyPath<Value, History<Field>.Divergent?>) 
+        -> History<Field>.Head?
     {
-        if  let divergence:_History<Field>.Divergent = self.items[key]?[keyPath: field], 
+        if  let divergence:History<Field>.Divergent = self.items[key]?[keyPath: field], 
                 divergence.start <= self.limit
         {
             return divergence.head

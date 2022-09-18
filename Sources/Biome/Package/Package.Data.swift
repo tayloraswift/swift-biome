@@ -4,13 +4,13 @@ extension Package
 {
     struct Data 
     {
-        var topLevelArticles:_History<Set<Branch.Position<Article>>>
-        var topLevelSymbols:_History<Set<Branch.Position<Symbol>>>
+        var topLevelArticles:History<Set<Branch.Position<Article>>>
+        var topLevelSymbols:History<Set<Branch.Position<Symbol>>>
         private(set)
-        var declarations:_History<Declaration<Branch.Position<Symbol>>>
+        var declarations:History<Declaration<Branch.Position<Symbol>>>
 
-        var standaloneDocumentation:_History<DocumentationExtension<Never>>
-        var symbolDocumentation:_History<DocumentationExtension<Branch.Position<Symbol>>>
+        var standaloneDocumentation:History<DocumentationExtension<Never>>
+        var symbolDocumentation:History<DocumentationExtension<Branch.Position<Symbol>>>
 
         init() 
         {
