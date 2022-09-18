@@ -9,7 +9,7 @@ extension Forest where Value:Comparable
 }
 extension Forest 
 {
-    @available(*, deprecated, message: "use one of insert(min:before:) or insert(root:)")
+    @available(*, deprecated, message: "use one of insert(_:before:) or insert(_:)")
     @inlinable public mutating
     func push(min value:Value, into tree:inout Tree.Head?) 
     {

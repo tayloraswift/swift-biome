@@ -88,7 +88,7 @@ extension Forest
         /// elements do so as well.
         ///
         /// The following diagram illustrates the output for a tree with 3 values, 
-        /// and a predicate of [`{ $0 <= x }`](), over `x` in [`0x0 ... 0xB`]().
+        /// and a predicate of [`{ $0 >= x }`](), over `x` in [`0x0 ... 0xB`]().
         /// 
         /// ```text 
         /// indices :               a   b                       c
