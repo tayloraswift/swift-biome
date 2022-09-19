@@ -185,7 +185,7 @@ struct Package:Identifiable, Sendable
         }
     }
     
-    // func depth(of composite:Composite, at version:Version, route:Route.Key)
+    // func depth(of composite:Composite, at version:Version, route:Route)
     //     -> (host:Bool, base:Bool)
     // {
     //     var explicit:(host:Bool, base:Bool) = (false, false)

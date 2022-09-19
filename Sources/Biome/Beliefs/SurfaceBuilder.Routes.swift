@@ -3,7 +3,7 @@ extension SurfaceBuilder
     struct NaturalRoutes:ExpressibleByArrayLiteral, RandomAccessCollection
     {
         private 
-        var elements:[(Route.Key, Position<Symbol>)]
+        var elements:[(Route, Position<Symbol>)]
 
         var startIndex:Int 
         {
@@ -13,19 +13,19 @@ extension SurfaceBuilder
         {
             self.elements.endIndex
         }
-        subscript(index:Int) -> (Route.Key, Composite)
+        subscript(index:Int) -> (Route, Composite)
         {
-            let (key, natural):(Route.Key, Position<Symbol>) = self.elements[index]
+            let (key, natural):(Route, Position<Symbol>) = self.elements[index]
             return (key, .init(natural: natural))
         }
 
-        init(arrayLiteral:(Route.Key, Position<Symbol>)...)
+        init(arrayLiteral:(Route, Position<Symbol>)...)
         {
             self.elements = arrayLiteral
         }
 
         mutating 
-        func append(_ route:Route.Key, position:Position<Symbol>)
+        func append(_ route:Route, position:Position<Symbol>)
         {
             self.elements.append((route, position))
         }
@@ -80,11 +80,11 @@ extension SurfaceBuilder
         {
             self.matrix.endIndex
         }
-        subscript(index:Int) -> (Route.Key, Composite)
+        subscript(index:Int) -> (Route, Composite)
         {
             let (base, leaf):(Position<Symbol>, Route.Leaf) = self.matrix[index]
             let composite:Composite = .init(base, self.diacritic)
-            let key:Route.Key = .init(self.namespace, self.prefix, leaf) 
+            let key:Route = .init(self.namespace, self.prefix, leaf) 
             return (key, composite)
         }
     }

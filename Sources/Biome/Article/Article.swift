@@ -12,9 +12,9 @@ struct Article:Sendable
     @usableFromInline 
     struct ID:Hashable, Sendable 
     {
-        let route:Route.Key
+        let route:Route
         
-        init(_ route:Route.Key)
+        init(_ route:Route)
         {
             self.route = route
         }
@@ -44,7 +44,7 @@ struct Article:Sendable
     {
         self.path.last
     }
-    var route:Route.Key 
+    var route:Route 
     {
         self.id.route
     }

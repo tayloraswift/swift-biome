@@ -37,7 +37,7 @@ struct Resolver
             self.context = context
         }
 
-        func select(_ key:Route.Key, 
+        func select(_ key:Route, 
             disambiguator:_SymbolLink.Disambiguator, 
             imports:Set<Position<Module>>)
             -> _Selection<Composite>?
@@ -245,7 +245,7 @@ struct Resolver
             let namespace:PluralPosition<Module> = self.namespaces.linked[.init(link.first)], 
                 imports.contains(namespace.contemporary), 
             let pinned:Package.Pinned = self.context[namespace.nationality],
-            let article:Route.Key = stems[namespace.contemporary, straight: path], 
+            let article:Route = stems[namespace.contemporary, straight: path], 
             let article:PluralPosition<Article> = pinned.articles.find(.init(article))
         {
             return article.contemporary
@@ -283,7 +283,7 @@ struct Resolver
         {
             return .module(namespace.contemporary)
         }
-        if  let key:Route.Key = stems[namespace.contemporary, link], 
+        if  let key:Route = stems[namespace.contemporary, link], 
             let selection:_Selection<Composite> = 
                 self.lenses.select(key, disambiguator: link.disambiguator, imports: imports)
         {

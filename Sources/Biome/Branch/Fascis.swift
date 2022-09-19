@@ -6,7 +6,7 @@ struct Fascis:Sendable
         _modules:Branch.Buffer<Module>.SubSequence 
     private 
     let _foreign:[Diacritic: Symbol.ForeignDivergence], 
-        _routes:[Route.Key: Branch.Stack]
+        _routes:[Route: Branch.Stack]
     /// The index of the original branch this fascis was cut from.
     /// 
     /// This is the branch that contains the fascis, not the branch 
@@ -20,7 +20,7 @@ struct Fascis:Sendable
         symbols:Branch.Buffer<Symbol>.SubSequence,
         modules:Branch.Buffer<Module>.SubSequence, 
         foreign:[Diacritic: Symbol.ForeignDivergence],
-        routes:[Route.Key: Branch.Stack],
+        routes:[Route: Branch.Stack],
         branch:Version.Branch, 
         limit:Version.Revision)
     {
@@ -50,7 +50,7 @@ struct Fascis:Sendable
     {
         .init(self._foreign, limit: self.limit)
     }
-    var routes:Divergences<Route.Key, Branch.Stack> 
+    var routes:Divergences<Route, Branch.Stack> 
     {
         .init(self._routes, limit: self.limit)
     }

@@ -110,7 +110,7 @@ struct Fasces
         {
             self.segments.endIndex
         }
-        subscript(index:Int) -> Divergences<Route.Key, Branch.Stack> 
+        subscript(index:Int) -> Divergences<Route, Branch.Stack> 
         {
             self.segments[index].routes
         }
@@ -119,11 +119,11 @@ struct Fasces
     {
         private 
         let trunk:[Fascis], 
-            routes:[Route.Key: Branch.Stack], 
+            routes:[Route: Branch.Stack], 
             branch:Version.Branch
 
         init(_ trunk:[Fascis], 
-            routes:[Route.Key: Branch.Stack], 
+            routes:[Route: Branch.Stack], 
             branch:Version.Branch)
         {
             self.trunk = trunk 
@@ -131,7 +131,7 @@ struct Fasces
             self.branch = branch
         }
 
-        func select<T>(_ key:Route.Key, 
+        func select<T>(_ key:Route, 
             where filter:(Version.Branch, Composite) throws -> T?) 
             rethrows -> _Selection<T>?
         {
@@ -146,7 +146,7 @@ struct Fasces
             return selection
         }
         private 
-        func select(_ key:Route.Key, 
+        func select(_ key:Route, 
             _ body:(Version.Branch, Composite) throws -> ()) rethrows 
         {
             try self.routes.select(key) 
@@ -195,7 +195,7 @@ struct Fasces
     {
         .init(self.segments)
     }
-    func routes(layering routes:[Route.Key: Branch.Stack], branch:Version.Branch) 
+    func routes(layering routes:[Route: Branch.Stack], branch:Version.Branch) 
         -> AugmentedRoutingView 
     {
         .init(self.segments, routes: routes, branch: branch)

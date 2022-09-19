@@ -15,7 +15,7 @@ struct Symbol:Sendable, CustomStringConvertible
     //  often be a single-element array
     let path:Path
     let kind:Kind
-    let route:Route.Key
+    let route:Route
     var shape:Shape<PluralPosition<Self>>?
 
     var metadata:History<Metadata?>.Head?
@@ -62,7 +62,7 @@ struct Symbol:Sendable, CustomStringConvertible
         self.path.description
     }
     
-    init(id:ID, path:Path, kind:Kind, route:Route.Key)
+    init(id:ID, path:Path, kind:Kind, route:Route)
     {
         self.id = id 
         self.path = path

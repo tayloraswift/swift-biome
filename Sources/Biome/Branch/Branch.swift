@@ -28,7 +28,7 @@ struct Branch:Identifiable, Sendable
     var articles:Buffer<Article>, 
         symbols:Buffer<Symbol>,
         modules:Buffer<Module>
-    var routes:[Route.Key: Stack]
+    var routes:[Route: Stack]
 
     var _surface:Surface 
 
@@ -214,8 +214,8 @@ extension Branch
         let position:Position<Symbol> = self.symbols.insert(id, culture: culture)
         {
             (id:Symbol.ID, _:Position<Symbol>) in 
-            let route:Route.Key = .init(namespace, 
-                        stems.register(components: vertex.path.prefix), 
+            let route:Route = .init(namespace, 
+                      stems.register(components: vertex.path.prefix), 
                 .init(stems.register(component:  vertex.path.last), 
                 orientation: vertex.community.orientation))
             // if the symbol could inherit features, generate a stem 

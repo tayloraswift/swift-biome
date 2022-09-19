@@ -294,7 +294,7 @@ extension Service
         }
         // doc scheme never uses nationality query parameter 
         if      case .doc = scheme, 
-                let key:Route.Key = self.stems[namespace.contemporary, straight: request], 
+                let key:Route = self.stems[namespace.contemporary, straight: request], 
                 let article:PluralPosition<Article> = residency.articles.find(.init(key))
         {
             let address:Address = residency.address(of: residency.package.tree[local: article], 
@@ -324,7 +324,7 @@ extension Service
         namespace:Position<Module>, 
         request:__owned _SymbolLink) -> GetRequest?
     {
-        guard let key:Route.Key = self.stems[namespace, request]
+        guard let key:Route = self.stems[namespace, request]
         else 
         {
             return nil 

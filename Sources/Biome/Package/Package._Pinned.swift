@@ -22,11 +22,11 @@ struct _Scope
     }
 
     func scan<T>(concatenating link:_SymbolLink, stems:Route.Stems, 
-        until match:(Route.Key) throws -> T?) rethrows -> T?
+        until match:(Route) throws -> T?) rethrows -> T?
     {
         for level:Int in self.path.indices.reversed()
         {
-            if  let key:Route.Key = 
+            if  let key:Route = 
                     stems[self.namespace, self.path.prefix(through: level), link],
                 let match:T = try match(key)
             {
@@ -236,7 +236,7 @@ extension Package.Pinned
         {
             return .module(namespace.contemporary)
         }
-        if  let key:Route.Key = stems[namespace.contemporary, link], 
+        if  let key:Route = stems[namespace.contemporary, link], 
             let selection:_Selection<Composite> = try self.routes.select(key, 
                 where: predicate)
         {
@@ -367,7 +367,7 @@ extension Branch
 }
 extension Package.Pinned 
 {
-    func depth(of route:Route.Key, natural:Position<Symbol>) -> Branch.NaturalDepth?
+    func depth(of route:Route, natural:Position<Symbol>) -> Branch.NaturalDepth?
     {
         do 
         {
@@ -390,7 +390,7 @@ extension Package.Pinned
             return .base
         }
     }
-    func depth(of route:Route.Key, host:Position<Symbol>, base:Position<Symbol>) 
+    func depth(of route:Route, host:Position<Symbol>, base:Position<Symbol>) 
         -> Branch.CompositeDepth?
     {
         do 

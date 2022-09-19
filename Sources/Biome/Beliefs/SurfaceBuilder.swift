@@ -405,7 +405,7 @@ extension SurfaceBuilder
             }
             //  attempt to re-parent this symbol using lexical lookup. 
             //  this is a *very* heuristical process.
-            if  let scope:Route.Key = stems[symbol.route.namespace, straight: scope]
+            if  let scope:Route = stems[symbol.route.namespace, straight: scope]
             {
                 let selection:_Selection<PluralPosition<Symbol>>? = routes.select(scope)
                 {

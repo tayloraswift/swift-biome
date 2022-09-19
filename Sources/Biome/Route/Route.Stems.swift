@@ -84,7 +84,7 @@ extension Route
         }
 
         subscript<Component>(namespace:Module.Index, 
-            straight infix:some BidirectionalCollection<Component>) -> Key? 
+            straight infix:some BidirectionalCollection<Component>) -> Route? 
             where Component:StringProtocol
         {
             if  let leaf:Component = infix.last,
@@ -100,7 +100,7 @@ extension Route
         }
         subscript<Component>(namespace:Module.Index, 
             infix:some BidirectionalCollection<Component>, 
-            suffix:_SymbolLink) -> Key? 
+            suffix:_SymbolLink) -> Route? 
             where Component:StringProtocol
         {
             guard let leaf:Stem = self[leaf: suffix.path.last]
@@ -127,13 +127,13 @@ extension Route
                 .init(namespace, $0, leaf, orientation: suffix.path.orientation)
             }
         }
-        subscript(namespace:Module.Index, suffix:_SymbolLink) -> Key? 
+        subscript(namespace:Module.Index, suffix:_SymbolLink) -> Route? 
         {
             self[namespace, EmptyCollection<String>.init(), suffix]
         }
 
 
-        subscript(namespace:Module.Index, infix:[String], suffix:Symbol.Link) -> Key? 
+        subscript(namespace:Module.Index, infix:[String], suffix:Symbol.Link) -> Route? 
         {
             if  let leaf:Symbol.Link.Component = suffix.last,
                 let leaf:Stem = self[leaf: leaf],
@@ -146,7 +146,7 @@ extension Route
                 return nil
             }
         }
-        subscript(namespace:Module.Index, suffix:Symbol.Link) -> Key? 
+        subscript(namespace:Module.Index, suffix:Symbol.Link) -> Route? 
         {
             self[namespace, [], suffix]
         }
