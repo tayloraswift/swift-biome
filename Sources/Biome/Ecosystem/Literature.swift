@@ -2,7 +2,7 @@ import SymbolGraphs
 import DOM
 import URI
 
-extension DocumentationExtension:Equatable where Position:Equatable 
+extension DocumentationExtension:Equatable where Extended:Equatable 
 {
     static 
     func == (lhs:Self, rhs:Self) -> Bool 
@@ -12,9 +12,9 @@ extension DocumentationExtension:Equatable where Position:Equatable
         lhs.body == rhs.body 
     }
 }
-struct DocumentationExtension<Position> 
+struct DocumentationExtension<Extended> 
 {
-    var extends:Position?
+    var extends:Extended?
     var errors:[any Error]
     let card:DOM.Flattened<GlobalLink.Presentation>
     let body:DOM.Flattened<GlobalLink.Presentation>
@@ -26,16 +26,16 @@ struct DocumentationExtension<Position>
         self.card = .init()
         self.body = .init()
     }
-    init(inheriting extends:Position)
+    init(inheriting extends:Extended)
     {
         self.extends = extends 
         self.errors = []
         self.card = .init()
         self.body = .init()
     }
-    init(compiling _extension:__owned Extension, extending extends:Position? = nil,
+    init(compiling _extension:__owned Extension, extending extends:Extended? = nil,
         resolver:Resolver,
-        imports:Set<Branch.Position<Module>>, 
+        imports:Set<Position<Module>>, 
         scope:_Scope?, 
         stems:Route.Stems) 
     {
@@ -76,8 +76,8 @@ struct Literature
     {
         enum Node 
         {
-            case inherits(Branch.Position<Symbol>)
-            case extends(Branch.Position<Symbol>?, with:String)
+            case inherits(Position<Symbol>)
+            case extends(Position<Symbol>?, with:String)
         }
 
         let node:Node 
@@ -93,7 +93,7 @@ struct Literature
     struct Comments 
     {
         private 
-        var uptree:[Branch.Position<Symbol>: Comment] = [:]
+        var uptree:[Position<Symbol>: Comment] = [:]
         private(set)
         var pruned:Int
 
@@ -154,7 +154,7 @@ struct Literature
             }
         }
 
-        func consolidated(culture:Package.Index) -> [Branch.Position<Symbol>: Comment]
+        func consolidated(culture:Package.Index) -> [Position<Symbol>: Comment]
         {
             var skipped:Int = 0,
                 dropped:Int = 0
@@ -175,7 +175,7 @@ struct Literature
                 {
                     // fast-forward until we either reach a package boundary, 
                     // or a local symbol that has documentation
-                    var visited:Set<Branch.Position<Symbol>> = []
+                    var visited:Set<Position<Symbol>> = []
                     fastforwarding:
                     while origin.nationality == culture
                     {
@@ -205,11 +205,11 @@ struct Literature
         }
     }
     private(set) 
-    var articles:[(Branch.Position<Article>, DocumentationExtension<Never>)]
+    var articles:[(Position<Article>, DocumentationExtension<Never>)]
     private(set) 
-    var symbols:[(Branch.Position<Symbol>, DocumentationExtension<Branch.Position<Symbol>>)]
+    var symbols:[(Position<Symbol>, DocumentationExtension<Position<Symbol>>)]
     private(set) 
-    var modules:[(Branch.Position<Module>, DocumentationExtension<Never>)]
+    var modules:[(Position<Module>, DocumentationExtension<Never>)]
     private(set) 
     var package:DocumentationExtension<Never>?
 
@@ -243,12 +243,12 @@ struct Literature
     private mutating 
     func compile(graphs:__owned [SymbolGraph], 
         interfaces:__owned [ModuleInterface], 
-        comments:__owned [Branch.Position<Symbol>: Comment], 
+        comments:__owned [Position<Symbol>: Comment], 
         package local:Package._Pinned, 
         context:Packages,
         stems:Route.Stems)
     {
-        var resolvers:[Branch.Position<Module>: Resolver] = .init(minimumCapacity: graphs.count)
+        var resolvers:[Position<Module>: Resolver] = .init(minimumCapacity: graphs.count)
         for (_, interface):(SymbolGraph, ModuleInterface) in zip(_move graphs, _move interfaces)
         {
             // use the interface-level pins and not the package-level pins, 
@@ -260,7 +260,7 @@ struct Literature
             for (position, _extension):(PluralPosition<Article>?, Extension) in 
                 zip(interface.citizenArticles, interface._cachedMarkdown)
             {
-                let imports:Set<Branch.Position<Module>> = 
+                let imports:Set<Position<Module>> = 
                     interface.namespaces.import(_extension.metadata.imports)
                 // TODO: handle merge behavior block directive 
                 if let position:PluralPosition<Article> 
@@ -304,7 +304,7 @@ struct Literature
                             stems: stems)))
                     
                     case .composite(let composite):
-                        guard   let natural:Branch.Position<Symbol> = composite.natural 
+                        guard   let natural:Position<Symbol> = composite.natural 
                         else 
                         {
                             print("warning: documentation extensions for composite APIs are unsupported, skipping")
@@ -340,11 +340,11 @@ struct Literature
         self.compile(comments: _move comments, resolvers: _move resolvers, stems: stems)
     }
     private mutating 
-    func compile(comments:__owned [Branch.Position<Symbol>: Comment],
-        resolvers:__owned [Branch.Position<Module>: Resolver], 
+    func compile(comments:__owned [Position<Symbol>: Comment],
+        resolvers:__owned [Position<Module>: Resolver], 
         stems:Route.Stems)
     {
-        for (position, comment):(Branch.Position<Symbol>, Comment) in comments 
+        for (position, comment):(Position<Symbol>, Comment) in comments 
         {
             guard let resolver:Resolver = resolvers[position.culture] 
             else 
@@ -352,7 +352,7 @@ struct Literature
                 fatalError("unreachable")
             }
 
-            let documentation:DocumentationExtension<Branch.Position<Symbol>>
+            let documentation:DocumentationExtension<Position<Symbol>>
             switch comment.node 
             {
             case .inherits(let origin):

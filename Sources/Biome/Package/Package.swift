@@ -348,7 +348,7 @@ extension Package
             trunk: fasces.symbols)
         
 
-        var topLevelSymbols:Set<Branch.Position<Symbol>> = [] 
+        var topLevelSymbols:Set<Position<Symbol>> = [] 
         for position:PluralPosition<Symbol>? in interface.citizenSymbols
         {
             if  let position:PluralPosition<Symbol>, 
@@ -367,7 +367,7 @@ extension Package
             trunk: fasces.modules)
         
 
-        let topLevelArticles:Set<Branch.Position<Article>> = 
+        let topLevelArticles:Set<Position<Article>> = 
             .init(interface.citizenArticles.lazy.compactMap { $0?.contemporary })
         self.data.topLevelArticles.update(&self.tree[version.branch].modules, 
             position: interface.culture, 
@@ -379,7 +379,7 @@ extension Package
     mutating 
     func updateDocumentation(to version:Version, literature:__owned Literature, fasces:Fasces)
     {
-        for (position, documentation):(Branch.Position<Module>, DocumentationExtension<Never>)
+        for (position, documentation):(Position<Module>, DocumentationExtension<Never>)
             in literature.modules 
         {
             self.data.standaloneDocumentation.update(&self.tree[version.branch].modules, 
@@ -389,7 +389,7 @@ extension Package
                 field: (\.documentation, \.documentation),
                 trunk: fasces.modules)
         }
-        for (position, documentation):(Branch.Position<Article>, DocumentationExtension<Never>)
+        for (position, documentation):(Position<Article>, DocumentationExtension<Never>)
             in literature.articles 
         {
             self.data.standaloneDocumentation.update(&self.tree[version.branch].articles, 
@@ -399,7 +399,7 @@ extension Package
                 field: (\.documentation, \.documentation),
                 trunk: fasces.articles)
         }
-        for (position, documentation):(Branch.Position<Symbol>, DocumentationExtension<Branch.Position<Symbol>>)
+        for (position, documentation):(Position<Symbol>, DocumentationExtension<Position<Symbol>>)
             in literature.symbols 
         {
             self.data.symbolDocumentation.update(&self.tree[version.branch].symbols, 

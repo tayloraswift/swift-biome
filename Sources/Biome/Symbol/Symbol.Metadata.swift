@@ -4,11 +4,11 @@ extension Symbol:BranchElement
     {
         let roles:Branch.SymbolRoles?
         var primary:Branch.SymbolTraits
-        var accepted:[Branch.Position<Module>: Branch.SymbolTraits] 
+        var accepted:[Position<Module>: Branch.SymbolTraits] 
 
         init(roles:Branch.SymbolRoles?,
             primary:Branch.SymbolTraits,
-            accepted:[Branch.Position<Module>: Branch.SymbolTraits] = [:])
+            accepted:[Position<Module>: Branch.SymbolTraits] = [:])
         {
             self.roles = roles
             self.primary = primary
@@ -34,8 +34,8 @@ extension Symbol:BranchElement
     struct Divergence:Voidable, Sendable 
     {
         var metadata:History<Metadata?>.Divergent?
-        var declaration:History<Declaration<Branch.Position<Symbol>>>.Divergent?
-        var documentation:History<DocumentationExtension<Branch.Position<Symbol>>>.Divergent?
+        var declaration:History<Declaration<Position<Symbol>>>.Divergent?
+        var documentation:History<DocumentationExtension<Position<Symbol>>>.Divergent?
 
         init() 
         {
@@ -54,7 +54,7 @@ extension Symbol:BranchElement
             self.traits = traits 
         }
 
-        func contains(feature:Branch.Position<Symbol>) -> Bool 
+        func contains(feature:Position<Symbol>) -> Bool 
         {
             self.traits.features.contains(feature)
         }

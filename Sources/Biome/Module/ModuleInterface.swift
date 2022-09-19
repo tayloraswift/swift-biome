@@ -110,7 +110,7 @@ struct ModuleInterface
     {
         self.namespaces.nationality
     }
-    var culture:Branch.Position<Module> 
+    var culture:Position<Module> 
     {
         self.namespaces.culture 
     }

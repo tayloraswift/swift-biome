@@ -51,7 +51,7 @@ extension Branch.Stack?
         case .one((element, let revision))?: 
             self = .one((element, revision)) 
         case .one(let other)?: 
-            let two:[Branch.Position<Symbol>: Branch.Substack]
+            let two:[Position<Symbol>: Branch.Substack]
             // overloading on host id is extremely rare; the column 
             // array layout is inefficient, but allows us to represent the 
             // more-common row layout efficiently

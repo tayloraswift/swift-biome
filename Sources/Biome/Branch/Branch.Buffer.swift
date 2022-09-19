@@ -71,7 +71,7 @@ extension Branch.Buffer
         }
     }
     @available(*, deprecated, renamed: "subscript(contemporary:)")
-    subscript(local position:Branch.Position<Element>) -> Element
+    subscript(local position:Position<Element>) -> Element
     {
         get 
         {
@@ -83,11 +83,11 @@ extension Branch.Buffer
         }
     }
     // needed to workaround a compiler crash: https://github.com/apple/swift/issues/60841
-    subscript(_contemporary position:Branch.Position<Element>) -> Element
+    subscript(_contemporary position:Position<Element>) -> Element
     {
         self[position.offset]
     }
-    subscript(contemporary position:Branch.Position<Element>) -> Element
+    subscript(contemporary position:Position<Element>) -> Element
     {
         _read
         {
@@ -131,8 +131,8 @@ extension Branch.Buffer
         typealias Index = Element.Offset 
         typealias SubSequence = Self 
 
-        let divergences:[Branch.Position<Element>: Element.Divergence]
-        let positions:[Element.ID: Branch.Position<Element>]
+        let divergences:[Position<Element>: Element.Divergence]
+        let positions:[Element.ID: Position<Element>]
         private 
         let storage:[Element]
         let indices:Range<Element.Offset>
@@ -160,7 +160,7 @@ extension Branch.Buffer
                 storage: self.storage, 
                 indices: range)
         }
-        subscript(contemporary position:Branch.Position<Element>) -> Element
+        subscript(contemporary position:Position<Element>) -> Element
         {
             _read
             {
@@ -168,8 +168,8 @@ extension Branch.Buffer
             }
         }
         
-        init(divergences:[Branch.Position<Element>: Element.Divergence], 
-            positions:[Element.ID: Branch.Position<Element>], 
+        init(divergences:[Position<Element>: Element.Divergence], 
+            positions:[Element.ID: Position<Element>], 
             storage:[Element], 
             indices:Range<Element.Offset>)
         {

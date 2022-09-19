@@ -59,7 +59,7 @@ struct Page
         fatalError("unimplemented")
         //self.ecosystem[package].pinned(self.pins)
     }
-    func template(_ documentation:DocumentationExtension<Branch.Position<Symbol>>) 
+    func template(_ documentation:DocumentationExtension<Position<Symbol>>) 
         -> DocumentationExtension<Never>
     {
         fatalError("unimplemented")
@@ -90,7 +90,7 @@ extension Page
         {
             $0.map 
             {
-                .composite($0, self.pin($0.base.module.package).declaration(for: $0.base))
+                .composite($0, self.pin($0.base.nationality).declaration(for: $0.base))
             }
         }
         self.substitutions.merge(
@@ -131,7 +131,7 @@ extension Page
     private mutating 
     func generate(for module:Module.Index, exhibit:Version?) 
     {
-        let pinned:Package.Pinned = self.pin(module.package)
+        let pinned:Package.Pinned = self.pin(module.nationality)
         let topics:Topics = self.organize(
             toplevel: pinned.topLevelSymbols(of: module),
             guides: pinned.topLevelArticles(of: module))
@@ -149,7 +149,7 @@ extension Page
     private mutating
     func generate(for article:Article.Index, exhibit:Version?)
     {
-        let pinned:Package.Pinned = self.pin(article.module.package)
+        let pinned:Package.Pinned = self.pin(article.nationality)
         
         self.add(fields: self.ecosystem.packages.renderFields(for: article, 
             excerpt: pinned.metadata(local: article)!))
@@ -182,8 +182,8 @@ extension Page
             topics = .init()
         }
         
-        let base:Package.Pinned = self.pin(composite.base.module.package)
-        let pinned:Package.Pinned = self.pin(composite.culture.package)
+        let base:Package.Pinned = self.pin(composite.base.nationality)
+        let pinned:Package.Pinned = self.pin(composite.nationality)
         
         self.add(fields: self.ecosystem.packages.renderFields(for: composite, 
             declaration: base.declaration(for: composite.base),
@@ -217,13 +217,13 @@ extension Page
         {
         case .composite(let composite):
             uri = self.ecosystem.uri(of: composite, 
-                in: self.pin(composite.culture.package))
+                in: self.pin(composite.nationality))
         case .article(let article):
             uri = self.ecosystem.uri(of: article, 
-                in: self.pin(article.module.package))
+                in: self.pin(article.nationality))
         case .module(let module):
             uri = self.ecosystem.uri(of: module, 
-                in: self.pin(module.package))
+                in: self.pin(module.nationality))
         case .package(let package):
             uri = self.ecosystem.uri(
                 of: self.pin(package))
@@ -241,7 +241,7 @@ extension Page
         }
         
         guard let excerpt:Article.Metadata = 
-            self.pin(article.module.package).metadata(local: article)
+            self.pin(article.nationality).metadata(local: article)
         else 
         {
             fatalError("unimplemented")

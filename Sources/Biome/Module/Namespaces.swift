@@ -13,7 +13,7 @@ struct Namespace
     let id:Module.ID 
     let position:PluralPosition<Module>
 
-    var culture:Branch.Position<Module>
+    var culture:Position<Module>
     {
         self.position.contemporary
     }
@@ -67,7 +67,7 @@ struct Namespaces
     {
         self.culture.nationality
     }
-    var culture:Branch.Position<Module> 
+    var culture:Position<Module> 
     {
         self.module.culture
     }
@@ -75,7 +75,7 @@ struct Namespaces
     /// Returns a set containing all modules the current module depends on. 
     /// 
     /// This is similar to ``import``, except it excludes the current module.
-    func dependencies() -> Set<Branch.Position<Module>>
+    func dependencies() -> Set<Position<Module>>
     {
         .init(self.linked.values.lazy.compactMap 
         { 
@@ -85,7 +85,7 @@ struct Namespaces
 
     /// Returns a set containing all modules that can be imported, including the 
     /// current module.
-    func `import`() -> Set<Branch.Position<Module>>
+    func `import`() -> Set<Position<Module>>
     {
         .init(self.linked.values.lazy.map(\.contemporary))
     }
@@ -93,13 +93,13 @@ struct Namespaces
     /// Returns a set containing all modules that can be imported, among the requested 
     /// list of module names. The current module is always included in the set, 
     /// even if not explicitly requested.
-    func `import`(_ modules:some Sequence<Module.ID>) -> Set<Branch.Position<Module>>
+    func `import`(_ modules:some Sequence<Module.ID>) -> Set<Position<Module>>
     {
-        var imported:Set<Branch.Position<Module>> = []
+        var imported:Set<Position<Module>> = []
             imported.reserveCapacity(modules.underestimatedCount + 1)
         for module:Module.ID in modules 
         {
-            if let position:Branch.Position<Module> = self.linked[module]?.contemporary
+            if let position:Position<Module> = self.linked[module]?.contemporary
             {
                 imported.insert(position)
             }

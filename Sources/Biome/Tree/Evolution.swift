@@ -48,7 +48,7 @@ struct Evolution
     
     private mutating 
     func scan(founder:Version.Branch, tree:Tree,
-        position:Branch.Position<Symbol>, 
+        position:Position<Symbol>, 
         history:History<Symbol.Metadata?>)
     {
         let branch:Branch = tree[founder]
@@ -85,7 +85,7 @@ struct Evolution
     private mutating 
     func scan(alternate:Version.Branch, tree:Tree,
         distance:Int = 1, 
-        position:Branch.Position<Symbol>, 
+        position:Position<Symbol>, 
         history:History<Symbol.Metadata?>, 
         base:Label)
     {

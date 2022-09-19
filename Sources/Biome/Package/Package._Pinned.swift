@@ -2,10 +2,10 @@ import URI
 
 struct _Scope 
 {
-    let namespace:Branch.Position<Module>
+    let namespace:Position<Module>
     let path:[String]
 
-    init(_ namespace:Branch.Position<Module>, _ path:[String] = [])
+    init(_ namespace:Position<Module>, _ path:[String] = [])
     {
         self.namespace = namespace 
         self.path = path
@@ -90,7 +90,7 @@ extension Package
 
 extension Package.Pinned 
 {
-    func load(local article:Branch.Position<Article>) -> Article?
+    func load(local article:Position<Article>) -> Article?
     {
         if let position:PluralPosition<Article> = article.pluralized(bisecting: self.articles)
         {
@@ -101,7 +101,7 @@ extension Package.Pinned
             return nil
         }
     }
-    func load(local symbol:Branch.Position<Symbol>) -> Symbol?
+    func load(local symbol:Position<Symbol>) -> Symbol?
     {
         if let position:PluralPosition<Symbol> = symbol.pluralized(bisecting: self.symbols)
         {
@@ -112,7 +112,7 @@ extension Package.Pinned
             return nil
         }
     }
-    func load(local module:Branch.Position<Module>) -> Module?
+    func load(local module:Position<Module>) -> Module?
     {
         if let position:PluralPosition<Module> = module.pluralized(bisecting: self.modules)
         {
@@ -126,19 +126,19 @@ extension Package.Pinned
 }
 extension Package.Pinned 
 {
-    func metadata(local article:Branch.Position<Article>) -> Article.Metadata?
+    func metadata(local article:Position<Article>) -> Article.Metadata?
     {
         self.package.metadata.articles.value(of: article, 
             field: (\.metadata, \.metadata), 
             in: self.fasces.articles) ?? nil
     }
-    func metadata(local symbol:Branch.Position<Symbol>) -> Symbol.Metadata?
+    func metadata(local symbol:Position<Symbol>) -> Symbol.Metadata?
     {
         self.package.metadata.symbols.value(of: symbol, 
             field: (\.metadata, \.metadata), 
             in: self.fasces.symbols) ?? nil
     }
-    func metadata(local module:Branch.Position<Module>) -> Module.Metadata?
+    func metadata(local module:Position<Module>) -> Module.Metadata?
     {
         self.package.metadata.modules.value(of: module, 
             field: (\.metadata, \.metadata), 
@@ -153,15 +153,15 @@ extension Package.Pinned
 }
 extension Package.Pinned 
 {
-    func exists(_ article:Branch.Position<Article>) -> Bool
+    func exists(_ article:Position<Article>) -> Bool
     {
         self.metadata(local: article) != nil 
     }
-    func exists(_ symbol:Branch.Position<Symbol>) -> Bool
+    func exists(_ symbol:Position<Symbol>) -> Bool
     {
         self.metadata(local: symbol) != nil 
     }
-    func exists(_ module:Branch.Position<Module>) -> Bool
+    func exists(_ module:Position<Module>) -> Bool
     {
         self.metadata(local: module) != nil
     }
@@ -171,7 +171,7 @@ extension Package.Pinned
     }
     func exists(_ composite:Branch.Composite) -> Bool
     {
-        guard let host:Branch.Position<Symbol> = composite.host 
+        guard let host:Position<Symbol> = composite.host 
         else 
         {
             return self.exists(composite.base)
@@ -256,40 +256,40 @@ extension Package.Pinned
         fatalError("unimplemented")
     }
 
-    func documentation(for symbol:Branch.Position<Symbol>) 
-        -> DocumentationExtension<Branch.Position<Symbol>>
+    func documentation(for symbol:Position<Symbol>) 
+        -> DocumentationExtension<Position<Symbol>>
     {
         self.package.data.symbolDocumentation.value(of: symbol, 
             field: (\.documentation, \.documentation), 
             in: self.fasces.symbols) ?? .init()
     }
-    func documentation(for article:Branch.Position<Article>) -> DocumentationExtension<Never>
+    func documentation(for article:Position<Article>) -> DocumentationExtension<Never>
     {
         self.package.data.standaloneDocumentation.value(of: article, 
             field: (\.documentation, \.documentation), 
             in: self.fasces.articles) ?? .init()
     }
-    func documentation(for module:Branch.Position<Module>) -> DocumentationExtension<Never>
+    func documentation(for module:Position<Module>) -> DocumentationExtension<Never>
     {
         self.package.data.standaloneDocumentation.value(of: module, 
             field: (\.documentation, \.documentation), 
             in: self.fasces.modules) ?? .init()
     }
     
-    func topLevelSymbols(of module:Branch.Position<Module>) -> Set<Branch.Position<Symbol>>
+    func topLevelSymbols(of module:Position<Module>) -> Set<Position<Symbol>>
     {
         self.package.data.topLevelSymbols.value(of: module, 
             field: (\.topLevelSymbols, \.topLevelSymbols), 
             in: self.fasces.modules) ?? []
     }
-    func topLevelArticles(of module:Branch.Position<Module>) -> Set<Branch.Position<Article>>
+    func topLevelArticles(of module:Position<Module>) -> Set<Position<Article>>
     {
         self.package.data.topLevelArticles.value(of: module, 
             field: (\.topLevelArticles, \.topLevelArticles), 
             in: self.fasces.modules) ?? []
     }
 
-    func declaration(for symbol:Branch.Position<Symbol>) -> Declaration<Branch.Position<Symbol>>
+    func declaration(for symbol:Position<Symbol>) -> Declaration<Position<Symbol>>
     {
         self.package.data.declarations.value(of: symbol, 
             field: (\.declaration, \.declaration), 
@@ -316,7 +316,7 @@ extension Package.Pinned
             version: self.package.tree.abbreviate(self.version)))
     }
     /// Returns the address of the specified module, assuming it is local to this package.
-    func address(local module:Branch.Position<Module>) -> Address?
+    func address(local module:Position<Module>) -> Address?
     {
         self.load(local: module).map(self.address(of:))
     }
@@ -329,7 +329,7 @@ extension Package.Pinned
         return .init(function: .documentation(.symbol), global: _move global)
     }
     /// Returns the address of the specified article, assuming it is local to this package.
-    func address(local article:Branch.Position<Article>) -> Address?
+    func address(local article:Position<Article>) -> Address?
     {
         if  let namespace:Module = self.load(local: article.culture),
             let article:Article = self.load(local: article)
@@ -367,7 +367,7 @@ extension Branch
 }
 extension Package.Pinned 
 {
-    func depth(of route:Route.Key, natural:Branch.Position<Symbol>) -> Branch.NaturalDepth?
+    func depth(of route:Route.Key, natural:Position<Symbol>) -> Branch.NaturalDepth?
     {
         do 
         {
@@ -390,7 +390,7 @@ extension Package.Pinned
             return .base
         }
     }
-    func depth(of route:Route.Key, host:Branch.Position<Symbol>, base:Branch.Position<Symbol>) 
+    func depth(of route:Route.Key, host:Position<Symbol>, base:Position<Symbol>) 
         -> Branch.CompositeDepth?
     {
         do 
@@ -428,13 +428,13 @@ extension Package.Pinned
 // {
 //     func _all() 
 //     {
-//         let modules:Set<Branch.Position<Module>> = self._allModules()
+//         let modules:Set<Position<Module>> = self._allModules()
 //         for epoch:Epoch<Module> in self.fasces.modules 
 //         {
-//             for (module, divergence):(Branch.Position<Module>, Module.Divergence) in 
+//             for (module, divergence):(Position<Module>, Module.Divergence) in 
 //                 epoch.divergences
 //             {
-//                 for (range, _):(Range<Symbol.Offset>, Branch.Position<Module>) in divergence.symbols 
+//                 for (range, _):(Range<Symbol.Offset>, Position<Module>) in divergence.symbols 
 //                 {
 //                     for offset:Symbol.Offset in range 
 //                     {
@@ -444,9 +444,9 @@ extension Package.Pinned
 //             }
 //         }
 //     }
-//     func _allModules() -> Set<Branch.Position<Module>>
+//     func _allModules() -> Set<Position<Module>>
 //     {
-//         var modules:Set<Branch.Position<Module>> = []
+//         var modules:Set<Position<Module>> = []
 //         for module:Module in self.fasces.modules.joined()
 //         {
 //             if self.exists(module.index)

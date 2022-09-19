@@ -1,26 +1,24 @@
-extension Branch.Position:Sendable where Element.Offset:Sendable, Element.Culture:Sendable
+extension Position:Sendable where Element.Offset:Sendable, Element.Culture:Sendable
 {
 }
-extension Branch 
-{
-    @frozen public 
-    struct Position<Element> where Element:BranchElement
-    {
-        public 
-        let culture:Element.Culture
-        public 
-        let offset:Element.Offset
-        
-        @inlinable public 
-        init(_ culture:Element.Culture, offset:Element.Offset)
-        {
-            self.culture = culture
-            self.offset = offset
-        }
 
+@frozen public 
+struct Position<Element> where Element:BranchElement
+{
+    public 
+    let culture:Element.Culture
+    public 
+    let offset:Element.Offset
+    
+    @inlinable public 
+    init(_ culture:Element.Culture, offset:Element.Offset)
+    {
+        self.culture = culture
+        self.offset = offset
     }
 }
-extension Branch.Position:Hashable, Comparable 
+
+extension Position:Hashable, Comparable 
 {
     @inlinable public static 
     func == (lhs:Self, rhs:Self) -> Bool
@@ -49,7 +47,7 @@ extension Branch.Position:Hashable, Comparable
     //     self.offset.distance(to: other.offset)
     // }
 }
-extension Branch.Position 
+extension Position 
 {
     func pluralized(_ branch:Version.Branch) -> PluralPosition<Element>
     {
@@ -111,7 +109,7 @@ extension RandomAccessCollection
     }
 }
 
-extension Branch.Position where Element.Culture == Package.Index
+extension Position where Element.Culture == Package.Index
 {
     var nationality:Package.Index 
     {
@@ -124,7 +122,7 @@ extension Branch.Position where Element.Culture == Package.Index
         self.nationality 
     }
 }
-extension Branch.Position where Element.Culture == Branch.Position<Module>
+extension Position where Element.Culture == Position<Module>
 {
     var nationality:Package.Index
     {
@@ -137,7 +135,7 @@ extension Branch.Position where Element.Culture == Branch.Position<Module>
         self.nationality
     }
     @available(*, deprecated, renamed: "culture")
-    var module:Branch.Position<Module>
+    var module:Position<Module>
     {
         self.culture 
     }

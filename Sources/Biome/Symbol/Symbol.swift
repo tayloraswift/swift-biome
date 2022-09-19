@@ -19,8 +19,8 @@ struct Symbol:Sendable, CustomStringConvertible
     var shape:Shape<PluralPosition<Self>>?
 
     var metadata:History<Metadata?>.Head?
-    var declaration:History<Declaration<Branch.Position<Symbol>>>.Head?
-    var documentation:History<DocumentationExtension<Branch.Position<Symbol>>>.Head?
+    var declaration:History<Declaration<Position<Symbol>>>.Head?
+    var documentation:History<DocumentationExtension<Position<Symbol>>>.Head?
 
     var pollen:Set<Module.Pin>
     
@@ -34,7 +34,7 @@ struct Symbol:Sendable, CustomStringConvertible
     }
     //  this is only the same as the perpetrator if this symbol is part of its 
     //  core symbol graph.
-    var namespace:Branch.Position<Module>
+    var namespace:Position<Module>
     {
         self.route.namespace
     }

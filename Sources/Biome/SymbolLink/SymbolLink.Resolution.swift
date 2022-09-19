@@ -2,8 +2,8 @@ extension GlobalLink
 {
     enum Target:Hashable, Sendable 
     {
-        case article(Branch.Position<Article>)
-        case module(Branch.Position<Module>)
+        case article(Position<Article>)
+        case module(Position<Module>)
         case package(Package.Index)
         case composite(Branch.Composite)
 
@@ -32,8 +32,8 @@ extension GlobalLink
 
     enum Presentation:Hashable, Sendable
     {
-        case article(Branch.Position<Article>)
-        case module(Branch.Position<Module>)
+        case article(Position<Article>)
+        case module(Position<Module>)
         case package(Package.Index)
         case composite(Branch.Composite, visible:Int)
 
@@ -88,7 +88,7 @@ extension _SymbolLink
     enum Resolution 
     {
         //case package(Package.Index)
-        case module(Branch.Position<Module>)
+        case module(Position<Module>)
         case composite(Branch.Composite) 
         case composites([Branch.Composite]) 
 

@@ -18,14 +18,14 @@ struct Belief
 
 struct Surface 
 {
-    var articles:Set<Branch.Position<Article>>
-    var symbols:Set<Branch.Position<Symbol>>
-    var modules:Set<Branch.Position<Module>>
+    var articles:Set<Position<Article>>
+    var symbols:Set<Position<Symbol>>
+    var modules:Set<Position<Module>>
     var foreign:Set<Branch.Diacritic>
 
-    init(articles:Set<Branch.Position<Article>> = [],
-        symbols:Set<Branch.Position<Symbol>> = [],
-        modules:Set<Branch.Position<Module>> = [],
+    init(articles:Set<Position<Article>> = [],
+        symbols:Set<Position<Symbol>> = [],
+        modules:Set<Position<Module>> = [],
         foreign:Set<Branch.Diacritic> = [])
     {
         self.articles = articles

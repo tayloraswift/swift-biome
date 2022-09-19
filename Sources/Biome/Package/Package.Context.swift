@@ -34,7 +34,7 @@ extension Package
 }
 extension Package.Context 
 {
-    func load(_ symbol:Branch.Position<Symbol>) -> Symbol?
+    func load(_ symbol:Position<Symbol>) -> Symbol?
     {
         self[symbol.nationality]?.load(local: symbol) 
     }
@@ -57,7 +57,7 @@ extension Package.Context
     /// 
     /// This method is isotropic; it does not matter which of the packages in 
     /// this context is the local package.
-    func address(of module:Branch.Position<Module>) -> Address?
+    func address(of module:Position<Module>) -> Address?
     {
         self[module.nationality]?.address(local: module)
     }
@@ -65,7 +65,7 @@ extension Package.Context
     /// 
     /// This method is isotropic; it does not matter which of the packages in 
     /// this context is the local package.
-    func address(of article:Branch.Position<Article>) -> Address?
+    func address(of article:Position<Article>) -> Address?
     {
         self[article.nationality]?.address(local: article)
     }
@@ -84,8 +84,8 @@ extension Package.Context
         }
 
         var address:Address.Symbolic 
-        let namespace:Branch.Position<Module>
-        if  let host:Branch.Position<Symbol> = composite.host
+        let namespace:Position<Module>
+        if  let host:Position<Symbol> = composite.host
         {
             guard   let host:Symbol = self.load(host), 
                     let stem:Route.Stem = host.kind.path

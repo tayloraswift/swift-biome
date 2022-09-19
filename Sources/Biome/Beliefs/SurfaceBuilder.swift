@@ -3,7 +3,7 @@ extension SurfaceBuilder
     fileprivate 
     struct Node 
     {
-        let position:Branch.Position<Symbol> 
+        let position:Position<Symbol> 
         var metadata:Symbol.Metadata
         var shape:Symbol.Shape<PluralPosition<Symbol>>?
     }
@@ -13,7 +13,7 @@ extension SurfaceBuilder
         private 
         var storage:[Node]
         private(set) 
-        var indices:[Branch.Position<Symbol>: Symbols.Index]
+        var indices:[Position<Symbol>: Symbols.Index]
 
         init()
         {
@@ -88,7 +88,7 @@ extension SurfaceBuilder
         {
             .init(offset: self.nodes.endIndex)
         }
-        subscript(index:Symbols.Index) -> (Branch.Position<Symbol>, Symbol.Metadata) 
+        subscript(index:Symbols.Index) -> (Position<Symbol>, Symbol.Metadata) 
         {
             let node:Node = self.nodes[index.offset]
             return (node.position, node.metadata)
@@ -122,9 +122,9 @@ struct SurfaceBuilder
     var routes:Routes
 
     private(set)
-    var articles:[(Branch.Position<Article>, Article.Metadata)], 
+    var articles:[(Position<Article>, Article.Metadata)], 
         foreign:[(Branch.Diacritic, Symbol.ForeignMetadata)], 
-        modules:[Branch.Position<Module>]
+        modules:[Position<Module>]
     private 
     var nodes:Nodes
 
@@ -264,8 +264,8 @@ struct SurfaceBuilder
 
         var shape:Symbol.Shape<PluralPosition<Symbol>>? = nil 
         // partition relationships buffer 
-        var superclass:Branch.Position<Symbol>? = nil 
-        var residuals:[Symbol.Role<Branch.Position<Symbol>>] = []
+        var superclass:Position<Symbol>? = nil 
+        var residuals:[Symbol.Role<Position<Symbol>>] = []
         for role:Symbol.Role<PluralPosition<Symbol>> in roles
         {
             switch (shape, role) 
@@ -348,7 +348,7 @@ struct SurfaceBuilder
     }
 
     private mutating 
-    func add(member:Branch.Position<Symbol>, to scope:Branch.Position<Symbol>)
+    func add(member:Position<Symbol>, to scope:Position<Symbol>)
     {
         guard let index:Symbols.Index = self.nodes.indices[scope]
         else 

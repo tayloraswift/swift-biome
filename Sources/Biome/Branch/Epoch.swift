@@ -23,7 +23,7 @@ struct Epoch<Element>:RandomAccessCollection
         self.limit = limit
     }
 
-    var divergences:Divergences<Branch.Position<Element>, Element.Divergence> 
+    var divergences:Divergences<Position<Element>, Element.Divergence> 
     {
         .init(self.slice.divergences, limit: self.limit)
     }
@@ -43,7 +43,7 @@ struct Epoch<Element>:RandomAccessCollection
             yield   self.slice[offset]
         }
     }
-    subscript(position:Branch.Position<Element>) -> Element? 
+    subscript(position:Position<Element>) -> Element? 
     {
         _read 
         {
@@ -52,9 +52,9 @@ struct Epoch<Element>:RandomAccessCollection
         }
     }
 
-    func position(of id:Element.ID) -> Branch.Position<Element>? 
+    func position(of id:Element.ID) -> Position<Element>? 
     {
-        if  let position:Branch.Position<Element> = self.slice.positions[id], 
+        if  let position:Position<Element> = self.slice.positions[id], 
             self.slice.indices ~= position.offset
         {
             return position

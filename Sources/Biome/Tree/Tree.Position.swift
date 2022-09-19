@@ -3,7 +3,7 @@ extension PluralPosition:Sendable where Element.Offset:Sendable, Element.Culture
 }
 struct PluralPosition<Element>:Hashable where Element:BranchElement
 {
-    let contemporary:Branch.Position<Element>
+    let contemporary:Position<Element>
     let branch:Version.Branch 
 
     @available(*, deprecated, renamed: "contemporary")
@@ -12,7 +12,7 @@ struct PluralPosition<Element>:Hashable where Element:BranchElement
         self.contemporary
     }
 
-    init(_ contemporary:Branch.Position<Element>, branch:Version.Branch)
+    init(_ contemporary:Position<Element>, branch:Version.Branch)
     {
         self.contemporary = contemporary 
         self.branch = branch
@@ -20,7 +20,7 @@ struct PluralPosition<Element>:Hashable where Element:BranchElement
 }
 
 
-extension PluralPosition where Element.Culture == Branch.Position<Module>
+extension PluralPosition where Element.Culture == Position<Module>
 {
     var nationality:Package.Index 
     {

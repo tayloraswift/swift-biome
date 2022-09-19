@@ -4,13 +4,13 @@ extension Package
 {
     struct Data 
     {
-        var topLevelArticles:History<Set<Branch.Position<Article>>>
-        var topLevelSymbols:History<Set<Branch.Position<Symbol>>>
+        var topLevelArticles:History<Set<Position<Article>>>
+        var topLevelSymbols:History<Set<Position<Symbol>>>
         private(set)
-        var declarations:History<Declaration<Branch.Position<Symbol>>>
+        var declarations:History<Declaration<Position<Symbol>>>
 
         var standaloneDocumentation:History<DocumentationExtension<Never>>
-        var symbolDocumentation:History<DocumentationExtension<Branch.Position<Symbol>>>
+        var symbolDocumentation:History<DocumentationExtension<Position<Symbol>>>
 
         init() 
         {
@@ -36,14 +36,14 @@ extension Package.Data
         for (position, vertex):(PluralPosition<Symbol>?, SymbolGraph.Vertex<Int>) in 
             zip(interface.citizenSymbols, graph.vertices)
         {
-            guard let position:Branch.Position<Symbol> = position?.contemporary
+            guard let position:Position<Symbol> = position?.contemporary
             else 
             {
                 continue 
             }
-            let declaration:Declaration<Branch.Position<Symbol>> = vertex.declaration.flatMap 
+            let declaration:Declaration<Position<Symbol>> = vertex.declaration.flatMap 
             {
-                if let target:Branch.Position<Symbol> = interface.symbols[$0]?.contemporary
+                if let target:Position<Symbol> = interface.symbols[$0]?.contemporary
                 {
                     return target 
                 }

@@ -3,7 +3,7 @@
 //     enum SymbolRoles
 //     {
 //         case one(Position<Symbol>)
-//         case many([Branch.Position<Symbol>: Version.Branch])
+//         case many([Position<Symbol>: Version.Branch])
         
 //         private 
 //         init?<Roles>(_ roles:Roles, 
@@ -23,7 +23,7 @@
 //                 {
 //                     continue 
 //                 }
-//                 var many:[Branch.Position<Symbol>: Version.Branch] = 
+//                 var many:[Position<Symbol>: Version.Branch] = 
 //                 [
 //                     first.contemporary: first.branch,
 //                     second.contemporary: second.branch,
@@ -141,7 +141,7 @@
 // }
 // extension Tree.SymbolRoles 
 // {
-//     func idealized() -> Symbol.Roles<Branch.Position<Symbol>>
+//     func idealized() -> Symbol.Roles<Position<Symbol>>
 //     {
 //         fatalError("unimplemented")
 //     }

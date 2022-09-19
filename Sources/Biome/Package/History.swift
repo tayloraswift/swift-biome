@@ -106,7 +106,7 @@ extension History
         }
         return nil
     }
-    func value<Element>(of position:Branch.Position<Element>, field:DenseField<Element>,
+    func value<Element>(of position:Position<Element>, field:DenseField<Element>,
         in trunk:some Sequence<Epoch<Element>>) -> Value?
         where Element:BranchElement
     {
@@ -197,7 +197,7 @@ extension History
     }
     mutating 
     func update<Element>(_ buffer:inout Branch.Buffer<Element>, 
-        position:Branch.Position<Element>, 
+        position:Position<Element>, 
         with value:__owned Value, 
         revision:Version.Revision, 
         field:WritableDenseField<Element>,
