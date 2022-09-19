@@ -115,6 +115,10 @@ extension Divergences where Divergence == Branch.Stack
 }
 extension Sequence<Divergences<Route, Branch.Stack>>
 {
+    func select(_ key:Route) -> _Selection<Composite>?
+    {
+        self.select(key) { $0 }
+    }
     func select(_ key:Route, where predicate:(Composite) throws -> Bool) rethrows 
         -> _Selection<Composite>?
     {

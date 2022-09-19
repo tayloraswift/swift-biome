@@ -341,16 +341,15 @@ struct _SymbolLink:RandomAccessCollection
             self.docC = nil
         }
 
-        func disambiguate(_ selection:inout _Selection<Composite>, context:Package.Context) 
+        func disambiguate(_ selection:__owned _Selection<Composite>, context:Package.Context) 
+            -> _Selection<Composite>
         {
-            if  case .many(let composites) = selection,
-                let filtered:_Selection<Composite> = .init(composites.filter 
-                { 
-                    self.matches($0, context: context) 
-                })
+            guard case .many(let composites) = selection 
+            else 
             {
-                selection = filtered
+                return selection
             }
+            return .init(composites.filter { self.matches($0, context: context) }) ?? selection 
         }
         // in general, we cannot assume anything about the locality of the base or host 
         // components in a synthetic composite.

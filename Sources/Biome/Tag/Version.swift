@@ -3,6 +3,7 @@ typealias _Version = Version
 @usableFromInline
 struct Version:Hashable, Sendable
 {
+    /// A reference to a ``/Biome//Branch`` within a ``Tree``.
     struct Branch:Hashable, Sendable 
     {
         let index:Int 
@@ -12,6 +13,11 @@ struct Version:Hashable, Sendable
             self.index = index
         }
     }
+    /// A reference to a ``/Biome//Revision`` within a ``/Biome//Branch``. 
+    /// 
+    /// Revision numbers always start from 0, even when a branch was forked from 
+    /// another branch. This makes it possible to tell if a revision has a 
+    /// branch-local predecessor without needing any external information.
     struct Revision:Hashable, Strideable, Sendable
     {
         let index:UInt16 
@@ -36,6 +42,11 @@ struct Version:Hashable, Sendable
         func distance(to other:Self) -> Int.Stride
         {
             self.index.distance(to: other.index)
+        }
+
+        var predecessor:Self? 
+        {
+            self.index < 1 ? nil : .init(self.index - 1)
         }
     }
 

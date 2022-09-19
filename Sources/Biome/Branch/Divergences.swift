@@ -1,13 +1,15 @@
-struct Divergences<Key, Divergence> where Key:Hashable
+struct Divergences<Key, Divergence>:TrunkPeriod where Key:Hashable
 {
     private 
     let items:[Key: Divergence]
-    let limit:Version.Revision
+    let latest:Version 
+    let fork:Version?
 
-    init(_ items:[Key: Divergence], limit:Version.Revision)
+    init(_ items:[Key: Divergence], latest:Version, fork:Version?)
     {
         self.items = items 
-        self.limit = limit
+        self.latest = latest 
+        self.fork = fork 
     }
 
     subscript(key:Key) -> Divergence? 

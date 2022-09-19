@@ -65,7 +65,8 @@ struct Branch:Identifiable, Sendable
             foreign: self.foreign, 
             routes: self.routes, 
             branch: self.index,
-            limit: range.upperBound)
+            limit: range.upperBound, 
+            fork: self.fork)
     }
 }
 extension Branch 

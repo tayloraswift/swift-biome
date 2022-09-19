@@ -1,33 +1,31 @@
 extension Epoch:Sendable where Element:Sendable 
 {
 }
-struct Epoch<Element>:RandomAccessCollection 
+struct Epoch<Element>:TrunkPeriod, RandomAccessCollection 
     where Element:BranchElement, Element.Divergence:Voidable
 {
     private 
     let slice:Branch.Buffer<Element>.SubSequence
-    /// The index of the original branch this epoch was cut from.
-    /// 
-    /// This is the branch that contains the epoch, not the branch 
-    /// the epoch was forked from.
-    let branch:Version.Branch
-    /// The index of the last revision contained within this epoch.
-    let limit:Version.Revision 
+    /// The last version contained within this epoch.
+    let latest:Version
+    /// The branch and revision this epoch was forked from, 
+    /// if applicable.
+    let fork:Version?
 
     init(_ slice:Branch.Buffer<Element>.SubSequence, 
-        branch:Version.Branch, 
-        limit:Version.Revision)
+        latest:Version, 
+        fork:Version?)
     {
         self.slice = slice
-        self.branch = branch
-        self.limit = limit
+        self.latest = latest
+        self.fork = fork
     }
 
     var divergences:Divergences<Atom<Element>, Element.Divergence> 
     {
-        .init(self.slice.divergences, limit: self.limit)
+        .init(self.slice.divergences, latest: self.latest, fork: self.fork)
     }
-
+    
     var startIndex:Element.Offset 
     {
         self.slice.startIndex

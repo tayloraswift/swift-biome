@@ -153,6 +153,10 @@ extension Package.Pinned
 }
 extension Package.Pinned 
 {
+    func exists(_ module:Atom<Module>) -> Bool
+    {
+        self.metadata(local: module) != nil
+    }
     func exists(_ article:Atom<Article>) -> Bool
     {
         self.metadata(local: article) != nil 
@@ -161,31 +165,72 @@ extension Package.Pinned
     {
         self.metadata(local: symbol) != nil 
     }
-    func exists(_ module:Atom<Module>) -> Bool
-    {
-        self.metadata(local: module) != nil
-    }
     func exists(_ diacritic:Diacritic) -> Bool
     {
         self.metadata(foreign: diacritic) != nil 
     }
     func exists(_ composite:Composite) -> Bool
     {
-        guard let compound:Compound = composite.compound
-        else 
-        {
-            return self.exists(composite.base)
-        }
-        if self.nationality == compound.host.nationality
-        {
-            return self.metadata(local: compound.host)?
-                .contains(feature: compound) ?? false
-        }
-        else 
-        {
-            return self.metadata(foreign: compound.diacritic)?
+        composite.compound.map(self.exists(_:)) ?? self.exists(composite.base)
+    }
+    func exists(_ compound:Compound) -> Bool 
+    {
+        self.nationality == compound.host.nationality ?
+            self.metadata(local: compound.host)?
+                .contains(feature: compound) ?? false :
+            self.metadata(foreign: compound.diacritic)?
                 .contains(feature: compound.base) ?? false
+    }
+}
+extension Package.Pinned 
+{
+    func excavate(_ module:Atom<Module>) -> Version? 
+    {
+        self.package.metadata.modules.latestVersion(of: module, 
+            field: (\.metadata, \.metadata), 
+            in: self.fasces.modules)
+        {
+            $0 != nil 
         }
+    }
+    func excavate(_ article:Atom<Article>) -> Version? 
+    {
+        self.package.metadata.articles.latestVersion(of: article, 
+            field: (\.metadata, \.metadata), 
+            in: self.fasces.articles)
+        {
+            $0 != nil 
+        }
+    }
+    func excavate(_ symbol:Atom<Symbol>) -> Version? 
+    {
+        self.package.metadata.symbols.latestVersion(of: symbol, 
+            field: (\.metadata, \.metadata), 
+            in: self.fasces.symbols)
+        {
+            $0 != nil 
+        }
+    }
+    func excavate(_ composite:Composite) -> Version? 
+    {
+        composite.compound.map(self.excavate(_:)) ?? self.excavate(composite.base)
+    }
+    func excavate(_ compound:Compound) -> Version? 
+    {
+        self.nationality == compound.host.nationality ?
+            self.package.metadata.symbols.latestVersion(of: compound.host, 
+                field: (\.metadata, \.metadata), 
+                in: self.fasces.symbols)
+            {
+                $0?.contains(feature: compound) ?? false 
+            }
+            :
+            self.package.metadata.foreign.latestVersion(of: compound.diacritic, 
+                field: \.metadata, 
+                in: self.fasces.foreign)
+            {
+                $0?.contains(feature: compound.base) ?? false 
+            }
     }
 }
 extension Package.Pinned 

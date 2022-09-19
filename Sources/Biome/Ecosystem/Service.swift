@@ -151,16 +151,30 @@ struct DocumentationQuery
         }
     }
 }
-struct DisambiguationQuery
+struct SelectionQuery
 {
-    enum Choices 
-    {
-        case extant([Composite])
-        case footprints([(Atom<Symbol>, Version)], [Composite])
-    }
     let nationality:Package.Index
     let version:Version 
     let choices:[Composite]
+}
+struct MigrationQuery 
+{
+    let nationality:Package.Index
+    /// The requested version. None of the symbols in this query 
+    /// exist in this version.
+    let requested:Version
+    /// The list of potentially matching compounds.
+    /// 
+    /// It is not possible to efficiently look up the most 
+    /// recent version a compound appears in. Therefore, when 
+    /// generating a URL for a compound choice, we should maximally 
+    /// disambiguate it, and allow HTTP redirection to resolve it 
+    /// to an appropriate version, should a user click on that URL.
+    let compounds:[Compound]
+    /// The list of potentially matching atoms, along with 
+    /// the most recent version (before ``requested``) they 
+    /// appeared in.
+    let atoms:[(Atom<Symbol>, Version)]
 }
 
 struct GetRequest 
@@ -169,7 +183,8 @@ struct GetRequest
     {
         case redirect 
         case documentation(DocumentationQuery)
-        case disambiguation(DisambiguationQuery)
+        case selection(SelectionQuery)
+        case migration(MigrationQuery)
     }
 
     let uri:URI
@@ -180,10 +195,15 @@ struct GetRequest
         self.uri = uri 
         self.query = .documentation(query)
     }
-    init(uri:URI, query:DisambiguationQuery)
+    init(uri:URI, query:SelectionQuery)
     {
         self.uri = uri 
-        self.query = .disambiguation(query)
+        self.query = .selection(query)
+    }
+    init(uri:URI, query:MigrationQuery)
+    {
+        self.uri = uri 
+        self.query = .migration(query)
     }
 }
 
@@ -320,8 +340,7 @@ extension Service
             namespace: namespace.contemporary, 
             request: request.disambiguated())
     }
-    func _get(scheme:Scheme, nationality:__owned Package.Pinned, 
-        namespace:Atom<Module>, 
+    func _get(scheme:Scheme, nationality:__owned Package.Pinned, namespace:Atom<Module>, 
         request:__owned _SymbolLink) -> GetRequest?
     {
         guard let key:Route = self.stems[namespace, request]
@@ -332,47 +351,42 @@ extension Service
 
         let context:Package.Context = .init(local: _move nationality, context: self.packages)
 
-        if      var selection:_Selection<Composite> = context.local.routes.select(key, 
+        if      let selection:_Selection<Composite> = context.local.routes.select(key, 
                     where: context.local.exists(_:))
         {
-            request.disambiguator.disambiguate(&selection, context: context) 
-            return self._get(selection: selection, context: context)
-        }
-        else if var selection:_Selection<Composite> = context.local.routes.select(key, 
-                    where: { _ in true })
-        {
-            request.disambiguator.disambiguate(&selection, context: context) 
-            return self._get(selection: selection, context: context)
-        }
-        else 
-        {
-            return nil
-        }
-    }
-    private 
-    func _get(selection:_Selection<Composite>, context:Package.Context) -> GetRequest? 
-    {
-        switch selection 
-        {
-        case .one(let composite):
-            if  let uri:URI = context.address(of: composite)?.uri(functions: self.functions)
+            switch request.disambiguator.disambiguate(_move selection, context: context) 
             {
-                return .init(uri: uri, query: .init(target: .composite(composite), 
-                    version: context.local.version, 
-                    _objects: nil))
-            }
-        
-        case .many(let composites):
-            if  let exemplar:Composite = composites.first, 
-                let address:Address = context.address(of: exemplar, disambiguate: false)
-            {
-                let uri:URI = address.uri(functions: self.functions)
-                return .init(uri: uri, query: .init(nationality: context.local.nationality,
-                    version: context.local.version, 
-                    choices: composites))
+            case .one(let composite):
+                if  let uri:URI = context.address(of: composite)?.uri(functions: self.functions)
+                {
+                    return .init(uri: uri, query: .init(target: .composite(composite), 
+                        version: context.local.version, 
+                        _objects: nil))
+                }
+            
+            case .many(let composites):
+                if  let exemplar:Composite = composites.first, 
+                    let address:Address = context.address(of: exemplar, disambiguate: false)
+                {
+                    let uri:URI = address.uri(functions: self.functions)
+                    return .init(uri: uri, query: .init(nationality: context.local.nationality,
+                        version: context.local.version, 
+                        choices: composites))
+                }
             }
         }
-        return nil 
+        else if let selection:_Selection<Composite> = context.local.routes.select(key)
+        {
+            switch request.disambiguator.disambiguate(_move selection, context: context) 
+            {
+            case .one(let composite):
+                break
+            case .many(let composites):
+                break
+            }
+        }
+
+        return nil
     }
 }
 
