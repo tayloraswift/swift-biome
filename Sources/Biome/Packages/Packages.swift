@@ -175,9 +175,9 @@ struct Packages
             tag: tag)
         self[package].tree[branch]._surface = api.surface()
         
-        self[package].tree[branch].routes.stack(routes: api.routes.natural, 
+        self[package].tree[branch].routes.stack(routes: api.routes.atomic, 
             revision: version.revision)
-        self[package].tree[branch].routes.stack(routes: api.routes.synthetic.joined(), 
+        self[package].tree[branch].routes.stack(routes: api.routes.compound.joined(), 
             revision: version.revision)
 
         api.inferScopes(for: &self[package].tree[branch], 

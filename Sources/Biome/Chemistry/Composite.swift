@@ -29,16 +29,20 @@ struct Composite:Hashable, Sendable
         self.diacritic.nationality 
     }
 
-    var isNatural:Bool 
+    var isAtomic:Bool 
     {
         self.base == self.diacritic.host
     }
+    var compound:Compound? 
+    {
+        .init(diacritic: self.diacritic, base: self.base)
+    }
+    var atom:Position<Symbol>? 
+    {
+        self.isAtomic ? self.base : nil
+    }
     var host:Position<Symbol>? 
     {
-        self.isNatural ? nil : self.diacritic.host 
-    }
-    var natural:Position<Symbol>? 
-    {
-        self.isNatural ? self.base : nil
+        self.isAtomic ? nil : self.diacritic.host 
     }
 }

@@ -314,13 +314,13 @@ struct SurfaceBuilder
             as: symbol.community)
         let traits:Tree.SymbolTraits = .init(traits, as: symbol.community)
         
-        self.routes.natural.append(symbol.route, position: position.contemporary)
-        if  let routes:SyntheticRoutes = .init(host: symbol, 
+        self.routes.atomic.append(symbol.route, position: position.contemporary)
+        if  let routes:CompoundRoutes = .init(host: symbol, 
                 diacritic: .init(natural: position.contemporary), 
                 features: traits.features, 
                 context: context)
         {
-            self.routes.synthetic.append(routes)
+            self.routes.compound.append(routes)
         }
         
         return .init(position: position.contemporary, 
@@ -337,11 +337,11 @@ struct SurfaceBuilder
             .init(traits, as: subject.community)
             .subtracting(metadata.primary)
 
-        if  let routes:SyntheticRoutes = .init(host: subject, diacritic: diacritic, 
+        if  let routes:CompoundRoutes = .init(host: subject, diacritic: diacritic, 
                 features: traits.features, 
                 context: context)
         {
-            self.routes.synthetic.append(routes)
+            self.routes.compound.append(routes)
         }
         return traits.idealized()
     }
@@ -410,7 +410,7 @@ extension SurfaceBuilder
                 let selection:_Selection<PluralPosition<Symbol>>? = routes.select(scope)
                 {
                     (branch:Version.Branch, composite:Composite) in 
-                    composite.natural.map { $0.pluralized(branch) }
+                    composite.atom.map { $0.pluralized(branch) }
                 }
                 if case .one(let scope)? = selection 
                 {

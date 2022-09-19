@@ -15,18 +15,11 @@ extension Symbol:BranchElement
             self.accepted = accepted
         }
 
-        func contains(feature composite:Composite) -> Bool 
+        func contains(feature:Compound) -> Bool 
         {
-            if  composite.culture == composite.diacritic.host.culture 
-            {
-                return self.primary.features
-                    .contains(composite.base)
-            }
-            else 
-            {
-                return self.accepted[composite.culture]?.features
-                    .contains(composite.base) ?? false
-            }
+            feature.culture == feature.host.culture ?
+                self.primary.features.contains(feature.base) :
+                self.accepted[feature.culture]?.features.contains(feature.base) ?? false
         }
     }
 

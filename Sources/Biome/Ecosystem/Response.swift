@@ -115,7 +115,7 @@ extension Ecosystem
         {
         case .composite(let composite):
             uri = self.uri(of: composite, in: pinned)
-            guard composite.isNatural 
+            guard composite.isAtomic 
             else 
             {
                 // if this is a synthetic feature, set the canonical page to 

@@ -1,6 +1,6 @@
 extension SurfaceBuilder 
 {
-    struct NaturalRoutes:ExpressibleByArrayLiteral, RandomAccessCollection
+    struct AtomicRoutes:ExpressibleByArrayLiteral, RandomAccessCollection
     {
         private 
         var elements:[(Route, Position<Symbol>)]
@@ -30,7 +30,7 @@ extension SurfaceBuilder
             self.elements.append((route, position))
         }
     }
-    struct SyntheticRoutes:RandomAccessCollection 
+    struct CompoundRoutes:RandomAccessCollection 
     {
         private 
         let diacritic:Diacritic, 
@@ -91,13 +91,13 @@ extension SurfaceBuilder
 
     struct Routes 
     {
-        var natural:NaturalRoutes
-        var synthetic:[SyntheticRoutes]
+        var atomic:AtomicRoutes
+        var compound:[CompoundRoutes]
 
         init() 
         {
-            self.natural = []
-            self.synthetic = []
+            self.atomic = []
+            self.compound = []
         }
     }
 }

@@ -170,7 +170,7 @@ extension Page
         //  3. culture
         let topics:Topics
         let facts:Symbol.Predicates<Symbol.Index>
-        if let host:Symbol.Index = composite.natural 
+        if let host:Symbol.Index = composite.atom 
         {
             facts = { fatalError("unimplemented") }() // self.pin(host.module.package).facts(host)
             topics = self.organize(facts: facts, host: host)

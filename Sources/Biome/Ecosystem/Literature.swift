@@ -304,28 +304,27 @@ struct Literature
                             stems: stems)))
                     
                     case .composite(let composite):
-                        guard   let natural:Position<Symbol> = composite.natural 
+                        guard   let symbol:Position<Symbol> = composite.atom 
                         else 
                         {
                             print("warning: documentation extensions for composite APIs are unsupported, skipping")
                             continue 
                         }
-                        if case .extends? = comments[natural]?.node
+                        if case .extends? = comments[symbol]?.node
                         {
                             print("warning: documentation extension would overwrite existing documentation, skipping")
                             continue 
                         }
-                        guard   let position:PluralPosition<Symbol> = 
-                                    natural.pluralized(bisecting: local.symbols)
+                        guard   let plural:PluralPosition<Symbol> = 
+                                    symbol.pluralized(bisecting: local.symbols)
                         else 
                         {
                             fatalError("unreachable")
                         }
-                        let symbol:Symbol = local.package.tree[local: position]
-                        self.symbols.append((natural, .init(compiling: _move _extension, 
+                        self.symbols.append((symbol, .init(compiling: _move _extension, 
                             resolver: resolver,
                             imports: imports, 
-                            scope: .init(symbol), 
+                            scope: .init(local.package.tree[local: plural]), 
                             stems: stems)))
                     
                     case .composites(_):

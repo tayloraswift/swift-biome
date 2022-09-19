@@ -171,20 +171,20 @@ extension Package.Pinned
     }
     func exists(_ composite:Composite) -> Bool
     {
-        guard let host:Position<Symbol> = composite.host 
+        guard let compound:Compound = composite.compound
         else 
         {
             return self.exists(composite.base)
         }
-        if self.nationality == host.nationality
+        if self.nationality == compound.host.nationality
         {
-            return self.metadata(local: host)?
-                .contains(feature: composite) ?? false 
+            return self.metadata(local: compound.host)?
+                .contains(feature: compound) ?? false
         }
         else 
         {
-            return self.metadata(foreign: composite.diacritic)?
-                .contains(feature: composite.base) ?? false
+            return self.metadata(foreign: compound.diacritic)?
+                .contains(feature: compound.base) ?? false
         }
     }
 }
@@ -355,11 +355,11 @@ extension Package.Pinned
 
 extension Branch 
 {
-    enum NaturalDepth:Error 
+    enum AtomicDepth:Error 
     {
         case base 
     }
-    enum CompositeDepth:Error 
+    enum CompoundDepth:Error 
     {
         case base 
         case host 
@@ -367,7 +367,7 @@ extension Branch
 }
 extension Package.Pinned 
 {
-    func depth(of route:Route, natural:Position<Symbol>) -> Branch.NaturalDepth?
+    func depth(of route:Route, atom:Position<Symbol>) -> Branch.AtomicDepth?
     {
         do 
         {
@@ -378,9 +378,9 @@ extension Package.Pinned
                 {
                     return () 
                 }
-                if $0.base != natural 
+                if $0.base != atom 
                 {
-                    throw Branch.NaturalDepth.base 
+                    throw Branch.AtomicDepth.base 
                 }
             } as ()
             return nil  
@@ -390,12 +390,11 @@ extension Package.Pinned
             return .base
         }
     }
-    func depth(of route:Route, host:Position<Symbol>, base:Position<Symbol>) 
-        -> Branch.CompositeDepth?
+    func depth(of route:Route, compound:Compound) -> Branch.CompoundDepth?
     {
         do 
         {
-            var depth:Branch.CompositeDepth? = nil
+            var depth:Branch.CompoundDepth? = nil
             try self.routes.select(route) 
             {
                 guard self.exists($0)
@@ -403,17 +402,17 @@ extension Package.Pinned
                 {
                     return () 
                 }
-                if $0.base != base 
+                if $0.base != compound.base 
                 {
                     depth = .base 
                 }
-                else if case host? = $0.host
+                else if case compound.host? = $0.host
                 {
                     return ()
                 }
                 else 
                 {
-                    throw Branch.CompositeDepth.host
+                    throw Branch.CompoundDepth.host
                 }
             } as ()
             return depth 

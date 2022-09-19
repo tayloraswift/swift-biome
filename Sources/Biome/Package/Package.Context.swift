@@ -85,9 +85,9 @@ extension Package.Context
 
         var address:Address.Symbolic 
         let namespace:Position<Module>
-        if  let host:Position<Symbol> = composite.host
+        if  let compound:Compound = composite.compound
         {
-            guard   let host:Symbol = self.load(host), 
+            guard   let host:Symbol = self.load(compound.host), 
                     let stem:Route.Stem = host.kind.path
             else 
             {
@@ -103,8 +103,7 @@ extension Package.Context
             if disambiguate 
             {
                 switch nationality.depth(of: .init(host.namespace, stem, base.route.leaf), 
-                    host: composite.diacritic.host, 
-                    base: composite.base)
+                    compound: compound)
                 {
                 case nil: 
                     break 
@@ -123,7 +122,7 @@ extension Package.Context
 
             if disambiguate 
             {
-                switch nationality.depth(of: base.route, natural: composite.base)
+                switch nationality.depth(of: base.route, atom: composite.base)
                 {
                 case nil: 
                     break 
