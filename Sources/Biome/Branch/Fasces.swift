@@ -238,7 +238,7 @@ extension Sequence
     {
         for segment:Epoch<Axis> in self 
         {
-            if let position:Position<Axis> = segment.position(of: id)
+            if let position:Atom<Axis> = segment.position(of: id)
             {
                 return position.pluralized(segment.branch)
             }

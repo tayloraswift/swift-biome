@@ -18,7 +18,7 @@ struct Article:Sendable
         {
             self.route = route
         }
-        init(_ culture:Position<Module>, _ stem:Route.Stem, _ leaf:Route.Stem)
+        init(_ culture:Atom<Module>, _ stem:Route.Stem, _ leaf:Route.Stem)
         {
             self.init(.init(culture, stem, .init(leaf, orientation: .straight)))
         }

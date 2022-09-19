@@ -34,7 +34,7 @@ extension Package
 }
 extension Package.Context 
 {
-    func load(_ symbol:Position<Symbol>) -> Symbol?
+    func load(_ symbol:Atom<Symbol>) -> Symbol?
     {
         self[symbol.nationality]?.load(local: symbol) 
     }
@@ -57,7 +57,7 @@ extension Package.Context
     /// 
     /// This method is isotropic; it does not matter which of the packages in 
     /// this context is the local package.
-    func address(of module:Position<Module>) -> Address?
+    func address(of module:Atom<Module>) -> Address?
     {
         self[module.nationality]?.address(local: module)
     }
@@ -65,7 +65,7 @@ extension Package.Context
     /// 
     /// This method is isotropic; it does not matter which of the packages in 
     /// this context is the local package.
-    func address(of article:Position<Article>) -> Address?
+    func address(of article:Atom<Article>) -> Address?
     {
         self[article.nationality]?.address(local: article)
     }
@@ -84,7 +84,7 @@ extension Package.Context
         }
 
         var address:Address.Symbolic 
-        let namespace:Position<Module>
+        let namespace:Atom<Module>
         if  let compound:Compound = composite.compound
         {
             guard   let host:Symbol = self.load(compound.host), 

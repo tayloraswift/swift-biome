@@ -3,7 +3,7 @@ extension SurfaceBuilder
     fileprivate 
     struct Node 
     {
-        let position:Position<Symbol> 
+        let position:Atom<Symbol> 
         var metadata:Symbol.Metadata
         var shape:Symbol.Shape<PluralPosition<Symbol>>?
     }
@@ -13,7 +13,7 @@ extension SurfaceBuilder
         private 
         var storage:[Node]
         private(set) 
-        var indices:[Position<Symbol>: Symbols.Index]
+        var indices:[Atom<Symbol>: Symbols.Index]
 
         init()
         {
@@ -88,7 +88,7 @@ extension SurfaceBuilder
         {
             .init(offset: self.nodes.endIndex)
         }
-        subscript(index:Symbols.Index) -> (Position<Symbol>, Symbol.Metadata) 
+        subscript(index:Symbols.Index) -> (Atom<Symbol>, Symbol.Metadata) 
         {
             let node:Node = self.nodes[index.offset]
             return (node.position, node.metadata)
@@ -122,9 +122,9 @@ struct SurfaceBuilder
     var routes:Routes
 
     private(set)
-    var articles:[(Position<Article>, Article.Metadata)], 
+    var articles:[(Atom<Article>, Article.Metadata)], 
         foreign:[(Diacritic, Symbol.ForeignMetadata)], 
-        modules:[Position<Module>]
+        modules:[Atom<Module>]
     private 
     var nodes:Nodes
 
@@ -264,8 +264,8 @@ struct SurfaceBuilder
 
         var shape:Symbol.Shape<PluralPosition<Symbol>>? = nil 
         // partition relationships buffer 
-        var superclass:Position<Symbol>? = nil 
-        var residuals:[Symbol.Role<Position<Symbol>>] = []
+        var superclass:Atom<Symbol>? = nil 
+        var residuals:[Symbol.Role<Atom<Symbol>>] = []
         for role:Symbol.Role<PluralPosition<Symbol>> in roles
         {
             switch (shape, role) 
@@ -308,7 +308,7 @@ struct SurfaceBuilder
             }
         }
             
-        let roles:Branch.SymbolRoles? = .init(residuals, 
+        let roles:Branch.SymbolRoles? = .init(residuals,
             superclass: superclass, 
             shape: shape?.map(\.contemporary), 
             as: symbol.community)
@@ -347,7 +347,7 @@ struct SurfaceBuilder
     }
 
     private mutating 
-    func add(member:Position<Symbol>, to scope:Position<Symbol>)
+    func add(member:Atom<Symbol>, to scope:Atom<Symbol>)
     {
         guard let index:Symbols.Index = self.nodes.indices[scope]
         else 

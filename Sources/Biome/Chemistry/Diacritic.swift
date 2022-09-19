@@ -1,15 +1,15 @@
 struct Diacritic:Hashable, Sendable
 {
-    let host:Position<Symbol> 
-    let culture:Position<Module>
+    let host:Atom<Symbol> 
+    let culture:Atom<Module>
     
-    init(host:Position<Symbol>, culture:Position<Module>)
+    init(host:Atom<Symbol>, culture:Atom<Module>)
     {
         self.host = host 
         self.culture = culture
     }
     
-    init(natural:Position<Symbol>)
+    init(natural:Atom<Symbol>)
     {
         self.host = natural 
         self.culture = natural.culture

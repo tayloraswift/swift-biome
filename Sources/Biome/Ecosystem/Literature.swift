@@ -35,7 +35,7 @@ struct DocumentationExtension<Extended>
     }
     init(compiling _extension:__owned Extension, extending extends:Extended? = nil,
         resolver:Resolver,
-        imports:Set<Position<Module>>, 
+        imports:Set<Atom<Module>>, 
         scope:_Scope?, 
         stems:Route.Stems) 
     {
@@ -76,8 +76,8 @@ struct Literature
     {
         enum Node 
         {
-            case inherits(Position<Symbol>)
-            case extends(Position<Symbol>?, with:String)
+            case inherits(Atom<Symbol>)
+            case extends(Atom<Symbol>?, with:String)
         }
 
         let node:Node 
@@ -93,7 +93,7 @@ struct Literature
     struct Comments 
     {
         private 
-        var uptree:[Position<Symbol>: Comment] = [:]
+        var uptree:[Atom<Symbol>: Comment] = [:]
         private(set)
         var pruned:Int
 
@@ -154,7 +154,7 @@ struct Literature
             }
         }
 
-        func consolidated(culture:Package.Index) -> [Position<Symbol>: Comment]
+        func consolidated(culture:Package.Index) -> [Atom<Symbol>: Comment]
         {
             var skipped:Int = 0,
                 dropped:Int = 0
@@ -175,7 +175,7 @@ struct Literature
                 {
                     // fast-forward until we either reach a package boundary, 
                     // or a local symbol that has documentation
-                    var visited:Set<Position<Symbol>> = []
+                    var visited:Set<Atom<Symbol>> = []
                     fastforwarding:
                     while origin.nationality == culture
                     {
@@ -205,11 +205,11 @@ struct Literature
         }
     }
     private(set) 
-    var articles:[(Position<Article>, DocumentationExtension<Never>)]
+    var articles:[(Atom<Article>, DocumentationExtension<Never>)]
     private(set) 
-    var symbols:[(Position<Symbol>, DocumentationExtension<Position<Symbol>>)]
+    var symbols:[(Atom<Symbol>, DocumentationExtension<Atom<Symbol>>)]
     private(set) 
-    var modules:[(Position<Module>, DocumentationExtension<Never>)]
+    var modules:[(Atom<Module>, DocumentationExtension<Never>)]
     private(set) 
     var package:DocumentationExtension<Never>?
 
@@ -243,12 +243,12 @@ struct Literature
     private mutating 
     func compile(graphs:__owned [SymbolGraph], 
         interfaces:__owned [ModuleInterface], 
-        comments:__owned [Position<Symbol>: Comment], 
+        comments:__owned [Atom<Symbol>: Comment], 
         package local:Package._Pinned, 
         context:Packages,
         stems:Route.Stems)
     {
-        var resolvers:[Position<Module>: Resolver] = .init(minimumCapacity: graphs.count)
+        var resolvers:[Atom<Module>: Resolver] = .init(minimumCapacity: graphs.count)
         for (_, interface):(SymbolGraph, ModuleInterface) in zip(_move graphs, _move interfaces)
         {
             // use the interface-level pins and not the package-level pins, 
@@ -260,7 +260,7 @@ struct Literature
             for (position, _extension):(PluralPosition<Article>?, Extension) in 
                 zip(interface.citizenArticles, interface._cachedMarkdown)
             {
-                let imports:Set<Position<Module>> = 
+                let imports:Set<Atom<Module>> = 
                     interface.namespaces.import(_extension.metadata.imports)
                 // TODO: handle merge behavior block directive 
                 if let position:PluralPosition<Article> 
@@ -304,7 +304,7 @@ struct Literature
                             stems: stems)))
                     
                     case .composite(let composite):
-                        guard   let symbol:Position<Symbol> = composite.atom 
+                        guard   let symbol:Atom<Symbol> = composite.atom 
                         else 
                         {
                             print("warning: documentation extensions for composite APIs are unsupported, skipping")
@@ -339,11 +339,11 @@ struct Literature
         self.compile(comments: _move comments, resolvers: _move resolvers, stems: stems)
     }
     private mutating 
-    func compile(comments:__owned [Position<Symbol>: Comment],
-        resolvers:__owned [Position<Module>: Resolver], 
+    func compile(comments:__owned [Atom<Symbol>: Comment],
+        resolvers:__owned [Atom<Module>: Resolver], 
         stems:Route.Stems)
     {
-        for (position, comment):(Position<Symbol>, Comment) in comments 
+        for (position, comment):(Atom<Symbol>, Comment) in comments 
         {
             guard let resolver:Resolver = resolvers[position.culture] 
             else 
@@ -351,7 +351,7 @@ struct Literature
                 fatalError("unreachable")
             }
 
-            let documentation:DocumentationExtension<Position<Symbol>>
+            let documentation:DocumentationExtension<Atom<Symbol>>
             switch comment.node 
             {
             case .inherits(let origin):

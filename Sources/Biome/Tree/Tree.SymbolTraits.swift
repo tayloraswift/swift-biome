@@ -12,11 +12,11 @@ extension Tree
     {
         typealias Unconditional = 
         [
-            Position<Symbol>: Version.Branch
+            Atom<Symbol>: Version.Branch
         ]
         typealias Conditional = 
         [
-            Position<Symbol>: (Version.Branch, [Generic.Constraint<PluralPosition<Symbol>>])
+            Atom<Symbol>: (Version.Branch, [Generic.Constraint<PluralPosition<Symbol>>])
         ]
 
         var members:Unconditional
@@ -216,7 +216,7 @@ extension Tree.SymbolTraits
             },
             conditional: self.conditional.filter 
             {
-                if  let counterpart:[Generic.Constraint<Position<Symbol>>] = 
+                if  let counterpart:[Generic.Constraint<Atom<Symbol>>] = 
                         other.conditional[$0.key]
                 {
                     return counterpart.elementsEqual($0.value.1.lazy.map 

@@ -59,7 +59,7 @@ struct Page
         fatalError("unimplemented")
         //self.ecosystem[package].pinned(self.pins)
     }
-    func template(_ documentation:DocumentationExtension<Position<Symbol>>) 
+    func template(_ documentation:DocumentationExtension<Atom<Symbol>>) 
         -> DocumentationExtension<Never>
     {
         fatalError("unimplemented")

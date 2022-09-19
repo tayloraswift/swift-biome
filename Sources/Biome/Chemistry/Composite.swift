@@ -6,21 +6,21 @@ struct Composite:Hashable, Sendable
     //  1. host culture 
     //  2. witness culture 
     //  3. perpetrator culture
-    let base:Position<Symbol>
+    let base:Atom<Symbol>
     let diacritic:Diacritic 
             
-    init(natural:Position<Symbol>) 
+    init(natural:Atom<Symbol>) 
     {
         self.base = natural
         self.diacritic = .init(natural: natural)
     }
-    init(_ base:Position<Symbol>, _ diacritic:Diacritic) 
+    init(_ base:Atom<Symbol>, _ diacritic:Diacritic) 
     {
         self.base = base 
         self.diacritic = diacritic
     }
 
-    var culture:Position<Module>
+    var culture:Atom<Module>
     {
         self.diacritic.culture
     }
@@ -37,11 +37,11 @@ struct Composite:Hashable, Sendable
     {
         .init(diacritic: self.diacritic, base: self.base)
     }
-    var atom:Position<Symbol>? 
+    var atom:Atom<Symbol>? 
     {
         self.isAtomic ? self.base : nil
     }
-    var host:Position<Symbol>? 
+    var host:Atom<Symbol>? 
     {
         self.isAtomic ? nil : self.diacritic.host 
     }

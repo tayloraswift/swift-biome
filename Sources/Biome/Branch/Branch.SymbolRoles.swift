@@ -49,11 +49,11 @@ extension Branch
     /// -   other kinds of symbols never have roles.
     enum SymbolRoles:Equatable, Sendable
     {
-        case one        (Position<Symbol>)
-        case many   (Set<Position<Symbol>>)
+        case one        (Atom<Symbol>)
+        case many   (Set<Atom<Symbol>>)
         
         private 
-        init?(_ symbols:[Position<Symbol>]) 
+        init?(_ symbols:[Atom<Symbol>]) 
         {
             if symbols.isEmpty 
             {
@@ -68,12 +68,12 @@ extension Branch
                 self = .many(.init(symbols))
             }
         }
-        init?(_ roles:some Sequence<Symbol.Role<Position<Symbol>>>, 
-            superclass:Position<Symbol>?, 
-            shape:Symbol.Shape<Position<Symbol>>?, 
+        init?(_ roles:some Sequence<Symbol.Role<Atom<Symbol>>>, 
+            superclass:Atom<Symbol>?, 
+            shape:Symbol.Shape<Atom<Symbol>>?, 
             as community:Community) 
         {
-            if  let superclass:Position<Symbol> = superclass 
+            if  let superclass:Atom<Symbol> = superclass 
             {
                 switch  (community, shape)
                 {
@@ -85,7 +85,7 @@ extension Branch
                     // should have thrown a ``ColorError`` earlier
                     fatalError("unreachable")
                 }
-                for _:Symbol.Role<Position<Symbol>> in roles 
+                for _:Symbol.Role<Atom<Symbol>> in roles 
                 {
                     fatalError("unreachable")
                 }
@@ -116,7 +116,7 @@ extension Branch
                 case    (.concretetype(_),  nil), 
                         (.typealias,          _), 
                         (.global(_),        nil):
-                    for _:Symbol.Role<Position<Symbol>> in roles
+                    for _:Symbol.Role<Atom<Symbol>> in roles
                     {
                         fatalError("unreachable") 
                     }

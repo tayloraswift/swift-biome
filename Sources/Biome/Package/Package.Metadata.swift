@@ -26,21 +26,21 @@ extension Package.Metadata
         builder:SurfaceBuilder, 
         fasces:Fasces)
     {
-        for missing:Position<Module> in builder.previous.modules 
+        for missing:Atom<Module> in builder.previous.modules 
         {
             self.modules.update(&branch.modules, position: missing, with: nil, 
                 revision: revision, 
                 field: (\.metadata, \.metadata),
                 trunk: fasces.modules)
         }
-        for missing:Position<Article> in builder.previous.articles 
+        for missing:Atom<Article> in builder.previous.articles 
         {
             self.articles.update(&branch.articles, position: missing, with: nil, 
                 revision: revision, 
                 field: (\.metadata, \.metadata),
                 trunk: fasces.articles)
         }
-        for missing:Position<Symbol> in builder.previous.symbols
+        for missing:Atom<Symbol> in builder.previous.symbols
         {
             self.symbols.update(&branch.symbols, position: missing, with: nil, 
                 revision: revision, 
@@ -63,7 +63,7 @@ extension Package.Metadata
                 field: (\.metadata, \.metadata),
                 trunk: fasces.modules)
         }
-        for (article, metadata):(Position<Article>, Article.Metadata) in 
+        for (article, metadata):(Atom<Article>, Article.Metadata) in 
             builder.articles
         {
             self.articles.update(&branch.articles, position: article, with: metadata,
@@ -71,7 +71,7 @@ extension Package.Metadata
                 field: (\.metadata, \.metadata),
                 trunk: fasces.articles) 
         }
-        for (symbol, metadata):(Position<Symbol>, Symbol.Metadata) in 
+        for (symbol, metadata):(Atom<Symbol>, Symbol.Metadata) in 
             builder.symbols
         {
             self.symbols.update(&branch.symbols, position: symbol, with: metadata,

@@ -29,13 +29,13 @@ struct Module:Sendable
     let id:ModuleIdentifier
     let index:Index 
 
-    var symbols:[(range:Range<Symbol.Offset>, namespace:Position<Module>)]
+    var symbols:[(range:Range<Symbol.Offset>, namespace:Atom<Module>)]
     var articles:[Range<Article.Offset>]
     
     var metadata:History<Metadata?>.Head?
 
-    var topLevelArticles:History<Set<Position<Article>>>.Head?
-    var topLevelSymbols:History<Set<Position<Symbol>>>.Head?
+    var topLevelArticles:History<Set<Atom<Article>>>.Head?
+    var topLevelSymbols:History<Set<Atom<Symbol>>>.Head?
     var documentation:History<DocumentationExtension<Never>>.Head?
     
     var redirect:(module:Redirect?, articles:Redirect?)

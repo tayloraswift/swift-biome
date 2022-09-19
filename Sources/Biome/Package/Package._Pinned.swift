@@ -2,10 +2,10 @@ import URI
 
 struct _Scope 
 {
-    let namespace:Position<Module>
+    let namespace:Atom<Module>
     let path:[String]
 
-    init(_ namespace:Position<Module>, _ path:[String] = [])
+    init(_ namespace:Atom<Module>, _ path:[String] = [])
     {
         self.namespace = namespace 
         self.path = path
@@ -90,7 +90,7 @@ extension Package
 
 extension Package.Pinned 
 {
-    func load(local article:Position<Article>) -> Article?
+    func load(local article:Atom<Article>) -> Article?
     {
         if let position:PluralPosition<Article> = article.pluralized(bisecting: self.articles)
         {
@@ -101,7 +101,7 @@ extension Package.Pinned
             return nil
         }
     }
-    func load(local symbol:Position<Symbol>) -> Symbol?
+    func load(local symbol:Atom<Symbol>) -> Symbol?
     {
         if let position:PluralPosition<Symbol> = symbol.pluralized(bisecting: self.symbols)
         {
@@ -112,7 +112,7 @@ extension Package.Pinned
             return nil
         }
     }
-    func load(local module:Position<Module>) -> Module?
+    func load(local module:Atom<Module>) -> Module?
     {
         if let position:PluralPosition<Module> = module.pluralized(bisecting: self.modules)
         {
@@ -126,19 +126,19 @@ extension Package.Pinned
 }
 extension Package.Pinned 
 {
-    func metadata(local article:Position<Article>) -> Article.Metadata?
+    func metadata(local article:Atom<Article>) -> Article.Metadata?
     {
         self.package.metadata.articles.value(of: article, 
             field: (\.metadata, \.metadata), 
             in: self.fasces.articles) ?? nil
     }
-    func metadata(local symbol:Position<Symbol>) -> Symbol.Metadata?
+    func metadata(local symbol:Atom<Symbol>) -> Symbol.Metadata?
     {
         self.package.metadata.symbols.value(of: symbol, 
             field: (\.metadata, \.metadata), 
             in: self.fasces.symbols) ?? nil
     }
-    func metadata(local module:Position<Module>) -> Module.Metadata?
+    func metadata(local module:Atom<Module>) -> Module.Metadata?
     {
         self.package.metadata.modules.value(of: module, 
             field: (\.metadata, \.metadata), 
@@ -153,15 +153,15 @@ extension Package.Pinned
 }
 extension Package.Pinned 
 {
-    func exists(_ article:Position<Article>) -> Bool
+    func exists(_ article:Atom<Article>) -> Bool
     {
         self.metadata(local: article) != nil 
     }
-    func exists(_ symbol:Position<Symbol>) -> Bool
+    func exists(_ symbol:Atom<Symbol>) -> Bool
     {
         self.metadata(local: symbol) != nil 
     }
-    func exists(_ module:Position<Module>) -> Bool
+    func exists(_ module:Atom<Module>) -> Bool
     {
         self.metadata(local: module) != nil
     }
@@ -256,40 +256,40 @@ extension Package.Pinned
         fatalError("unimplemented")
     }
 
-    func documentation(for symbol:Position<Symbol>) 
-        -> DocumentationExtension<Position<Symbol>>
+    func documentation(for symbol:Atom<Symbol>) 
+        -> DocumentationExtension<Atom<Symbol>>
     {
         self.package.data.symbolDocumentation.value(of: symbol, 
             field: (\.documentation, \.documentation), 
             in: self.fasces.symbols) ?? .init()
     }
-    func documentation(for article:Position<Article>) -> DocumentationExtension<Never>
+    func documentation(for article:Atom<Article>) -> DocumentationExtension<Never>
     {
         self.package.data.standaloneDocumentation.value(of: article, 
             field: (\.documentation, \.documentation), 
             in: self.fasces.articles) ?? .init()
     }
-    func documentation(for module:Position<Module>) -> DocumentationExtension<Never>
+    func documentation(for module:Atom<Module>) -> DocumentationExtension<Never>
     {
         self.package.data.standaloneDocumentation.value(of: module, 
             field: (\.documentation, \.documentation), 
             in: self.fasces.modules) ?? .init()
     }
     
-    func topLevelSymbols(of module:Position<Module>) -> Set<Position<Symbol>>
+    func topLevelSymbols(of module:Atom<Module>) -> Set<Atom<Symbol>>
     {
         self.package.data.topLevelSymbols.value(of: module, 
             field: (\.topLevelSymbols, \.topLevelSymbols), 
             in: self.fasces.modules) ?? []
     }
-    func topLevelArticles(of module:Position<Module>) -> Set<Position<Article>>
+    func topLevelArticles(of module:Atom<Module>) -> Set<Atom<Article>>
     {
         self.package.data.topLevelArticles.value(of: module, 
             field: (\.topLevelArticles, \.topLevelArticles), 
             in: self.fasces.modules) ?? []
     }
 
-    func declaration(for symbol:Position<Symbol>) -> Declaration<Position<Symbol>>
+    func declaration(for symbol:Atom<Symbol>) -> Declaration<Atom<Symbol>>
     {
         self.package.data.declarations.value(of: symbol, 
             field: (\.declaration, \.declaration), 
@@ -316,7 +316,7 @@ extension Package.Pinned
             version: self.package.tree.abbreviate(self.version)))
     }
     /// Returns the address of the specified module, assuming it is local to this package.
-    func address(local module:Position<Module>) -> Address?
+    func address(local module:Atom<Module>) -> Address?
     {
         self.load(local: module).map(self.address(of:))
     }
@@ -329,7 +329,7 @@ extension Package.Pinned
         return .init(function: .documentation(.symbol), global: _move global)
     }
     /// Returns the address of the specified article, assuming it is local to this package.
-    func address(local article:Position<Article>) -> Address?
+    func address(local article:Atom<Article>) -> Address?
     {
         if  let namespace:Module = self.load(local: article.culture),
             let article:Article = self.load(local: article)
@@ -367,7 +367,7 @@ extension Branch
 }
 extension Package.Pinned 
 {
-    func depth(of route:Route, atom:Position<Symbol>) -> Branch.AtomicDepth?
+    func depth(of route:Route, atom:Atom<Symbol>) -> Branch.AtomicDepth?
     {
         do 
         {
@@ -427,13 +427,13 @@ extension Package.Pinned
 // {
 //     func _all() 
 //     {
-//         let modules:Set<Position<Module>> = self._allModules()
+//         let modules:Set<Atom<Module>> = self._allModules()
 //         for epoch:Epoch<Module> in self.fasces.modules 
 //         {
-//             for (module, divergence):(Position<Module>, Module.Divergence) in 
+//             for (module, divergence):(Atom<Module>, Module.Divergence) in 
 //                 epoch.divergences
 //             {
-//                 for (range, _):(Range<Symbol.Offset>, Position<Module>) in divergence.symbols 
+//                 for (range, _):(Range<Symbol.Offset>, Atom<Module>) in divergence.symbols 
 //                 {
 //                     for offset:Symbol.Offset in range 
 //                     {
@@ -443,9 +443,9 @@ extension Package.Pinned
 //             }
 //         }
 //     }
-//     func _allModules() -> Set<Position<Module>>
+//     func _allModules() -> Set<Atom<Module>>
 //     {
-//         var modules:Set<Position<Module>> = []
+//         var modules:Set<Atom<Module>> = []
 //         for module:Module in self.fasces.modules.joined()
 //         {
 //             if self.exists(module.index)

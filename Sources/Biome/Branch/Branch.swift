@@ -95,7 +95,7 @@ extension Branch
         {
             return existing 
         }
-        let position:Position<Module> = self.modules.insert(id, culture: culture, 
+        let position:Atom<Module> = self.modules.insert(id, culture: culture, 
             Module.init(id:index:))
         return position.pluralized(self.index)
     }
@@ -133,7 +133,7 @@ extension Branch
         stems:inout Route.Stems) 
         -> ModuleInterface.Abstractor<Symbol>
     {
-        let linked:Set<Position<Module>> = namespaces.import()
+        let linked:Set<Atom<Module>> = namespaces.import()
 
         var positions:[PluralPosition<Symbol>?] = []
             positions.reserveCapacity(graph.identifiers.count)
@@ -141,7 +141,7 @@ extension Branch
             graph.colonies
         {
             // will always succeed for the core subgraph
-            guard let namespace:Position<Module> = namespaces.linked[namespace]?.contemporary
+            guard let namespace:Atom<Module> = namespaces.linked[namespace]?.contemporary
             else 
             {
                 print("warning: ignored colonial symbolgraph '\(graph.id)@\(namespace)'")
@@ -182,8 +182,8 @@ extension Branch
         return .init(_move positions)
     }
     private mutating 
-    func addSymbol(_ id:Symbol.ID, culture:Position<Module>, namespace:Position<Module>, 
-        linked:Set<Position<Module>>,
+    func addSymbol(_ id:Symbol.ID, culture:Atom<Module>, namespace:Atom<Module>, 
+        linked:Set<Atom<Module>>,
         vertex:SymbolGraph.Vertex<Int>,
         upstream:[Package.Index: Package._Pinned], 
         trunk:Fasces.SymbolView, 
@@ -211,9 +211,9 @@ extension Branch
                 return restated 
             }
         }
-        let position:Position<Symbol> = self.symbols.insert(id, culture: culture)
+        let position:Atom<Symbol> = self.symbols.insert(id, culture: culture)
         {
-            (id:Symbol.ID, _:Position<Symbol>) in 
+            (id:Symbol.ID, _:Atom<Symbol>) in 
             let route:Route = .init(namespace, 
                       stems.register(components: vertex.path.prefix), 
                 .init(stems.register(component:  vertex.path.last), 
@@ -293,7 +293,7 @@ extension Branch
         return (.init(_move positions), _extensions)
     }
     private mutating 
-    func addArticle(_ path:Path, culture:Position<Module>, trunk:Fasces.ArticleView, 
+    func addArticle(_ path:Path, culture:Atom<Module>, trunk:Fasces.ArticleView, 
         stems:inout Route.Stems)
         -> PluralPosition<Article>
     {
@@ -312,9 +312,9 @@ extension Branch
             }
             return existing 
         }
-        let position:Position<Article> = self.articles.insert(id, culture: culture)
+        let position:Atom<Article> = self.articles.insert(id, culture: culture)
         {
-            (id:Article.ID, _:Position<Article>) in 
+            (id:Article.ID, _:Atom<Article>) in 
             .init(id: id, path: path)
         }
         return position.pluralized(self.index)

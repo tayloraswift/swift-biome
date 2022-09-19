@@ -3,10 +3,10 @@
 /// This type provides a static guarantee that [`self.host != self.base`]().
 struct Compound 
 {
-    let base:Position<Symbol>
+    let base:Atom<Symbol>
     let diacritic:Diacritic
     
-    init?(diacritic:Diacritic, base:Position<Symbol>)
+    init?(diacritic:Diacritic, base:Atom<Symbol>)
     {
         guard diacritic.host != base 
         else 
@@ -17,11 +17,11 @@ struct Compound
         self.base = base 
     }
 
-    var host:Position<Symbol>
+    var host:Atom<Symbol>
     {
         self.diacritic.host 
     }
-    var culture:Position<Module>
+    var culture:Atom<Module>
     {
         self.diacritic.culture
     }

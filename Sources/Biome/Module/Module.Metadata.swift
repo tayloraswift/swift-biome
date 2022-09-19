@@ -2,9 +2,9 @@ extension Module:BranchElement
 {
     struct Metadata:Equatable, Sendable 
     {
-        let dependencies:Set<Position<Module>>
+        let dependencies:Set<Atom<Module>>
 
-        init(dependencies:Set<Position<Module>>)
+        init(dependencies:Set<Atom<Module>>)
         {
             self.dependencies = dependencies
         }
@@ -17,13 +17,13 @@ extension Module:BranchElement
     public 
     struct Divergence:Voidable, Sendable 
     {
-        var symbols:[(range:Range<Symbol.Offset>, namespace:Position<Module>)]
+        var symbols:[(range:Range<Symbol.Offset>, namespace:Atom<Module>)]
         var articles:[Range<Article.Offset>]
 
         var metadata:History<Metadata?>.Divergent?
 
-        var topLevelArticles:History<Set<Position<Article>>>.Divergent?
-        var topLevelSymbols:History<Set<Position<Symbol>>>.Divergent?
+        var topLevelArticles:History<Set<Atom<Article>>>.Divergent?
+        var topLevelSymbols:History<Set<Atom<Symbol>>>.Divergent?
         var documentation:History<DocumentationExtension<Never>>.Divergent?
         
         init()

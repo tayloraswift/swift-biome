@@ -9,7 +9,7 @@ extension Branch
     struct Buffer<Element> where Element:BranchElement, Element.Divergence:Voidable
     {
         @available(*, deprecated, renamed: "positions")
-        var indices:[Element.ID: Position<Element>] 
+        var indices:[Element.ID: Atom<Element>] 
         {
             _read 
             {
@@ -17,9 +17,9 @@ extension Branch
             }
         }
 
-        var divergences:[Position<Element>: Element.Divergence]
+        var divergences:[Atom<Element>: Element.Divergence]
         private(set)
-        var positions:[Element.ID: Position<Element>]
+        var positions:[Element.ID: Atom<Element>]
         private 
         var storage:[Element] 
         let startIndex:Element.Offset
@@ -38,17 +38,17 @@ extension Branch
 
         mutating 
         func insert(_ id:Element.ID, culture:Element.Culture, 
-            _ create:(Element.ID, Position<Element>) throws -> Element) 
-            rethrows -> Position<Element>
+            _ create:(Element.ID, Atom<Element>) throws -> Element) 
+            rethrows -> Atom<Element>
         {
-            if let position:Position<Element> = self.positions[id]
+            if let position:Atom<Element> = self.positions[id]
             {
                 return position 
             }
             else 
             {
                 // create records for elements if they do not yet exist 
-                let position:Position<Element> = .init(culture, offset: self.endIndex)
+                let position:Atom<Element> = .init(culture, offset: self.endIndex)
                 self.storage.append(try create(id, position))
                 self.positions[id] = position
                 return position 
@@ -71,7 +71,7 @@ extension Branch.Buffer
         }
     }
     @available(*, deprecated, renamed: "subscript(contemporary:)")
-    subscript(local position:Position<Element>) -> Element
+    subscript(local position:Atom<Element>) -> Element
     {
         get 
         {
@@ -83,11 +83,11 @@ extension Branch.Buffer
         }
     }
     // needed to workaround a compiler crash: https://github.com/apple/swift/issues/60841
-    subscript(_contemporary position:Position<Element>) -> Element
+    subscript(_contemporary position:Atom<Element>) -> Element
     {
         self[position.offset]
     }
-    subscript(contemporary position:Position<Element>) -> Element
+    subscript(contemporary position:Atom<Element>) -> Element
     {
         _read
         {
@@ -131,8 +131,8 @@ extension Branch.Buffer
         typealias Index = Element.Offset 
         typealias SubSequence = Self 
 
-        let divergences:[Position<Element>: Element.Divergence]
-        let positions:[Element.ID: Position<Element>]
+        let divergences:[Atom<Element>: Element.Divergence]
+        let positions:[Element.ID: Atom<Element>]
         private 
         let storage:[Element]
         let indices:Range<Element.Offset>
@@ -160,7 +160,7 @@ extension Branch.Buffer
                 storage: self.storage, 
                 indices: range)
         }
-        subscript(contemporary position:Position<Element>) -> Element
+        subscript(contemporary position:Atom<Element>) -> Element
         {
             _read
             {
@@ -168,8 +168,8 @@ extension Branch.Buffer
             }
         }
         
-        init(divergences:[Position<Element>: Element.Divergence], 
-            positions:[Element.ID: Position<Element>], 
+        init(divergences:[Atom<Element>: Element.Divergence], 
+            positions:[Element.ID: Atom<Element>], 
             storage:[Element], 
             indices:Range<Element.Offset>)
         {

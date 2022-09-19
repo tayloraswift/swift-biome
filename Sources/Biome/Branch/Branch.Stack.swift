@@ -6,7 +6,7 @@ extension Branch
     {
         // if there is no feature index, the natural index is duplicated. 
         case one ((Composite, Version.Revision))
-        case many([Position<Symbol>: Substack])
+        case many([Atom<Symbol>: Substack])
         
         @available(*, deprecated)
         func forEach(_ body:(Composite) throws -> ()) rethrows 
@@ -21,7 +21,7 @@ extension Branch
                 try body(composite, revision)
             
             case .many(let composites):
-                for (base, diacritics):(Position<Symbol>, Substack) in composites 
+                for (base, diacritics):(Atom<Symbol>, Substack) in composites 
                 {
                     switch diacritics
                     {
@@ -51,7 +51,7 @@ extension Branch.Stack?
         case .one((element, let revision))?: 
             self = .one((element, revision)) 
         case .one(let other)?: 
-            let two:[Position<Symbol>: Branch.Substack]
+            let two:[Atom<Symbol>: Branch.Substack]
             // overloading on host id is extremely rare; the column 
             // array layout is inefficient, but allows us to represent the 
             // more-common row layout efficiently

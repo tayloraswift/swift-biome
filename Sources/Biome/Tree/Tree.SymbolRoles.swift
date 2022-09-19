@@ -2,33 +2,33 @@
 // {
 //     enum SymbolRoles
 //     {
-//         case one(Position<Symbol>)
-//         case many([Position<Symbol>: Version.Branch])
+//         case one(Atom<Symbol>)
+//         case many([Atom<Symbol>: Version.Branch])
         
 //         private 
 //         init?<Roles>(_ roles:Roles, 
-//             validate:(Symbol.Role<Position<Symbol>>) throws -> Position<Symbol>) rethrows 
-//             where Roles:Sequence<Symbol.Role<Position<Symbol>>>
+//             validate:(Symbol.Role<Atom<Symbol>>) throws -> Atom<Symbol>) rethrows 
+//             where Roles:Sequence<Symbol.Role<Atom<Symbol>>>
 //         {
 //             var roles:Roles.Iterator = roles.makeIterator()
-//             guard let first:Position<Symbol> = try roles.next().map(validate)
+//             guard let first:Atom<Symbol> = try roles.next().map(validate)
 //             else 
 //             {
 //                 return nil 
 //             }
-//             while let second:Position<Symbol> = try roles.next().map(validate)
+//             while let second:Atom<Symbol> = try roles.next().map(validate)
 //             {
 //                 guard second.contemporary != first.contemporary
 //                 else 
 //                 {
 //                     continue 
 //                 }
-//                 var many:[Position<Symbol>: Version.Branch] = 
+//                 var many:[Atom<Symbol>: Version.Branch] = 
 //                 [
 //                     first.contemporary: first.branch,
 //                     second.contemporary: second.branch,
 //                 ]
-//                 while let next:Position<Symbol> = try roles.next().map(validate)
+//                 while let next:Atom<Symbol> = try roles.next().map(validate)
 //                 {
 //                     many[next.contemporary] = next.branch
 //                 }
@@ -141,7 +141,7 @@
 // }
 // extension Tree.SymbolRoles 
 // {
-//     func idealized() -> Symbol.Roles<Position<Symbol>>
+//     func idealized() -> Symbol.Roles<Atom<Symbol>>
 //     {
 //         fatalError("unimplemented")
 //     }

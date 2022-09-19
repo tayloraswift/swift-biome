@@ -156,7 +156,7 @@ struct DisambiguationQuery
     enum Choices 
     {
         case extant([Composite])
-        case footprints([(Position<Symbol>, Version)], [Composite])
+        case footprints([(Atom<Symbol>, Version)], [Composite])
     }
     let nationality:Package.Index
     let version:Version 
@@ -321,7 +321,7 @@ extension Service
             request: request.disambiguated())
     }
     func _get(scheme:Scheme, nationality:__owned Package.Pinned, 
-        namespace:Position<Module>, 
+        namespace:Atom<Module>, 
         request:__owned _SymbolLink) -> GetRequest?
     {
         guard let key:Route = self.stems[namespace, request]

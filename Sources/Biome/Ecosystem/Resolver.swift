@@ -39,7 +39,7 @@ struct Resolver
 
         func select(_ key:Route, 
             disambiguator:_SymbolLink.Disambiguator, 
-            imports:Set<Position<Module>>)
+            imports:Set<Atom<Module>>)
             -> _Selection<Composite>?
         {
             var selection:_Selection<Composite>? = nil 
@@ -97,7 +97,7 @@ struct Resolver
     }
 
     func resolve(expression:String, 
-        imports:Set<Position<Module>>, 
+        imports:Set<Atom<Module>>, 
         scope:_Scope?, 
         stems:Route.Stems) throws -> GlobalLink.Presentation
     {
@@ -180,12 +180,12 @@ struct Resolver
     }
     private 
     func resolve(scheme:Scheme, symbolLink link:_SymbolLink, 
-        imports:Set<Position<Module>>, 
+        imports:Set<Atom<Module>>, 
         scope:_Scope?, 
         stems:Route.Stems) throws -> GlobalLink.Presentation
     {
         if  case .doc = scheme, 
-            let article:Position<Article> = self.resolve(docLink: link, 
+            let article:Atom<Article> = self.resolve(docLink: link, 
                 imports: imports, 
                 scope: scope, 
                 stems: stems)
@@ -229,9 +229,9 @@ struct Resolver
     }
     private 
     func resolve(docLink link:_SymbolLink, 
-        imports:Set<Position<Module>>, 
+        imports:Set<Atom<Module>>, 
         scope:_Scope?, 
-        stems:Route.Stems) -> Position<Article>?
+        stems:Route.Stems) -> Atom<Article>?
     {
         if  let scope:_Scope, 
             let article:PluralPosition<Article> = scope.scan(concatenating: link, 
@@ -257,7 +257,7 @@ struct Resolver
     }
     private 
     func resolve(symbolLink link:_SymbolLink, 
-        imports:Set<Position<Module>>, 
+        imports:Set<Atom<Module>>, 
         scope:_Scope?, 
         stems:Route.Stems) -> _SymbolLink.Resolution?
     {

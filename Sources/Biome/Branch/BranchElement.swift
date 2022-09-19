@@ -8,5 +8,5 @@ protocol BranchElement<Culture, Offset>:Identifiable
 extension BranchElement
 {
     public 
-    typealias Index = Position<Self>
+    typealias Index = Atom<Self>
 }

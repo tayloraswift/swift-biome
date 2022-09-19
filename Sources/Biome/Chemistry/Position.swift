@@ -1,5 +1,5 @@
 @frozen public 
-struct Position<Element> where Element:BranchElement
+struct Atom<Element> where Element:BranchElement
 {
     public 
     let culture:Element.Culture
@@ -13,10 +13,10 @@ struct Position<Element> where Element:BranchElement
         self.offset = offset
     }
 }
-extension Position:Sendable where Element.Offset:Sendable, Element.Culture:Sendable
+extension Atom:Sendable where Element.Offset:Sendable, Element.Culture:Sendable
 {
 }
-extension Position:Hashable, Comparable 
+extension Atom:Hashable, Comparable 
 {
     @inlinable public static 
     func == (lhs:Self, rhs:Self) -> Bool
@@ -45,7 +45,7 @@ extension Position:Hashable, Comparable
     //     self.offset.distance(to: other.offset)
     // }
 }
-extension Position 
+extension Atom 
 {
     func pluralized(_ branch:Version.Branch) -> PluralPosition<Element>
     {
@@ -107,7 +107,7 @@ extension RandomAccessCollection
     }
 }
 
-extension Position where Element.Culture == Package.Index
+extension Atom where Element.Culture == Package.Index
 {
     var nationality:Package.Index 
     {
@@ -120,7 +120,7 @@ extension Position where Element.Culture == Package.Index
         self.nationality 
     }
 }
-extension Position where Element.Culture == Position<Module>
+extension Atom where Element.Culture == Atom<Module>
 {
     var nationality:Package.Index
     {
@@ -133,7 +133,7 @@ extension Position where Element.Culture == Position<Module>
         self.nationality
     }
     @available(*, deprecated, renamed: "culture")
-    var module:Position<Module>
+    var module:Atom<Module>
     {
         self.culture 
     }

@@ -348,7 +348,7 @@ extension Package
             trunk: fasces.symbols)
         
 
-        var topLevelSymbols:Set<Position<Symbol>> = [] 
+        var topLevelSymbols:Set<Atom<Symbol>> = [] 
         for position:PluralPosition<Symbol>? in interface.citizenSymbols
         {
             if  let position:PluralPosition<Symbol>, 
@@ -367,7 +367,7 @@ extension Package
             trunk: fasces.modules)
         
 
-        let topLevelArticles:Set<Position<Article>> = 
+        let topLevelArticles:Set<Atom<Article>> = 
             .init(interface.citizenArticles.lazy.compactMap { $0?.contemporary })
         self.data.topLevelArticles.update(&self.tree[version.branch].modules, 
             position: interface.culture, 
@@ -379,7 +379,7 @@ extension Package
     mutating 
     func updateDocumentation(to version:Version, literature:__owned Literature, fasces:Fasces)
     {
-        for (position, documentation):(Position<Module>, DocumentationExtension<Never>)
+        for (position, documentation):(Atom<Module>, DocumentationExtension<Never>)
             in literature.modules 
         {
             self.data.standaloneDocumentation.update(&self.tree[version.branch].modules, 
@@ -389,7 +389,7 @@ extension Package
                 field: (\.documentation, \.documentation),
                 trunk: fasces.modules)
         }
-        for (position, documentation):(Position<Article>, DocumentationExtension<Never>)
+        for (position, documentation):(Atom<Article>, DocumentationExtension<Never>)
             in literature.articles 
         {
             self.data.standaloneDocumentation.update(&self.tree[version.branch].articles, 
@@ -399,7 +399,7 @@ extension Package
                 field: (\.documentation, \.documentation),
                 trunk: fasces.articles)
         }
-        for (position, documentation):(Position<Symbol>, DocumentationExtension<Position<Symbol>>)
+        for (position, documentation):(Atom<Symbol>, DocumentationExtension<Atom<Symbol>>)
             in literature.symbols 
         {
             self.data.symbolDocumentation.update(&self.tree[version.branch].symbols, 
