@@ -11,14 +11,14 @@ import SymbolGraphs
 struct Namespace 
 {
     let id:Module.ID 
-    let position:Tree.Position<Module>
+    let position:PluralPosition<Module>
 
     var culture:Branch.Position<Module>
     {
         self.position.contemporary
     }
 
-    init(id:Module.ID, position:Tree.Position<Module>)
+    init(id:Module.ID, position:PluralPosition<Module>)
     {
         self.id = id 
         self.position = position
@@ -39,7 +39,7 @@ struct Namespaces
     var pins:[Package.Index: Version]
     let module:Namespace
     private(set)
-    var linked:[Module.ID: Tree.Position<Module>]
+    var linked:[Module.ID: PluralPosition<Module>]
 
     init(_ module:Namespace)
     {
@@ -47,7 +47,7 @@ struct Namespaces
         self.module = module 
         self.linked = [module.id: module.position]
     }
-    init(id:Module.ID, position:Tree.Position<Module>)
+    init(id:Module.ID, position:PluralPosition<Module>)
     {
         self.init(.init(id: id, position: position))
     }
@@ -190,7 +190,7 @@ struct Namespaces
             {
                 for module:Module.ID in dependencies
                 {
-                    if let module:Tree.Position<Module> = pinned.modules.find(module)
+                    if let module:PluralPosition<Module> = pinned.modules.find(module)
                     {
                         // use the stored id, not the requested id
                         self.linked[pinned.package.tree[local: module].id] = module
@@ -228,7 +228,7 @@ struct Namespaces
             package.tree[branch].modules[...]
         for module:Module.ID in dependencies
         {
-            if  let module:Tree.Position<Module> = 
+            if  let module:PluralPosition<Module> = 
                     contemporary.positions[module].map({ $0.pluralized(branch) }) ?? 
                     fasces.modules.find(module) 
             {

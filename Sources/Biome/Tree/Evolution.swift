@@ -36,7 +36,7 @@ struct Evolution
 
     var rows:[Row]
 
-    init(for symbol:Tree.Position<Symbol>, 
+    init(for symbol:PluralPosition<Symbol>, 
         in tree:__shared Tree, 
         history:__shared History<Symbol.Metadata?>)
     {
@@ -54,7 +54,7 @@ struct Evolution
         let branch:Branch = tree[founder]
         var keyframes:History<Symbol.Metadata?>.Iterator = 
             history[branch.symbols[contemporary: position].metadata].makeIterator()
-        
+
         guard var regime:History<Symbol.Metadata?>.Keyframe = keyframes.next()
         else 
         {

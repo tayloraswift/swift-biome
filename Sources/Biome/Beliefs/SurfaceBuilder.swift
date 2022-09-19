@@ -5,7 +5,7 @@ extension SurfaceBuilder
     {
         let position:Branch.Position<Symbol> 
         var metadata:Symbol.Metadata
-        var shape:Symbol.Shape<Tree.Position<Symbol>>?
+        var shape:Symbol.Shape<PluralPosition<Symbol>>?
     }
     fileprivate 
     struct Nodes:RandomAccessCollection 
@@ -102,16 +102,16 @@ struct SurfaceBuilder
         let upstream:[Package.Index: Package._Pinned]
         let local:Package 
 
-        subscript(global position:Tree.Position<Symbol>) -> Symbol 
+        subscript(global position:PluralPosition<Symbol>) -> Symbol 
         {
             if  let symbol:Symbol = self.local.tree[position] ?? 
-                    self.upstream[position.package]?.package.tree[local: position]
+                    self.upstream[position.nationality]?.package.tree[local: position]
             {
                 return symbol
             }
             else 
             {
-                fatalError("unreachable: SurfaceBuilder.Context does not contain requested package (index: \(position.package))")
+                fatalError("unreachable: SurfaceBuilder.Context does not contain requested package (index: \(position.nationality))")
             }
         }
     }
@@ -151,10 +151,10 @@ struct SurfaceBuilder
         self.previous.modules.remove(interface.culture)
         self.modules.append(interface.culture)
 
-        for (article, _cached):(Tree.Position<Article>?, Extension) in 
+        for (article, _cached):(PluralPosition<Article>?, Extension) in 
             zip(interface.citizenArticles, interface._cachedMarkdown)
         {
-            if let article:Tree.Position<Article>
+            if let article:PluralPosition<Article>
             {
                 self.previous.articles.remove(article.contemporary)
                 self.articles.append((article.contemporary, .init(_extension: _cached)))
@@ -179,9 +179,9 @@ struct SurfaceBuilder
         context:Context) 
     {
 
-        var external:[Tree.Position<Symbol>: [Symbol.Trait<Tree.Position<Symbol>>]] = [:]
-        var traits:[Tree.Position<Symbol>: [Symbol.Trait<Tree.Position<Symbol>>]] = [:]
-        var roles:[Tree.Position<Symbol>: [Symbol.Role<Tree.Position<Symbol>>]] = [:]
+        var external:[PluralPosition<Symbol>: [Symbol.Trait<PluralPosition<Symbol>>]] = [:]
+        var traits:[PluralPosition<Symbol>: [Symbol.Trait<PluralPosition<Symbol>>]] = [:]
+        var roles:[PluralPosition<Symbol>: [Symbol.Role<PluralPosition<Symbol>>]] = [:]
         for belief:Belief in beliefs 
         {
             switch (symbols.culture == belief.subject.contemporary.culture, belief.predicate)
@@ -197,9 +197,9 @@ struct SurfaceBuilder
             }
         }
 
-        for position:Tree.Position<Symbol>? in symbols 
+        for position:PluralPosition<Symbol>? in symbols 
         {
-            if let position:Tree.Position<Symbol>
+            if let position:PluralPosition<Symbol>
             {
                 assert(symbols.culture == position.contemporary.culture)
 
@@ -215,7 +215,7 @@ struct SurfaceBuilder
         {
             fatalError("unimplemented")
         }
-        for (position, traits):(Tree.Position<Symbol>, [Symbol.Trait<Tree.Position<Symbol>>]) in 
+        for (position, traits):(PluralPosition<Symbol>, [Symbol.Trait<PluralPosition<Symbol>>]) in 
             external
         {
             if  let subject:Symbol = context.local.tree[position], 
@@ -230,7 +230,7 @@ struct SurfaceBuilder
                         traits: traits, 
                         context: context)
             }
-            else if let pinned:Package._Pinned = context.upstream[position.package],
+            else if let pinned:Package._Pinned = context.upstream[position.nationality],
                     let metadata:Symbol.Metadata = pinned.metadata(local: position.contemporary)
             {
                 let subject:Symbol = pinned.package.tree[local: position]
@@ -254,19 +254,19 @@ struct SurfaceBuilder
     }
 
     private mutating 
-    func createLocalSurface(for position:Tree.Position<Symbol>,
-        traits:__owned [Symbol.Trait<Tree.Position<Symbol>>], 
-        roles:__owned [Symbol.Role<Tree.Position<Symbol>>], 
+    func createLocalSurface(for position:PluralPosition<Symbol>,
+        traits:__owned [Symbol.Trait<PluralPosition<Symbol>>], 
+        roles:__owned [Symbol.Role<PluralPosition<Symbol>>], 
         context:Context)
         -> Node 
     {
         let symbol:Symbol = context.local.tree[local: position] 
 
-        var shape:Symbol.Shape<Tree.Position<Symbol>>? = nil 
+        var shape:Symbol.Shape<PluralPosition<Symbol>>? = nil 
         // partition relationships buffer 
         var superclass:Branch.Position<Symbol>? = nil 
         var residuals:[Symbol.Role<Branch.Position<Symbol>>] = []
-        for role:Symbol.Role<Tree.Position<Symbol>> in roles
+        for role:Symbol.Role<PluralPosition<Symbol>> in roles
         {
             switch (shape, role) 
             {
@@ -330,7 +330,7 @@ struct SurfaceBuilder
     private mutating 
     func createForeignSurface(for subject:Symbol, metadata:Symbol.Metadata, 
         diacritic:Branch.Diacritic, 
-        traits:__owned [Symbol.Trait<Tree.Position<Symbol>>], 
+        traits:__owned [Symbol.Trait<PluralPosition<Symbol>>], 
         context:Context)
         -> Branch.SymbolTraits
     {
@@ -390,7 +390,7 @@ extension SurfaceBuilder
             {
                 continue 
             }
-            if let shape:Symbol.Shape<Tree.Position<Symbol>> = node.shape 
+            if let shape:Symbol.Shape<PluralPosition<Symbol>> = node.shape 
             {
                 // already have a shape from a member or requirement belief
                 symbols[contemporary: node.position].shape = shape
@@ -408,7 +408,7 @@ extension SurfaceBuilder
             //  this is a *very* heuristical process.
             if  let scope:Route.Key = stems[symbol.route.namespace, straight: scope]
             {
-                let selection:_Selection<Tree.Position<Symbol>>? = routes.select(scope)
+                let selection:_Selection<PluralPosition<Symbol>>? = routes.select(scope)
                 {
                     (branch:Version.Branch, composite:Branch.Composite) in 
                     composite.natural.map { $0.pluralized(branch) }

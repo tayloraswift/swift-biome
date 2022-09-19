@@ -92,7 +92,7 @@ extension Package.Pinned
 {
     func load(local article:Branch.Position<Article>) -> Article?
     {
-        if let position:Tree.Position<Article> = article.pluralized(bisecting: self.articles)
+        if let position:PluralPosition<Article> = article.pluralized(bisecting: self.articles)
         {
             return self.package.tree[local: position]
         }
@@ -103,7 +103,7 @@ extension Package.Pinned
     }
     func load(local symbol:Branch.Position<Symbol>) -> Symbol?
     {
-        if let position:Tree.Position<Symbol> = symbol.pluralized(bisecting: self.symbols)
+        if let position:PluralPosition<Symbol> = symbol.pluralized(bisecting: self.symbols)
         {
             return self.package.tree[local: position]
         }
@@ -114,7 +114,7 @@ extension Package.Pinned
     }
     func load(local module:Branch.Position<Module>) -> Module?
     {
-        if let position:Tree.Position<Module> = module.pluralized(bisecting: self.modules)
+        if let position:PluralPosition<Module> = module.pluralized(bisecting: self.modules)
         {
             return self.package.tree[local: position]
         }
@@ -226,7 +226,7 @@ extension Package.Pinned
         {
             return .init(selection)
         }
-        guard let namespace:Tree.Position<Module> = self.fasces.modules.find(.init(link.first))
+        guard let namespace:PluralPosition<Module> = self.fasces.modules.find(.init(link.first))
         else 
         {
             return nil

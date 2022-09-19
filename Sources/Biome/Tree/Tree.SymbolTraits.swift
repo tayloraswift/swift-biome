@@ -1,7 +1,7 @@
 extension Tree.SymbolTraits.Unconditional 
 {
     fileprivate mutating 
-    func insert(_ element:Tree.Position<Symbol>) 
+    func insert(_ element:PluralPosition<Symbol>) 
     {
         self.updateValue(element.branch, forKey: element.contemporary)
     }
@@ -16,7 +16,7 @@ extension Tree
         ]
         typealias Conditional = 
         [
-            Branch.Position<Symbol>: (Version.Branch, [Generic.Constraint<Position<Symbol>>])
+            Branch.Position<Symbol>: (Version.Branch, [Generic.Constraint<PluralPosition<Symbol>>])
         ]
 
         var members:Unconditional
@@ -37,7 +37,7 @@ extension Tree
             self.conditional = conditional
         }
         
-        init(_ traits:some Sequence<Symbol.Trait<Position<Symbol>>>, as community:Community)
+        init(_ traits:some Sequence<Symbol.Trait<PluralPosition<Symbol>>>, as community:Community)
         {
             self.init()
             self.update(with: traits, as: community)
@@ -92,13 +92,13 @@ extension Tree.SymbolTraits
     }
 
     mutating 
-    func update(with traits:some Sequence<Symbol.Trait<Tree.Position<Symbol>>>, 
+    func update(with traits:some Sequence<Symbol.Trait<PluralPosition<Symbol>>>, 
         as community:Community) 
     {
         switch community 
         {
         case .associatedtype:
-            for trait:Symbol.Trait<Tree.Position<Symbol>> in traits 
+            for trait:Symbol.Trait<PluralPosition<Symbol>> in traits 
             {
                 switch trait 
                 {
@@ -116,7 +116,7 @@ extension Tree.SymbolTraits
             }
         
         case .protocol:
-            for trait:Symbol.Trait<Tree.Position<Symbol>> in traits 
+            for trait:Symbol.Trait<PluralPosition<Symbol>> in traits 
             {
                 switch trait 
                 {
@@ -137,13 +137,13 @@ extension Tree.SymbolTraits
             }
         
         case .typealias, .global(_): 
-            for _:Symbol.Trait<Tree.Position<Symbol>> in traits 
+            for _:Symbol.Trait<PluralPosition<Symbol>> in traits 
             {
                 fatalError("unreachable")
             }
         
         case .concretetype(_):
-            for trait:Symbol.Trait<Tree.Position<Symbol>> in traits 
+            for trait:Symbol.Trait<PluralPosition<Symbol>> in traits 
             {
                 switch trait 
                 {
@@ -166,7 +166,7 @@ extension Tree.SymbolTraits
             }
         
         case .callable(_):
-            for trait:Symbol.Trait<Tree.Position<Symbol>> in traits 
+            for trait:Symbol.Trait<PluralPosition<Symbol>> in traits 
             {
                 switch trait 
                 {

@@ -48,12 +48,3 @@ struct Version:Hashable, Sendable
         self.revision = revision 
     }
 }
-
-extension Version.Branch 
-{
-    @available(*, unavailable, message: "a composite can have up to three independent branches")
-    func pluralize(_ position:Branch.Composite) -> Tree.Composite
-    {
-        fatalError("unavailable")
-    }
-}

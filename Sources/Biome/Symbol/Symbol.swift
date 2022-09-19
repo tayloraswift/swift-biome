@@ -16,7 +16,7 @@ struct Symbol:Sendable, CustomStringConvertible
     let path:Path
     let kind:Kind
     let route:Route.Key
-    var shape:Shape<Tree.Position<Self>>?
+    var shape:Shape<PluralPosition<Self>>?
 
     var metadata:History<Metadata?>.Head?
     var declaration:History<Declaration<Branch.Position<Symbol>>>.Head?

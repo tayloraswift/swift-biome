@@ -153,6 +153,11 @@ struct DocumentationQuery
 }
 struct DisambiguationQuery
 {
+    enum Choices 
+    {
+        case extant([Branch.Composite])
+        case footprints([(Branch.Position<Symbol>, Version)], [Branch.Composite])
+    }
     let nationality:Package.Index
     let version:Version 
     let choices:[Branch.Composite]
@@ -273,7 +278,7 @@ extension Service
         }
         //  we can store a module id in a ``Symbol/Link``, because every 
         //  ``Module/ID`` is a valid ``Symbol/Link/Component``.
-        guard let namespace:Tree.Position<Module> = residency.modules.find(.init(request.first))
+        guard let namespace:PluralPosition<Module> = residency.modules.find(.init(request.first))
         else 
         {
             return nil
@@ -290,7 +295,7 @@ extension Service
         // doc scheme never uses nationality query parameter 
         if      case .doc = scheme, 
                 let key:Route.Key = self.stems[namespace.contemporary, straight: request], 
-                let article:Tree.Position<Article> = residency.articles.find(.init(key))
+                let article:PluralPosition<Article> = residency.articles.find(.init(key))
         {
             let address:Address = residency.address(of: residency.package.tree[local: article], 
                 namespace: residency.package.tree[local: namespace])

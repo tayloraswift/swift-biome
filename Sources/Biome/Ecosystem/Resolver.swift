@@ -234,7 +234,7 @@ struct Resolver
         stems:Route.Stems) -> Branch.Position<Article>?
     {
         if  let scope:_Scope, 
-            let article:Tree.Position<Article> = scope.scan(concatenating: link, 
+            let article:PluralPosition<Article> = scope.scan(concatenating: link, 
                 stems: stems, 
                 until: { self.context[$0.namespace.nationality]?.articles.find(.init($0)) })
         {
@@ -242,11 +242,11 @@ struct Resolver
         }
         // can’t use a namespace as a key field if that namespace was not imported
         if  let path:_SymbolLink = link.suffix,
-            let namespace:Tree.Position<Module> = self.namespaces.linked[.init(link.first)], 
+            let namespace:PluralPosition<Module> = self.namespaces.linked[.init(link.first)], 
                 imports.contains(namespace.contemporary), 
-            let pinned:Package.Pinned = self.context[namespace.package],
+            let pinned:Package.Pinned = self.context[namespace.nationality],
             let article:Route.Key = stems[namespace.contemporary, straight: path], 
-            let article:Tree.Position<Article> = pinned.articles.find(.init(article))
+            let article:PluralPosition<Article> = pinned.articles.find(.init(article))
         {
             return article.contemporary
         }
@@ -272,7 +272,7 @@ struct Resolver
             return .init(selection)
         }
         // can’t use a namespace as a key field if that namespace was not imported
-        guard   let namespace:Tree.Position<Module> = self.namespaces.linked[.init(link.first)], 
+        guard   let namespace:PluralPosition<Module> = self.namespaces.linked[.init(link.first)], 
                     imports.contains(namespace.contemporary)
         else 
         {

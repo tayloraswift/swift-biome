@@ -89,9 +89,9 @@ extension Branch
 {
     mutating 
     func add(module id:Module.ID, culture:Package.Index, fasces:Fasces) 
-        -> Tree.Position<Module>
+        -> PluralPosition<Module>
     {
-        if let existing:Tree.Position<Module> = fasces.modules.find(id)
+        if let existing:PluralPosition<Module> = fasces.modules.find(id)
         {
             return existing 
         }
@@ -135,7 +135,7 @@ extension Branch
     {
         let linked:Set<Position<Module>> = namespaces.import()
 
-        var positions:[Tree.Position<Symbol>?] = []
+        var positions:[PluralPosition<Symbol>?] = []
             positions.reserveCapacity(graph.identifiers.count)
         for (namespace, vertices):(Module.ID, ArraySlice<SymbolGraph.Vertex<Int>>) in 
             graph.colonies
@@ -188,9 +188,9 @@ extension Branch
         upstream:[Package.Index: Package._Pinned], 
         trunk:Fasces.SymbolView, 
         stems:inout Route.Stems)
-        -> Tree.Position<Symbol>
+        -> PluralPosition<Symbol>
     {
-        if let existing:Tree.Position<Symbol> = trunk.find(id)
+        if let existing:PluralPosition<Symbol> = trunk.find(id)
         {
             // swift encodes module names in symbol identifiers, so if a symbol changes culture, 
             // something really weird has happened.
@@ -205,7 +205,7 @@ extension Branch
         } 
         for upstream:Package._Pinned in upstream.values 
         {
-            if  let restated:Tree.Position<Symbol> = upstream.symbols.find(id), 
+            if  let restated:PluralPosition<Symbol> = upstream.symbols.find(id), 
                     linked.contains(restated.contemporary.culture)
             {
                 return restated 
@@ -256,7 +256,7 @@ extension Branch
             .init(markdown: $0.source, name: $0.name)
         }
 
-        var positions:[Tree.Position<Article>?] = []
+        var positions:[PluralPosition<Article>?] = []
             positions.reserveCapacity(graph.extensions.count)
         let start:Article.Offset = self.articles.endIndex
         for article:Extension in _extensions
@@ -295,7 +295,7 @@ extension Branch
     private mutating 
     func addArticle(_ path:Path, culture:Position<Module>, trunk:Fasces.ArticleView, 
         stems:inout Route.Stems)
-        -> Tree.Position<Article>
+        -> PluralPosition<Article>
     {
         // article namespace is always its culture. 
         let stem:Route.Stem = stems.register(components: path.prefix) 
@@ -303,7 +303,7 @@ extension Branch
 
         let id:Article.ID = .init(culture, stem, leaf)
 
-        if let existing:Tree.Position<Article> = trunk.find(id)
+        if let existing:PluralPosition<Article> = trunk.find(id)
         {
             guard existing.contemporary.culture == culture 
             else 

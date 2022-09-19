@@ -234,7 +234,7 @@ extension Fasces:RandomAccessCollection, RangeReplaceableCollection
 
 extension Sequence 
 {
-    func find<Axis>(_ id:Axis.ID) -> Tree.Position<Axis>? where Element == Epoch<Axis>
+    func find<Axis>(_ id:Axis.ID) -> PluralPosition<Axis>? where Element == Epoch<Axis>
     {
         for segment:Epoch<Axis> in self 
         {

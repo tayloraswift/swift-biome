@@ -42,12 +42,12 @@
 // }
 // extension Tree.SymbolRoles
 // {
-//     init?(_ roles:some Sequence<Symbol.Role<Tree.Position<Symbol>>>, 
-//         superclass:Tree.Position<Symbol>?, 
-//         shape:Symbol.Shape<Tree.Position<Symbol>>?, 
+//     init?(_ roles:some Sequence<Symbol.Role<PluralPosition<Symbol>>>, 
+//         superclass:PluralPosition<Symbol>?, 
+//         shape:Symbol.Shape<PluralPosition<Symbol>>?, 
 //         as community:Community) 
 //     {
-//         if  let superclass:Tree.Position<Symbol> = superclass 
+//         if  let superclass:PluralPosition<Symbol> = superclass 
 //         {
 //             switch  (community, shape)
 //             {
@@ -59,7 +59,7 @@
 //                 // should have thrown a ``ColorError`` earlier
 //                 fatalError("unreachable")
 //             }
-//             for _:Symbol.Role<Tree.Position<Symbol>> in roles 
+//             for _:Symbol.Role<PluralPosition<Symbol>> in roles 
 //             {
 //                 fatalError("unreachable")
 //             }
@@ -90,7 +90,7 @@
 //             case    (.concretetype(_),  nil), 
 //                     (.typealias,          _), 
 //                     (.global(_),        nil):
-//                 for _:Symbol.Role<Tree.Position<Symbol>> in roles
+//                 for _:Symbol.Role<PluralPosition<Symbol>> in roles
 //                 {
 //                     fatalError("unreachable") 
 //                 }

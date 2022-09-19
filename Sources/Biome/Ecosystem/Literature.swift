@@ -106,10 +106,10 @@ struct Literature
         mutating 
         func update(with graph:SymbolGraph, interface:ModuleInterface)
         {
-            for (position, vertex):(Tree.Position<Symbol>?, SymbolGraph.Vertex<Int>) in 
+            for (position, vertex):(PluralPosition<Symbol>?, SymbolGraph.Vertex<Int>) in 
                 zip(interface.citizenSymbols, graph.vertices)
             {
-                guard let position:Tree.Position<Symbol> = position
+                guard let position:PluralPosition<Symbol> = position
                 else 
                 {
                     continue 
@@ -257,13 +257,13 @@ struct Literature
                 namespaces: interface.namespaces,
                 context: context)
 
-            for (position, _extension):(Tree.Position<Article>?, Extension) in 
+            for (position, _extension):(PluralPosition<Article>?, Extension) in 
                 zip(interface.citizenArticles, interface._cachedMarkdown)
             {
                 let imports:Set<Branch.Position<Module>> = 
                     interface.namespaces.import(_extension.metadata.imports)
                 // TODO: handle merge behavior block directive 
-                if let position:Tree.Position<Article> 
+                if let position:PluralPosition<Article> 
                 {
                     self.articles.append((position.contemporary, .init(
                         compiling: _move _extension, 
@@ -315,7 +315,7 @@ struct Literature
                             print("warning: documentation extension would overwrite existing documentation, skipping")
                             continue 
                         }
-                        guard   let position:Tree.Position<Symbol> = 
+                        guard   let position:PluralPosition<Symbol> = 
                                     natural.pluralized(bisecting: local.symbols)
                         else 
                         {

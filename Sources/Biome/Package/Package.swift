@@ -349,9 +349,9 @@ extension Package
         
 
         var topLevelSymbols:Set<Branch.Position<Symbol>> = [] 
-        for position:Tree.Position<Symbol>? in interface.citizenSymbols
+        for position:PluralPosition<Symbol>? in interface.citizenSymbols
         {
-            if  let position:Tree.Position<Symbol>, 
+            if  let position:PluralPosition<Symbol>, 
                 self.tree[local: position].path.prefix.isEmpty
             {
                 // a symbol is toplevel if it has a single path component. this 

@@ -2,14 +2,14 @@ struct Belief
 {
     enum Predicate 
     {
-        case `is`(Symbol.Role<Tree.Position<Symbol>>)
-        case has(Symbol.Trait<Tree.Position<Symbol>>)
+        case `is`(Symbol.Role<PluralPosition<Symbol>>)
+        case has(Symbol.Trait<PluralPosition<Symbol>>)
     }
 
-    let subject:Tree.Position<Symbol>
+    let subject:PluralPosition<Symbol>
     let predicate:Predicate
 
-    init(_ subject:Tree.Position<Symbol>, _ predicate:Predicate)
+    init(_ subject:PluralPosition<Symbol>, _ predicate:Predicate)
     {
         self.subject = subject 
         self.predicate = predicate

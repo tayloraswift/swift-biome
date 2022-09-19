@@ -115,7 +115,7 @@ enum Main
         let version:Version = service.packages.swift.tree.find(selector)!
 
         let fasces:Fasces = service.packages.swift.tree.fasces(through: version)
-        let symbol:Tree.Position<Symbol> = 
+        let symbol:PluralPosition<Symbol> = 
             fasces.symbols.find(Symbol.ID.init(.swift, "Foobaz".utf8))!
         let evolution:Evolution = .init(for: symbol, in: service.packages.swift.tree, 
             history: service.packages.swift.metadata.symbols)

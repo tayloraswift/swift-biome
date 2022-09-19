@@ -33,7 +33,7 @@ extension Package.Data
         graph:SymbolGraph, 
         trunk:some Sequence<Epoch<Symbol>>)
     {
-        for (position, vertex):(Tree.Position<Symbol>?, SymbolGraph.Vertex<Int>) in 
+        for (position, vertex):(PluralPosition<Symbol>?, SymbolGraph.Vertex<Int>) in 
             zip(interface.citizenSymbols, graph.vertices)
         {
             guard let position:Branch.Position<Symbol> = position?.contemporary

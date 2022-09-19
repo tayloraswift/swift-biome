@@ -193,21 +193,21 @@ extension Tree
 
 extension Tree 
 {
-    subscript(local article:Position<Article>) -> Article 
+    subscript(local article:PluralPosition<Article>) -> Article 
     {
         _read 
         {
             yield  self[article.branch].articles[contemporary: article.contemporary]
         }
     }
-    subscript(local symbol:Position<Symbol>) -> Symbol 
+    subscript(local symbol:PluralPosition<Symbol>) -> Symbol 
     {
         _read 
         {
             yield  self[symbol.branch].symbols[contemporary: symbol.contemporary]
         }
     }
-    subscript(local module:Position<Module>) -> Module 
+    subscript(local module:PluralPosition<Module>) -> Module 
     {
         _read 
         {
@@ -215,16 +215,16 @@ extension Tree
         }
     }
 
-    subscript(article:Position<Article>) -> Article? 
+    subscript(article:PluralPosition<Article>) -> Article? 
     {
-        self.nationality == article.package ? self[local: article] : nil
+        self.nationality == article.nationality ? self[local: article] : nil
     }
-    subscript(symbol:Position<Symbol>) -> Symbol? 
+    subscript(symbol:PluralPosition<Symbol>) -> Symbol? 
     {
-        self.nationality == symbol.package ? self[local: symbol] : nil
+        self.nationality == symbol.nationality ? self[local: symbol] : nil
     }
-    subscript(module:Position<Module>) -> Module? 
+    subscript(module:PluralPosition<Module>) -> Module? 
     {
-        self.nationality == module.package ? self[local: module] : nil
+        self.nationality == module.nationality ? self[local: module] : nil
     }
 }
