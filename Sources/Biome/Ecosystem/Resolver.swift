@@ -65,7 +65,7 @@ struct Resolver
     let linked:[Package.ID: Package.Pinned]
     let namespaces:Namespaces
 
-    init(local:Package.Pinned, pins:__shared [Package.Index: _Version], 
+    init(local:Package.Pinned, pins:__shared [Package.Index: Version], 
         namespaces:Namespaces, 
         context:__shared Packages)
     {
@@ -205,7 +205,7 @@ struct Resolver
             // is an ancestor of the current (branch, revision) tuple. 
             // but currently, we do not.
             if  let version:Version.Selector = nationality.version, 
-                let version:_Version = local.package.tree.find(version), 
+                let version:Version = local.package.tree.find(version), 
                     version != local.version
             {
                 throw _SymbolLink.ResolutionProblem.nationalVersion

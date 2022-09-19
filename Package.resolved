@@ -5,8 +5,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser.git",
       "state" : {
-        "revision" : "df9ee6676cd5b3bf5b330ec7568a5644f547201b",
-        "version" : "1.1.3"
+        "revision" : "9f39744e025c7d377987f30b03770805dcb0bcd1",
+        "version" : "1.1.4"
       }
     },
     {
@@ -86,7 +86,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-markdown.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a",
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-09-12-a",
         "revision" : "52563fc74a540b29854fde20e836b27394be2749"
       }
     },
@@ -113,8 +113,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-syntax.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a",
-        "revision" : "f0b5ed4713c484644c5e586b92b129da32ab0a4c"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-09-12-a",
+        "revision" : "e6fa90ca5e47803439ab478d51ee1c833619e8f8"
       }
     },
     {

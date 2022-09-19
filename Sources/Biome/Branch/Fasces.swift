@@ -120,11 +120,11 @@ struct Fasces
         private 
         let trunk:[Fascis], 
             routes:[Route.Key: Branch.Stack], 
-            branch:_Version.Branch
+            branch:Version.Branch
 
         init(_ trunk:[Fascis], 
             routes:[Route.Key: Branch.Stack], 
-            branch:_Version.Branch)
+            branch:Version.Branch)
         {
             self.trunk = trunk 
             self.routes = routes
@@ -132,7 +132,7 @@ struct Fasces
         }
 
         func select<T>(_ key:Route.Key, 
-            where filter:(_Version.Branch, Branch.Composite) throws -> T?) 
+            where filter:(Version.Branch, Branch.Composite) throws -> T?) 
             rethrows -> _Selection<T>?
         {
             var selection:_Selection<T>? = nil
@@ -147,7 +147,7 @@ struct Fasces
         }
         private 
         func select(_ key:Route.Key, 
-            _ body:(_Version.Branch, Branch.Composite) throws -> ()) rethrows 
+            _ body:(Version.Branch, Branch.Composite) throws -> ()) rethrows 
         {
             try self.routes.select(key) 
             { 
@@ -195,7 +195,7 @@ struct Fasces
     {
         .init(self.segments)
     }
-    func routes(layering routes:[Route.Key: Branch.Stack], branch:_Version.Branch) 
+    func routes(layering routes:[Route.Key: Branch.Stack], branch:Version.Branch) 
         -> AugmentedRoutingView 
     {
         .init(self.segments, routes: routes, branch: branch)

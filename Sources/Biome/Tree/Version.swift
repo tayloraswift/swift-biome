@@ -49,20 +49,8 @@ struct Version:Hashable, Sendable
     }
 }
 
-extension _Version.Branch 
+extension Version.Branch 
 {
-    @available(*, deprecated, renamed: "Tree.Position.idealized(_:)")
-    func idealize<Element>(_ position:Tree.Position<Element>) -> Branch.Position<Element>?
-        where Element:BranchElement 
-    {
-        self == position.branch ? position.contemporary : nil 
-    }
-    @available(*, deprecated, renamed: "Branch.Position.pluralized(_:)")
-    func pluralize<Element>(_ position:Branch.Position<Element>) -> Tree.Position<Element> 
-        where Element:BranchElement 
-    {
-        .init(position, branch: self)
-    }
     @available(*, unavailable, message: "a composite can have up to three independent branches")
     func pluralize(_ position:Branch.Composite) -> Tree.Composite
     {

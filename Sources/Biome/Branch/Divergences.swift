@@ -1,16 +1,16 @@
-struct Divergences<Key, Value> where Key:Hashable
+struct Divergences<Key, Divergence> where Key:Hashable
 {
     private 
-    let items:[Key: Value]
-    let limit:_Version.Revision
+    let items:[Key: Divergence]
+    let limit:Version.Revision
 
-    init(_ items:[Key: Value], limit:_Version.Revision)
+    init(_ items:[Key: Divergence], limit:Version.Revision)
     {
         self.items = items 
         self.limit = limit
     }
 
-    subscript(key:Key) -> Value? 
+    subscript(key:Key) -> Divergence? 
     {
         _read 
         {
@@ -24,7 +24,7 @@ struct Divergences<Key, Value> where Key:Hashable
     /// ``Buffer/SubSequence`` it was obtained from, if applicable. However 
     /// if this method returns a non-nil result, the specified revision 
     /// is guaranteed to exist in the associated chain.
-    subscript<Field>(key:Key, field:KeyPath<Value, History<Field>.Divergent?>) 
+    subscript<Field>(key:Key, field:History<Field>.SparseField<Divergence>) 
         -> History<Field>.Head?
     {
         if  let divergence:History<Field>.Divergent = self.items[key]?[keyPath: field], 

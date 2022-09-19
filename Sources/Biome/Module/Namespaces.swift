@@ -36,7 +36,7 @@ struct Namespace
 struct Namespaces
 {
     private(set)
-    var pins:[Package.Index: _Version]
+    var pins:[Package.Index: Version]
     let module:Namespace
     private(set)
     var linked:[Module.ID: Tree.Position<Module>]
@@ -113,7 +113,7 @@ struct Namespaces
     mutating 
     func link(dependencies:[SymbolGraph.Dependency], 
         linkable:[Package.Index: _Dependency], 
-        branch:_Version.Branch, 
+        branch:Version.Branch, 
         fasces:Fasces, 
         context:Packages)
         throws -> [Package.Index: Package._Pinned]
@@ -220,7 +220,7 @@ struct Namespaces
     }
     private mutating 
     func link(local package:Package, dependencies:[Module.ID], 
-        branch:_Version.Branch, 
+        branch:Version.Branch, 
         fasces:Fasces) 
         throws 
     {

@@ -2,15 +2,15 @@ extension Branch
 {
     enum Substack:Sendable 
     {
-        case one ((Diacritic, _Version.Revision))
-        case many([Diacritic: _Version.Revision])
+        case one ((Diacritic, Version.Revision))
+        case many([Diacritic: Version.Revision])
     }
 }
 
 extension Branch.Substack? 
 {
     mutating 
-    func insert(_ element:Branch.Diacritic, revision:_Version.Revision)
+    func insert(_ element:Branch.Diacritic, revision:Version.Revision)
     {
         switch _move self
         {

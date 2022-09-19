@@ -6,7 +6,7 @@ extension Tree
     struct Position<Element>:Hashable where Element:BranchElement
     {
         let contemporary:Branch.Position<Element>
-        let branch:_Version.Branch 
+        let branch:Version.Branch 
 
         @available(*, deprecated, renamed: "contemporary")
         var index:Element.Index 
@@ -14,7 +14,7 @@ extension Tree
             self.contemporary
         }
 
-        init(_ contemporary:Branch.Position<Element>, branch:_Version.Branch)
+        init(_ contemporary:Branch.Position<Element>, branch:Version.Branch)
         {
             self.contemporary = contemporary 
             self.branch = branch
@@ -23,14 +23,14 @@ extension Tree
 }
 // extension Tree.Position 
 // {
-//     func idealized(_ branch:_Version.Branch) -> Branch.Position<Element>?
+//     func idealized(_ branch:Version.Branch) -> Branch.Position<Element>?
 //     {
 //         self.branch == branch ? self.contemporary : nil 
 //     }
 // }
 extension Branch.Position 
 {
-    func pluralized(_ branch:_Version.Branch) -> Tree.Position<Element>
+    func pluralized(_ branch:Version.Branch) -> Tree.Position<Element>
     {
         .init(self, branch: branch)
     }

@@ -114,7 +114,7 @@ struct ModuleInterface
     {
         self.namespaces.culture 
     }
-    var pins:[Package.Index: _Version] 
+    var pins:[Package.Index: Version] 
     {
         self.namespaces.pins
     }

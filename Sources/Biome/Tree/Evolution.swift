@@ -54,11 +54,7 @@ struct Evolution
         let branch:Branch = tree[founder]
         var keyframes:History<Symbol.Metadata?>.Iterator = 
             history[branch.symbols[contemporary: position].metadata].makeIterator()
-
-        for x in Array.init(history[branch.symbols[contemporary: position].metadata])
-        {
-            print(tree[founder].revisions[x.since].date, x.value as Any)
-        }
+        
         guard var regime:History<Symbol.Metadata?>.Keyframe = keyframes.next()
         else 
         {

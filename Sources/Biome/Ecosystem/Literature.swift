@@ -81,9 +81,9 @@ struct Literature
         }
 
         let node:Node 
-        let branch:_Version.Branch 
+        let branch:Version.Branch 
 
-        init(_ node:Node, branch:_Version.Branch)
+        init(_ node:Node, branch:Version.Branch)
         {
             self.node = node 
             self.branch = branch
@@ -215,7 +215,7 @@ struct Literature
 
     init(compiling graphs:__owned [SymbolGraph], interfaces:__owned [ModuleInterface], 
         package local:Package.Index, 
-        version:_Version, 
+        version:Version, 
         context:__shared Packages, 
         stems:__shared Route.Stems)
     {

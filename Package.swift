@@ -14,6 +14,8 @@ let package = Package(
         
         .executable(name: "preview",            targets: ["Preview"]),
         .executable(name: "swift-symbolgraphc", targets: ["SymbolGraphConvert"]),
+
+        .executable(name: "biome-tests", targets: ["BiomeTests"]),
     ],
     dependencies: 
     [
@@ -25,8 +27,8 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-resource", .upToNextMinor(from: "0.3.2")),
         .package(url: "https://github.com/kelvin13/swift-dom", .upToNextMinor(from: "0.5.2")),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",    revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
-        .package(url: "https://github.com/apple/swift-syntax.git",      revision: "swift-DEVELOPMENT-SNAPSHOT-2022-08-18-a"),
+        .package(url: "https://github.com/apple/swift-markdown.git",    revision: "swift-DEVELOPMENT-SNAPSHOT-2022-09-12-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",      revision: "swift-DEVELOPMENT-SNAPSHOT-2022-09-12-a"),
         
         // only used by the PackageLoader target
         .package(url: "https://github.com/kelvin13/swift-system-extras.git", .upToNextMinor(from: "0.2.0")),
@@ -70,7 +72,7 @@ let package = Package(
             dependencies: 
             [
                 .target(name: "PieCharts"),
-                .target(name: "SymbolGraphs"),
+                .target(name: "PackageResolution"),
                 .target(name: "URI"),
 
                 .target(name: "Forest"),
@@ -134,5 +136,12 @@ let package = Package(
                 .product(name: "SystemExtras",      package: "swift-system-extras"),
                 .product(name: "ArgumentParser",    package: "swift-argument-parser"),
             ]),
+        
+        .executableTarget(name: "BiomeTests", 
+            dependencies: 
+            [
+                .target(name: "Biome"),
+            ], 
+            path: "Tests/BiomeTests"),
     ]
 )

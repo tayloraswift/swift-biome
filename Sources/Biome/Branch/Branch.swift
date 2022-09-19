@@ -2,7 +2,7 @@ import PackageResolution
 
 enum _Dependency:Sendable 
 {
-    case available(_Version)
+    case available(Version)
     case unavailable(Tag, String)
 }
 enum _DependencyError:Error 

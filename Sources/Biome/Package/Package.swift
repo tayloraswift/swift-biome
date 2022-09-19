@@ -327,7 +327,7 @@ struct Package:Identifiable, Sendable
 extension Package 
 {
     mutating 
-    func updateMetadata(to version:_Version, 
+    func updateMetadata(to version:Version, 
         interfaces:[ModuleInterface], 
         builder:SurfaceBuilder, 
         fasces:Fasces)
@@ -338,7 +338,7 @@ extension Package
             fasces: fasces)
     }
     mutating 
-    func updateData(to version:_Version, graph:SymbolGraph, 
+    func updateData(to version:Version, graph:SymbolGraph, 
         interface:ModuleInterface, 
         fasces:Fasces)
     {
@@ -377,7 +377,7 @@ extension Package
             trunk: fasces.modules)
     }
     mutating 
-    func updateDocumentation(to version:_Version, literature:__owned Literature, fasces:Fasces)
+    func updateDocumentation(to version:Version, literature:__owned Literature, fasces:Fasces)
     {
         for (position, documentation):(Branch.Position<Module>, DocumentationExtension<Never>)
             in literature.modules 

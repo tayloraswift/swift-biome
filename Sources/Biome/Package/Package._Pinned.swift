@@ -15,7 +15,7 @@ struct _Scope
         switch symbol.orientation 
         {
         case .gay:
-            self.init(symbol.namespace, symbol.path.prefix)
+            self.init(symbol.namespace,       symbol.path.prefix)
         case .straight:
             self.init(symbol.namespace, .init(symbol.path))
         }

@@ -5,7 +5,7 @@ extension Branch
     enum Stack:Sendable 
     {
         // if there is no feature index, the natural index is duplicated. 
-        case one ((Composite, _Version.Revision))
+        case one ((Composite, Version.Revision))
         case many([Position<Symbol>: Substack])
         
         @available(*, deprecated)
@@ -13,7 +13,7 @@ extension Branch
         {
             try self.forEach { (composite, _) in try body(composite) }
         }
-        func forEach(_ body:(Composite, _Version.Revision) throws -> ()) rethrows 
+        func forEach(_ body:(Composite, Version.Revision) throws -> ()) rethrows 
         {
             switch self
             {
@@ -29,7 +29,7 @@ extension Branch
                         try body(.init(base, diacritic), revision)
                     
                     case .many(let diacritics):
-                        for (diacritic, revision):(Diacritic, _Version.Revision) in diacritics
+                        for (diacritic, revision):(Diacritic, Version.Revision) in diacritics
                         {
                             try body(.init(base, diacritic), revision)
                         }
@@ -42,7 +42,7 @@ extension Branch
 extension Branch.Stack? 
 {
     mutating 
-    func insert(_ element:Branch.Composite, revision:_Version.Revision)
+    func insert(_ element:Branch.Composite, revision:Version.Revision)
     {
         switch _move self
         {
@@ -87,7 +87,7 @@ extension Branch.Stack?
 extension Dictionary where Value == Branch.Stack 
 {
     mutating 
-    func stack(routes:some Sequence<(Key, Branch.Composite)>, revision:_Version.Revision) 
+    func stack(routes:some Sequence<(Key, Branch.Composite)>, revision:Version.Revision) 
     {
         for (key, composite):(Key, Branch.Composite) in routes 
         {
@@ -100,7 +100,7 @@ extension Dictionary where Value == Branch.Stack
         try self[key]?.forEach { (composite, _) in try body(composite) }
     }
 }
-extension Divergences where Value == Branch.Stack
+extension Divergences where Divergence == Branch.Stack
 {
     func select(_ key:Key, _ body:(Branch.Composite) throws -> ()) rethrows 
     {

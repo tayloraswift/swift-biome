@@ -11,11 +11,11 @@ extension Package
             self.init(local: local, pins: local.package.tree[local.version].pins, 
                 context: context)
         }
-        init(local:Pinned, pins:__shared [Index: _Version], context:__shared Packages)
+        init(local:Pinned, pins:__shared [Index: Version], context:__shared Packages)
         {
             self.local = local 
             var upstream:[Index: Pinned] = .init(minimumCapacity: pins.count)
-            for (index, version):(Index, _Version) in pins 
+            for (index, version):(Index, Version) in pins 
             {
                 upstream[index] = .init(context[index], version: version)
             }

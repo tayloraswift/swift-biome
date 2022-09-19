@@ -11,9 +11,9 @@ struct Fascis:Sendable
     /// 
     /// This is the branch that contains the fascis, not the branch 
     /// the fascis was forked from.
-    let branch:_Version.Branch
+    let branch:Version.Branch
     /// The index of the last revision contained within this fascis.
-    let limit:_Version.Revision 
+    let limit:Version.Revision 
 
     init(
         articles:Branch.Buffer<Article>.SubSequence, 
@@ -21,8 +21,8 @@ struct Fascis:Sendable
         modules:Branch.Buffer<Module>.SubSequence, 
         foreign:[Branch.Diacritic: Symbol.ForeignDivergence],
         routes:[Route.Key: Branch.Stack],
-        branch:_Version.Branch, 
-        limit:_Version.Revision)
+        branch:Version.Branch, 
+        limit:Version.Revision)
     {
         self._articles = articles
         self._symbols = symbols

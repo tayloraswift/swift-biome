@@ -1,9 +1,3 @@
-// protocol BranchSegment<Element>:RandomAccessCollection where Element:BranchElement
-// {
-//     func position(of id:Element.ID) -> Branch.Position<Element>? 
-//     var branch:_Version.Branch { get }
-// }
-
 extension Epoch:Sendable where Element:Sendable 
 {
 }
@@ -16,13 +10,13 @@ struct Epoch<Element>:RandomAccessCollection
     /// 
     /// This is the branch that contains the epoch, not the branch 
     /// the epoch was forked from.
-    let branch:_Version.Branch
+    let branch:Version.Branch
     /// The index of the last revision contained within this epoch.
-    let limit:_Version.Revision 
+    let limit:Version.Revision 
 
     init(_ slice:Branch.Buffer<Element>.SubSequence, 
-        branch:_Version.Branch, 
-        limit:_Version.Revision)
+        branch:Version.Branch, 
+        limit:Version.Revision)
     {
         self.slice = slice
         self.branch = branch

@@ -28,7 +28,7 @@ extension Package.Data
 {
     mutating 
     func updateDeclarations(_ branch:inout Branch, 
-        to revision:_Version.Revision, 
+        to revision:Version.Revision, 
         interface:ModuleInterface, 
         graph:SymbolGraph, 
         trunk:some Sequence<Epoch<Symbol>>)

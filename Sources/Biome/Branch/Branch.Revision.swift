@@ -10,10 +10,10 @@ extension Branch
     struct Revision:Sendable 
     {
         var alternates:[Version.Branch]
-        var consumers:[Package.Index: Set<_Version>]
+        var consumers:[Package.Index: Set<Version>]
         let hash:String
         let ring:Ring
-        let pins:[Package.Index: _Version]
+        let pins:[Package.Index: Version]
         let date:Date
         var tag:Tag? 
 
@@ -22,7 +22,7 @@ extension Branch
             fatalError("obsoleted")
         }
 
-        init(hash:String, ring:Ring, pins:[Package.Index: _Version], date:Date, tag:Tag?)
+        init(hash:String, ring:Ring, pins:[Package.Index: Version], date:Date, tag:Tag?)
         {
             self.alternates = []
             self.consumers = [:]

@@ -21,7 +21,7 @@ extension Package
 extension Package.Metadata 
 {
     mutating 
-    func update(_ branch:inout Branch, to revision:_Version.Revision, 
+    func update(_ branch:inout Branch, to revision:Version.Revision, 
         interfaces:[ModuleInterface], 
         builder:SurfaceBuilder, 
         fasces:Fasces)
