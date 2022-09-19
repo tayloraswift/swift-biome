@@ -155,12 +155,12 @@ struct DisambiguationQuery
 {
     enum Choices 
     {
-        case extant([Branch.Composite])
-        case footprints([(Position<Symbol>, Version)], [Branch.Composite])
+        case extant([Composite])
+        case footprints([(Position<Symbol>, Version)], [Composite])
     }
     let nationality:Package.Index
     let version:Version 
-    let choices:[Branch.Composite]
+    let choices:[Composite]
 }
 
 struct GetRequest 
@@ -332,13 +332,13 @@ extension Service
 
         let context:Package.Context = .init(local: _move nationality, context: self.packages)
 
-        if      var selection:_Selection<Branch.Composite> = context.local.routes.select(key, 
+        if      var selection:_Selection<Composite> = context.local.routes.select(key, 
                     where: context.local.exists(_:))
         {
             request.disambiguator.disambiguate(&selection, context: context) 
             return self._get(selection: selection, context: context)
         }
-        else if var selection:_Selection<Branch.Composite> = context.local.routes.select(key, 
+        else if var selection:_Selection<Composite> = context.local.routes.select(key, 
                     where: { _ in true })
         {
             request.disambiguator.disambiguate(&selection, context: context) 
@@ -350,7 +350,7 @@ extension Service
         }
     }
     private 
-    func _get(selection:_Selection<Branch.Composite>, context:Package.Context) -> GetRequest? 
+    func _get(selection:_Selection<Composite>, context:Package.Context) -> GetRequest? 
     {
         switch selection 
         {
@@ -363,7 +363,7 @@ extension Service
             }
         
         case .many(let composites):
-            if  let exemplar:Branch.Composite = composites.first, 
+            if  let exemplar:Composite = composites.first, 
                 let address:Address = context.address(of: exemplar, disambiguate: false)
             {
                 let uri:URI = address.uri(functions: self.functions)

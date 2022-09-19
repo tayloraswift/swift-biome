@@ -13,7 +13,7 @@ extension SurfaceBuilder
         {
             self.elements.endIndex
         }
-        subscript(index:Int) -> (Route.Key, Branch.Composite)
+        subscript(index:Int) -> (Route.Key, Composite)
         {
             let (key, natural):(Route.Key, Position<Symbol>) = self.elements[index]
             return (key, .init(natural: natural))
@@ -33,14 +33,14 @@ extension SurfaceBuilder
     struct SyntheticRoutes:RandomAccessCollection 
     {
         private 
-        let diacritic:Branch.Diacritic, 
+        let diacritic:Diacritic, 
             matrix:[(base:Position<Symbol>, leaf:Route.Leaf)]
         private 
         let namespace:Position<Module>, 
             prefix:Route.Stem 
 
         init?(host:__shared Symbol, 
-            diacritic:Branch.Diacritic, 
+            diacritic:Diacritic, 
             features:__shared [Position<Symbol>: Version.Branch], 
             context:__shared Context)
         {
@@ -55,7 +55,7 @@ extension SurfaceBuilder
                 context: context)
         }
         init?(_ namespace:Position<Module>, _ prefix:Route.Stem,
-            diacritic:Branch.Diacritic, 
+            diacritic:Diacritic, 
             features:__shared [Position<Symbol>: Version.Branch], 
             context:__shared Context)
         {
@@ -80,10 +80,10 @@ extension SurfaceBuilder
         {
             self.matrix.endIndex
         }
-        subscript(index:Int) -> (Route.Key, Branch.Composite)
+        subscript(index:Int) -> (Route.Key, Composite)
         {
             let (base, leaf):(Position<Symbol>, Route.Leaf) = self.matrix[index]
-            let composite:Branch.Composite = .init(base, self.diacritic)
+            let composite:Composite = .init(base, self.diacritic)
             let key:Route.Key = .init(self.namespace, self.prefix, leaf) 
             return (key, composite)
         }

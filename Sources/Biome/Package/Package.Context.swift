@@ -74,7 +74,7 @@ extension Package.Context
     /// 
     /// This method is isotropic; it does not matter which of the packages in 
     /// this context is the local package.
-    func address(of composite:Branch.Composite, disambiguate:Bool = true) -> Address?
+    func address(of composite:Composite, disambiguate:Bool = true) -> Address?
     {
         guard   let base:Symbol = self.load(composite.base), 
                 let nationality:Package.Pinned = self[composite.nationality]

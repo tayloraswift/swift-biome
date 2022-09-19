@@ -47,7 +47,7 @@ extension Package.Metadata
                 field: (\.metadata, \.metadata),
                 trunk: fasces.symbols)
         }
-        for missing:Branch.Diacritic in builder.previous.foreign 
+        for missing:Diacritic in builder.previous.foreign 
         {
             self.foreign.update(&branch.foreign, key: missing, with: nil, 
                 revision: revision, 
@@ -79,7 +79,7 @@ extension Package.Metadata
                 field: (\.metadata, \.metadata),
                 trunk: fasces.symbols) 
         }
-        for (diacritic, metadata):(Branch.Diacritic, Symbol.ForeignMetadata) in 
+        for (diacritic, metadata):(Diacritic, Symbol.ForeignMetadata) in 
             builder.foreign
         {
             self.foreign.update(&branch.foreign, key: diacritic, with: metadata, 

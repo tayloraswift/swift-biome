@@ -4,7 +4,7 @@ extension Page
 {
     enum Card 
     {
-        case composite(Branch.Composite, Declaration<Symbol.Index>)
+        case composite(Composite, Declaration<Symbol.Index>)
         case article(Article.Index, Article.Metadata)
     }
     
@@ -38,7 +38,7 @@ extension Page
     {
         enum Key:Hashable, Sendable 
         {
-            case composite(Branch.Composite)
+            case composite(Composite)
             case article(Article.Index)
             case href(Ecosystem.Index)
         }
@@ -97,7 +97,7 @@ extension Page
         for article:Article.Index in guides
         {
             if  let metadata:Article.Metadata = 
-                    self.pin(article.module.package).metadata(local: article)
+                    self.pin(article.nationality).metadata(local: article)
             {
                 topics.feed.append(.article(article, metadata))
             }
@@ -117,7 +117,7 @@ extension Page
         
         if case .protocol = self.ecosystem[host].community
         {
-            let pinned:Package.Pinned = self.pin(host.module.package)
+            let pinned:Package.Pinned = self.pin(host.nationality)
             switch facts.roles 
             {
             case nil: 
@@ -147,9 +147,9 @@ extension Page
         for source:Module.Index in 
             Set<Module.Index>.init(self.ecosystem[host].pollen.lazy.map(\.culture))
         {
-            let diacritic:Branch.Diacritic = .init(host: host, culture: source)
+            let diacritic:Diacritic = .init(host: host, culture: source)
             if  let traits:Branch.SymbolTraits = 
-                self.ecosystem[source.package].currentOpinion(diacritic)
+                self.ecosystem[source.nationality].currentOpinion(diacritic)
             {
                 self.organize(topics: &topics, 
                     culture: .international(source),
@@ -167,11 +167,11 @@ extension Page
         traits:Branch.SymbolTraits, 
         host:Symbol.Index)
     {
-        let diacritic:Branch.Diacritic 
+        let diacritic:Diacritic 
         switch culture 
         {
         case .primary:
-            diacritic = .init(host: host, culture: host.module)
+            diacritic = .init(host: host, culture: host.culture)
         case .accepted(let culture):
             diacritic = .init(host: host, culture: culture)
         case .international(let culture):
@@ -243,11 +243,11 @@ extension Page
         }
     }
     private 
-    func add(member composite:Branch.Composite, culture:Module._Culture, to topics:inout Topics)
+    func add(member composite:Composite, culture:Module._Culture, to topics:inout Topics)
     {
         let sublist:Sublist = .community(self.ecosystem[composite.base].community)
         let declaration:Declaration<Symbol.Index> = 
-            self.pin(composite.base.module.package).declaration(for: composite.base)
+            self.pin(composite.base.nationality).declaration(for: composite.base)
         // every sublist has a sub-sublist for the primary culture, even if it 
         // is empty. this is more css-grid friendly.
         var empty:[Module._Culture: [Card]] { [.primary: []] }

@@ -15,7 +15,7 @@ extension Symbol:BranchElement
             self.accepted = accepted
         }
 
-        func contains(feature composite:Branch.Composite) -> Bool 
+        func contains(feature composite:Composite) -> Bool 
         {
             if  composite.culture == composite.diacritic.host.culture 
             {

@@ -101,7 +101,7 @@ extension Ecosystem
         case package(Package.Index)
         case module(Module.Index)
         case article(Article.Index)
-        case composite(Branch.Composite)
+        case composite(Composite)
         
         static 
         func symbol(_ natural:Symbol.Index) -> Self 
@@ -116,8 +116,8 @@ extension Ecosystem
         {
             case package(Package.Index)
             case article(Article.Index)
-            case module(Module.Index, [Branch.Composite] = [])
-            case composite           ([Branch.Composite])
+            case module(Module.Index, [Composite] = [])
+            case composite           ([Composite])
         }
         
         let target:Index 
@@ -281,7 +281,7 @@ extension Ecosystem
         }
         return uri
     }
-    func uri(of composite:Branch.Composite, in pinned:Package.Pinned) -> URI
+    func uri(of composite:Composite, in pinned:Package.Pinned) -> URI
     {
         var uri:URI = self.root.master 
         
@@ -290,11 +290,11 @@ extension Ecosystem
         uri.insert(parameters: pinned.query(to: composite, ecosystem: self))
         return uri
     }
-    func uri(of choices:[Branch.Composite], pins:Package.Pins) -> URI
+    func uri(of choices:[Composite], pins:Package.Pins) -> URI
     {
         // `first` should always exist, if not, something has gone seriously 
         // wrong in swift-biome...
-        guard let exemplar:Branch.Composite = choices.first 
+        guard let exemplar:Composite = choices.first 
         else 
         {
             fatalError("empty disambiguation group")
@@ -328,7 +328,7 @@ extension Ecosystem
         case .article(let article): 
             return .article(article)
         case .composite(let composite):
-            var trace:[Branch.Composite] = []
+            var trace:[Composite] = []
                 trace.reserveCapacity(link.visible)
                 trace.append(composite)
             var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.target.contemporary

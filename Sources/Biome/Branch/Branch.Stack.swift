@@ -42,7 +42,7 @@ extension Branch
 extension Branch.Stack? 
 {
     mutating 
-    func insert(_ element:Branch.Composite, revision:Version.Revision)
+    func insert(_ element:Composite, revision:Version.Revision)
     {
         switch _move self
         {
@@ -79,7 +79,7 @@ extension Branch.Stack?
     }
     @available(*, unavailable)
     mutating 
-    func remove(_ element:Branch.Composite)
+    func remove(_ element:Composite)
     {
     }
 }
@@ -87,22 +87,22 @@ extension Branch.Stack?
 extension Dictionary where Value == Branch.Stack 
 {
     mutating 
-    func stack(routes:some Sequence<(Key, Branch.Composite)>, revision:Version.Revision) 
+    func stack(routes:some Sequence<(Key, Composite)>, revision:Version.Revision) 
     {
-        for (key, composite):(Key, Branch.Composite) in routes 
+        for (key, composite):(Key, Composite) in routes 
         {
             self[key].insert(composite, revision: revision)
         }
     }
 
-    func select(_ key:Key, _ body:(Branch.Composite) throws -> ()) rethrows 
+    func select(_ key:Key, _ body:(Composite) throws -> ()) rethrows 
     {
         try self[key]?.forEach { (composite, _) in try body(composite) }
     }
 }
 extension Divergences where Divergence == Branch.Stack
 {
-    func select(_ key:Key, _ body:(Branch.Composite) throws -> ()) rethrows 
+    func select(_ key:Key, _ body:(Composite) throws -> ()) rethrows 
     {
         try self[key]?.forEach 
         {
@@ -115,12 +115,12 @@ extension Divergences where Divergence == Branch.Stack
 }
 extension Sequence<Divergences<Route.Key, Branch.Stack>>
 {
-    func select(_ key:Route.Key, where predicate:(Branch.Composite) throws -> Bool) rethrows 
-        -> _Selection<Branch.Composite>?
+    func select(_ key:Route.Key, where predicate:(Composite) throws -> Bool) rethrows 
+        -> _Selection<Composite>?
     {
         try self.select(key) { try predicate($0) ? $0 : nil }
     }
-    func select<T>(_ key:Route.Key, where filter:(Branch.Composite) throws -> T?) rethrows 
+    func select<T>(_ key:Route.Key, where filter:(Composite) throws -> T?) rethrows 
         -> _Selection<T>?
     {
         var selection:_Selection<T>? = nil
@@ -133,7 +133,7 @@ extension Sequence<Divergences<Route.Key, Branch.Stack>>
         } as ()
         return selection
     }
-    func select(_ key:Route.Key, _ body:(Branch.Composite) throws -> ()) rethrows 
+    func select(_ key:Route.Key, _ body:(Composite) throws -> ()) rethrows 
     {
         for divergences:Divergences<Route.Key, Branch.Stack> in self 
         {

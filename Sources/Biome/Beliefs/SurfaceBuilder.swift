@@ -123,7 +123,7 @@ struct SurfaceBuilder
 
     private(set)
     var articles:[(Position<Article>, Article.Metadata)], 
-        foreign:[(Branch.Diacritic, Symbol.ForeignMetadata)], 
+        foreign:[(Diacritic, Symbol.ForeignMetadata)], 
         modules:[Position<Module>]
     private 
     var nodes:Nodes
@@ -221,7 +221,7 @@ struct SurfaceBuilder
             if  let subject:Symbol = context.local.tree[position], 
                 let index:Symbols.Index = self.nodes.indices[position.contemporary]
             {
-                let diacritic:Branch.Diacritic = .init(host: position.contemporary, 
+                let diacritic:Diacritic = .init(host: position.contemporary, 
                     culture: symbols.culture)
 
                 self.nodes[index].metadata.accepted[symbols.culture] = 
@@ -234,7 +234,7 @@ struct SurfaceBuilder
                     let metadata:Symbol.Metadata = pinned.metadata(local: position.contemporary)
             {
                 let subject:Symbol = pinned.package.tree[local: position]
-                let diacritic:Branch.Diacritic = .init(host: position.contemporary, 
+                let diacritic:Diacritic = .init(host: position.contemporary, 
                     culture: symbols.culture)
                 
                 let metadata:Symbol.ForeignMetadata = .init(traits: 
@@ -328,8 +328,7 @@ struct SurfaceBuilder
             shape: shape)
     }
     private mutating 
-    func createForeignSurface(for subject:Symbol, metadata:Symbol.Metadata, 
-        diacritic:Branch.Diacritic, 
+    func createForeignSurface(for subject:Symbol, metadata:Symbol.Metadata, diacritic:Diacritic, 
         traits:__owned [Symbol.Trait<PluralPosition<Symbol>>], 
         context:Context)
         -> Branch.SymbolTraits
@@ -410,7 +409,7 @@ extension SurfaceBuilder
             {
                 let selection:_Selection<PluralPosition<Symbol>>? = routes.select(scope)
                 {
-                    (branch:Version.Branch, composite:Branch.Composite) in 
+                    (branch:Version.Branch, composite:Composite) in 
                     composite.natural.map { $0.pluralized(branch) }
                 }
                 if case .one(let scope)? = selection 

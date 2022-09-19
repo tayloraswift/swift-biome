@@ -185,7 +185,7 @@ struct Package:Identifiable, Sendable
         }
     }
     
-    // func depth(of composite:Branch.Composite, at version:Version, route:Route.Key)
+    // func depth(of composite:Composite, at version:Version, route:Route.Key)
     //     -> (host:Bool, base:Bool)
     // {
     //     var explicit:(host:Bool, base:Bool) = (false, false)
@@ -213,7 +213,7 @@ struct Package:Identifiable, Sendable
     //                 }
                     
     //             case (true, .many(let diacritics)):
-    //                 for diacritic:Branch.Diacritic in diacritics.keys 
+    //                 for diacritic:Diacritic in diacritics.keys 
     //                     where diacritic != composite.diacritic 
     //                 {
     //                     if self.contains(.init(base, diacritic), at: version)
@@ -225,7 +225,7 @@ struct Package:Identifiable, Sendable
     //                 }
                 
     //             case (false, .many(let diacritics)):
-    //                 for diacritic:Branch.Diacritic in diacritics.keys 
+    //                 for diacritic:Diacritic in diacritics.keys 
     //                 {
     //                     if self.contains(.init(base, diacritic), at: version)
     //                     {
@@ -239,7 +239,7 @@ struct Package:Identifiable, Sendable
     //     return explicit
     // }
     
-    func allVersions(of composite:Branch.Composite) -> [Version]
+    func allVersions(of composite:Composite) -> [Version]
     {
         [] //self.versions.indices.filter { self.contains(composite, at: $0) }
     }
@@ -269,7 +269,7 @@ struct Package:Identifiable, Sendable
     //     self.versions.push(version, dependencies: dependencies)
     // }
 
-    // we don’t use this quite the same as `contains(_:at:)` for ``Branch.Composite``, 
+    // we don’t use this quite the same as `contains(_:at:)` for ``Composite``, 
     // because we still allow accessing module pages outside their availability ranges. 
     // 
     // we mainly use this to limit the results in the version menu dropdown.
@@ -292,7 +292,7 @@ struct Package:Identifiable, Sendable
     }
     // FIXME: the complexity of this becomes quadratic-ish if we test *every* 
     // package version with this method, which we do for the version menu dropdowns
-    func contains(_ composite:Branch.Composite, at version:Version) -> Bool 
+    func contains(_ composite:Composite, at version:Version) -> Bool 
     {
         fatalError("obsoleted")
     }
@@ -317,7 +317,7 @@ struct Package:Identifiable, Sendable
         // return self.versions.pins(at: self.versions.latest)
     }
     
-    func currentOpinion(_ diacritic:Branch.Diacritic) -> Symbol.Traits<Symbol.Index>?
+    func currentOpinion(_ diacritic:Diacritic) -> Symbol.Traits<Symbol.Index>?
     {
         fatalError("unimplemented")
         // self.external[diacritic].map { self.opinions[$0.index].value }

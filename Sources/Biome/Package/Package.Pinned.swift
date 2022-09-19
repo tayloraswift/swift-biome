@@ -41,7 +41,7 @@ extension Package.Pinned
             return [self.package.name]
         }
     }
-    func path(to composite:Branch.Composite, ecosystem:Ecosystem) -> [String]
+    func path(to composite:Composite, ecosystem:Ecosystem) -> [String]
     {
         // same as host if composite is natural
         let base:Symbol = ecosystem[composite.base]
@@ -63,7 +63,7 @@ extension Package.Pinned
         }
         return path
     }
-    func query(to composite:Branch.Composite, ecosystem:Ecosystem) -> Symbol.Link.Query
+    func query(to composite:Composite, ecosystem:Ecosystem) -> Symbol.Link.Query
     {
         fatalError("obsoleted")
     }

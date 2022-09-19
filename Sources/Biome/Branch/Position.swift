@@ -1,7 +1,3 @@
-extension Position:Sendable where Element.Offset:Sendable, Element.Culture:Sendable
-{
-}
-
 @frozen public 
 struct Position<Element> where Element:BranchElement
 {
@@ -17,7 +13,9 @@ struct Position<Element> where Element:BranchElement
         self.offset = offset
     }
 }
-
+extension Position:Sendable where Element.Offset:Sendable, Element.Culture:Sendable
+{
+}
 extension Position:Hashable, Comparable 
 {
     @inlinable public static 
@@ -138,75 +136,5 @@ extension Position where Element.Culture == Position<Module>
     var module:Position<Module>
     {
         self.culture 
-    }
-}
-extension Branch 
-{
-    struct Diacritic:Hashable, Sendable
-    {
-        let host:Position<Symbol> 
-        let culture:Symbol.Culture
-        
-        init(host:Position<Symbol>, culture:Symbol.Culture)
-        {
-            self.host = host 
-            self.culture = culture
-        }
-        
-        init(natural:Position<Symbol>)
-        {
-            self.host = natural 
-            self.culture = natural.culture
-        }
-
-        var nationality:Package.Index 
-        {
-            self.culture.culture 
-        }
-    }
-
-    // 20 B size, 24 B stride
-    @usableFromInline
-    struct Composite:Hashable, Sendable
-    {
-        //  there are up to three cultures that come into play here:
-        //  1. host culture 
-        //  2. witness culture 
-        //  3. perpetrator culture
-        let base:Position<Symbol>
-        let diacritic:Diacritic 
-                
-        init(natural:Position<Symbol>) 
-        {
-            self.base = natural
-            self.diacritic = .init(natural: natural)
-        }
-        init(_ base:Position<Symbol>, _ diacritic:Diacritic) 
-        {
-            self.base = base 
-            self.diacritic = diacritic
-        }
-
-        var culture:Position<Module>
-        {
-            self.diacritic.culture
-        }
-        var nationality:Package.Index 
-        {
-            self.diacritic.nationality 
-        }
-
-        var isNatural:Bool 
-        {
-            self.base == self.diacritic.host
-        }
-        var host:Position<Symbol>? 
-        {
-            self.isNatural ? nil : self.diacritic.host 
-        }
-        var natural:Position<Symbol>? 
-        {
-            self.isNatural ? self.base : nil
-        }
     }
 }

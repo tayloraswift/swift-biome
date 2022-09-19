@@ -81,10 +81,10 @@ struct Page
 extension Page 
 {
     mutating 
-    func generate(for choices:[Branch.Composite], uri:URI)
+    func generate(for choices:[Composite], uri:URI)
     {
         let segregated:[Module.Index: [Card]] = 
-            [Module.Index: [Branch.Composite]]
+            [Module.Index: [Composite]]
             .init(grouping: choices, by: \.culture)
             .mapValues 
         {
@@ -162,7 +162,7 @@ extension Page
         }
     }
     private mutating 
-    func generate(for composite:Branch.Composite, exhibit:Version?) 
+    func generate(for composite:Composite, exhibit:Version?) 
     {
         //  up to three pinned packages involved for a composite: 
         //  1. host package (optional)
@@ -254,7 +254,7 @@ extension Page
     private mutating 
     func expand(_ link:GlobalLink.Presentation) -> HTML.Element<Never>
     {
-        let composites:[Branch.Composite]
+        let composites:[Composite]
         var crumbs:[HTML.Element<Never>] = []
 
         fatalError("unimplemented")
@@ -279,7 +279,7 @@ extension Page
         //     composites = trace 
         //     crumbs.reserveCapacity(2 * trace.count - 1)
         // }
-        for composite:Branch.Composite in composites
+        for composite:Composite in composites
         {
             if !crumbs.isEmpty 
             {

@@ -144,7 +144,7 @@ extension Package.Pinned
             field: (\.metadata, \.metadata), 
             in: self.fasces.modules) ?? nil
     }
-    func metadata(foreign diacritic:Branch.Diacritic) -> Symbol.ForeignMetadata?
+    func metadata(foreign diacritic:Diacritic) -> Symbol.ForeignMetadata?
     {
         self.package.metadata.foreign.value(of: diacritic, 
             field: \.metadata, 
@@ -165,11 +165,11 @@ extension Package.Pinned
     {
         self.metadata(local: module) != nil
     }
-    func exists(_ diacritic:Branch.Diacritic) -> Bool
+    func exists(_ diacritic:Diacritic) -> Bool
     {
         self.metadata(foreign: diacritic) != nil 
     }
-    func exists(_ composite:Branch.Composite) -> Bool
+    func exists(_ composite:Composite) -> Bool
     {
         guard let host:Position<Symbol> = composite.host 
         else 
@@ -191,7 +191,7 @@ extension Package.Pinned
 extension Package.Pinned 
 {
     func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
-        where predicate:(Branch.Composite) throws -> Bool) 
+        where predicate:(Composite) throws -> Bool) 
         rethrows -> _SymbolLink.Resolution?
     {
         if  let resolution:_SymbolLink.Resolution = try self.resolve(exactly: link, 
@@ -216,11 +216,11 @@ extension Package.Pinned
     }
     private 
     func resolve(exactly link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
-        where predicate:(Branch.Composite) throws -> Bool) 
+        where predicate:(Composite) throws -> Bool) 
         rethrows -> _SymbolLink.Resolution?
     {
         if  let scope:_Scope, 
-            let selection:_Selection<Branch.Composite> = try scope.scan(concatenating: link, 
+            let selection:_Selection<Composite> = try scope.scan(concatenating: link, 
                 stems: stems, 
                 until: { try self.routes.select($0, where: predicate) })
         {
@@ -237,7 +237,7 @@ extension Package.Pinned
             return .module(namespace.contemporary)
         }
         if  let key:Route.Key = stems[namespace.contemporary, link], 
-            let selection:_Selection<Branch.Composite> = try self.routes.select(key, 
+            let selection:_Selection<Composite> = try self.routes.select(key, 
                 where: predicate)
         {
             return .init(selection)
@@ -297,7 +297,7 @@ extension Package.Pinned
     }
     
     @available(*, deprecated, renamed: "exists(_:)")
-    func contains(_ composite:Branch.Composite) -> Bool 
+    func contains(_ composite:Composite) -> Bool 
     {
         self.exists(composite)
     }

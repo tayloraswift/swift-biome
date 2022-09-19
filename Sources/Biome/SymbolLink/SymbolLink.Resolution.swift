@@ -5,7 +5,7 @@ extension GlobalLink
         case article(Position<Article>)
         case module(Position<Module>)
         case package(Package.Index)
-        case composite(Branch.Composite)
+        case composite(Composite)
 
         init(_ resolution:_SymbolLink.Resolution?) throws 
         {
@@ -35,7 +35,7 @@ extension GlobalLink
         case article(Position<Article>)
         case module(Position<Module>)
         case package(Package.Index)
-        case composite(Branch.Composite, visible:Int)
+        case composite(Composite, visible:Int)
 
         init(_ target:Target, visible:Int)
         {
@@ -66,7 +66,7 @@ extension _SymbolLink
         case nationalVersion
 
         case noResults
-        case multipleResults([Branch.Composite])
+        case multipleResults([Composite])
     }
     struct ResolutionError:Error 
     {
@@ -89,10 +89,10 @@ extension _SymbolLink
     {
         //case package(Package.Index)
         case module(Position<Module>)
-        case composite(Branch.Composite) 
-        case composites([Branch.Composite]) 
+        case composite(Composite) 
+        case composites([Composite]) 
 
-        init(_ selection:_Selection<Branch.Composite>)
+        init(_ selection:_Selection<Composite>)
         {
             switch selection 
             {

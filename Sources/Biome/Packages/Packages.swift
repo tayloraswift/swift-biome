@@ -95,14 +95,14 @@ struct Packages
     {
         _read 
         {
-            yield self[module.package].tree[local: module]
+            yield self[module.nationality].tree[local: module]
         }
     } 
     subscript(global symbol:PluralPosition<Symbol>) -> Symbol
     {
         _read 
         {
-            yield self[symbol.package].tree[local: symbol]
+            yield self[symbol.nationality].tree[local: symbol]
         }
     } 
 

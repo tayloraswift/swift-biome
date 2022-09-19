@@ -10,7 +10,7 @@ extension Branch
 extension Branch.Substack? 
 {
     mutating 
-    func insert(_ element:Branch.Diacritic, revision:Version.Revision)
+    func insert(_ element:Diacritic, revision:Version.Revision)
     {
         switch _move self
         {
@@ -27,7 +27,7 @@ extension Branch.Substack?
     }
     @available(*, unavailable)
     mutating 
-    func remove(_ element:Branch.Diacritic)
+    func remove(_ element:Diacritic)
     {
     }
 }

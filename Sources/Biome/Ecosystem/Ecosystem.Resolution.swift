@@ -17,7 +17,7 @@ extension Ecosystem
     {
         case index(Index, pins:Package.Pins, exhibit:Version? = nil, template:DOM.Flattened<Page.Key>? = nil)
         
-        case choices([Branch.Composite], pins:Package.Pins)
+        case choices([Composite], pins:Package.Pins)
         case resource(Resource, uri:URI)
     }
     

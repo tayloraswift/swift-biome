@@ -40,9 +40,9 @@ struct Resolver
         func select(_ key:Route.Key, 
             disambiguator:_SymbolLink.Disambiguator, 
             imports:Set<Position<Module>>)
-            -> _Selection<Branch.Composite>?
+            -> _Selection<Composite>?
         {
-            var selection:_Selection<Branch.Composite>? = nil 
+            var selection:_Selection<Composite>? = nil 
             for lens:Package.Pinned in self
             {
                 lens.routes.select(key)
@@ -262,7 +262,7 @@ struct Resolver
         stems:Route.Stems) -> _SymbolLink.Resolution?
     {
         if  let scope:_Scope, 
-            let selection:_Selection<Branch.Composite> = scope.scan(concatenating: link, 
+            let selection:_Selection<Composite> = scope.scan(concatenating: link, 
                 stems: stems, 
                 until: 
                 { 
@@ -284,7 +284,7 @@ struct Resolver
             return .module(namespace.contemporary)
         }
         if  let key:Route.Key = stems[namespace.contemporary, link], 
-            let selection:_Selection<Branch.Composite> = 
+            let selection:_Selection<Composite> = 
                 self.lenses.select(key, disambiguator: link.disambiguator, imports: imports)
         {
             return .init(selection)

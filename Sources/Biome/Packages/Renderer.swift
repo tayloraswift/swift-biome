@@ -63,37 +63,37 @@ extension Packages
     func renderFields(for index:Module.Index) -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
     {
         let module:Module = self[index]
-        let title:String = self[index.package].title(module.title)
+        let title:String = self[index.nationality].title(module.title)
         let substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
             .title:        .init(title), 
             .headline:     .h1(module.title), 
             .kind:         .init(escaped: "Module"),
             .fragments:    .render(fragments: module.fragments) { (_:Never) -> Ecosystem.Index in },
-            .culture:       self.link(package: index.package),
+            .culture:       self.link(package: index.nationality),
         ]
         return substitutions.mapValues { .init(freezing: $0) }
     }
     func renderFields(for index:Article.Index, excerpt:Article.Metadata) 
         -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
     {
-        let title:String = self[index.module.package].title(excerpt.headline.plain)
+        let title:String = self[index.nationality].title(excerpt.headline.plain)
         let substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
             .title:        .init(title), 
             .headline:     .h1(.init(escaped: excerpt.headline.formatted)), 
             .kind:         .init(escaped: "Article"),
-            .culture:       self.link(module: index.module),
+            .culture:       self.link(module: index.culture),
         ]
         return substitutions.mapValues { .init(freezing: $0) }
     }
-    func renderFields(for composite:Branch.Composite, 
+    func renderFields(for composite:Composite, 
         declaration:Declaration<Symbol.Index>, 
         facts:Symbol.Predicates<Symbol.Index>) 
         -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
     {
         let base:Symbol = self[composite.base]
-        let title:String = self[composite.culture.package].title(base.name)
+        let title:String = self[composite.nationality].title(base.name)
         var substitutions:[Page.Key: HTML.Element<Ecosystem.Index>] = 
         [
             .title:        .init(title), 
@@ -120,20 +120,20 @@ extension Packages
             declaration.availability.general
         ))
         
-        if composite.diacritic.host.module != composite.culture 
+        if composite.diacritic.host.culture != composite.culture 
         {
-            substitutions[.namespace] = .span(self.link(module: composite.diacritic.host.module), 
+            substitutions[.namespace] = .span(self.link(module: composite.diacritic.host.culture), 
                 attributes: [.class("namespace")])
         }
-        if composite.base.module != composite.culture 
+        if composite.base.culture != composite.culture 
         {
-            substitutions[.base] = .span(self.link(module: composite.base.module), 
+            substitutions[.base] = .span(self.link(module: composite.base.culture), 
                 attributes: [.class("base")])
         }
         
         return substitutions.mapValues { .init(freezing: $0) }
     }
-    func renderFields(for choices:[Branch.Composite], uri:URI) -> [Page.Key: [UInt8]]
+    func renderFields(for choices:[Composite], uri:URI) -> [Page.Key: [UInt8]]
     {
         // does not use percent-encoding
         var name:String = ""
@@ -161,7 +161,7 @@ extension Packages
     }
     
     private 
-    func renderNotes(for composite:Branch.Composite,
+    func renderNotes(for composite:Composite,
         declaration:Declaration<Symbol.Index>, 
         facts:Symbol.Predicates<Symbol.Index>) 
         -> HTML.Element<Ecosystem.Index>?
@@ -248,7 +248,7 @@ extension Packages
         return items.isEmpty ? nil : .ul(items, attributes: [.class("notes")])
     }
     private 
-    func renderBreadcrumbs(for composite:Branch.Composite) -> HTML.Element<Ecosystem.Index>
+    func renderBreadcrumbs(for composite:Composite) -> HTML.Element<Ecosystem.Index>
     {
         let base:Symbol = self[composite.base]
         
@@ -496,7 +496,7 @@ extension Packages
     {
         segregated.sorted 
         {
-            ($0.key.package, self[$0.key].name) < ($1.key.package, self[$1.key].name)
+            ($0.key.nationality, self[$0.key].name) < ($1.key.nationality, self[$1.key].name)
         }
     }
     private 
@@ -519,8 +519,8 @@ extension Packages
                 return false
             case (.international(let first), .international(let second)): 
                 // sort packages by the order they were added, not by name 
-                return  ( first.package, self[ first].name) < 
-                        (second.package, self[second].name)
+                return  ( first.nationality, self[ first].name) < 
+                        (second.nationality, self[second].name)
             }
         }
     }

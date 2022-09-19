@@ -18,7 +18,7 @@ struct Fasces
         {
             self.segments.endIndex
         }
-        subscript(index:Int) -> Divergences<Branch.Diacritic, Symbol.ForeignDivergence>
+        subscript(index:Int) -> Divergences<Diacritic, Symbol.ForeignDivergence>
         {
             self.segments[index].foreign
         }
@@ -132,7 +132,7 @@ struct Fasces
         }
 
         func select<T>(_ key:Route.Key, 
-            where filter:(Version.Branch, Branch.Composite) throws -> T?) 
+            where filter:(Version.Branch, Composite) throws -> T?) 
             rethrows -> _Selection<T>?
         {
             var selection:_Selection<T>? = nil
@@ -147,7 +147,7 @@ struct Fasces
         }
         private 
         func select(_ key:Route.Key, 
-            _ body:(Version.Branch, Branch.Composite) throws -> ()) rethrows 
+            _ body:(Version.Branch, Composite) throws -> ()) rethrows 
         {
             try self.routes.select(key) 
             { 

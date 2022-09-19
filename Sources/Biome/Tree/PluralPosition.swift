@@ -1,6 +1,3 @@
-extension PluralPosition:Sendable where Element.Offset:Sendable, Element.Culture:Sendable
-{
-}
 struct PluralPosition<Element>:Hashable where Element:BranchElement
 {
     let contemporary:Position<Element>
@@ -18,7 +15,9 @@ struct PluralPosition<Element>:Hashable where Element:BranchElement
         self.branch = branch
     }
 }
-
+extension PluralPosition:Sendable where Element.Offset:Sendable, Element.Culture:Sendable
+{
+}
 
 extension PluralPosition where Element.Culture == Position<Module>
 {

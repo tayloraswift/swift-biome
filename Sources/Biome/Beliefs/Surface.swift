@@ -21,12 +21,12 @@ struct Surface
     var articles:Set<Position<Article>>
     var symbols:Set<Position<Symbol>>
     var modules:Set<Position<Module>>
-    var foreign:Set<Branch.Diacritic>
+    var foreign:Set<Diacritic>
 
     init(articles:Set<Position<Article>> = [],
         symbols:Set<Position<Symbol>> = [],
         modules:Set<Position<Module>> = [],
-        foreign:Set<Branch.Diacritic> = [])
+        foreign:Set<Diacritic> = [])
     {
         self.articles = articles
         self.symbols = symbols
