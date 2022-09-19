@@ -123,16 +123,15 @@ struct Packages
             fatalError("unimplemented")
         }
 
-        let (package, branch):(Package.Index, Version.Branch) = self.add(package: id, 
-            branch: branch, 
-            fork: fork)
+        let (package, fork):(Package.Index, Version?) = self.add(package: id, fork: fork)
+        let branch:Version.Branch = self[package].tree.branch(branch, from: fork)
+
         let linkable:[Package.Index: _Dependency] = self.find(pins: resolved.pins.values)
         // we are going to mutate `self[package].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
         let fasces:Fasces = self[package].tree.fasces(upTo: branch)
-        // FIXME: there is a bug here, this will not work if we forked from another 
-        // branch, because we will not have a previous surface
-        var api:SurfaceBuilder = .init(previous: self[package].tree[branch]._surface)
+        var api:SurfaceBuilder = .init(
+            previous: self[package].tree[fork?.branch ?? branch]._surface)
 
         var interfaces:[ModuleInterface] = []
             interfaces.reserveCapacity(graphs.count)
@@ -213,9 +212,12 @@ struct Packages
         return package
     }
     
+    /// Returns the index of the package referenced by the given identifier, and 
+    /// the fork location within it, if a fork selector is provided.
+    /// 
+    /// This method will only create package descriptors if `fork` is [`nil`]().
     private mutating 
-    func add(package id:Package.ID, branch:Tag, fork:Version.Selector?) 
-        -> (Package.Index, Version.Branch)
+    func add(package id:Package.ID, fork:Version.Selector?) -> (Package.Index, Version?)
     {
         if  let fork:Version.Selector 
         {
@@ -225,12 +227,18 @@ struct Packages
             {
                 fatalError("couldn’t find tag to fork from")
             }
-            return (package, self[package].tree.branch(branch, from: fork))
+            guard case fork.revision? = self[package].tree[fork.branch].head 
+            else 
+            {
+                // we can relax this restriction once we have a way of persisting 
+                // API surfaces for revisions besides the branch head 
+                fatalError("can only fork from branch head (for now)")
+            }
+            return (package, fork)
         }
         else 
         {
-            let package:Package.Index = self.add(package: id)
-            return (package, self[package].tree.branch(branch, from: nil))
+            return (self.add(package: id), nil)
         }
     }
     /// Creates a package entry for the given package graph, if it does not already exist.
