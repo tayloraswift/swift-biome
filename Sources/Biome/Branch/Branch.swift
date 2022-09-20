@@ -72,16 +72,17 @@ struct Branch:Identifiable, Sendable
 extension Branch 
 {
     mutating 
-    func commit(hash:String, pins:[Package.Index: Version], date:Date, tag:Tag?) -> Version
+    func commit(token:UInt, hash:String, pins:[Package.Index: Version], date:Date, tag:Tag?) 
+        -> Version
     {
         let commit:Version.Revision = self.revisions.endIndex
-        self.revisions.append(.init(hash: hash, 
+        self.revisions.append(.init(token: token, hash: hash, 
             ring: .init(
                 modules: self.modules.endIndex, 
                 symbols: self.symbols.endIndex, 
                 articles: self.articles.endIndex), 
             pins: pins, 
-            date: date, 
+            date: date,
             tag: tag))
         return .init(self.index, commit)
     }

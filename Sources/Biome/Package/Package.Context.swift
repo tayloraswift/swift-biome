@@ -167,11 +167,4 @@ extension Package.Context
             local: _move local)
         return .init(function: .documentation(.symbol), global: _move global)
     }
-
-    func address(of composite:Composite, local version:Version) -> Address? 
-    {
-        var context:Self = self
-            context.local = context.local.repinned(to: version)
-        return context.address(of: composite)
-    }
 }

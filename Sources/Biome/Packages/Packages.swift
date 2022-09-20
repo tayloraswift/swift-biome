@@ -268,7 +268,8 @@ struct Packages
         date:Date, 
         tag:Tag?) -> Version
     {
-        let version:Version = self[index].tree[branch].commit(hash: revision, pins: pins, 
+        let version:Version = self[index].tree.commit(branch: branch, hash: revision, 
+            pins: pins, 
             date: date, 
             tag: tag)
         for (package, pin):(Package.Index, Version) in pins

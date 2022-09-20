@@ -152,9 +152,9 @@ extension Service
 struct DocumentationQuery
 {
     let target:GlobalLink.Target 
-    let version:Version 
-
     let _objects:Never?
+    let version:Version 
+    let token:UInt 
 
     var nationality:Package.Index 
     {
@@ -169,6 +169,14 @@ struct DocumentationQuery
         case .composite(let composite): 
             return composite.nationality 
         }
+    }
+
+    init(_ target:GlobalLink.Target, _objects:Never?, pinned:__shared Package.Pinned)
+    {
+        self.target = target 
+        self.version = pinned.version 
+        self._objects = _objects
+        self.token = pinned.token
     }
 }
 struct SelectionQuery
@@ -404,9 +412,9 @@ extension Service
                 if  let address:Address = context.address(of: composite)
                 {
                     return .init(uri: address.uri(functions: self.functions.names), 
-                        documentation: .init(target: .composite(composite), 
-                            version: context.local.version, 
-                            _objects: nil))
+                        documentation: .init(.composite(composite), 
+                            _objects: nil, 
+                            pinned: context.local))
                 }
             case .many(let composites):
                 if  let exemplar:Composite = composites.first, 
@@ -424,13 +432,17 @@ extension Service
             switch request.disambiguator.disambiguate(_move selection, context: context) 
             {
             case .one(let composite):
-                if  let version:Version = context.local.excavate(composite),
-                    let address:Address = context.address(of: composite, local: version)
+                if  let version:Version = context.local.excavate(composite)
                 {
-                    return .init(uri: address.uri(functions: self.functions.names), 
-                        documentation: .init(target: .composite(composite),
-                            version: version, 
-                            _objects: nil))
+                    var context:Package.Context = context 
+                        context.local.repin(to: version)
+                    if let address:Address = context.address(of: composite)
+                    {
+                        return .init(uri: address.uri(functions: self.functions.names), 
+                            documentation: .init(.composite(composite),
+                                _objects: nil,
+                                pinned: context.local))
+                    }
                 }
             case .many(let composites):
                 if  let exemplar:Composite = composites.first, 
@@ -450,9 +462,9 @@ extension Service
     func _get(_ pinned:Package.Pinned) -> GetRequest
     {
         return .init(uri: pinned.address().uri(functions: self.functions.names), 
-            documentation: .init(target: .package(pinned.nationality), 
-                version: pinned.version, 
-                _objects: nil))
+            documentation: .init(.package(pinned.nationality), 
+                _objects: nil,
+                pinned: pinned))
     }
     private 
     func _get(_ pinned:Package.Pinned, 
@@ -466,9 +478,9 @@ extension Service
         let pinned:Package.Pinned = pinned.repinned(to: version)
         let address:Address = pinned.address(of: pinned.package.tree[local: namespace])
         return .init(uri: address.uri(functions: self.functions.names) , 
-            documentation: .init(target: .module(namespace.contemporary), 
-                version: version, 
-                _objects: nil))
+            documentation: .init(.module(namespace.contemporary), 
+                _objects: nil, 
+                pinned: pinned))
     }
     private 
     func _get(_ pinned:Package.Pinned, 
@@ -484,9 +496,9 @@ extension Service
         let address:Address = pinned.address(of: pinned.package.tree[local: article], 
                 namespace: pinned.package.tree[local: namespace])
         return .init(uri: address.uri(functions: self.functions.names) , 
-            documentation: .init(target: .article(article.contemporary), 
-                version: version, 
-                _objects: nil))
+            documentation: .init(.article(article.contemporary), 
+                _objects: nil, 
+                pinned: pinned))
     }
 }
 

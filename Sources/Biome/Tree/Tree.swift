@@ -7,6 +7,8 @@ struct Tree
     var branches:[Branch.ID: Version.Branch]
     private
     var tags:[Tag: Version]
+    private 
+    var counter:UInt
 
     init(nationality:Package.Index)
     {
@@ -14,6 +16,8 @@ struct Tree
         self.storage = []
         self.branches = [:]
         self.tags = [:]
+
+        self.counter = 0
     }
 
     var `default`:Version? 
@@ -188,6 +192,21 @@ extension Tree
         }
         self.branches[name] = branch 
         return branch 
+    }
+    mutating 
+    func commit(branch:Version.Branch, hash:String, pins:[Package.Index: Version], 
+        date:Date, 
+        tag:Tag?) -> Version
+    {
+        defer 
+        {
+            self.counter += 1
+        }
+        return self[branch].commit(token: self.counter, 
+            hash: hash, 
+            pins: pins, 
+            date: date, 
+            tag: tag)
     }
 }
 

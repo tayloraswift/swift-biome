@@ -64,6 +64,11 @@ extension Package
             self.fasces = self.package.tree.fasces(through: self.version)
         }
 
+        var token:UInt 
+        {
+            self.package.tree[self.version].token
+        }
+
         var nationality:Package.Index 
         {
             self.package.nationality
@@ -86,9 +91,19 @@ extension Package
             self.fasces.routes
         }
 
+        mutating 
+        func repin(to version:Version) 
+        {
+            if version != self.version
+            {
+                self = .init(self.package, version: version)       
+            }
+        }
         func repinned(to version:Version) -> Self 
         {
-            version == self.version ? self : .init(self.package, version: version)
+            var repinned:Self = self 
+                repinned.repin(to: version)
+            return repinned
         }
     }
 }

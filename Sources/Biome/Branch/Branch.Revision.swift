@@ -9,6 +9,8 @@ extension Branch
     }
     struct Revision:Sendable 
     {
+        let token:UInt 
+        
         var alternates:[Version.Branch]
         var consumers:[Package.Index: Set<Version>]
         let hash:String
@@ -22,8 +24,10 @@ extension Branch
             fatalError("obsoleted")
         }
 
-        init(hash:String, ring:Ring, pins:[Package.Index: Version], date:Date, tag:Tag?)
+        init(token:UInt, hash:String, ring:Ring, pins:[Package.Index: Version], date:Date, tag:Tag?)
         {
+            self.token = token 
+
             self.alternates = []
             self.consumers = [:]
             self.hash = hash 
