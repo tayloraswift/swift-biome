@@ -149,7 +149,7 @@ struct URI:CustomStringConvertible, Sendable
         self.init(path: CollectionOfOne<String>.init(root), query: query)
     }
     @inlinable public
-    init(path:[Vector?] = [], query:[Parameter]? = nil)
+    init(path:[Vector?] = [], query:[Parameter]?)
     {
         self.path = path == [nil] ? [] : path
         self.query = query

@@ -23,8 +23,6 @@ struct Module:Sendable
         var version:Version
     }
     
-    typealias Redirect = (uri:URI, version:Version)
-    
     public 
     let id:ModuleIdentifier
     let index:Index 
@@ -37,7 +35,11 @@ struct Module:Sendable
     var topLevelArticles:History<Set<Atom<Article>>>.Head?
     var topLevelSymbols:History<Set<Atom<Symbol>>>.Head?
     var documentation:History<DocumentationExtension<Never>>.Head?
+
+    /// Indicates if this module should be served directly from the site root. 
+    var isFunction:Bool
     
+    typealias Redirect = (uri:URI, version:Version)
     var redirect:(module:Redirect?, articles:Redirect?)
 
     
@@ -54,6 +56,8 @@ struct Module:Sendable
         self.topLevelArticles = nil 
         self.topLevelSymbols = nil 
         self.documentation = nil
+
+        self.isFunction = false
     }
     
     /// this module’s exact identifier string, e.g. '_Concurrency'

@@ -199,6 +199,10 @@ extension Tree
         {
             yield  self[article.branch].articles[contemporary: article.contemporary]
         }
+        _modify
+        {
+            yield &self[article.branch].articles[contemporary: article.contemporary]
+        }
     }
     subscript(local symbol:PluralPosition<Symbol>) -> Symbol 
     {
@@ -206,12 +210,20 @@ extension Tree
         {
             yield  self[symbol.branch].symbols[contemporary: symbol.contemporary]
         }
+        _modify
+        {
+            yield &self[symbol.branch].symbols[contemporary: symbol.contemporary]
+        }
     }
     subscript(local module:PluralPosition<Module>) -> Module 
     {
         _read 
         {
             yield  self[module.branch].modules[contemporary: module.contemporary]
+        }
+        _modify 
+        {
+            yield &self[module.branch].modules[contemporary: module.contemporary]
         }
     }
 

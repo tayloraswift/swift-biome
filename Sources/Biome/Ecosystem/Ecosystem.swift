@@ -218,31 +218,6 @@ extension Ecosystem
     {
         self.redirects[uri.description] = .resource(resource)
     }
-    public mutating 
-    func move(module:Module.Index, to uri:URI, template:DOM.Flattened<Page.Key>? = nil)
-    {
-        let pins:Package.Pins = 
-            self.packages[module.package].move(module: module, to: uri)
-        self.redirects[uri.description] = .index(.module(module), pins: pins, 
-            template: template)
-    }
-    public mutating 
-    func move(articles module:Module.Index, to uri:URI, template:DOM.Flattened<Page.Key>? = nil)
-    {
-        fatalError("unimplemented")
-        // let pins:Package.Pins = 
-        //     self.packages[module.package].move(articles: module, to: uri)
-        // for article:Article.Index in self[module].articles.joined()
-        // {
-        //     var uri:URI = uri 
-        //     for component:String in self[article].path 
-        //     {
-        //         uri.path.append(component: component.lowercased())
-        //     }
-        //     self.redirects[uri.description] = .index(.article(article), pins: pins, 
-        //         template: template)
-        // }
-    }
 
     func uri(of pinned:Package.Pinned) -> URI
     {

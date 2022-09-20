@@ -98,6 +98,26 @@ struct Service
 }
 extension Service 
 {
+    public mutating 
+    func enable(function namespace:Module.ID, 
+        nationality:Package.Index, 
+        template:DOM.Flattened<Page.Key>? = nil) -> Bool 
+    {
+        if  let position:PluralPosition<Module> = 
+                self.packages[nationality].latest()?.modules.find(namespace),
+                self.functions.create(namespace, 
+                    nationality: nationality, 
+                    template: template ?? self.template)
+        {
+            self.packages[nationality].tree[local: position].isFunction = true
+            return true 
+        }
+        else 
+        {
+            return false 
+        }
+    }
+
     @discardableResult
     public mutating 
     func updatePackage(_ id:Package.ID, 
@@ -163,18 +183,14 @@ struct MigrationQuery
     /// The requested version. None of the symbols in this query 
     /// exist in this version.
     let requested:Version
-    /// The list of potentially matching compounds.
+    /// The list of potentially matching composites.
     /// 
     /// It is not possible to efficiently look up the most 
     /// recent version a compound appears in. Therefore, when 
     /// generating a URL for a compound choice, we should maximally 
     /// disambiguate it, and allow HTTP redirection to resolve it 
     /// to an appropriate version, should a user click on that URL.
-    let compounds:[Compound]
-    /// The list of potentially matching atoms, along with 
-    /// the most recent version (before ``requested``) they 
-    /// appeared in.
-    let atoms:[(Atom<Symbol>, Version)]
+    let choices:[Composite]
 }
 
 struct GetRequest 
@@ -190,17 +206,17 @@ struct GetRequest
     let uri:URI
     var query:Query
 
-    init(uri:URI, query:DocumentationQuery)
+    init(uri:URI, documentation query:DocumentationQuery)
     {
         self.uri = uri 
         self.query = .documentation(query)
     }
-    init(uri:URI, query:SelectionQuery)
+    init(uri:URI, selection query:SelectionQuery)
     {
         self.uri = uri 
         self.query = .selection(query)
     }
-    init(uri:URI, query:MigrationQuery)
+    init(uri:URI, migration query:MigrationQuery)
     {
         self.uri = uri 
         self.query = .migration(query)
@@ -218,23 +234,58 @@ extension Service
         {
             switch function 
             {
-            case .sitemap: 
+            case .public(.sitemap):
                 break 
-            case .lunr: 
+            case .public(.lunr):
                 break 
             
-            case .documentation(let scheme):
+            case .public(.documentation(let scheme)):
                 if  let endpoint:GetRequest = self._get(scheme: scheme, 
                         request: _move normalized)
                 {
                     return self.response(for: endpoint, template: self.template)
                 }
+            
+            case .custom(let custom): 
+                if  let endpoint:GetRequest = self._get(function: custom, 
+                        request: _move normalized)
+                {
+                    return self.response(for: endpoint, template: custom.template)
+                } 
             }
         }
         return .init(uri: uri.description, results: .none, 
             payload: .init("page not found.")) 
     }
-
+}
+extension Service 
+{
+    func _get(function:CustomFunction, request:__owned GlobalLink) -> GetRequest? 
+    {
+        guard let pinned:Package.Pinned = self.packages[function.nationality].latest()
+        else 
+        {
+            return nil 
+        }
+        guard let namespace:PluralPosition<Module> = pinned.modules.find(function.namespace)
+        else 
+        {
+            return nil 
+        }
+        if  let key:_SymbolLink = try? .init(_move request), 
+            let key:Route = self.stems[namespace.contemporary, straight: key], 
+            let article:PluralPosition<Article> = pinned.articles.find(.init(key))
+        {
+            return self._get(pinned, namespace: namespace, article: article)
+        }
+        else 
+        {
+            return self._get(pinned, namespace: namespace)
+        }
+    }
+}
+extension Service 
+{
     func _get(scheme:Scheme, request:__owned GlobalLink) -> GetRequest?
     {
         var request:GlobalLink = _move request
@@ -246,11 +297,13 @@ extension Service
             self._get(scheme: scheme, implicit: self.packages.swift, request: request) ?? 
             self._get(scheme: scheme, implicit: self.packages.core, request: request)
     }
+    private 
     func _get(scheme:Scheme, explicit residency:__owned Package, request:__owned GlobalLink) 
         -> GetRequest?
     {
         try? self._get(scheme: scheme, residency: _move residency, request: request)
     }
+    private 
     func _get(scheme:Scheme, implicit residency:__owned Package, request:__owned GlobalLink) 
         -> GetRequest?
     {
@@ -271,6 +324,7 @@ extension Service
             return request
         }
     }
+    private 
     func _get(scheme:Scheme, residency:__owned Package, request:__owned GlobalLink) 
         throws -> GetRequest?
     {
@@ -291,10 +345,7 @@ extension Service
         guard let request:_SymbolLink = try .init(request)
         else 
         {
-            let uri:URI = residency.address().uri(functions: self.functions)
-            return .init(uri: uri, query: .init(target: .package(residency.nationality), 
-                version: residency.version, 
-                _objects: nil))
+            return self._get(residency)
         }
         //  we can store a module id in a ``Symbol/Link``, because every 
         //  ``Module/ID`` is a valid ``Symbol/Link/Component``.
@@ -306,23 +357,14 @@ extension Service
         guard let request:_SymbolLink = request.suffix 
         else 
         {
-            let address:Address = residency.address(of: residency.package.tree[local: namespace])
-            let uri:URI = address.uri(functions: self.functions) 
-            return .init(uri: uri, query: .init(target: .module(namespace.contemporary), 
-                version: residency.version, 
-                _objects: nil))
+            return self._get(residency, namespace: namespace)
         }
         // doc scheme never uses nationality query parameter 
         if      case .doc = scheme, 
                 let key:Route = self.stems[namespace.contemporary, straight: request], 
                 let article:PluralPosition<Article> = residency.articles.find(.init(key))
         {
-            let address:Address = residency.address(of: residency.package.tree[local: article], 
-                namespace: residency.package.tree[local: namespace])
-            let uri:URI = address.uri(functions: self.functions) 
-            return .init(uri: uri, query: .init(target: .article(article.contemporary), 
-                version: residency.version, 
-                _objects: nil))
+            return self._get(residency, namespace: namespace, article: article)
         }
         else if let nationality:_SymbolLink.Nationality = request.nationality,
                 let package:Package = self.packages[nationality.id],
@@ -340,6 +382,7 @@ extension Service
             namespace: namespace.contemporary, 
             request: request.disambiguated())
     }
+    private 
     func _get(scheme:Scheme, nationality:__owned Package.Pinned, namespace:Atom<Module>, 
         request:__owned _SymbolLink) -> GetRequest?
     {
@@ -354,24 +397,25 @@ extension Service
         if      let selection:_Selection<Composite> = context.local.routes.select(key, 
                     where: context.local.exists(_:))
         {
+            // no excavation required, because we already filtered by extancy.
             switch request.disambiguator.disambiguate(_move selection, context: context) 
             {
             case .one(let composite):
-                if  let uri:URI = context.address(of: composite)?.uri(functions: self.functions)
+                if  let address:Address = context.address(of: composite)
                 {
-                    return .init(uri: uri, query: .init(target: .composite(composite), 
-                        version: context.local.version, 
-                        _objects: nil))
+                    return .init(uri: address.uri(functions: self.functions.names), 
+                        documentation: .init(target: .composite(composite), 
+                            version: context.local.version, 
+                            _objects: nil))
                 }
-            
             case .many(let composites):
                 if  let exemplar:Composite = composites.first, 
-                    let address:Address = context.address(of: exemplar, disambiguate: false)
+                    let address:Address = context.address(of: exemplar, disambiguate: .never)
                 {
-                    let uri:URI = address.uri(functions: self.functions)
-                    return .init(uri: uri, query: .init(nationality: context.local.nationality,
-                        version: context.local.version, 
-                        choices: composites))
+                    return .init(uri: address.uri(functions: self.functions.names), 
+                        selection: .init(nationality: context.local.nationality,
+                            version: context.local.version, 
+                            choices: composites))
                 }
             }
         }
@@ -380,13 +424,69 @@ extension Service
             switch request.disambiguator.disambiguate(_move selection, context: context) 
             {
             case .one(let composite):
-                break
+                if  let version:Version = context.local.excavate(composite),
+                    let address:Address = context.address(of: composite, local: version)
+                {
+                    return .init(uri: address.uri(functions: self.functions.names), 
+                        documentation: .init(target: .composite(composite),
+                            version: version, 
+                            _objects: nil))
+                }
             case .many(let composites):
-                break
+                if  let exemplar:Composite = composites.first, 
+                    let address:Address = context.address(of: exemplar, disambiguate: .never)
+                {
+                    return .init(uri: address.uri(functions: self.functions.names), 
+                        migration: .init(nationality: context.local.nationality,
+                            requested: context.local.version, 
+                            choices: composites))
+                }
             }
         }
-
         return nil
+    }
+
+    private 
+    func _get(_ pinned:Package.Pinned) -> GetRequest
+    {
+        return .init(uri: pinned.address().uri(functions: self.functions.names), 
+            documentation: .init(target: .package(pinned.nationality), 
+                version: pinned.version, 
+                _objects: nil))
+    }
+    private 
+    func _get(_ pinned:Package.Pinned, 
+        namespace:PluralPosition<Module>) -> GetRequest?
+    {
+        guard let version:Version = pinned.excavate(namespace.contemporary)
+        else 
+        {
+            return nil 
+        }
+        let pinned:Package.Pinned = pinned.repinned(to: version)
+        let address:Address = pinned.address(of: pinned.package.tree[local: namespace])
+        return .init(uri: address.uri(functions: self.functions.names) , 
+            documentation: .init(target: .module(namespace.contemporary), 
+                version: version, 
+                _objects: nil))
+    }
+    private 
+    func _get(_ pinned:Package.Pinned, 
+        namespace:PluralPosition<Module>, 
+        article:PluralPosition<Article>) -> GetRequest?
+    {
+        guard let version:Version = pinned.excavate(article.contemporary)
+        else 
+        {
+            return nil 
+        }
+        let pinned:Package.Pinned = pinned.repinned(to: version)
+        let address:Address = pinned.address(of: pinned.package.tree[local: article], 
+                namespace: pinned.package.tree[local: namespace])
+        return .init(uri: address.uri(functions: self.functions.names) , 
+            documentation: .init(target: .article(article.contemporary), 
+                version: version, 
+                _objects: nil))
     }
 }
 

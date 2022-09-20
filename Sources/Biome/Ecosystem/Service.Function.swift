@@ -1,72 +1,153 @@
+import DOM
 import URI 
+
+@frozen public 
+struct CaselessString:Hashable, Sendable
+{
+    public 
+    let lowercased:String 
+
+    @inlinable public
+    init(lowercased:String)
+    {
+        self.lowercased = lowercased
+    }
+
+    @inlinable public
+    init(_ string:String)
+    {
+        self.init(lowercased: string.lowercased())
+    }
+
+    init(_ namespace:Module.ID)
+    {
+        self.init(lowercased: namespace.value)
+    }
+}
+extension CaselessString:ExpressibleByStringLiteral 
+{
+    @inlinable public 
+    init(stringLiteral:String)
+    {
+        self.init(stringLiteral)
+    }
+}
 
 extension Service 
 {
     public 
-    enum Function 
+    enum PublicFunction 
     {
         case documentation(Scheme)
         case sitemap 
         case lunr 
+
+        struct Names 
+        {
+            var sitemap:CaselessString, 
+                lunr:CaselessString, 
+                doc:CaselessString,
+                symbol:CaselessString
+            
+            init() 
+            {
+                self.sitemap = "sitemaps"
+                self.lunr = "lunr"
+                self.doc = "learn"
+                self.symbol = "reference"
+            }
+        }
+    }
+    struct CustomFunction 
+    {
+        let nationality:Package.Index
+        // store a module identifier instead of a position or atom, 
+        // to make this more resilient against version editing
+        let namespace:Module.ID
+        let template:DOM.Flattened<Page.Key> 
+    }
+    enum Function 
+    {
+        case `public`(PublicFunction)
+        case custom(CustomFunction)
     }
 
     struct Functions 
     {
         private 
-        let table:[String: Function]
-        private
-        var sitemap:String, 
-            lunr:String, 
-            doc:String,
-            symbol:String
+        var table:[CaselessString: Function]
+        private(set)
+        var names:PublicFunction.Names
         
         subscript(key:String) -> Function?
         {
-            self.table[key.lowercased()]
+            self.table[.init(key)]
         }
 
-        init(_ table:[String: Function])
+        init()
         {
-            self.sitemap = "sitemaps"
-            self.lunr = "lunr"
-            self.doc = "learn"
-            self.symbol = "reference"
+            self.names = .init()
 
-            for (name, function):(String, Function) in table 
+            self.table = 
+            [
+                self.names.sitemap: .public(.sitemap),
+                self.names.lunr:    .public(.lunr),
+                self.names.doc:     .public(.documentation(.doc)),
+                self.names.symbol:  .public(.documentation(.symbol)),
+            ]
+        }
+        init(_ table:[String: PublicFunction])
+        {
+            self.init()
+            for (name, function):(String, PublicFunction) in table 
             {
-                let name:String = name.lowercased()
+                let name:CaselessString = .init(name)
+                self.table[name] = .public(function)
                 switch function 
                 {
                 case .sitemap: 
-                    self.sitemap = name 
+                    self.names.sitemap = name 
                 case .lunr: 
-                    self.lunr = name 
+                    self.names.lunr = name 
                 case .documentation(.doc): 
-                    self.doc = name 
+                    self.names.doc = name 
                 case .documentation(.symbol): 
-                    self.symbol = name 
+                    self.names.symbol = name 
                 }
             }
-            self.table = 
-            [
-                self.sitemap: .sitemap,
-                self.lunr: .lunr,
-                self.doc: .documentation(.doc),
-                self.symbol: .documentation(.symbol),
-            ]
+        }
+
+        mutating 
+        func create(_ namespace:Module.ID, 
+            nationality:Package.Index, 
+            template:DOM.Flattened<Page.Key>) -> Bool 
+        {
+            let key:CaselessString = .init(namespace) 
+            if self.table.keys.contains(key)
+            {
+                return false 
+            }
+            else 
+            {
+                self.table[key] = .custom(.init(
+                    nationality: nationality, 
+                    namespace: namespace, 
+                    template: template))
+                return true 
+            }
         }
     }
 }
-extension Service.Functions 
+extension Service.PublicFunction.Names
 {
-    func uri(_ function:Service.Function) -> URI
+    func uri(_ function:Service.PublicFunction) -> URI
     {
         switch function 
         {
-        case .sitemap:                  return .init(root: self.sitemap)
-        case .lunr:                     return .init(root: self.lunr)
-        case .documentation(.doc):      return .init(root: self.doc)
-        case .documentation(.symbol):   return .init(root: self.symbol)
+        case .sitemap:                  return .init(root: self.sitemap.lowercased)
+        case .lunr:                     return .init(root: self.lunr.lowercased)
+        case .documentation(.doc):      return .init(root: self.doc.lowercased)
+        case .documentation(.symbol):   return .init(root: self.symbol.lowercased)
         }
     }
 }

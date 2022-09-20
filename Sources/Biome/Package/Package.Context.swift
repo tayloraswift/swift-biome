@@ -4,7 +4,7 @@ extension Package
     struct Context:Sendable 
     {
         let upstream:[Index: Pinned]
-        let local:Pinned 
+        var local:Pinned 
 
         init(local:Pinned, context:__shared Packages)
         {
@@ -48,8 +48,8 @@ extension Package.Context
     ///
     /// This method is isotropic; it does not matter which of the packages in 
     /// this context is the local package.
-    func address(of package:Package.Index, function:Service.Function = .documentation(.symbol)) 
-        -> Address?
+    func address(of package:Package.Index, 
+        function:Service.PublicFunction = .documentation(.symbol)) -> Address?
     {
         self[package]?.address(function: function)
     }
@@ -74,7 +74,8 @@ extension Package.Context
     /// 
     /// This method is isotropic; it does not matter which of the packages in 
     /// this context is the local package.
-    func address(of composite:Composite, disambiguate:Bool = true) -> Address?
+    func address(of composite:Composite, disambiguate:Address.DisambiguationLevel = .minimally) 
+        -> Address?
     {
         guard   let base:Symbol = self.load(composite.base), 
                 let nationality:Package.Pinned = self[composite.nationality]
@@ -100,8 +101,13 @@ extension Package.Context
             address = .init(path: _move path, orientation: base.orientation)
             namespace = host.namespace
 
-            if disambiguate 
+
+            switch disambiguate 
             {
+            case .never: 
+                break 
+            
+            case .minimally:
                 switch nationality.depth(of: .init(host.namespace, stem, base.route.leaf), 
                     compound: compound)
                 {
@@ -113,6 +119,10 @@ extension Package.Context
                     address.base = base.id 
                     address.host = host.id 
                 }
+            
+            case .maximally:
+                address.base = base.id 
+                address.host = host.id 
             }
         }
         else 
@@ -120,8 +130,12 @@ extension Package.Context
             address = .init(path: base.path, orientation: base.orientation)
             namespace = base.namespace
 
-            if disambiguate 
+            switch disambiguate 
             {
+            case .never: 
+                break 
+            
+            case .minimally:
                 switch nationality.depth(of: base.route, atom: composite.base)
                 {
                 case nil: 
@@ -129,6 +143,9 @@ extension Package.Context
                 case .base?: 
                     address.base = base.id 
                 }
+            
+            case .maximally:
+                address.base = base.id 
             }
         }
         let residency:Package.Index = namespace.nationality
@@ -149,5 +166,12 @@ extension Package.Context
             version: residence.package.tree.abbreviate(residence.version), 
             local: _move local)
         return .init(function: .documentation(.symbol), global: _move global)
+    }
+
+    func address(of composite:Composite, local version:Version) -> Address? 
+    {
+        var context:Self = self
+            context.local = context.local.repinned(to: version)
+        return context.address(of: composite)
     }
 }

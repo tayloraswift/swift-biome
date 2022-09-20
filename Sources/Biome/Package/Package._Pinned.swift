@@ -85,6 +85,11 @@ extension Package
         {
             self.fasces.routes
         }
+
+        func repinned(to version:Version) -> Self 
+        {
+            version == self.version ? self : .init(self.package, version: version)
+        }
     }
 }
 
@@ -339,7 +344,7 @@ extension Package.Pinned
     /// 
     /// The returned address always includes the package name, even if it is the 
     /// standard library or one of the core libraries.
-    func address(function:Service.Function = .documentation(.symbol)) -> Address
+    func address(function:Service.PublicFunction = .documentation(.symbol)) -> Address
     {
         return .init(function: .documentation(.symbol), global: .init(
             residency: self.package.id, 
@@ -356,7 +361,8 @@ extension Package.Pinned
             residency: module.nationality.isCommunityPackage ? self.package.id : nil, 
             version: self.package.tree.abbreviate(self.version), 
             local: .init(namespace: module.id))
-        return .init(function: .documentation(.symbol), global: _move global)
+        return .init(function: module.isFunction ? nil : .documentation(.symbol), 
+            global: _move global)
     }
     /// Returns the address of the specified article, assuming it is local to this package.
     func address(local article:Atom<Article>) -> Address?
@@ -379,7 +385,8 @@ extension Package.Pinned
             residency: namespace.nationality.isCommunityPackage ? self.package.id : nil, 
             version: self.package.tree.abbreviate(self.version), 
             local: _move local)
-        return .init(function: .documentation(.doc), global: _move global)
+        return .init(function: namespace.isFunction ? nil : .documentation(.doc), 
+            global: _move global)
     }
 }
 

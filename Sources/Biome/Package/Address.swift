@@ -2,6 +2,12 @@ import URI
 
 struct Address 
 {
+    enum DisambiguationLevel 
+    {
+        case never 
+        case minimally 
+        case maximally 
+    }
     struct Global
     {
         var residency:Package.ID?
@@ -44,22 +50,30 @@ struct Address
         }
     }
 
-    var function:Service.Function 
+    var function:Service.PublicFunction? 
     var global:Global
 }
 extension Address 
 {
-    func uri(functions:Service.Functions) -> URI 
+    func uri(functions:Service.PublicFunction.Names) -> URI 
     {
-        var uri:URI = functions.uri(self.function)
+        var uri:URI 
+        if let function:Service.PublicFunction = self.function 
+        {
+            uri = functions.uri(function)
 
-        if let residency:Package.ID = self.global.residency 
-        {
-            uri.path.append(component: residency.string)
+            if let residency:Package.ID = self.global.residency 
+            {
+                uri.path.append(component: residency.string)
+            }
+            if let version:Version.Selector = self.global.version 
+            {
+                uri.path.append(component: version.description)
+            }
         }
-        if let version:Version.Selector = self.global.version 
+        else 
         {
-            uri.path.append(component: version.description)
+            uri = .init()
         }
         if let local:Local = self.global.local 
         {

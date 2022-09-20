@@ -159,6 +159,10 @@ struct Package:Identifiable, Sendable
         }
     }
 
+    func latest() -> Pinned?
+    {
+        self.tree.default.map { .init(self, version: $0) }
+    }
     // func pinned() -> Pinned 
     // {
     //     .init(self, at: self.versions.latest)
