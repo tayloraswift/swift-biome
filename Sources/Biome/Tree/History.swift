@@ -27,23 +27,8 @@ extension History
     typealias Head = Forest<Keyframe>.Tree.Head 
     typealias Index = Forest<Keyframe>.Index 
     typealias Iterator = Forest<Keyframe>.Tree.Iterator 
-
-    typealias SparseField<Divergence> = KeyPath<Divergence, Divergent?>
-    typealias DenseField<Element> = 
-    (
-        contemporary:KeyPath<Element, Head?>,
-        divergent:KeyPath<Element.Divergence, Divergent?>
-    )
-    where Element:BranchElement
-
-    typealias WritableSparseField<Divergence> = WritableKeyPath<Divergence, Divergent?>
-    typealias WritableDenseField<Element> = 
-    (
-        contemporary:WritableKeyPath<Element, Head?>,
-        divergent:WritableKeyPath<Element.Divergence, Divergent?>
-    )
-    where Element:BranchElement
 }
+
 struct History<Value> where Value:Equatable
 {
     private 
@@ -94,20 +79,16 @@ extension History
         where Trunk:Sequence<Epoch<Element>>
     {
         private 
-        var trunk:Trunk.Iterator? 
-        private 
         let history:History<Value>, 
-            field:DenseField<Element>,
-            key:Atom<Element> 
+            field:DenseField<Element>
+        private 
+        var trunk:Trunk.Iterator? 
         
-        init(trunk:__shared Trunk, history:History<Value>, 
-            field:DenseField<Element>, 
-            key:Atom<Element>)
+        init(history:History<Value>, field:DenseField<Element>, trunk:__shared Trunk)
         {
-            self.trunk = trunk.makeIterator()
             self.history = history
             self.field = field
-            self.key = key
+            self.trunk = trunk.makeIterator()
         }
 
         mutating 
@@ -118,7 +99,7 @@ extension History
             {
                 return nil 
             }
-            if let element:Element = epoch[self.key] 
+            if let element:Element = epoch[self.field.element] 
             {
                 // we know no prior epochs could possibly contain any information 
                 // about this symbol, so we can stop iterating after this.
@@ -130,7 +111,7 @@ extension History
                     return (epoch, index) 
                 }
             }
-            else if let head:Head = epoch.divergences[self.key, self.field.divergent]
+            else if let head:Head = epoch.divergences[self.field]
             {
                 if  let index:Index = self.history.rewind(head, to: epoch.limit)
                 {
@@ -148,20 +129,16 @@ extension History
         where Trunk:Sequence<Divergences<Key, Divergence>>
     {
         private 
-        var trunk:Trunk.Iterator 
-        private 
         let history:History<Value>, 
-            field:SparseField<Divergence>,
-            key:Key 
+            field:SparseField<Key, Divergence>
+        private 
+        var trunk:Trunk.Iterator 
         
-        init(trunk:__shared Trunk, history:History<Value>, 
-            field:SparseField<Divergence>, 
-            key:Key)
+        init(history:History<Value>, field:SparseField<Key, Divergence>, trunk:__shared Trunk)
         {
-            self.trunk = trunk.makeIterator()
             self.history = history
             self.field = field
-            self.key = key
+            self.trunk = trunk.makeIterator()
         }
 
         mutating 
@@ -172,7 +149,7 @@ extension History
             {
                 return nil 
             }
-            guard let head:Head = divergences[self.key, self.field] 
+            guard let head:Head = divergences[self.field] 
             else 
             {
                 return (divergences, nil)
@@ -191,16 +168,16 @@ extension History
 extension History 
 {
     private 
-    func backwards<Trunk, Element>(over key:Atom<Element>, field:DenseField<Element>, 
+    func backwards<Trunk, Element>(over field:DenseField<Element>, 
         in trunk:__owned Trunk) -> DensePeriods<Trunk, Element>
     {
-        .init(trunk: trunk, history: self, field: field, key: key)
+        .init(history: self, field: field, trunk: trunk)
     }
     private 
-    func backwards<Trunk, Key, Divergence>(over key:Key, field:SparseField<Divergence>, 
+    func backwards<Trunk, Key, Divergence>(over field:SparseField<Key, Divergence>, 
         in trunk:__owned Trunk) -> SparsePeriods<Trunk, Key, Divergence>
     {
-        .init(trunk: trunk, history: self, field: field, key: key)
+        .init(history: self, field: field, trunk: trunk)
     }
 }
 extension History 
@@ -211,12 +188,11 @@ extension History
     /// 
     /// If a keyframe spans multiple versions, the latest version among 
     /// them is returned.
-    func latestVersion<Element>(of key:Atom<Element>, field:DenseField<Element>,
+    func latestVersion<Element>(of field:DenseField<Element>,
         in trunk:some Sequence<Epoch<Element>>, 
         where predicate:(Value) throws -> Bool) rethrows -> Version?
     {
-        try self.latestVersion(in: self.backwards(over: key, field: field, in: trunk), 
-            where: predicate)
+        try self.latestVersion(in: self.backwards(over: field, in: trunk), where: predicate)
     }
     /// Returns the latest version of the specified field for which the 
     /// given predicate was true, when scanning backwards through time, 
@@ -224,12 +200,11 @@ extension History
     /// 
     /// If a keyframe spans multiple versions, the latest version among 
     /// them is returned.
-    func latestVersion<Key, Divergence>(of key:Key, field:SparseField<Divergence>,
+    func latestVersion<Key, Divergence>(of field:SparseField<Key, Divergence>,
         in trunk:some Sequence<Divergences<Key, Divergence>>, 
         where predicate:(Value) throws -> Bool) rethrows -> Version?
     {
-        try self.latestVersion(in: self.backwards(over: key, field: field, in: trunk), 
-            where: predicate)
+        try self.latestVersion(in: self.backwards(over: field, in: trunk), where: predicate)
     }
     private 
     func latestVersion<Period>(in timeline:some Sequence<(Period, Index?)>,
@@ -264,11 +239,11 @@ extension History
 }
 extension History
 {
-    func value<Key, Divergence>(of key:Key, field:SparseField<Divergence>,
+    func value<Key, Divergence>(of field:SparseField<Key, Divergence>,
         in trunk:some Sequence<Divergences<Key, Divergence>>) -> Value?
         where Key:Hashable
     {
-        for (_, index):(_, Index?) in self.backwards(over: key, field: field, in: trunk) 
+        for (_, index):(_, Index?) in self.backwards(over: field, in: trunk) 
         {
             if let index:Index 
             {
@@ -277,11 +252,11 @@ extension History
         }
         return nil 
     }
-    func value<Element>(of key:Atom<Element>, field:DenseField<Element>,
+    func value<Element>(of field:DenseField<Element>,
         in trunk:some Sequence<Epoch<Element>>) -> Value?
         where Element:BranchElement
     {
-        for (_, index):(_, Index?) in self.backwards(over: key, field: field, in: trunk) 
+        for (_, index):(_, Index?) in self.backwards(over: field, in: trunk) 
         {
             if let index:Index 
             {
@@ -325,50 +300,47 @@ extension History
             tree = self.forest.insert(.init(_move value, since: revision), before: head)
         }
     }
-
+    
     mutating 
-    func update<Key, Divergence>(_ divergences:inout [Key: Divergence], key:Key, 
-        with value:__owned Value, 
+    func update<Key, Divergence>(_ divergences:inout [Key: Divergence], 
+        at field:SparseField<Key, Divergence>, 
         revision:Version.Revision, 
-        field:WritableSparseField<Divergence>,
+        value:__owned Value, 
         trunk:some Sequence<Divergences<Key, Divergence>>)
         where Key:Hashable, Divergence:Voidable
     {
-        if let previous:Value = divergences[key]?[keyPath: field]
-                .map({ self[$0.head.index].value })
+        if let previous:Value = divergences[field].map({ self[$0.head.index].value })
         {
             if previous == value
             {
                 return 
             }
         }
-        else if case value? = self.value(of: key, field: field, in: trunk)
+        else if case value? = self.value(of: field, in: trunk)
         {
             return
         }
 
         self.push(_move value, revision: revision, 
-           to: &divergences[key, default: .init()][keyPath: field])
+           to: &divergences[field.key, default: .init()][keyPath: field.divergent])
     }
     mutating 
     func update<Element>(_ buffer:inout Branch.Buffer<Element>, 
-        position:Atom<Element>, 
-        with value:__owned Value, 
+        at field:DenseField<Element>,
         revision:Version.Revision, 
-        field:WritableDenseField<Element>,
+        value:__owned Value, 
         trunk:some Sequence<Epoch<Element>>)
         where Element:BranchElement, Element.Divergence:Voidable
     {
-        guard position.offset < buffer.startIndex 
+        guard field.element.offset < buffer.startIndex 
         else 
         {
             // symbol is contemporary to this branch. 
             self.add(_move value, revision: revision, 
-                to: &buffer[contemporary: position][keyPath: field.contemporary])
+                to: &buffer[contemporary: field.element][keyPath: field.contemporary])
             return 
         }
-        if let previous:Value = (buffer.divergences[position]?[keyPath: field.divergent])
-                .map({ self[$0.head.index].value })
+        if let previous:Value = buffer.divergences[field].map({ self[$0.head.index].value })
         {
             if previous == value 
             {
@@ -377,13 +349,13 @@ extension History
                 return 
             }
         }
-        else if case value? = self.value(of: position, field: field, in: trunk)
+        else if case value? = self.value(of: field, in: trunk)
         {
             // symbol is not contemporary, has not diverged in this epoch, 
             // but its value (divergent or not) matches.
             return 
         }
         self.push(_move value, revision: revision, 
-            to: &buffer.divergences[position, default: .init()][keyPath: field.divergent])
+            to: &buffer.divergences[field.element, default: .init()][keyPath: field.divergent])
     }
 }

@@ -128,26 +128,22 @@ extension Package.Pinned
 {
     func metadata(local article:Atom<Article>) -> Article.Metadata?
     {
-        self.package.metadata.articles.value(of: article, 
-            field: (\.metadata, \.metadata), 
+        self.package.metadata.articles.value(of: .metadata(of: article), 
             in: self.fasces.articles) ?? nil
     }
     func metadata(local symbol:Atom<Symbol>) -> Symbol.Metadata?
     {
-        self.package.metadata.symbols.value(of: symbol, 
-            field: (\.metadata, \.metadata), 
+        self.package.metadata.symbols.value(of: .metadata(of: symbol), 
             in: self.fasces.symbols) ?? nil
     }
     func metadata(local module:Atom<Module>) -> Module.Metadata?
     {
-        self.package.metadata.modules.value(of: module, 
-            field: (\.metadata, \.metadata), 
+        self.package.metadata.modules.value(of: .metadata(of: module), 
             in: self.fasces.modules) ?? nil
     }
     func metadata(foreign diacritic:Diacritic) -> Symbol.ForeignMetadata?
     {
-        self.package.metadata.foreign.value(of: diacritic, 
-            field: \.metadata, 
+        self.package.metadata.foreign.value(of: .metadata(of: diacritic), 
             in: self.fasces.foreign) ?? nil
     }
 }
@@ -186,8 +182,7 @@ extension Package.Pinned
 {
     func excavate(_ module:Atom<Module>) -> Version? 
     {
-        self.package.metadata.modules.latestVersion(of: module, 
-            field: (\.metadata, \.metadata), 
+        self.package.metadata.modules.latestVersion(of: .metadata(of: module), 
             in: self.fasces.modules)
         {
             $0 != nil 
@@ -195,8 +190,7 @@ extension Package.Pinned
     }
     func excavate(_ article:Atom<Article>) -> Version? 
     {
-        self.package.metadata.articles.latestVersion(of: article, 
-            field: (\.metadata, \.metadata), 
+        self.package.metadata.articles.latestVersion(of: .metadata(of: article), 
             in: self.fasces.articles)
         {
             $0 != nil 
@@ -204,8 +198,7 @@ extension Package.Pinned
     }
     func excavate(_ symbol:Atom<Symbol>) -> Version? 
     {
-        self.package.metadata.symbols.latestVersion(of: symbol, 
-            field: (\.metadata, \.metadata), 
+        self.package.metadata.symbols.latestVersion(of: .metadata(of: symbol), 
             in: self.fasces.symbols)
         {
             $0 != nil 
@@ -218,15 +211,13 @@ extension Package.Pinned
     func excavate(_ compound:Compound) -> Version? 
     {
         self.nationality == compound.host.nationality ?
-            self.package.metadata.symbols.latestVersion(of: compound.host, 
-                field: (\.metadata, \.metadata), 
+            self.package.metadata.symbols.latestVersion(of: .metadata(of: compound.host), 
                 in: self.fasces.symbols)
             {
                 $0?.contains(feature: compound) ?? false 
             }
             :
-            self.package.metadata.foreign.latestVersion(of: compound.diacritic, 
-                field: \.metadata, 
+            self.package.metadata.foreign.latestVersion(of: .metadata(of: compound.diacritic), 
                 in: self.fasces.foreign)
             {
                 $0?.contains(feature: compound.base) ?? false 
@@ -304,40 +295,34 @@ extension Package.Pinned
     func documentation(for symbol:Atom<Symbol>) 
         -> DocumentationExtension<Atom<Symbol>>
     {
-        self.package.data.symbolDocumentation.value(of: symbol, 
-            field: (\.documentation, \.documentation), 
+        self.package.data.symbolDocumentation.value(of: .documentation(of: symbol),
             in: self.fasces.symbols) ?? .init()
     }
     func documentation(for article:Atom<Article>) -> DocumentationExtension<Never>
     {
-        self.package.data.standaloneDocumentation.value(of: article, 
-            field: (\.documentation, \.documentation), 
+        self.package.data.standaloneDocumentation.value(of: .documentation(of: article),
             in: self.fasces.articles) ?? .init()
     }
     func documentation(for module:Atom<Module>) -> DocumentationExtension<Never>
     {
-        self.package.data.standaloneDocumentation.value(of: module, 
-            field: (\.documentation, \.documentation), 
+        self.package.data.standaloneDocumentation.value(of: .documentation(of: module),
             in: self.fasces.modules) ?? .init()
     }
     
     func topLevelSymbols(of module:Atom<Module>) -> Set<Atom<Symbol>>
     {
-        self.package.data.topLevelSymbols.value(of: module, 
-            field: (\.topLevelSymbols, \.topLevelSymbols), 
+        self.package.data.topLevelSymbols.value(of: .topLevelSymbols(of: module),
             in: self.fasces.modules) ?? []
     }
     func topLevelArticles(of module:Atom<Module>) -> Set<Atom<Article>>
     {
-        self.package.data.topLevelArticles.value(of: module, 
-            field: (\.topLevelArticles, \.topLevelArticles), 
+        self.package.data.topLevelArticles.value(of: .topLevelArticles(of: module),
             in: self.fasces.modules) ?? []
     }
 
     func declaration(for symbol:Atom<Symbol>) -> Declaration<Atom<Symbol>>
     {
-        self.package.data.declarations.value(of: symbol, 
-            field: (\.declaration, \.declaration), 
+        self.package.data.declarations.value(of: .declaration(of: symbol),
             in: self.fasces.symbols) ?? .init(fallback: "<unavailable>")
     }
     

@@ -360,53 +360,48 @@ extension Package
             }
         }
         self.data.topLevelSymbols.update(&self.tree[version.branch].modules, 
-            position: interface.culture, 
-            with: _move topLevelSymbols, 
+            at: .topLevelSymbols(of: interface.culture), 
             revision: version.revision, 
-            field: (\.topLevelSymbols, \.topLevelSymbols),
+            value: _move topLevelSymbols, 
             trunk: fasces.modules)
         
 
         let topLevelArticles:Set<Atom<Article>> = 
             .init(interface.citizenArticles.lazy.compactMap { $0?.contemporary })
         self.data.topLevelArticles.update(&self.tree[version.branch].modules, 
-            position: interface.culture, 
-            with: _move topLevelArticles, 
+            at: .topLevelArticles(of: interface.culture), 
             revision: version.revision, 
-            field: (\.topLevelArticles, \.topLevelArticles),
+            value: _move topLevelArticles, 
             trunk: fasces.modules)
     }
     mutating 
     func updateDocumentation(to version:Version, literature:__owned Literature, fasces:Fasces)
     {
-        for (position, documentation):(Atom<Module>, DocumentationExtension<Never>)
+        for (element, documentation):(Atom<Module>, DocumentationExtension<Never>)
             in literature.modules 
         {
             self.data.standaloneDocumentation.update(&self.tree[version.branch].modules, 
-                position: position, 
-                with: documentation, 
+                at: .documentation(of: element), 
                 revision: version.revision, 
-                field: (\.documentation, \.documentation),
+                value: documentation, 
                 trunk: fasces.modules)
         }
-        for (position, documentation):(Atom<Article>, DocumentationExtension<Never>)
+        for (element, documentation):(Atom<Article>, DocumentationExtension<Never>)
             in literature.articles 
         {
             self.data.standaloneDocumentation.update(&self.tree[version.branch].articles, 
-                position: position, 
-                with: documentation, 
+                at: .documentation(of: element), 
                 revision: version.revision, 
-                field: (\.documentation, \.documentation),
+                value: documentation, 
                 trunk: fasces.articles)
         }
-        for (position, documentation):(Atom<Symbol>, DocumentationExtension<Atom<Symbol>>)
+        for (element, documentation):(Atom<Symbol>, DocumentationExtension<Atom<Symbol>>)
             in literature.symbols 
         {
             self.data.symbolDocumentation.update(&self.tree[version.branch].symbols, 
-                position: position, 
-                with: documentation, 
+                at: .documentation(of: element), 
                 revision: version.revision, 
-                field: (\.documentation, \.documentation),
+                value: documentation, 
                 trunk: fasces.symbols)
         }
     }

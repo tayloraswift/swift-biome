@@ -26,7 +26,17 @@ struct Divergences<Key, Divergence>:TrunkPeriod where Key:Hashable
     /// ``Buffer/SubSequence`` it was obtained from, if applicable. However 
     /// if this method returns a non-nil result, the specified revision 
     /// is guaranteed to exist in the associated chain.
-    subscript<Field>(key:Key, field:History<Field>.SparseField<Divergence>) 
+    subscript<Field, Element>(field:History<Field>.DenseField<Element>) -> History<Field>.Head?
+        where Element:BranchElement, Divergence == Element.Divergence, Key == Atom<Element>
+    {
+        self[field.element, field.divergent]
+    }
+    subscript<Field>(field:History<Field>.SparseField<Key, Divergence>) -> History<Field>.Head?
+    {
+        self[field.key, field.divergent]
+    }
+    private 
+    subscript<Field>(key:Key, field:KeyPath<Divergence, History<Field>.Divergent?>) 
         -> History<Field>.Head?
     {
         if  let divergence:History<Field>.Divergent = self.items[key]?[keyPath: field], 

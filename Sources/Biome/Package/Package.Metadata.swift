@@ -28,63 +28,62 @@ extension Package.Metadata
     {
         for missing:Atom<Module> in builder.previous.modules 
         {
-            self.modules.update(&branch.modules, position: missing, with: nil, 
+            self.modules.update(&branch.modules, at: .metadata(of: missing), 
                 revision: revision, 
-                field: (\.metadata, \.metadata),
+                value: nil, 
                 trunk: fasces.modules)
         }
         for missing:Atom<Article> in builder.previous.articles 
         {
-            self.articles.update(&branch.articles, position: missing, with: nil, 
+            self.articles.update(&branch.articles, at: .metadata(of: missing), 
                 revision: revision, 
-                field: (\.metadata, \.metadata),
+                value: nil,
                 trunk: fasces.articles)
         }
         for missing:Atom<Symbol> in builder.previous.symbols
         {
-            self.symbols.update(&branch.symbols, position: missing, with: nil, 
+            self.symbols.update(&branch.symbols, at: .metadata(of: missing), 
                 revision: revision, 
-                field: (\.metadata, \.metadata),
+                value: nil, 
                 trunk: fasces.symbols)
         }
         for missing:Diacritic in builder.previous.foreign 
         {
-            self.foreign.update(&branch.foreign, key: missing, with: nil, 
+            self.foreign.update(&branch.foreign, at: .metadata(of: missing),
                 revision: revision, 
-                field: \.metadata,
+                value: nil, 
                 trunk: fasces.foreign)
         }
         
         for interface:ModuleInterface in interfaces 
         {
-            self.modules.update(&branch.modules, position: interface.culture, 
-                with: .init(namespaces: interface.namespaces), 
+            self.modules.update(&branch.modules, at: .metadata(of: interface.culture), 
                 revision: revision, 
-                field: (\.metadata, \.metadata),
+                value: .init(namespaces: interface.namespaces), 
                 trunk: fasces.modules)
         }
         for (article, metadata):(Atom<Article>, Article.Metadata) in 
             builder.articles
         {
-            self.articles.update(&branch.articles, position: article, with: metadata,
+            self.articles.update(&branch.articles, at: .metadata(of: article), 
                 revision: revision, 
-                field: (\.metadata, \.metadata),
+                value: metadata,
                 trunk: fasces.articles) 
         }
         for (symbol, metadata):(Atom<Symbol>, Symbol.Metadata) in 
             builder.symbols
         {
-            self.symbols.update(&branch.symbols, position: symbol, with: metadata,
+            self.symbols.update(&branch.symbols, at: .metadata(of: symbol), 
                 revision: revision, 
-                field: (\.metadata, \.metadata),
+                value: metadata,
                 trunk: fasces.symbols) 
         }
         for (diacritic, metadata):(Diacritic, Symbol.ForeignMetadata) in 
             builder.foreign
         {
-            self.foreign.update(&branch.foreign, key: diacritic, with: metadata, 
+            self.foreign.update(&branch.foreign, at: .metadata(of: diacritic), 
                 revision: revision, 
-                field: \.metadata, 
+                value: metadata, 
                 trunk: fasces.foreign)
         }
     }

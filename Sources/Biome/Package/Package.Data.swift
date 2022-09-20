@@ -36,7 +36,7 @@ extension Package.Data
         for (position, vertex):(PluralPosition<Symbol>?, SymbolGraph.Vertex<Int>) in 
             zip(interface.citizenSymbols, graph.vertices)
         {
-            guard let position:Atom<Symbol> = position?.contemporary
+            guard let element:Atom<Symbol> = position?.contemporary
             else 
             {
                 continue 
@@ -55,9 +55,9 @@ extension Package.Data
                 }
                 return nil
             }
-            self.declarations.update(&branch.symbols, position: position, with: declaration, 
+            self.declarations.update(&branch.symbols, at: .declaration(of: element), 
                 revision: revision, 
-                field: (\.declaration, \.declaration),
+                value: declaration, 
                 trunk: trunk)
         }
     }
