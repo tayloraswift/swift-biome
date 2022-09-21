@@ -22,13 +22,13 @@ extension GlobalLink
             }
         }
     }
-    enum TargetExpansion:Hashable, Sendable 
-    {
-        case article(PluralPosition<Article>)
-        case package(Package.Index)
-        case implicit                         ([PluralPosition<Symbol>])
-        case qualified(PluralPosition<Module>, [PluralPosition<Symbol>] = [])
-    }
+    // enum TargetExpansion:Hashable, Sendable 
+    // {
+    //     case article(PluralPosition<Article>)
+    //     case package(Package.Index)
+    //     case implicit                         ([PluralPosition<Symbol>])
+    //     case qualified(PluralPosition<Module>, [PluralPosition<Symbol>] = [])
+    // }
 
     enum Presentation:Hashable, Sendable
     {

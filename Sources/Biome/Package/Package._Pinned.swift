@@ -64,9 +64,9 @@ extension Package
             self.fasces = self.package.tree.fasces(through: self.version)
         }
 
-        var token:UInt 
+        var revision:Branch.Revision 
         {
-            self.package.tree[self.version].token
+            self.package.tree[self.version]
         }
 
         var nationality:Package.Index 
@@ -307,43 +307,42 @@ extension Package.Pinned
 
 extension Package.Pinned 
 {
-    func documentation() -> DocumentationExtension<Never>
+    func documentation() -> DocumentationExtension<Never>?
     {
         fatalError("unimplemented")
     }
 
-    func documentation(for symbol:Atom<Symbol>) 
-        -> DocumentationExtension<Atom<Symbol>>
+    func documentation(for symbol:Atom<Symbol>) -> DocumentationExtension<Atom<Symbol>>?
     {
         self.package.data.symbolDocumentation.value(of: .documentation(of: symbol),
-            in: self.fasces.symbols) ?? .init()
+            in: self.fasces.symbols)
     }
-    func documentation(for article:Atom<Article>) -> DocumentationExtension<Never>
+    func documentation(for article:Atom<Article>) -> DocumentationExtension<Never>?
     {
         self.package.data.standaloneDocumentation.value(of: .documentation(of: article),
-            in: self.fasces.articles) ?? .init()
+            in: self.fasces.articles)
     }
-    func documentation(for module:Atom<Module>) -> DocumentationExtension<Never>
+    func documentation(for module:Atom<Module>) -> DocumentationExtension<Never>?
     {
         self.package.data.standaloneDocumentation.value(of: .documentation(of: module),
-            in: self.fasces.modules) ?? .init()
+            in: self.fasces.modules)
     }
     
-    func topLevelSymbols(of module:Atom<Module>) -> Set<Atom<Symbol>>
+    func topLevelSymbols(of module:Atom<Module>) -> Set<Atom<Symbol>>?
     {
         self.package.data.topLevelSymbols.value(of: .topLevelSymbols(of: module),
-            in: self.fasces.modules) ?? []
+            in: self.fasces.modules)
     }
-    func topLevelArticles(of module:Atom<Module>) -> Set<Atom<Article>>
+    func topLevelArticles(of module:Atom<Module>) -> Set<Atom<Article>>?
     {
         self.package.data.topLevelArticles.value(of: .topLevelArticles(of: module),
-            in: self.fasces.modules) ?? []
+            in: self.fasces.modules)
     }
 
-    func declaration(for symbol:Atom<Symbol>) -> Declaration<Atom<Symbol>>
+    func declaration(for symbol:Atom<Symbol>) -> Declaration<Atom<Symbol>>?
     {
         self.package.data.declarations.value(of: .declaration(of: symbol),
-            in: self.fasces.symbols) ?? .init(fallback: "<unavailable>")
+            in: self.fasces.symbols)
     }
     
     @available(*, deprecated, renamed: "exists(_:)")

@@ -67,6 +67,18 @@ struct DocumentationExtension<Extended>
         self.errors = errors
     }
 }
+extension DocumentationExtension<Never> 
+{
+    init(errors:[any Error],
+        card:DOM.Flattened<GlobalLink.Presentation>,
+        body:DOM.Flattened<GlobalLink.Presentation>)
+    {
+        self.extends = nil
+        self.errors = errors 
+        self.card = card 
+        self.body = body
+    }
+}
 
 
 struct Literature 

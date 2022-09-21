@@ -176,7 +176,7 @@ struct DocumentationQuery
         self.target = target 
         self.version = pinned.version 
         self._objects = _objects
-        self.token = pinned.token
+        self.token = pinned.revision.token
     }
 }
 struct SelectionQuery
@@ -251,14 +251,14 @@ extension Service
                 if  let endpoint:GetRequest = self._get(scheme: scheme, 
                         request: _move normalized)
                 {
-                    return self.response(for: endpoint, template: self.template)
+                    // return self.response(for: endpoint, template: self.template)
                 }
             
             case .custom(let custom): 
                 if  let endpoint:GetRequest = self._get(function: custom, 
                         request: _move normalized)
                 {
-                    return self.response(for: endpoint, template: custom.template)
+                    // return self.response(for: endpoint, template: custom.template)
                 } 
             }
         }
@@ -499,14 +499,5 @@ extension Service
             documentation: .init(.article(article.contemporary), 
                 _objects: nil, 
                 pinned: pinned))
-    }
-}
-
-extension Service 
-{
-    func response(for endpoint:GetRequest, template:DOM.Flattened<Page.Key>) 
-        -> WebSemantics.Response<Resource>
-    {
-        fatalError("unimplemented")
     }
 }

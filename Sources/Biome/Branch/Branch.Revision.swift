@@ -12,7 +12,7 @@ extension Branch
         let token:UInt 
         
         var alternates:[Version.Branch]
-        var consumers:[Package.Index: Set<Version>]
+        var consumers:[Package.Index: [Version: Set<Atom<Module>>]]
         let hash:String
         let ring:Ring
         let pins:[Package.Index: Version]

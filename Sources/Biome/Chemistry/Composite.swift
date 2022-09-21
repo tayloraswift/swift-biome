@@ -8,11 +8,16 @@ struct Composite:Hashable, Sendable
     //  3. perpetrator culture
     let base:Atom<Symbol>
     let diacritic:Diacritic 
-            
+    
+    @available(*, deprecated, renamed: "init(atomic:)")
     init(natural:Atom<Symbol>) 
     {
-        self.base = natural
-        self.diacritic = .init(natural: natural)
+        self.init(atomic: natural)
+    }
+    init(atomic:Atom<Symbol>) 
+    {
+        self.base = atomic
+        self.diacritic = .init(atomic: atomic)
     }
     init(_ base:Atom<Symbol>, _ diacritic:Diacritic) 
     {

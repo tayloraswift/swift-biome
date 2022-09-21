@@ -8,11 +8,15 @@ struct Diacritic:Hashable, Sendable
         self.host = host 
         self.culture = culture
     }
-    
+    @available(*, deprecated, renamed: "init(atomic:)")
     init(natural:Atom<Symbol>)
     {
-        self.host = natural 
-        self.culture = natural.culture
+        self.init(atomic: natural)
+    }
+    init(atomic:Atom<Symbol>)
+    {
+        self.host = atomic
+        self.culture = atomic.culture
     }
 
     var nationality:Package.Index 

@@ -167,10 +167,7 @@ struct Packages
 
         // successfully registered symbolgraph contents 
         let version:Version = self.commit(pin.revision, to: branch, of: package, 
-            pins: interfaces.reduce(into: [:]) 
-            { 
-                $0.merge($1.pins) { $1 }
-            }, 
+            interfaces: interfaces, 
             date: date, 
             tag: tag)
         self[package].tree[branch]._surface = api.surface()
@@ -263,19 +260,27 @@ struct Packages
     private mutating
     func commit(_ revision:String, 
         to branch:Version.Branch, 
-        of index:Package.Index, 
-        pins:[Package.Index: Version], 
+        of nationality:Package.Index, 
+        interfaces:[ModuleInterface], 
         date:Date, 
         tag:Tag?) -> Version
     {
-        let version:Version = self[index].tree.commit(branch: branch, hash: revision, 
-            pins: pins, 
+        var pins:[Package.Index: (version:Version, consumers:Set<Atom<Module>>)] = [:]
+        for interface:ModuleInterface in interfaces 
+        {
+            for (package, pin):(Package.Index, Version) in interface.pins 
+            {
+                pins[package, default: (pin, [])].consumers.insert(interface.culture)
+            }
+        }
+        let version:Version = self[nationality].tree.commit(branch: branch, hash: revision, 
+            pins: pins.mapValues(\.version), 
             date: date, 
             tag: tag)
-        for (package, pin):(Package.Index, Version) in pins
+        for (package, (pin, consumers)):(Package.Index, (Version, Set<Atom<Module>>)) in pins
         {
-            assert(package != index)
-            self[package].tree[pin].consumers[index, default: []].insert(version)
+            assert(package != nationality)
+            self[package].tree[pin].consumers[nationality, default: [:]][version] = consumers
         }
         return version
     }

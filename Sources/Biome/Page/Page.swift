@@ -90,7 +90,7 @@ extension Page
         {
             $0.map 
             {
-                .composite($0, self.pin($0.base.nationality).declaration(for: $0.base))
+                .composite($0, self.pin($0.base.nationality).declaration(for: $0.base) ?? .init(fallback: "<unavailable>"))
             }
         }
         self.substitutions.merge(
@@ -133,12 +133,12 @@ extension Page
     {
         let pinned:Package.Pinned = self.pin(module.nationality)
         let topics:Topics = self.organize(
-            toplevel: pinned.topLevelSymbols(of: module),
-            guides: pinned.topLevelArticles(of: module))
+            toplevel: pinned.topLevelSymbols(of: module) ?? [],
+            guides: pinned.topLevelArticles(of: module) ?? [])
         
         self.add(fields: self.ecosystem.packages.renderFields(for: module))
         self.add(topics: self.ecosystem.packages.render(topics: topics))
-        self.add(article: pinned.documentation(for: module))
+        self.add(article: pinned.documentation(for: module) ?? .init())
         self.add(availableVersions: pinned.package.allVersions(of: module), 
             currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
@@ -153,7 +153,7 @@ extension Page
         
         self.add(fields: self.ecosystem.packages.renderFields(for: article, 
             excerpt: pinned.metadata(local: article)!))
-        self.add(article: pinned.documentation(for: article))
+        self.add(article: pinned.documentation(for: article) ?? .init())
         self.add(availableVersions: pinned.package.allVersions(of: article), 
             currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
@@ -186,10 +186,10 @@ extension Page
         let pinned:Package.Pinned = self.pin(composite.nationality)
         
         self.add(fields: self.ecosystem.packages.renderFields(for: composite, 
-            declaration: base.declaration(for: composite.base),
+            declaration: base.declaration(for: composite.base) ?? .init(fallback: "<unavailable>"),
             facts: facts))
         self.add(topics: self.ecosystem.packages.render(topics: topics))
-        self.add(article: self.template(base.documentation(for: composite.base)))
+        self.add(article: self.template(base.documentation(for: composite.base) ?? .init()))
         self.add(availableVersions: pinned.package.allVersions(of: composite), 
             currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
