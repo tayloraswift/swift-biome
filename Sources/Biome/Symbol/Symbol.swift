@@ -42,6 +42,7 @@ struct Symbol:Sendable, CustomStringConvertible
     {
         self.route.namespace.nationality
     }
+    @available(*, deprecated)
     var type:Index?
     {
         switch self.community 

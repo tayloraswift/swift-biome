@@ -1,11 +1,14 @@
 import DOM
 import HTML
 
+struct _DeclarationLoadingError:Error 
+{
+}
 struct _SymbolInfo 
 {
     let composite:Composite 
-    let base:_ReferenceCache.AtomicReference 
-    let host:_ReferenceCache.AtomicReference?
+    let base:SymbolReference 
+    let host:SymbolReference?
     let declaration:Declaration<Atom<Symbol>>
     let topics:_Topics 
 
@@ -16,8 +19,7 @@ struct _SymbolInfo
         // note: context is anisotropic
         assert(context.local.nationality == composite.nationality)
 
-        let base:_ReferenceCache.AtomicReference = try cache.load(composite.base, 
-            context: context)
+        let base:SymbolReference = try cache.load(composite.base, context: context)
         if let compound:Compound = composite.compound 
         {
             guard   let declaration:Declaration<Atom<Symbol>> = 
@@ -56,7 +58,7 @@ struct _SymbolInfo
             {
                 try organizer.organize(accepted, of: base, 
                     diacritic: .init(host: composite.base, culture: culture), 
-                    culture: .accepted(try cache.name(of: culture, context: context)),
+                    culture: .accepted(try cache.load(culture, context: context)),
                     context: context,
                     cache: &cache)
             }
@@ -71,12 +73,16 @@ struct _SymbolInfo
                 }
                 for culture:Atom<Module> in consumers 
                 {
+                    assert(culture.nationality == consumer)
+
                     let diacritic:Diacritic = .init(host: composite.base, culture: culture)
                     if let extra:Symbol.ForeignMetadata = pinned.metadata(foreign: diacritic)
                     {
                         try organizer.organize(extra.traits, of: base, 
                             diacritic: diacritic, 
-                            culture: .nonaccepted(try cache.name(of: culture, context: context)),
+                            culture: .nonaccepted(
+                                try cache.load(culture, context: context), 
+                                try cache.load(consumer, context: context)),
                             context: context,
                             cache: &cache)
                     }

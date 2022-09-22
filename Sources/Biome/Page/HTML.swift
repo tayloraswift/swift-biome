@@ -46,17 +46,17 @@ extension HTML.Element
 extension HTML.Element
 {
     static 
-    func highlight(escaped string:String, _ color:Highlight) -> Self
+    func highlight(escaped string:String, _ color:Highlight, uri:String? = nil) -> Self
     {
-        Self.highlight(.init(escaped: string), color)
+        .highlight(.init(escaped: string), color, uri: uri)
     }
     static 
-    func highlight(_ string:String, _ color:Highlight) -> Self
+    func highlight(_ string:String, _ color:Highlight, uri:String? = nil) -> Self
     {
-        Self.highlight(.init(string), color)
+        .highlight(.init(string), color, uri: uri)
     }
     static 
-    func highlight(_ child:Self, _ color:Highlight) -> Self
+    func highlight(_ child:Self, _ color:Highlight, uri:String? = nil) -> Self
     {
         let classes:String
         switch color
@@ -92,7 +92,14 @@ extension HTML.Element
         case .invalid:
             classes = "syntax-invalid"
         }
-        return .span(child, attributes: [.class(classes)])
+        if let uri:String 
+        {
+            return .a(child, attributes: [.class(classes), .href(uri)])
+        }
+        else 
+        {
+            return .span(child, attributes: [.class(classes)])
+        }
     } 
 }
 

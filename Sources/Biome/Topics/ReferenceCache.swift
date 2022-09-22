@@ -1,41 +1,65 @@
 import HTML 
 import DOM
 
+struct ArticleReference 
+{
+    let metadata:Article.Metadata
+    let uri:String
+
+    var headline:Article.Headline 
+    {
+        self.metadata.headline
+    }
+}
+struct PackageReference 
+{
+    let name:Package.ID 
+    let uri:String
+}
+struct ModuleReference 
+{
+    let name:Module.ID 
+    let uri:String
+}
+struct SymbolReference 
+{
+    let community:Community 
+    let shape:Symbol.Shape<PluralPosition<Symbol>>?
+    let namespace:Atom<Module>
+    let path:Path
+    let uri:String 
+
+    var name:String 
+    {
+        self.path.last
+    }
+}
+
+extension PackageReference 
+{
+    var html:HTML.Element<Never> 
+    {
+        .a(self.name.string, attributes: [.href(self.uri)])
+    }
+}
+extension ModuleReference 
+{
+    var html:HTML.Element<Never> 
+    {
+        .a(self.name.string, attributes: [.href(self.uri)])
+    }
+}
+extension ArticleReference 
+{
+    var html:HTML.Element<Never> 
+    {
+        return .a(.init(escaped: self.headline.formatted), attributes: [.href(self.uri)])
+    }
+}
+
 struct _ReferenceCache 
 {
-    struct ArticleReference 
-    {
-        let metadata:Article.Metadata
-        let uri:String
 
-        var headline:Article.Headline 
-        {
-            self.metadata.headline
-        }
-    }
-    struct PackageReference 
-    {
-        let name:Package.ID 
-        let uri:String
-    }
-    struct ModuleReference 
-    {
-        let name:Module.ID 
-        let uri:String
-    }
-    struct AtomicReference 
-    {
-        let community:Community 
-        let shape:Symbol.Shape<PluralPosition<Symbol>>?
-        let namespace:Atom<Module>
-        let path:Path
-        let uri:String 
-
-        var name:String 
-        {
-            self.path.last
-        }
-    }
     // struct CompoundReference 
     // {
     //     let uri:String 
@@ -48,13 +72,14 @@ struct _ReferenceCache
     {
         fatalError("unimplemented")
     }
+    
     mutating 
-    func load(_ symbol:Atom<Symbol>, context:Package.Context) throws -> AtomicReference
+    func load(_ symbol:Atom<Symbol>, context:Package.Context) throws -> SymbolReference
     {
         fatalError("unimplemented")
     }
     mutating 
-    func load(_ symbol:PluralPosition<Symbol>, context:Package.Context) -> AtomicReference 
+    func load(_ symbol:PluralPosition<Symbol>, context:Package.Context) -> SymbolReference 
     {
         fatalError("unimplemented")
     }
@@ -79,17 +104,6 @@ struct _ReferenceCache
     }
 
     mutating 
-    func community(of symbol:Atom<Symbol>, context:Package.Context) throws -> Community
-    {
-        fatalError("unimplemented")
-    }
-    mutating 
-    func name(of module:Atom<Module>, context:Package.Context) throws -> Module.ID 
-    {
-        fatalError("unimplemented")
-    }
-
-    mutating 
     func uri(of composite:Composite, context:Package.Context) throws -> String
     {
         fatalError("unimplemented")
@@ -100,6 +114,7 @@ struct _ReferenceCache
         fatalError("unimplemented")
     }
 }
+
 extension _ReferenceCache 
 {
     mutating 
@@ -122,24 +137,20 @@ extension _ReferenceCache
             return try self.expand(composite, count: visible, context: context)
         
         case .article(let article):
-            let article:ArticleReference = try self.load(article, context: context)
-            let display:HTML.Element<Never> = .init(escaped: article.headline.formatted)
-            return .cite(.a(display, attributes: [.href(article.uri)])) 
+            return .cite(try self.load(article, context: context).html) 
         
         case .module(let module):
-            let module:ModuleReference = try self.load(module, context: context)
-            return .code(.a(module.name.string, attributes: [.href(module.uri)]))
+            return .code(try self.load(module, context: context).html)
         
         case .package(let package):
-            let package:PackageReference = try self.load(package, context: context)
-            return .code(.a(package.name.string, attributes: [.href(package.uri)]))
+            return .code(try self.load(package, context: context).html)
         }
     }
     private mutating 
     func expand(_ link:Composite, count:Int, context:Package.Context) 
         throws -> HTML.Element<Never>
     {
-        var current:AtomicReference = try self.load(link.base, context: context)
+        var current:SymbolReference = try self.load(link.base, context: context)
         var crumbs:[HTML.Element<Never>] = []
             crumbs.reserveCapacity(count)
         
@@ -166,7 +177,7 @@ extension _ReferenceCache
             {
                 let module:ModuleReference = try self.load(current.namespace, context: context)
                 crumbs.append(.init(escaped: "."))
-                crumbs.append(.a(module.name.string, attributes: [.href(module.uri)]))
+                crumbs.append(module.html)
                 break 
             }
             else 

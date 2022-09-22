@@ -1,72 +1,56 @@
 import DOM
+import HTML
 import Notebook 
+
+infix operator |<| :ComparisonPrecedence 
+
+/// Orders two paths first by final component, and then by scope.
+func |<| (
+    lhs:(prefix:some Sequence<String>, last:String), 
+    rhs:(prefix:some Sequence<String>, last:String)) -> Bool 
+{
+    if      lhs.last <  rhs.last 
+    {
+        return true 
+    }
+    else if lhs.last == rhs.last 
+    {
+        return lhs.prefix.lexicographicallyPrecedes(rhs.prefix)
+    }
+    else 
+    {
+        return false 
+    }
+}
+
+extension Path 
+{
+    static 
+    func |<| (lhs:Self, rhs:Self) -> Bool 
+    {
+        (lhs.prefix, lhs.last) |<| (rhs.prefix, rhs.last)
+    }
+}
 
 struct _Topics 
 {
-    struct ArticleCard 
-    {
-        let element:Atom<Article>
-        let overview:DOM.Flattened<GlobalLink.Presentation>
-    }
-    struct SymbolCard
-    {
-        let composite:Composite 
-        let signature:Notebook<Highlight, Never>
-        let overview:DOM.Flattened<GlobalLink.Presentation>
+    let articles:[Card<String>]
 
-        init(composite:Composite, 
-            signature:Notebook<Highlight, Never>, 
-            overview:DOM.Flattened<GlobalLink.Presentation>)
-        {
-            self.composite = composite
-            self.signature = signature
-            self.overview = overview
-        }
-        init(composite:Composite, 
-            signature:Notebook<Highlight, Never>?, 
-            overview:DOM.Flattened<GlobalLink.Presentation>?)
-        {
-            self.composite = composite
-            self.signature = signature ?? 
-                .init(CollectionOfOne<(String, Highlight)>.init(("<unavailable>", .text)))
-            self.overview = overview ?? .init()
-        }
-    }
-    enum Culture:Hashable, Comparable
-    {
-        case primary 
-        case accepted(Module.ID)
-        case nonaccepted(Module.ID)
-    }
-    struct Enclave<Item>:Identifiable
-    {
-        let id:Culture 
-        var items:[Item]
+    let requirements:[(Community, [Card<Notebook<Highlight, Never>>])]
 
-        init(id:Culture, items:[Item] = [])
-        {
-            self.id = id 
-            self.items = items 
-        }
-    }
+    let members:[(Community, [Enclave<Card<Notebook<Highlight, Never>>>])]
+    let removed:[(Community, [Enclave<Card<Notebook<Highlight, Never>>>])]
 
-    let articles:[ArticleCard]
+    let implications:[Item<Void>]
 
-    let requirements:[(Community, [SymbolCard])]
+    let conformers:[Enclave<Item<[Generic.Constraint<String>]>>]
+    let conformances:[Enclave<Item<[Generic.Constraint<String>]>>]
 
-    let members:[(Community, [Enclave<SymbolCard>])]
-    let removed:[(Community, [Enclave<SymbolCard>])]
-
-    let implications:[Atom<Symbol>]
-
-    let conformers:[Enclave<Generic.Conditional<Atom<Symbol>>>]
-    let conformances:[Enclave<Generic.Conditional<Atom<Symbol>>>]
-
-    let subclasses:[Enclave<Atom<Symbol>>]
-    let refinements:[Enclave<Atom<Symbol>>]
-    let implementations:[Enclave<Atom<Symbol>>]
-    let restatements:[Enclave<Atom<Symbol>>]
-    let overrides:[Enclave<Atom<Symbol>>]
+    let subclasses:[Enclave<Item<Void>>]
+    let refinements:[Enclave<Item<Void>>]
+    let implementations:[Enclave<Item<Void>>]
+    let restatements:[Enclave<Item<Void>>]
+    let overrides:[Enclave<Item<Void>>]
 
     init() 
     {
@@ -90,23 +74,23 @@ struct _Topics
     }
     init(_ organizer:Organizer)
     {
-        self.articles = organizer.articles
+        self.articles = organizer.articles.sorted()
 
-        self.requirements = organizer.requirements.sublists { $0 }
+        self.requirements = organizer.requirements.sublists { $0.sorted() }
 
-        self.members = organizer.members.sublists { $0.values.sorted() }
-        self.removed = organizer.removed.sublists { $0.values.sorted() }
+        self.members = organizer.members.sublists { $0.values.sorted().map { $0.sorted() } }
+        self.removed = organizer.removed.sublists { $0.values.sorted().map { $0.sorted() } }
 
-        self.implications = organizer.implications 
+        self.implications = organizer.implications.sorted()
 
-        self.conformers = organizer.conformers.values.sorted()
-        self.conformances = organizer.conformances.values.sorted()
+        self.conformers         =      organizer.conformers.values.sorted().map { $0.sorted() }
+        self.conformances       =    organizer.conformances.values.sorted().map { $0.sorted() }
 
-        self.subclasses = organizer.subclasses.values.sorted()
-        self.refinements = organizer.refinements.values.sorted()
-        self.implementations = organizer.implementations.values.sorted()
-        self.restatements = organizer.restatements.values.sorted()
-        self.overrides = organizer.overrides.values.sorted()
+        self.subclasses         =      organizer.subclasses.values.sorted().map { $0.sorted() }
+        self.refinements        =     organizer.refinements.values.sorted().map { $0.sorted() }
+        self.implementations    = organizer.implementations.values.sorted().map { $0.sorted() }
+        self.restatements       =    organizer.restatements.values.sorted().map { $0.sorted() }
+        self.overrides          =       organizer.overrides.values.sorted().map { $0.sorted() }
     }
 }
 extension Dictionary where Key:CaseIterable 
@@ -120,11 +104,161 @@ extension Dictionary where Key:CaseIterable
         }
     }
 }
-extension Sequence 
+
+
+extension _Topics 
 {
-    fileprivate
-    func sorted<Item>() -> [Element] where Element == _Topics.Enclave<Item> 
+    func html(context:Package.Context, cache:inout _ReferenceCache) throws -> HTML.Element<Never>?
     {
-        self.sorted { $0.id < $1.id }
+        var sections:[HTML.Element<Never>] = []
+        
+        // topics.feed.isEmpty ? [] : 
+        // [
+        //     .section(self.render(cards: topics.feed), attributes: [.class("feed")])
+        // ]
+
+        if  let section:HTML.Element<Never> = self.refinements.list(
+                heading: .h2("Refinements"), 
+                attributes: [.class("related")])
+        {
+            sections.append(section)
+        }
+        if  let section:HTML.Element<Never> = self.implementations.list(
+                heading: .h2("Refinements"), 
+                attributes: [.class("related")])
+        {
+            sections.append(section)
+        }
+        if  let section:HTML.Element<Never> = self.restatements.list(
+                heading: .h2("Refinements"), 
+                attributes: [.class("related")])
+        {
+            sections.append(section)
+        }
+        if  let section:HTML.Element<Never> = self.overrides.list(
+                heading: .h2("Refinements"), 
+                attributes: [.class("related")])
+        {
+            sections.append(section)
+        }
+        
+        if !self.requirements.isEmpty
+        {
+            sections.append(.section(try [.h2("Requirements")] + self.requirements.map 
+                {
+                    .section(.h3($0.0.plural), .ul(try $0.1.map 
+                    {
+                        try $0.html(context: context, cache: &cache)
+                    }))
+                },
+                attributes: [.class("topics requirements")]))
+        }
+        if !self.members.isEmpty
+        {
+            sections.append(.section(try [.h2("Members")] + self.members.map 
+                {
+                    try $0.1.grid(heading: .h3($0.0.plural))
+                    {
+                        try $0.html(context: context, cache: &cache)
+                    }
+                },
+                attributes: [.class("topics members")]))
+        }
+        
+        if  let section:HTML.Element<Never> = self.conformers.list(
+                heading: .h2("Conforming Types"), 
+                attributes: [.class("related")])
+        {
+            sections.append(section)
+        }
+        if  let section:HTML.Element<Never> = self.conformances.list(
+                heading: .h2("Conforms To"), 
+                attributes: [.class("related")])
+        {
+            sections.append(section)
+        }
+        if  let section:HTML.Element<Never> = self.subclasses.list(
+                heading: .h2("Subclasses"), 
+                attributes: [.class("related")])
+        {
+            sections.append(section)
+        }
+        if !self.implications.isEmpty
+        {
+            sections.append(.section(.h2("Implies"), .ul(self.implications.map(\.html)), 
+                attributes: [.class("related")]))
+        }
+
+        if !self.removed.isEmpty
+        {
+            sections.append(.section(try [.h2("Removed Members")] + self.removed.map 
+                {
+                    try $0.1.grid(heading: .h3($0.0.plural))
+                    {
+                        try $0.html(context: context, cache: &cache)
+                    }
+                },
+                attributes: [.class("topics removed")]))
+        }
+        
+        return sections.isEmpty ? nil : .div(sections)
+    }
+}
+
+
+extension Collection<_Topics.Enclave<_Topics.Item<Void>>>
+{
+    fileprivate 
+    func list(heading:HTML.Element<Never>, attributes:[HTML.Element<Never>.Attribute] = [])
+        -> HTML.Element<Never>?
+    {
+        self.isEmpty ? nil : 
+            .section([heading] + self.lazy.map(\.html).joined(), attributes: attributes)
+    }
+}
+extension Collection<_Topics.Enclave<_Topics.Item<[Generic.Constraint<String>]>>>
+{
+    fileprivate 
+    func list(heading:HTML.Element<Never>, attributes:[HTML.Element<Never>.Attribute] = [])
+        -> HTML.Element<Never>?
+    {
+        self.isEmpty ? nil : 
+            .section([heading] + self.lazy.map(\.html).joined(), attributes: attributes)
+    }
+}
+extension Sequence<_Topics.Enclave<_Topics.Card<Notebook<Highlight, Never>>>>
+{
+    fileprivate 
+    func grid(heading:HTML.Element<Never>, html:(Element) throws -> [HTML.Element<Never>]) 
+        rethrows -> HTML.Element<Never>
+    {
+        var enclaves:Iterator = self.makeIterator() 
+        guard let first:[HTML.Element<Never>] = try enclaves.next().map(html)
+        else 
+        {
+            return .section(heading) 
+        }
+        // CSS grid will be unhappy if the first enclave has more than 1 dom element 
+        var elements:[HTML.Element<Never>] = []
+        if  first.count > 1 
+        {
+            elements.reserveCapacity(2 * self.underestimatedCount + 2)
+            elements.append(heading)
+            elements.append(.ul())
+        }
+        else 
+        {
+            elements.reserveCapacity(2 * self.underestimatedCount)
+            elements.append(heading)
+        }
+
+        elements.append(contentsOf: _move first)
+
+        while let next:[HTML.Element<Never>] = try enclaves.next().map(html)
+        {
+            elements.append(contentsOf: next)
+        }
+        
+        return .section(elements) 
     }
 }

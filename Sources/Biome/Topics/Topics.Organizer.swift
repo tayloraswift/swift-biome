@@ -1,27 +1,5 @@
+import DOM
 import Notebook
-
-infix operator |<| :ComparisonPrecedence 
-
-extension Path 
-{
-    /// Orders two paths first by final component, and then by scope.
-    static 
-    func |<| (lhs:Self, rhs:Self) -> Bool 
-    {
-        if lhs.last < rhs.last 
-        {
-            return true 
-        }
-        else if lhs.last == rhs.last 
-        {
-            return lhs.prefix.lexicographicallyPrecedes(rhs.prefix)
-        }
-        else 
-        {
-            return false 
-        }
-    }
-}
 
 extension _Topics 
 {
@@ -41,29 +19,29 @@ extension _Topics
 {
     struct Organizer 
     {
-        var articles:[ArticleCard]
-        var requirements:[Community: [SymbolCard]]
-        var members:[Community: [Atom<Module>: Enclave<SymbolCard>]]
-        var removed:[Community: [Atom<Module>: Enclave<SymbolCard>]]
+        var articles:[Card<String>.Unsorted]
 
-        var implications:[Atom<Symbol>]
+        var requirements:[Community: [Card<Notebook<Highlight, Never>>.Unsorted]]
 
-        var conformers:[Atom<Module>: Enclave<Generic.Conditional<Atom<Symbol>>>]
-        var conformances:[Atom<Module>: Enclave<Generic.Conditional<Atom<Symbol>>>]
-        var subclasses:[Atom<Module>: Enclave<Atom<Symbol>>]
-        var refinements:[Atom<Module>: Enclave<Atom<Symbol>>]
-        var implementations:[Atom<Module>: Enclave<Atom<Symbol>>]
-        var restatements:[Atom<Module>: Enclave<Atom<Symbol>>]
-        var overrides:[Atom<Module>: Enclave<Atom<Symbol>>]
+        var members:[Community: [Atom<Module>: Enclave<Card<Notebook<Highlight, Never>>.Unsorted>]]
+        var removed:[Community: [Atom<Module>: Enclave<Card<Notebook<Highlight, Never>>.Unsorted>]]
+
+        var implications:[Item<Void>]
+
+        var conformers:[Atom<Module>: Enclave<Item<[Generic.Constraint<String>]>>]
+        var conformances:[Atom<Module>: Enclave<Item<[Generic.Constraint<String>]>>]
+
+        var subclasses:[Atom<Module>: Enclave<Item<Void>>]
+        var refinements:[Atom<Module>: Enclave<Item<Void>>]
+        var implementations:[Atom<Module>: Enclave<Item<Void>>]
+        var restatements:[Atom<Module>: Enclave<Item<Void>>]
+        var overrides:[Atom<Module>: Enclave<Item<Void>>]
 
         init() 
         {
             self.articles = []
-            self.requirements = [:]
 
-            // TODO:
-            // every sublist has an enclave for the primary culture, even if it is empty. 
-            // this is more css-grid friendly.
+            self.requirements = [:]
 
             self.members = [:]
             self.removed = [:]
@@ -72,6 +50,7 @@ extension _Topics
 
             self.conformers = [:]
             self.conformances = [:]
+
             self.subclasses = [:]
             self.refinements = [:]
             self.implementations = [:]
@@ -84,7 +63,7 @@ extension _Topics
 extension _Topics.Organizer 
 {
     mutating 
-    func organize(_ traits:Branch.SymbolTraits, of host:_ReferenceCache.AtomicReference, 
+    func organize(_ traits:Branch.SymbolTraits, of host:SymbolReference, 
         diacritic:Diacritic, 
         culture:_Topics.Culture,
         context:Package.Context, 
@@ -95,26 +74,28 @@ extension _Topics.Organizer
         case (_, .requirement(of: _)?):
             for parrot:Atom<Symbol> in traits.downstream
             {
-                self.restatements[diacritic.culture, default: .init(id: culture)]
-                    .items.append(parrot)
+                self.restatements[diacritic.culture, default: .init(culture)]
+                    .elements.append(try .init(parrot, context: context, cache: &cache))
             }
             for implementation:Atom<Symbol> in traits.implementations
             {
-                self.implementations[diacritic.culture, default: .init(id: culture)]
-                    .items.append(implementation)
+                self.implementations[diacritic.culture, default: .init(culture)]
+                    .elements.append(try .init(implementation, context: context, cache: &cache))
             }
         
         case (.protocol, _): 
             for (conformer, constraints):(Atom<Symbol>, [Generic.Constraint<Atom<Symbol>>]) in 
                 traits.conformers
             {
-                self.conformers[diacritic.culture, default: .init(id: culture)]
-                    .items.append(.init(conformer, where: constraints))
+                self.conformers[diacritic.culture, default: .init(culture)]
+                    .elements.append(try .init(conformer, where: constraints, 
+                        context: context, 
+                        cache: &cache))
             }
             for refinement:Atom<Symbol> in traits.downstream
             {
-                self.refinements[diacritic.culture, default: .init(id: culture)]
-                    .items.append(refinement)
+                self.refinements[diacritic.culture, default: .init(culture)]
+                    .elements.append(try .init(refinement, context: context, cache: &cache))
             }
             for member:Atom<Symbol> in traits.members
             {
@@ -129,13 +110,15 @@ extension _Topics.Organizer
             for (conformance, constraints):(Atom<Symbol>, [Generic.Constraint<Atom<Symbol>>]) in 
                 traits.conformances
             {
-                self.conformances[diacritic.culture, default: .init(id: culture)]
-                    .items.append(.init(conformance, where: constraints))
+                self.conformances[diacritic.culture, default: .init(culture)]
+                    .elements.append(try .init(conformance, where: constraints, 
+                        context: context, 
+                        cache: &cache))
             }
             for subclass:Atom<Symbol> in traits.downstream
             {
-                self.subclasses[diacritic.culture, default: .init(id: culture)]
-                    .items.append(subclass)
+                self.subclasses[diacritic.culture, default: .init(culture)]
+                    .elements.append(try .init(subclass, context: context, cache: &cache))
             }
             for member:Atom<Symbol> in traits.members
             {
@@ -156,8 +139,8 @@ extension _Topics.Organizer
         case (.callable(_), _):
             for override:Atom<Symbol> in traits.downstream
             {
-                self.overrides[diacritic.culture, default: .init(id: culture)]
-                    .items.append(override)
+                self.overrides[diacritic.culture, default: .init(culture)]
+                    .elements.append(try .init(override, context: context, cache: &cache))
             }
         
         default: 
@@ -192,22 +175,45 @@ extension _Topics.Organizer
         context:Package.Context,
         cache:inout _ReferenceCache) throws 
     {
-        let community:Community = try cache.community(of: composite.base, context: context)
-        let declaration:Declaration<Atom<Symbol>>? = context[composite.base.nationality]?
-            .declaration(for: composite.base)
-        let card:_Topics.SymbolCard = .init(composite: composite, 
-            signature: declaration?.signature, 
-            overview: context.documentation(for: composite.base)?.card)
-        
-        if case false? = declaration?.availability.isUsable 
+        guard   let declaration:Declaration<Atom<Symbol>> = 
+                    context[composite.base.nationality]?.declaration(for: composite.base)
+        else 
         {
-            self.removed[community, default: [:]][enclave, default: .init(id: culture)]
-                .items.append(card)
+            throw _DeclarationLoadingError.init()
+        }
+
+        let overview:DOM.Flattened<GlobalLink.Presentation> = 
+            context.documentation(for: composite.base)?.card ?? .init()
+        
+        let base:SymbolReference = try cache.load(composite.base, context: context)
+        let card:_Topics.Card<Notebook<Highlight, Never>>, 
+            key:_Topics.SortingKey
+        if  let compound:Compound = composite.compound 
+        {
+            let host:SymbolReference = try cache.load(compound.host, context: context)
+
+            card = .init(signature: declaration.signature, 
+                overview: overview, 
+                uri: try cache.uri(of: compound, context: context))
+            key = .compound((host.path, base.name))
         }
         else 
         {
-            self.members[community, default: [:]][enclave, default: .init(id: culture)]
-                .items.append(card)
+            card = .init(signature: declaration.signature, 
+                overview: overview, 
+                uri: base.uri)
+            key = .atomic(base.path)
+        }
+        
+        if  declaration.availability.isUsable 
+        {
+            self.members[base.community, default: [:]][enclave, default: .init(culture)]
+                .elements.append((card, key))
+        }
+        else 
+        {
+            self.removed[base.community, default: [:]][enclave, default: .init(culture)]
+                .elements.append((card, key))
         }
     }
 }
@@ -234,18 +240,26 @@ extension _Topics.Organizer
     func add(role:Atom<Symbol>, context:Package.Context, cache:inout _ReferenceCache) throws
     {
         // protocol roles may originate from a different package
-        switch try cache.community(of: role, context: context)
+        let symbol:SymbolReference = try cache.load(role, context: context)
+        switch symbol.community
         {
         case .protocol:
-            self.implications.append(role)
+            self.implications.append(try .init(symbol, context: context, cache: &cache))
         case let community:
             // this is always valid, because non-protocol roles are always 
             // requirements, and requirements always live in the same package as 
             // the protocol they are part of.
-            let card:_Topics.SymbolCard = .init(composite: .init(atomic: role),
-                signature: context.local.declaration(for: role)?.signature, 
-                overview: context.documentation(for: role)?.card)
-            self.requirements[community, default: []].append(card)
+            guard   let declaration:Declaration<Atom<Symbol>> = 
+                        context.local.declaration(for: role)
+            else 
+            {
+                throw _DeclarationLoadingError.init()
+            }
+            let card:_Topics.Card<Notebook<Highlight, Never>> = .init(
+                    signature: declaration.signature, 
+                    overview: context.documentation(for: role)?.card ?? .init(), 
+                    uri: symbol.uri)
+            self.requirements[community, default: []].append((card, .atomic(symbol.path)))
         }
     }
 }
