@@ -10,19 +10,70 @@ struct _DeclarationLoadingError:Error
 }
 struct _SymbolInfo 
 {
+    struct Breadcrumbs:RandomAccessCollection
+    {
+        let host:SymbolReference?
+        let base:SymbolReference 
+        private(set)
+        var elements:[(display:String, uri:String)]
+
+        var startIndex:Int 
+        {
+            -1
+        }
+        var endIndex:Int 
+        {
+            self.elements.endIndex
+        }
+        subscript(index:Int) -> HTML.Element<Never> 
+        {
+            if index == self.startIndex 
+            {
+                return .li(self.base.name)
+            }
+            else 
+            {
+                let element:(display:String, uri:String) = self.elements[index]
+                return .li(.highlight(element.display, .type, uri: element.uri))
+            }
+        }
+
+        init(base:SymbolReference, host:SymbolReference?, 
+            context:__shared Package.Context, 
+            cache:inout _ReferenceCache) throws 
+        {
+            self.base = base 
+            self.host = host 
+            self.elements = []
+            self.elements.reserveCapacity(self.host == nil ? 
+                base.path.count - 1 : 
+                base.path.count)
+            var next:SymbolReference? = self.host ?? base.shape.map 
+            {
+                cache.load($0.target, context: context)
+            }
+            while let current:SymbolReference = next 
+            {
+                self.elements.append((display: current.name, uri: current.uri))
+                next = current.shape.map 
+                {
+                    cache.load($0.target, context: context)
+                }
+            }
+        }
+    }
     let culture:
     (
         composite:ModuleReference, 
         base:ModuleReference?,
         host:ModuleReference?
     )
-    let base:SymbolReference 
-    let host:SymbolReference?
-
+    let breadcrumbs:Breadcrumbs
     let conditions:Organizer.Conditional
-    let topics:SymbolTopics 
-
+    let topics:[UInt8]?
+    let notes:SymbolTopics.Notes?
     let fragments:Notebook<Highlight, String>
+    let availability:Availability
 
     init(_ composite:Composite, 
         context:__shared Package.Context, 
@@ -31,34 +82,42 @@ struct _SymbolInfo
         // note: context is anisotropic
         assert(context.local.nationality == composite.nationality)
 
-        self.base = try cache.load(composite.base, context: context)
+        let base:SymbolReference = try cache.load(composite.base, context: context)
         self.culture.composite = try cache.load(composite.culture, context: context)
 
         let declaration:Declaration<Atom<Symbol>>?
+        let topics:SymbolTopics
         if let compound:Compound = composite.compound 
         {
             declaration = context[compound.base.nationality]?.declaration(for: compound.base)
             
-            self.host = try cache.load(compound.host, context: context)
-            self.topics = .init(notes: .feature(
-                protocol: try .init(self.base, context: context, cache: &cache)))
+            topics = .init(notes: .feature(
+                protocol: try .init(base, context: context, cache: &cache)))
             
             self.culture.base = compound.base.culture == compound.culture ? nil :
                 try cache.load(compound.base.culture, context: context)
             self.culture.host = compound.host.culture == compound.culture ? nil :
                 try cache.load(compound.host.culture, context: context)
+            
+            self.breadcrumbs = try .init(base: _move base, 
+                host: try cache.load(compound.host, context: context), 
+                context: context, 
+                cache: &cache)
         }
         else 
         {
             declaration = context.local.declaration(for: composite.base)
 
-            self.host = nil
-            self.topics = try .init(for: composite.base, base: self.base, 
+            topics = try .init(for: composite.base, base: base, 
                 context: context, 
                 cache: &cache)
             
             self.culture.base = nil
             self.culture.host = nil
+
+            self.breadcrumbs = try .init(base: _move base, host: nil, 
+                context: context, 
+                cache: &cache)
         }
 
         guard let declaration:Declaration<Atom<Symbol>>
@@ -74,6 +133,19 @@ struct _SymbolInfo
         {
             try cache.load($0, context: context).uri
         }
+        self.availability = declaration.availability
+        self.topics = try topics.html(context: context, cache: &cache)?.node
+            .rendered(as: [UInt8].self)
+        self.notes = topics.notes 
+    }
+
+    var base:SymbolReference 
+    {
+        self.breadcrumbs.base 
+    }
+    var host:SymbolReference?
+    {
+        self.breadcrumbs.host
     }
 
     func _render(template:DOM.Flattened<Page.Key>) -> [UInt8]
@@ -89,24 +161,33 @@ struct _SymbolInfo
                 fatalError("unimplemented") 
             case .constants: 
                 fatalError("unimplemented") 
+            
             case .availability: 
-                fatalError("unimplemented") 
+                html = .render(availability: 
+                (
+                    self.availability.swift, 
+                    self.availability.general
+                ))
             case .base: 
                 html = self.culture.base.map 
                 { 
                     .span($0.html, attributes: [.class("base")]) 
                 }
             case .breadcrumbs: 
-                fatalError("unimplemented")
+                html = .ol(self.breadcrumbs.reversed()) 
+            
             case .consumers: 
-                fatalError("unimplemented")
+                html = nil 
+            
             case .culture: 
                 html = self.culture.composite.html 
             
             case .dependencies: 
-                fatalError("unimplemented") 
+                html = nil
+            
             case .discussion: 
                 fatalError("unimplemented")
+            
             case .fragments: 
                 let fragments:[HTML.Element<Never>] = self.fragments.map 
                 {
@@ -127,17 +208,22 @@ struct _SymbolInfo
                     .span($0.html, attributes: [.class("namespace")]) 
                 }
             case .notes: 
-                html = self.notes()
+                html = self.renderNotes()
+            
             case .notices: 
                 fatalError("unimplemented")
             case .pin: 
                 fatalError("unimplemented") 
+            
             case .platforms: 
-                fatalError("unimplemented")
+                html = .render(availability: self.availability.platforms)
+
             case .summary: 
                 fatalError("unimplemented")
+            
             case .topics: 
-                fatalError("unimplemented")
+                return self.topics 
+            
             case .versions: 
                 fatalError("unimplemented")
             }
@@ -146,10 +232,10 @@ struct _SymbolInfo
     }
 
     private 
-    func notes() -> HTML.Element<Never>? 
+    func renderNotes() -> HTML.Element<Never>? 
     {
         var items:[HTML.Element<Never>] = []
-        switch self.topics.notes 
+        switch self.notes 
         {
         case nil: 
             break 
