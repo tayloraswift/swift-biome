@@ -2,7 +2,7 @@ import DOM
 import HTML
 import Notebook
 
-extension _Topics 
+extension Organizer 
 {
     enum SortingKey:Comparable 
     {
@@ -64,14 +64,14 @@ extension _Topics
 }
 extension Sequence 
 {
-    func sorted<T>() -> [_Topics.Card<T>] 
-        where Element == _Topics.Card<T>.Unsorted
+    func sorted<T>() -> [Organizer.Card<T>] 
+        where Element == Organizer.Card<T>.Unsorted
     {
         self.sorted { $0.key < $1.key } .map(\.card)
     }
 }
 
-extension _Topics.Card<Notebook<Highlight, Never>>
+extension Organizer.Card<Notebook<Highlight, Never>>
 {
     func html(context:Package.Context, cache:inout _ReferenceCache) 
         throws -> HTML.Element<Never>

@@ -95,7 +95,7 @@ extension Page
         }
         self.substitutions.merge(
             self.ecosystem.packages.renderFields(for: choices, uri: uri)) { $1 }
-        self.add(topics: self.ecosystem.packages.render(choices: segregated))
+        //self.add(topics: self.ecosystem.packages.render(choices: segregated))
     }
     mutating 
     func generate(for index:Ecosystem.Index, exhibit:Version?)
@@ -119,8 +119,8 @@ extension Page
         
         self.add(fields: self.ecosystem.packages.renderFields(for: package, 
             version: pinned.version))
-        self.add(topics: self.ecosystem.packages.render(
-            modulelist: pinned.package.modules.all))
+        //self.add(topics: self.ecosystem.packages.render(
+        //    modulelist: pinned.package.modules.all))
         self.add(availableVersions: pinned.package.allVersions(), 
             currentVersion: exhibit ?? pinned.version,
             of: pinned.package)
@@ -132,12 +132,12 @@ extension Page
     func generate(for module:Module.Index, exhibit:Version?) 
     {
         let pinned:Package.Pinned = self.pin(module.nationality)
-        let topics:Topics = self.organize(
-            toplevel: pinned.topLevelSymbols(of: module) ?? [],
-            guides: pinned.topLevelArticles(of: module) ?? [])
+        //let topics:Topics = self.organize(
+        //    toplevel: pinned.topLevelSymbols(of: module) ?? [],
+        //    guides: pinned.topLevelArticles(of: module) ?? [])
         
         self.add(fields: self.ecosystem.packages.renderFields(for: module))
-        self.add(topics: self.ecosystem.packages.render(topics: topics))
+        //self.add(topics: self.ecosystem.packages.render(topics: topics))
         self.add(article: pinned.documentation(for: module) ?? .init())
         self.add(availableVersions: pinned.package.allVersions(of: module), 
             currentVersion: exhibit ?? pinned.version,
@@ -168,18 +168,18 @@ extension Page
         //  1. host package (optional)
         //  2. base package 
         //  3. culture
-        let topics:Topics
+        //let topics:Topics
         let facts:Symbol.Predicates<Symbol.Index>
         if let host:Symbol.Index = composite.atom 
         {
             facts = { fatalError("unimplemented") }() // self.pin(host.module.package).facts(host)
-            topics = self.organize(facts: facts, host: host)
+            //topics = self.organize(facts: facts, host: host)
         }
         else 
         {
             // no dynamics for synthesized features
             facts = .init(roles: nil)
-            topics = .init()
+            //topics = .init()
         }
         
         let base:Package.Pinned = self.pin(composite.base.nationality)
@@ -188,7 +188,7 @@ extension Page
         self.add(fields: self.ecosystem.packages.renderFields(for: composite, 
             declaration: base.declaration(for: composite.base) ?? .init(fallback: "<unavailable>"),
             facts: facts))
-        self.add(topics: self.ecosystem.packages.render(topics: topics))
+        //self.add(topics: self.ecosystem.packages.render(topics: topics))
         self.add(article: self.template(base.documentation(for: composite.base) ?? .init()))
         self.add(availableVersions: pinned.package.allVersions(of: composite), 
             currentVersion: exhibit ?? pinned.version,
@@ -321,34 +321,7 @@ extension Page
             self.substitutions[key] = field.rendered { self.href($0) }
         }
     }
-    private mutating 
-    func add(topics:DOM.Flattened<Topics.Key>?)
-    {
-        guard let topics:DOM.Flattened<Topics.Key>
-        else 
-        {
-            return 
-        }
-        // self.substitutions[.topics] = topics.rendered 
-        // {
-        //     let documentation:DocumentationNode
-        //     switch $0 
-        //     {
-        //     case .href(let index):
-        //         return [UInt8].init(self.href(index))
-        //     case .article(let article):
-        //         documentation = self.pin(article.module.package)
-        //             .documentation(for: article)
-        //     case .composite(let composite):
-        //         documentation = self.pin(composite.base.module.package)
-        //             .documentation(for: composite.base)
-        //     }
-        //     return self.template(documentation).summary.rendered 
-        //     {
-        //         self.expand($0).node.rendered(as: [UInt8].self)
-        //     }
-        // }
-    }
+
     // this takes separate ``Version`` and ``Package`` arguments instead of a 
     // combined `Package.Pinned` argument to avoid confusion
     private mutating 

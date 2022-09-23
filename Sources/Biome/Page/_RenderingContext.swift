@@ -1,16 +1,28 @@
 import DOM
 import HTML
+import Notebook
 
+struct _MetadataLoadingError:Error 
+{
+}
 struct _DeclarationLoadingError:Error 
 {
 }
 struct _SymbolInfo 
 {
-    let composite:Composite 
+    let culture:
+    (
+        composite:ModuleReference, 
+        base:ModuleReference?,
+        host:ModuleReference?
+    )
     let base:SymbolReference 
     let host:SymbolReference?
-    let declaration:Declaration<Atom<Symbol>>
-    let topics:_Topics 
+
+    let conditions:Organizer.Conditional
+    let topics:SymbolTopics 
+
+    let fragments:Notebook<Highlight, String>
 
     init(_ composite:Composite, 
         context:__shared Package.Context, 
@@ -19,85 +31,49 @@ struct _SymbolInfo
         // note: context is anisotropic
         assert(context.local.nationality == composite.nationality)
 
-        let base:SymbolReference = try cache.load(composite.base, context: context)
+        self.base = try cache.load(composite.base, context: context)
+        self.culture.composite = try cache.load(composite.culture, context: context)
+
+        let declaration:Declaration<Atom<Symbol>>?
         if let compound:Compound = composite.compound 
         {
-            guard   let declaration:Declaration<Atom<Symbol>> = 
-                        context[compound.base.nationality]?.declaration(for: compound.base)
-            else 
-            {
-                fatalError("unimplemented")
-            }
-
+            declaration = context[compound.base.nationality]?.declaration(for: compound.base)
+            
             self.host = try cache.load(compound.host, context: context)
-            self.topics = .init()
-            self.declaration = declaration
+            self.topics = .init(notes: .feature(
+                protocol: try .init(self.base, context: context, cache: &cache)))
+            
+            self.culture.base = compound.base.culture == compound.culture ? nil :
+                try cache.load(compound.base.culture, context: context)
+            self.culture.host = compound.host.culture == compound.culture ? nil :
+                try cache.load(compound.host.culture, context: context)
         }
         else 
         {
-            guard   let metadata:Symbol.Metadata = 
-                        context.local.metadata(local: composite.base),
-                    let declaration:Declaration<Atom<Symbol>> = 
-                        context.local.declaration(for: composite.base)
-            else 
-            {
-                fatalError("unimplemented")
-            }
+            declaration = context.local.declaration(for: composite.base)
 
             self.host = nil
-            self.declaration = declaration
-
-            var organizer:_Topics.Organizer = .init()
-            try organizer.organize(metadata.primary, of: base, 
-                diacritic: composite.diacritic,
-                culture: .primary,
-                context: context,
+            self.topics = try .init(for: composite.base, base: self.base, 
+                context: context, 
                 cache: &cache)
             
-            for (culture, accepted):(Atom<Module>, Branch.SymbolTraits) in metadata.accepted 
-            {
-                try organizer.organize(accepted, of: base, 
-                    diacritic: .init(host: composite.base, culture: culture), 
-                    culture: .accepted(try cache.load(culture, context: context)),
-                    context: context,
-                    cache: &cache)
-            }
-            for (consumer, versions):(Package.Index, [Version: Set<Atom<Module>>]) in 
-                context.local.revision.consumers
-            {
-                guard   let pinned:Package.Pinned = context[consumer], 
-                        let consumers:Set<Atom<Module>> = versions[pinned.version]
-                else 
-                {
-                    continue 
-                }
-                for culture:Atom<Module> in consumers 
-                {
-                    assert(culture.nationality == consumer)
-
-                    let diacritic:Diacritic = .init(host: composite.base, culture: culture)
-                    if let extra:Symbol.ForeignMetadata = pinned.metadata(foreign: diacritic)
-                    {
-                        try organizer.organize(extra.traits, of: base, 
-                            diacritic: diacritic, 
-                            culture: .nonaccepted(
-                                try cache.load(culture, context: context), 
-                                try cache.load(consumer, context: context)),
-                            context: context,
-                            cache: &cache)
-                    }
-                }
-            }
-            if  case .protocol = base.community, 
-                let roles:Branch.SymbolRoles = metadata.roles 
-            {
-                try organizer.organize(roles, context: context, cache: &cache)
-            }
-
-            self.topics = .init(_move organizer)
+            self.culture.base = nil
+            self.culture.host = nil
         }
-        self.base = base 
-        self.composite = composite 
+
+        guard let declaration:Declaration<Atom<Symbol>>
+        else 
+        {
+            throw _DeclarationLoadingError.init()
+        }
+
+        self.conditions = try .init(declaration.extensionConstraints, 
+            context: context, 
+            cache: &cache)
+        self.fragments = try declaration.fragments.map 
+        {
+            try cache.load($0, context: context).uri
+        }
     }
 
     func _render(template:DOM.Flattened<Page.Key>) -> [UInt8]
@@ -106,7 +82,7 @@ struct _SymbolInfo
         {
             (key:Page.Key) -> [UInt8]? in 
 
-            let html:HTML.Element<Never>
+            let html:HTML.Element<Never>?
             switch key
             {
             case .title: 
@@ -116,19 +92,28 @@ struct _SymbolInfo
             case .availability: 
                 fatalError("unimplemented") 
             case .base: 
-                fatalError("unimplemented")
+                html = self.culture.base.map 
+                { 
+                    .span($0.html, attributes: [.class("base")]) 
+                }
             case .breadcrumbs: 
                 fatalError("unimplemented")
             case .consumers: 
                 fatalError("unimplemented")
             case .culture: 
-                fatalError("unimplemented") 
+                html = self.culture.composite.html 
+            
             case .dependencies: 
                 fatalError("unimplemented") 
             case .discussion: 
                 fatalError("unimplemented")
             case .fragments: 
-                fatalError("unimplemented")
+                let fragments:[HTML.Element<Never>] = self.fragments.map 
+                {
+                    .highlight($0.text, $0.color, uri: $0.link)
+                }
+                html = .section(.pre(.code(fragments, attributes: [.class("swift")])), 
+                    attributes: [.class("declaration")])
             
             case .headline: 
                 html = .h1(self.base.name)
@@ -137,9 +122,12 @@ struct _SymbolInfo
                 return [UInt8].init(self.base.community.title.utf8)
             
             case .namespace: 
-                fatalError("unimplemented") 
+                html = self.culture.host.map 
+                { 
+                    .span($0.html, attributes: [.class("namespace")]) 
+                }
             case .notes: 
-                fatalError("unimplemented") 
+                html = self.notes()
             case .notices: 
                 fatalError("unimplemented")
             case .pin: 
@@ -153,7 +141,61 @@ struct _SymbolInfo
             case .versions: 
                 fatalError("unimplemented")
             }
-            return html.node.rendered(as: [UInt8].self)
+            return html?.node.rendered(as: [UInt8].self)
         }
+    }
+
+    private 
+    func notes() -> HTML.Element<Never>? 
+    {
+        var items:[HTML.Element<Never>] = []
+        switch self.topics.notes 
+        {
+        case nil: 
+            break 
+        
+        case .feature(protocol: let coyote)?:
+            items.append(.li(.p(.init(escaped: "Available because "),
+                .code(.highlight(escaped: "Self", .type, uri: self.host?.uri),
+                .init(escaped: " conforms to "),
+                .code(.highlight(coyote.display.name, .type, uri: coyote.uri)),
+                .init(escaped: "."))))) 
+        
+        case .member(overridden: let overridden)?: 
+            for overridden:Organizer.Item<Organizer.Unconditional> in overridden
+            {
+                let prose:String 
+                switch overridden.display.community 
+                {
+                case .protocol: 
+                    prose = "Implements requirement of "
+                case _:
+                    prose = "Overrides member of "
+                }
+                items.append(.li(.p(.init(escaped: prose), 
+                    .code(.highlight(overridden.display.name, .type, uri: overridden.uri)), 
+                    .init(escaped: "."))))
+            }
+
+        case .requirement(restated: let restated)?:
+            items.append(.li(.p(escaped: "Required.", attributes: [.class("required")])))
+            
+            for restated:Organizer.Item<Organizer.Unconditional> in restated
+            {
+                items.append(.li(.p(.init(escaped: "Restates requirement of "),
+                    .code(.highlight(restated.display.name, .type, uri: restated.uri)),
+                    .init(escaped: "."))))
+            }
+        }
+        
+        let conditions:[HTML.Element<Never>] = self.conditions.html 
+        if !conditions.isEmpty
+        {
+            let sentence:[HTML.Element<Never>] = 
+                [.init(escaped: "Available when ")] + conditions + [.init(escaped: ".")]
+            items.append(.li(.p(sentence)))
+        }
+        
+        return items.isEmpty ? nil : .ul(items, attributes: [.class("notes")])
     }
 }

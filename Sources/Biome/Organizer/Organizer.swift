@@ -1,71 +1,54 @@
 import DOM
 import Notebook
 
-extension _Topics 
+struct Organizer
 {
-    enum List:String, CaseIterable, Hashable, Sendable 
+    var articles:[Card<String>.Unsorted]
+
+    var requirements:[Community: [Card<Notebook<Highlight, Never>>.Unsorted]]
+
+    var members:[Community: [Atom<Module>: Enclave<Card<Notebook<Highlight, Never>>.Unsorted>]]
+    var removed:[Community: [Atom<Module>: Enclave<Card<Notebook<Highlight, Never>>.Unsorted>]]
+
+    var implications:[Item<Unconditional>]
+
+    var conformers:[Atom<Module>: Enclave<Item<Conditional>>]
+    var conformances:[Atom<Module>: Enclave<Item<Conditional>>]
+
+    var subclasses:[Atom<Module>: Enclave<Item<Unconditional>>]
+    var refinements:[Atom<Module>: Enclave<Item<Unconditional>>]
+    var implementations:[Atom<Module>: Enclave<Item<Unconditional>>]
+    var restatements:[Atom<Module>: Enclave<Item<Unconditional>>]
+    var overrides:[Atom<Module>: Enclave<Item<Unconditional>>]
+
+    init() 
     {
-        case conformers         = "Conforming Types"
-        case conformances       = "Conforms To"
-        case subclasses         = "Subclasses"
-        case implications       = "Implies"
-        case refinements        = "Refinements"
-        case implementations    = "Implemented By"
-        case restatements       = "Restated By"
-        case overrides          = "Overridden By"
-    }
-}
-extension _Topics 
-{
-    struct Organizer 
-    {
-        var articles:[Card<String>.Unsorted]
+        self.articles = []
 
-        var requirements:[Community: [Card<Notebook<Highlight, Never>>.Unsorted]]
+        self.requirements = [:]
 
-        var members:[Community: [Atom<Module>: Enclave<Card<Notebook<Highlight, Never>>.Unsorted>]]
-        var removed:[Community: [Atom<Module>: Enclave<Card<Notebook<Highlight, Never>>.Unsorted>]]
+        self.members = [:]
+        self.removed = [:]
+        
+        self.implications = []
 
-        var implications:[Item<Void>]
+        self.conformers = [:]
+        self.conformances = [:]
 
-        var conformers:[Atom<Module>: Enclave<Item<[Generic.Constraint<String>]>>]
-        var conformances:[Atom<Module>: Enclave<Item<[Generic.Constraint<String>]>>]
-
-        var subclasses:[Atom<Module>: Enclave<Item<Void>>]
-        var refinements:[Atom<Module>: Enclave<Item<Void>>]
-        var implementations:[Atom<Module>: Enclave<Item<Void>>]
-        var restatements:[Atom<Module>: Enclave<Item<Void>>]
-        var overrides:[Atom<Module>: Enclave<Item<Void>>]
-
-        init() 
-        {
-            self.articles = []
-
-            self.requirements = [:]
-
-            self.members = [:]
-            self.removed = [:]
-            
-            self.implications = []
-
-            self.conformers = [:]
-            self.conformances = [:]
-
-            self.subclasses = [:]
-            self.refinements = [:]
-            self.implementations = [:]
-            self.restatements = [:]
-            self.overrides = [:]
-        }
+        self.subclasses = [:]
+        self.refinements = [:]
+        self.implementations = [:]
+        self.restatements = [:]
+        self.overrides = [:]
     }
 }
 
-extension _Topics.Organizer 
+extension Organizer 
 {
     mutating 
     func organize(_ traits:Branch.SymbolTraits, of host:SymbolReference, 
         diacritic:Diacritic, 
-        culture:_Topics.Culture,
+        culture:Culture,
         context:Package.Context, 
         cache:inout _ReferenceCache) throws
     {
@@ -149,7 +132,7 @@ extension _Topics.Organizer
     }
     private mutating 
     func add(member:Atom<Symbol>, to enclave:Atom<Module>, 
-        culture:_Topics.Culture,
+        culture:Culture,
         context:Package.Context, 
         cache:inout _ReferenceCache) throws
     {
@@ -160,7 +143,7 @@ extension _Topics.Organizer
     }
     private mutating 
     func add(feature:Atom<Symbol>, to diacritic:Diacritic, 
-        culture:_Topics.Culture,
+        culture:Culture,
         context:Package.Context, 
         cache:inout _ReferenceCache) throws
     {
@@ -171,7 +154,7 @@ extension _Topics.Organizer
     }
     private mutating 
     func add(composite:Composite, to enclave:Atom<Module>, 
-        culture:_Topics.Culture,
+        culture:Culture,
         context:Package.Context,
         cache:inout _ReferenceCache) throws 
     {
@@ -186,8 +169,8 @@ extension _Topics.Organizer
             context.documentation(for: composite.base)?.card ?? .init()
         
         let base:SymbolReference = try cache.load(composite.base, context: context)
-        let card:_Topics.Card<Notebook<Highlight, Never>>, 
-            key:_Topics.SortingKey
+        let card:Card<Notebook<Highlight, Never>>, 
+            key:SortingKey
         if  let compound:Compound = composite.compound 
         {
             let host:SymbolReference = try cache.load(compound.host, context: context)
@@ -218,22 +201,16 @@ extension _Topics.Organizer
     }
 }
 
-extension _Topics.Organizer 
+extension Organizer 
 {
     mutating 
     func organize(_ roles:Branch.SymbolRoles, 
         context:Package.Context, 
         cache:inout _ReferenceCache) throws
     {
-        switch roles 
+        for role:Atom<Symbol> in roles 
         {
-        case .one(let role):
             try self.add(role: role, context: context, cache: &cache)
-        case .many(let roles):
-            for role:Atom<Symbol> in roles 
-            {
-                try self.add(role: role, context: context, cache: &cache)
-            }
         }
     }
     private mutating 
@@ -255,7 +232,7 @@ extension _Topics.Organizer
             {
                 throw _DeclarationLoadingError.init()
             }
-            let card:_Topics.Card<Notebook<Highlight, Never>> = .init(
+            let card:Card<Notebook<Highlight, Never>> = .init(
                     signature: declaration.signature, 
                     overview: context.documentation(for: role)?.card ?? .init(), 
                     uri: symbol.uri)

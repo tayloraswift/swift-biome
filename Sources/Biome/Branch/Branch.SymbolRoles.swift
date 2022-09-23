@@ -1,7 +1,3 @@
-extension Symbol 
-{
-
-}
 extension Branch
 {
     /// symbol relationships that are independent of, and unaffected by any 
@@ -163,6 +159,30 @@ extension Branch
                     fatalError("unreachable")
                 }
             }
+        }
+    }
+}
+
+extension Branch.SymbolRoles:Sequence  
+{
+    func map<T>(_ transform:(Atom<Symbol>) throws -> T) rethrows -> [T]
+    {
+        switch self 
+        {
+        case .one(let symbol): 
+            return [try transform(symbol)]
+        case .many(let symbols): 
+            return try symbols.map(transform)
+        }
+    }
+    func makeIterator() -> Set<Atom<Symbol>>.Iterator 
+    {
+        switch self 
+        {
+        case .one(let symbol): 
+            return ([symbol] as Set<Atom<Symbol>>).makeIterator()
+        case .many(let symbols): 
+            return symbols.makeIterator()
         }
     }
 }

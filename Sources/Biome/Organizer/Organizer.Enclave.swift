@@ -1,7 +1,7 @@
 import HTML 
 import Notebook
 
-extension _Topics 
+extension Organizer 
 {
     struct Enclave<Element>
     {
@@ -15,15 +15,15 @@ extension _Topics
         }
     }
 }
-extension _Topics.Enclave 
+extension Organizer.Enclave 
 {
-    func sorted<T>() -> _Topics.Enclave<_Topics.Card<T>> 
-        where Element == _Topics.Card<T>.Unsorted 
+    func sorted<T>() -> Organizer.Enclave<Organizer.Card<T>> 
+        where Element == Organizer.Card<T>.Unsorted 
     {
         .init(self.culture, elements: self.elements.sorted())
     }
     func sorted<T>() -> Self 
-        where Element == _Topics.Item<T> 
+        where Element == Organizer.Item<T> 
     {
         .init(self.culture, elements: self.elements.sorted())
     }
@@ -31,13 +31,13 @@ extension _Topics.Enclave
 extension Sequence 
 {
     func sorted<T>() -> [Element] 
-        where Element == _Topics.Enclave<T> 
+        where Element == Organizer.Enclave<T> 
     {
         self.sorted { $0.culture.sortingKey < $1.culture.sortingKey } 
     }
 }
 
-extension _Topics.Enclave
+extension Organizer.Enclave
 {
     private 
     func h3(elements:[HTML.Element<Never>]) -> [HTML.Element<Never>] 
@@ -64,7 +64,7 @@ extension _Topics.Enclave
         }
     }
 }
-extension _Topics.Enclave<_Topics.Card<Notebook<Highlight, Never>>>
+extension Organizer.Enclave<Organizer.Card<Notebook<Highlight, Never>>>
 {
     func html(context:Package.Context, cache:inout _ReferenceCache) 
         throws -> [HTML.Element<Never>] 
@@ -75,17 +75,10 @@ extension _Topics.Enclave<_Topics.Card<Notebook<Highlight, Never>>>
         })
     }
 }
-extension _Topics.Enclave<_Topics.Item<[Generic.Constraint<String>]>>
+extension Organizer.Enclave:HTMLConvertible where Element:HTMLConvertible
 {
     var html:[HTML.Element<Never>] 
     {
-        self.h3(elements: self.elements.map(\.html))
-    }
-}
-extension _Topics.Enclave<_Topics.Item<Void>>
-{
-    var html:[HTML.Element<Never>] 
-    {
-        self.h3(elements: self.elements.map(\.html))
+        self.h3(elements: self.elements.flatMap(\.html))
     }
 }

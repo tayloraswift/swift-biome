@@ -32,29 +32,51 @@ extension Path
     }
 }
 
-struct _Topics 
+struct SymbolTopics 
 {
-    let articles:[Card<String>]
-
-    let requirements:[(Community, [Card<Notebook<Highlight, Never>>])]
-
-    let members:[(Community, [Enclave<Card<Notebook<Highlight, Never>>>])]
-    let removed:[(Community, [Enclave<Card<Notebook<Highlight, Never>>>])]
-
-    let implications:[Item<Void>]
-
-    let conformers:[Enclave<Item<[Generic.Constraint<String>]>>]
-    let conformances:[Enclave<Item<[Generic.Constraint<String>]>>]
-
-    let subclasses:[Enclave<Item<Void>>]
-    let refinements:[Enclave<Item<Void>>]
-    let implementations:[Enclave<Item<Void>>]
-    let restatements:[Enclave<Item<Void>>]
-    let overrides:[Enclave<Item<Void>>]
-
-    init() 
+    enum Notes 
     {
-        self.articles = []
+        case feature(protocol:Organizer.Item<Organizer.Unconditional>)
+        case member(overridden:[Organizer.Item<Organizer.Unconditional>])
+        case requirement(restated:[Organizer.Item<Organizer.Unconditional>])
+
+        func sorted() -> Self 
+        {
+            switch self 
+            {
+            case .feature(protocol: let coyote): 
+                return .feature(protocol: coyote)
+            case .member(overridden: let overridden): 
+                return .member(overridden: overridden.sorted())
+            case .requirement(restated: let restated): 
+                return .requirement(restated: restated.sorted())
+            }
+        }
+    }
+
+    let notes:Notes? 
+    // let articles:[Organizer.Card<String>]
+
+    let requirements:[(Community, [Organizer.Card<Notebook<Highlight, Never>>])]
+
+    let members:[(Community, [Organizer.Enclave<Organizer.Card<Notebook<Highlight, Never>>>])]
+    let removed:[(Community, [Organizer.Enclave<Organizer.Card<Notebook<Highlight, Never>>>])]
+
+    let implications:[Organizer.Item<Organizer.Unconditional>]
+
+    let conformers:[Organizer.Enclave<Organizer.Item<Organizer.Conditional>>]
+    let conformances:[Organizer.Enclave<Organizer.Item<Organizer.Conditional>>]
+
+    let subclasses:[Organizer.Enclave<Organizer.Item<Organizer.Unconditional>>]
+    let refinements:[Organizer.Enclave<Organizer.Item<Organizer.Unconditional>>]
+    let implementations:[Organizer.Enclave<Organizer.Item<Organizer.Unconditional>>]
+    let restatements:[Organizer.Enclave<Organizer.Item<Organizer.Unconditional>>]
+    let overrides:[Organizer.Enclave<Organizer.Item<Organizer.Unconditional>>]
+
+    init(notes:Notes?) 
+    {
+        //self.articles = []
+        self.notes = notes?.sorted()
 
         self.requirements = []
 
@@ -72,10 +94,12 @@ struct _Topics
         self.restatements = []
         self.overrides = []
     }
-    init(_ organizer:Organizer)
+    private 
+    init(_ organizer:Organizer, notes:Notes?)
     {
-        self.articles = organizer.articles.sorted()
-
+        //self.articles = organizer.articles.sorted()
+        self.notes = notes?.sorted()
+        
         self.requirements = organizer.requirements.sublists { $0.sorted() }
 
         self.members = organizer.members.sublists { $0.values.sorted().map { $0.sorted() } }
@@ -105,8 +129,97 @@ extension Dictionary where Key:CaseIterable
     }
 }
 
+extension SymbolTopics 
+{
+    // takes an anisotropic context
+    init(for atomic:Atom<Symbol>, 
+        base:__shared SymbolReference,
+        context:__shared Package.Context, 
+        cache:inout _ReferenceCache) throws
+    {
+        guard let metadata:Symbol.Metadata = context.local.metadata(local: atomic)
+        else 
+        {
+            throw _MetadataLoadingError.init()
+        }
 
-extension _Topics 
+        var organizer:Organizer = .init()
+        try organizer.organize(metadata.primary, of: base, 
+            diacritic: .init(atomic: atomic),
+            culture: .primary,
+            context: context,
+            cache: &cache)
+        
+        for (culture, accepted):(Atom<Module>, Branch.SymbolTraits) in metadata.accepted 
+        {
+            try organizer.organize(accepted, of: base, 
+                diacritic: .init(host: atomic, culture: culture), 
+                culture: .accepted(try cache.load(culture, context: context)),
+                context: context,
+                cache: &cache)
+        }
+        for (consumer, versions):(Package.Index, [Version: Set<Atom<Module>>]) in 
+            context.local.revision.consumers
+        {
+            guard   let pinned:Package.Pinned = context[consumer], 
+                    let consumers:Set<Atom<Module>> = versions[pinned.version]
+            else 
+            {
+                continue 
+            }
+            for culture:Atom<Module> in consumers 
+            {
+                assert(culture.nationality == consumer)
+
+                let diacritic:Diacritic = .init(host: atomic, culture: culture)
+                if let extra:Symbol.ForeignMetadata = pinned.metadata(foreign: diacritic)
+                {
+                    try organizer.organize(extra.traits, of: base, 
+                        diacritic: diacritic, 
+                        culture: .nonaccepted(
+                            try cache.load(culture, context: context), 
+                            try cache.load(consumer, context: context)),
+                        context: context,
+                        cache: &cache)
+                }
+            }
+        }
+        let notes:Notes? 
+        if let roles:Branch.SymbolRoles = metadata.roles 
+        {
+            switch (base.community, base.shape) 
+            {
+            case (.protocol, _):
+                try organizer.organize(roles, context: context, cache: &cache)
+                notes = nil
+            
+            case (.callable,    .member?): 
+                notes = .member(overridden: try roles.map 
+                { 
+                    try .init($0, context: context, cache: &cache) 
+                })
+            case (_,            .member?): 
+                notes = nil
+            case (_,            .requirement?):
+                notes = .requirement(restated: try roles.map 
+                { 
+                    try .init($0, context: context, cache: &cache) 
+                })
+            case (_,            nil): 
+                notes = nil 
+            }
+        }
+        else 
+        {
+            notes = nil 
+        }
+
+        self.init(_move organizer, notes: _move notes)
+    }
+}
+
+
+extension SymbolTopics  
 {
     func html(context:Package.Context, cache:inout _ReferenceCache) throws -> HTML.Element<Never>?
     {
@@ -117,25 +230,25 @@ extension _Topics
         //     .section(self.render(cards: topics.feed), attributes: [.class("feed")])
         // ]
 
-        if  let section:HTML.Element<Never> = self.refinements.list(
+        if  let section:HTML.Element<Never> = self.refinements.section(
                 heading: .h2("Refinements"), 
                 attributes: [.class("related")])
         {
             sections.append(section)
         }
-        if  let section:HTML.Element<Never> = self.implementations.list(
+        if  let section:HTML.Element<Never> = self.implementations.section(
                 heading: .h2("Refinements"), 
                 attributes: [.class("related")])
         {
             sections.append(section)
         }
-        if  let section:HTML.Element<Never> = self.restatements.list(
+        if  let section:HTML.Element<Never> = self.restatements.section(
                 heading: .h2("Refinements"), 
                 attributes: [.class("related")])
         {
             sections.append(section)
         }
-        if  let section:HTML.Element<Never> = self.overrides.list(
+        if  let section:HTML.Element<Never> = self.overrides.section(
                 heading: .h2("Refinements"), 
                 attributes: [.class("related")])
         {
@@ -165,19 +278,19 @@ extension _Topics
                 attributes: [.class("topics members")]))
         }
         
-        if  let section:HTML.Element<Never> = self.conformers.list(
+        if  let section:HTML.Element<Never> = self.conformers.section(
                 heading: .h2("Conforming Types"), 
                 attributes: [.class("related")])
         {
             sections.append(section)
         }
-        if  let section:HTML.Element<Never> = self.conformances.list(
+        if  let section:HTML.Element<Never> = self.conformances.section(
                 heading: .h2("Conforms To"), 
                 attributes: [.class("related")])
         {
             sections.append(section)
         }
-        if  let section:HTML.Element<Never> = self.subclasses.list(
+        if  let section:HTML.Element<Never> = self.subclasses.section(
                 heading: .h2("Subclasses"), 
                 attributes: [.class("related")])
         {
@@ -185,7 +298,7 @@ extension _Topics
         }
         if !self.implications.isEmpty
         {
-            sections.append(.section(.h2("Implies"), .ul(self.implications.map(\.html)), 
+            sections.append(.section(.h2("Implies"), .ul(self.implications.flatMap(\.html)), 
                 attributes: [.class("related")]))
         }
 
@@ -206,27 +319,17 @@ extension _Topics
 }
 
 
-extension Collection<_Topics.Enclave<_Topics.Item<Void>>>
+extension Collection where Element:HTMLConvertible
 {
     fileprivate 
-    func list(heading:HTML.Element<Never>, attributes:[HTML.Element<Never>.Attribute] = [])
+    func section(heading:HTML.Element<Never>, attributes:[HTML.Element<Never>.Attribute] = [])
         -> HTML.Element<Never>?
     {
         self.isEmpty ? nil : 
             .section([heading] + self.lazy.map(\.html).joined(), attributes: attributes)
     }
 }
-extension Collection<_Topics.Enclave<_Topics.Item<[Generic.Constraint<String>]>>>
-{
-    fileprivate 
-    func list(heading:HTML.Element<Never>, attributes:[HTML.Element<Never>.Attribute] = [])
-        -> HTML.Element<Never>?
-    {
-        self.isEmpty ? nil : 
-            .section([heading] + self.lazy.map(\.html).joined(), attributes: attributes)
-    }
-}
-extension Sequence<_Topics.Enclave<_Topics.Card<Notebook<Highlight, Never>>>>
+extension Sequence<Organizer.Enclave<Organizer.Card<Notebook<Highlight, Never>>>>
 {
     fileprivate 
     func grid(heading:HTML.Element<Never>, html:(Element) throws -> [HTML.Element<Never>]) 

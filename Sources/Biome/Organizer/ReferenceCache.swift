@@ -23,15 +23,33 @@ struct ModuleReference
 }
 struct SymbolReference 
 {
-    let community:Community 
+    struct Display 
+    {
+        let path:Path
+        let community:Community
+
+        var name:String 
+        {
+            self.path.last
+        }
+    }
+
     let shape:Symbol.Shape<PluralPosition<Symbol>>?
+    let display:Display
     let namespace:Atom<Module>
-    let path:Path
     let uri:String 
 
     var name:String 
     {
-        self.path.last
+        self.display.name
+    }
+    var path:Path 
+    {
+        self.display.path
+    }
+    var community:Community 
+    {
+        self.display.community
     }
 }
 

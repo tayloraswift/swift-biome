@@ -166,86 +166,7 @@ extension Packages
         facts:Symbol.Predicates<Symbol.Index>) 
         -> HTML.Element<Ecosystem.Index>?
     {
-        let base:Symbol = self[composite.base]
-        
-        var items:[HTML.Element<Ecosystem.Index>] = []
-        switch (base.shape, composite.host)
-        {        
-        case (.member(of: let interface)?, let host?):
-            let subject:HTML.Element<Ecosystem.Index> = 
-                .highlight(escaped: "Self", .type, href: .symbol(host))
-            let object:HTML.Element<Ecosystem.Index> = 
-                .highlight(self[interface.contemporary].name, .type, href: .symbol(composite.base))
-            let sentence:[HTML.Element<Ecosystem.Index>] = 
-            [
-                .init(escaped: "Available because "),
-                .code(subject),
-                .init(escaped: " conforms to "),
-                .code(object),
-                .init(escaped: "."),
-            ]
-            items.append(.li(.p(sentence)))
-        
-        case (.member(of: _)?, nil): 
-            guard case .callable(_) = base.community 
-            else 
-            {
-                break 
-            }
-            for upstream:(target:Symbol.Index, host:Symbol.Index) in 
-                self.sort(facts.roles)
-            {
-                let type:Symbol = self[upstream.host]
-                let prose:String 
-                switch type.community 
-                {
-                case .protocol: 
-                    prose = "Implements requirement of "
-                case .class: 
-                    prose = "Overrides member of "
-                default: 
-                    continue 
-                }
-                let object:HTML.Element<Ecosystem.Index> = 
-                    .highlight(type.name, .type, href: .symbol(upstream.target))
-                let sentence:[HTML.Element<Ecosystem.Index>] = 
-                [
-                    .init(escaped: prose),
-                    .code(object),
-                    .init(escaped: "."),
-                ]
-                items.append(.li(.p(sentence)))
-            } 
-        
-        case (.requirement(of: _)?, _):
-            items.append(.li(.p(escaped: "Required.", attributes: [.class("required")])))
-            
-            for requirement:(target:Symbol.Index, host:Symbol.Index) in 
-                self.sort(facts.roles)
-            {
-                let object:HTML.Element<Ecosystem.Index> = 
-                    .highlight(self[requirement.host].name, .type, 
-                        href: .symbol(requirement.target))
-                let sentence:[HTML.Element<Ecosystem.Index>] = 
-                [
-                    .init(escaped: "Restates requirement of "),
-                    .code(object),
-                    .init(escaped: "."),
-                ]
-                items.append(.li(.p(sentence)))
-            }
-        case (nil, _): 
-            break
-        }
-        
-        if let constraints:HTML.Element<Ecosystem.Index> = .render(.init(escaped: "Available when "), 
-            constraints: declaration.extensionConstraints, 
-            transform: Ecosystem.Index.symbol(_:)) 
-        {
-            items.append(.li(constraints))
-        }
-        
-        return items.isEmpty ? nil : .ul(items, attributes: [.class("notes")])
+        fatalError("obsoleted")
     }
     private 
     func renderBreadcrumbs(for composite:Composite) -> HTML.Element<Ecosystem.Index>
@@ -279,270 +200,68 @@ extension Packages
 
 extension Packages
 {
-    func render(choices segregated:[Module.Index: [Page.Card]]) 
-        -> DOM.Flattened<Page.Topics.Key>
-    {
-        var elements:[HTML.Element<Page.Topics.Key>] = []
-            elements.reserveCapacity(2 * segregated.count)
-        for (culture, cards):(Module.Index, [Page.Card]) in self.sort(segregated)
-        {
-            elements.append(.h4(self.renderHeading(culture)))
-            elements.append(self.render(cards: cards))
-        }
-        return .init(freezing: .div(.section(elements, attributes: [.class("topics choices")])))
-    }
-    func render(modulelist:[Module]) -> DOM.Flattened<Page.Topics.Key>
-    {
-        let items:[HTML.Element<Page.Topics.Key>] = 
-            modulelist.sorted(by: { $0.id.value < $1.id.value }).map
-        {
-            (module:Module) in 
+    // func render(choices segregated:[Module.Index: [Page.Card]]) 
+    //     -> DOM.Flattened<Page.Topics.Key>
+    // {
+    //     var elements:[HTML.Element<Page.Topics.Key>] = []
+    //         elements.reserveCapacity(2 * segregated.count)
+    //     for (culture, cards):(Module.Index, [Page.Card]) in self.sort(segregated)
+    //     {
+    //         elements.append(.h4(self.renderHeading(culture)))
+    //         elements.append(self.render(cards: cards))
+    //     }
+    //     return .init(freezing: .div(.section(elements, attributes: [.class("topics choices")])))
+    // }
+    // func render(modulelist:[Module]) -> DOM.Flattened<Page.Topics.Key>
+    // {
+    //     let items:[HTML.Element<Page.Topics.Key>] = 
+    //         modulelist.sorted(by: { $0.id.value < $1.id.value }).map
+    //     {
+    //         (module:Module) in 
             
-            .li(.a(.render(path: module.path), attributes: 
-            [
-                .init(anchor: .href(.module(module.index))), 
-                .class("signature")
-            ]))
-        }
-        let list:HTML.Element<Page.Topics.Key> = .ul(items)
-        let heading:HTML.Element<Page.Topics.Key> = .h2(escaped: "Modules")
-        return .init(freezing: .div(.section(heading, list, attributes: [.class("related")])))
-    }
-    func render(topics:Page.Topics) -> DOM.Flattened<Page.Topics.Key>?
-    {
-        if topics.isEmpty 
-        {
-            return nil 
-        }
-        
-        var sections:[HTML.Element<Page.Topics.Key>] = topics.feed.isEmpty ? [] : 
-        [
-            .section(self.render(cards: topics.feed), attributes: [.class("feed")])
-        ]
-        
-        func add(lists:Page.List...)
-        {
-            for list:Page.List in lists
-            {
-                if  let segregated:[Module._Culture: [Generic.Conditional<Symbol.Index>]] = 
-                    topics.lists[list]
-                {
-                    sections.append(self.render(section: segregated, heading: list.rawValue))
-                }
-            }
-        }
-        
-        add(lists: .refinements, .implementations, .restatements, .overrides)
-        
-        if !topics.requirements.isEmpty
-        {
-            let requirements:[Page.Sublist: [Module._Culture: [Page.Card]]] = 
-                topics.requirements.mapValues { [.primary: $0] }
-            sections.append(self.render(section: requirements, 
-                heading: "Requirements", 
-                class: "requirements"))
-        }
-        if !topics.members.isEmpty
-        {
-            sections.append(self.render(section: topics.members, 
-                heading: "Members", 
-                class: "members"))
-        }
-        
-        add(lists: .conformers, .conformances, .subclasses, .implications)
-        
-        if !topics.removed.isEmpty
-        {
-            sections.append(self.render(section: topics.removed, 
-                heading: "Removed Members", 
-                class: "removed"))
-        }
-        
-        return sections.isEmpty ? nil : 
-            .init(freezing: .div(sections))
-    }
+    //         .li(.a(.render(path: module.path), attributes: 
+    //         [
+    //             .init(anchor: .href(.module(module.index))), 
+    //             .class("signature")
+    //         ]))
+    //     }
+    //     let list:HTML.Element<Page.Topics.Key> = .ul(items)
+    //     let heading:HTML.Element<Page.Topics.Key> = .h2(escaped: "Modules")
+    //     return .init(freezing: .div(.section(heading, list, attributes: [.class("related")])))
+    // }
     
-    private 
-    func render(section segregated:[Module._Culture: [Generic.Conditional<Symbol.Index>]], 
-        heading:String) -> HTML.Element<Page.Topics.Key>
-    {
-        var elements:[HTML.Element<Page.Topics.Key>] = []
-            elements.reserveCapacity(2 * segregated.count + 1)
-            elements.append(.h2(heading))
-        for (culture, relationships):(Module._Culture, [Generic.Conditional<Symbol.Index>]) in 
-            self.sort(segregated)
-        {
-            if let culture:HTML.Element<Page.Topics.Key> = self.renderHeading(culture)
-            {
-                elements.append(.h3(culture))
-            }
-            let items:[HTML.Element<Page.Topics.Key>] = relationships.map 
-            {
-                (relationship:Generic.Conditional<Symbol.Index>) in
-                
-                let host:Symbol.Index = self[relationship.target].type ?? relationship.target
-                let signature:HTML.Element<Page.Topics.Key> = .a(.render(path: self[host].path), 
-                    attributes:
-                    [
-                        .init(anchor: .href(.symbol(relationship.target))),
-                        .class("signature")
-                    ])
-                if  let constraints:HTML.Element<Page.Topics.Key> = .render(.init(escaped: "When "), 
-                    constraints: relationship.conditions, 
-                    transform: { .href(.symbol($0)) }) 
-                {
-                    return .li([signature, constraints])
-                }
-                else 
-                {
-                    return .li(signature)
-                }
-            }
+    
+    // private 
+    // func render(cards:[Page.Card]) -> HTML.Element<Page.Topics.Key>
+    // {
+    //     let items:[HTML.Element<Page.Topics.Key>] = cards.map 
+    //     {
+    //         switch $0 
+    //         {
+    //         case .article(let article, let excerpt):
+    //             let signature:HTML.Element<Page.Topics.Key> = 
+    //                 .a(.h2(.init(escaped: excerpt.headline.formatted)), attributes:
+    //                 [
+    //                     .init(anchor: .href(.article(article))),
+    //                     .class("headline")
+    //                 ])
+    //             let more:HTML.Element<Page.Topics.Key> = .a("Read more", attributes:
+    //                 [
+    //                     .init(anchor: .href(.article(article))),
+    //                     .class("more")
+    //                 ])
+    //             return .li([signature, .init(anchor: .article(article)), more])
             
-            elements.append(.ul(items))
-        }
-        return .section(elements, attributes: [.class("related")])
-    }
-    private 
-    func render(subsection segregated:[Module._Culture: [Page.Card]], heading:String)
-        -> HTML.Element<Page.Topics.Key>
-    {
-        var elements:[HTML.Element<Page.Topics.Key>] = []
-            elements.reserveCapacity(2 * segregated.count + 1)
-            elements.append(.h3(heading))
-        for (culture, cards):(Module._Culture, [Page.Card]) in self.sort(segregated)
-        {
-            if let culture:HTML.Element<Page.Topics.Key> = self.renderHeading(culture)
-            {
-                elements.append(.h4(culture))
-            }
-            elements.append(self.render(cards: cards))
-        }
-        return .section(elements) 
-    }
-    private 
-    func render(
-        section segregated:[Page.Sublist: [Module._Culture: [Page.Card]]], 
-        heading:String, 
-        class:String)
-        -> HTML.Element<Page.Topics.Key>
-    {
-        var elements:[HTML.Element<Page.Topics.Key>] = [.h2(heading)]
-        for sublist:Page.Sublist in Page.Sublist.allCases
-        {
-            if let segregated:[Module._Culture: [Page.Card]] = segregated[sublist]
-            {
-                elements.append(self.render(subsection: segregated, heading: sublist.heading))
-            }
-        }
-        return .section(elements, attributes: [.class("topics \(`class`)")])
-    }
-    private 
-    func render(cards:[Page.Card]) -> HTML.Element<Page.Topics.Key>
-    {
-        let items:[HTML.Element<Page.Topics.Key>] = cards.map 
-        {
-            switch $0 
-            {
-            case .article(let article, let excerpt):
-                let signature:HTML.Element<Page.Topics.Key> = 
-                    .a(.h2(.init(escaped: excerpt.headline.formatted)), attributes:
-                    [
-                        .init(anchor: .href(.article(article))),
-                        .class("headline")
-                    ])
-                let more:HTML.Element<Page.Topics.Key> = .a("Read more", attributes:
-                    [
-                        .init(anchor: .href(.article(article))),
-                        .class("more")
-                    ])
-                return .li([signature, .init(anchor: .article(article)), more])
-            
-            case .composite(let composite, let declaration):
-                let signature:HTML.Element<Page.Topics.Key> = 
-                    .a(.render(signature: declaration.signature), attributes:
-                    [
-                        .init(anchor: .href(.composite(composite))),
-                        .class("signature")
-                    ])
-                return .li(signature, .init(anchor: .composite(composite)))
-            }
-        }
-        return .ul(items)
-    }
-    private 
-    func renderHeading(_ culture:Module._Culture) -> HTML.Element<Page.Topics.Key>?
-    {
-        switch culture 
-        {
-        case .primary: 
-            return nil
-        case .accepted(let culture), .international(let culture):
-            return self.renderHeading(culture)
-        }
-    }
-    private 
-    func renderHeading(_ culture:Module.Index) -> HTML.Element<Page.Topics.Key>
-    {
-        .a(self[culture].title, attributes: [.init(anchor: .href(.module(culture)))])
-    }
-}
-
-extension Packages 
-{    
-    private 
-    func sort<Value>(_ segregated:[Module.Index: Value]) 
-        -> [(key:Module.Index, value:Value)]
-    {
-        segregated.sorted 
-        {
-            ($0.key.nationality, self[$0.key].name) < ($1.key.nationality, self[$1.key].name)
-        }
-    }
-    private 
-    func sort<Value>(_ segregated:[Module._Culture: Value]) 
-        -> [(key:Module._Culture, value:Value)]
-    {
-        segregated.sorted 
-        {
-            switch ($0.key, $1.key)
-            {
-            case (_, .primary):
-                return false 
-            case (.primary, _): 
-                return true 
-            case (.accepted(let first), .accepted(let second)): 
-                return self[first].name < self[second].name
-            case (.accepted(_), .international(_)): 
-                return true
-            case (.international(_), .accepted(_)): 
-                return false
-            case (.international(let first), .international(let second)): 
-                // sort packages by the order they were added, not by name 
-                return  ( first.nationality, self[ first].name) < 
-                        (second.nationality, self[second].name)
-            }
-        }
-    }
-    private 
-    func sort(_ roles:Branch.SymbolRoles?) -> [(target:Symbol.Index, host:Symbol.Index)]
-    {
-        switch roles 
-        {
-        case nil: 
-            return []
-        case .one(let target): 
-            return [(target, self[target].type ?? target)]
-        case .many(let targets):
-            return targets.map 
-            {
-                (target:Symbol.Index) -> (target:Symbol.Index, host:Symbol.Index) in 
-                (target: target, host: self[target].type ?? target)
-            }
-            .sorted 
-            {
-                self[$0.host].path.lexicographicallyPrecedes(self[$1.host].path)
-            }
-        }
-    }
+    //         case .composite(let composite, let declaration):
+    //             let signature:HTML.Element<Page.Topics.Key> = 
+    //                 .a(.render(signature: declaration.signature), attributes:
+    //                 [
+    //                     .init(anchor: .href(.composite(composite))),
+    //                     .class("signature")
+    //                 ])
+    //             return .li(signature, .init(anchor: .composite(composite)))
+    //         }
+    //     }
+    //     return .ul(items)
+    // }
 }

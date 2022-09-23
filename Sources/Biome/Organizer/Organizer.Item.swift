@@ -1,34 +1,66 @@
 import HTML
 
-extension _Topics 
+extension Organizer 
 {
-    struct Item<Constraints> 
+    struct Unconditional:HTMLConvertible
     {
-        // the path and uri do not necessarily originate from the same symbol
-        let constraints:Constraints
-        let display:Path 
+        var html:EmptyCollection<HTML.Element<Never>>
+        {
+            .init()
+        }
+    }
+    struct Conditional:HTMLConvertible
+    {
+        let constraints:[Generic.Constraint<String>]
+
+        init(_ constraints:[Generic.Constraint<String>])
+        {
+            self.constraints = constraints
+        }
+
+        init(_ constraints:[Generic.Constraint<Atom<Symbol>>], 
+            context:__shared Package.Context, 
+            cache:inout _ReferenceCache) throws
+        {
+            self.init(try constraints.map 
+            {
+                try $0.map { try cache.load($0, context: context).uri }
+            })
+        }
+
+        var html:[HTML.Element<Never>]
+        {
+            self.constraints.html 
+        }
+    }
+
+    struct Item<Conditions> 
+    {
+        // the displayed symbol and uri are not necessarily the same symbol
+        let conditions:Conditions
+        let display:SymbolReference.Display
         let uri:String 
 
         private 
-        init(where constraints:Constraints,
-            display:Path,
+        init(where conditions:Conditions, 
+            display:SymbolReference.Display,
             uri:String)
         {
-            self.constraints = constraints
+            self.conditions = conditions
             self.display = display
             self.uri = uri
         }
     }
 }
-extension _Topics.Item
+extension Organizer.Item
 {
     private 
     init(_ symbol:SymbolReference, 
-        where constraints:Constraints, 
+        where conditions:Conditions, 
         context:__shared Package.Context, 
         cache:inout _ReferenceCache) throws
     {
-        let display:Path 
+        let display:SymbolReference.Display 
         switch symbol.community 
         {
         case .associatedtype, .callable(_):
@@ -37,31 +69,31 @@ extension _Topics.Item
             {
                 fallthrough
             }
-            display = cache.load(scope, context: context).path
+            display = cache.load(scope, context: context).display
         default: 
-            display = symbol.path
+            display = symbol.display
         }
-        self.init(where: constraints, display: display, uri: symbol.uri)
+        self.init(where: conditions, display: display, uri: symbol.uri)
     }
 }
-extension _Topics.Item<Void>
+extension Organizer.Item<Organizer.Unconditional>
 {
     init(_ symbol:SymbolReference, 
         context:__shared Package.Context, 
         cache:inout _ReferenceCache) throws
     {
-        try self.init(symbol, where: (), context: context, cache: &cache)
+        try self.init(symbol, where: .init(), context: context, cache: &cache)
     }
     init(_ symbol:Atom<Symbol>, 
         context:__shared Package.Context, 
         cache:inout _ReferenceCache) throws
     {
-        try self.init(try cache.load(symbol, context: context), where: (), 
+        try self.init(try cache.load(symbol, context: context), where: .init(), 
             context: context, 
             cache: &cache)
     }
 }
-extension _Topics.Item<[Generic.Constraint<String>]>
+extension Organizer.Item<Organizer.Conditional>
 {
     init(_ symbol:Atom<Symbol>, 
         where constraints:[Generic.Constraint<Atom<Symbol>>], 
@@ -69,47 +101,31 @@ extension _Topics.Item<[Generic.Constraint<String>]>
         cache:inout _ReferenceCache) throws
     {
         try self.init(try cache.load(symbol, context: context), 
-            where: try constraints.map 
-            {
-                try $0.map { try cache.load($0, context: context).uri }
-            }, 
+            where: .init(constraints, context: context, cache: &cache), 
             context: context, 
             cache: &cache)
     }
 }
 extension Sequence 
 {
-    func sorted<T>() -> [_Topics.Item<T>] 
-        where Element == _Topics.Item<T> 
+    func sorted<T>() -> [Organizer.Item<T>] 
+        where Element == Organizer.Item<T> 
     {
-        self.sorted { $0.display |<| $1.display }
+        self.sorted { $0.display.path |<| $1.display.path }
     }
 }
 
 
-
-extension _Topics.Item<Void>
+extension Organizer.Item:HTMLConvertible where Conditions:HTMLConvertible
 {
-    var html:HTML.Element<Never>
+    var html:CollectionOfOne<HTML.Element<Never>>
     {
-        .li(.a(.code(self.display.html), 
-            attributes: [.href(self.uri), .class("signature")]))
-    }
-}
-extension _Topics.Item<[Generic.Constraint<String>]>
-{
-    var html:HTML.Element<Never>
-    {
-        let signature:HTML.Element<Never> = .a(.code(self.display.html), 
+        let signature:HTML.Element<Never> = .a(.code(self.display.path.html), 
             attributes: [.href(self.uri), .class("signature")])
-        if let constraints:[HTML.Element<Never>] = self.constraints.html
-        {
-            return .li(signature, .p([.init(escaped: "When ")] + constraints))
-        }
-        else 
-        {
-            return .li(signature)
-        }
+        let conditions:Conditions.RenderedHTML = self.conditions.html 
+        return .init(conditions.isEmpty ?
+            .li(signature) : 
+            .li(signature, .p([.init(escaped: "When ")] + conditions)))
     }
 }
 
@@ -131,7 +147,7 @@ extension Path
 
 extension BidirectionalCollection<Generic.Constraint<String>> 
 {
-    var html:[HTML.Element<Never>]?
+    var html:[HTML.Element<Never>]
     {
         var reversed:ReversedCollection<Self.Indices>.Iterator = 
             self.indices.reversed().makeIterator()
@@ -139,7 +155,7 @@ extension BidirectionalCollection<Generic.Constraint<String>>
         guard let ultimate:Index = reversed.next()
         else 
         {
-            return nil
+            return []
         }
         guard let penultimate:Index = reversed.next()
         else 

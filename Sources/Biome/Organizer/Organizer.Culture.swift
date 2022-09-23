@@ -1,6 +1,6 @@
 import HTML 
 
-extension _Topics 
+extension Organizer 
 {
     enum Culture
     {
@@ -9,7 +9,7 @@ extension _Topics
         case nonaccepted(ModuleReference, PackageReference)
     }
 }
-extension _Topics.Culture 
+extension Organizer.Culture 
 {
     enum SortingKey:Comparable 
     {
@@ -32,7 +32,7 @@ extension _Topics.Culture
     }
 }
 
-extension _Topics.Culture 
+extension Organizer.Culture 
 {
     var html:[HTML.Element<Never>]?
     {
