@@ -112,7 +112,7 @@ extension Package.Pinned
 {
     func load(local article:Atom<Article>) -> Article?
     {
-        if let position:PluralPosition<Article> = article.pluralized(bisecting: self.articles)
+        if let position:Atom<Article>.Position = article.positioned(bisecting: self.articles)
         {
             return self.package.tree[local: position]
         }
@@ -123,7 +123,7 @@ extension Package.Pinned
     }
     func load(local symbol:Atom<Symbol>) -> Symbol?
     {
-        if let position:PluralPosition<Symbol> = symbol.pluralized(bisecting: self.symbols)
+        if let position:Atom<Symbol>.Position = symbol.positioned(bisecting: self.symbols)
         {
             return self.package.tree[local: position]
         }
@@ -134,7 +134,7 @@ extension Package.Pinned
     }
     func load(local module:Atom<Module>) -> Module?
     {
-        if let position:PluralPosition<Module> = module.pluralized(bisecting: self.modules)
+        if let position:Atom<Module>.Position = module.positioned(bisecting: self.modules)
         {
             return self.package.tree[local: position]
         }
@@ -282,7 +282,7 @@ extension Package.Pinned
         {
             return .init(selection)
         }
-        guard let namespace:PluralPosition<Module> = self.fasces.modules.find(.init(link.first))
+        guard let namespace:Atom<Module>.Position = self.fasces.modules.find(.init(link.first))
         else 
         {
             return nil
@@ -290,9 +290,9 @@ extension Package.Pinned
         guard let link:_SymbolLink = link.suffix
         else 
         {
-            return .module(namespace.contemporary)
+            return .module(namespace.atom)
         }
-        if  let key:Route = stems[namespace.contemporary, link], 
+        if  let key:Route = stems[namespace.atom, link], 
             let selection:_Selection<Composite> = try self.routes.select(key, 
                 where: predicate)
         {

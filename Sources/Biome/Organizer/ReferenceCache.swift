@@ -34,7 +34,7 @@ struct SymbolReference
         }
     }
 
-    let shape:Symbol.Shape<PluralPosition<Symbol>>?
+    let shape:Symbol.Shape<Atom<Symbol>.Position>?
     let display:Display
     let namespace:Atom<Module>
     let uri:String 
@@ -97,7 +97,7 @@ struct _ReferenceCache
         fatalError("unimplemented")
     }
     mutating 
-    func load(_ symbol:PluralPosition<Symbol>, context:Package.Context) -> SymbolReference 
+    func load(_ symbol:Atom<Symbol>.Position, context:Package.Context) -> SymbolReference 
     {
         fatalError("unimplemented")
     }
@@ -187,7 +187,7 @@ extension _ReferenceCache
 
             crumbs.append(.a(current.name, attributes: [.href(current.uri)]))
 
-            if let next:PluralPosition<Symbol> = current.shape?.target 
+            if let next:Atom<Symbol>.Position = current.shape?.target 
             {
                 current = self.load(next, context: context)
             }

@@ -15,8 +15,8 @@ extension SurfaceBuilder
         }
         subscript(index:Int) -> (Route, Composite)
         {
-            let (key, natural):(Route, Atom<Symbol>) = self.elements[index]
-            return (key, .init(natural: natural))
+            let (key, element):(Route, Atom<Symbol>) = self.elements[index]
+            return (key, .init(atomic: element))
         }
 
         init(arrayLiteral:(Route, Atom<Symbol>)...)
@@ -25,9 +25,9 @@ extension SurfaceBuilder
         }
 
         mutating 
-        func append(_ route:Route, position:Atom<Symbol>)
+        func append(_ route:Route, element:Atom<Symbol>)
         {
-            self.elements.append((route, position))
+            self.elements.append((route, element))
         }
     }
     struct CompoundRoutes:RandomAccessCollection 

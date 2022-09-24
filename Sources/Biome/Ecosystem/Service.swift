@@ -103,7 +103,7 @@ extension Service
         nationality:Package.Index, 
         template:DOM.Flattened<Page.Key>? = nil) -> Bool 
     {
-        if  let position:PluralPosition<Module> = 
+        if  let position:Atom<Module>.Position = 
                 self.packages[nationality].latest()?.modules.find(namespace),
                 self.functions.create(namespace, 
                     nationality: nationality, 
@@ -275,14 +275,14 @@ extension Service
         {
             return nil 
         }
-        guard let namespace:PluralPosition<Module> = pinned.modules.find(function.namespace)
+        guard let namespace:Atom<Module>.Position = pinned.modules.find(function.namespace)
         else 
         {
             return nil 
         }
         if  let key:_SymbolLink = try? .init(_move request), 
-            let key:Route = self.stems[namespace.contemporary, straight: key], 
-            let article:PluralPosition<Article> = pinned.articles.find(.init(key))
+            let key:Route = self.stems[namespace.atom, straight: key], 
+            let article:Atom<Article>.Position = pinned.articles.find(.init(key))
         {
             return self._get(pinned, namespace: namespace, article: article)
         }
@@ -357,7 +357,7 @@ extension Service
         }
         //  we can store a module id in a ``Symbol/Link``, because every 
         //  ``Module/ID`` is a valid ``Symbol/Link/Component``.
-        guard let namespace:PluralPosition<Module> = residency.modules.find(.init(request.first))
+        guard let namespace:Atom<Module>.Position = residency.modules.find(.init(request.first))
         else 
         {
             return nil
@@ -369,8 +369,8 @@ extension Service
         }
         // doc scheme never uses nationality query parameter 
         if      case .doc = scheme, 
-                let key:Route = self.stems[namespace.contemporary, straight: request], 
-                let article:PluralPosition<Article> = residency.articles.find(.init(key))
+                let key:Route = self.stems[namespace.atom, straight: request], 
+                let article:Atom<Article>.Position = residency.articles.find(.init(key))
         {
             return self._get(residency, namespace: namespace, article: article)
         }
@@ -380,14 +380,14 @@ extension Service
                     nationality.version.map(package.tree.find(_:)) ?? package.tree.default,
                 let endpoint:GetRequest = self._get(scheme: scheme, 
                     nationality: .init(_move package, version: version), 
-                    namespace: namespace.contemporary, 
+                    namespace: namespace.atom, 
                     request: request.disambiguated()) 
         {
             return endpoint
         }
         return self._get(scheme: scheme, 
             nationality: _move residency, 
-            namespace: namespace.contemporary, 
+            namespace: namespace.atom, 
             request: request.disambiguated())
     }
     private 
@@ -468,9 +468,9 @@ extension Service
     }
     private 
     func _get(_ pinned:Package.Pinned, 
-        namespace:PluralPosition<Module>) -> GetRequest?
+        namespace:Atom<Module>.Position) -> GetRequest?
     {
-        guard let version:Version = pinned.excavate(namespace.contemporary)
+        guard let version:Version = pinned.excavate(namespace.atom)
         else 
         {
             return nil 
@@ -478,16 +478,16 @@ extension Service
         let pinned:Package.Pinned = pinned.repinned(to: version)
         let address:Address = pinned.address(of: pinned.package.tree[local: namespace])
         return .init(uri: address.uri(functions: self.functions.names) , 
-            documentation: .init(.module(namespace.contemporary), 
+            documentation: .init(.module(namespace.atom), 
                 _objects: nil, 
                 pinned: pinned))
     }
     private 
     func _get(_ pinned:Package.Pinned, 
-        namespace:PluralPosition<Module>, 
-        article:PluralPosition<Article>) -> GetRequest?
+        namespace:Atom<Module>.Position, 
+        article:Atom<Article>.Position) -> GetRequest?
     {
-        guard let version:Version = pinned.excavate(article.contemporary)
+        guard let version:Version = pinned.excavate(article.atom)
         else 
         {
             return nil 
@@ -496,7 +496,7 @@ extension Service
         let address:Address = pinned.address(of: pinned.package.tree[local: article], 
                 namespace: pinned.package.tree[local: namespace])
         return .init(uri: address.uri(functions: self.functions.names) , 
-            documentation: .init(.article(article.contemporary), 
+            documentation: .init(.article(article.atom), 
                 _objects: nil, 
                 pinned: pinned))
     }

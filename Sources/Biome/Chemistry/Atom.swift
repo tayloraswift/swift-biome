@@ -47,12 +47,12 @@ extension Atom:Hashable, Comparable
 }
 extension Atom 
 {
-    func pluralized(_ branch:Version.Branch) -> PluralPosition<Element>
+    func positioned(_ branch:Version.Branch) -> Atom<Element>.Position
     {
         .init(self, branch: branch)
     }
-    func pluralized(bisecting trunk:some RandomAccessCollection<Epoch<Element>>) 
-        -> PluralPosition<Element>?
+    func positioned(bisecting trunk:some RandomAccessCollection<Epoch<Element>>) 
+        -> Atom<Element>.Position?
     {
         let epoch:Epoch<Element>? = trunk.search 
         {
@@ -69,7 +69,7 @@ extension Atom
                 return .upper
             }
         }
-        return (epoch?.branch).map(self.pluralized(_:))
+        return (epoch?.branch).map(self.positioned(_:))
     }
 }
 private
@@ -113,28 +113,11 @@ extension Atom where Element.Culture == Package.Index
     {
         self.culture 
     }
-
-    @available(*, deprecated, renamed: "nationality")
-    var package:Package.Index 
-    {
-        self.nationality 
-    }
 }
 extension Atom where Element.Culture == Atom<Module>
 {
     var nationality:Package.Index
     {
         self.culture.culture
-    }
-
-    @available(*, deprecated, renamed: "nationality")
-    var package:Package.Index
-    {
-        self.nationality
-    }
-    @available(*, deprecated, renamed: "culture")
-    var module:Atom<Module>
-    {
-        self.culture 
     }
 }

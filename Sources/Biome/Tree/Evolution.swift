@@ -1,16 +1,3 @@
-extension Symbol.Metadata? 
-{
-    fileprivate 
-    var label:Evolution.Label 
-    {
-        switch self 
-        {
-        case nil: return .extinct 
-        case  _?: return .extant
-        }
-    }
-}
-
 struct Evolution 
 {
     enum Label 
@@ -36,24 +23,48 @@ struct Evolution
 
     var rows:[Row]
 
-    init(for symbol:PluralPosition<Symbol>, 
+    init(atomic symbol:Atom<Symbol>.Position, 
         in tree:__shared Tree, 
         history:__shared History<Symbol.Metadata?>)
     {
         self.rows = []
         self.scan(founder: symbol.branch, tree: tree,
-            position: symbol.contemporary, 
+            element: symbol.atom, 
             history: history)
+        {
+            switch $0
+            {
+            case nil: return .extinct 
+            case  _?: return .extant
+            }
+        }
     }
+    // init(atomic symbol:Atom<Symbol>.Position, 
+    //     in tree:__shared Tree, 
+    //     history:__shared History<Symbol.Metadata?>)
+    // {
+    //     self.rows = []
+    //     self.scan(founder: symbol.branch, tree: tree,
+    //         element: symbol.atom, 
+    //         history: history)
+    //     {
+    //         switch $0
+    //         {
+    //         case nil: return .extinct 
+    //         case  _?: return .extant
+    //         }
+    //     }
+    // }
     
     private mutating 
     func scan(founder:Version.Branch, tree:Tree,
-        position:Atom<Symbol>, 
-        history:History<Symbol.Metadata?>)
+        element:Atom<Symbol>, 
+        history:History<Symbol.Metadata?>, 
+        label:(Symbol.Metadata?) throws -> Label) rethrows
     {
         let branch:Branch = tree[founder]
         var keyframes:History<Symbol.Metadata?>.Iterator = 
-            history[branch.symbols[contemporary: position].metadata].makeIterator()
+            history[branch.symbols[contemporary: element].metadata].makeIterator()
 
         guard var regime:History<Symbol.Metadata?>.Keyframe = keyframes.next()
         else 
@@ -71,27 +82,29 @@ struct Evolution
                 }
                 regime = predecessor
             }
-            let label:Label = regime.value.label 
+            let inherit:Label = try label(regime.value)
             for alternate:Version.Branch in branch.revisions[revision].alternates 
             {
-                self.scan(alternate: alternate, tree: tree, 
-                    position: position, 
+                try self.scan(alternate: alternate, tree: tree, 
+                    element: element, 
                     history: history, 
-                    base: label)
+                    inherit: inherit, 
+                    label: label)
             }
-            self.rows.append(.init(version: .init(founder, revision), label: label))
+            self.rows.append(.init(version: .init(founder, revision), label: inherit))
         }
     }
     private mutating 
     func scan(alternate:Version.Branch, tree:Tree,
         distance:Int = 1, 
-        position:Atom<Symbol>, 
+        element:Atom<Symbol>, 
         history:History<Symbol.Metadata?>, 
-        base:Label)
+        inherit:Label, 
+        label:(Symbol.Metadata?) throws -> Label) rethrows 
     {
         let branch:Branch = tree[alternate]
         var keyframes:History<Symbol.Metadata?>.Iterator = 
-            history[branch.symbols.divergences[position]?.metadata?.head].makeIterator()
+            history[branch.symbols.divergences[element]?.metadata?.head].makeIterator()
 
         var regime:History<Symbol.Metadata?>.Keyframe? = keyframes.next()
         let start:Version.Revision = branch.revisions.startIndex
@@ -102,18 +115,19 @@ struct Evolution
             {
                 regime = keyframes.next() 
             }
-            let label:Label = regime?.value.label ?? base
+            let inherit:Label = try regime.map { try label($0.value) } ?? inherit
             for alternate:Version.Branch in branch.revisions[revision].alternates 
             {
-                self.scan(alternate: alternate, tree: tree, 
+                try self.scan(alternate: alternate, tree: tree, 
                     distance: distance + 1,
-                    position: position, 
+                    element: element, 
                     history: history, 
-                    base: label)
+                    inherit: inherit, 
+                    label: label)
             }
             self.rows.append(.init(distance: distance, 
                 version: .init(alternate, revision), 
-                label: label, 
+                label: inherit, 
                 fork: revision == start))
         }
     }

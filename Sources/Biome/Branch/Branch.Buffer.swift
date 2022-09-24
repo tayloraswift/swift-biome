@@ -8,18 +8,26 @@ extension Branch
 {
     struct Buffer<Element> where Element:BranchElement, Element.Divergence:Voidable
     {
-        @available(*, deprecated, renamed: "positions")
+        @available(*, deprecated, renamed: "atoms")
         var indices:[Element.ID: Atom<Element>] 
         {
             _read 
             {
-                yield self.positions
+                yield self.atoms
+            }
+        }
+        @available(*, deprecated, renamed: "atoms")
+        var positions:[Element.ID: Atom<Element>] 
+        {
+            _read 
+            {
+                yield self.atoms
             }
         }
 
         var divergences:[Atom<Element>: Element.Divergence]
         private(set)
-        var positions:[Element.ID: Atom<Element>]
+        var atoms:[Element.ID: Atom<Element>]
         private 
         var storage:[Element] 
         let startIndex:Element.Offset
@@ -31,7 +39,7 @@ extension Branch
         init(startIndex:Element.Offset) 
         {
             self.divergences = [:]
-            self.positions = [:]
+            self.atoms = [:]
             self.storage = []
             self.startIndex = startIndex
         }
@@ -41,17 +49,17 @@ extension Branch
             _ create:(Element.ID, Atom<Element>) throws -> Element) 
             rethrows -> Atom<Element>
         {
-            if let position:Atom<Element> = self.positions[id]
+            if let atom:Atom<Element> = self.atoms[id]
             {
-                return position 
+                return atom 
             }
             else 
             {
                 // create records for elements if they do not yet exist 
-                let position:Atom<Element> = .init(culture, offset: self.endIndex)
-                self.storage.append(try create(id, position))
-                self.positions[id] = position
-                return position 
+                let atom:Atom<Element> = .init(culture, offset: self.endIndex)
+                self.storage.append(try create(id, atom))
+                self.atoms[id] = atom
+                return atom 
             }
         }
     }
@@ -71,7 +79,7 @@ extension Branch.Buffer
         }
     }
     @available(*, deprecated, renamed: "subscript(contemporary:)")
-    subscript(local position:Atom<Element>) -> Element
+    subscript(local atom:Atom<Element>) -> Element
     {
         get 
         {
@@ -83,35 +91,35 @@ extension Branch.Buffer
         }
     }
     // needed to workaround a compiler crash: https://github.com/apple/swift/issues/60841
-    subscript(_contemporary position:Atom<Element>) -> Element
+    subscript(_contemporary atom:Atom<Element>) -> Element
     {
-        self[position.offset]
+        self[atom.offset]
     }
-    subscript(contemporary position:Atom<Element>) -> Element
+    subscript(contemporary atom:Atom<Element>) -> Element
     {
         _read
         {
-            yield  self[position.offset]
+            yield  self[atom.offset]
         }
         _modify
         {
-            yield &self[position.offset]
+            yield &self[atom.offset]
         }
     }
 
     subscript(prefix:PartialRangeUpTo<Element.Offset>) -> SubSequence 
     {
         .init(divergences: self.divergences, 
-            positions: self.positions, 
+            indices: self.startIndex ..< prefix.upperBound,
             storage: self.storage, 
-            indices: self.startIndex ..< prefix.upperBound)
+            atoms: self.atoms)
     }
     subscript(_:UnboundedRange) -> SubSequence 
     {
         .init(divergences: self.divergences, 
-            positions: self.positions, 
+            indices: self.startIndex ..< self.endIndex,
             storage: self.storage, 
-            indices: self.startIndex ..< self.endIndex)
+            atoms: self.atoms)
     }
 
     @available(*, deprecated)
@@ -132,10 +140,19 @@ extension Branch.Buffer
         typealias SubSequence = Self 
 
         let divergences:[Atom<Element>: Element.Divergence]
-        let positions:[Element.ID: Atom<Element>]
         private 
         let storage:[Element]
+        let atoms:[Element.ID: Atom<Element>]
         let indices:Range<Element.Offset>
+
+        @available(*, deprecated, renamed: "atoms")
+        var positions:[Element.ID: Atom<Element>] 
+        {
+            _read 
+            {
+                yield self.atoms
+            }
+        }
         
         var startIndex:Element.Offset
         {
@@ -155,28 +172,27 @@ extension Branch.Buffer
         }
         subscript(range:Range<Element.Offset>) -> Self
         {
-            .init(divergences: self.divergences,
-                positions: self.positions, 
+            .init(divergences: self.divergences, indices: range,
                 storage: self.storage, 
-                indices: range)
+                atoms: self.atoms)
         }
-        subscript(contemporary position:Atom<Element>) -> Element
+        subscript(contemporary atom:Atom<Element>) -> Element
         {
             _read
             {
-                yield self[position.offset]
+                yield self[atom.offset]
             }
         }
         
         init(divergences:[Atom<Element>: Element.Divergence], 
-            positions:[Element.ID: Atom<Element>], 
+            indices:Range<Element.Offset>,
             storage:[Element], 
-            indices:Range<Element.Offset>)
+            atoms:[Element.ID: Atom<Element>])
         {
             self.divergences = divergences
-            self.positions = positions 
-            self.storage = storage 
             self.indices = indices
+            self.storage = storage 
+            self.atoms = atoms 
         }
     }
 }

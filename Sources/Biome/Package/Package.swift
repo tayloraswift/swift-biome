@@ -125,15 +125,15 @@ struct Package:Identifiable, Sendable
     
     subscript(module:Module.Index) -> Module?
     {
-        self.nationality ==        module.package ? self[local: module] : nil
+        self.nationality == module.nationality ? self[local: module] : nil
     }
     subscript(symbol:Symbol.Index) -> Symbol?
     {
-        self.nationality == symbol.module.package ? self[local: symbol] : nil
+        self.nationality == symbol.nationality ? self[local: symbol] : nil
     }
     subscript(article:Article.Index) -> Article?
     {
-        self.nationality == article.module.package ? self[local: article] : nil
+        self.nationality == article.nationality ? self[local: article] : nil
     }
     
     var title:String 
@@ -304,7 +304,7 @@ struct Package:Identifiable, Sendable
     mutating 
     func pollinate(local symbol:Symbol.Index, from pin:Module.Pin)
     {
-        self.symbols[local: symbol].pollen.insert(pin)
+        self.symbols[contemporary: symbol].pollen.insert(pin)
     }
     mutating 
     func move(module:Module.Index, to uri:URI) -> Pins
@@ -353,14 +353,14 @@ extension Package
         
 
         var topLevelSymbols:Set<Atom<Symbol>> = [] 
-        for position:PluralPosition<Symbol>? in interface.citizenSymbols
+        for position:Atom<Symbol>.Position? in interface.citizenSymbols
         {
-            if  let position:PluralPosition<Symbol>, 
+            if  let position:Atom<Symbol>.Position, 
                 self.tree[local: position].path.prefix.isEmpty
             {
                 // a symbol is toplevel if it has a single path component. this 
                 // is not the same thing as having a `nil` shape.
-                topLevelSymbols.insert(position.contemporary)
+                topLevelSymbols.insert(position.atom)
             }
         }
         self.data.topLevelSymbols.update(&self.tree[version.branch].modules, 
@@ -371,7 +371,7 @@ extension Package
         
 
         let topLevelArticles:Set<Atom<Article>> = 
-            .init(interface.citizenArticles.lazy.compactMap { $0?.contemporary })
+            .init(interface.citizenArticles.lazy.compactMap { $0?.atom })
         self.data.topLevelArticles.update(&self.tree[version.branch].modules, 
             at: .topLevelArticles(of: interface.culture), 
             revision: version.revision, 

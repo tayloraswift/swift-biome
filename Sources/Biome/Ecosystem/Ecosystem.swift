@@ -106,7 +106,7 @@ extension Ecosystem
         static 
         func symbol(_ natural:Symbol.Index) -> Self 
         {
-            .composite(.init(natural: natural))
+            .composite(.init(atomic: natural))
         }
     }
     
@@ -210,7 +210,7 @@ extension Ecosystem
     public 
     func index(of module:Module.ID, in package:Package.Index) -> Module.Index?
     {
-        self[package].modules.indices[module]
+        self[package].modules.atoms[module]
     }
     
     public mutating 
@@ -238,7 +238,7 @@ extension Ecosystem
     }
     func uri(of article:Article.Index, in pinned:Package.Pinned) -> URI
     {
-        let culture:Module = pinned.package[local: article.module]
+        let culture:Module = pinned.package[local: article.culture]
         var uri:URI
         if case (let root, pinned.version)? = culture.redirect.articles 
         {
@@ -306,7 +306,7 @@ extension Ecosystem
             var trace:[Composite] = []
                 trace.reserveCapacity(link.visible)
                 trace.append(composite)
-            var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.target.contemporary
+            var next:Symbol.Index? = composite.host ?? self[composite.base].shape?.target.atom
             while trace.count < link.visible
             {
                 guard let current:Symbol.Index = next 
@@ -316,8 +316,8 @@ extension Ecosystem
                     return .module(namespace, trace.reversed())
                 }
                 
-                trace.append(.init(natural: current))
-                next = self[current].shape?.target.contemporary
+                trace.append(.init(atomic: current))
+                next = self[current].shape?.target.atom
             }
             return .composite(trace.reversed())
         }

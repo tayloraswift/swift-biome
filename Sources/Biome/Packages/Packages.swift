@@ -91,14 +91,14 @@ struct Packages
         }
     } 
 
-    subscript(global module:PluralPosition<Module>) -> Module
+    subscript(global module:Atom<Module>.Position) -> Module
     {
         _read 
         {
             yield self[module.nationality].tree[local: module]
         }
     } 
-    subscript(global symbol:PluralPosition<Symbol>) -> Symbol
+    subscript(global symbol:Atom<Symbol>.Position) -> Symbol
     {
         _read 
         {
@@ -137,7 +137,7 @@ struct Packages
             interfaces.reserveCapacity(graphs.count)
         for graph:SymbolGraph in graphs 
         {
-            let module:PluralPosition<Module> = self[package].tree[branch].add(module: graph.id, 
+            let module:Atom<Module>.Position = self[package].tree[branch].add(module: graph.id, 
                 culture: package, 
                 fasces: fasces)
 

@@ -3,9 +3,9 @@ extension SurfaceBuilder
     fileprivate 
     struct Node 
     {
-        let position:Atom<Symbol> 
         var metadata:Symbol.Metadata
-        var shape:Symbol.Shape<PluralPosition<Symbol>>?
+        let element:Atom<Symbol> 
+        var shape:Symbol.Shape<Atom<Symbol>.Position>?
     }
     fileprivate 
     struct Nodes:RandomAccessCollection 
@@ -49,7 +49,7 @@ extension SurfaceBuilder
         mutating 
         func append(_ node:Node)
         {
-            self.indices[node.position] = .init(offset: self.storage.endIndex)
+            self.indices[node.element] = .init(offset: self.storage.endIndex)
             self.storage.append(node)
         }
     }
@@ -91,7 +91,7 @@ extension SurfaceBuilder
         subscript(index:Symbols.Index) -> (Atom<Symbol>, Symbol.Metadata) 
         {
             let node:Node = self.nodes[index.offset]
-            return (node.position, node.metadata)
+            return (node.element, node.metadata)
         }
     }
 }
@@ -102,7 +102,7 @@ struct SurfaceBuilder
         let upstream:[Package.Index: Package._Pinned]
         let local:Package 
 
-        subscript(global position:PluralPosition<Symbol>) -> Symbol 
+        subscript(global position:Atom<Symbol>.Position) -> Symbol 
         {
             if  let symbol:Symbol = self.local.tree[position] ?? 
                     self.upstream[position.nationality]?.package.tree[local: position]
@@ -151,13 +151,13 @@ struct SurfaceBuilder
         self.previous.modules.remove(interface.culture)
         self.modules.append(interface.culture)
 
-        for (article, _cached):(PluralPosition<Article>?, Extension) in 
+        for (article, _cached):(Atom<Article>.Position?, Extension) in 
             zip(interface.citizenArticles, interface._cachedMarkdown)
         {
-            if let article:PluralPosition<Article>
+            if let article:Atom<Article>.Position
             {
-                self.previous.articles.remove(article.contemporary)
-                self.articles.append((article.contemporary, .init(_extension: _cached)))
+                self.previous.articles.remove(article.atom)
+                self.articles.append((article.atom, .init(_extension: _cached)))
             }
         }
         
@@ -179,12 +179,12 @@ struct SurfaceBuilder
         context:Context) 
     {
 
-        var external:[PluralPosition<Symbol>: [Symbol.Trait<PluralPosition<Symbol>>]] = [:]
-        var traits:[PluralPosition<Symbol>: [Symbol.Trait<PluralPosition<Symbol>>]] = [:]
-        var roles:[PluralPosition<Symbol>: [Symbol.Role<PluralPosition<Symbol>>]] = [:]
+        var external:[Atom<Symbol>.Position: [Symbol.Trait<Atom<Symbol>.Position>]] = [:]
+        var traits:[Atom<Symbol>.Position: [Symbol.Trait<Atom<Symbol>.Position>]] = [:]
+        var roles:[Atom<Symbol>.Position: [Symbol.Role<Atom<Symbol>.Position>]] = [:]
         for belief:Belief in beliefs 
         {
-            switch (symbols.culture == belief.subject.contemporary.culture, belief.predicate)
+            switch (symbols.culture == belief.subject.culture, belief.predicate)
             {
             case (false,  .is(_)):
                 fatalError("unimplemented")
@@ -197,13 +197,13 @@ struct SurfaceBuilder
             }
         }
 
-        for position:PluralPosition<Symbol>? in symbols 
+        for position:Atom<Symbol>.Position? in symbols 
         {
-            if let position:PluralPosition<Symbol>
+            if let position:Atom<Symbol>.Position
             {
-                assert(symbols.culture == position.contemporary.culture)
+                assert(symbols.culture == position.culture)
 
-                self.previous.symbols.remove(position.contemporary)
+                self.previous.symbols.remove(position.atom)
                 self.nodes.append(self.createLocalSurface(for: position, 
                     traits: traits.removeValue(forKey: position) ?? [], 
                     roles: roles.removeValue(forKey: position) ?? [], 
@@ -215,13 +215,13 @@ struct SurfaceBuilder
         {
             fatalError("unimplemented")
         }
-        for (position, traits):(PluralPosition<Symbol>, [Symbol.Trait<PluralPosition<Symbol>>]) in 
+        for (position, traits):(Atom<Symbol>.Position, [Symbol.Trait<Atom<Symbol>.Position>]) in 
             external
         {
             if  let subject:Symbol = context.local.tree[position], 
-                let index:Symbols.Index = self.nodes.indices[position.contemporary]
+                let index:Symbols.Index = self.nodes.indices[position.atom]
             {
-                let diacritic:Diacritic = .init(host: position.contemporary, 
+                let diacritic:Diacritic = .init(host: position.atom, 
                     culture: symbols.culture)
 
                 self.nodes[index].metadata.accepted[symbols.culture] = 
@@ -231,10 +231,10 @@ struct SurfaceBuilder
                         context: context)
             }
             else if let pinned:Package._Pinned = context.upstream[position.nationality],
-                    let metadata:Symbol.Metadata = pinned.metadata(local: position.contemporary)
+                    let metadata:Symbol.Metadata = pinned.metadata(local: position.atom)
             {
                 let subject:Symbol = pinned.package.tree[local: position]
-                let diacritic:Diacritic = .init(host: position.contemporary, 
+                let diacritic:Diacritic = .init(host: position.atom, 
                     culture: symbols.culture)
                 
                 let metadata:Symbol.ForeignMetadata = .init(traits: 
@@ -254,19 +254,19 @@ struct SurfaceBuilder
     }
 
     private mutating 
-    func createLocalSurface(for position:PluralPosition<Symbol>,
-        traits:__owned [Symbol.Trait<PluralPosition<Symbol>>], 
-        roles:__owned [Symbol.Role<PluralPosition<Symbol>>], 
+    func createLocalSurface(for position:Atom<Symbol>.Position,
+        traits:__owned [Symbol.Trait<Atom<Symbol>.Position>], 
+        roles:__owned [Symbol.Role<Atom<Symbol>.Position>], 
         context:Context)
         -> Node 
     {
         let symbol:Symbol = context.local.tree[local: position] 
 
-        var shape:Symbol.Shape<PluralPosition<Symbol>>? = nil 
+        var shape:Symbol.Shape<Atom<Symbol>.Position>? = nil
         // partition relationships buffer 
         var superclass:Atom<Symbol>? = nil 
         var residuals:[Symbol.Role<Atom<Symbol>>] = []
-        for role:Symbol.Role<PluralPosition<Symbol>> in roles
+        for role:Symbol.Role<Atom<Symbol>.Position> in roles
         {
             switch (shape, role) 
             {
@@ -295,8 +295,8 @@ struct SurfaceBuilder
             case (_,             .subclass(of: let type)): 
                 switch superclass 
                 {
-                case nil, type.contemporary?:
-                    superclass = type.contemporary
+                case nil, type.atom?:
+                    superclass = type.atom
                 case _?:
                     fatalError("unimplemented")
                     // throw PoliticalError.conflict(is: .subclass(of: superclass), 
@@ -304,32 +304,32 @@ struct SurfaceBuilder
                 }
                 
             default: 
-                residuals.append(role.map(\.contemporary))
+                residuals.append(role.map(\.atom))
             }
         }
             
         let roles:Branch.SymbolRoles? = .init(residuals,
             superclass: superclass, 
-            shape: shape?.map(\.contemporary), 
+            shape: shape?.map(\.atom), 
             as: symbol.community)
         let traits:Tree.SymbolTraits = .init(traits, as: symbol.community)
         
-        self.routes.atomic.append(symbol.route, position: position.contemporary)
+        self.routes.atomic.append(symbol.route, element: position.atom)
         if  let routes:CompoundRoutes = .init(host: symbol, 
-                diacritic: .init(natural: position.contemporary), 
+                diacritic: .init(atomic: position.atom), 
                 features: traits.features, 
                 context: context)
         {
             self.routes.compound.append(routes)
         }
         
-        return .init(position: position.contemporary, 
-            metadata: .init(roles: roles, primary: traits.idealized()),
+        return .init(metadata: .init(roles: roles, primary: traits.idealized()),
+            element: position.atom, 
             shape: shape)
     }
     private mutating 
     func createForeignSurface(for subject:Symbol, metadata:Symbol.Metadata, diacritic:Diacritic, 
-        traits:__owned [Symbol.Trait<PluralPosition<Symbol>>], 
+        traits:__owned [Symbol.Trait<Atom<Symbol>.Position>], 
         context:Context)
         -> Branch.SymbolTraits
     {
@@ -384,19 +384,19 @@ extension SurfaceBuilder
         {
             // we know that every key in ``Surface.symbols`` is part of the current 
             // package, and that they are all part of the current timeline, so it 
-            // is safe to compare contemporary offsets.
-            if node.position.offset < symbols.startIndex
+            // is safe to compare atomic offsets.
+            if node.element.offset < symbols.startIndex
             {
                 continue 
             }
-            if let shape:Symbol.Shape<PluralPosition<Symbol>> = node.shape 
+            if let shape:Symbol.Shape<Atom<Symbol>.Position> = node.shape 
             {
                 // already have a shape from a member or requirement belief
-                symbols[contemporary: node.position].shape = shape
+                symbols[contemporary: node.element].shape = shape
                 continue 
             }
 
-            let symbol:Symbol = symbols[_contemporary: node.position]
+            let symbol:Symbol = symbols[_contemporary: node.element]
             guard   case nil = symbol.shape, 
                     let scope:Path = .init(symbol.path.prefix)
             else 
@@ -407,15 +407,15 @@ extension SurfaceBuilder
             //  this is a *very* heuristical process.
             if  let scope:Route = stems[symbol.route.namespace, straight: scope]
             {
-                let selection:_Selection<PluralPosition<Symbol>>? = routes.select(scope)
+                let selection:_Selection<Atom<Symbol>.Position>? = routes.select(scope)
                 {
                     (branch:Version.Branch, composite:Composite) in 
-                    composite.atom.map { $0.pluralized(branch) }
+                    composite.atom.map { $0.positioned(branch) }
                 }
                 if case .one(let scope)? = selection 
                 {
-                    symbols[contemporary: node.position].shape = .member(of: scope)
-                    self.add(member: node.position, to: scope.contemporary) 
+                    symbols[contemporary: node.element].shape = .member(of: scope)
+                    self.add(member: node.element, to: scope.atom) 
                     continue 
                 }
             }

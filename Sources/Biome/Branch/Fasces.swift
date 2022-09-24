@@ -234,13 +234,13 @@ extension Fasces:RandomAccessCollection, RangeReplaceableCollection
 
 extension Sequence 
 {
-    func find<Axis>(_ id:Axis.ID) -> PluralPosition<Axis>? where Element == Epoch<Axis>
+    func find<Axis>(_ id:Axis.ID) -> Atom<Axis>.Position? where Element == Epoch<Axis>
     {
         for segment:Epoch<Axis> in self 
         {
-            if let position:Atom<Axis> = segment.position(of: id)
+            if let atom:Atom<Axis> = segment.atom(of: id)
             {
-                return position.pluralized(segment.branch)
+                return atom.positioned(segment.branch)
             }
         }
         return nil

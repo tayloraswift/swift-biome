@@ -41,21 +41,26 @@ struct Epoch<Element>:TrunkPeriod, RandomAccessCollection
             yield   self.slice[offset]
         }
     }
-    subscript(position:Atom<Element>) -> Element? 
+    subscript(atom:Atom<Element>) -> Element? 
     {
         _read 
         {
-            yield   self.slice.indices ~= position.offset ? 
-                    self.slice[contemporary: position] : nil
+            yield   self.slice.indices ~= atom.offset ? 
+                    self.slice[contemporary: atom] : nil
         }
     }
 
+    @available(*, deprecated, renamed: "atom(of:)")
     func position(of id:Element.ID) -> Atom<Element>? 
     {
-        if  let position:Atom<Element> = self.slice.positions[id], 
-            self.slice.indices ~= position.offset
+        self.atom(of: id)
+    }
+    func atom(of id:Element.ID) -> Atom<Element>? 
+    {
+        if  let atom:Atom<Element> = self.slice.atoms[id], 
+            self.slice.indices ~= atom.offset
         {
-            return position
+            return atom
         }
         else 
         {

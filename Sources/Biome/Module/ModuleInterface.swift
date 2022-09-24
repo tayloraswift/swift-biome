@@ -13,7 +13,7 @@ struct ModuleInterface
     struct Abstractor<Element>:RandomAccessCollection where Element:BranchElement 
     {
         private 
-        var table:[PluralPosition<Element>?]
+        var table:[Atom<Element>.Position?]
         private 
         let updated:Int
 
@@ -25,7 +25,7 @@ struct ModuleInterface
         {
             self.table.endIndex
         }
-        subscript(index:Int) -> PluralPosition<Element>? 
+        subscript(index:Int) -> Atom<Element>.Position? 
         {
             _read 
             {
@@ -37,7 +37,7 @@ struct ModuleInterface
             }
         }
 
-        init(_ table:__owned [PluralPosition<Element>?])
+        init(_ table:__owned [Atom<Element>.Position?])
         {
             self.table = table 
             self.updated = self.table.endIndex
@@ -50,7 +50,7 @@ struct ModuleInterface
 
         mutating 
         func extend(over identifiers:[Element.ID], 
-            by find:(Element.ID) throws -> PluralPosition<Element>?) rethrows 
+            by find:(Element.ID) throws -> Atom<Element>.Position?) rethrows 
         {
             for external:Element.ID in identifiers.suffix(from: self.table.endIndex)
             {
@@ -62,10 +62,10 @@ struct ModuleInterface
     struct Citizens<Element>:RandomAccessCollection where Element:BranchElement
     {
         private 
-        let table:ArraySlice<PluralPosition<Element>?>
+        let table:ArraySlice<Atom<Element>.Position?>
         let culture:Element.Culture
 
-        init(_ table:ArraySlice<PluralPosition<Element>?>, culture:Element.Culture)
+        init(_ table:ArraySlice<Atom<Element>.Position?>, culture:Element.Culture)
         {
             self.table = table 
             self.culture = culture 
@@ -84,9 +84,9 @@ struct ModuleInterface
         // current package.
         // the `flatMap` excludes symbols that are not native to the current 
         // module. this happens sometimes due to member inference.
-        subscript(index:Int) -> PluralPosition<Element>? 
+        subscript(index:Int) -> Atom<Element>.Position? 
         {
-            self.table[index].flatMap { self.culture == $0.contemporary.culture ? $0 : nil }
+            self.table[index].flatMap { self.culture == $0.culture ? $0 : nil }
         }
     }
 
@@ -142,12 +142,12 @@ extension ModuleInterface.Abstractor<Symbol>
             beliefs.reserveCapacity(edges.count)
         for edge:SymbolGraph.Edge<Int> in edges
         {
-            let opaque:SymbolGraph.Edge<PluralPosition<Symbol>>
+            let opaque:SymbolGraph.Edge<Atom<Symbol>.Position>
             do 
             {
                 opaque = try edge.map 
                 {
-                    if let position:PluralPosition<Symbol> = self[$0]
+                    if let position:Atom<Symbol>.Position = self[$0]
                     {
                         return position
                     }
@@ -176,7 +176,7 @@ extension ModuleInterface.Abstractor<Symbol>
         return (beliefs, errors)
     }
 }
-extension SymbolGraph.Edge<PluralPosition<Symbol>>
+extension SymbolGraph.Edge<Atom<Symbol>.Position>
 {
     fileprivate
     func beliefs(source:Community, target:Community) -> (source:Belief?, target:Belief)

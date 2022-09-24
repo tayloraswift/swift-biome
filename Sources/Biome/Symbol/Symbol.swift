@@ -16,7 +16,7 @@ struct Symbol:Sendable, CustomStringConvertible
     let path:Path
     let kind:Kind
     let route:Route
-    var shape:Shape<PluralPosition<Self>>?
+    var shape:Shape<Atom<Self>.Position>?
 
     var metadata:History<Metadata?>.Head?
     var declaration:History<Declaration<Atom<Symbol>>>.Head?
@@ -48,7 +48,7 @@ struct Symbol:Sendable, CustomStringConvertible
         switch self.community 
         {
         case .associatedtype, .callable(_):
-            return self.shape?.target.contemporary 
+            return self.shape?.target.atom 
         default: 
             return nil
         }

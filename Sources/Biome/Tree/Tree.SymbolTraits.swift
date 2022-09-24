@@ -1,9 +1,9 @@
 extension Tree.SymbolTraits.Unconditional 
 {
     fileprivate mutating 
-    func insert(_ element:PluralPosition<Symbol>) 
+    func insert(_ element:Atom<Symbol>.Position) 
     {
-        self.updateValue(element.branch, forKey: element.contemporary)
+        self.updateValue(element.branch, forKey: element.atom)
     }
 }
 extension Tree 
@@ -16,7 +16,7 @@ extension Tree
         ]
         typealias Conditional = 
         [
-            Atom<Symbol>: (Version.Branch, [Generic.Constraint<PluralPosition<Symbol>>])
+            Atom<Symbol>: (Version.Branch, [Generic.Constraint<Atom<Symbol>.Position>])
         ]
 
         var members:Unconditional
@@ -37,7 +37,7 @@ extension Tree
             self.conditional = conditional
         }
         
-        init(_ traits:some Sequence<Symbol.Trait<PluralPosition<Symbol>>>, as community:Community)
+        init(_ traits:some Sequence<Symbol.Trait<Atom<Symbol>.Position>>, as community:Community)
         {
             self.init()
             self.update(with: traits, as: community)
@@ -92,13 +92,13 @@ extension Tree.SymbolTraits
     }
 
     mutating 
-    func update(with traits:some Sequence<Symbol.Trait<PluralPosition<Symbol>>>, 
+    func update(with traits:some Sequence<Symbol.Trait<Atom<Symbol>.Position>>, 
         as community:Community) 
     {
         switch community 
         {
         case .associatedtype:
-            for trait:Symbol.Trait<PluralPosition<Symbol>> in traits 
+            for trait:Symbol.Trait<Atom<Symbol>.Position> in traits 
             {
                 switch trait 
                 {
@@ -116,7 +116,7 @@ extension Tree.SymbolTraits
             }
         
         case .protocol:
-            for trait:Symbol.Trait<PluralPosition<Symbol>> in traits 
+            for trait:Symbol.Trait<Atom<Symbol>.Position> in traits 
             {
                 switch trait 
                 {
@@ -129,7 +129,7 @@ extension Tree.SymbolTraits
                     self.downstream.insert(downstream)
                 //  [3] conforming types (``conformers``)
                 case .conformer(let conformer):
-                    self.conformers[conformer.target.contemporary] = 
+                    self.conformers[conformer.target.atom] = 
                         (conformer.target.branch, conformer.conditions)
                 default: 
                     fatalError("unreachable")
@@ -137,13 +137,13 @@ extension Tree.SymbolTraits
             }
         
         case .typealias, .global(_): 
-            for _:Symbol.Trait<PluralPosition<Symbol>> in traits 
+            for _:Symbol.Trait<Atom<Symbol>.Position> in traits 
             {
                 fatalError("unreachable")
             }
         
         case .concretetype(_):
-            for trait:Symbol.Trait<PluralPosition<Symbol>> in traits 
+            for trait:Symbol.Trait<Atom<Symbol>.Position> in traits 
             {
                 switch trait 
                 {
@@ -158,7 +158,7 @@ extension Tree.SymbolTraits
                     self.downstream.insert(downstream)
                 //  [3] protocol conformances (``conformances``)
                 case .conformance(let conformance):
-                    self.conformances[conformance.target.contemporary] = 
+                    self.conformances[conformance.target.atom] = 
                         (conformance.target.branch, conformance.conditions)
                 default: 
                     fatalError("unreachable")
@@ -166,7 +166,7 @@ extension Tree.SymbolTraits
             }
         
         case .callable(_):
-            for trait:Symbol.Trait<PluralPosition<Symbol>> in traits 
+            for trait:Symbol.Trait<Atom<Symbol>.Position> in traits 
             {
                 switch trait 
                 {
@@ -196,7 +196,7 @@ extension Tree.SymbolTraits
             unconditional: .init(self.unconditional.keys), 
             conditional: self.conditional.mapValues 
             { 
-                $0.1.map { $0.map(\.contemporary) } 
+                $0.1.map { $0.map(\.atom) } 
             })
     }
     func subtracting(_ other:Branch.SymbolTraits) -> Self
@@ -221,7 +221,7 @@ extension Tree.SymbolTraits
                 {
                     return counterpart.elementsEqual($0.value.1.lazy.map 
                     { 
-                        $0.map(\.contemporary) 
+                        $0.map(\.atom) 
                     }) 
                 }
                 else 

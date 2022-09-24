@@ -212,49 +212,49 @@ extension Tree
 
 extension Tree 
 {
-    subscript(local article:PluralPosition<Article>) -> Article 
+    subscript(local article:Atom<Article>.Position) -> Article 
     {
         _read 
         {
-            yield  self[article.branch].articles[contemporary: article.contemporary]
+            yield  self[article.branch].articles[contemporary: article.atom]
         }
         _modify
         {
-            yield &self[article.branch].articles[contemporary: article.contemporary]
+            yield &self[article.branch].articles[contemporary: article.atom]
         }
     }
-    subscript(local symbol:PluralPosition<Symbol>) -> Symbol 
+    subscript(local symbol:Atom<Symbol>.Position) -> Symbol 
     {
         _read 
         {
-            yield  self[symbol.branch].symbols[contemporary: symbol.contemporary]
+            yield  self[symbol.branch].symbols[contemporary: symbol.atom]
         }
         _modify
         {
-            yield &self[symbol.branch].symbols[contemporary: symbol.contemporary]
+            yield &self[symbol.branch].symbols[contemporary: symbol.atom]
         }
     }
-    subscript(local module:PluralPosition<Module>) -> Module 
+    subscript(local module:Atom<Module>.Position) -> Module 
     {
         _read 
         {
-            yield  self[module.branch].modules[contemporary: module.contemporary]
+            yield  self[module.branch].modules[contemporary: module.atom]
         }
         _modify 
         {
-            yield &self[module.branch].modules[contemporary: module.contemporary]
+            yield &self[module.branch].modules[contemporary: module.atom]
         }
     }
 
-    subscript(article:PluralPosition<Article>) -> Article? 
+    subscript(article:Atom<Article>.Position) -> Article? 
     {
         self.nationality == article.nationality ? self[local: article] : nil
     }
-    subscript(symbol:PluralPosition<Symbol>) -> Symbol? 
+    subscript(symbol:Atom<Symbol>.Position) -> Symbol? 
     {
         self.nationality == symbol.nationality ? self[local: symbol] : nil
     }
-    subscript(module:PluralPosition<Module>) -> Module? 
+    subscript(module:Atom<Module>.Position) -> Module? 
     {
         self.nationality == module.nationality ? self[local: module] : nil
     }

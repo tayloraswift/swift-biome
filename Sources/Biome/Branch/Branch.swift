@@ -91,15 +91,15 @@ extension Branch
 {
     mutating 
     func add(module id:Module.ID, culture:Package.Index, fasces:Fasces) 
-        -> PluralPosition<Module>
+        -> Atom<Module>.Position
     {
-        if let existing:PluralPosition<Module> = fasces.modules.find(id)
+        if let existing:Atom<Module>.Position = fasces.modules.find(id)
         {
             return existing 
         }
-        let position:Atom<Module> = self.modules.insert(id, culture: culture, 
+        let atom:Atom<Module> = self.modules.insert(id, culture: culture, 
             Module.init(id:index:))
-        return position.pluralized(self.index)
+        return atom.positioned(self.index)
     }
     mutating 
     func add(graph:SymbolGraph, namespaces:__owned Namespaces, 
@@ -137,13 +137,13 @@ extension Branch
     {
         let linked:Set<Atom<Module>> = namespaces.import()
 
-        var positions:[PluralPosition<Symbol>?] = []
+        var positions:[Atom<Symbol>.Position?] = []
             positions.reserveCapacity(graph.identifiers.count)
         for (namespace, vertices):(Module.ID, ArraySlice<SymbolGraph.Vertex<Int>>) in 
             graph.colonies
         {
             // will always succeed for the core subgraph
-            guard let namespace:Atom<Module> = namespaces.linked[namespace]?.contemporary
+            guard let namespace:Atom<Module> = namespaces.linked[namespace]?.atom
             else 
             {
                 print("warning: ignored colonial symbolgraph '\(graph.id)@\(namespace)'")
@@ -190,13 +190,13 @@ extension Branch
         upstream:[Package.Index: Package._Pinned], 
         trunk:Fasces.SymbolView, 
         stems:inout Route.Stems)
-        -> PluralPosition<Symbol>
+        -> Atom<Symbol>.Position
     {
-        if let existing:PluralPosition<Symbol> = trunk.find(id)
+        if let existing:Atom<Symbol>.Position = trunk.find(id)
         {
             // swift encodes module names in symbol identifiers, so if a symbol changes culture, 
             // something really weird has happened.
-            if existing.contemporary.culture == culture 
+            if existing.culture == culture 
             {
                 return existing 
             }
@@ -207,13 +207,13 @@ extension Branch
         } 
         for upstream:Package._Pinned in upstream.values 
         {
-            if  let restated:PluralPosition<Symbol> = upstream.symbols.find(id), 
-                    linked.contains(restated.contemporary.culture)
+            if  let restated:Atom<Symbol>.Position = upstream.symbols.find(id), 
+                    linked.contains(restated.culture)
             {
                 return restated 
             }
         }
-        let position:Atom<Symbol> = self.symbols.insert(id, culture: culture)
+        let atom:Atom<Symbol> = self.symbols.insert(id, culture: culture)
         {
             (id:Symbol.ID, _:Atom<Symbol>) in 
             let route:Route = .init(namespace, 
@@ -243,7 +243,7 @@ extension Branch
             }
             return .init(id: id, path: vertex.path, kind: kind, route: route)
         }
-        return position.pluralized(self.index)
+        return atom.positioned(self.index)
     }
 
     // TODO: ideally we want to be rendering markdown AOT. so once that is implemented 
@@ -258,7 +258,7 @@ extension Branch
             .init(markdown: $0.source, name: $0.name)
         }
 
-        var positions:[PluralPosition<Article>?] = []
+        var positions:[Atom<Article>.Position?] = []
             positions.reserveCapacity(graph.extensions.count)
         let start:Article.Offset = self.articles.endIndex
         for article:Extension in _extensions
@@ -297,7 +297,7 @@ extension Branch
     private mutating 
     func addArticle(_ path:Path, culture:Atom<Module>, trunk:Fasces.ArticleView, 
         stems:inout Route.Stems)
-        -> PluralPosition<Article>
+        -> Atom<Article>.Position
     {
         // article namespace is always its culture. 
         let stem:Route.Stem = stems.register(components: path.prefix) 
@@ -305,20 +305,20 @@ extension Branch
 
         let id:Article.ID = .init(culture, stem, leaf)
 
-        if let existing:PluralPosition<Article> = trunk.find(id)
+        if let existing:Atom<Article>.Position = trunk.find(id)
         {
-            guard existing.contemporary.culture == culture 
+            guard existing.culture == culture 
             else 
             {
                 fatalError("unreachable")
             }
             return existing 
         }
-        let position:Atom<Article> = self.articles.insert(id, culture: culture)
+        let atom:Atom<Article> = self.articles.insert(id, culture: culture)
         {
             (id:Article.ID, _:Atom<Article>) in 
             .init(id: id, path: path)
         }
-        return position.pluralized(self.index)
+        return atom.positioned(self.index)
     }
 }

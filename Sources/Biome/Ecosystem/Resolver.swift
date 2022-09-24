@@ -234,21 +234,21 @@ struct Resolver
         stems:Route.Stems) -> Atom<Article>?
     {
         if  let scope:_Scope, 
-            let article:PluralPosition<Article> = scope.scan(concatenating: link, 
+            let article:Atom<Article>.Position = scope.scan(concatenating: link, 
                 stems: stems, 
                 until: { self.context[$0.namespace.nationality]?.articles.find(.init($0)) })
         {
-            return article.contemporary
+            return article.atom
         }
         // can’t use a namespace as a key field if that namespace was not imported
         if  let path:_SymbolLink = link.suffix,
-            let namespace:PluralPosition<Module> = self.namespaces.linked[.init(link.first)], 
-                imports.contains(namespace.contemporary), 
+            let namespace:Atom<Module>.Position = self.namespaces.linked[.init(link.first)], 
+                imports.contains(namespace.atom), 
             let pinned:Package.Pinned = self.context[namespace.nationality],
-            let article:Route = stems[namespace.contemporary, straight: path], 
-            let article:PluralPosition<Article> = pinned.articles.find(.init(article))
+            let article:Route = stems[namespace.atom, straight: path], 
+            let article:Atom<Article>.Position = pinned.articles.find(.init(article))
         {
-            return article.contemporary
+            return article.atom
         }
         else 
         {
@@ -272,8 +272,8 @@ struct Resolver
             return .init(selection)
         }
         // can’t use a namespace as a key field if that namespace was not imported
-        guard   let namespace:PluralPosition<Module> = self.namespaces.linked[.init(link.first)], 
-                    imports.contains(namespace.contemporary)
+        guard   let namespace:Atom<Module>.Position = self.namespaces.linked[.init(link.first)], 
+                    imports.contains(namespace.atom)
         else 
         {
             return nil
@@ -281,9 +281,9 @@ struct Resolver
         guard   let link:_SymbolLink = link.suffix 
         else 
         {
-            return .module(namespace.contemporary)
+            return .module(namespace.atom)
         }
-        if  let key:Route = stems[namespace.contemporary, link], 
+        if  let key:Route = stems[namespace.atom, link], 
             let selection:_Selection<Composite> = 
                 self.lenses.select(key, disambiguator: link.disambiguator, imports: imports)
         {

@@ -11,14 +11,14 @@ import SymbolGraphs
 struct Namespace 
 {
     let id:Module.ID 
-    let position:PluralPosition<Module>
+    let position:Atom<Module>.Position
 
     var culture:Atom<Module>
     {
-        self.position.contemporary
+        self.position.atom
     }
 
-    init(id:Module.ID, position:PluralPosition<Module>)
+    init(id:Module.ID, position:Atom<Module>.Position)
     {
         self.id = id 
         self.position = position
@@ -39,7 +39,7 @@ struct Namespaces
     var pins:[Package.Index: Version]
     let module:Namespace
     private(set)
-    var linked:[Module.ID: PluralPosition<Module>]
+    var linked:[Module.ID: Atom<Module>.Position]
 
     init(_ module:Namespace)
     {
@@ -47,22 +47,11 @@ struct Namespaces
         self.module = module 
         self.linked = [module.id: module.position]
     }
-    init(id:Module.ID, position:PluralPosition<Module>)
+    init(id:Module.ID, position:Atom<Module>.Position)
     {
         self.init(.init(id: id, position: position))
     }
 
-    @available(*, deprecated, renamed: "module")
-    var current:Namespace 
-    {
-        self.module
-    }
-
-    @available(*, deprecated, renamed: "nationality")
-    var package:Package.Index
-    {
-        self.culture.package
-    }
     var nationality:Package.Index
     {
         self.culture.nationality
@@ -79,7 +68,7 @@ struct Namespaces
     {
         .init(self.linked.values.lazy.compactMap 
         { 
-            $0.contemporary == self.culture ? nil : $0.contemporary 
+            $0.atom == self.culture ? nil : $0.atom 
         })
     }
 
@@ -87,7 +76,7 @@ struct Namespaces
     /// current module.
     func `import`() -> Set<Atom<Module>>
     {
-        .init(self.linked.values.lazy.map(\.contemporary))
+        .init(self.linked.values.lazy.map(\.atom))
     }
     
     /// Returns a set containing all modules that can be imported, among the requested 
@@ -99,9 +88,9 @@ struct Namespaces
             imported.reserveCapacity(modules.underestimatedCount + 1)
         for module:Module.ID in modules 
         {
-            if let position:Atom<Module> = self.linked[module]?.contemporary
+            if let element:Atom<Module> = self.linked[module]?.atom
             {
-                imported.insert(position)
+                imported.insert(element)
             }
         }
         imported.insert(self.culture)
@@ -190,7 +179,7 @@ struct Namespaces
             {
                 for module:Module.ID in dependencies
                 {
-                    if let module:PluralPosition<Module> = pinned.modules.find(module)
+                    if let module:Atom<Module>.Position = pinned.modules.find(module)
                     {
                         // use the stored id, not the requested id
                         self.linked[pinned.package.tree[local: module].id] = module
@@ -210,7 +199,7 @@ struct Namespaces
                 {
                     for module:Module in epoch 
                     {
-                        self.linked[module.id] = module.index.pluralized(epoch.branch)
+                        self.linked[module.id] = module.index.positioned(epoch.branch)
                     }
                 }
             }
@@ -228,8 +217,8 @@ struct Namespaces
             package.tree[branch].modules[...]
         for module:Module.ID in dependencies
         {
-            if  let module:PluralPosition<Module> = 
-                    contemporary.positions[module].map({ $0.pluralized(branch) }) ?? 
+            if  let module:Atom<Module>.Position = 
+                    contemporary.atoms[module].map({ $0.positioned(branch) }) ?? 
                     fasces.modules.find(module) 
             {
                 // use the stored id, not the requested id

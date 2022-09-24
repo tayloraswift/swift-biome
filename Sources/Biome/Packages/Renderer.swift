@@ -174,13 +174,13 @@ extension Packages
         let base:Symbol = self[composite.base]
         
         var crumbs:[HTML.Element<Ecosystem.Index>] = [.li(base.name)]
-        var next:Symbol.Index? = composite.host ?? base.shape?.target.contemporary
+        var next:Symbol.Index? = composite.host ?? base.shape?.target.atom
         while let index:Symbol.Index = next
         {
             let current:Symbol = self[index]
             crumbs.append(.li(.a(.highlight(current.name, .type), 
                 attributes: [.init(anchor: .symbol(index))])))
-            next = current.shape?.target.contemporary
+            next = current.shape?.target.atom
         }
         crumbs.reverse()
         return .ol(crumbs) 

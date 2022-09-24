@@ -118,28 +118,28 @@ struct Literature
         mutating 
         func update(with graph:SymbolGraph, interface:ModuleInterface)
         {
-            for (position, vertex):(PluralPosition<Symbol>?, SymbolGraph.Vertex<Int>) in 
+            for (position, vertex):(Atom<Symbol>.Position?, SymbolGraph.Vertex<Int>) in 
                 zip(interface.citizenSymbols, graph.vertices)
             {
-                guard let position:PluralPosition<Symbol> = position
+                guard let position:Atom<Symbol>.Position = position
                 else 
                 {
                     continue 
                 }
 
-                assert(position.contemporary.culture == interface.culture)
+                assert(position.culture == interface.culture)
                 
                 switch 
                 (
                     vertex.comment.string, 
-                    vertex.comment.extends.flatMap { interface.symbols[$0]?.contemporary }
+                    vertex.comment.extends.flatMap { interface.symbols[$0]?.atom }
                 )
                 {
                 case (nil, nil): 
                     continue 
                 
                 case (let comment?, nil):
-                    self.uptree[position.contemporary] = .init(.extends(nil, with: comment), 
+                    self.uptree[position.atom] = .init(.extends(nil, with: comment), 
                         branch: position.branch)
                 
                 case (let comment?, let origin?):
@@ -149,18 +149,18 @@ struct Literature
                         // inherited a comment from a *different* module. 
                         // if it were from the same module, symbolgraphconvert 
                         // should have deleted it. 
-                        self.uptree[position.contemporary] = .init(.inherits(origin), 
+                        self.uptree[position.atom] = .init(.inherits(origin), 
                             branch: position.branch)
                         pruned += 1
                     }
                     else 
                     {
-                        self.uptree[position.contemporary] = .init(.extends(origin, with: comment), 
+                        self.uptree[position.atom] = .init(.extends(origin, with: comment), 
                             branch: position.branch)
                     }
                 
                 case (nil, let origin?):
-                    self.uptree[position.contemporary] = .init(.inherits(origin), 
+                    self.uptree[position.atom] = .init(.inherits(origin), 
                         branch: position.branch)
                 }
             }
@@ -269,15 +269,15 @@ struct Literature
                 namespaces: interface.namespaces,
                 context: context)
 
-            for (position, _extension):(PluralPosition<Article>?, Extension) in 
+            for (position, _extension):(Atom<Article>.Position?, Extension) in 
                 zip(interface.citizenArticles, interface._cachedMarkdown)
             {
                 let imports:Set<Atom<Module>> = 
                     interface.namespaces.import(_extension.metadata.imports)
                 // TODO: handle merge behavior block directive 
-                if let position:PluralPosition<Article> 
+                if let position:Atom<Article>.Position 
                 {
-                    self.articles.append((position.contemporary, .init(
+                    self.articles.append((position.atom, .init(
                         compiling: _move _extension, 
                         resolver: resolver, 
                         imports: imports, 
@@ -327,8 +327,8 @@ struct Literature
                             print("warning: documentation extension would overwrite existing documentation, skipping")
                             continue 
                         }
-                        guard   let plural:PluralPosition<Symbol> = 
-                                    symbol.pluralized(bisecting: local.symbols)
+                        guard   let plural:Atom<Symbol>.Position = 
+                                    symbol.positioned(bisecting: local.symbols)
                         else 
                         {
                             fatalError("unreachable")
@@ -355,9 +355,9 @@ struct Literature
         resolvers:__owned [Atom<Module>: Resolver], 
         stems:Route.Stems)
     {
-        for (position, comment):(Atom<Symbol>, Comment) in comments 
+        for (element, comment):(Atom<Symbol>, Comment) in comments 
         {
-            guard let resolver:Resolver = resolvers[position.culture] 
+            guard let resolver:Resolver = resolvers[element.culture] 
             else 
             {
                 fatalError("unreachable")
@@ -372,14 +372,14 @@ struct Literature
             case .extends(let origin, with: let markdown):
                 let _extension:Extension = .init(markdown: markdown)
                 let symbol:Symbol = 
-                    resolver.local.package.tree[local: position.pluralized(comment.branch)]
+                    resolver.local.package.tree[local: element.positioned(comment.branch)]
                 documentation = .init(compiling: _extension, extending: origin, 
                     resolver: resolver,
                     imports: resolver.namespaces.import(_extension.metadata.imports), 
                     scope: .init(symbol), 
                     stems: stems)
             }
-            self.symbols.append((position, documentation))
+            self.symbols.append((element, documentation))
         }
     }
 }

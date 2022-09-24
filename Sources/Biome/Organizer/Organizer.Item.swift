@@ -64,7 +64,7 @@ extension Organizer.Item
         switch symbol.community 
         {
         case .associatedtype, .callable(_):
-            guard let scope:PluralPosition<Symbol> = symbol.shape?.target 
+            guard let scope:Atom<Symbol>.Position = symbol.shape?.target 
             else 
             {
                 fallthrough

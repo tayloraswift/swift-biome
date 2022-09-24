@@ -24,10 +24,10 @@ extension GlobalLink
     }
     // enum TargetExpansion:Hashable, Sendable 
     // {
-    //     case article(PluralPosition<Article>)
+    //     case article(Atom<Article>.Position)
     //     case package(Package.Index)
-    //     case implicit                         ([PluralPosition<Symbol>])
-    //     case qualified(PluralPosition<Module>, [PluralPosition<Symbol>] = [])
+    //     case implicit                         ([Atom<Symbol>.Position])
+    //     case qualified(Atom<Module>.Position, [Atom<Symbol>.Position] = [])
     // }
 
     enum Presentation:Hashable, Sendable

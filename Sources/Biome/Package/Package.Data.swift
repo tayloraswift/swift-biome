@@ -33,17 +33,17 @@ extension Package.Data
         graph:SymbolGraph, 
         trunk:some Sequence<Epoch<Symbol>>)
     {
-        for (position, vertex):(PluralPosition<Symbol>?, SymbolGraph.Vertex<Int>) in 
+        for (position, vertex):(Atom<Symbol>.Position?, SymbolGraph.Vertex<Int>) in 
             zip(interface.citizenSymbols, graph.vertices)
         {
-            guard let element:Atom<Symbol> = position?.contemporary
+            guard let element:Atom<Symbol> = position?.atom
             else 
             {
                 continue 
             }
             let declaration:Declaration<Atom<Symbol>> = vertex.declaration.flatMap 
             {
-                if let target:Atom<Symbol> = interface.symbols[$0]?.contemporary
+                if let target:Atom<Symbol> = interface.symbols[$0]?.atom
                 {
                     return target 
                 }
