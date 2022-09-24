@@ -78,13 +78,13 @@ extension Organizer.Card<Notebook<Highlight, Never>>
     {
         let signature:HTML.Element<Never> = .a(.render(signature: self.signature), 
             attributes: [.href(self.uri), .class("signature")])
-        if  self.overview.isEmpty 
+        if  let utf8:[UInt8] = try cache.link(self.overview, context: context)
         {
-            return .li(signature)
+            return .li(signature, .init(node: .value(.init(escaped: _move utf8))))
         }
         else 
         {
-            return .li(signature, try cache.link(self.overview, context: context))
+            return .li(signature)
         }
     }
 }

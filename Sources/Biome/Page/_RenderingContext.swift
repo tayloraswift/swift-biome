@@ -70,10 +70,13 @@ struct _SymbolInfo
     )
     let breadcrumbs:Breadcrumbs
     let conditions:Organizer.Conditional
-    let topics:[UInt8]?
     let notes:SymbolTopics.Notes?
     let fragments:Notebook<Highlight, String>
     let availability:Availability
+
+    let overview:[UInt8]?
+    let discussion:[UInt8]?
+    let topics:[UInt8]?
 
     init(_ composite:Composite, 
         context:__shared Package.Context, 
@@ -134,9 +137,22 @@ struct _SymbolInfo
             try cache.load($0, context: context).uri
         }
         self.availability = declaration.availability
+        self.notes = topics.notes 
+
+        var origin:Atom<Symbol> = composite.base 
+        if  let documentation:DocumentationExtension<Never> = 
+                context.documentation(for: &origin)
+        {
+            self.overview = try cache.link(documentation.card, context: context)
+            self.discussion = try cache.link(documentation.body, context: context)
+        }
+        else 
+        {
+            self.overview = nil
+            self.discussion = nil
+        }
         self.topics = try topics.html(context: context, cache: &cache)?.node
             .rendered(as: [UInt8].self)
-        self.notes = topics.notes 
     }
 
     var base:SymbolReference 
@@ -157,6 +173,13 @@ struct _SymbolInfo
             let html:HTML.Element<Never>?
             switch key
             {
+            case .summary: 
+                return self.overview ?? [UInt8].init("No overview available.".utf8)
+            case .discussion: 
+                return self.discussion
+            case .topics: 
+                return self.topics 
+
             case .title: 
                 fatalError("unimplemented") 
             case .constants: 
@@ -185,16 +208,8 @@ struct _SymbolInfo
             case .dependencies: 
                 html = nil
             
-            case .discussion: 
-                fatalError("unimplemented")
-            
             case .fragments: 
-                let fragments:[HTML.Element<Never>] = self.fragments.map 
-                {
-                    .highlight($0.text, $0.color, uri: $0.link)
-                }
-                html = .section(.pre(.code(fragments, attributes: [.class("swift")])), 
-                    attributes: [.class("declaration")])
+                html = self.renderFragments()
             
             case .headline: 
                 html = .h1(self.base.name)
@@ -217,12 +232,6 @@ struct _SymbolInfo
             
             case .platforms: 
                 html = .render(availability: self.availability.platforms)
-
-            case .summary: 
-                fatalError("unimplemented")
-            
-            case .topics: 
-                return self.topics 
             
             case .versions: 
                 fatalError("unimplemented")
@@ -231,6 +240,16 @@ struct _SymbolInfo
         }
     }
 
+    private 
+    func renderFragments() -> HTML.Element<Never>
+    {
+        let fragments:[HTML.Element<Never>] = self.fragments.map 
+        {
+            .highlight($0.text, $0.color, uri: $0.link)
+        }
+        return .section(.pre(.code(fragments, attributes: [.class("swift")])), 
+            attributes: [.class("declaration")])
+    }
     private 
     func renderNotes() -> HTML.Element<Never>? 
     {

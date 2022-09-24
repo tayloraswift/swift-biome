@@ -137,14 +137,14 @@ extension _ReferenceCache
 {
     mutating 
     func link(_ prose:DOM.Flattened<GlobalLink.Presentation>, context:Package.Context) 
-        throws -> HTML.Element<Never> 
+        throws -> [UInt8]?
     {
-        let utf8:[UInt8] = try prose.rendered
+        prose.isEmpty ? nil : try prose.rendered
         {
             try self.expand($0, context: context).node.rendered(as: [UInt8].self)
         }
-        return .init(node: .value(.init(escaped: utf8)))
     }
+
     private mutating 
     func expand(_ link:GlobalLink.Presentation, context:Package.Context) 
         throws -> HTML.Element<Never> 
