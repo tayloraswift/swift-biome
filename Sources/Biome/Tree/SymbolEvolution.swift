@@ -3,11 +3,21 @@ struct SymbolEvolution
     struct Item
     {
         let label:Version.Selector 
-        let address:Address 
+        let uri:String?
     }
 
     private(set)
-    var items:[Item]
+    var items:[Item], 
+        newer:String?
+    let current:(package:Package.ID, branch:Tag)
+
+    private 
+    init(current:__shared Package.Pinned)
+    {
+        self.items = []
+        self.newer = nil
+        self.current = (current.package.id, current.package.tree[current.version.branch].id)
+    }
 }
 // evolution requires *site-wide* context! this is because the set of package pins 
 // can vary over the course of a package’s history, so it’s possible for a 
@@ -23,9 +33,12 @@ extension SymbolEvolution
 {
     init(for atomic:__shared Symbol.ID, 
         in local:__shared Package.Pinned, 
+        functions:__shared Service.PublicFunction.Names,
         context:__shared Packages)
     {
-        self.items = []
+        self.init(current: local)
+
+        let current:Version = local.version 
         for branch:Branch in local.package.tree 
         {
             let detail:Int = branch.index == local.version.branch ? 8 : 1
@@ -34,6 +47,14 @@ extension SymbolEvolution
             {
                 (local:__owned Package.Pinned) in 
 
+                guard local.version != current 
+                else 
+                {
+                    self.items.append(.init(
+                        label: local.package.tree.abbreviate(local.version) ?? .tag(branch.id), 
+                        uri: nil))
+                    return 
+                }
                 guard   let symbol:Atom<Symbol>.Position = 
                             local.symbols.find(atomic),
                             local.exists(symbol.atom),
@@ -54,17 +75,26 @@ extension SymbolEvolution
                 {
                     let label:Version.Selector? = 
                         context.local.package.tree.abbreviate(context.local.version)
-                    self.items.append(.init(label: label ?? .tag(branch.id), 
-                        address: address))
+                    let uri:String = address.uri(functions: functions).description
+                    self.items.append(.init(label: label ?? .tag(branch.id), uri: uri))
+
+                    if case context.local.version.revision? = branch.head, 
+                            current.branch == branch.index
+                    {
+                        self.newer = uri
+                    }
                 }
             }
         }
     }
     init(for compound:__shared Compound.ID, 
-        in local:__shared Package.Pinned, 
+        in local:__shared Package.Pinned,
+        functions:__shared Service.PublicFunction.Names,
         context:__shared Packages)
     {
-        self.items = []
+        self.init(current: local)
+
+        let current:Version = local.version 
         for branch:Branch in local.package.tree 
         {
             let detail:Int = branch.index == local.version.branch ? 8 : 1
@@ -73,6 +103,14 @@ extension SymbolEvolution
             {
                 (local:__owned Package.Pinned) in 
 
+                guard local.version != current 
+                else 
+                {
+                    self.items.append(.init(
+                        label: local.package.tree.abbreviate(local.version) ?? .tag(branch.id), 
+                        uri: nil))
+                    return 
+                }
                 guard   let culture:Atom<Module>.Position = 
                             local.modules.find(compound.culture), 
                         let metadata:Module.Metadata = 
@@ -103,8 +141,14 @@ extension SymbolEvolution
                 {
                     let label:Version.Selector? = 
                         context.local.package.tree.abbreviate(context.local.version)
-                    self.items.append(.init(label: label ?? .tag(branch.id), 
-                        address: address))
+                    let uri:String = address.uri(functions: functions).description
+                    self.items.append(.init(label: label ?? .tag(branch.id), uri: uri))
+                    
+                    if case context.local.version.revision? = branch.head, 
+                            current.branch == branch.index
+                    {
+                        self.newer = uri
+                    }
                 }
             }
         }

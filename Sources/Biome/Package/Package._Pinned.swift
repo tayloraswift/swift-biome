@@ -246,24 +246,7 @@ extension Package.Pinned
             }
     }
 }
-extension Package.Pinned 
-{
-    func evolution(of compound:Compound) 
-    {
-        // in general, 
-        if self.nationality == compound.host.nationality
-        {
-            // compound is a local compound. its evolution follows that of its host.
-            // we can locate the founder branch via bisection search for the host.
-        }
-        else 
-        {
-            // compound is a cross-package compound. we define the founder branch 
-            // to be the earliest ancestor branch that contained metadata for its 
-            // host. 
-        }
-    }
-}
+
 extension Package.Pinned 
 {
     func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 

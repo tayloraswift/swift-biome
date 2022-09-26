@@ -8,7 +8,7 @@ struct _MetadataLoadingError:Error
 struct _DeclarationLoadingError:Error 
 {
 }
-struct _SymbolInfo 
+struct SymbolPage 
 {
     struct Breadcrumbs:RandomAccessCollection
     {
@@ -62,6 +62,8 @@ struct _SymbolInfo
             }
         }
     }
+
+    let evolution:SymbolEvolution
     let culture:
     (
         composite:ModuleReference, 
@@ -79,11 +81,13 @@ struct _SymbolInfo
     let topics:[UInt8]?
 
     init(_ composite:Composite, 
+        evolution:SymbolEvolution,
         context:__shared AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
-        // note: context is anisotropic
         assert(context.local.nationality == composite.nationality)
+
+        self.evolution = evolution
 
         let base:SymbolReference = try cache.load(composite.base, context: context)
         self.culture.composite = try cache.load(composite.culture, context: context)
@@ -226,15 +230,34 @@ struct _SymbolInfo
                 html = self.renderNotes()
             
             case .notices: 
-                fatalError("unimplemented")
+                if let newer:String = self.evolution.newer 
+                {
+                    html = .div(.div(.p()), .div(.p(
+                            .init(escaped: "There’s a "),
+                            .a("newer version", attributes: [.href(newer)]),
+                            .init(escaped: " of this documentation available."))), 
+                        attributes: [.class("notice extinct")])
+                }
+                else 
+                {
+                    html = nil
+                }
+            
             case .pin: 
-                fatalError("unimplemented") 
+                let package:HTML.Element<Never> = 
+                    .span(self.evolution.current.package.title, 
+                        attributes: [.class("package")])
+                let branch:HTML.Element<Never> = 
+                    .span(self.evolution.current.branch.description, 
+                        attributes: [.class("version")]) 
+                return package.node.rendered(as: [UInt8].self) + 
+                    branch.node.rendered(as: [UInt8].self)
             
             case .platforms: 
                 html = .render(availability: self.availability.platforms)
             
             case .versions: 
-                fatalError("unimplemented")
+                html = self.renderAvailableVersions()
             }
             return html?.node.rendered(as: [UInt8].self)
         }
@@ -302,5 +325,21 @@ struct _SymbolInfo
         }
         
         return items.isEmpty ? nil : .ul(items, attributes: [.class("notes")])
+    }
+    private 
+    func renderAvailableVersions() -> HTML.Element<Never> 
+    {
+        .ol(self.evolution.items.map 
+        {
+            let text:String = $0.label.description
+            if let uri:String = $0.uri 
+            {
+                return .li(.a(text, attributes: [.href(uri)]))
+            }
+            else 
+            {
+                return .li(.span(text), attributes: [.class("current")])
+            }
+        })
     }
 }
