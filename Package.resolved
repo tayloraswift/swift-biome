@@ -33,7 +33,7 @@
       "location" : "https://github.com/apple/swift-cmark.git",
       "state" : {
         "branch" : "gfm",
-        "revision" : "6ddaa3991789bd790a9a6004566f99d85bfcb675"
+        "revision" : "eb9a6a357b6816c68f4b194eaa5b67f3cd1fa5c3"
       }
     },
     {
@@ -86,8 +86,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-markdown.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-09-12-a",
-        "revision" : "52563fc74a540b29854fde20e836b27394be2749"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-09-24-a",
+        "revision" : "69f31f83a5dca9a3401d3e8fc8ff74804b0dd0ca"
       }
     },
     {
@@ -113,8 +113,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-syntax.git",
       "state" : {
-        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-09-12-a",
-        "revision" : "e6fa90ca5e47803439ab478d51ee1c833619e8f8"
+        "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-09-24-a",
+        "revision" : "f0d742e9ae37988c16768a321927a4e76cd1e118"
       }
     },
     {

@@ -66,7 +66,7 @@ extension Organizer.Enclave
 }
 extension Organizer.Enclave<Organizer.Card<Notebook<Highlight, Never>>>
 {
-    func html(context:Package.Context, cache:inout _ReferenceCache) 
+    func html(context:some PackageContext, cache:inout ReferenceCache) 
         throws -> [HTML.Element<Never>] 
     {
         self.h4(elements: try self.elements.map 

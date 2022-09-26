@@ -19,8 +19,8 @@ extension Organizer
         }
 
         init(_ constraints:[Generic.Constraint<Atom<Symbol>>], 
-            context:__shared Package.Context, 
-            cache:inout _ReferenceCache) throws
+            context:__shared some PackageContext, 
+            cache:inout ReferenceCache) throws
         {
             self.init(try constraints.map 
             {
@@ -38,13 +38,11 @@ extension Organizer
     {
         // the displayed symbol and uri are not necessarily the same symbol
         let conditions:Conditions
-        let display:SymbolReference.Display
+        let display:Symbol.Display
         let uri:String 
 
         private 
-        init(where conditions:Conditions, 
-            display:SymbolReference.Display,
-            uri:String)
+        init(where conditions:Conditions, display:Symbol.Display, uri:String)
         {
             self.conditions = conditions
             self.display = display
@@ -57,10 +55,10 @@ extension Organizer.Item
     private 
     init(_ symbol:SymbolReference, 
         where conditions:Conditions, 
-        context:__shared Package.Context, 
-        cache:inout _ReferenceCache) throws
+        context:__shared some PackageContext, 
+        cache:inout ReferenceCache) throws
     {
-        let display:SymbolReference.Display 
+        let display:Symbol.Display 
         switch symbol.community 
         {
         case .associatedtype, .callable(_):
@@ -69,7 +67,7 @@ extension Organizer.Item
             {
                 fallthrough
             }
-            display = cache.load(scope, context: context).display
+            display = try cache.load(scope, context: context).display
         default: 
             display = symbol.display
         }
@@ -79,14 +77,14 @@ extension Organizer.Item
 extension Organizer.Item<Organizer.Unconditional>
 {
     init(_ symbol:SymbolReference, 
-        context:__shared Package.Context, 
-        cache:inout _ReferenceCache) throws
+        context:__shared some PackageContext, 
+        cache:inout ReferenceCache) throws
     {
         try self.init(symbol, where: .init(), context: context, cache: &cache)
     }
     init(_ symbol:Atom<Symbol>, 
-        context:__shared Package.Context, 
-        cache:inout _ReferenceCache) throws
+        context:__shared some PackageContext, 
+        cache:inout ReferenceCache) throws
     {
         try self.init(try cache.load(symbol, context: context), where: .init(), 
             context: context, 
@@ -97,8 +95,8 @@ extension Organizer.Item<Organizer.Conditional>
 {
     init(_ symbol:Atom<Symbol>, 
         where constraints:[Generic.Constraint<Atom<Symbol>>], 
-        context:__shared Package.Context, 
-        cache:inout _ReferenceCache) throws
+        context:__shared some PackageContext, 
+        cache:inout ReferenceCache) throws
     {
         try self.init(try cache.load(symbol, context: context), 
             where: .init(constraints, context: context, cache: &cache), 

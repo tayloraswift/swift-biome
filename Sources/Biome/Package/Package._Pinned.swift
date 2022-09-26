@@ -1,51 +1,5 @@
 import URI 
 
-struct _Scope 
-{
-    let namespace:Atom<Module>
-    let path:[String]
-
-    init(_ namespace:Atom<Module>, _ path:[String] = [])
-    {
-        self.namespace = namespace 
-        self.path = path
-    }
-    init(_ symbol:__shared Symbol)
-    {
-        switch symbol.orientation 
-        {
-        case .gay:
-            self.init(symbol.namespace,       symbol.path.prefix)
-        case .straight:
-            self.init(symbol.namespace, .init(symbol.path))
-        }
-    }
-
-    func scan<T>(concatenating link:_SymbolLink, stems:Route.Stems, 
-        until match:(Route) throws -> T?) rethrows -> T?
-    {
-        for level:Int in self.path.indices.reversed()
-        {
-            if  let key:Route = 
-                    stems[self.namespace, self.path.prefix(through: level), link],
-                let match:T = try match(key)
-            {
-                return match
-            }
-        }
-        return try stems[self.namespace, link].flatMap(match)
-    }
-}
-
-extension [Package.Index: Package._Pinned] 
-{
-    mutating 
-    func update(with pinned:__owned Package._Pinned) 
-    {
-        self[pinned.nationality] = pinned
-    }
-}
-
 extension Package 
 {
     typealias _Pinned = Pinned 
@@ -57,11 +11,16 @@ extension Package
         private 
         let fasces:Fasces 
         
-        init(_ package:Package, version:Version)
+        private 
+        init(_ package:Package, version:Version, fasces:Fasces)
         {
             self.package = package
             self.version = version
-            self.fasces = self.package.tree.fasces(through: self.version)
+            self.fasces = fasces
+        }
+        init(_ package:Package, version:Version)
+        {
+            self.init(package, version: version, fasces: package.tree.fasces(through: version))
         }
 
         var revision:Branch.Revision 
@@ -99,19 +58,60 @@ extension Package
                 self = .init(self.package, version: version)       
             }
         }
-        func repinned(to version:Version) -> Self 
-        {
-            var repinned:Self = self 
-                repinned.repin(to: version)
-            return repinned
-        }
+    }
+}
+
+extension Composite 
+{
+    enum ID 
+    {
+        case atomic(Symbol.ID)
+        case compound(Compound.ID)
+    }
+}
+extension Compound 
+{
+    struct ID 
+    {
+        let base:Symbol.ID
+        let host:Symbol.ID
+        let culture:Module.ID 
     }
 }
 
 extension Package.Pinned 
 {
+    func repinned(to version:Version) -> Self 
+    {
+        var repinned:Self = self 
+            repinned.repin(to: version)
+        return repinned
+    }
+    func repinned(to revisions:[Version.Revision], of branch:Branch, 
+        _ body:(__owned Self) throws -> ()) rethrows 
+    {
+        let trunk:Fasces? = branch.fork.map(self.package.tree.fasces(through:))
+        for revision:Version.Revision in revisions 
+        {
+            let version:Version = .init(branch.index, revision)
+            let fasces:Fasces
+            if let trunk:Fasces 
+            {
+                fasces = .init([branch[...revision]] + trunk)
+            }
+            else 
+            {
+                fasces =       [branch[...revision]]
+            }
+            try body(.init(self.package, version: version, fasces: _move fasces))
+        }
+    }
+}
+extension Package.Pinned 
+{
     func load(local article:Atom<Article>) -> Article?
     {
+        assert(self.nationality == article.nationality)
         if let position:Atom<Article>.Position = article.positioned(bisecting: self.articles)
         {
             return self.package.tree[local: position]
@@ -123,6 +123,7 @@ extension Package.Pinned
     }
     func load(local symbol:Atom<Symbol>) -> Symbol?
     {
+        assert(self.nationality == symbol.nationality)
         if let position:Atom<Symbol>.Position = symbol.positioned(bisecting: self.symbols)
         {
             return self.package.tree[local: position]
@@ -134,6 +135,7 @@ extension Package.Pinned
     }
     func load(local module:Atom<Module>) -> Module?
     {
+        assert(self.nationality == module.nationality)
         if let position:Atom<Module>.Position = module.positioned(bisecting: self.modules)
         {
             return self.package.tree[local: position]
@@ -242,6 +244,24 @@ extension Package.Pinned
             {
                 $0?.contains(feature: compound.base) ?? false 
             }
+    }
+}
+extension Package.Pinned 
+{
+    func evolution(of compound:Compound) 
+    {
+        // in general, 
+        if self.nationality == compound.host.nationality
+        {
+            // compound is a local compound. its evolution follows that of its host.
+            // we can locate the founder branch via bisection search for the host.
+        }
+        else 
+        {
+            // compound is a cross-package compound. we define the founder branch 
+            // to be the earliest ancestor branch that contained metadata for its 
+            // host. 
+        }
     }
 }
 extension Package.Pinned 
@@ -360,26 +380,24 @@ extension Package.Pinned
     /// standard library or one of the core libraries.
     func address(function:Service.PublicFunction = .documentation(.symbol)) -> Address
     {
-        return .init(function: .documentation(.symbol), global: .init(
-            residency: self.package.id, 
-            version: self.package.tree.abbreviate(self.version)))
+        return .init(.init(nil,
+                residency: self.package.id, 
+                version: self.package.tree.abbreviate(self.version)), 
+            function: .documentation(.symbol))
     }
     /// Returns the address of the specified module, assuming it is local to this package.
-    func address(local module:Atom<Module>) -> Address?
+    func address(of module:Atom<Module>) -> Address?
     {
         self.load(local: module).map(self.address(of:))
     }
     func address(of module:Module) -> Address
     {
-        let global:Address.Global = .init(
-            residency: module.nationality.isCommunityPackage ? self.package.id : nil, 
-            version: self.package.tree.abbreviate(self.version), 
-            local: .init(namespace: module.id))
-        return .init(function: module.isFunction ? nil : .documentation(.symbol), 
-            global: _move global)
+        .init(.init(.init(nil, namespace: module.id), residency: self), 
+            function: module.isFunction ? nil : .documentation(.symbol))
     }
+
     /// Returns the address of the specified article, assuming it is local to this package.
-    func address(local article:Atom<Article>) -> Address?
+    func address(of article:Atom<Article>) -> Address?
     {
         if  let namespace:Module = self.load(local: article.culture),
             let article:Article = self.load(local: article)
@@ -393,14 +411,144 @@ extension Package.Pinned
     }
     func address(of article:Article, namespace:Module) -> Address
     {
-        let local:Address.Local = .init(namespace: namespace.id, 
-            symbolic: .init(path: article.path, orientation: .straight))
-        let global:Address.Global = .init(
-            residency: namespace.nationality.isCommunityPackage ? self.package.id : nil, 
-            version: self.package.tree.abbreviate(self.version), 
-            local: _move local)
-        return .init(function: namespace.isFunction ? nil : .documentation(.doc), 
-            global: _move global)
+        .init(.init(.init(.init(path: article.path, orientation: .straight), 
+                namespace: namespace.id), 
+                residency: self), 
+            function: namespace.isFunction ? nil : .documentation(.doc))
+    }
+
+    /// Returns the address of the specified composite, if all of its components 
+    /// are defined in the provided context.
+    func address(of composite:Composite,
+        disambiguate:Address.DisambiguationLevel = .minimally, 
+        context:some PackageContext) -> Address?
+    {
+        if let compound:Compound = composite.compound 
+        {
+            return self.address(of: compound, 
+                disambiguate: disambiguate, 
+                context: context)
+        }
+        else 
+        {
+            return self.address(of: composite.base, 
+                disambiguate: disambiguate, 
+                context: context)
+        }
+    }
+    func address(of atomic:Atom<Symbol>,
+        disambiguate:Address.DisambiguationLevel = .minimally, 
+        context:some PackageContext) -> Address?
+    {
+        if let symbol:Symbol = self.load(local: atomic)
+        {
+            return self.address(of: atomic, symbol: symbol, 
+                disambiguate: disambiguate, 
+                context: context)
+        }
+        else 
+        {
+            return nil
+        }
+    }
+    func address(of compound:Compound,
+        disambiguate:Address.DisambiguationLevel = .minimally, 
+        context:some PackageContext) -> Address?
+    {
+        if  let host:Symbol = context.load(compound.host), 
+            let base:Symbol = context.load(compound.base)
+        {
+            return self.address(of: compound, host: host, base: base, 
+                disambiguate: disambiguate, 
+                context: context)
+        }
+        else 
+        {
+            return nil
+        }
+    }
+
+    /// atomic addresses still require a full context, because they can still 
+    /// migrate across namespaces.
+    func address(of atomic:Atom<Symbol>, symbol:Symbol,
+        disambiguate:Address.DisambiguationLevel = .minimally, 
+        context:some PackageContext) -> Address?
+    {
+        assert(self.nationality == atomic.nationality)
+
+        var address:Address.Symbolic = .init(path: symbol.path, orientation: symbol.orientation)
+        switch disambiguate 
+        {
+        case .never: 
+            break 
+        
+        case .minimally:
+            switch self.depth(of: symbol.route, atomic: atomic)
+            {
+            case nil: 
+                break 
+            case .base?: 
+                address.base = symbol.id 
+            }
+        
+        case .maximally:
+            address.base = symbol.id 
+        }
+        
+        if  symbol.namespace.nationality != atomic.nationality 
+        {
+            address.nationality = .init(id: self.package.id, 
+                version: self.package.tree.abbreviate(self.version))
+        }
+
+        return .init(address, namespace: symbol.namespace, context: context)
+    }
+    func address(of compound:Compound, host:Symbol, base:Symbol,
+        disambiguate:Address.DisambiguationLevel = .minimally, 
+        context:some PackageContext) -> Address?
+    {
+        assert(self.nationality == compound.nationality)
+
+        guard let stem:Route.Stem = host.kind.path
+        else 
+        {
+            return nil 
+        }
+
+        var path:Path = host.path 
+            path.append(base.name)
+        
+        var address:Address.Symbolic = .init(path: _move path, orientation: base.orientation)
+        switch disambiguate 
+        {
+        case .never: 
+            break 
+        
+        case .minimally:
+            switch self.depth(of: .init(host.namespace, stem, base.route.leaf), 
+                compound: compound)
+            {
+            case nil: 
+                break 
+            case .base?: 
+                address.base = base.id 
+            case .host?:
+                address.base = base.id 
+                address.host = host.id 
+            }
+        
+        case .maximally:
+            address.base = base.id 
+            address.host = host.id 
+        }
+        
+        if  host.namespace.nationality != compound.nationality 
+        {
+            address.nationality = .init(id: self.package.id, 
+                version: self.package.tree.abbreviate(self.version))
+        }
+
+        return .init(address, namespace: host.namespace, context: context)
     }
 }
 
@@ -418,7 +566,8 @@ extension Branch
 }
 extension Package.Pinned 
 {
-    func depth(of route:Route, atom:Atom<Symbol>) -> Branch.AtomicDepth?
+    private 
+    func depth(of route:Route, atomic:Atom<Symbol>) -> Branch.AtomicDepth?
     {
         do 
         {
@@ -429,7 +578,7 @@ extension Package.Pinned
                 {
                     return () 
                 }
-                if $0.base != atom 
+                if $0.base != atomic 
                 {
                     throw Branch.AtomicDepth.base 
                 }
@@ -441,6 +590,7 @@ extension Package.Pinned
             return .base
         }
     }
+    private 
     func depth(of route:Route, compound:Compound) -> Branch.CompoundDepth?
     {
         do 
@@ -474,36 +624,3 @@ extension Package.Pinned
         }
     }
 }
-// extension Package._Pinned 
-// {
-//     func _all() 
-//     {
-//         let modules:Set<Atom<Module>> = self._allModules()
-//         for epoch:Epoch<Module> in self.fasces.modules 
-//         {
-//             for (module, divergence):(Atom<Module>, Module.Divergence) in 
-//                 epoch.divergences
-//             {
-//                 for (range, _):(Range<Symbol.Offset>, Atom<Module>) in divergence.symbols 
-//                 {
-//                     for offset:Symbol.Offset in range 
-//                     {
-//                         self.missingSymbols.insert(.init(module, offset: offset))
-//                     }
-//                 }
-//             }
-//         }
-//     }
-//     func _allModules() -> Set<Atom<Module>>
-//     {
-//         var modules:Set<Atom<Module>> = []
-//         for module:Module in self.fasces.modules.joined()
-//         {
-//             if self.exists(module.index)
-//             {
-//                 modules.insert(module.index)
-//             }
-//         }
-//         return modules
-//     }
-// }

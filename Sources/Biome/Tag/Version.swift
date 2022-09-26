@@ -4,13 +4,27 @@ typealias _Version = Version
 struct Version:Hashable, Sendable
 {
     /// A reference to a ``/Biome//Branch`` within a ``Tree``.
-    struct Branch:Hashable, Sendable 
+    struct Branch:Hashable, Strideable, Sendable 
     {
-        let index:Int 
+        let index:UInt16 
 
-        init(_ index:Int)
+        init(_ index:UInt16)
         {
             self.index = index
+        }
+        
+        static 
+        func < (lhs:Self, rhs:Self) -> Bool
+        {
+            lhs.index < rhs.index
+        }
+        func advanced(by stride:Int.Stride) -> Self 
+        {
+            .init(self.index.advanced(by: stride))
+        }
+        func distance(to other:Self) -> Int.Stride
+        {
+            self.index.distance(to: other.index)
         }
     }
     /// A reference to a ``/Biome//Revision`` within a ``/Biome//Branch``. 

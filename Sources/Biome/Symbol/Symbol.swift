@@ -1,7 +1,7 @@
 import SymbolGraphs
 
 public
-struct Symbol:Sendable, CustomStringConvertible  
+struct Symbol:Sendable  
 {
     public 
     typealias Culture = Module.Index 
@@ -24,6 +24,21 @@ struct Symbol:Sendable, CustomStringConvertible
 
     var pollen:Set<Module.Pin>
     
+    init(id:ID, path:Path, kind:Kind, route:Route)
+    {
+        self.id = id 
+        self.path = path
+        self.kind = kind
+        self.route = route
+        self.shape = nil
+        
+        self.metadata = nil 
+        self.declaration = nil
+        self.documentation = nil
+        
+        self.pollen = []
+    }
+
     var community:Community 
     {
         self.kind.community 
@@ -57,24 +72,30 @@ struct Symbol:Sendable, CustomStringConvertible
     {
         self.community.orientation
     }
+}
+extension Symbol 
+{
+    struct Display 
+    {
+        let path:Path
+        let community:Community
+
+        var name:String 
+        {
+            self.path.last
+        }
+    }
+    
+    var display:Display 
+    {
+        .init(path: self.path, community: self.community)
+    }
+}
+extension Symbol:CustomStringConvertible 
+{
     public
     var description:String 
     {
         self.path.description
-    }
-    
-    init(id:ID, path:Path, kind:Kind, route:Route)
-    {
-        self.id = id 
-        self.path = path
-        self.kind = kind
-        self.route = route
-        self.shape = nil
-        
-        self.metadata = nil 
-        self.declaration = nil
-        self.documentation = nil
-        
-        self.pollen = []
     }
 }

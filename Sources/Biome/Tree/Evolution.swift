@@ -1,3 +1,5 @@
+import Forest
+
 struct Evolution 
 {
     enum Label 
@@ -28,43 +30,63 @@ struct Evolution
         history:__shared History<Symbol.Metadata?>)
     {
         self.rows = []
-        self.scan(founder: symbol.branch, tree: tree,
-            element: symbol.atom, 
-            history: history)
+
+        let founder:Branch = tree[symbol.branch]
+        self.scan(founder: founder, tree: tree,
+            keyframes: history[founder.symbols[contemporary: symbol.atom].metadata])
         {
-            switch $0
-            {
-            case nil: return .extinct 
-            case  _?: return .extant
-            }
+            history[$0.symbols.divergences[symbol.atom]?.metadata?.head]
+        }
+        label:
+        {
+            _ in .extant
         }
     }
-    // init(atomic symbol:Atom<Symbol>.Position, 
-    //     in tree:__shared Tree, 
-    //     history:__shared History<Symbol.Metadata?>)
-    // {
-    //     self.rows = []
-    //     self.scan(founder: symbol.branch, tree: tree,
-    //         element: symbol.atom, 
-    //         history: history)
-    //     {
-    //         switch $0
-    //         {
-    //         case nil: return .extinct 
-    //         case  _?: return .extant
-    //         }
-    //     }
-    // }
+    init(compound:Compound, context:IsotropicContext)
+    {
+        self.rows = []
+        // compounds don’t “exist”, so their founder branch is always 
+        // the root branch (usually the default branch).
+        guard let pinned:Package.Pinned = context[compound.nationality]
+        else 
+        {
+            return
+        }
+        let founder:Branch = pinned.package.tree.root(of: pinned.version.branch)
+
+        if compound.host.nationality == compound.nationality 
+        {
+            let history:History<Symbol.Metadata?> = pinned.package.metadata.symbols
+            self.scan(founder: founder, tree: pinned.package.tree, 
+                keyframes: history[founder.symbols[contemporary: compound.host].metadata])
+            {
+                history[$0.symbols.divergences[compound.host]?.metadata?.head]
+            }
+            label:
+            {
+                if $0.contains(feature: compound)
+                {
+                    return .extant
+                }
+                else 
+                {
+                    return .extinct 
+                }
+            }
+        }
+        else 
+        {
+
+        }
+    }
     
     private mutating 
-    func scan(founder:Version.Branch, tree:Tree,
-        element:Atom<Symbol>, 
-        history:History<Symbol.Metadata?>, 
-        label:(Symbol.Metadata?) throws -> Label) rethrows
+    func scan(founder branch:Branch, tree:Tree,
+        keyframes:Forest<History<Symbol.Metadata?>.Keyframe>.Tree,
+        alternate:(Branch) throws -> Forest<History<Symbol.Metadata?>.Keyframe>.Tree,
+        label:(Symbol.Metadata) throws -> Label) rethrows
     {
-        let branch:Branch = tree[founder]
-        var keyframes:History<Symbol.Metadata?>.Iterator = 
-            history[branch.symbols[contemporary: element].metadata].makeIterator()
+        var keyframes:Forest<History<Symbol.Metadata?>.Keyframe>.Tree.Iterator = keyframes.makeIterator()
 
         guard var regime:History<Symbol.Metadata?>.Keyframe = keyframes.next()
         else 
@@ -82,29 +104,25 @@ struct Evolution
                 }
                 regime = predecessor
             }
-            let inherit:Label = try label(regime.value)
-            for alternate:Version.Branch in branch.revisions[revision].alternates 
+            let inherit:Label = try label(regime.value!)
+            for branch:Version.Branch in branch.revisions[revision].alternates 
             {
-                try self.scan(alternate: alternate, tree: tree, 
-                    element: element, 
-                    history: history, 
+                try self.scan(alternate: tree[branch], tree: tree, 
                     inherit: inherit, 
+                    view: alternate,
                     label: label)
             }
-            self.rows.append(.init(version: .init(founder, revision), label: inherit))
+            self.rows.append(.init(version: .init(branch.index, revision), label: inherit))
         }
     }
     private mutating 
-    func scan(alternate:Version.Branch, tree:Tree,
+    func scan(alternate branch:Branch, tree:Tree,
         distance:Int = 1, 
-        element:Atom<Symbol>, 
-        history:History<Symbol.Metadata?>, 
         inherit:Label, 
-        label:(Symbol.Metadata?) throws -> Label) rethrows 
+        view:(Branch) throws -> Forest<History<Symbol.Metadata?>.Keyframe>.Tree, 
+        label:(Symbol.Metadata) throws -> Label) rethrows 
     {
-        let branch:Branch = tree[alternate]
-        var keyframes:History<Symbol.Metadata?>.Iterator = 
-            history[branch.symbols.divergences[element]?.metadata?.head].makeIterator()
+        var keyframes:Forest<History<Symbol.Metadata?>.Keyframe>.Tree.Iterator = try view(branch).makeIterator()
 
         var regime:History<Symbol.Metadata?>.Keyframe? = keyframes.next()
         let start:Version.Revision = branch.revisions.startIndex
@@ -115,18 +133,17 @@ struct Evolution
             {
                 regime = keyframes.next() 
             }
-            let inherit:Label = try regime.map { try label($0.value) } ?? inherit
+            let inherit:Label = try regime.map { try label($0.value!) } ?? inherit
             for alternate:Version.Branch in branch.revisions[revision].alternates 
             {
-                try self.scan(alternate: alternate, tree: tree, 
+                try self.scan(alternate: tree[alternate], tree: tree, 
                     distance: distance + 1,
-                    element: element, 
-                    history: history, 
                     inherit: inherit, 
+                    view: view,
                     label: label)
             }
             self.rows.append(.init(distance: distance, 
-                version: .init(alternate, revision), 
+                version: .init(branch.index, revision), 
                 label: inherit, 
                 fork: revision == start))
         }

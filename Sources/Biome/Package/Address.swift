@@ -8,13 +8,23 @@ struct Address
         case minimally 
         case maximally 
     }
+
+    var function:Service.PublicFunction? 
+    var global:Global
+
+    init(_ global:Global, function:Service.PublicFunction?)
+    {
+        self.global = global
+        self.function = function
+    }
+
     struct Global
     {
         var residency:Package.ID?
         var version:Version.Selector?
         var local:Local?
 
-        init(residency:Package.ID?, version:Version.Selector?, local:Local? = nil)
+        init(_ local:Local?, residency:Package.ID?, version:Version.Selector?)
         {
             self.residency = residency
             self.version = version
@@ -26,7 +36,7 @@ struct Address
         var namespace:Module.ID 
         var symbolic:Symbolic?
 
-        init(namespace:Module.ID, symbolic:Symbolic? = nil)
+        init(_ symbolic:Symbolic?, namespace:Module.ID)
         {
             self.namespace = namespace 
             self.symbolic = symbolic
@@ -49,10 +59,36 @@ struct Address
             self.nationality = nil 
         }
     }
-
-    var function:Service.PublicFunction? 
-    var global:Global
 }
+
+extension Address.Global 
+{
+    init(_ local:Address.Local?, residency:__shared Package.Pinned)
+    {
+        self.init(_move local, 
+            residency: residency.nationality.isCommunityPackage ? 
+                residency.package.id : nil, 
+            version: residency.package.tree.abbreviate(residency.version))
+    }
+} 
+extension Address 
+{
+    init?(_ symbolic:Symbolic, namespace:Atom<Module>, context:__shared some PackageContext)
+    {
+        if  let residency:Package.Pinned = context[namespace.nationality],
+            let namespace:Module = residency.load(local: namespace)
+        {
+            self.init(.init(.init(_move symbolic, namespace: namespace.id), 
+                residency: residency), 
+                function: .documentation(.symbol))
+        }
+        else 
+        {
+            return nil
+        }
+    }
+}
+
 extension Address 
 {
     func uri(functions:Service.PublicFunction.Names) -> URI 

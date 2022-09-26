@@ -137,7 +137,7 @@ struct Packages
             interfaces.reserveCapacity(graphs.count)
         for graph:SymbolGraph in graphs 
         {
-            let module:Atom<Module>.Position = self[package].tree[branch].add(module: graph.id, 
+            let module:Atom<Module>.Position = self[package].tree[branch].add(module: graph.id,
                 culture: package, 
                 fasces: fasces)
 

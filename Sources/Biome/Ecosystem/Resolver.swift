@@ -11,7 +11,7 @@ struct Resolver
     private 
     struct Lenses:RandomAccessCollection
     {
-        let context:Package.Context 
+        let context:AnisotropicContext
         private 
         let upstream:[Package.Pinned]
 
@@ -31,7 +31,7 @@ struct Resolver
             }
         }
 
-        init(_ context:Package.Context)
+        init(_ context:AnisotropicContext)
         {
             self.upstream = .init(context.upstream.values) 
             self.context = context
@@ -69,7 +69,7 @@ struct Resolver
         namespaces:Namespaces, 
         context:__shared Packages)
     {
-        let context:Package.Context = .init(local: _move local, pins: pins, context: context)
+        let context:AnisotropicContext = .init(local: _move local, pins: pins, context: context)
         var linked:[Package.ID: Package.Pinned] = .init(minimumCapacity: pins.count + 1)
             linked[context.local.package.id] = context.local 
         for upstream:Package.Pinned in context.upstream.values 
@@ -81,7 +81,7 @@ struct Resolver
         self.linked = linked
     }
 
-    var context:Package.Context 
+    var context:AnisotropicContext
     {
         _read 
         {

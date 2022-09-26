@@ -39,8 +39,8 @@ struct _SymbolInfo
         }
 
         init(base:SymbolReference, host:SymbolReference?, 
-            context:__shared Package.Context, 
-            cache:inout _ReferenceCache) throws 
+            context:__shared some PackageContext, 
+            cache:inout ReferenceCache) throws 
         {
             self.base = base 
             self.host = host 
@@ -48,16 +48,16 @@ struct _SymbolInfo
             self.elements.reserveCapacity(self.host == nil ? 
                 base.path.count - 1 : 
                 base.path.count)
-            var next:SymbolReference? = self.host ?? base.shape.map 
+            var next:SymbolReference? = try self.host ?? base.shape.map 
             {
-                cache.load($0.target, context: context)
+                try cache.load($0.target, context: context)
             }
             while let current:SymbolReference = next 
             {
                 self.elements.append((display: current.name, uri: current.uri))
-                next = current.shape.map 
+                next = try current.shape.map 
                 {
-                    cache.load($0.target, context: context)
+                    try cache.load($0.target, context: context)
                 }
             }
         }
@@ -79,8 +79,8 @@ struct _SymbolInfo
     let topics:[UInt8]?
 
     init(_ composite:Composite, 
-        context:__shared Package.Context, 
-        cache:inout _ReferenceCache) throws 
+        context:__shared AnisotropicContext, 
+        cache:inout ReferenceCache) throws 
     {
         // note: context is anisotropic
         assert(context.local.nationality == composite.nationality)

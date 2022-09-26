@@ -23,19 +23,8 @@ struct ModuleReference
 }
 struct SymbolReference 
 {
-    struct Display 
-    {
-        let path:Path
-        let community:Community
-
-        var name:String 
-        {
-            self.path.last
-        }
-    }
-
     let shape:Symbol.Shape<Atom<Symbol>.Position>?
-    let display:Display
+    let display:Symbol.Display
     let namespace:Atom<Module>
     let uri:String 
 
@@ -75,40 +64,156 @@ extension ArticleReference
     }
 }
 
-struct _ReferenceCache 
+struct SymbolReferenceError:Error
 {
+    let key:Atom<Symbol>
 
-    // struct CompoundReference 
-    // {
-    //     let uri:String 
-    // }
+    init(_ key:Atom<Symbol>)
+    {
+        self.key = key
+    }
+}
 
+struct ReferenceCache 
+{
+    private 
+    var articles:[Atom<Article>: ArticleReference]
+    private 
+    var symbols:[Atom<Symbol>: SymbolReference]
+    private 
+    var modules:[Atom<Module>: ModuleReference]
+    private 
+    var uris:[Compound: String]
+    private 
     let functions:Service.PublicFunction.Names
 
-    mutating 
-    func load(_ article:Atom<Article>, context:Package.Context) throws -> ArticleReference
+    init(functions:Service.PublicFunction.Names)
     {
-        fatalError("unimplemented")
-    }
-    
-    mutating 
-    func load(_ symbol:Atom<Symbol>, context:Package.Context) throws -> SymbolReference
-    {
-        fatalError("unimplemented")
-    }
-    mutating 
-    func load(_ symbol:Atom<Symbol>.Position, context:Package.Context) -> SymbolReference 
-    {
-        fatalError("unimplemented")
+        self.functions = functions 
+        self.articles = [:]
+        self.symbols = [:]
+        self.modules = [:]
+        self.uris = [:]
     }
 
-    mutating 
-    func load(_ module:Atom<Module>, context:Package.Context) throws -> ModuleReference
+    private mutating
+    func miss(_ key:Atom<Module>, module:Module, address:Address) -> ModuleReference
     {
-        fatalError("unimplemented")
+        let reference:ModuleReference = .init(name: module.id, 
+            uri: address.uri(functions: self.functions).description)
+        self.modules[key] = reference 
+        return reference
     }
+    private mutating
+    func miss(_ key:Atom<Symbol>, symbol:Symbol, address:Address) -> SymbolReference
+    {
+        let reference:SymbolReference = .init(shape: symbol.shape, display: symbol.display, 
+            namespace: symbol.namespace, 
+            uri: address.uri(functions: self.functions).description)
+        self.symbols[key] = reference 
+        return reference
+    }
+    private mutating
+    func miss(_ key:Atom<Article>, metadata:Article.Metadata, address:Address) -> ArticleReference
+    {
+        let reference:ArticleReference = .init(metadata: metadata, 
+            uri: address.uri(functions: self.functions).description)
+        self.articles[key] = reference 
+        return reference
+    }
+}
 
-    func load(_ package:Package.Index, context:Package.Context) throws -> PackageReference
+extension ReferenceCache 
+{
+    mutating 
+    func load(_ key:Atom<Symbol>.Position, context:some PackageContext) throws -> SymbolReference
+    {
+        if      let cached:SymbolReference = self.symbols[key.atom]
+        {
+            return cached
+        }
+        guard   let pinned:Package.Pinned = context[key.nationality]
+        else 
+        {
+            fatalError("unimplemented")
+        }
+        let symbol:Symbol = pinned.package.tree[local: key]
+        if      let address:Address = pinned.address(of: key.atom, symbol: symbol, 
+                    context: context)
+        {
+            return self.miss(key.atom, symbol: symbol, address: address)
+        }
+        else 
+        {
+            fatalError("unimplemented")
+        }
+    }
+    mutating 
+    func load(_ key:Atom<Symbol>, context:some PackageContext) throws -> SymbolReference
+    {
+        if  let cached:SymbolReference = self.symbols[key]
+        {
+            return cached
+        }
+        if  let pinned:Package.Pinned = context[key.nationality],
+            let symbol:Symbol = pinned.load(local: key), 
+            let address:Address = pinned.address(of: key, symbol: symbol, 
+                    context: context)
+        {
+            return self.miss(key, symbol: symbol, address: address)
+        }
+        else 
+        {
+            fatalError("unimplemented")
+        }
+    }
+}
+extension ReferenceCache 
+{
+    mutating 
+    func load(_ key:Atom<Module>, context:some PackageContext) throws -> ModuleReference
+    {
+        if  let cached:ModuleReference = self.modules[key]
+        {
+            return cached
+        }
+        if  let pinned:Package.Pinned = context[key.nationality],
+            let module:Module = pinned.load(local: key)
+        {
+            return self.miss(key, module: module, address: pinned.address(of: module))
+        }
+        else 
+        {
+            fatalError("unimplemented")
+        }
+    }
+}
+extension ReferenceCache 
+{
+    mutating 
+    func load(_ key:Atom<Article>, context:some PackageContext) throws -> ArticleReference
+    {
+        if  let cached:ArticleReference = self.articles[key]
+        {
+            return cached
+        }
+        if  let pinned:Package.Pinned = context[key.nationality],
+            let namespace:Module = pinned.load(local: key.culture),
+            let article:Article = pinned.load(local: key), 
+            let metadata:Article.Metadata = pinned.metadata(local: key)
+        {
+            return self.miss(key, metadata: metadata, 
+                address: pinned.address(of: article, namespace: namespace))
+        }
+        else 
+        {
+            fatalError("unimplemented")
+        }
+    }
+}
+extension ReferenceCache
+{
+    func load(_ package:Package.Index, context:some PackageContext) throws -> PackageReference
     {
         if let pinned:Package.Pinned = context[package]
         {
@@ -120,23 +225,49 @@ struct _ReferenceCache
             fatalError("unimplemented")
         }
     }
+}
 
-    mutating 
-    func uri(of composite:Composite, context:Package.Context) throws -> String
+extension ReferenceCache 
+{
+    mutating
+    func uri(of composite:Composite, context:some PackageContext) throws -> String
     {
-        fatalError("unimplemented")
+        if let compound:Compound = composite.compound 
+        {
+            return try self.uri(of: compound, context: context)
+        }
+        else 
+        {
+            return try self.load(composite.base, context: context).uri
+        }
     }
-    mutating 
-    func uri(of compound:Compound, context:Package.Context) throws -> String
+    mutating
+    func uri(of compound:Compound, context:some PackageContext) throws -> String
     {
-        fatalError("unimplemented")
+        if      let cached:String = self.uris[compound]
+        {
+            return cached 
+        }
+        // unfortunately, we do not cache the loaded components, because 
+        // we do not want to compute any uris we might not use.
+        else if let address:Address = context[compound.nationality]?.address(of: compound, 
+                    context: context)
+        {
+            let uri:String = address.uri(functions: self.functions).description
+            self.uris[compound] = uri
+            return uri 
+        }
+        else 
+        {
+            fatalError("unimplemented")
+        }
     }
 }
 
-extension _ReferenceCache 
+extension ReferenceCache 
 {
     mutating 
-    func link(_ prose:DOM.Flattened<GlobalLink.Presentation>, context:Package.Context) 
+    func link(_ prose:DOM.Flattened<GlobalLink.Presentation>, context:some PackageContext) 
         throws -> [UInt8]?
     {
         prose.isEmpty ? nil : try prose.rendered
@@ -146,7 +277,7 @@ extension _ReferenceCache
     }
 
     private mutating 
-    func expand(_ link:GlobalLink.Presentation, context:Package.Context) 
+    func expand(_ link:GlobalLink.Presentation, context:some PackageContext) 
         throws -> HTML.Element<Never> 
     {
         switch link 
@@ -165,7 +296,7 @@ extension _ReferenceCache
         }
     }
     private mutating 
-    func expand(_ link:Composite, count:Int, context:Package.Context) 
+    func expand(_ link:Composite, count:Int, context:some PackageContext) 
         throws -> HTML.Element<Never>
     {
         var current:SymbolReference = try self.load(link.base, context: context)
@@ -189,7 +320,7 @@ extension _ReferenceCache
 
             if let next:Atom<Symbol>.Position = current.shape?.target 
             {
-                current = self.load(next, context: context)
+                current = try self.load(next, context: context)
             }
             else if crumbs.count < count 
             {

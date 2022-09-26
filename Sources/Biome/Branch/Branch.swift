@@ -54,6 +54,10 @@ struct Branch:Identifiable, Sendable
     {
         self.revisions.indices.last
     }
+    var latest:Version? 
+    {
+        self.head.map { .init(self.index, $0) }
+    }
     
     subscript(range:PartialRangeThrough<Version.Revision>) -> Fascis
     {
@@ -103,11 +107,12 @@ extension Branch
     }
     mutating 
     func add(graph:SymbolGraph, namespaces:__owned Namespaces, 
-        upstream:[Package.Index: Package._Pinned],
+        upstream:[Package.Index: Package.Pinned],
         fasces:Fasces, 
         stems:inout Route.Stems) 
         -> ModuleInterface
     {
+        let linked:Set<Atom<Module>> = namespaces.import()
         let (articles, _extensions):(ModuleInterface.Abstractor<Article>, [Extension]) = self.addExtensions(from: graph, 
             namespace: namespaces.module, 
             trunk: fasces.articles, 
@@ -115,12 +120,32 @@ extension Branch
         var symbols:ModuleInterface.Abstractor<Symbol> = self.addSymbols(from: graph, 
             namespaces: namespaces, 
             upstream: upstream, 
+            linked: linked,
             trunk: fasces.symbols, 
             stems: &stems)
         
         assert(symbols.count == graph.vertices.count)
 
-        symbols.extend(over: graph.identifiers, by: fasces.symbols.find(_:))
+        symbols.extend(over: graph.identifiers) 
+        {
+            if let local:Atom<Symbol> = self.symbols.atoms[$0] 
+            {
+                return local.positioned(self.index)
+            }
+            if let local:Atom<Symbol>.Position = fasces.symbols.find($0)
+            {
+                return local 
+            } 
+            for upstream:Package.Pinned in upstream.values 
+            {
+                if  let upstream:Atom<Symbol>.Position = upstream.symbols.find($0), 
+                        linked.contains(upstream.culture)
+                {
+                    return upstream
+                }
+            }
+            return nil 
+        }
 
         return .init(namespaces: _move namespaces, 
             _extensions: _move _extensions,
@@ -131,12 +156,11 @@ extension Branch
     private mutating 
     func addSymbols(from graph:SymbolGraph, namespaces:Namespaces, 
         upstream:[Package.Index: Package._Pinned], 
+        linked:Set<Atom<Module>>,
         trunk:Fasces.SymbolView, 
         stems:inout Route.Stems) 
         -> ModuleInterface.Abstractor<Symbol>
     {
-        let linked:Set<Atom<Module>> = namespaces.import()
-
         var positions:[Atom<Symbol>.Position?] = []
             positions.reserveCapacity(graph.identifiers.count)
         for (namespace, vertices):(Module.ID, ArraySlice<SymbolGraph.Vertex<Int>>) in 

@@ -1,4 +1,14 @@
 import SymbolGraphs
+
+extension [Package.Index: Package._Pinned] 
+{
+    fileprivate mutating 
+    func update(with pinned:__owned Package._Pinned) 
+    {
+        self[pinned.nationality] = pinned
+    }
+}
+
 //  the endpoints of a graph edge can reference symbols in either this 
 //  package or one of its dependencies. since imports are module-wise, and 
 //  not package-wise, it’s possible for multiple index dictionaries to 

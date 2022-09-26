@@ -134,8 +134,8 @@ extension SymbolTopics
     // takes an anisotropic context
     init(for atomic:Atom<Symbol>, 
         base:__shared SymbolReference,
-        context:__shared Package.Context, 
-        cache:inout _ReferenceCache) throws
+        context:__shared AnisotropicContext,
+        cache:inout ReferenceCache) throws
     {
         guard let metadata:Symbol.Metadata = context.local.metadata(local: atomic)
         else 
@@ -221,7 +221,8 @@ extension SymbolTopics
 
 extension SymbolTopics  
 {
-    func html(context:Package.Context, cache:inout _ReferenceCache) throws -> HTML.Element<Never>?
+    func html(context:some PackageContext, cache:inout ReferenceCache) 
+        throws -> HTML.Element<Never>?
     {
         var sections:[HTML.Element<Never>] = []
         

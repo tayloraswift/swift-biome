@@ -341,8 +341,8 @@ struct _SymbolLink:RandomAccessCollection
             self.docC = nil
         }
 
-        func disambiguate(_ selection:__owned _Selection<Composite>, context:Package.Context) 
-            -> _Selection<Composite>
+        func disambiguate(_ selection:__owned _Selection<Composite>, 
+            context:some PackageContext) -> _Selection<Composite>
         {
             guard case .many(let composites) = selection 
             else 
@@ -353,7 +353,7 @@ struct _SymbolLink:RandomAccessCollection
         }
         // in general, we cannot assume anything about the locality of the base or host 
         // components in a synthetic composite.
-        func matches(_ composite:Composite, context:Package.Context) -> Bool 
+        func matches(_ composite:Composite, context:some PackageContext) -> Bool 
         {
             if  let host:Atom<Symbol> = composite.host
             {

@@ -73,7 +73,7 @@ extension Sequence
 
 extension Organizer.Card<Notebook<Highlight, Never>>
 {
-    func html(context:Package.Context, cache:inout _ReferenceCache) 
+    func html(context:some PackageContext, cache:inout ReferenceCache) 
         throws -> HTML.Element<Never>
     {
         let signature:HTML.Element<Never> = .a(.render(signature: self.signature), 
@@ -90,7 +90,7 @@ extension Organizer.Card<Notebook<Highlight, Never>>
 }
 // extension Sequence<_Topics.Card<Notebook<Highlight, Never>>>
 // {
-//     func html(context:Package.Context, cache:inout _ReferenceCache) 
+//     func html(context:IsotropicContext, cache:inout ReferenceCache) 
 //         throws -> HTML.Element<Never>? 
 //     {
 //         let items:[HTML.Element<Never>] = try self.map 

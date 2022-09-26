@@ -49,8 +49,8 @@ extension Organizer
     func organize(_ traits:Branch.SymbolTraits, of host:SymbolReference, 
         diacritic:Diacritic, 
         culture:Culture,
-        context:Package.Context, 
-        cache:inout _ReferenceCache) throws
+        context:some PackageContext, 
+        cache:inout ReferenceCache) throws
     {
         switch (host.community, host.shape) 
         {
@@ -133,8 +133,8 @@ extension Organizer
     private mutating 
     func add(member:Atom<Symbol>, to enclave:Atom<Module>, 
         culture:Culture,
-        context:Package.Context, 
-        cache:inout _ReferenceCache) throws
+        context:some PackageContext, 
+        cache:inout ReferenceCache) throws
     {
         try self.add(composite: .init(atomic: member), to: enclave, 
             culture: culture, 
@@ -144,8 +144,8 @@ extension Organizer
     private mutating 
     func add(feature:Atom<Symbol>, to diacritic:Diacritic, 
         culture:Culture,
-        context:Package.Context, 
-        cache:inout _ReferenceCache) throws
+        context:some PackageContext, 
+        cache:inout ReferenceCache) throws
     {
         try self.add(composite: .init(feature, diacritic), to: diacritic.culture, 
             culture: culture, 
@@ -155,8 +155,8 @@ extension Organizer
     private mutating 
     func add(composite:Composite, to enclave:Atom<Module>, 
         culture:Culture,
-        context:Package.Context,
-        cache:inout _ReferenceCache) throws 
+        context:some PackageContext,
+        cache:inout ReferenceCache) throws 
     {
         guard   let declaration:Declaration<Atom<Symbol>> = 
                     context[composite.base.nationality]?.declaration(for: composite.base)
@@ -205,8 +205,8 @@ extension Organizer
 {
     mutating 
     func organize(_ roles:Branch.SymbolRoles, 
-        context:Package.Context, 
-        cache:inout _ReferenceCache) throws
+        context:AnisotropicContext, 
+        cache:inout ReferenceCache) throws
     {
         for role:Atom<Symbol> in roles 
         {
@@ -214,7 +214,7 @@ extension Organizer
         }
     }
     private mutating 
-    func add(role:Atom<Symbol>, context:Package.Context, cache:inout _ReferenceCache) throws
+    func add(role:Atom<Symbol>, context:AnisotropicContext, cache:inout ReferenceCache) throws
     {
         // protocol roles may originate from a different package
         let symbol:SymbolReference = try cache.load(role, context: context)

@@ -25,19 +25,34 @@ struct Tree
         nil
     }
 }
-extension Tree 
+extension Tree:RandomAccessCollection
 {
+    var startIndex:Version.Branch 
+    {
+        .init(.init(self.storage.startIndex))
+    }
+    var endIndex:Version.Branch 
+    {
+        .init(.init(self.storage.endIndex))
+    }
+    var indices:Range<Version.Branch> 
+    {
+        self.startIndex ..< self.endIndex
+    }
     subscript(branch:Version.Branch) -> Branch 
     {
         _read 
         {
-            yield  self.storage[branch.index]
+            yield  self.storage[.init(branch.index)]
         }
         _modify
         {
-            yield &self.storage[branch.index]
+            yield &self.storage[.init(branch.index)]
         }
     }
+}
+extension Tree 
+{
     subscript(version:Version) -> Branch.Revision
     {
         _read 
@@ -52,6 +67,16 @@ extension Tree
 }
 extension Tree 
 {
+    func root(of branch:Version.Branch) -> Branch 
+    {
+        var root:Branch = self[branch]
+        while let fork:Version.Branch = root.fork?.branch 
+        {
+            root = self[fork]
+        }
+        return root
+    }
+    
     func fasces(upTo branch:Version.Branch) -> Fasces
     {
         var current:Branch = self[branch]
@@ -117,19 +142,7 @@ extension Tree
     /// head of that branch.
     func find(_ tag:Tag) -> Version?
     {
-        if  let version:Version = self.tags[tag]
-        {
-            return version 
-        }
-        if  let branch:Version.Branch = self.branches[tag], 
-            let revision:Version.Revision = self[branch].head
-        {
-            return .init(branch, revision)
-        }
-        else 
-        {
-            return nil
-        }
+        self.tags[tag] ?? self.branches[tag].flatMap { self[$0].latest }
     }
     /// Returns the preferred name for referring to the specified version.
     /// 
@@ -180,7 +193,7 @@ extension Tree
         {
             return branch 
         }
-        let branch:Version.Branch = .init(self.storage.endIndex)
+        let branch:Version.Branch = self.endIndex
         if  let fork:Version 
         {
             let ring:Branch.Ring = self[fork].branch(branch)

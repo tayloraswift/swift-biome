@@ -1,7 +1,7 @@
 /// A compound symbol. 
 /// 
 /// This type provides a static guarantee that [`self.host != self.base`]().
-struct Compound 
+struct Compound:Hashable, Sendable
 {
     let base:Atom<Symbol>
     let diacritic:Diacritic

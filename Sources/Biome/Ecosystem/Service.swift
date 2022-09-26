@@ -400,7 +400,7 @@ extension Service
             return nil 
         }
 
-        let context:Package.Context = .init(local: _move nationality, context: self.packages)
+        let context:AnisotropicContext = .init(local: _move nationality, context: self.packages)
 
         if      let selection:_Selection<Composite> = context.local.routes.select(key, 
                     where: context.local.exists(_:))
@@ -409,7 +409,8 @@ extension Service
             switch request.disambiguator.disambiguate(_move selection, context: context) 
             {
             case .one(let composite):
-                if  let address:Address = context.address(of: composite)
+                if  let address:Address = context.local.address(of: composite, 
+                        context: context)
                 {
                     return .init(uri: address.uri(functions: self.functions.names), 
                         documentation: .init(.composite(composite), 
@@ -418,7 +419,9 @@ extension Service
                 }
             case .many(let composites):
                 if  let exemplar:Composite = composites.first, 
-                    let address:Address = context.address(of: exemplar, disambiguate: .never)
+                    let address:Address = context.local.address(of: exemplar, 
+                        disambiguate: .never, 
+                        context: context)
                 {
                     return .init(uri: address.uri(functions: self.functions.names), 
                         selection: .init(nationality: context.local.nationality,
@@ -434,9 +437,10 @@ extension Service
             case .one(let composite):
                 if  let version:Version = context.local.excavate(composite)
                 {
-                    var context:Package.Context = context 
+                    var context:AnisotropicContext = context 
                         context.local.repin(to: version)
-                    if let address:Address = context.address(of: composite)
+                    if  let address:Address = context.local.address(of: composite,
+                            context: context)
                     {
                         return .init(uri: address.uri(functions: self.functions.names), 
                             documentation: .init(.composite(composite),
@@ -446,7 +450,9 @@ extension Service
                 }
             case .many(let composites):
                 if  let exemplar:Composite = composites.first, 
-                    let address:Address = context.address(of: exemplar, disambiguate: .never)
+                    let address:Address = context.local.address(of: exemplar, 
+                        disambiguate: .never, 
+                        context: context)
                 {
                     return .init(uri: address.uri(functions: self.functions.names), 
                         migration: .init(nationality: context.local.nationality,
@@ -467,7 +473,7 @@ extension Service
                 pinned: pinned))
     }
     private 
-    func _get(_ pinned:Package.Pinned, 
+    func _get(_ pinned:Package.Pinned,
         namespace:Atom<Module>.Position) -> GetRequest?
     {
         guard let version:Version = pinned.excavate(namespace.atom)
@@ -483,7 +489,7 @@ extension Service
                 pinned: pinned))
     }
     private 
-    func _get(_ pinned:Package.Pinned, 
+    func _get(_ pinned:Package.Pinned,
         namespace:Atom<Module>.Position, 
         article:Atom<Article>.Position) -> GetRequest?
     {
