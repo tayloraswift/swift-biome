@@ -61,24 +61,6 @@ extension Package
     }
 }
 
-extension Composite 
-{
-    enum ID 
-    {
-        case atomic(Symbol.ID)
-        case compound(Compound.ID)
-    }
-}
-extension Compound 
-{
-    struct ID 
-    {
-        let base:Symbol.ID
-        let host:Symbol.ID
-        let culture:Module.ID 
-    }
-}
-
 extension Package.Pinned 
 {
     func repinned(to version:Version) -> Self 
@@ -88,7 +70,7 @@ extension Package.Pinned
         return repinned
     }
     func repinned(to revisions:[Version.Revision], of branch:Branch, 
-        _ body:(__owned Self) throws -> ()) rethrows 
+        _ body:(Self) throws -> ()) rethrows 
     {
         let trunk:Fasces? = branch.fork.map(self.package.tree.fasces(through:))
         for revision:Version.Revision in revisions 

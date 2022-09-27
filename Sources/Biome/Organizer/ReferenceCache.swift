@@ -84,7 +84,6 @@ struct ReferenceCache
     var modules:[Atom<Module>: ModuleReference]
     private 
     var uris:[Compound: String]
-    private 
     let functions:Service.PublicFunction.Names
 
     init(functions:Service.PublicFunction.Names)
@@ -128,25 +127,20 @@ extension ReferenceCache
     mutating 
     func load(_ key:Atom<Symbol>.Position, context:some PackageContext) throws -> SymbolReference
     {
-        if      let cached:SymbolReference = self.symbols[key.atom]
+        if  let cached:SymbolReference = self.symbols[key.atom]
         {
             return cached
         }
-        guard   let pinned:Package.Pinned = context[key.nationality]
-        else 
+        if  let pinned:Package.Pinned = context[key.nationality]
         {
-            fatalError("unimplemented")
-        }
-        let symbol:Symbol = pinned.package.tree[local: key]
-        if      let address:Address = pinned.address(of: key.atom, symbol: symbol, 
+            let symbol:Symbol = pinned.package.tree[local: key]
+            if  let address:Address = pinned.address(of: key.atom, symbol: symbol, 
                     context: context)
-        {
-            return self.miss(key.atom, symbol: symbol, address: address)
+            {
+                return self.miss(key.atom, symbol: symbol, address: address)
+            }
         }
-        else 
-        {
-            fatalError("unimplemented")
-        }
+        fatalError("unimplemented")
     }
     mutating 
     func load(_ key:Atom<Symbol>, context:some PackageContext) throws -> SymbolReference
@@ -170,6 +164,23 @@ extension ReferenceCache
 }
 extension ReferenceCache 
 {
+    mutating 
+    func load(_ key:Atom<Module>.Position, context:some PackageContext) throws -> ModuleReference
+    {
+        if  let cached:ModuleReference = self.modules[key.atom]
+        {
+            return cached
+        }
+        if  let pinned:Package.Pinned = context[key.nationality]
+        {
+            let module:Module = pinned.package.tree[local: key]
+            return self.miss(key.atom, module: module, address: pinned.address(of: module))
+        }
+        else 
+        {
+            fatalError("unimplemented")
+        }
+    }
     mutating 
     func load(_ key:Atom<Module>, context:some PackageContext) throws -> ModuleReference
     {

@@ -28,7 +28,7 @@ struct Service
     //     }
     // }
 
-    private 
+    private(set) 
     var functions:Functions
     // private 
     var packages:Packages, 
@@ -149,175 +149,173 @@ extension Service
     }
 }
 
-struct DocumentationQuery
+extension Service 
 {
-    let target:GlobalLink.Target 
-    let _objects:Never?
-    let version:Version 
-    let token:UInt 
-
-    var nationality:Package.Index 
+    private 
+    func response(for request:__owned GetRequest, template:DOM.Flattened<Page.Key>) 
+        throws -> WebSemantics.Response<Resource>
     {
-        switch self.target 
+        let uri:String = request.uri.description
+        switch request.query
         {
-        case .package(let nationality): 
-            return nationality 
-        case .module(let module): 
-            return module.nationality 
-        case .article(let article): 
-            return article.nationality 
-        case .composite(let composite): 
-            return composite.nationality 
+        case .redirect(canonical: let canonical):
+            return .init(uri: uri, canonical: canonical?.description ?? uri, 
+                redirection: .permanent)
+        
+        case .documentation(let query): 
+            let utf8:[UInt8]
+            var cache:ReferenceCache = .init(functions: self.functions.names) 
+            switch query.target 
+            {
+            case .package(let nationality): 
+                let _:Package.Pinned = .init(self.packages[nationality], 
+                    version: query.version)
+                fatalError("unimplemented")
+            
+            case .module(let module): 
+                let _:Package.Pinned = .init(self.packages[module.nationality], 
+                    version: query.version)
+                fatalError("unimplemented")
+            
+            case .article(let article): 
+                let _:Package.Pinned = .init(self.packages[article.nationality], 
+                    version: query.version)
+                fatalError("unimplemented")
+            
+            case .symbol(let atomic):
+                let local:Package.Pinned = .init(self.packages[atomic.nationality], 
+                    version: query.version)
+                let evolution:Evolution = .init(for: atomic, local: local, 
+                    context: self.packages, 
+                    functions: cache.functions)
+                let context:AnisotropicContext = .init(local: _move local, 
+                    context: self.packages)
+                let page:SymbolPage = try .init(atomic, 
+                    documentation: query._objects, 
+                    evolution: _move evolution, 
+                    context: context,
+                    cache: &cache)
+                utf8 = page._render(template: template)
+            
+            case .compound(let compound):
+                let local:Package.Pinned = .init(self.packages[compound.nationality], 
+                    version: query.version)
+                let evolution:Evolution = .init(for: compound, local: local, 
+                    context: self.packages, 
+                    functions: cache.functions)
+                let context:AnisotropicContext = .init(local: _move local, 
+                    context: self.packages)
+                let page:SymbolPage = try .init(compound, 
+                    documentation: query._objects, 
+                    evolution: _move evolution, 
+                    context: context, 
+                    cache: &cache)
+                utf8 = page._render(template: template)
+            }
+            return .init(uri: uri, canonical: query.canonical?.description ?? uri, 
+                payload: .init(hashing: _move utf8, type: .utf8(encoded: .html)))
+        
+        case _: 
+            fatalError("unimplemented")
         }
     }
-
-    init(_ target:GlobalLink.Target, _objects:Never?, pinned:__shared Package.Pinned)
-    {
-        self.target = target 
-        self.version = pinned.version 
-        self._objects = _objects
-        self.token = pinned.revision.token
-    }
 }
-struct SelectionQuery
-{
-    let nationality:Package.Index
-    let version:Version 
-    let choices:[Composite]
-}
-struct MigrationQuery 
-{
-    let nationality:Package.Index
-    /// The requested version. None of the symbols in this query 
-    /// exist in this version.
-    let requested:Version
-    /// The list of potentially matching composites.
-    /// 
-    /// It is not possible to efficiently look up the most 
-    /// recent version a compound appears in. Therefore, when 
-    /// generating a URL for a compound choice, we should maximally 
-    /// disambiguate it, and allow HTTP redirection to resolve it 
-    /// to an appropriate version, should a user click on that URL.
-    let choices:[Composite]
-}
-
-struct GetRequest 
-{
-    enum Query 
-    {
-        case redirect 
-        case documentation(DocumentationQuery)
-        case selection(SelectionQuery)
-        case migration(MigrationQuery)
-    }
-
-    let uri:URI
-    var query:Query
-
-    init(uri:URI, documentation query:DocumentationQuery)
-    {
-        self.uri = uri 
-        self.query = .documentation(query)
-    }
-    init(uri:URI, selection query:SelectionQuery)
-    {
-        self.uri = uri 
-        self.query = .selection(query)
-    }
-    init(uri:URI, migration query:MigrationQuery)
-    {
-        self.uri = uri 
-        self.query = .migration(query)
-    }
-}
-
 extension Service 
 {
     func get(_ uri:URI) -> WebSemantics.Response<Resource>
     {
-        var normalized:GlobalLink = .init(uri)
-
-        if  let first:String = normalized.descend(), 
-            let function:Function = self.functions[first]
+        do 
         {
-            switch function 
+            var link:GlobalLink = .init(uri)
+            if  let first:String = link.descend(), 
+                let function:Function = self.functions[first]
             {
-            case .public(.sitemap):
-                break 
-            case .public(.lunr):
-                break 
-            
-            case .public(.documentation(let scheme)):
-                if  let endpoint:GetRequest = self._get(scheme: scheme, 
-                        request: _move normalized)
+                switch function 
                 {
-                    // return self.response(for: endpoint, template: self.template)
+                case .public(.sitemap):
+                    break
+                
+                case .public(.lunr):
+                    break
+                
+                case .public(.documentation(let scheme)):
+                    if let request:GetRequest = self.get(uri, scheme: scheme, link: _move link)
+                    {
+                        return try self.response(for: _move request, template: self.template)
+                    }
+                
+                case .custom(let custom): 
+                    if let request:GetRequest = self.get(uri, function: custom, link: _move link)
+                    {
+                        return try self.response(for: _move request, template: custom.template)
+                    }
                 }
-            
-            case .custom(let custom): 
-                if  let endpoint:GetRequest = self._get(function: custom, 
-                        request: _move normalized)
-                {
-                    // return self.response(for: endpoint, template: custom.template)
-                } 
             }
+            return .init(uri: uri.description, results: .none, 
+                payload: .init("page not found.")) 
         }
-        return .init(uri: uri.description, results: .none, 
-            payload: .init("page not found.")) 
+        catch let error
+        {
+            return .init(uri: uri.description, results: .error, 
+                payload: .init("\(error)")) 
+        }
     }
 }
 extension Service 
 {
-    func _get(function:CustomFunction, request:__owned GlobalLink) -> GetRequest? 
+    func get(_ request:URI, function:CustomFunction, link:__owned GlobalLink) -> GetRequest? 
     {
-        guard let pinned:Package.Pinned = self.packages[function.nationality].latest()
+        guard let residency:Package.Pinned = self.packages[function.nationality].latest()
         else 
         {
             return nil 
         }
-        guard let namespace:Atom<Module>.Position = pinned.modules.find(function.namespace)
+        guard let namespace:Atom<Module>.Position = residency.modules.find(function.namespace)
         else 
         {
             return nil 
         }
-        if  let key:_SymbolLink = try? .init(_move request), 
+        if  let key:_SymbolLink = try? .init(_move link), 
             let key:Route = self.stems[namespace.atom, straight: key], 
-            let article:Atom<Article>.Position = pinned.articles.find(.init(key))
+            let article:Atom<Article>.Position = residency.articles.find(.init(key))
         {
-            return self._get(pinned, namespace: namespace, article: article)
+            return .init(request, residency: residency, namespace: namespace, article: article, 
+                functions: self.functions.names)
         }
         else 
         {
-            return self._get(pinned, namespace: namespace)
+            return .init(request, residency: residency, namespace: namespace, 
+                functions: self.functions.names)
         }
     }
 }
 extension Service 
 {
-    func _get(scheme:Scheme, request:__owned GlobalLink) -> GetRequest?
+    func get(_ request:URI, scheme:Scheme, link:__owned GlobalLink) -> GetRequest?
     {
-        var request:GlobalLink = _move request
-        if  let residency:Package = request.descend(where: { self.packages[.init($0)] }) 
+        var link:GlobalLink = _move link
+        if  let residency:Package = link.descend(where: { self.packages[.init($0)] }) 
         {
-            return self._get(scheme: scheme, explicit: _move residency, request: _move request)
+            return self.get(request, scheme: scheme, explicit: _move residency, 
+                link: _move link)
         }
         return  
-            self._get(scheme: scheme, implicit: self.packages.swift, request: request) ?? 
-            self._get(scheme: scheme, implicit: self.packages.core, request: request)
+            self.get(request, scheme: scheme, implicit: self.packages.swift, link: link) ?? 
+            self.get(request, scheme: scheme, implicit: self.packages.core,  link: link)
     }
     private 
-    func _get(scheme:Scheme, explicit residency:__owned Package, request:__owned GlobalLink) 
+    func get(_ request:URI, scheme:Scheme, explicit:__owned Package, link:__owned GlobalLink) 
         -> GetRequest?
     {
-        try? self._get(scheme: scheme, residency: _move residency, request: request)
+        try? self.get(request, scheme: scheme, residency: _move explicit, link: link)
     }
     private 
-    func _get(scheme:Scheme, implicit residency:__owned Package, request:__owned GlobalLink) 
+    func get(_ request:URI, scheme:Scheme, implicit:__owned Package, link:__owned GlobalLink) 
         -> GetRequest?
     {
-        guard   let request:GetRequest = try? self._get(scheme: scheme, 
-                    residency: _move residency, 
-                    request: request)
+        guard   let request:GetRequest = try? self.get(request, scheme: scheme, 
+                    residency: _move implicit, 
+                    link: link)
         else 
         {
             return nil 
@@ -333,11 +331,11 @@ extension Service
         }
     }
     private 
-    func _get(scheme:Scheme, residency:__owned Package, request:__owned GlobalLink) 
+    func get(_ request:URI, scheme:Scheme, residency:__owned Package, link:__owned GlobalLink) 
         throws -> GetRequest?
     {
-        var request:GlobalLink = request
-        let arrival:Version? = request.descend 
+        var link:GlobalLink = link
+        let arrival:Version? = link.descend 
         {
             Version.Selector.init(parsing: $0).flatMap(residency.tree.find(_:))
         } 
@@ -350,160 +348,105 @@ extension Service
         let residency:Package.Pinned = .init(_move residency, version: _move arrival)
         // we must parse the symbol link *now*, otherwise references to things 
         // like global vars (`Swift.min(_:_:)`) won’t work
-        guard let request:_SymbolLink = try .init(request)
+        guard let link:_SymbolLink = try .init(link)
         else 
         {
-            return self._get(residency)
+            return .init(request, residency: residency, functions: self.functions.names)
         }
         //  we can store a module id in a ``Symbol/Link``, because every 
         //  ``Module/ID`` is a valid ``Symbol/Link/Component``.
-        guard let namespace:Atom<Module>.Position = residency.modules.find(.init(request.first))
+        guard let namespace:Atom<Module>.Position = residency.modules.find(.init(link.first))
         else 
         {
             return nil
         }
-        guard let request:_SymbolLink = request.suffix 
+        guard let link:_SymbolLink = link.suffix 
         else 
         {
-            return self._get(residency, namespace: namespace)
+            return .init(request, residency: residency, namespace: namespace, 
+                functions: self.functions.names)
         }
         // doc scheme never uses nationality query parameter 
         if      case .doc = scheme, 
-                let key:Route = self.stems[namespace.atom, straight: request], 
+                let key:Route = self.stems[namespace.atom, straight: link], 
                 let article:Atom<Article>.Position = residency.articles.find(.init(key))
         {
-            return self._get(residency, namespace: namespace, article: article)
+            return .init(request, residency: residency, namespace: namespace, article: article, 
+                functions: self.functions.names)
         }
-        else if let nationality:_SymbolLink.Nationality = request.nationality,
+        else if let nationality:_SymbolLink.Nationality = link.nationality,
                 let package:Package = self.packages[nationality.id],
                 let version:Version = 
                     nationality.version.map(package.tree.find(_:)) ?? package.tree.default,
-                let endpoint:GetRequest = self._get(scheme: scheme, 
+                let endpoint:GetRequest = self.get(request, scheme: scheme, 
                     nationality: .init(_move package, version: version), 
                     namespace: namespace.atom, 
-                    request: request.disambiguated()) 
+                    link: link.disambiguated()) 
         {
             return endpoint
         }
-        return self._get(scheme: scheme, 
+        return self.get(request, scheme: scheme, 
             nationality: _move residency, 
             namespace: namespace.atom, 
-            request: request.disambiguated())
+            link: link.disambiguated())
     }
+}
+extension Service 
+{
     private 
-    func _get(scheme:Scheme, nationality:__owned Package.Pinned, namespace:Atom<Module>, 
-        request:__owned _SymbolLink) -> GetRequest?
+    func get(_ request:URI, scheme:Scheme, 
+        nationality:__owned Package.Pinned, 
+        namespace:Atom<Module>, 
+        link:__owned _SymbolLink) -> GetRequest?
     {
-        guard let key:Route = self.stems[namespace, request]
+        guard let key:Route = self.stems[namespace, link]
         else 
         {
             return nil 
         }
 
+        // first class: select symbols that exist in the requested version of `nationality`
         let context:AnisotropicContext = .init(local: _move nationality, context: self.packages)
-
         if      let selection:_Selection<Composite> = context.local.routes.select(key, 
                     where: context.local.exists(_:))
         {
             // no excavation required, because we already filtered by extancy.
-            switch request.disambiguator.disambiguate(_move selection, context: context) 
+            let extant:GetRequest?
+            switch link.disambiguator.disambiguate(_move selection, context: context) 
             {
             case .one(let composite):
-                if  let address:Address = context.local.address(of: composite, 
-                        context: context)
-                {
-                    return .init(uri: address.uri(functions: self.functions.names), 
-                        documentation: .init(.composite(composite), 
-                            _objects: nil, 
-                            pinned: context.local))
-                }
-            case .many(let composites):
-                if  let exemplar:Composite = composites.first, 
-                    let address:Address = context.local.address(of: exemplar, 
-                        disambiguate: .never, 
-                        context: context)
-                {
-                    return .init(uri: address.uri(functions: self.functions.names), 
-                        selection: .init(nationality: context.local.nationality,
-                            version: context.local.version, 
-                            choices: composites))
-                }
+                extant = .init(request, extant: composite, context: context, 
+                    functions: self.functions.names)
+            
+            case .many(let choices):
+                extant = .init(request, choices: choices, context: context,
+                    functions: self.functions.names)
+            }
+            if let extant:GetRequest
+            {
+                return extant
             }
         }
+        // second class: select symbols that existed at any time in `nationality`’s history
         else if let selection:_Selection<Composite> = context.local.routes.select(key)
         {
-            switch request.disambiguator.disambiguate(_move selection, context: context) 
+            switch link.disambiguator.disambiguate(_move selection, context: context) 
             {
             case .one(let composite):
-                if  let version:Version = context.local.excavate(composite)
+                if  let version:Version = context.local.excavate(composite), 
+                    let request:GetRequest = .init(request, extant: composite, 
+                        context: context.repinned(to: version, context: self.packages), 
+                        functions: self.functions.names)
                 {
-                    var context:AnisotropicContext = context 
-                        context.local.repin(to: version)
-                    if  let address:Address = context.local.address(of: composite,
-                            context: context)
-                    {
-                        return .init(uri: address.uri(functions: self.functions.names), 
-                            documentation: .init(.composite(composite),
-                                _objects: nil,
-                                pinned: context.local))
-                    }
+                    return request
                 }
-            case .many(let composites):
-                if  let exemplar:Composite = composites.first, 
-                    let address:Address = context.local.address(of: exemplar, 
-                        disambiguate: .never, 
-                        context: context)
-                {
-                    return .init(uri: address.uri(functions: self.functions.names), 
-                        migration: .init(nationality: context.local.nationality,
-                            requested: context.local.version, 
-                            choices: composites))
-                }
+            
+            case .many(let choices):
+                return .init(request, choices: choices, context: context,
+                    functions: self.functions.names, 
+                    migration: true)
             }
         }
         return nil
-    }
-
-    private 
-    func _get(_ pinned:Package.Pinned) -> GetRequest
-    {
-        return .init(uri: pinned.address().uri(functions: self.functions.names), 
-            documentation: .init(.package(pinned.nationality), 
-                _objects: nil,
-                pinned: pinned))
-    }
-    private 
-    func _get(_ pinned:Package.Pinned,
-        namespace:Atom<Module>.Position) -> GetRequest?
-    {
-        guard let version:Version = pinned.excavate(namespace.atom)
-        else 
-        {
-            return nil 
-        }
-        let pinned:Package.Pinned = pinned.repinned(to: version)
-        let address:Address = pinned.address(of: pinned.package.tree[local: namespace])
-        return .init(uri: address.uri(functions: self.functions.names) , 
-            documentation: .init(.module(namespace.atom), 
-                _objects: nil, 
-                pinned: pinned))
-    }
-    private 
-    func _get(_ pinned:Package.Pinned,
-        namespace:Atom<Module>.Position, 
-        article:Atom<Article>.Position) -> GetRequest?
-    {
-        guard let version:Version = pinned.excavate(article.atom)
-        else 
-        {
-            return nil 
-        }
-        let pinned:Package.Pinned = pinned.repinned(to: version)
-        let address:Address = pinned.address(of: pinned.package.tree[local: article], 
-                namespace: pinned.package.tree[local: namespace])
-        return .init(uri: address.uri(functions: self.functions.names) , 
-            documentation: .init(.article(article.atom), 
-                _objects: nil, 
-                pinned: pinned))
     }
 }

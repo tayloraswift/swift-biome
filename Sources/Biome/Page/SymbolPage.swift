@@ -8,7 +8,8 @@ struct _MetadataLoadingError:Error
 struct _DeclarationLoadingError:Error 
 {
 }
-struct SymbolPage 
+
+extension SymbolPage 
 {
     struct Breadcrumbs:RandomAccessCollection
     {
@@ -37,40 +38,91 @@ struct SymbolPage
                 return .li(.highlight(element.display, .type, uri: element.uri))
             }
         }
-
-        init(base:SymbolReference, host:SymbolReference?, 
-            context:__shared some PackageContext, 
-            cache:inout ReferenceCache) throws 
+    }
+}
+extension SymbolPage.Breadcrumbs 
+{
+    init(base:SymbolReference, host:SymbolReference?, 
+        context:__shared some PackageContext, 
+        cache:inout ReferenceCache) throws 
+    {
+        self.base = base 
+        self.host = host 
+        self.elements = []
+        self.elements.reserveCapacity(self.host == nil ? 
+            base.path.count - 1 : 
+            base.path.count)
+        var next:SymbolReference? = try self.host ?? base.shape.map 
         {
-            self.base = base 
-            self.host = host 
-            self.elements = []
-            self.elements.reserveCapacity(self.host == nil ? 
-                base.path.count - 1 : 
-                base.path.count)
-            var next:SymbolReference? = try self.host ?? base.shape.map 
+            try cache.load($0.target, context: context)
+        }
+        while let current:SymbolReference = next 
+        {
+            self.elements.append((display: current.name, uri: current.uri))
+            next = try current.shape.map 
             {
                 try cache.load($0.target, context: context)
             }
-            while let current:SymbolReference = next 
-            {
-                self.elements.append((display: current.name, uri: current.uri))
-                next = try current.shape.map 
-                {
-                    try cache.load($0.target, context: context)
-                }
-            }
         }
     }
+}
 
-    let evolution:SymbolEvolution
-    let culture:
-    (
-        composite:ModuleReference, 
-        base:ModuleReference?,
-        host:ModuleReference?
-    )
-    let breadcrumbs:Breadcrumbs
+extension SymbolPage 
+{
+    struct Names 
+    {
+        let breadcrumbs:Breadcrumbs
+        let culture:
+        (
+            composite:ModuleReference, 
+            base:ModuleReference?,
+            host:ModuleReference?
+        )
+    }
+}
+extension SymbolPage.Names 
+{
+    init(_ symbol:Atom<Symbol>.Position, base:SymbolReference, 
+        context:__shared AnisotropicContext, 
+        cache:inout ReferenceCache) throws 
+    {
+        assert(context.local.nationality == symbol.nationality)
+
+        self.culture.composite = try cache.load(symbol.culture, context: context)
+
+        self.culture.base = nil
+        self.culture.host = nil
+
+        self.breadcrumbs = try .init(base: _move base, host: nil, 
+            context: context, 
+            cache: &cache)
+    }
+    init(_ compound:Compound.Position, base:SymbolReference, 
+        context:__shared AnisotropicContext, 
+        cache:inout ReferenceCache) throws 
+    {
+        assert(context.local.nationality == compound.nationality)
+
+        self.culture.composite = try cache.load(compound.culture, context: context)
+        let host:SymbolReference = try cache.load(compound.host, context: context)
+
+        let compound:Compound = compound.atoms
+
+        self.culture.base = compound.base.culture == compound.culture ? nil :
+            try cache.load(compound.base.culture, context: context)
+        self.culture.host = compound.host.culture == compound.culture ? nil :
+            try cache.load(compound.host.culture, context: context)
+        
+        self.breadcrumbs = try .init(base: _move base, host: _move host, 
+            context: context, 
+            cache: &cache)
+    }
+}
+struct SymbolPage 
+{
+    let evolution:Evolution
+
+    let names:Names
     let conditions:Organizer.Conditional
     let notes:SymbolTopics.Notes?
     let fragments:Notebook<Highlight, String>
@@ -80,59 +132,71 @@ struct SymbolPage
     let discussion:[UInt8]?
     let topics:[UInt8]?
 
-    init(_ composite:Composite, 
-        evolution:SymbolEvolution,
+    init(_ symbol:Atom<Symbol>.Position, 
+        documentation:__shared DocumentationExtension<Never>, 
+        evolution:Evolution,
         context:__shared AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
-        assert(context.local.nationality == composite.nationality)
+        assert(context.local.nationality == symbol.nationality)
 
-        self.evolution = evolution
-
-        let base:SymbolReference = try cache.load(composite.base, context: context)
-        self.culture.composite = try cache.load(composite.culture, context: context)
-
-        let declaration:Declaration<Atom<Symbol>>?
-        let topics:SymbolTopics
-        if let compound:Compound = composite.compound 
-        {
-            declaration = context[compound.base.nationality]?.declaration(for: compound.base)
-            
-            topics = .init(notes: .feature(
-                protocol: try .init(base, context: context, cache: &cache)))
-            
-            self.culture.base = compound.base.culture == compound.culture ? nil :
-                try cache.load(compound.base.culture, context: context)
-            self.culture.host = compound.host.culture == compound.culture ? nil :
-                try cache.load(compound.host.culture, context: context)
-            
-            self.breadcrumbs = try .init(base: _move base, 
-                host: try cache.load(compound.host, context: context), 
-                context: context, 
-                cache: &cache)
-        }
-        else 
-        {
-            declaration = context.local.declaration(for: composite.base)
-
-            topics = try .init(for: composite.base, base: base, 
-                context: context, 
-                cache: &cache)
-            
-            self.culture.base = nil
-            self.culture.host = nil
-
-            self.breadcrumbs = try .init(base: _move base, host: nil, 
-                context: context, 
-                cache: &cache)
-        }
-
-        guard let declaration:Declaration<Atom<Symbol>>
+        guard   let declaration:Declaration<Atom<Symbol>> = 
+                    context.local.declaration(for: symbol.atom)
         else 
         {
             throw _DeclarationLoadingError.init()
         }
 
+        let base:SymbolReference = try cache.load(symbol, context: context)
+        try self.init(documentation: documentation, 
+            declaration: declaration, 
+            evolution: evolution, 
+            topics: try .init(for: symbol.atom, base: base, 
+                context: context, 
+                cache: &cache), 
+            names: try .init(symbol, base: _move base, 
+                context: context, 
+                cache: &cache), 
+            context: context, 
+            cache: &cache)
+    }
+    init(_ compound:Compound.Position, 
+        documentation:__shared DocumentationExtension<Never>, 
+        evolution:Evolution,
+        context:__shared AnisotropicContext, 
+        cache:inout ReferenceCache) throws 
+    {
+        assert(context.local.nationality == compound.nationality)
+
+        guard   let declaration:Declaration<Atom<Symbol>> = 
+                    context[compound.base.nationality]?.declaration(for: compound.atoms.base)
+        else 
+        {
+            throw _DeclarationLoadingError.init()
+        }
+        
+        let base:SymbolReference = try cache.load(compound.base, context: context)
+
+        try self.init(documentation: documentation, 
+            declaration: declaration, 
+            evolution: evolution, 
+            topics: .init(notes: .feature(
+                protocol: try .init(base, context: context, cache: &cache))), 
+            names: try .init(compound, base: _move base, 
+                context: context, 
+                cache: &cache), 
+            context: context, 
+            cache: &cache)
+    }
+    init(documentation:__shared DocumentationExtension<Never>, 
+        declaration:Declaration<Atom<Symbol>>,
+        evolution:Evolution, 
+        topics:SymbolTopics, 
+        names:Names,
+        context:__shared AnisotropicContext, 
+        cache:inout ReferenceCache) throws 
+    {
+        self.evolution = evolution
         self.conditions = try .init(declaration.extensionConstraints, 
             context: context, 
             cache: &cache)
@@ -143,22 +207,18 @@ struct SymbolPage
         self.availability = declaration.availability
         self.notes = topics.notes 
 
-        var origin:Atom<Symbol> = composite.base 
-        if  let documentation:DocumentationExtension<Never> = 
-                context.documentation(for: &origin)
-        {
-            self.overview = try cache.link(documentation.card, context: context)
-            self.discussion = try cache.link(documentation.body, context: context)
-        }
-        else 
-        {
-            self.overview = nil
-            self.discussion = nil
-        }
+        self.overview = try cache.link(documentation.card, context: context)
+        self.discussion = try cache.link(documentation.body, context: context)
+
         self.topics = try topics.html(context: context, cache: &cache)?.node
             .rendered(as: [UInt8].self)
+        self.names = names 
     }
 
+    var breadcrumbs:Breadcrumbs 
+    {
+        self.names.breadcrumbs
+    }
     var base:SymbolReference 
     {
         self.breadcrumbs.base 
@@ -196,7 +256,7 @@ struct SymbolPage
                     self.availability.general
                 ))
             case .base: 
-                html = self.culture.base.map 
+                html = self.names.culture.base.map 
                 { 
                     .span($0.html, attributes: [.class("base")]) 
                 }
@@ -207,7 +267,7 @@ struct SymbolPage
                 html = nil 
             
             case .culture: 
-                html = self.culture.composite.html 
+                html = self.names.culture.composite.html 
             
             case .dependencies: 
                 html = nil
@@ -222,7 +282,7 @@ struct SymbolPage
                 return [UInt8].init(self.base.community.title.utf8)
             
             case .namespace: 
-                html = self.culture.host.map 
+                html = self.names.culture.host.map 
                 { 
                     .span($0.html, attributes: [.class("namespace")]) 
                 }

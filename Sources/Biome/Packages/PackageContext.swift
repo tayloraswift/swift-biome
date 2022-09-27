@@ -18,7 +18,19 @@ extension PackageContext
     {
         self[symbol.nationality]?.load(local: symbol) 
     }
-
+}
+extension PackageContext 
+{
+    func address(of atomic:Atom<Symbol>, 
+        disambiguate:Address.DisambiguationLevel = .minimally) -> Address?
+    {
+        self[atomic.nationality]?.address(of: atomic, 
+            disambiguate: disambiguate, 
+            context: self)
+    }
+}
+extension PackageContext 
+{
     func documentation(for symbol:inout Atom<Symbol>) -> DocumentationExtension<Never>?
     {
         while   let documentation:DocumentationExtension<Atom<Symbol>> = 

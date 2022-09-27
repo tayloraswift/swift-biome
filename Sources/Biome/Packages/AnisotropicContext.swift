@@ -6,7 +6,15 @@ struct AnisotropicContext:Sendable
 
     init(local:Package.Pinned, context:__shared Packages)
     {
-        self.init(local: local, pins: local.package.tree[local.version].pins, 
+        self.init(local: local, pins: local.revision.pins, 
+            context: context)
+    }
+    init(local:Package.Pinned, metadata:__shared Module.Metadata, 
+        context:__shared Packages)
+    {
+        let filter:Set<Package.Index> = .init(metadata.dependencies.lazy.map(\.nationality))
+        self.init(local: local, 
+            pins: local.revision.pins.filter { filter.contains($0.key) }, 
             context: context)
     }
     init(local:Package.Pinned, pins:__shared [Package.Index: Version], 
@@ -20,13 +28,12 @@ struct AnisotropicContext:Sendable
         }
         self.upstream = upstream
     }
-    init(local:Package.Pinned, metadata:__shared Module.Metadata, 
-        context:__shared Packages)
+}
+extension AnisotropicContext 
+{
+    func repinned(to version:Version, context:__shared Packages) -> Self 
     {
-        let filter:Set<Package.Index> = .init(metadata.dependencies.lazy.map(\.nationality))
-        self.init(local: local, 
-            pins: local.revision.pins.filter { filter.contains($0.key) }, 
-            context: context)
+        .init(local: self.local.repinned(to: version), context: context)
     }
 }
 extension AnisotropicContext:PackageContext
@@ -40,6 +47,14 @@ extension AnisotropicContext:PackageContext
         }
     }
 }
+// extension AnisotropicContext
+// {
+//     func address(local composite:Composite, 
+//         disambiguate:Address.DisambiguationLevel = .minimally) -> Address?
+//     {
+//         self.local.address(of: composite, disambiguate: disambiguate, context: self)
+//     }
+// }
 extension AnisotropicContext
 {
     func find(_ id:Symbol.ID, linked:Set<Atom<Module>>) -> (Atom<Symbol>.Position, Symbol)?

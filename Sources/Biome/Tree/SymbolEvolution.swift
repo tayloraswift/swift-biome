@@ -1,4 +1,4 @@
-struct SymbolEvolution 
+struct Evolution 
 {
     struct Item
     {
@@ -12,11 +12,46 @@ struct SymbolEvolution
     let current:(package:Package.ID, branch:Tag)
 
     private 
-    init(current:__shared Package.Pinned)
+    init(local:__shared Package.Pinned,
+        context:__shared Packages,
+        functions:__shared Service.PublicFunction.Names, 
+        address:(Package.Pinned) throws -> Address?) rethrows 
     {
         self.items = []
         self.newer = nil
-        self.current = (current.package.id, current.package.tree[current.version.branch].id)
+        self.current = (local.package.id, local.package.tree[local.version.branch].id)
+
+        let current:Version = local.version 
+        for branch:Branch in local.package.tree 
+        {
+            let detail:Int = branch.index == local.version.branch ? 8 : 1
+            try local.repinned(to: branch.revisions.indices.suffix(detail), of: branch)
+            {
+                (local:Package.Pinned) in 
+
+                guard local.version != current 
+                else 
+                {
+                    self.items.append(.init(
+                        label: local.package.tree.abbreviate(local.version) ?? .tag(branch.id), 
+                        uri: nil))
+                    return 
+                }
+                if  let address:Address = try address(local)
+                {
+                    let label:Version.Selector? = 
+                        local.package.tree.abbreviate(local.version)
+                    let uri:String = address.uri(functions: functions).description
+                    self.items.append(.init(label: label ?? .tag(branch.id), uri: uri))
+                    
+                    if case local.version.revision? = branch.head, 
+                            current.branch == branch.index
+                    {
+                        self.newer = uri
+                    }
+                }
+            }
+        }
     }
 }
 // evolution requires *site-wide* context! this is because the set of package pins 
@@ -29,128 +64,83 @@ struct SymbolEvolution
 // an example of this in “the wild” is if a package switches a dependency to another 
 // upstream package that vends a module of the same name as the one the old dependency 
 // vended.
-extension SymbolEvolution
+extension Evolution
 {
-    init(for atomic:__shared Symbol.ID, 
-        in local:__shared Package.Pinned, 
-        functions:__shared Service.PublicFunction.Names,
-        context:__shared Packages)
+    init(for atomic:Atom<Symbol>.Position, 
+        local:__shared Package.Pinned, 
+        context:__shared Packages, 
+        functions:__shared Service.PublicFunction.Names)
     {
-        self.init(current: local)
+        assert(local.nationality == atomic.nationality)
 
-        let current:Version = local.version 
-        for branch:Branch in local.package.tree 
+        let atomic:Symbol.ID = local.package.tree[local: atomic].id
+        self.init(local: local, context: context, functions: functions)
         {
-            let detail:Int = branch.index == local.version.branch ? 8 : 1
-
-            local.repinned(to: branch.revisions.indices.suffix(detail), of: branch)
+            if  let symbol:Atom<Symbol>.Position = 
+                    $0.symbols.find(atomic),
+                    $0.exists(symbol.atom),
+                let metadata:Module.Metadata = 
+                    $0.metadata(local: symbol.culture)
             {
-                (local:__owned Package.Pinned) in 
-
-                guard local.version != current 
-                else 
-                {
-                    self.items.append(.init(
-                        label: local.package.tree.abbreviate(local.version) ?? .tag(branch.id), 
-                        uri: nil))
-                    return 
-                }
-                guard   let symbol:Atom<Symbol>.Position = 
-                            local.symbols.find(atomic),
-                            local.exists(symbol.atom),
-                        let metadata:Module.Metadata = 
-                            local.metadata(local: symbol.culture)
-                else 
-                {
-                    return 
-                }
-
-                let context:AnisotropicContext = .init(local: _move local,
+                let context:AnisotropicContext = .init(local: $0,
                     metadata: metadata, 
                     context: context)
-                
-                if  let address:Address = context.local.address(of: symbol.atom, 
-                        symbol: context.local.package.tree[local: symbol], 
-                        context: context)
-                {
-                    let label:Version.Selector? = 
-                        context.local.package.tree.abbreviate(context.local.version)
-                    let uri:String = address.uri(functions: functions).description
-                    self.items.append(.init(label: label ?? .tag(branch.id), uri: uri))
+                return context.local.address(of: symbol.atom, 
+                    symbol: context.local.package.tree[local: symbol], 
+                    context: context)
+            }
+            else 
+            {
+                return nil
+            }
 
-                    if case context.local.version.revision? = branch.head, 
-                            current.branch == branch.index
-                    {
-                        self.newer = uri
-                    }
-                }
+        }
+    }
+    init(for compound:Compound.Position, 
+        local:__shared Package.Pinned,
+        context:__shared Packages,
+        functions:__shared Service.PublicFunction.Names)
+    {
+        assert(local.nationality == compound.nationality)
+        
+        let culture:Module.ID = local.package.tree[local: compound.culture].id
+        let host:Symbol.ID = context[compound.host.nationality].tree[local: compound.host].id
+        let base:Symbol.ID = context[compound.base.nationality].tree[local: compound.base].id
+
+        self.init(local: local, context: context, functions: functions)
+        {
+            guard   let culture:Atom<Module>.Position = $0.modules.find(culture), 
+                    let metadata:Module.Metadata = $0.metadata(local: culture.atom)
+            else 
+            {
+                return nil 
+            }
+
+            let context:AnisotropicContext = .init(local: $0,
+                metadata: metadata, 
+                context: context)
+            
+            if  let host:(position:Atom<Symbol>.Position, symbol:Symbol) = 
+                    context.find(host, linked: metadata.dependencies),
+                let base:(position:Atom<Symbol>.Position, symbol:Symbol) = 
+                    context.find(base, linked: metadata.dependencies),
+                // can’t think of why host would become equal to base, but hey, 
+                // anything can happen...
+                let compound:Compound = .init(
+                    diacritic: .init(host: host.position.atom, culture: culture.atom), 
+                    base: base.position.atom),
+                    context.local.exists(compound) 
+            {
+                return context.local.address(of: compound, 
+                    host: host.symbol, 
+                    base: base.symbol, 
+                    context: context)
+            }
+            else 
+            {
+                return nil
             }
         }
     }
-    init(for compound:__shared Compound.ID, 
-        in local:__shared Package.Pinned,
-        functions:__shared Service.PublicFunction.Names,
-        context:__shared Packages)
-    {
-        self.init(current: local)
 
-        let current:Version = local.version 
-        for branch:Branch in local.package.tree 
-        {
-            let detail:Int = branch.index == local.version.branch ? 8 : 1
-
-            local.repinned(to: branch.revisions.indices.suffix(detail), of: branch)
-            {
-                (local:__owned Package.Pinned) in 
-
-                guard local.version != current 
-                else 
-                {
-                    self.items.append(.init(
-                        label: local.package.tree.abbreviate(local.version) ?? .tag(branch.id), 
-                        uri: nil))
-                    return 
-                }
-                guard   let culture:Atom<Module>.Position = 
-                            local.modules.find(compound.culture), 
-                        let metadata:Module.Metadata = 
-                            local.metadata(local: culture.atom)
-                else 
-                {
-                    return 
-                }
-
-                let context:AnisotropicContext = .init(local: _move local,
-                    metadata: metadata, 
-                    context: context)
-                
-                if  let host:(position:Atom<Symbol>.Position, symbol:Symbol) = 
-                        context.find(compound.host, linked: metadata.dependencies),
-                    let base:(position:Atom<Symbol>.Position, symbol:Symbol) = 
-                        context.find(compound.base, linked: metadata.dependencies),
-                    // can’t think of why host would become equal to base, but hey, 
-                    // anything can happen...
-                    let compound:Compound = .init(
-                        diacritic: .init(host: host.position.atom, culture: culture.atom), 
-                        base: base.position.atom),
-                        context.local.exists(compound),
-                    let address:Address = context.local.address(of: compound, 
-                        host: host.symbol, 
-                        base: base.symbol, 
-                        context: context)
-                {
-                    let label:Version.Selector? = 
-                        context.local.package.tree.abbreviate(context.local.version)
-                    let uri:String = address.uri(functions: functions).description
-                    self.items.append(.init(label: label ?? .tag(branch.id), uri: uri))
-                    
-                    if case context.local.version.revision? = branch.head, 
-                            current.branch == branch.index
-                    {
-                        self.newer = uri
-                    }
-                }
-            }
-        }
-    }
 }

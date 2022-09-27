@@ -79,6 +79,13 @@ extension DocumentationExtension<Never>
         self.body = body
     }
 }
+extension DocumentationExtension 
+{
+    var isEmpty:Bool 
+    {
+        self.card.isEmpty && self.body.isEmpty
+    }
+}
 
 
 struct Literature 
