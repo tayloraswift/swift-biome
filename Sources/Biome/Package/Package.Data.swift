@@ -2,6 +2,13 @@ import SymbolGraphs
 
 extension Package 
 {
+    enum DataLoadingError:Error 
+    {
+        case topLevelArticles
+        case topLevelSymbols
+        case declaration
+    }
+    
     struct Data 
     {
         var topLevelArticles:History<Set<Atom<Article>>>

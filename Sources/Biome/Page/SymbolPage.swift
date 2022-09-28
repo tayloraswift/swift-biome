@@ -2,15 +2,7 @@ import DOM
 import HTML
 import Notebook
 
-extension SymbolPage 
-{
-    struct _MetadataLoadingError:Error 
-    {
-    }
-    struct _DeclarationLoadingError:Error 
-    {
-    }
-}
+
 extension SymbolPage 
 {
     struct Breadcrumbs:RandomAccessCollection
@@ -126,7 +118,7 @@ struct SymbolPage
 
     let names:Names
     let conditions:Organizer.Conditional
-    let notes:SymbolTopics.Notes?
+    let notes:Organizer.Topics.Notes?
     let fragments:Notebook<Highlight, String>
     let availability:Availability
 
@@ -146,7 +138,7 @@ struct SymbolPage
                     context.local.declaration(for: symbol.atom)
         else 
         {
-            throw _DeclarationLoadingError.init()
+            throw Package.DataLoadingError.declaration
         }
 
         let base:SymbolReference = try cache.load(symbol, context: context)
@@ -174,7 +166,7 @@ struct SymbolPage
                     context[compound.base.nationality]?.declaration(for: compound.atoms.base)
         else 
         {
-            throw _DeclarationLoadingError.init()
+            throw Package.DataLoadingError.declaration
         }
         
         let base:SymbolReference = try cache.load(compound.base, context: context)
@@ -192,7 +184,7 @@ struct SymbolPage
     init(documentation:__shared DocumentationExtension<Never>, 
         declaration:Declaration<Atom<Symbol>>,
         evolution:Evolution, 
-        topics:SymbolTopics, 
+        topics:Organizer.Topics, 
         names:Names,
         context:__shared AnisotropicContext, 
         cache:inout ReferenceCache) throws 
@@ -234,7 +226,7 @@ struct SymbolPage
         let html:HTML.Element<Never>?
         switch element
         {
-        case .summary: 
+        case .overview: 
             return self.overview ?? [UInt8].init("No overview available.".utf8)
         case .discussion: 
             return self.discussion
@@ -265,13 +257,13 @@ struct SymbolPage
             html = .ol(self.breadcrumbs.reversed()) 
         
         case .consumers: 
-            html = nil 
+            return nil 
         
         case .culture: 
             html = self.names.culture.composite.html 
         
         case .dependencies: 
-            html = nil
+            return nil
         
         case .fragments: 
             html = self.renderFragments()
@@ -362,7 +354,7 @@ struct SymbolPage
             }
         }
         
-        let conditions:[HTML.Element<Never>] = self.conditions.html 
+        let conditions:[HTML.Element<Never>] = self.conditions.htmls 
         if !conditions.isEmpty
         {
             let sentence:[HTML.Element<Never>] = 

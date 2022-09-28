@@ -4,6 +4,7 @@ import DOM
 struct ArticleReference 
 {
     let metadata:Article.Metadata
+    let path:Path
     let uri:String
 
     var headline:Article.Headline 
@@ -20,6 +21,11 @@ struct ModuleReference
 {
     let name:Module.ID 
     let uri:String
+
+    // var path:Path 
+    // {
+    //     .init(last: self.name.string)
+    // }
 }
 struct SymbolReference 
 {
@@ -113,9 +119,10 @@ struct ReferenceCache
         return reference
     }
     private mutating
-    func miss(_ key:Atom<Article>, metadata:Article.Metadata, address:Address) -> ArticleReference
+    func miss(_ key:Atom<Article>, article:Article, address:Address, 
+        metadata:Article.Metadata) -> ArticleReference
     {
-        let reference:ArticleReference = .init(metadata: metadata, 
+        let reference:ArticleReference = .init(metadata: metadata, path: article.path,
             uri: address.uri(functions: self.functions).description)
         self.articles[key] = reference 
         return reference
@@ -215,9 +222,10 @@ extension ReferenceCache
             let article:Article = pinned.load(local: key), 
             let metadata:Article.Metadata = pinned.metadata(local: key)
         {
-            return self.miss(key, metadata: metadata, address: .init(residency: pinned, 
-                namespace: namespace, 
-                article: article))
+            return self.miss(key, article: article, address: .init(residency: pinned, 
+                    namespace: namespace, 
+                    article: article), 
+                metadata: metadata)
         }
         else 
         {

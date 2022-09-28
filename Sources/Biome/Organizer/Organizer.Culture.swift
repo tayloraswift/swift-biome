@@ -9,7 +9,7 @@ extension Organizer
         case nonaccepted(ModuleReference, PackageReference)
     }
 }
-extension Organizer.Culture 
+extension Organizer.Culture:Comparable 
 {
     enum SortingKey:Comparable 
     {
@@ -30,16 +30,27 @@ extension Organizer.Culture
             return .nonaccepted(nationality.name, culture.name)
         }
     }
+
+    static 
+    func == (lhs:Self, rhs:Self) -> Bool 
+    {
+        lhs.sortingKey == rhs.sortingKey
+    }
+    static 
+    func < (lhs:Self, rhs:Self) -> Bool 
+    {
+        lhs.sortingKey < rhs.sortingKey
+    }
 }
 
-extension Organizer.Culture 
+extension Organizer.Culture:HTMLConvertible
 {
-    var html:[HTML.Element<Never>]?
+    var htmls:[HTML.Element<Never>]
     {
         switch self 
         {
         case .primary: 
-            return nil 
+            return [] 
         case .accepted(let culture):
             return [culture.html]
         case .nonaccepted(let culture, let nationality):

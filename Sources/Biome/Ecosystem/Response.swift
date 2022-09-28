@@ -54,7 +54,7 @@ extension Ecosystem
                 break 
             }
 
-            let template:DOM.Flattened<Page.Key> = template ?? self.template
+            let template:DOM.Flattened<Page.Key> = template ?? self._template
             var page:Page = .init(ecosystem: self, pins: pins)
                 page.generate(for: index, exhibit: exhibit)
                 page.add(scriptConstants: self.caches.keys)
@@ -80,7 +80,7 @@ extension Ecosystem
                 page.generate(for: choices, uri: normalized)
                 page.add(scriptConstants: self.caches.keys)
             
-            redirection = .none(.init(self.template.rendered(as: [UInt8].self, 
+            redirection = .none(.init(self._template.rendered(as: [UInt8].self, 
                     substituting: (_move page).substitutions), 
                 type: .utf8(encoded: .html)))
         

@@ -32,92 +32,101 @@ extension Path
     }
 }
 
-struct SymbolTopics 
+extension Organizer 
 {
-    enum Notes 
+    struct Topics 
     {
-        case feature(protocol:Organizer.Item<Organizer.Unconditional>)
-        case member(overridden:[Organizer.Item<Organizer.Unconditional>])
-        case requirement(restated:[Organizer.Item<Organizer.Unconditional>])
-
-        func sorted() -> Self 
+        enum Notes 
         {
-            switch self 
+            case feature(protocol:Item<Unconditional>)
+            case member(overridden:[Item<Unconditional>])
+            case requirement(restated:[Item<Unconditional>])
+
+            func sorted() -> Self 
             {
-            case .feature(protocol: let coyote): 
-                return .feature(protocol: coyote)
-            case .member(overridden: let overridden): 
-                return .member(overridden: overridden.sorted())
-            case .requirement(restated: let restated): 
-                return .requirement(restated: restated.sorted())
+                switch self 
+                {
+                case .feature(protocol: let coyote): 
+                    return .feature(protocol: coyote)
+                case .member(overridden: let overridden): 
+                    return .member(overridden: overridden.sorted(by: |<|))
+                case .requirement(restated: let restated): 
+                    return .requirement(restated: restated.sorted(by: |<|))
+                }
             }
         }
-    }
 
-    let notes:Notes? 
-    // let articles:[Organizer.Card<String>]
-
-    let requirements:[(Community, [Organizer.Card<Notebook<Highlight, Never>>])]
-
-    let members:[(Community, [Organizer.Enclave<Organizer.Card<Notebook<Highlight, Never>>>])]
-    let removed:[(Community, [Organizer.Enclave<Organizer.Card<Notebook<Highlight, Never>>>])]
-
-    let implications:[Organizer.Item<Organizer.Unconditional>]
-
-    let conformers:[Organizer.Enclave<Organizer.Item<Organizer.Conditional>>]
-    let conformances:[Organizer.Enclave<Organizer.Item<Organizer.Conditional>>]
-
-    let subclasses:[Organizer.Enclave<Organizer.Item<Organizer.Unconditional>>]
-    let refinements:[Organizer.Enclave<Organizer.Item<Organizer.Unconditional>>]
-    let implementations:[Organizer.Enclave<Organizer.Item<Organizer.Unconditional>>]
-    let restatements:[Organizer.Enclave<Organizer.Item<Organizer.Unconditional>>]
-    let overrides:[Organizer.Enclave<Organizer.Item<Organizer.Unconditional>>]
-
-    init(notes:Notes?) 
-    {
-        //self.articles = []
-        self.notes = notes?.sorted()
-
-        self.requirements = []
-
-        self.members = []
-        self.removed = []
-
-        self.implications = []
-
-        self.conformers = []
-        self.conformances = []
-
-        self.subclasses = []
-        self.refinements = []
-        self.implementations = []
-        self.restatements = []
-        self.overrides = []
-    }
-    private 
-    init(_ organizer:Organizer, notes:Notes?)
-    {
-        //self.articles = organizer.articles.sorted()
-        self.notes = notes?.sorted()
+        let notes:Notes? 
         
-        self.requirements = organizer.requirements.sublists { $0.sorted() }
+        let articles:[ArticleCard]
+        let dependencies:[Enclave<H3, Nationality, ModuleCard>]
 
-        self.members = organizer.members.sublists { $0.values.sorted().map { $0.sorted() } }
-        self.removed = organizer.removed.sublists { $0.values.sorted().map { $0.sorted() } }
+        let requirements:[(Community, [SymbolCard])]
 
-        self.implications = organizer.implications.sorted()
+        let members:[(Community, [Enclave<H4, Culture, SymbolCard>])]
+        let removed:[(Community, [Enclave<H4, Culture, SymbolCard>])]
 
-        self.conformers         =      organizer.conformers.values.sorted().map { $0.sorted() }
-        self.conformances       =    organizer.conformances.values.sorted().map { $0.sorted() }
+        let implications:[Item<Unconditional>]
 
-        self.subclasses         =      organizer.subclasses.values.sorted().map { $0.sorted() }
-        self.refinements        =     organizer.refinements.values.sorted().map { $0.sorted() }
-        self.implementations    = organizer.implementations.values.sorted().map { $0.sorted() }
-        self.restatements       =    organizer.restatements.values.sorted().map { $0.sorted() }
-        self.overrides          =       organizer.overrides.values.sorted().map { $0.sorted() }
+        let conformers:[Enclave<H3, Culture, Item<Conditional>>]
+        let conformances:[Enclave<H3, Culture, Item<Conditional>>]
+
+        let subclasses:[Enclave<H3, Culture, Item<Unconditional>>]
+        let refinements:[Enclave<H3, Culture, Item<Unconditional>>]
+        let implementations:[Enclave<H3, Culture, Item<Unconditional>>]
+        let restatements:[Enclave<H3, Culture, Item<Unconditional>>]
+        let overrides:[Enclave<H3, Culture, Item<Unconditional>>]
+
+        init(notes:Notes? = nil) 
+        {
+            self.notes = notes?.sorted()
+
+            self.articles = []
+            self.dependencies = []
+
+            self.requirements = []
+
+            self.members = []
+            self.removed = []
+
+            self.implications = []
+
+            self.conformers = []
+            self.conformances = []
+
+            self.subclasses = []
+            self.refinements = []
+            self.implementations = []
+            self.restatements = []
+            self.overrides = []
+        }
+        private 
+        init(_ organizer:Organizer, notes:Notes? = nil)
+        {
+            self.notes = notes?.sorted()
+            
+            self.articles = organizer.articles.sorted()
+            self.dependencies = organizer.dependencies.values.sorted().map { $0.sorted(by: |<|) }
+
+            self.requirements = organizer.requirements.sublists { $0.sorted() }
+
+            self.members = organizer.members.sublists { $0.values.sorted().map { $0.sorted() } }
+            self.removed = organizer.removed.sublists { $0.values.sorted().map { $0.sorted() } }
+
+            self.implications = organizer.implications.sorted(by: |<|)
+
+            self.conformers = organizer.conformers.values.sorted().map { $0.sorted(by: |<|) }
+            self.conformances = organizer.conformances.values.sorted().map { $0.sorted(by: |<|) }
+
+            self.subclasses = organizer.subclasses.values.sorted().map { $0.sorted(by: |<|) }
+            self.refinements = organizer.refinements.values.sorted().map { $0.sorted(by: |<|) }
+            self.implementations = organizer.implementations.values.sorted().map { $0.sorted(by: |<|) }
+            self.restatements = organizer.restatements.values.sorted().map { $0.sorted(by: |<|) }
+            self.overrides = organizer.overrides.values.sorted().map { $0.sorted(by: |<|) }
+        }
     }
 }
-extension Dictionary where Key:CaseIterable 
+extension Dictionary where Key == Community 
 {
     fileprivate
     func sublists<Sublist>(_ transform:(Value) throws -> Sublist) rethrows -> [(Key, Sublist)]
@@ -129,9 +138,42 @@ extension Dictionary where Key:CaseIterable
     }
 }
 
-extension SymbolTopics 
+extension Organizer.Topics 
 {
-    // takes an anisotropic context
+    init(for module:Atom<Module>, 
+        context:__shared AnisotropicContext,
+        cache:inout ReferenceCache) throws
+    {
+        guard let metadata:Module.Metadata = context.local.metadata(local: module)
+        else 
+        {
+            throw Package.MetadataLoadingError.module
+        }
+        guard let articles:Set<Atom<Article>> = context.local.topLevelArticles(of: module) 
+        else 
+        {
+            throw Package.DataLoadingError.topLevelArticles
+        }
+        guard let symbols:Set<Atom<Symbol>> = context.local.topLevelSymbols(of: module)
+        else 
+        {
+            throw Package.DataLoadingError.topLevelSymbols
+        }
+
+        var organizer:Organizer = .init()
+        try organizer.organize(dependencies: metadata.dependencies, 
+            context: context, 
+            cache: &cache)
+        try organizer.organize(articles: articles, 
+            context: context, 
+            cache: &cache)
+        try organizer.organize(members: symbols, enclave: module, 
+            culture: .primary, 
+            context: context, 
+            cache: &cache)
+        self.init(_move organizer)
+    }
+    
     init(for atomic:Atom<Symbol>, 
         base:__shared SymbolReference,
         context:__shared AnisotropicContext,
@@ -140,7 +182,7 @@ extension SymbolTopics
         guard let metadata:Symbol.Metadata = context.local.metadata(local: atomic)
         else 
         {
-            throw _MetadataLoadingError.init()
+            throw Package.MetadataLoadingError.symbol
         }
 
         var organizer:Organizer = .init()
@@ -219,38 +261,45 @@ extension SymbolTopics
 }
 
 
-extension SymbolTopics  
+extension Organizer.Topics  
 {
     func html(context:some PackageContext, cache:inout ReferenceCache) 
         throws -> HTML.Element<Never>?
     {
         var sections:[HTML.Element<Never>] = []
         
-        // topics.feed.isEmpty ? [] : 
-        // [
-        //     .section(self.render(cards: topics.feed), attributes: [.class("feed")])
-        // ]
+        if !self.articles.isEmpty 
+        {
+            sections.append(.section(.ul(self.articles.map(\.html)),
+                attributes: [.class("feed")]))
+        }
 
+        if !self.dependencies.isEmpty
+        {
+            sections.append(.section(self.dependencies.grid(heading: .h2("Dependencies")),
+                attributes: [.class("topics dependencies")]))
+        }
+        
         if  let section:HTML.Element<Never> = self.refinements.section(
-                heading: .h2("Refinements"), 
+                h2: "Refinements",
                 attributes: [.class("related")])
         {
             sections.append(section)
         }
         if  let section:HTML.Element<Never> = self.implementations.section(
-                heading: .h2("Refinements"), 
+                h2: "Implemented By",
                 attributes: [.class("related")])
         {
             sections.append(section)
         }
         if  let section:HTML.Element<Never> = self.restatements.section(
-                heading: .h2("Refinements"), 
+                h2: "Restated By", 
                 attributes: [.class("related")])
         {
             sections.append(section)
         }
         if  let section:HTML.Element<Never> = self.overrides.section(
-                heading: .h2("Refinements"), 
+                h2: "Overridden By", 
                 attributes: [.class("related")])
         {
             sections.append(section)
@@ -258,59 +307,50 @@ extension SymbolTopics
         
         if !self.requirements.isEmpty
         {
-            sections.append(.section(try [.h2("Requirements")] + self.requirements.map 
+            sections.append(.section([.h2("Requirements")] + self.requirements.map 
                 {
-                    .section(.h3($0.0.plural), .ul(try $0.1.map 
-                    {
-                        try $0.html(context: context, cache: &cache)
-                    }))
+                    .section(.h3($0.0.plural), .ul($0.1.map(\.html)))
                 },
                 attributes: [.class("topics requirements")]))
         }
         if !self.members.isEmpty
         {
-            sections.append(.section(try [.h2("Members")] + self.members.map 
+            sections.append(.section([.h2("Members")] + self.members.map 
                 {
-                    try $0.1.grid(heading: .h3($0.0.plural))
-                    {
-                        try $0.html(context: context, cache: &cache)
-                    }
+                    $0.1.grid(heading: .h3($0.0.plural))
                 },
                 attributes: [.class("topics members")]))
         }
         
         if  let section:HTML.Element<Never> = self.conformers.section(
-                heading: .h2("Conforming Types"), 
+                h2: "Conforming Types", 
                 attributes: [.class("related")])
         {
             sections.append(section)
         }
         if  let section:HTML.Element<Never> = self.conformances.section(
-                heading: .h2("Conforms To"), 
+                h2: "Conforms To", 
                 attributes: [.class("related")])
         {
             sections.append(section)
         }
         if  let section:HTML.Element<Never> = self.subclasses.section(
-                heading: .h2("Subclasses"), 
+                h2: "Subclasses", 
                 attributes: [.class("related")])
         {
             sections.append(section)
         }
         if !self.implications.isEmpty
         {
-            sections.append(.section(.h2("Implies"), .ul(self.implications.flatMap(\.html)), 
+            sections.append(.section(.h2("Implies"), .ul(self.implications.map(\.html)), 
                 attributes: [.class("related")]))
         }
 
         if !self.removed.isEmpty
         {
-            sections.append(.section(try [.h2("Removed Members")] + self.removed.map 
+            sections.append(.section([.h2("Removed Members")] + self.removed.map 
                 {
-                    try $0.1.grid(heading: .h3($0.0.plural))
-                    {
-                        try $0.html(context: context, cache: &cache)
-                    }
+                    $0.1.grid(heading: .h3($0.0.plural))
                 },
                 attributes: [.class("topics removed")]))
         }
@@ -323,21 +363,20 @@ extension SymbolTopics
 extension Collection where Element:HTMLConvertible
 {
     fileprivate 
-    func section(heading:HTML.Element<Never>, attributes:[HTML.Element<Never>.Attribute] = [])
+    func section(h2:String, attributes:[HTML.Element<Never>.Attribute] = []) 
         -> HTML.Element<Never>?
     {
         self.isEmpty ? nil : 
-            .section([heading] + self.lazy.map(\.html).joined(), attributes: attributes)
+            .section([.h2(escaped: h2)] + self.lazy.flatMap(\.htmls), attributes: attributes)
     }
 }
-extension Sequence<Organizer.Enclave<Organizer.Card<Notebook<Highlight, Never>>>>
+extension Sequence where Element:HTMLConvertible
 {
     fileprivate 
-    func grid(heading:HTML.Element<Never>, html:(Element) throws -> [HTML.Element<Never>]) 
-        rethrows -> HTML.Element<Never>
+    func grid(heading:HTML.Element<Never>) -> HTML.Element<Never>
     {
-        var enclaves:Iterator = self.makeIterator() 
-        guard let first:[HTML.Element<Never>] = try enclaves.next().map(html)
+        var iterator:Iterator = self.makeIterator() 
+        guard let first:Element.RenderedHTML = iterator.next()?.htmls
         else 
         {
             return .section(heading) 
@@ -358,7 +397,7 @@ extension Sequence<Organizer.Enclave<Organizer.Card<Notebook<Highlight, Never>>>
 
         elements.append(contentsOf: _move first)
 
-        while let next:[HTML.Element<Never>] = try enclaves.next().map(html)
+        while let next:Element.RenderedHTML = iterator.next()?.htmls
         {
             elements.append(contentsOf: next)
         }

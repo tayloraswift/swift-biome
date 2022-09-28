@@ -229,39 +229,4 @@ extension Packages
     //     let heading:HTML.Element<Page.Topics.Key> = .h2(escaped: "Modules")
     //     return .init(freezing: .div(.section(heading, list, attributes: [.class("related")])))
     // }
-    
-    
-    // private 
-    // func render(cards:[Page.Card]) -> HTML.Element<Page.Topics.Key>
-    // {
-    //     let items:[HTML.Element<Page.Topics.Key>] = cards.map 
-    //     {
-    //         switch $0 
-    //         {
-    //         case .article(let article, let excerpt):
-    //             let signature:HTML.Element<Page.Topics.Key> = 
-    //                 .a(.h2(.init(escaped: excerpt.headline.formatted)), attributes:
-    //                 [
-    //                     .init(anchor: .href(.article(article))),
-    //                     .class("headline")
-    //                 ])
-    //             let more:HTML.Element<Page.Topics.Key> = .a("Read more", attributes:
-    //                 [
-    //                     .init(anchor: .href(.article(article))),
-    //                     .class("more")
-    //                 ])
-    //             return .li([signature, .init(anchor: .article(article)), more])
-            
-    //         case .composite(let composite, let declaration):
-    //             let signature:HTML.Element<Page.Topics.Key> = 
-    //                 .a(.render(signature: declaration.signature), attributes:
-    //                 [
-    //                     .init(anchor: .href(.composite(composite))),
-    //                     .class("signature")
-    //                 ])
-    //             return .li(signature, .init(anchor: .composite(composite)))
-    //         }
-    //     }
-    //     return .ul(items)
-    // }
 }

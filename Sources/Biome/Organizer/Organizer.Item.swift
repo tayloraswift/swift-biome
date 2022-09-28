@@ -4,7 +4,7 @@ extension Organizer
 {
     struct Unconditional:HTMLConvertible
     {
-        var html:EmptyCollection<HTML.Element<Never>>
+        var htmls:EmptyCollection<HTML.Element<Never>>
         {
             .init()
         }
@@ -28,7 +28,7 @@ extension Organizer
             })
         }
 
-        var html:[HTML.Element<Never>]
+        var htmls:[HTML.Element<Never>]
         {
             self.constraints.html 
         }
@@ -104,26 +104,27 @@ extension Organizer.Item<Organizer.Conditional>
             cache: &cache)
     }
 }
-extension Sequence 
+extension Organizer.Item
 {
-    func sorted<T>() -> [Organizer.Item<T>] 
-        where Element == Organizer.Item<T> 
+    static 
+    func |<| (lhs:Self, rhs:Self) -> Bool 
     {
-        self.sorted { $0.display.path |<| $1.display.path }
+        lhs.display.path |<| rhs.display.path
     }
 }
 
 
-extension Organizer.Item:HTMLConvertible where Conditions:HTMLConvertible
+extension Organizer.Item:HTMLElementConvertible, HTMLConvertible 
+    where Conditions:HTMLConvertible
 {
-    var html:CollectionOfOne<HTML.Element<Never>>
+    var html:HTML.Element<Never>
     {
         let signature:HTML.Element<Never> = .a(.code(self.display.path.html), 
             attributes: [.href(self.uri), .class("signature")])
-        let conditions:Conditions.RenderedHTML = self.conditions.html 
-        return .init(conditions.isEmpty ?
+        let conditions:Conditions.RenderedHTML = self.conditions.htmls 
+        return conditions.isEmpty ?
             .li(signature) : 
-            .li(signature, .p([.init(escaped: "When ")] + conditions)))
+            .li(signature, .p([.init(escaped: "When ")] + conditions))
     }
 }
 

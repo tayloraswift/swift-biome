@@ -3,27 +3,29 @@ import Notebook
 
 struct Organizer
 {
-    var articles:[Card<String>.Unsorted]
+    var articles:[(ArticleCard, SortingKey)]
+    var dependencies:[Package.Index: Enclave<H3, Nationality, ModuleCard>]
 
-    var requirements:[Community: [Card<Notebook<Highlight, Never>>.Unsorted]]
+    var requirements:[Community: [(SymbolCard, SortingKey)]]
 
-    var members:[Community: [Atom<Module>: Enclave<Card<Notebook<Highlight, Never>>.Unsorted>]]
-    var removed:[Community: [Atom<Module>: Enclave<Card<Notebook<Highlight, Never>>.Unsorted>]]
+    var members:[Community: [Atom<Module>: Enclave<H4, Culture, (SymbolCard, SortingKey)>]]
+    var removed:[Community: [Atom<Module>: Enclave<H4, Culture, (SymbolCard, SortingKey)>]]
 
     var implications:[Item<Unconditional>]
 
-    var conformers:[Atom<Module>: Enclave<Item<Conditional>>]
-    var conformances:[Atom<Module>: Enclave<Item<Conditional>>]
+    var conformers:[Atom<Module>: Enclave<H3, Culture, Item<Conditional>>]
+    var conformances:[Atom<Module>: Enclave<H3, Culture, Item<Conditional>>]
 
-    var subclasses:[Atom<Module>: Enclave<Item<Unconditional>>]
-    var refinements:[Atom<Module>: Enclave<Item<Unconditional>>]
-    var implementations:[Atom<Module>: Enclave<Item<Unconditional>>]
-    var restatements:[Atom<Module>: Enclave<Item<Unconditional>>]
-    var overrides:[Atom<Module>: Enclave<Item<Unconditional>>]
+    var subclasses:[Atom<Module>: Enclave<H3, Culture, Item<Unconditional>>]
+    var refinements:[Atom<Module>: Enclave<H3, Culture, Item<Unconditional>>]
+    var implementations:[Atom<Module>: Enclave<H3, Culture, Item<Unconditional>>]
+    var restatements:[Atom<Module>: Enclave<H3, Culture, Item<Unconditional>>]
+    var overrides:[Atom<Module>: Enclave<H3, Culture, Item<Unconditional>>]
 
     init() 
     {
         self.articles = []
+        self.dependencies = [:]
 
         self.requirements = [:]
 
@@ -43,6 +45,63 @@ struct Organizer
     }
 }
 
+extension Organizer 
+{
+    mutating 
+    func organize(dependencies:Set<Atom<Module>>, 
+        context:AnisotropicContext, 
+        cache:inout ReferenceCache) throws 
+    {
+        let groups:[Package.Index: [Atom<Module>]] = .init(grouping: dependencies, 
+            by: \.nationality)
+        for (nationality, atoms):(Package.Index, [Atom<Module>]) in groups
+        {
+            let nationality:Nationality = nationality == context.local.nationality ? 
+                .local : .foreign(try cache.load(nationality, context: context))
+            
+            for atom:Atom<Module> in atoms 
+            {
+                let module:ModuleReference = try cache.load(atom, context: context)
+                let overview:DOM.Flattened<GlobalLink.Presentation>? = 
+                    context[atom.nationality]?.documentation(for: atom)?.card
+                let card:ModuleCard = .init(reference: module, 
+                    overview: try overview.flatMap { try cache.link($0, context: context) })
+                self.dependencies[atom.nationality, default: .init(nationality)]
+                    .elements.append(card)
+            }
+        }
+    }
+    mutating 
+    func organize(articles:Set<Atom<Article>>, 
+        context:some PackageContext, 
+        cache:inout ReferenceCache) throws 
+    {
+        for atom:Atom<Article> in articles
+        {
+            let article:ArticleReference = try cache.load(atom, context: context)
+            let overview:DOM.Flattened<GlobalLink.Presentation>? = 
+                context[atom.nationality]?.documentation(for: atom)?.card
+            let card:ArticleCard = .init(headline: article.headline.formatted, 
+                overview: try overview.flatMap { try cache.link($0, context: context) }, 
+                uri: article.uri)
+            self.articles.append((card, .atomic(article.path)))
+        }
+    }
+    // The enclave may be different from the atom’s own culture.
+    mutating 
+    func organize(members:Set<Atom<Symbol>>, enclave:Atom<Module>, culture:Culture,
+        context:some PackageContext, 
+        cache:inout ReferenceCache) throws 
+    {
+        for member:Atom<Symbol> in members
+        {
+            try self.add(member: member, to: enclave,
+                    culture: culture, 
+                    context: context, 
+                    cache: &cache)
+        }
+    }
+}
 extension Organizer 
 {
     mutating 
@@ -80,14 +139,11 @@ extension Organizer
                 self.refinements[diacritic.culture, default: .init(culture)]
                     .elements.append(try .init(refinement, context: context, cache: &cache))
             }
-            for member:Atom<Symbol> in traits.members
-            {
-                // The enclave may be different from the atom’s own culture.
-                try self.add(member: member, to: diacritic.culture,
-                    culture: culture, 
-                    context: context, 
-                    cache: &cache)
-            }
+
+            try self.organize(members: traits.members, enclave: diacritic.culture, 
+                culture: culture, 
+                context: context, 
+                cache: &cache)
         
         case (.concretetype(_), _): 
             for (conformance, constraints):(Atom<Symbol>, [Generic.Constraint<Atom<Symbol>>]) in 
@@ -103,14 +159,6 @@ extension Organizer
                 self.subclasses[diacritic.culture, default: .init(culture)]
                     .elements.append(try .init(subclass, context: context, cache: &cache))
             }
-            for member:Atom<Symbol> in traits.members
-            {
-                // The enclave may be different from the atom’s own culture.
-                try self.add(member: member, to: diacritic.culture,
-                    culture: culture, 
-                    context: context, 
-                    cache: &cache)
-            }
             for feature:Atom<Symbol> in traits.features
             {
                 try self.add(feature: feature, to: diacritic, 
@@ -118,7 +166,12 @@ extension Organizer
                     context: context, 
                     cache: &cache)
             }
-        
+
+            try self.organize(members: traits.members, enclave: diacritic.culture,
+                culture: culture, 
+                context: context, 
+                cache: &cache)
+
         case (.callable(_), _):
             for override:Atom<Symbol> in traits.downstream
             {
@@ -162,32 +215,31 @@ extension Organizer
                     context[composite.base.nationality]?.declaration(for: composite.base)
         else 
         {
-            throw _DeclarationLoadingError.init()
+            throw Package.DataLoadingError.declaration
         }
 
-        let overview:DOM.Flattened<GlobalLink.Presentation> = 
-            context.documentation(for: composite.base)?.card ?? .init()
+        let overview:DOM.Flattened<GlobalLink.Presentation>? = 
+            context.documentation(for: composite.base)?.card 
         
         let base:SymbolReference = try cache.load(composite.base, context: context)
-        let card:Card<Notebook<Highlight, Never>>, 
-            key:SortingKey
+        let key:SortingKey,
+            uri:String
         if  let compound:Compound = composite.compound 
         {
             let host:SymbolReference = try cache.load(compound.host, context: context)
 
-            card = .init(signature: declaration.signature, 
-                overview: overview, 
-                uri: try cache.uri(of: compound, context: context))
             key = .compound((host.path, base.name))
+            uri = try cache.uri(of: compound, context: context)
         }
         else 
         {
-            card = .init(signature: declaration.signature, 
-                overview: overview, 
-                uri: base.uri)
             key = .atomic(base.path)
+            uri = base.uri
         }
-        
+
+        let card:SymbolCard = .init(signature: declaration.signature, 
+            overview: try overview.flatMap { try cache.link($0, context: context) }, 
+            uri: uri)
         if  declaration.availability.isUsable 
         {
             self.members[base.community, default: [:]][enclave, default: .init(culture)]
@@ -203,7 +255,7 @@ extension Organizer
 
 extension Organizer 
 {
-    mutating 
+    mutating
     func organize(_ roles:Branch.SymbolRoles, 
         context:AnisotropicContext, 
         cache:inout ReferenceCache) throws
@@ -230,12 +282,13 @@ extension Organizer
                         context.local.declaration(for: role)
             else 
             {
-                throw _DeclarationLoadingError.init()
+                throw Package.DataLoadingError.declaration
             }
-            let card:Card<Notebook<Highlight, Never>> = .init(
-                    signature: declaration.signature, 
-                    overview: context.documentation(for: role)?.card ?? .init(), 
-                    uri: symbol.uri)
+            let overview:DOM.Flattened<GlobalLink.Presentation>? = 
+                context.documentation(for: role)?.card
+            let card:SymbolCard = .init(signature: declaration.signature, 
+                overview: try overview.flatMap { try cache.link($0, context: context) }, 
+                uri: symbol.uri)
             self.requirements[community, default: []].append((card, .atomic(symbol.path)))
         }
     }

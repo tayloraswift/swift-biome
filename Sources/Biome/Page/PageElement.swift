@@ -24,7 +24,7 @@ enum PageElement:Hashable, Sendable
     case notes 
     case notices
     case platforms
-    case summary
+    case overview
     case topics
     case versions
 } 
@@ -98,7 +98,7 @@ extension HTML.Root<PageElement>
                                     
                                     .init(anchor: .headline),
                                     .init(anchor: .notices),
-                                    .init(anchor: .summary),
+                                    .init(anchor: .overview),
                                     .init(anchor: .notes),
                                     .init(anchor: .availability), 
                                     attributes: [.class("introduction")]),

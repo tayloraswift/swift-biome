@@ -1,48 +1,38 @@
 import HTML 
-import DOM
 
-struct ArticlePage 
+struct ModulePage 
 {
     let evolution:Evolution
+
+    let nationality:PackageReference
     let culture:ModuleReference
-    let metadata:Article.Metadata
+
+    let overview:[UInt8]?
     let discussion:[UInt8]?
+    let topics:[UInt8]?
     let logo:[UInt8]
 
-    init(_ article:Atom<Article>.Position, logo:[UInt8],
+    init(_ module:Atom<Module>.Position, logo:[UInt8],
         documentation:__shared DocumentationExtension<Never>, 
         evolution:Evolution,
         context:__shared AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
-        assert(context.local.nationality == article.nationality)
+        assert(context.local.nationality == module.nationality)
 
-        guard let metadata:Article.Metadata = context.local.metadata(local: article.atom) 
-        else 
-        {
-            throw Package.MetadataLoadingError.article
-        }
-
-        self.culture = try cache.load(article.culture, context: context)
-        self.metadata = metadata
-        self.evolution = evolution
         self.logo = logo
+        self.evolution = evolution
+        self.nationality = try cache.load(module.nationality, context: context)
+        self.culture = try cache.load(module, context: context)
 
-        switch 
-        (
-            try cache.link(documentation.card, context: context),
-            try cache.link(documentation.body, context: context)
-        )
-        {
-        case (nil, nil):
-            self.discussion = nil
-        case (let head?, nil):
-            self.discussion = head
-        case (let head?, let body?):
-            self.discussion = head + body
-        case (nil, let body?):
-            self.discussion = body
-        }
+        self.overview = try cache.link(documentation.card, context: context)
+        self.discussion = try cache.link(documentation.body, context: context)
+
+        let topics:Organizer.Topics = try .init(for: module.atom, 
+            context: context, 
+            cache: &cache)
+        self.topics = try topics.html(context: context, cache: &cache)?.node
+            .rendered(as: [UInt8].self)
     }
 
     func render(element:PageElement) -> [UInt8]?
@@ -51,11 +41,11 @@ struct ArticlePage
         switch element
         {
         case .overview: 
-            return nil
+            return self.overview
         case .discussion: 
             return self.discussion
         case .topics: 
-            return nil
+            return self.topics
         case .title: 
             fatalError("unimplemented") 
         case .constants: 
@@ -74,24 +64,20 @@ struct ArticlePage
         case .consumers: 
             return nil 
         case .culture: 
-            html = self.culture.html 
+            html = self.nationality.html 
         case .dependencies: 
             return nil
         case .fragments: 
             return nil
         case .headline: 
-            html = .h1(self.metadata.headline.formatted)
+            html = .h1(self.culture.name.string)
         case .host: 
             return nil 
         case .kind: 
-            return [UInt8].init("Article".utf8)
+            return [UInt8].init("Module".utf8)
         
         case .meta: 
-            html = self.metadata.excerpt.isEmpty ? nil : .meta(attributes: 
-            [
-                .name("description"), 
-                .content(DOM.escape(self.metadata.excerpt)),
-            ])
+            return nil
         
         case .nationality: 
             html = .span(self.evolution.current.package.title, 

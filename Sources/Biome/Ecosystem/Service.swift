@@ -81,6 +81,10 @@ struct Service
             fatalError("obsoleted")
         }
     }
+    var _template:DOM.Flattened<Page.Key>
+    {
+        fatalError("obsoleted")
+    }
 
     public 
     init() 
@@ -175,9 +179,16 @@ extension Service
                 fatalError("unimplemented")
             
             case .module(let module): 
-                let _:Package.Pinned = .init(self.packages[module.nationality], 
-                    version: query.version)
-                fatalError("unimplemented")
+                let context:AnisotropicContext = .init(local: module.nationality,
+                    version: query.version,
+                    context: self.packages)
+                let page:ModulePage = try .init(module, logo: logo, 
+                    documentation: query._objects, 
+                    evolution: .init(for: module, local: context.local, 
+                        functions: cache.functions), 
+                    context: context,
+                    cache: &cache)
+                utf8 = template.rendered(page.render(element:))
             
             case .article(let article): 
                 let context:AnisotropicContext = .init(local: article.nationality,
