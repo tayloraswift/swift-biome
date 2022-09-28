@@ -2,13 +2,15 @@ import DOM
 import HTML
 import Notebook
 
-struct _MetadataLoadingError:Error 
+extension SymbolPage 
 {
+    struct _MetadataLoadingError:Error 
+    {
+    }
+    struct _DeclarationLoadingError:Error 
+    {
+    }
 }
-struct _DeclarationLoadingError:Error 
-{
-}
-
 extension SymbolPage 
 {
     struct Breadcrumbs:RandomAccessCollection
@@ -176,7 +178,6 @@ struct SymbolPage
         }
         
         let base:SymbolReference = try cache.load(compound.base, context: context)
-
         try self.init(documentation: documentation, 
             declaration: declaration, 
             evolution: evolution, 
@@ -228,99 +229,84 @@ struct SymbolPage
         self.breadcrumbs.host
     }
 
-    func _render(template:DOM.Flattened<Page.Key>) -> [UInt8]
+    func render(element:PageElement) -> [UInt8]?
     {
-        template.rendered(as: [UInt8].self)
+        let html:HTML.Element<Never>?
+        switch element
         {
-            (key:Page.Key) -> [UInt8]? in 
+        case .summary: 
+            return self.overview ?? [UInt8].init("No overview available.".utf8)
+        case .discussion: 
+            return self.discussion
+        case .topics: 
+            return self.topics 
 
-            let html:HTML.Element<Never>?
-            switch key
-            {
-            case .summary: 
-                return self.overview ?? [UInt8].init("No overview available.".utf8)
-            case .discussion: 
-                return self.discussion
-            case .topics: 
-                return self.topics 
-
-            case .title: 
-                fatalError("unimplemented") 
-            case .constants: 
-                fatalError("unimplemented") 
-            
-            case .availability: 
-                html = .render(availability: 
-                (
-                    self.availability.swift, 
-                    self.availability.general
-                ))
-            case .base: 
-                html = self.names.culture.base.map 
-                { 
-                    .span($0.html, attributes: [.class("base")]) 
-                }
-            case .breadcrumbs: 
-                html = .ol(self.breadcrumbs.reversed()) 
-            
-            case .consumers: 
-                html = nil 
-            
-            case .culture: 
-                html = self.names.culture.composite.html 
-            
-            case .dependencies: 
-                html = nil
-            
-            case .fragments: 
-                html = self.renderFragments()
-            
-            case .headline: 
-                html = .h1(self.base.name)
-            
-            case .kind: 
-                return [UInt8].init(self.base.community.title.utf8)
-            
-            case .namespace: 
-                html = self.names.culture.host.map 
-                { 
-                    .span($0.html, attributes: [.class("namespace")]) 
-                }
-            case .notes: 
-                html = self.renderNotes()
-            
-            case .notices: 
-                if let newer:String = self.evolution.newer 
-                {
-                    html = .div(.div(.p()), .div(.p(
-                            .init(escaped: "There’s a "),
-                            .a("newer version", attributes: [.href(newer)]),
-                            .init(escaped: " of this documentation available."))), 
-                        attributes: [.class("notice extinct")])
-                }
-                else 
-                {
-                    html = nil
-                }
-            
-            case .pin: 
-                let package:HTML.Element<Never> = 
-                    .span(self.evolution.current.package.title, 
-                        attributes: [.class("package")])
-                let branch:HTML.Element<Never> = 
-                    .span(self.evolution.current.branch.description, 
-                        attributes: [.class("version")]) 
-                return package.node.rendered(as: [UInt8].self) + 
-                    branch.node.rendered(as: [UInt8].self)
-            
-            case .platforms: 
-                html = .render(availability: self.availability.platforms)
-            
-            case .versions: 
-                html = self.renderAvailableVersions()
+        case .title: 
+            fatalError("unimplemented") 
+        case .constants: 
+            fatalError("unimplemented") 
+        
+        case .availability: 
+            html = .render(availability: 
+            (
+                self.availability.swift, 
+                self.availability.general
+            ))
+        case .base: 
+            html = self.names.culture.base.map 
+            { 
+                .span($0.html, attributes: [.class("base")]) 
             }
-            return html?.node.rendered(as: [UInt8].self)
+        case .branch: 
+            html = .span(self.evolution.current.branch.description, 
+                attributes: [.class("version")]) 
+
+        case .breadcrumbs: 
+            html = .ol(self.breadcrumbs.reversed()) 
+        
+        case .consumers: 
+            html = nil 
+        
+        case .culture: 
+            html = self.names.culture.composite.html 
+        
+        case .dependencies: 
+            html = nil
+        
+        case .fragments: 
+            html = self.renderFragments()
+        
+        case .headline: 
+            html = .h1(self.base.name)
+        
+        case .host: 
+            html = self.names.culture.host.map 
+            { 
+                .span($0.html, attributes: [.class("namespace")]) 
+            }
+        case .kind: 
+            return [UInt8].init(self.base.community.title.utf8)
+        
+        case .meta: 
+            return nil 
+        
+        case .nationality: 
+            html = .span(self.evolution.current.package.title, 
+                attributes: [.class("package")])
+
+        case .notes: 
+            html = self.renderNotes()
+        
+        case .notices: 
+            html = self.evolution.newer?.html
+        
+        case .platforms: 
+            html = .render(availability: self.availability.platforms)
+        
+        case .versions: 
+            html = self.evolution.items.html
         }
+        return html?.node.rendered(as: [UInt8].self)
     }
 
     private 
@@ -385,21 +371,5 @@ struct SymbolPage
         }
         
         return items.isEmpty ? nil : .ul(items, attributes: [.class("notes")])
-    }
-    private 
-    func renderAvailableVersions() -> HTML.Element<Never> 
-    {
-        .ol(self.evolution.items.map 
-        {
-            let text:String = $0.label.description
-            if let uri:String = $0.uri 
-            {
-                return .li(.a(text, attributes: [.href(uri)]))
-            }
-            else 
-            {
-                return .li(.span(text), attributes: [.class("current")])
-            }
-        })
     }
 }

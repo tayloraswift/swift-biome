@@ -39,7 +39,8 @@ extension GetRequest
     init(_ request:URI, residency pinned:__shared Package.Pinned, 
         functions:__shared Service.PublicFunction.Names)
     {
-        self.init(request, uri: pinned.address().uri(functions: functions), 
+        let address:Address = .init(residency: pinned)
+        self.init(request, uri: address.uri(functions: functions), 
             query: .documentation(.init(.package(pinned.nationality), 
                 _objects: .init(),
                 pinned: pinned)))
@@ -55,7 +56,8 @@ extension GetRequest
         {
             return nil 
         }
-        let address:Address = pinned.address(of: pinned.package.tree[local: namespace])
+        let address:Address = .init(residency: pinned, 
+            namespace: pinned.package.tree[local: namespace])
         self.init(request, uri: address.uri(functions: functions), 
             query: .documentation(.init(.module(namespace), 
                 _objects: pinned.documentation(for: namespace.atom) ?? .init(), 
@@ -73,8 +75,9 @@ extension GetRequest
         {
             return nil 
         }
-        let address:Address = pinned.address(of: pinned.package.tree[local: article], 
-            namespace: pinned.package.tree[local: namespace])
+        let address:Address = .init(residency: pinned, 
+            namespace: pinned.package.tree[local: namespace],
+            article: pinned.package.tree[local: article])
         self.init(request, uri: address.uri(functions: functions), 
             query: .documentation(.init(.article(article), 
                 _objects: pinned.documentation(for: article.atom) ?? .init(), 

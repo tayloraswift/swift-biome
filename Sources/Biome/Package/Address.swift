@@ -63,6 +63,7 @@ struct Address
 
 extension Address.Global 
 {
+    fileprivate 
     init(_ local:Address.Local?, residency:__shared Package.Pinned)
     {
         self.init(_move local, 
@@ -71,6 +72,33 @@ extension Address.Global
             version: residency.package.tree.abbreviate(residency.version))
     }
 } 
+extension Address 
+{
+    /// Creates an address for the specified package.
+    /// 
+    /// The returned address always includes the package name, even if it is the 
+    /// standard library or one of the core libraries.
+    init(residency:__shared Package.Pinned, 
+        function:Service.PublicFunction = .documentation(.symbol))
+    {
+        self.init(.init(nil,
+                residency: residency.package.id, 
+                version: residency.package.tree.abbreviate(residency.version)), 
+            function: .documentation(.symbol))
+    }
+    init(residency:__shared Package.Pinned, namespace:__shared Module)
+    {
+        self.init(.init(.init(nil, namespace: namespace.id), residency: residency), 
+            function: namespace.isFunction ? nil : .documentation(.symbol))
+    }
+    init(residency:__shared Package.Pinned, namespace:__shared Module, article:__shared Article)
+    {
+        self.init(.init(.init(.init(path: article.path, orientation: .straight), 
+                namespace: namespace.id), 
+                residency: residency), 
+            function: namespace.isFunction ? nil : .documentation(.doc))
+    }
+}
 extension Address 
 {
     init?(_ symbolic:Symbolic, namespace:Atom<Module>, context:__shared some PackageContext)

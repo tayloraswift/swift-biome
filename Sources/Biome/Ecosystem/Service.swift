@@ -1,6 +1,7 @@
 import Resources
 import WebSemantics
 import DOM
+import HTML
 import URI
 
 public typealias Ecosystem = Service 
@@ -35,15 +36,10 @@ struct Service
         stems:Route.Stems
     
     //private
-    var template:DOM.Flattened<Page.Key>
+    var template:DOM.Flattened<PageElement>
 
+    let logo:[UInt8]
 
-
-
-    var logo:[UInt8]
-    {
-        fatalError("obsoleted")
-    }
     var whitelist:[Package.ID]
     {
         fatalError("obsoleted")
@@ -93,7 +89,13 @@ struct Service
         self.packages = .init()
         self.stems = .init()
 
-        self.template = .init(freezing: Page.html)
+        self.template = .init(freezing: .defaultPageTemplate)
+
+        let logo:HTML.Element<Never> = .ol(.li(.a(
+                .init(escaped: "swift"), 
+                .i(.init(escaped: "init")), 
+            attributes: [.class("logo"), .href("/")])))
+        self.logo = logo.node.rendered(as: [UInt8].self)
     }
 }
 extension Service 
@@ -101,7 +103,7 @@ extension Service
     public mutating 
     func enable(function namespace:Module.ID, 
         nationality:Package.Index, 
-        template:DOM.Flattened<Page.Key>? = nil) -> Bool 
+        template:DOM.Flattened<PageElement>? = nil) -> Bool 
     {
         if  let position:Atom<Module>.Position = 
                 self.packages[nationality].latest()?.modules.find(namespace),
@@ -152,7 +154,7 @@ extension Service
 extension Service 
 {
     private 
-    func response(for request:__owned GetRequest, template:DOM.Flattened<Page.Key>) 
+    func response(for request:__owned GetRequest, template:DOM.Flattened<PageElement>) 
         throws -> WebSemantics.Response<Resource>
     {
         let uri:String = request.uri.description
@@ -178,39 +180,42 @@ extension Service
                 fatalError("unimplemented")
             
             case .article(let article): 
-                let _:Package.Pinned = .init(self.packages[article.nationality], 
-                    version: query.version)
-                fatalError("unimplemented")
+                let context:AnisotropicContext = .init(local: article.nationality,
+                    version: query.version,
+                    context: self.packages)
+                let page:ArticlePage = try .init(article, logo: logo, 
+                    documentation: query._objects, 
+                    evolution: .init(for: article, local: context.local, 
+                        functions: cache.functions), 
+                    context: context,
+                    cache: &cache)
+                utf8 = template.rendered(page.render(element:))
             
             case .symbol(let atomic):
-                let local:Package.Pinned = .init(self.packages[atomic.nationality], 
-                    version: query.version)
-                let evolution:Evolution = .init(for: atomic, local: local, 
-                    context: self.packages, 
-                    functions: cache.functions)
-                let context:AnisotropicContext = .init(local: _move local, 
+                let context:AnisotropicContext = .init(local: atomic.nationality,
+                    version: query.version,
                     context: self.packages)
                 let page:SymbolPage = try .init(atomic, 
                     documentation: query._objects, 
-                    evolution: _move evolution, 
+                    evolution: .init(for: atomic, local: context.local,
+                        context: self.packages, 
+                        functions: cache.functions), 
                     context: context,
                     cache: &cache)
-                utf8 = page._render(template: template)
+                utf8 = template.rendered(page.render(element:))
             
             case .compound(let compound):
-                let local:Package.Pinned = .init(self.packages[compound.nationality], 
-                    version: query.version)
-                let evolution:Evolution = .init(for: compound, local: local, 
-                    context: self.packages, 
-                    functions: cache.functions)
-                let context:AnisotropicContext = .init(local: _move local, 
+                let context:AnisotropicContext = .init(local: compound.nationality,
+                    version: query.version,  
                     context: self.packages)
                 let page:SymbolPage = try .init(compound, 
                     documentation: query._objects, 
-                    evolution: _move evolution, 
+                    evolution: .init(for: compound, local: context.local,
+                        context: self.packages, 
+                        functions: cache.functions), 
                     context: context, 
                     cache: &cache)
-                utf8 = page._render(template: template)
+                utf8 = template.rendered(page.render(element:))
             }
             return .init(uri: uri, canonical: query.canonical?.description ?? uri, 
                 payload: .init(hashing: _move utf8, type: .utf8(encoded: .html)))
@@ -396,7 +401,7 @@ extension Service
     private 
     func get(_ request:URI, scheme:Scheme, 
         nationality:__owned Package.Pinned, 
-        namespace:Atom<Module>, 
+        namespace:Atom<Module>,
         link:__owned _SymbolLink) -> GetRequest?
     {
         guard let key:Route = self.stems[namespace, link]

@@ -1,151 +1,227 @@
-// import Forest
+import HTML 
 
-// struct Evolution 
-// {
-//     enum Label 
-//     {
-//         case extant 
-//         case extinct 
-//     }
-//     struct Row 
-//     {
-//         let distance:Int 
-//         let version:Version
-//         var label:Label 
-//         var fork:Bool
+struct Evolution 
+{
+    struct Item
+    {
+        let label:Version.Selector 
+        let uri:String?
+    }
 
-//         init(distance:Int = 0, version:Version, label:Label, fork:Bool = false)
-//         {
-//             self.distance = distance
-//             self.version = version
-//             self.label = label
-//             self.fork = fork
-//         }
-//     }
+    struct Newer
+    {
+        let uri:String
+    }
 
-//     var rows:[Row]
+    private(set)
+    var items:[Item], 
+        newer:Newer?
+    let current:(package:Package.ID, branch:Tag)
 
-//     init(atomic symbol:Atom<Symbol>.Position, 
-//         in tree:__shared Tree, 
-//         history:__shared History<Symbol.Metadata?>)
-//     {
-//         self.rows = []
+    private 
+    init(local:__shared Package.Pinned,
+        functions:__shared Service.PublicFunction.Names, 
+        address:(Package.Pinned) throws -> Address?) rethrows 
+    {
+        self.items = []
+        self.newer = nil
+        self.current = (local.package.id, local.package.tree[local.version.branch].id)
 
-//         let founder:Branch = tree[symbol.branch]
-//         self.scan(founder: founder, tree: tree,
-//             keyframes: history[founder.symbols[contemporary: symbol.atom].metadata])
-//         {
-//             history[$0.symbols.divergences[symbol.atom]?.metadata?.head]
-//         }
-//         label:
-//         {
-//             _ in .extant
-//         }
-//     }
-//     init(compound:Compound, context:IsotropicContext)
-//     {
-//         self.rows = []
-//         // compounds don’t “exist”, so their founder branch is always 
-//         // the root branch (usually the default branch).
-//         guard let pinned:Package.Pinned = context[compound.nationality]
-//         else 
-//         {
-//             return
-//         }
-//         let founder:Branch = pinned.package.tree.root(of: pinned.version.branch)
+        let current:Version = local.version 
+        for branch:Branch in local.package.tree 
+        {
+            let detail:Int = branch.index == local.version.branch ? 8 : 1
+            try local.repinned(to: branch.revisions.indices.suffix(detail), of: branch)
+            {
+                (local:Package.Pinned) in 
 
-//         if compound.host.nationality == compound.nationality 
-//         {
-//             let history:History<Symbol.Metadata?> = pinned.package.metadata.symbols
-//             self.scan(founder: founder, tree: pinned.package.tree, 
-//                 keyframes: history[founder.symbols[contemporary: compound.host].metadata])
-//             {
-//                 history[$0.symbols.divergences[compound.host]?.metadata?.head]
-//             }
-//             label:
-//             {
-//                 if $0.contains(feature: compound)
-//                 {
-//                     return .extant
-//                 }
-//                 else 
-//                 {
-//                     return .extinct 
-//                 }
-//             }
-//         }
-//         else 
-//         {
+                guard local.version != current 
+                else 
+                {
+                    self.items.append(.init(
+                        label: local.package.tree.abbreviate(local.version) ?? .tag(branch.id), 
+                        uri: nil))
+                    return 
+                }
+                if  let address:Address = try address(local)
+                {
+                    let label:Version.Selector? = 
+                        local.package.tree.abbreviate(local.version)
+                    let uri:String = address.uri(functions: functions).description
+                    self.items.append(.init(label: label ?? .tag(branch.id), uri: uri))
+                    
+                    if case local.version.revision? = branch.head, 
+                            current.branch == branch.index
+                    {
+                        self.newer = .init(uri: uri)
+                    }
+                }
+            }
+        }
+    }
+}
+// evolution requires *site-wide* context! this is because the set of package pins 
+// can vary over the course of a package’s history, so it’s possible for a 
+// past version to depend on a package that is not currently a dependency of 
+// the package now. 
+// this is relevant to API evolution because even though we know the USRs of the 
+// base and host components, that does not necessarily mean the nationalities of those 
+// components are constant, because USRs only encode local culture. 
+// an example of this in “the wild” is if a package switches a dependency to another 
+// upstream package that vends a module of the same name as the one the old dependency 
+// vended.
+extension Evolution
+{
+    init(for module:Atom<Module>.Position, 
+        local:__shared Package.Pinned, 
+        functions:__shared Service.PublicFunction.Names)
+    {
+        assert(local.nationality == module.nationality)
 
-//         }
-//     }
-    
-//     private mutating 
-//     func scan(founder branch:Branch, tree:Tree,
-//         keyframes:Forest<History<Symbol.Metadata?>.Keyframe>.Tree,
-//         alternate:(Branch) throws -> Forest<History<Symbol.Metadata?>.Keyframe>.Tree,
-//         label:(Symbol.Metadata) throws -> Label) rethrows
-//     {
-//         var keyframes:Forest<History<Symbol.Metadata?>.Keyframe>.Tree.Iterator = keyframes.makeIterator()
+        let id:Module.ID = local.package.tree[local: module].id
+        self.init(local: local, functions: functions)
+        {
+            if  let module:Atom<Module>.Position = 
+                    $0.modules.find(id),
+                    $0.exists(module.atom)
+            {
+                return .init(residency: $0, namespace: $0.package.tree[local: module])
+            }
+            else 
+            {
+                return nil
+            }
+        }
+    }
+    init(for article:Atom<Article>.Position, 
+        local:__shared Package.Pinned, 
+        functions:__shared Service.PublicFunction.Names)
+    {
+        assert(local.nationality == article.nationality)
 
-//         guard var regime:History<Symbol.Metadata?>.Keyframe = keyframes.next()
-//         else 
-//         {
-//             return 
-//         }
-//         for revision:Version.Revision in branch.revisions.indices.reversed() 
-//         {
-//             if  revision < regime.since 
-//             {
-//                 guard let predecessor:History<Symbol.Metadata?>.Keyframe = keyframes.next() 
-//                 else 
-//                 {
-//                     return 
-//                 }
-//                 regime = predecessor
-//             }
-//             let inherit:Label = try label(regime.value!)
-//             for branch:Version.Branch in branch.revisions[revision].alternates 
-//             {
-//                 try self.scan(alternate: tree[branch], tree: tree, 
-//                     inherit: inherit, 
-//                     view: alternate,
-//                     label: label)
-//             }
-//             self.rows.append(.init(version: .init(branch.index, revision), label: inherit))
-//         }
-//     }
-//     private mutating 
-//     func scan(alternate branch:Branch, tree:Tree,
-//         distance:Int = 1, 
-//         inherit:Label, 
-//         view:(Branch) throws -> Forest<History<Symbol.Metadata?>.Keyframe>.Tree, 
-//         label:(Symbol.Metadata) throws -> Label) rethrows 
-//     {
-//         var keyframes:Forest<History<Symbol.Metadata?>.Keyframe>.Tree.Iterator = try view(branch).makeIterator()
+        // the same article (by path name) may be assigned to different 
+        // atoms in different branches
+        let id:Article.ID = local.package.tree[local: article].id
+        self.init(local: local, functions: functions)
+        {
+            if  let article:Atom<Article>.Position = 
+                    $0.articles.find(id),
+                    $0.exists(article.atom), 
+                let namespace:Module = $0.load(local: article.culture)
+            {
+                return .init(residency: $0, namespace: namespace, 
+                    article: $0.package.tree[local: article])
+            }
+            else 
+            {
+                return nil
+            }
+        }
+    }
+    init(for symbol:Atom<Symbol>.Position, 
+        local:__shared Package.Pinned, 
+        context:__shared Packages, 
+        functions:__shared Service.PublicFunction.Names)
+    {
+        assert(local.nationality == symbol.nationality)
 
-//         var regime:History<Symbol.Metadata?>.Keyframe? = keyframes.next()
-//         let start:Version.Revision = branch.revisions.startIndex
-//         for revision:Version.Revision in branch.revisions.indices.reversed() 
-//         {
-//             if  let inauguration:Version.Revision = regime?.since,
-//                     revision < inauguration
-//             {
-//                 regime = keyframes.next() 
-//             }
-//             let inherit:Label = try regime.map { try label($0.value!) } ?? inherit
-//             for alternate:Version.Branch in branch.revisions[revision].alternates 
-//             {
-//                 try self.scan(alternate: tree[alternate], tree: tree, 
-//                     distance: distance + 1,
-//                     inherit: inherit, 
-//                     view: view,
-//                     label: label)
-//             }
-//             self.rows.append(.init(distance: distance, 
-//                 version: .init(branch.index, revision), 
-//                 label: inherit, 
-//                 fork: revision == start))
-//         }
-//     }
-// }
+        let id:Symbol.ID = local.package.tree[local: symbol].id
+        self.init(local: local, functions: functions)
+        {
+            if  let symbol:Atom<Symbol>.Position = 
+                    $0.symbols.find(id),
+                    $0.exists(symbol.atom),
+                let metadata:Module.Metadata = 
+                    $0.metadata(local: symbol.culture)
+            {
+                let context:AnisotropicContext = .init(local: $0,
+                    metadata: metadata, 
+                    context: context)
+                return context.local.address(of: symbol.atom, 
+                    symbol: context.local.package.tree[local: symbol], 
+                    context: context)
+            }
+            else 
+            {
+                return nil
+            }
+
+        }
+    }
+    init(for compound:Compound.Position, 
+        local:__shared Package.Pinned,
+        context:__shared Packages,
+        functions:__shared Service.PublicFunction.Names)
+    {
+        assert(local.nationality == compound.nationality)
+        
+        let culture:Module.ID = local.package.tree[local: compound.culture].id
+        let host:Symbol.ID = context[compound.host.nationality].tree[local: compound.host].id
+        let base:Symbol.ID = context[compound.base.nationality].tree[local: compound.base].id
+
+        self.init(local: local, functions: functions)
+        {
+            guard   let culture:Atom<Module>.Position = $0.modules.find(culture), 
+                    let metadata:Module.Metadata = $0.metadata(local: culture.atom)
+            else 
+            {
+                return nil 
+            }
+
+            let context:AnisotropicContext = .init(local: $0,
+                metadata: metadata, 
+                context: context)
+            
+            if  let host:(position:Atom<Symbol>.Position, symbol:Symbol) = 
+                    context.find(host, linked: metadata.dependencies),
+                let base:(position:Atom<Symbol>.Position, symbol:Symbol) = 
+                    context.find(base, linked: metadata.dependencies),
+                // can’t think of why host would become equal to base, but hey, 
+                // anything can happen...
+                let compound:Compound = .init(
+                    diacritic: .init(host: host.position.atom, culture: culture.atom), 
+                    base: base.position.atom),
+                    context.local.exists(compound) 
+            {
+                return context.local.address(of: compound, 
+                    host: host.symbol, 
+                    base: base.symbol, 
+                    context: context)
+            }
+            else 
+            {
+                return nil
+            }
+        }
+    }
+}
+
+extension Sequence<Evolution.Item> 
+{
+    var html:HTML.Element<Never> 
+    {
+        .ol(self.map 
+        {
+            let text:String = $0.label.description
+            if let uri:String = $0.uri 
+            {
+                return .li(.a(text, attributes: [.href(uri)]))
+            }
+            else 
+            {
+                return .li(.span(text), attributes: [.class("current")])
+            }
+        })
+    }
+}
+extension Evolution.Newer 
+{
+    var html:HTML.Element<Never> 
+    {
+        .div(.div(.p()), .div(.p(
+                .init(escaped: "There’s a "),
+                .a("newer version", attributes: [.href(self.uri)]),
+                .init(escaped: " of this documentation available."))), 
+            attributes: [.class("notice extinct")])
+    }
+}

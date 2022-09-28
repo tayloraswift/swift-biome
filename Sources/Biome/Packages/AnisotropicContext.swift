@@ -4,6 +4,10 @@ struct AnisotropicContext:Sendable
     let upstream:[Package.Index: Package.Pinned]
     var local:Package.Pinned 
 
+    init(local:Package.Index, version:Version, context:__shared Packages)
+    {
+        self.init(local: .init(context[local], version: version), context: context)
+    }
     init(local:Package.Pinned, context:__shared Packages)
     {
         self.init(local: local, pins: local.revision.pins, 

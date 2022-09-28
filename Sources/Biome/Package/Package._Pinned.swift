@@ -339,48 +339,25 @@ extension Package.Pinned
 
 extension Package.Pinned 
 {
-    /// Returns the address of the specified package, if it is defined in this context.
-    /// 
-    /// The returned address always includes the package name, even if it is the 
-    /// standard library or one of the core libraries.
-    func address(function:Service.PublicFunction = .documentation(.symbol)) -> Address
-    {
-        return .init(.init(nil,
-                residency: self.package.id, 
-                version: self.package.tree.abbreviate(self.version)), 
-            function: .documentation(.symbol))
-    }
-    /// Returns the address of the specified module, assuming it is local to this package.
-    func address(of module:Atom<Module>) -> Address?
-    {
-        self.load(local: module).map(self.address(of:))
-    }
-    func address(of module:Module) -> Address
-    {
-        .init(.init(.init(nil, namespace: module.id), residency: self), 
-            function: module.isFunction ? nil : .documentation(.symbol))
-    }
+    // /// Returns the address of the specified module, assuming it is local to this package.
+    // func address(of module:Atom<Module>) -> Address?
+    // {
+    //     self.load(local: module).map { .init(residency: self, namespace: $0) }
+    // }
 
-    /// Returns the address of the specified article, assuming it is local to this package.
-    func address(of article:Atom<Article>) -> Address?
-    {
-        if  let namespace:Module = self.load(local: article.culture),
-            let article:Article = self.load(local: article)
-        {
-            return self.address(of: article, namespace: namespace)
-        }
-        else 
-        {
-            return nil 
-        }
-    }
-    func address(of article:Article, namespace:Module) -> Address
-    {
-        .init(.init(.init(.init(path: article.path, orientation: .straight), 
-                namespace: namespace.id), 
-                residency: self), 
-            function: namespace.isFunction ? nil : .documentation(.doc))
-    }
+    // /// Returns the address of the specified article, assuming it is local to this package.
+    // func address(of article:Atom<Article>) -> Address?
+    // {
+    //     if  let namespace:Module = self.load(local: article.culture),
+    //         let article:Article = self.load(local: article)
+    //     {
+    //         return .init(residency: self, namespace: namespace, article: article)
+    //     }
+    //     else 
+    //     {
+    //         return nil 
+    //     }
+    // }
 
     /// Returns the address of the specified composite, if all of its components 
     /// are defined in the provided context.

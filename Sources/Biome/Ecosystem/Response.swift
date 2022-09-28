@@ -6,16 +6,6 @@ import URI
 
 extension Ecosystem 
 {
-    static 
-    var logo:[UInt8]
-    {
-        let logo:HTML.Element<Never> = .ol(.li(.a(
-            .init(escaped: "swift"), 
-            .i(.init(escaped: "init")), 
-            attributes: [.class("logo"), .href("/")])))
-        return logo.node.rendered(as: [UInt8].self)
-    }
-
     public 
     subscript(request:URI) -> Response<Resource>
     {

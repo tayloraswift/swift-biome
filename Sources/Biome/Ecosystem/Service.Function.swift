@@ -64,7 +64,7 @@ extension Service
         // store a module identifier instead of a position or atom, 
         // to make this more resilient against version editing
         let namespace:Module.ID
-        let template:DOM.Flattened<Page.Key> 
+        let template:DOM.Flattened<PageElement> 
     }
     enum Function 
     {
@@ -120,7 +120,7 @@ extension Service
         mutating 
         func create(_ namespace:Module.ID, 
             nationality:Package.Index, 
-            template:DOM.Flattened<Page.Key>) -> Bool 
+            template:DOM.Flattened<PageElement>) -> Bool 
         {
             let key:CaselessString = .init(namespace) 
             if self.table.keys.contains(key)

@@ -174,7 +174,8 @@ extension ReferenceCache
         if  let pinned:Package.Pinned = context[key.nationality]
         {
             let module:Module = pinned.package.tree[local: key]
-            return self.miss(key.atom, module: module, address: pinned.address(of: module))
+            return self.miss(key.atom, module: module, address: .init(residency: pinned, 
+                namespace: module))
         }
         else 
         {
@@ -191,7 +192,8 @@ extension ReferenceCache
         if  let pinned:Package.Pinned = context[key.nationality],
             let module:Module = pinned.load(local: key)
         {
-            return self.miss(key, module: module, address: pinned.address(of: module))
+            return self.miss(key, module: module, address: .init(residency: pinned, 
+                namespace: module))
         }
         else 
         {
@@ -213,8 +215,9 @@ extension ReferenceCache
             let article:Article = pinned.load(local: key), 
             let metadata:Article.Metadata = pinned.metadata(local: key)
         {
-            return self.miss(key, metadata: metadata, 
-                address: pinned.address(of: article, namespace: namespace))
+            return self.miss(key, metadata: metadata, address: .init(residency: pinned, 
+                namespace: namespace, 
+                article: article))
         }
         else 
         {
@@ -228,8 +231,9 @@ extension ReferenceCache
     {
         if let pinned:Package.Pinned = context[package]
         {
+            let address:Address = .init(residency: pinned)
             return .init(name: pinned.package.id, 
-                uri: pinned.address().uri(functions: self.functions).description)
+                uri: address.uri(functions: self.functions).description)
         }
         else 
         {
