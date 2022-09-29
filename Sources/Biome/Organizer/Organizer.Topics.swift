@@ -257,8 +257,7 @@ extension Organizer.Topics
 
 extension Organizer.Topics  
 {
-    func html(context:some PackageContext, cache:inout ReferenceCache) 
-        throws -> HTML.Element<Never>?
+    var html:HTML.Element<Never>?
     {
         var sections:[HTML.Element<Never>] = []
         

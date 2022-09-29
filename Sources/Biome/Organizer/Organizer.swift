@@ -221,34 +221,20 @@ extension Organizer
         let overview:DOM.Flattened<GlobalLink.Presentation>? = 
             context.documentation(for: composite.base)?.card 
         
-        let base:SymbolReference = try cache.load(composite.base, context: context)
-        let key:SortingKey,
-            uri:String
-        if  let compound:Compound = composite.compound 
-        {
-            let host:SymbolReference = try cache.load(compound.host, context: context)
-
-            key = .compound((host.path, base.name))
-            uri = try cache.uri(of: compound, context: context)
-        }
-        else 
-        {
-            key = .atomic(base.path)
-            uri = base.uri
-        }
-
+        let composite:CompositeReference = try cache.load(composite, context: context)
         let card:SymbolCard = .init(signature: declaration.signature, 
             overview: try overview.flatMap { try cache.link($0, context: context) }, 
-            uri: uri)
+            uri: composite.uri)
+        let community:Community = composite.base.community
         if  declaration.availability.isUsable 
         {
-            self.members[base.community, default: [:]][enclave, default: .init(culture)]
-                .elements.append((card, key))
+            self.members[community, default: [:]][enclave, default: .init(culture)]
+                .elements.append((card, composite.key))
         }
         else 
         {
-            self.removed[base.community, default: [:]][enclave, default: .init(culture)]
-                .elements.append((card, key))
+            self.removed[community, default: [:]][enclave, default: .init(culture)]
+                .elements.append((card, composite.key))
         }
     }
 }

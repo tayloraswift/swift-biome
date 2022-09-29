@@ -168,88 +168,120 @@ extension Service
             return .init(uri: uri, canonical: canonical?.description ?? uri, 
                 redirection: .permanent)
         
-        case .documentation(let query): 
-            var cache:ReferenceCache = .init(functions: self.functions.names) 
-            let searchable:[String] = self.packages.map 
-            {
-                Address.init(.init(nil, residency: $0.id, version: nil), function: .lunr)
-                    .uri(functions: cache.functions)
-                    .description
-            }
-            let utf8:[UInt8]
-            switch query.target 
-            {
-            case .package(let nationality): 
-                let context:BidirectionalContext = .init(local: nationality,
-                    version: query.version,
-                    context: self.packages)
-                let page:PackagePage = try .init(logo: logo, 
-                    //documentation: query._objects,
-                    searchable: _move searchable,
-                    evolution: .init(local: context.local, functions: cache.functions), 
-                    context: context,
-                    cache: &cache)
-                utf8 = template.rendered(page.render(element:))
-            
-            case .module(let module): 
-                let context:BidirectionalContext = .init(local: module.nationality,
-                    version: query.version,
-                    context: self.packages)
-                let page:ModulePage = try .init(module, logo: logo, 
-                    documentation: query._objects,
-                    searchable: _move searchable,
-                    evolution: .init(for: module, local: context.local, 
-                        functions: cache.functions), 
-                    context: context,
-                    cache: &cache)
-                utf8 = template.rendered(page.render(element:))
-            
-            case .article(let article): 
-                let context:BidirectionalContext = .init(local: article.nationality,
-                    version: query.version,
-                    context: self.packages)
-                let page:ArticlePage = try .init(article, logo: logo, 
-                    documentation: query._objects,
-                    searchable: _move searchable,
-                    evolution: .init(for: article, local: context.local, 
-                        functions: cache.functions), 
-                    context: context,
-                    cache: &cache)
-                utf8 = template.rendered(page.render(element:))
-            
-            case .symbol(let atomic):
-                let context:BidirectionalContext = .init(local: atomic.nationality,
-                    version: query.version,
-                    context: self.packages)
-                let page:SymbolPage = try .init(atomic, 
-                    documentation: query._objects, 
-                    searchable: _move searchable,
-                    evolution: .init(for: atomic, local: context.local,
-                        context: self.packages, 
-                        functions: cache.functions), 
-                    context: context,
-                    cache: &cache)
-                utf8 = template.rendered(page.render(element:))
-            
-            case .compound(let compound):
-                let context:BidirectionalContext = .init(local: compound.nationality,
-                    version: query.version,  
-                    context: self.packages)
-                let page:SymbolPage = try .init(compound, 
-                    documentation: query._objects, 
-                    searchable: _move searchable,
-                    evolution: .init(for: compound, local: context.local,
-                        context: self.packages, 
-                        functions: cache.functions), 
-                    context: context,
-                    cache: &cache)
-                utf8 = template.rendered(page.render(element:))
-            }
-            return .init(uri: uri, canonical: query.canonical?.description ?? uri, 
-                payload: .init(hashing: _move utf8, type: .utf8(encoded: .html)))
-        
-        case _: 
+        case .migration(_): 
             fatalError("unimplemented")
+        
+        case .selection(let query): 
+            return .init(uri: uri, results: .many, 
+                payload: try self.response(for: query, template: template, uri: request.uri))
+        
+        case .documentation(let query): 
+            return .init(uri: uri, canonical: query.canonical?.description ?? uri, 
+                payload: try self.response(for: query, template: template))
+        }
+    }
+    private 
+    func response(for query:DisambiguationQuery, template:DOM.Flattened<PageElement>, uri:URI) 
+        throws -> Resource
+    {
+        let searchable:[String] = self._searchable()
+        var cache:ReferenceCache = .init(functions: self.functions.names) 
+
+        let context:LocalContext = .init(local: query.nationality,
+            version: query.version,
+            context: self.packages)
+        let page:DisambiguationPage = try .init(query.choices, logo: self.logo, uri: uri, 
+            searchable: _move searchable, 
+            context: context, 
+            cache: &cache)
+        return .init(hashing: template.rendered(page.render(element:)), 
+            type: .utf8(encoded: .html))
+    }
+    private 
+    func response(for query:DocumentationQuery, template:DOM.Flattened<PageElement>) 
+        throws -> Resource
+    {
+        let searchable:[String] = self._searchable()
+        var cache:ReferenceCache = .init(functions: self.functions.names) 
+        let utf8:[UInt8]
+        switch query.target 
+        {
+        case .package(let nationality): 
+            let context:BidirectionalContext = .init(local: nationality,
+                version: query.version,
+                context: self.packages)
+            let page:PackagePage = try .init(logo: logo, 
+                //documentation: query._objects,
+                searchable: _move searchable,
+                evolution: .init(local: context.local, functions: cache.functions), 
+                context: context,
+                cache: &cache)
+            utf8 = template.rendered(page.render(element:))
+        
+        case .module(let module): 
+            let context:BidirectionalContext = .init(local: module.nationality,
+                version: query.version,
+                context: self.packages)
+            let page:ModulePage = try .init(module, logo: logo, 
+                documentation: query._objects,
+                searchable: _move searchable,
+                evolution: .init(for: module, local: context.local, 
+                    functions: cache.functions), 
+                context: context,
+                cache: &cache)
+            utf8 = template.rendered(page.render(element:))
+        
+        case .article(let article): 
+            let context:BidirectionalContext = .init(local: article.nationality,
+                version: query.version,
+                context: self.packages)
+            let page:ArticlePage = try .init(article, logo: logo, 
+                documentation: query._objects,
+                searchable: _move searchable,
+                evolution: .init(for: article, local: context.local, 
+                    functions: cache.functions), 
+                context: context,
+                cache: &cache)
+            utf8 = template.rendered(page.render(element:))
+        
+        case .symbol(let atomic):
+            let context:BidirectionalContext = .init(local: atomic.nationality,
+                version: query.version,
+                context: self.packages)
+            let page:SymbolPage = try .init(atomic, 
+                documentation: query._objects, 
+                searchable: _move searchable,
+                evolution: .init(for: atomic, local: context.local,
+                    context: self.packages, 
+                    functions: cache.functions), 
+                context: context,
+                cache: &cache)
+            utf8 = template.rendered(page.render(element:))
+        
+        case .compound(let compound):
+            let context:BidirectionalContext = .init(local: compound.nationality,
+                version: query.version,  
+                context: self.packages)
+            let page:SymbolPage = try .init(compound, 
+                documentation: query._objects, 
+                searchable: _move searchable,
+                evolution: .init(for: compound, local: context.local,
+                    context: self.packages, 
+                    functions: cache.functions), 
+                context: context,
+                cache: &cache)
+            utf8 = template.rendered(page.render(element:))
+        }
+        return .init(hashing: _move utf8, type: .utf8(encoded: .html))
+    }
+    private 
+    func _searchable() -> [String] 
+    {
+        self.packages.map 
+        {
+            Address.init(.init(nil, residency: $0.id, version: nil), function: .lunr)
+                .uri(functions: self.functions.names)
+                .description
         }
     }
 }

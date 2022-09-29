@@ -59,6 +59,12 @@ struct SymbolReference
         self.display.community
     }
 }
+struct CompositeReference 
+{
+    let base:SymbolReference 
+    let key:Organizer.SortingKey
+    let uri:String
+}
 
 extension PackageReference 
 {
@@ -141,6 +147,24 @@ struct ReferenceCache
     }
 }
 
+extension ReferenceCache 
+{
+    mutating 
+    func load(_ composite:Composite, context:some PackageContext) throws -> CompositeReference
+    {
+        let base:SymbolReference = try self.load(composite.base, context: context)
+        if  let compound:Compound = composite.compound 
+        {
+            let host:SymbolReference = try self.load(compound.host, context: context)
+            let uri:String = try self.uri(of: compound, context: context)
+            return .init(base: base, key: .compound((host.path, base.name)), uri: uri)
+        }
+        else 
+        {
+            return .init(base: base, key: .atomic(base.path), uri: base.uri)
+        }
+    }
+}
 extension ReferenceCache 
 {
     mutating 

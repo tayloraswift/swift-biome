@@ -2,6 +2,15 @@ protocol AnisotropicContext:PackageContext
 {
     var local:Package.Pinned { get }
     var foreign:[Packages.Index: Package.Pinned] { get }
+
+    init(local:Package.Pinned, context:__shared Packages) 
+}
+extension AnisotropicContext 
+{
+    init(local:Packages.Index, version:Version, context:__shared Packages) 
+    {
+        self.init(local: .init(context[local], version: version), context: context)
+    }
 }
 extension AnisotropicContext 
 {

@@ -17,8 +17,7 @@ struct BidirectionalContext:AnisotropicContext, Sendable
     private(set)
     var foreign:[Packages.Index: Package.Pinned]
     let local:Package.Pinned 
-
-    private 
+    
     init(local:Package.Pinned, context:__shared Packages) 
     {
         let revision:Branch.Revision = local.revision
@@ -45,12 +44,5 @@ struct BidirectionalContext:AnisotropicContext, Sendable
                 self.foreign[index] = consumer
             }
         }
-    }
-}
-extension BidirectionalContext 
-{
-    init(local:Packages.Index, version:Version, context:__shared Packages) 
-    {
-        self.init(local: .init(context[local], version: version), context: context)
     }
 }

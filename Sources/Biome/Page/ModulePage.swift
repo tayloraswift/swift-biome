@@ -7,10 +7,10 @@ struct ModulePage
 
     let navigator:Navigator
     let culture:ModuleReference
+    let topics:Organizer.Topics
 
     let overview:[UInt8]?
     let discussion:[UInt8]?
-    let topics:[UInt8]?
     let logo:[UInt8]
 
     init(_ module:Atom<Module>.Position, logo:[UInt8],
@@ -32,11 +32,9 @@ struct ModulePage
         self.overview = try cache.link(documentation.card, context: context)
         self.discussion = try cache.link(documentation.body, context: context)
 
-        let topics:Organizer.Topics = try .init(for: module.atom, 
+        self.topics = try .init(for: module.atom, 
             context: context, 
             cache: &cache)
-        self.topics = try topics.html(context: context, cache: &cache)?.node
-            .rendered(as: [UInt8].self)
         self.logo = logo
     }
 
@@ -50,7 +48,7 @@ struct ModulePage
         case .discussion: 
             return self.discussion
         case .topics: 
-            return self.topics
+            html = self.topics.html
         case .title: 
             return [UInt8].init(self.navigator.title(self.culture.name.string).utf8)
         case .constants: 

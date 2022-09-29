@@ -121,10 +121,10 @@ struct SymbolPage
     let notes:Organizer.Topics.Notes?
     let fragments:Notebook<Highlight, String>
     let availability:Availability
+    let topics:Organizer.Topics
 
     let overview:[UInt8]?
     let discussion:[UInt8]?
-    let topics:[UInt8]?
 
     init(_ symbol:Atom<Symbol>.Position, 
         documentation:__shared DocumentationExtension<Never>, 
@@ -212,8 +212,7 @@ struct SymbolPage
         self.overview = try cache.link(documentation.card, context: context)
         self.discussion = try cache.link(documentation.body, context: context)
 
-        self.topics = try topics.html(context: context, cache: &cache)?.node
-            .rendered(as: [UInt8].self)
+        self.topics = topics
         self.names = names 
     }
 
@@ -240,7 +239,7 @@ struct SymbolPage
         case .discussion: 
             return self.discussion
         case .topics: 
-            return self.topics 
+            html = self.topics.html
 
         case .title: 
             return [UInt8].init(self.navigator.title(self.base.name).utf8)

@@ -153,7 +153,7 @@ extension GetRequest
         }
         let query:DisambiguationQuery = .init(nationality: context.local.nationality,
             version: context.local.version, 
-            choices: choices)
+            choices: .init(grouping: choices, by: \.culture))
         self.init(request, uri: address.uri(functions: functions) , 
             query: migration ? .migration(query) : .selection(query))
     }
@@ -209,7 +209,7 @@ struct DisambiguationQuery
 {
     let nationality:Packages.Index
     let version:Version 
-    let choices:[Composite]
+    let choices:[Atom<Module>: [Composite]]
 }
 // struct MigrationQuery 
 // {
