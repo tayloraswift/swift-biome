@@ -70,7 +70,7 @@ struct Service
             fatalError("obsoleted")
         }
     }
-    var caches:[Package.Index: Cache]
+    var caches:[Packages.Index: Cache]
     {
         get 
         {
@@ -106,7 +106,7 @@ extension Service
 {
     public mutating 
     func enable(function namespace:Module.ID, 
-        nationality:Package.Index, 
+        nationality:Packages.Index, 
         template:DOM.Flattened<PageElement>? = nil) -> Bool 
     {
         if  let position:Atom<Module>.Position = 
@@ -132,7 +132,7 @@ extension Service
         fork:String? = nil,
         date:Date, 
         tag:String? = nil,
-        graphs:[SymbolGraph]) throws -> Package.Index
+        graphs:[SymbolGraph]) throws -> Packages.Index
     {
         try Task.checkCancellation()
         guard let branch:Tag = .init(parsing: branch) 
@@ -169,21 +169,35 @@ extension Service
                 redirection: .permanent)
         
         case .documentation(let query): 
-            let utf8:[UInt8]
             var cache:ReferenceCache = .init(functions: self.functions.names) 
+            let searchable:[String] = self.packages.map 
+            {
+                Address.init(.init(nil, residency: $0.id, version: nil), function: .lunr)
+                    .uri(functions: cache.functions)
+                    .description
+            }
+            let utf8:[UInt8]
             switch query.target 
             {
             case .package(let nationality): 
-                let _:Package.Pinned = .init(self.packages[nationality], 
-                    version: query.version)
-                fatalError("unimplemented")
+                let context:BidirectionalContext = .init(local: nationality,
+                    version: query.version,
+                    context: self.packages)
+                let page:PackagePage = try .init(logo: logo, 
+                    //documentation: query._objects,
+                    searchable: _move searchable,
+                    evolution: .init(local: context.local, functions: cache.functions), 
+                    context: context,
+                    cache: &cache)
+                utf8 = template.rendered(page.render(element:))
             
             case .module(let module): 
-                let context:AnisotropicContext = .init(local: module.nationality,
+                let context:BidirectionalContext = .init(local: module.nationality,
                     version: query.version,
                     context: self.packages)
                 let page:ModulePage = try .init(module, logo: logo, 
-                    documentation: query._objects, 
+                    documentation: query._objects,
+                    searchable: _move searchable,
                     evolution: .init(for: module, local: context.local, 
                         functions: cache.functions), 
                     context: context,
@@ -191,11 +205,12 @@ extension Service
                 utf8 = template.rendered(page.render(element:))
             
             case .article(let article): 
-                let context:AnisotropicContext = .init(local: article.nationality,
+                let context:BidirectionalContext = .init(local: article.nationality,
                     version: query.version,
                     context: self.packages)
                 let page:ArticlePage = try .init(article, logo: logo, 
-                    documentation: query._objects, 
+                    documentation: query._objects,
+                    searchable: _move searchable,
                     evolution: .init(for: article, local: context.local, 
                         functions: cache.functions), 
                     context: context,
@@ -203,11 +218,12 @@ extension Service
                 utf8 = template.rendered(page.render(element:))
             
             case .symbol(let atomic):
-                let context:AnisotropicContext = .init(local: atomic.nationality,
+                let context:BidirectionalContext = .init(local: atomic.nationality,
                     version: query.version,
                     context: self.packages)
                 let page:SymbolPage = try .init(atomic, 
                     documentation: query._objects, 
+                    searchable: _move searchable,
                     evolution: .init(for: atomic, local: context.local,
                         context: self.packages, 
                         functions: cache.functions), 
@@ -216,15 +232,16 @@ extension Service
                 utf8 = template.rendered(page.render(element:))
             
             case .compound(let compound):
-                let context:AnisotropicContext = .init(local: compound.nationality,
+                let context:BidirectionalContext = .init(local: compound.nationality,
                     version: query.version,  
                     context: self.packages)
                 let page:SymbolPage = try .init(compound, 
                     documentation: query._objects, 
+                    searchable: _move searchable,
                     evolution: .init(for: compound, local: context.local,
                         context: self.packages, 
                         functions: cache.functions), 
-                    context: context, 
+                    context: context,
                     cache: &cache)
                 utf8 = template.rendered(page.render(element:))
             }
@@ -422,7 +439,7 @@ extension Service
         }
 
         // first class: select symbols that exist in the requested version of `nationality`
-        let context:AnisotropicContext = .init(local: _move nationality, context: self.packages)
+        let context:LocalContext = .init(local: _move nationality, context: self.packages)
         if      let selection:_Selection<Composite> = context.local.routes.select(key, 
                     where: context.local.exists(_:))
         {

@@ -14,8 +14,20 @@ struct ArticleReference
 }
 struct PackageReference 
 {
-    let name:Package.ID 
+    let name:PackageIdentifier 
     let uri:String
+
+    init(name:PackageIdentifier, uri:String)
+    {
+        self.name = name 
+        self.uri = uri
+    }
+
+    init(_ pinned:__shared Package.Pinned, functions:__shared Service.PublicFunction.Names)
+    {
+        self.name = pinned.package.id 
+        self.uri = Address.init(residency: pinned).uri(functions: functions).description
+    }
 }
 struct ModuleReference 
 {
@@ -235,13 +247,11 @@ extension ReferenceCache
 }
 extension ReferenceCache
 {
-    func load(_ package:Package.Index, context:some PackageContext) throws -> PackageReference
+    func load(_ package:Packages.Index, context:some PackageContext) throws -> PackageReference
     {
         if let pinned:Package.Pinned = context[package]
         {
-            let address:Address = .init(residency: pinned)
-            return .init(name: pinned.package.id, 
-                uri: address.uri(functions: self.functions).description)
+            return .init(pinned, functions: self.functions)
         }
         else 
         {

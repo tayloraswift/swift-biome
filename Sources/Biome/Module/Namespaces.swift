@@ -1,6 +1,6 @@
 import SymbolGraphs
 
-extension [Package.Index: Package._Pinned] 
+extension [Packages.Index: Package._Pinned] 
 {
     fileprivate mutating 
     func update(with pinned:__owned Package._Pinned) 
@@ -46,7 +46,7 @@ struct Namespace
 struct Namespaces
 {
     private(set)
-    var pins:[Package.Index: Version]
+    var pins:[Packages.Index: Version]
     let module:Namespace
     private(set)
     var linked:[Module.ID: Atom<Module>.Position]
@@ -62,7 +62,7 @@ struct Namespaces
         self.init(.init(id: id, position: position))
     }
 
-    var nationality:Package.Index
+    var nationality:Packages.Index
     {
         self.culture.nationality
     }
@@ -111,13 +111,13 @@ struct Namespaces
     // which refers to the branch in which the module itself was founded.
     mutating 
     func link(dependencies:[SymbolGraph.Dependency], 
-        linkable:[Package.Index: _Dependency], 
+        linkable:[Packages.Index: _Dependency], 
         branch:Version.Branch, 
         fasces:Fasces, 
         context:Packages)
-        throws -> [Package.Index: Package._Pinned]
+        throws -> [Packages.Index: Package.Pinned]
     {
-        var pinned:[Package.Index: Package._Pinned] = [:]
+        var pinned:[Packages.Index: Package.Pinned] = [:]
             pinned.reserveCapacity(dependencies.count + 2)
         // add explicit dependencies 
         for dependency:SymbolGraph.Dependency in dependencies
@@ -158,7 +158,7 @@ struct Namespaces
     }
     private mutating 
     func link(upstream package:Package.ID, 
-        linkable:[Package.Index: _Dependency], 
+        linkable:[Packages.Index: _Dependency], 
         context:Packages) 
         throws -> Package._Pinned
     {
@@ -173,7 +173,7 @@ struct Namespaces
     }
     private mutating 
     func link(upstream package:__owned Package, dependencies:[Module.ID]? = nil, 
-        linkable:[Package.Index: _Dependency]) 
+        linkable:[Packages.Index: _Dependency]) 
         throws -> Package._Pinned
     {
         switch linkable[package.nationality] 

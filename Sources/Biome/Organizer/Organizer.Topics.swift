@@ -141,7 +141,7 @@ extension Dictionary where Key == Community
 extension Organizer.Topics 
 {
     init(for module:Atom<Module>, 
-        context:__shared AnisotropicContext,
+        context:__shared some AnisotropicContext,
         cache:inout ReferenceCache) throws
     {
         guard let metadata:Module.Metadata = context.local.metadata(local: module)
@@ -176,7 +176,7 @@ extension Organizer.Topics
     
     init(for atomic:Atom<Symbol>, 
         base:__shared SymbolReference,
-        context:__shared AnisotropicContext,
+        context:__shared BidirectionalContext,
         cache:inout ReferenceCache) throws
     {
         guard let metadata:Symbol.Metadata = context.local.metadata(local: atomic)
@@ -200,27 +200,21 @@ extension Organizer.Topics
                 context: context,
                 cache: &cache)
         }
-        for (consumer, versions):(Package.Index, [Version: Set<Atom<Module>>]) in 
-            context.local.revision.consumers
+        for consumer:BidirectionalContext.Consumer in context.consumers
         {
-            guard   let pinned:Package.Pinned = context[consumer], 
-                    let consumers:Set<Atom<Module>> = versions[pinned.version]
-            else 
+            for culture:Atom<Module> in consumer.modules 
             {
-                continue 
-            }
-            for culture:Atom<Module> in consumers 
-            {
-                assert(culture.nationality == consumer)
+                assert(culture.nationality == consumer.nationality)
 
                 let diacritic:Diacritic = .init(host: atomic, culture: culture)
-                if let extra:Symbol.ForeignMetadata = pinned.metadata(foreign: diacritic)
+                if  let extra:Symbol.ForeignMetadata = 
+                        consumer.pinned.metadata(foreign: diacritic)
                 {
                     try organizer.organize(extra.traits, of: base, 
                         diacritic: diacritic, 
                         culture: .nonaccepted(
                             try cache.load(culture, context: context), 
-                            try cache.load(consumer, context: context)),
+                            try cache.load(consumer.nationality, context: context)),
                         context: context,
                         cache: &cache)
                 }

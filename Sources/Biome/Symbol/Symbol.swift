@@ -53,7 +53,7 @@ struct Symbol:Sendable
     {
         self.route.namespace
     }
-    var residency:Package.Index 
+    var residency:Packages.Index 
     {
         self.route.namespace.nationality
     }

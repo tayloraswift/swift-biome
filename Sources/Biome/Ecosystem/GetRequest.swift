@@ -86,7 +86,7 @@ extension GetRequest
 }
 extension GetRequest 
 {
-    init?(_ request:URI, extant composite:Composite, context:__shared AnisotropicContext, 
+    init?(_ request:URI, extant composite:Composite, context:__shared LocalContext, 
         functions:__shared Service.PublicFunction.Names)
     {
         var origin:Atom<Symbol> = composite.base 
@@ -140,7 +140,7 @@ extension GetRequest
             pinned: context.local)))
     }
 
-    init?(_ request:URI, choices:[Composite], context:__shared AnisotropicContext, 
+    init?(_ request:URI, choices:[Composite], context:__shared LocalContext, 
         functions:__shared Service.PublicFunction.Names, 
         migration:Bool = false)
     {
@@ -165,7 +165,7 @@ struct DocumentationQuery
 
     enum Target 
     {
-        case package(Package.Index)
+        case package(Packages.Index)
         case module(Atom<Module>.Position)
         case article(Atom<Article>.Position)
         case symbol(Atom<Symbol>.Position)
@@ -178,7 +178,7 @@ struct DocumentationQuery
     let version:Version 
     let token:UInt 
 
-    // var nationality:Package.Index 
+    // var nationality:Packages.Index 
     // {
     //     switch self.target 
     //     {
@@ -207,13 +207,13 @@ struct DocumentationQuery
 }
 struct DisambiguationQuery
 {
-    let nationality:Package.Index
+    let nationality:Packages.Index
     let version:Version 
     let choices:[Composite]
 }
 // struct MigrationQuery 
 // {
-//     let nationality:Package.Index
+//     let nationality:Packages.Index
 //     /// The requested version. None of the symbols in this query 
 //     /// exist in this version.
 //     let requested:Version

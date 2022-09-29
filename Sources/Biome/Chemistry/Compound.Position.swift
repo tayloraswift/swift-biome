@@ -25,7 +25,7 @@ extension Compound
 }
 extension Compound.Position 
 {
-    var nationality:Package.Index
+    var nationality:Packages.Index
     {
         self.atoms.culture.nationality
     }

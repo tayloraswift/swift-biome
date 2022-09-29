@@ -4,7 +4,7 @@ extension GlobalLink
     {
         case article(Atom<Article>)
         case module(Atom<Module>)
-        case package(Package.Index)
+        case package(Packages.Index)
         case composite(Composite)
 
         init(_ resolution:_SymbolLink.Resolution?) throws 
@@ -25,7 +25,7 @@ extension GlobalLink
     // enum TargetExpansion:Hashable, Sendable 
     // {
     //     case article(Atom<Article>.Position)
-    //     case package(Package.Index)
+    //     case package(Packages.Index)
     //     case implicit                         ([Atom<Symbol>.Position])
     //     case qualified(Atom<Module>.Position, [Atom<Symbol>.Position] = [])
     // }
@@ -34,7 +34,7 @@ extension GlobalLink
     {
         case article(Atom<Article>)
         case module(Atom<Module>)
-        case package(Package.Index)
+        case package(Packages.Index)
         case composite(Composite, visible:Int)
 
         init(_ target:Target, visible:Int)
@@ -87,7 +87,7 @@ extension _SymbolLink
 
     enum Resolution 
     {
-        //case package(Package.Index)
+        //case package(Packages.Index)
         case module(Atom<Module>)
         case composite(Composite) 
         case composites([Composite]) 

@@ -2,7 +2,6 @@ import DOM
 import HTML
 import Notebook
 
-
 extension SymbolPage 
 {
     struct Breadcrumbs:RandomAccessCollection
@@ -77,7 +76,7 @@ extension SymbolPage
 extension SymbolPage.Names 
 {
     init(_ symbol:Atom<Symbol>.Position, base:SymbolReference, 
-        context:__shared AnisotropicContext, 
+        context:__shared some AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
         assert(context.local.nationality == symbol.nationality)
@@ -92,7 +91,7 @@ extension SymbolPage.Names
             cache: &cache)
     }
     init(_ compound:Compound.Position, base:SymbolReference, 
-        context:__shared AnisotropicContext, 
+        context:__shared some AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
         assert(context.local.nationality == compound.nationality)
@@ -114,8 +113,9 @@ extension SymbolPage.Names
 }
 struct SymbolPage 
 {
+    let branch:Tag
     let evolution:Evolution
-
+    let navigator:Navigator
     let names:Names
     let conditions:Organizer.Conditional
     let notes:Organizer.Topics.Notes?
@@ -128,8 +128,9 @@ struct SymbolPage
 
     init(_ symbol:Atom<Symbol>.Position, 
         documentation:__shared DocumentationExtension<Never>, 
+        searchable:[String],
         evolution:Evolution,
-        context:__shared AnisotropicContext, 
+        context:__shared BidirectionalContext, 
         cache:inout ReferenceCache) throws 
     {
         assert(context.local.nationality == symbol.nationality)
@@ -143,8 +144,9 @@ struct SymbolPage
 
         let base:SymbolReference = try cache.load(symbol, context: context)
         try self.init(documentation: documentation, 
-            declaration: declaration, 
-            evolution: evolution, 
+            declaration: _move declaration, 
+            searchable: _move searchable,
+            evolution: _move evolution, 
             topics: try .init(for: symbol.atom, base: base, 
                 context: context, 
                 cache: &cache), 
@@ -156,8 +158,9 @@ struct SymbolPage
     }
     init(_ compound:Compound.Position, 
         documentation:__shared DocumentationExtension<Never>, 
+        searchable:[String],
         evolution:Evolution,
-        context:__shared AnisotropicContext, 
+        context:__shared some AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
         assert(context.local.nationality == compound.nationality)
@@ -171,8 +174,9 @@ struct SymbolPage
         
         let base:SymbolReference = try cache.load(compound.base, context: context)
         try self.init(documentation: documentation, 
-            declaration: declaration, 
-            evolution: evolution, 
+            declaration: _move declaration,
+            searchable: _move searchable,
+            evolution: _move evolution, 
             topics: .init(notes: .feature(
                 protocol: try .init(base, context: context, cache: &cache))), 
             names: try .init(compound, base: _move base, 
@@ -183,13 +187,18 @@ struct SymbolPage
     }
     init(documentation:__shared DocumentationExtension<Never>, 
         declaration:Declaration<Atom<Symbol>>,
+        searchable:[String],
         evolution:Evolution, 
         topics:Organizer.Topics, 
         names:Names,
-        context:__shared AnisotropicContext, 
+        context:__shared some AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
+        self.branch = context.local.branch.id
         self.evolution = evolution
+        self.navigator = .init(local: context.local, 
+            searchable: _move searchable, 
+            functions: cache.functions)
         self.conditions = try .init(declaration.extensionConstraints, 
             context: context, 
             cache: &cache)
@@ -234,9 +243,9 @@ struct SymbolPage
             return self.topics 
 
         case .title: 
-            fatalError("unimplemented") 
+            return [UInt8].init(self.navigator.title(self.base.name).utf8)
         case .constants: 
-            fatalError("unimplemented") 
+            return [UInt8].init(self.navigator.constants.utf8)
         
         case .availability: 
             html = .render(availability: 
@@ -250,24 +259,18 @@ struct SymbolPage
                 .span($0.html, attributes: [.class("base")]) 
             }
         case .branch: 
-            html = .span(self.evolution.current.branch.description, 
-                attributes: [.class("version")]) 
-
+            html = .span(self.branch.description)
         case .breadcrumbs: 
             html = .ol(self.breadcrumbs.reversed()) 
         
         case .consumers: 
             return nil 
-        
         case .culture: 
             html = self.names.culture.composite.html 
-        
         case .dependencies: 
             return nil
-        
         case .fragments: 
             html = self.renderFragments()
-        
         case .headline: 
             html = .h1(self.base.name)
         
@@ -278,23 +281,17 @@ struct SymbolPage
             }
         case .kind: 
             return [UInt8].init(self.base.community.title.utf8)
-        
         case .meta: 
             return nil 
-        
-        case .nationality: 
-            html = .span(self.evolution.current.package.title, 
-                attributes: [.class("package")])
 
         case .notes: 
             html = self.renderNotes()
-        
         case .notices: 
             html = self.evolution.newer?.html
-        
         case .platforms: 
             html = .render(availability: self.availability.platforms)
-        
+        case .station: 
+            html = self.navigator.station
         case .versions: 
             html = self.evolution.items.html
         }

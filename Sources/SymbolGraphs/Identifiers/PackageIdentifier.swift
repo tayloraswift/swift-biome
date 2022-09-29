@@ -1,35 +1,9 @@
 @frozen public 
-struct PackageIdentifier:Hashable, Sendable
+enum PackageIdentifier:Hashable, Comparable, Sendable
 {
-    @frozen public 
-    enum Kind:Hashable, Comparable, Sendable 
-    {
-        case swift 
-        case core
-        case community(String)
-    }
-    
-    public static 
-    let swift:Self = .init(kind: .swift)
-    public static 
-    let core:Self = .init(kind: .core)
-    
-    public
-    let kind:Kind 
-    
-    @inlinable public 
-    init(kind:Kind)
-    {
-        self.kind = kind
-    }
-}
-extension PackageIdentifier:Comparable 
-{
-    @inlinable public static 
-    func < (lhs:Self, rhs:Self) -> Bool 
-    {
-        lhs.kind < rhs.kind
-    }
+    case swift 
+    case core
+    case community(normalized:String)
 }
 extension PackageIdentifier:ExpressibleByStringLiteral 
 {
@@ -47,11 +21,12 @@ extension PackageIdentifier:ExpressibleByStringLiteral
                 "standard-library",
                 "swift-stdlib",
                 "stdlib":
-            self.init(kind: .swift)
-        case    "swift-core-libraries":
-            self.init(kind: .core)
+            self = .swift
+        case    "swift-core-libraries", 
+                "corelibs":
+            self = .core
         case let name:
-            self.init(kind: .community(name))
+            self = .community(normalized: name)
         }
     }
 }
@@ -60,7 +35,7 @@ extension PackageIdentifier:LosslessStringConvertible
     @inlinable public 
     var string:String 
     {
-        switch self.kind
+        switch self
         {
         case .swift:                return "swift-standard-library"
         case .core:                 return "swift-core-libraries"

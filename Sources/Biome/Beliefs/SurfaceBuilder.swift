@@ -99,7 +99,7 @@ struct SurfaceBuilder
 {
     struct Context:Sendable 
     {
-        let upstream:[Package.Index: Package._Pinned]
+        let upstream:[Packages.Index: Package.Pinned]
         let local:Package 
 
         subscript(global position:Atom<Symbol>.Position) -> Symbol 

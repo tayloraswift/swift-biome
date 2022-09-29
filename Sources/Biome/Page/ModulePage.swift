@@ -2,9 +2,10 @@ import HTML
 
 struct ModulePage 
 {
+    let branch:Tag
     let evolution:Evolution
 
-    let nationality:PackageReference
+    let navigator:Navigator
     let culture:ModuleReference
 
     let overview:[UInt8]?
@@ -13,16 +14,19 @@ struct ModulePage
     let logo:[UInt8]
 
     init(_ module:Atom<Module>.Position, logo:[UInt8],
-        documentation:__shared DocumentationExtension<Never>, 
+        documentation:__shared DocumentationExtension<Never>,
+        searchable:[String],
         evolution:Evolution,
-        context:__shared AnisotropicContext, 
+        context:__shared some AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
         assert(context.local.nationality == module.nationality)
 
-        self.logo = logo
-        self.evolution = evolution
-        self.nationality = try cache.load(module.nationality, context: context)
+        self.branch = context.local.branch.id
+        self.evolution = evolution 
+        self.navigator = .init(local: context.local, 
+            searchable: _move searchable, 
+            functions: cache.functions)
         self.culture = try cache.load(module, context: context)
 
         self.overview = try cache.link(documentation.card, context: context)
@@ -33,6 +37,7 @@ struct ModulePage
             cache: &cache)
         self.topics = try topics.html(context: context, cache: &cache)?.node
             .rendered(as: [UInt8].self)
+        self.logo = logo
     }
 
     func render(element:PageElement) -> [UInt8]?
@@ -47,24 +52,21 @@ struct ModulePage
         case .topics: 
             return self.topics
         case .title: 
-            fatalError("unimplemented") 
+            return [UInt8].init(self.navigator.title(self.culture.name.string).utf8)
         case .constants: 
-            fatalError("unimplemented") 
+            return [UInt8].init(self.navigator.constants.utf8)
         case .availability: 
             return nil 
         case .base: 
             return nil
-        
         case .branch: 
-            html = .span(self.evolution.current.branch.description, 
-                attributes: [.class("version")]) 
-
+            html = .span(self.branch.description) 
         case .breadcrumbs: 
             return self.logo
         case .consumers: 
             return nil 
         case .culture: 
-            html = self.nationality.html 
+            html = self.navigator.nationality.html 
         case .dependencies: 
             return nil
         case .fragments: 
@@ -75,20 +77,16 @@ struct ModulePage
             return nil 
         case .kind: 
             return [UInt8].init("Module".utf8)
-        
         case .meta: 
             return nil
-        
-        case .nationality: 
-            html = .span(self.evolution.current.package.title, 
-                attributes: [.class("package")])
-
         case .notes: 
             return nil
         case .notices: 
             html = self.evolution.newer?.html
         case .platforms: 
             return nil
+        case .station: 
+            html = self.navigator.station
         case .versions: 
             html = self.evolution.items.html
         }

@@ -107,16 +107,16 @@ extension RandomAccessCollection
     }
 }
 
-extension Atom where Element.Culture == Package.Index
+extension Atom where Element.Culture == Packages.Index
 {
-    var nationality:Package.Index 
+    var nationality:Packages.Index 
     {
         self.culture 
     }
 }
 extension Atom where Element.Culture == Atom<Module>
 {
-    var nationality:Package.Index
+    var nationality:Packages.Index
     {
         self.culture.culture
     }

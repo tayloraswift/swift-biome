@@ -12,10 +12,10 @@ extension Branch
         let token:UInt 
         
         var alternates:[Version.Branch]
-        var consumers:[Package.Index: [Version: Set<Atom<Module>>]]
+        var consumers:[Packages.Index: [Version: Set<Atom<Module>>]]
         let hash:String
         let ring:Ring
-        let pins:[Package.Index: Version]
+        let pins:[Packages.Index: Version]
         let date:Date
         var tag:Tag? 
 
@@ -24,7 +24,7 @@ extension Branch
             fatalError("obsoleted")
         }
 
-        init(token:UInt, hash:String, ring:Ring, pins:[Package.Index: Version], date:Date, tag:Tag?)
+        init(token:UInt, hash:String, ring:Ring, pins:[Packages.Index: Version], date:Date, tag:Tag?)
         {
             self.token = token 
 

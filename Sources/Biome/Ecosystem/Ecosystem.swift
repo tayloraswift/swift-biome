@@ -55,7 +55,7 @@ import URI
 //     private(set)
 //     var stems:Route.Stems
 //     private(set)
-//     var caches:[Package.Index: Cache]
+//     var caches:[Packages.Index: Cache]
 
 //     private(set)
 //     var packages:Packages 
@@ -98,7 +98,7 @@ extension Ecosystem
     @usableFromInline 
     enum Index:Hashable, Sendable
     {
-        case package(Package.Index)
+        case package(Packages.Index)
         case module(Module.Index)
         case article(Article.Index)
         case composite(Composite)
@@ -114,7 +114,7 @@ extension Ecosystem
     {
         enum Expansion:Hashable, Sendable 
         {
-            case package(Package.Index)
+            case package(Packages.Index)
             case article(Article.Index)
             case module(Module.Index, [Composite] = [])
             case composite           ([Composite])
@@ -133,7 +133,7 @@ extension Ecosystem
     func regenerateCaches() 
     {
         self.caches.removeAll()
-        for package:Package.Index in self.packages.indices.values 
+        for package:Packages.Index in self.packages.index.values 
         {
             self.caches[package] = .init(
                 sitemap: self.generateSiteMap(for: package),
@@ -147,14 +147,14 @@ extension Ecosystem
         graphs unordered:[SymbolGraph],
         brand:String? = nil,
         pins era:[Package.ID: PackageResolution.Pin]) 
-        throws -> Package.Index
+        throws -> Packages.Index
     {
         fatalError("obsoleted")
         // try Task.checkCancellation()
 
         // let graphs:[SymbolGraph]    = try Self.order(modules: unordered, package: id)
 
-        // let index:Package.Index     = self.packages.addPackage(id)
+        // let index:Packages.Index     = self.packages.addPackage(id)
         // let cultures:[Module.Index] = self.packages[index].addModules(graphs.lazy.map(\.id))
 
         // if let brand:String 
@@ -178,7 +178,7 @@ extension Ecosystem
     
 extension Ecosystem 
 {
-    subscript(package:Package.Index) -> Package
+    subscript(package:Packages.Index) -> Package
     {
         _read 
         {
@@ -208,7 +208,7 @@ extension Ecosystem
     } 
     
     public 
-    func index(of module:Module.ID, in package:Package.Index) -> Module.Index?
+    func index(of module:Module.ID, in package:Packages.Index) -> Module.Index?
     {
         self[package].modules.atoms[module]
     }
@@ -283,11 +283,11 @@ extension Ecosystem
             orientation: self[exemplar.base].orientation)
         return uri
     }
-    func uriOfSearchIndex(for package:Package.Index) -> URI 
+    func uriOfSearchIndex(for package:Packages.Index) -> URI 
     {
         self.root.searchIndex.appending(components: [self[package].name, "types"])
     }
-    func uriOfSiteMap(for package:Package.Index) -> URI 
+    func uriOfSiteMap(for package:Packages.Index) -> URI 
     {
         self.root.sitemap.appending(component: "\(self[package].name).txt")
     }

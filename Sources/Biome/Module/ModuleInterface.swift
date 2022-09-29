@@ -106,7 +106,7 @@ struct ModuleInterface
     {
         self.symbols.citizens(culture: self.culture)
     }
-    var nationality:Package.Index
+    var nationality:Packages.Index
     {
         self.namespaces.nationality
     }
@@ -114,7 +114,7 @@ struct ModuleInterface
     {
         self.namespaces.culture 
     }
-    var pins:[Package.Index: Version] 
+    var pins:[Packages.Index: Version] 
     {
         self.namespaces.pins
     }

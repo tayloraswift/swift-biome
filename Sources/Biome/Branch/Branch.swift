@@ -76,7 +76,7 @@ struct Branch:Identifiable, Sendable
 extension Branch 
 {
     mutating 
-    func commit(token:UInt, hash:String, pins:[Package.Index: Version], date:Date, tag:Tag?) 
+    func commit(token:UInt, hash:String, pins:[Packages.Index: Version], date:Date, tag:Tag?) 
         -> Version
     {
         let commit:Version.Revision = self.revisions.endIndex
@@ -94,20 +94,23 @@ extension Branch
 extension Branch 
 {
     mutating 
-    func add(module id:Module.ID, culture:Package.Index, fasces:Fasces) 
+    func add(module id:Module.ID, culture:Packages.Index, fasces:Fasces) 
         -> Atom<Module>.Position
     {
         if let existing:Atom<Module>.Position = fasces.modules.find(id)
         {
             return existing 
         }
-        let atom:Atom<Module> = self.modules.insert(id, culture: culture, 
-            Module.init(id:index:))
-        return atom.positioned(self.index)
+        else 
+        {
+            return self.modules
+                .insert(id, culture: culture, Module.init(id:culture:))
+                .positioned(self.index)
+        }
     }
     mutating 
     func add(graph:SymbolGraph, namespaces:__owned Namespaces, 
-        upstream:[Package.Index: Package.Pinned],
+        upstream:[Packages.Index: Package.Pinned],
         fasces:Fasces, 
         stems:inout Route.Stems) 
         -> ModuleInterface
@@ -155,7 +158,7 @@ extension Branch
 
     private mutating 
     func addSymbols(from graph:SymbolGraph, namespaces:Namespaces, 
-        upstream:[Package.Index: Package._Pinned], 
+        upstream:[Packages.Index: Package.Pinned], 
         linked:Set<Atom<Module>>,
         trunk:Fasces.SymbolView, 
         stems:inout Route.Stems) 
@@ -211,7 +214,7 @@ extension Branch
     func addSymbol(_ id:Symbol.ID, culture:Atom<Module>, namespace:Atom<Module>, 
         linked:Set<Atom<Module>>,
         vertex:SymbolGraph.Vertex<Int>,
-        upstream:[Package.Index: Package._Pinned], 
+        upstream:[Packages.Index: Package.Pinned], 
         trunk:Fasces.SymbolView, 
         stems:inout Route.Stems)
         -> Atom<Symbol>.Position

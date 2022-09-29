@@ -4,48 +4,34 @@ import URI
 
 extension PackageIdentifier
 {
+    @available(*, deprecated, renamed: "station")
     var title:String 
     {
-        switch self.kind
-        {
-        case .swift, .core:         return "swift"
-        case .community(let name):  return name 
-        }
+        self.station
     }
 }
 
 public 
 struct Package:Identifiable, Sendable
 {
-    /// A globally-unique index referencing a package. 
+    @available(*, deprecated, renamed: "Packages.Index")
+    typealias Index = Packages.Index
+
+    
+    @available(*, deprecated, renamed: "ID")
     public 
-    struct Index:Hashable, Comparable, Sendable 
+    typealias Kind = ID 
+    
+    @available(*, deprecated, renamed: "settings.brand")
+    var brand:String?
     {
-        let opaque:UInt16
-        
-        public static 
-        func < (lhs:Self, rhs:Self) -> Bool 
-        {
-            lhs.opaque < rhs.opaque
-        }
-        
-        var offset:Int 
-        {
-            .init(self.opaque)
-        }
-        init(offset:Int)
-        {
-            self.opaque = .init(offset)
-        }
+        self.settings.brand 
     }
-    
-    @available(*, deprecated, renamed: "ID.Kind")
-    public 
-    typealias Kind = ID.Kind 
-    
+
     public 
     let id:PackageIdentifier
-    var brand:String?
+    var settings:Settings 
+
     private(set) 
     var modules:CulturalBuffer<Module>, 
         symbols:CulturalBuffer<Symbol>,
@@ -54,10 +40,6 @@ struct Package:Identifiable, Sendable
     var name:String 
     {
         self.id.string
-    }
-    var kind:ID.Kind 
-    {
-        self.id.kind
     }
 
     private(set)
@@ -71,15 +53,15 @@ struct Package:Identifiable, Sendable
         self.tree
     }
     
-    init(id:ID, index:Index)
+    init(id:ID, index:Packages.Index)
     {
         self.id = id 
-        switch id.kind 
+        switch id 
         {
         case .swift, .core: 
-            self.brand = "Swift"
+            self.settings = .init(brand: "Swift")
         case .community(_):
-            self.brand = nil
+            self.settings = .init()
         }
         
         self.modules = .init(startIndex: 0)
@@ -91,14 +73,9 @@ struct Package:Identifiable, Sendable
         self.tree = .init(nationality: index)
     }
 
-    var nationality:Index 
+    var nationality:Packages.Index 
     {
         self.tree.nationality
-    }
-    @available(*, deprecated, renamed: "nationality")
-    var index:Index 
-    {
-        self.nationality
     }
 
     subscript(local module:Module.Index) -> Module 
@@ -138,7 +115,7 @@ struct Package:Identifiable, Sendable
     
     var title:String 
     {
-        if let brand:String = self.brand 
+        if let brand:String = self.settings.brand 
         {
             return "\(brand) Documentation"
         }
@@ -149,7 +126,7 @@ struct Package:Identifiable, Sendable
     }
     func title<S>(_ title:S) -> String where S:StringProtocol 
     {
-        if let brand:String = self.brand 
+        if let brand:String = self.settings.brand 
         {
             return "\(title) - \(brand) Documentation"
         }
@@ -174,7 +151,7 @@ struct Package:Identifiable, Sendable
     
     func prefix(arrival:MaskedVersion?) -> [String]
     {
-        switch (self.kind, arrival)
+        switch (self.id, arrival)
         {
         case    (.swift, nil), 
                 (.core,  nil):

@@ -54,7 +54,7 @@ struct Page
         self.cache = ([:], [:])
     }
     
-    func pin(_ package:Package.Index) -> Package.Pinned 
+    func pin(_ package:Packages.Index) -> Package.Pinned 
     {
         fatalError("unimplemented")
         //self.ecosystem[package].pinned(self.pins)
@@ -113,7 +113,7 @@ extension Page
         }
     }
     private mutating 
-    func generate(for package:Package.Index, exhibit:Version?) 
+    func generate(for package:Packages.Index, exhibit:Version?) 
     {
         let pinned:Package.Pinned = self.pin(package)
         
@@ -407,7 +407,7 @@ extension Page
     }
     mutating 
     func add<Constants>(scriptConstants:Constants) 
-        where Constants:Sequence, Constants.Element == Package.Index
+        where Constants:Sequence, Constants.Element == Packages.Index
     {
         // package name is alphanumeric, we should enforce this in 
         // `Package.ID`, otherwise this could be a security hole

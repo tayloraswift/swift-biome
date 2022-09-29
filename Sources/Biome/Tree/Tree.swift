@@ -1,6 +1,6 @@
 struct Tree 
 {
-    let nationality:Package.Index
+    let nationality:Packages.Index
     private 
     var storage:[Branch]
     private(set)
@@ -10,7 +10,7 @@ struct Tree
     private 
     var counter:UInt
 
-    init(nationality:Package.Index)
+    init(nationality:Packages.Index)
     {
         self.nationality = nationality 
         self.storage = []
@@ -43,11 +43,11 @@ extension Tree:RandomAccessCollection
     {
         _read 
         {
-            yield  self.storage[.init(branch.index)]
+            yield  self.storage[.init(branch.offset)]
         }
         _modify
         {
-            yield &self.storage[.init(branch.index)]
+            yield &self.storage[.init(branch.offset)]
         }
     }
 }
@@ -207,7 +207,7 @@ extension Tree
         return branch 
     }
     mutating 
-    func commit(branch:Version.Branch, hash:String, pins:[Package.Index: Version], 
+    func commit(branch:Version.Branch, hash:String, pins:[Packages.Index: Version], 
         date:Date, 
         tag:Tag?) -> Version
     {

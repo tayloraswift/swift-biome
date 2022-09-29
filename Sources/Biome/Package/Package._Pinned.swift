@@ -23,12 +23,20 @@ extension Package
             self.init(package, version: version, fasces: package.tree.fasces(through: version))
         }
 
+        var branch:Branch 
+        {
+            self.package.tree[self.version.branch]
+        }
         var revision:Branch.Revision 
         {
             self.package.tree[self.version]
         }
+        var selector:Version.Selector?
+        {
+            self.package.tree.abbreviate(self.version)
+        }
 
-        var nationality:Package.Index 
+        var nationality:Packages.Index 
         {
             self.package.nationality
         }
@@ -439,8 +447,7 @@ extension Package.Pinned
         
         if  symbol.namespace.nationality != atomic.nationality 
         {
-            address.nationality = .init(id: self.package.id, 
-                version: self.package.tree.abbreviate(self.version))
+            address.nationality = .init(id: self.package.id, version: self.selector)
         }
 
         return .init(address, namespace: symbol.namespace, context: context)
@@ -486,8 +493,7 @@ extension Package.Pinned
         
         if  host.namespace.nationality != compound.nationality 
         {
-            address.nationality = .init(id: self.package.id, 
-                version: self.package.tree.abbreviate(self.version))
+            address.nationality = .init(id: self.package.id, version: self.selector)
         }
 
         return .init(address, namespace: host.namespace, context: context)

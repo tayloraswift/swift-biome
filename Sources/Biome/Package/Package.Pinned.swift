@@ -46,7 +46,7 @@ extension Package.Pinned
         // same as host if composite is natural
         let base:Symbol = ecosystem[composite.base]
         let host:Symbol = ecosystem[composite.diacritic.host] 
-        let residency:Package.Index = host.namespace.nationality 
+        let residency:Packages.Index = host.namespace.nationality 
         let arrival:MaskedVersion? = 
             composite.culture.nationality == residency ? self.abbreviatedVersion : nil
         var path:[String] = ecosystem[residency].prefix(arrival: arrival)

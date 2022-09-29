@@ -1,15 +1,9 @@
 protocol PackageContext 
 {
-    subscript(nationality:Package.Index) -> Package.Pinned?
+    subscript(nationality:Packages.Index) -> Package.Pinned?
     {
         get 
     }
-}
-
-extension Package 
-{
-    @available(*, deprecated, renamed: "AnisotropicContext")
-    typealias Context = AnisotropicContext
 }
 
 extension PackageContext 

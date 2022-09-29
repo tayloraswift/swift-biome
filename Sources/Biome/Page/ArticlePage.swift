@@ -3,16 +3,20 @@ import DOM
 
 struct ArticlePage 
 {
+    let branch:Tag
     let evolution:Evolution
+    let navigator:Navigator
     let culture:ModuleReference
+
     let metadata:Article.Metadata
     let discussion:[UInt8]?
     let logo:[UInt8]
 
     init(_ article:Atom<Article>.Position, logo:[UInt8],
         documentation:__shared DocumentationExtension<Never>, 
+        searchable:[String],
         evolution:Evolution,
-        context:__shared AnisotropicContext, 
+        context:__shared some AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
         assert(context.local.nationality == article.nationality)
@@ -23,9 +27,14 @@ struct ArticlePage
             throw Package.MetadataLoadingError.article
         }
 
-        self.culture = try cache.load(article.culture, context: context)
-        self.metadata = metadata
+        self.branch = context.local.branch.id
         self.evolution = evolution
+        self.navigator = .init(local: context.local, 
+            searchable: _move searchable, 
+            functions: cache.functions)
+        self.culture = try cache.load(article.culture, context: context)
+
+        self.metadata = metadata
         self.logo = logo
 
         switch 
@@ -57,17 +66,16 @@ struct ArticlePage
         case .topics: 
             return nil
         case .title: 
-            fatalError("unimplemented") 
+            return [UInt8].init(self.navigator.title(self.metadata.headline.plain).utf8)
         case .constants: 
-            fatalError("unimplemented") 
+            return [UInt8].init(self.navigator.constants.utf8)
         case .availability: 
             return nil 
         case .base: 
             return nil
         
         case .branch: 
-            html = .span(self.evolution.current.branch.description, 
-                attributes: [.class("version")]) 
+            html = .span(self.branch.description) 
 
         case .breadcrumbs: 
             return self.logo
@@ -93,16 +101,14 @@ struct ArticlePage
                 .content(DOM.escape(self.metadata.excerpt)),
             ])
         
-        case .nationality: 
-            html = .span(self.evolution.current.package.title, 
-                attributes: [.class("package")])
-
         case .notes: 
             return nil
         case .notices: 
             html = self.evolution.newer?.html
         case .platforms: 
             return nil
+        case .station: 
+            html = self.navigator.station
         case .versions: 
             html = self.evolution.items.html
         }

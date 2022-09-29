@@ -16,7 +16,6 @@ struct Evolution
     private(set)
     var items:[Item], 
         newer:Newer?
-    let current:(package:Package.ID, branch:Tag)
 
     private 
     init(local:__shared Package.Pinned,
@@ -25,7 +24,6 @@ struct Evolution
     {
         self.items = []
         self.newer = nil
-        self.current = (local.package.id, local.package.tree[local.version.branch].id)
 
         let current:Version = local.version 
         for branch:Branch in local.package.tree 
@@ -39,16 +37,15 @@ struct Evolution
                 else 
                 {
                     self.items.append(.init(
-                        label: local.package.tree.abbreviate(local.version) ?? .tag(branch.id), 
+                        label: local.selector ?? .tag(branch.id), 
                         uri: nil))
                     return 
                 }
                 if  let address:Address = try address(local)
                 {
-                    let label:Version.Selector? = 
-                        local.package.tree.abbreviate(local.version)
+                    let label:Version.Selector = local.selector ?? .tag(branch.id)
                     let uri:String = address.uri(functions: functions).description
-                    self.items.append(.init(label: label ?? .tag(branch.id), uri: uri))
+                    self.items.append(.init(label: label, uri: uri))
                     
                     if case local.version.revision? = branch.head, 
                             current.branch == branch.index
@@ -72,6 +69,12 @@ struct Evolution
 // vended.
 extension Evolution
 {
+    init(local:__shared Package.Pinned, 
+        functions:__shared Service.PublicFunction.Names)
+    {
+        self.init(local: local, functions: functions, address: Address.init(residency:))
+    }
+    
     init(for module:Atom<Module>.Position, 
         local:__shared Package.Pinned, 
         functions:__shared Service.PublicFunction.Names)
@@ -134,7 +137,7 @@ extension Evolution
                 let metadata:Module.Metadata = 
                     $0.metadata(local: symbol.culture)
             {
-                let context:AnisotropicContext = .init(local: $0,
+                let context:LocalContext = .init(local: $0,
                     metadata: metadata, 
                     context: context)
                 return context.local.address(of: symbol.atom, 
@@ -168,7 +171,7 @@ extension Evolution
                 return nil 
             }
 
-            let context:AnisotropicContext = .init(local: $0,
+            let context:LocalContext = .init(local: $0,
                 metadata: metadata, 
                 context: context)
             

@@ -6,7 +6,7 @@ public
 struct Module:Sendable
 {
     public 
-    typealias Culture = Package.Index 
+    typealias Culture = Packages.Index 
     public 
     typealias Offset = UInt16
 
@@ -25,7 +25,14 @@ struct Module:Sendable
     
     public 
     let id:ModuleIdentifier
-    let index:Index 
+    let culture:Atom<Self>
+
+
+    @available(*, deprecated, renamed: "culture")
+    var index:Atom<Self> 
+    {
+        self.culture
+    }
 
     var symbols:[(range:Range<Symbol.Offset>, namespace:Atom<Module>)]
     var articles:[Range<Article.Offset>]
@@ -43,10 +50,10 @@ struct Module:Sendable
     var redirect:(module:Redirect?, articles:Redirect?)
 
     
-    init(id:ID, index:Index)
+    init(id:ID, culture:Atom<Self>)
     {
         self.id = id 
-        self.index = index
+        self.culture = culture
         self.redirect = (nil, nil)
 
         self.symbols = []
@@ -74,9 +81,9 @@ struct Module:Sendable
     {
         .init(last: self.id.string)
     }
-    var nationality:Package.Index 
+    var nationality:Packages.Index 
     {
-        self.index.nationality
+        self.culture.nationality
     }
     var fragments:[Notebook<Highlight, Never>.Fragment] 
     {

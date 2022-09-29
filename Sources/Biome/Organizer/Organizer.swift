@@ -4,7 +4,7 @@ import Notebook
 struct Organizer
 {
     var articles:[(ArticleCard, SortingKey)]
-    var dependencies:[Package.Index: Enclave<H3, Nationality, ModuleCard>]
+    var dependencies:[Packages.Index: Enclave<H3, Nationality, ModuleCard>]
 
     var requirements:[Community: [(SymbolCard, SortingKey)]]
 
@@ -49,12 +49,12 @@ extension Organizer
 {
     mutating 
     func organize(dependencies:Set<Atom<Module>>, 
-        context:AnisotropicContext, 
+        context:some AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
-        let groups:[Package.Index: [Atom<Module>]] = .init(grouping: dependencies, 
+        let groups:[Packages.Index: [Atom<Module>]] = .init(grouping: dependencies, 
             by: \.nationality)
-        for (nationality, atoms):(Package.Index, [Atom<Module>]) in groups
+        for (nationality, atoms):(Packages.Index, [Atom<Module>]) in groups
         {
             let nationality:Nationality = nationality == context.local.nationality ? 
                 .local : .foreign(try cache.load(nationality, context: context))
@@ -257,7 +257,7 @@ extension Organizer
 {
     mutating
     func organize(_ roles:Branch.SymbolRoles, 
-        context:AnisotropicContext, 
+        context:some AnisotropicContext, 
         cache:inout ReferenceCache) throws
     {
         for role:Atom<Symbol> in roles 
@@ -266,7 +266,8 @@ extension Organizer
         }
     }
     private mutating 
-    func add(role:Atom<Symbol>, context:AnisotropicContext, cache:inout ReferenceCache) throws
+    func add(role:Atom<Symbol>, context:some AnisotropicContext, cache:inout ReferenceCache) 
+        throws
     {
         // protocol roles may originate from a different package
         let symbol:SymbolReference = try cache.load(role, context: context)

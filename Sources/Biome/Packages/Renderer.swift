@@ -7,12 +7,12 @@ import URI
 
 extension Packages
 {
-    func renderFields(for index:Package.Index, version:Version) 
+    func renderFields(for index:Packages.Index, version:Version) 
         -> [Page.Key: DOM.Flattened<Ecosystem.Index>]
     {
         let package:Package = self[index]
         let kind:String 
-        switch package.kind 
+        switch package.id 
         {
         case .swift:        kind = "Standard Library"
         case .core:         kind = "Core Libraries"
@@ -37,7 +37,7 @@ extension Packages
                 }
                 .map 
                 {
-                    (item:(key:Package.Index, value:Version)) in 
+                    (item:(key:Packages.Index, value:Version)) in 
 
                     let dependency:Package = self[item.key]
                     let link:HTML.Element<Ecosystem.Index> = 
@@ -187,7 +187,7 @@ extension Packages
     }
     
     private 
-    func link(package:Package.Index) -> HTML.Element<Ecosystem.Index>
+    func link(package:Packages.Index) -> HTML.Element<Ecosystem.Index>
     {
         .a(self[package].name, attributes: [.init(anchor: .package(package))])
     }

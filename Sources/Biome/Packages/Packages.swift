@@ -2,40 +2,55 @@ import PackageResolution
 import SymbolGraphs
 import Versions
 
-extension Package.Index 
-{
-    static 
-    let swift:Self = .init(offset: 0)
-    static 
-    let core:Self = .init(offset: 1) 
-
-    var isCommunityPackage:Bool
-    {
-        self.offset > 1
-    }
-}
 public 
-struct Packages 
+struct Packages
 {
     private 
     var packages:[Package]
     private(set)
-    var indices:[Package.ID: Package.Index]
+    var index:[PackageIdentifier: Index]
     
     init()
     {
         self.packages = []
-        self.indices = [:]
+        self.index = [:]
 
         // swift-standard-library is always index = 0
         // swift-core-libraries is always index = 1
-        let swift:Package.Index = self.add(package: .swift)
-        let core:Package.Index = self.add(package: .core)
+        let swift:Index = self.add(package: .swift)
+        let core:Index = self.add(package: .core)
 
         precondition(swift == .swift) 
         precondition(core == .core) 
     }
-
+}
+extension Packages:RandomAccessCollection
+{
+    public 
+    var startIndex:Index
+    {
+        .init(offset: .init(self.packages.startIndex))
+    }
+    public 
+    var endIndex:Index
+    {
+        .init(offset: .init(self.packages.endIndex))
+    }
+    public 
+    subscript(package:Index) -> Package
+    {
+        _read 
+        {
+            yield  self.packages[.init(package.offset)]
+        }
+        _modify 
+        {
+            yield &self.packages[.init(package.offset)]
+        }
+    } 
+}
+extension Packages 
+{
     var swift:Package 
     {
         _read 
@@ -51,28 +66,17 @@ struct Packages
         }
     }
     
-    subscript(package:Package.ID) -> Package?
+    subscript(package:PackageIdentifier) -> Package?
     {
-        self.indices[package].map { self[$0] }
-    } 
-    subscript(package:Package.Index) -> Package
-    {
-        _read 
-        {
-            yield  self.packages[package.offset]
-        }
-        _modify 
-        {
-            yield &self.packages[package.offset]
-        }
-    } 
+        self.index[package].map { self[$0] }
+    }
 
     //@available(*, deprecated, renamed: "subscript(global:)")
     subscript(module:Module.Index) -> Module
     {
         _read 
         {
-            yield self.packages[module.nationality.offset][local: module]
+            yield self[module.nationality][local: module]
         }
     } 
     //@available(*, deprecated, renamed: "subscript(global:)")
@@ -80,14 +84,15 @@ struct Packages
     {
         _read 
         {
-            yield self.packages[symbol.nationality.offset][local: symbol]
+            yield self[symbol.nationality][local: symbol]
         }
     } 
+    //@available(*, deprecated, renamed: "subscript(global:)")
     subscript(article:Article.Index) -> Article
     {
         _read 
         {
-            yield self.packages[article.nationality.offset][local: article]
+            yield self[article.nationality][local: article]
         }
     } 
 
@@ -96,6 +101,13 @@ struct Packages
         _read 
         {
             yield self[module.nationality].tree[local: module]
+        }
+    } 
+    subscript(global article:Atom<Article>.Position) -> Article
+    {
+        _read 
+        {
+            yield self[article.nationality].tree[local: article]
         }
     } 
     subscript(global symbol:Atom<Symbol>.Position) -> Symbol
@@ -107,7 +119,7 @@ struct Packages
     } 
 
     mutating 
-    func _add(package id:Package.ID, 
+    func _add(package id:PackageIdentifier, 
         resolved:__owned PackageResolution, 
         branch:Tag, 
         fork:Version.Selector?,
@@ -115,7 +127,7 @@ struct Packages
         tag:Tag?, 
         graphs:__owned [SymbolGraph], 
         stems:inout Route.Stems) 
-        throws -> Package.Index
+        throws -> Index
     {
         guard let pin:PackageResolution.Pin = resolved.pins[id]
         else 
@@ -123,10 +135,10 @@ struct Packages
             fatalError("unimplemented")
         }
 
-        let (package, fork):(Package.Index, Version?) = self.add(package: id, fork: fork)
+        let (package, fork):(Index, Version?) = self.add(package: id, fork: fork)
         let branch:Version.Branch = self[package].tree.branch(branch, from: fork)
 
-        let linkable:[Package.Index: _Dependency] = self.find(pins: resolved.pins.values)
+        let linkable:[Index: _Dependency] = self.find(pins: resolved.pins.values)
         // we are going to mutate `self[package].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
         let fasces:Fasces = self[package].tree.fasces(upTo: branch)
@@ -144,7 +156,7 @@ struct Packages
             // use this instead of `graph.id` to prevent string duplication
             var namespaces:Namespaces = .init(id: self[global: module].id, 
                 position: module)
-            let upstream:[Package.Index: Package.Pinned] = try namespaces.link(
+            let upstream:[Index: Package.Pinned] = try namespaces.link(
                 dependencies: graph.dependencies, 
                 linkable: linkable, 
                 branch: branch,
@@ -214,11 +226,11 @@ struct Packages
     /// 
     /// This method will only create package descriptors if `fork` is [`nil`]().
     private mutating 
-    func add(package id:Package.ID, fork:Version.Selector?) -> (Package.Index, Version?)
+    func add(package id:PackageIdentifier, fork:Version.Selector?) -> (Index, Version?)
     {
         if  let fork:Version.Selector 
         {
-            guard   let package:Package.Index = self.indices[id], 
+            guard   let package:Index = self.index[id], 
                     let fork:Version = self[package].tree.find(fork)
             else 
             {
@@ -240,19 +252,19 @@ struct Packages
     }
     /// Creates a package entry for the given package graph, if it does not already exist.
     /// 
-    /// -   Returns: The index of the package, identified by its ``Package.ID``.
+    /// -   Returns: The index of the package, identified by its ``PackageIdentifier``.
     private mutating 
-    func add(package:Package.ID) -> Package.Index
+    func add(package:PackageIdentifier) -> Index
     {
-        if let index:Package.Index = self.indices[package]
+        if let index:Index = self.index[package]
         {
             return index 
         }
         else 
         {
-            let index:Package.Index = .init(offset: self.packages.endIndex)
+            let index:Index = self.endIndex
             self.packages.append(.init(id: package, index: index))
-            self.indices[package] = index
+            self.index[package] = index
             return index
         }
     }
@@ -260,15 +272,15 @@ struct Packages
     private mutating
     func commit(_ revision:String, 
         to branch:Version.Branch, 
-        of nationality:Package.Index, 
+        of nationality:Index, 
         interfaces:[ModuleInterface], 
         date:Date, 
         tag:Tag?) -> Version
     {
-        var pins:[Package.Index: (version:Version, consumers:Set<Atom<Module>>)] = [:]
+        var pins:[Index: (version:Version, consumers:Set<Atom<Module>>)] = [:]
         for interface:ModuleInterface in interfaces 
         {
-            for (package, pin):(Package.Index, Version) in interface.pins 
+            for (package, pin):(Index, Version) in interface.pins 
             {
                 pins[package, default: (pin, [])].consumers.insert(interface.culture)
             }
@@ -277,7 +289,7 @@ struct Packages
             pins: pins.mapValues(\.version), 
             date: date, 
             tag: tag)
-        for (package, (pin, consumers)):(Package.Index, (Version, Set<Atom<Module>>)) in pins
+        for (package, (pin, consumers)):(Index, (Version, Set<Atom<Module>>)) in pins
         {
             assert(package != nationality)
             self[package].tree[pin].consumers[nationality, default: [:]][version] = consumers
@@ -288,9 +300,9 @@ struct Packages
 extension Packages 
 {
     private 
-    func find(pins:some Sequence<PackageResolution.Pin>) -> [Package.Index: _Dependency]
+    func find(pins:some Sequence<PackageResolution.Pin>) -> [Index: _Dependency]
     {
-        var linkable:[Package.Index: _Dependency] = [:]
+        var linkable:[Index: _Dependency] = [:]
         for pin:PackageResolution.Pin in pins 
         {
             guard   let package:Package = self[pin.id],
@@ -315,7 +327,7 @@ extension Packages
 extension Packages 
 {
     // mutating 
-    // func spread(from index:Package.Index, beliefs:Beliefs)
+    // func spread(from index:Packages.Index, beliefs:Beliefs)
     // {
     //     let current:Version = self[index].versions.latest
     //     for diacritic:Symbol.Diacritic in beliefs.opinions.keys 

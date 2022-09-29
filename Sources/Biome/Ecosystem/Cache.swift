@@ -10,7 +10,7 @@ struct Cache
 
 extension Ecosystem 
 {
-    func generateSearchIndex(for package:Package.Index) -> Resource
+    func generateSearchIndex(for package:Packages.Index) -> Resource
     {
         fatalError("unimplemented")
         // let current:Package.Pinned = self[package].pinned()
@@ -65,7 +65,7 @@ extension Ecosystem
         // return .init(hashing: bytes, type: .utf8(encoded: .json))
     }
     
-    func generateSiteMap(for package:Package.Index) -> Resource
+    func generateSiteMap(for package:Packages.Index) -> Resource
     {
         fatalError("unimplemented")
         // let domain:String.UTF8View = "https://swiftinit.org".utf8

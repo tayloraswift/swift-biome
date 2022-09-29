@@ -173,7 +173,7 @@ struct Literature
             }
         }
 
-        func consolidated(culture:Package.Index) -> [Atom<Symbol>: Comment]
+        func consolidated(culture:Packages.Index) -> [Atom<Symbol>: Comment]
         {
             var skipped:Int = 0,
                 dropped:Int = 0
@@ -233,7 +233,7 @@ struct Literature
     var package:DocumentationExtension<Never>?
 
     init(compiling graphs:__owned [SymbolGraph], interfaces:__owned [ModuleInterface], 
-        package local:Package.Index, 
+        package local:Packages.Index, 
         version:Version, 
         context:__shared Packages, 
         stems:__shared Route.Stems)

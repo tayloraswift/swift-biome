@@ -24,14 +24,14 @@ extension Atom.Position:Sendable where Element.Offset:Sendable, Element.Culture:
 
 extension Atom.Position where Element.Culture == Atom<Module>
 {
-    var nationality:Package.Index 
+    var nationality:Packages.Index 
     {
         self.atom.nationality
     }
 }
 extension Atom<Module>.Position
 {
-    var nationality:Package.Index 
+    var nationality:Packages.Index 
     {
         self.atom.nationality
     }

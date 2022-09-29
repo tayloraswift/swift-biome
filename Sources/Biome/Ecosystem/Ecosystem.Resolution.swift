@@ -50,7 +50,7 @@ extension Ecosystem
         case .sitemap: 
             guard   let components:[Path.Element.SubSequence] = path.first?.split(separator: "."),
                     let package:Package.ID = components.first.map(Package.ID.init(_:)), 
-                    let package:Package.Index = self.packages.indices[package], 
+                    let package:Packages.Index = self.packages.index[package], 
                     let sitemap:Resource = self.caches[package]?.sitemap
             else 
             {
@@ -60,7 +60,7 @@ extension Ecosystem
         
         case .searchIndex: 
             guard   let package:Package.ID = path.first.map(Package.ID.init(_:)), 
-                    let package:Package.Index = self.packages.indices[package],
+                    let package:Packages.Index = self.packages.index[package],
                     case "types"? = path.dropFirst().first, 
                     let search:Resource = self.caches[package]?.search
             else 

@@ -69,7 +69,7 @@ extension Address.Global
         self.init(_move local, 
             residency: residency.nationality.isCommunityPackage ? 
                 residency.package.id : nil, 
-            version: residency.package.tree.abbreviate(residency.version))
+            version: residency.selector)
     }
 } 
 extension Address 
@@ -78,12 +78,9 @@ extension Address
     /// 
     /// The returned address always includes the package name, even if it is the 
     /// standard library or one of the core libraries.
-    init(residency:__shared Package.Pinned, 
-        function:Service.PublicFunction = .documentation(.symbol))
+    init(residency:__shared Package.Pinned)
     {
-        self.init(.init(nil,
-                residency: residency.package.id, 
-                version: residency.package.tree.abbreviate(residency.version)), 
+        self.init(.init(nil, residency: residency.package.id, version: residency.selector), 
             function: .documentation(.symbol))
     }
     init(residency:__shared Package.Pinned, namespace:__shared Module)

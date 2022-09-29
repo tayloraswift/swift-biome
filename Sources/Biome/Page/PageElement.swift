@@ -1,6 +1,20 @@
 import HTML 
 import MIME
 
+extension PackageIdentifier 
+{
+    var station:String 
+    {
+        switch self
+        {
+        case .swift, .core:
+            return "swift"
+        case .community(normalized: let name):
+            return name 
+        }
+    }
+}
+
 @frozen public 
 enum PageElement:Hashable, Sendable
 {
@@ -20,11 +34,11 @@ enum PageElement:Hashable, Sendable
     case host 
     case kind
     case meta
-    case nationality 
     case notes 
     case notices
     case platforms
     case overview
+    case station 
     case topics
     case versions
 } 
@@ -72,7 +86,7 @@ extension HTML.Root<PageElement>
                                     .type("checkbox"),
                                     .autocomplete("off")
                                 ]),
-                            .label(.init(anchor: .nationality), .init(anchor: .branch), 
+                            .label(.init(anchor: .station), .init(anchor: .branch), 
                                 attributes: 
                                 [
                                     .id("version"), 

@@ -25,7 +25,7 @@ struct Compound:Hashable, Sendable
     {
         self.diacritic.culture
     }
-    var nationality:Package.Index
+    var nationality:Packages.Index
     {
         self.diacritic.nationality
     }

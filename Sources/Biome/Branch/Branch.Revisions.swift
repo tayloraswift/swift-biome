@@ -26,11 +26,11 @@ extension Branch
         {
             _read 
             {
-                yield  self.revisions[.init(revision.index)]
+                yield  self.revisions[.init(revision.offset)]
             }
             _modify
             {
-                yield &self.revisions[.init(revision.index)]
+                yield &self.revisions[.init(revision.offset)]
             }
         }
     }
@@ -68,8 +68,8 @@ extension Branch.Revisions:RangeReplaceableCollection
         with revisions:some Collection<Branch.Revision>)
     {
         let range:Range<Int> = 
-            Int.init(range.lowerBound.index) ..< 
-            Int.init(range.upperBound.index)
+            Int.init(range.lowerBound.offset) ..< 
+            Int.init(range.upperBound.offset)
         self.revisions.replaceSubrange(range, with: revisions)
     }
 }

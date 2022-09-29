@@ -6,25 +6,25 @@ struct Version:Hashable, Sendable
     /// A reference to a ``/Biome//Branch`` within a ``Tree``.
     struct Branch:Hashable, Strideable, Sendable 
     {
-        let index:UInt16 
+        let offset:UInt16 
 
-        init(_ index:UInt16)
+        init(_ offset:UInt16)
         {
-            self.index = index
+            self.offset = offset
         }
         
         static 
         func < (lhs:Self, rhs:Self) -> Bool
         {
-            lhs.index < rhs.index
+            lhs.offset < rhs.offset
         }
-        func advanced(by stride:Int.Stride) -> Self 
+        func advanced(by stride:Int) -> Self 
         {
-            .init(self.index.advanced(by: stride))
+            .init(self.offset.advanced(by: stride))
         }
-        func distance(to other:Self) -> Int.Stride
+        func distance(to other:Self) -> Int
         {
-            self.index.distance(to: other.index)
+            self.offset.distance(to: other.offset)
         }
     }
     /// A reference to a ``/Biome//Revision`` within a ``/Biome//Branch``. 
@@ -34,33 +34,33 @@ struct Version:Hashable, Sendable
     /// branch-local predecessor without needing any external information.
     struct Revision:Hashable, Strideable, Sendable
     {
-        let index:UInt16 
+        let offset:UInt16 
 
         static 
         let max:Self = .init(.max)
 
-        init(_ index:UInt16)
+        init(_ offset:UInt16)
         {
-            self.index = index
+            self.offset = offset
         }
 
         static 
         func < (lhs:Self, rhs:Self) -> Bool
         {
-            lhs.index < rhs.index
+            lhs.offset < rhs.offset
         }
-        func advanced(by stride:Int.Stride) -> Self 
+        func advanced(by stride:Int) -> Self 
         {
-            .init(self.index.advanced(by: stride))
+            .init(self.offset.advanced(by: stride))
         }
-        func distance(to other:Self) -> Int.Stride
+        func distance(to other:Self) -> Int
         {
-            self.index.distance(to: other.index)
+            self.offset.distance(to: other.offset)
         }
 
         var predecessor:Self? 
         {
-            self.index < 1 ? nil : .init(self.index - 1)
+            self.offset < 1 ? nil : .init(self.offset - 1)
         }
     }
 

@@ -19,7 +19,7 @@ struct Diacritic:Hashable, Sendable
         self.culture = atomic.culture
     }
 
-    var nationality:Package.Index 
+    var nationality:Packages.Index 
     {
         self.culture.culture 
     }
