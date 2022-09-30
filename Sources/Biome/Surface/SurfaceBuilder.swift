@@ -233,7 +233,7 @@ struct SurfaceBuilder
                         traits: traits, 
                         context: context)
             }
-            else if let pinned:Package._Pinned = context.upstream[position.nationality],
+            else if let pinned:Package.Pinned = context.upstream[position.nationality],
                     let metadata:Symbol.Metadata = pinned.metadata(local: position.atom)
             {
                 let subject:Symbol = pinned.package.tree[local: position]

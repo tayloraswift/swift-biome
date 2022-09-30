@@ -263,7 +263,7 @@ struct Literature
     func compile(graphs:__owned [SymbolGraph], 
         interfaces:__owned [ModuleInterface], 
         comments:__owned [Atom<Symbol>: Comment], 
-        package local:Package._Pinned, 
+        package local:Package.Pinned, 
         context:Packages,
         stems:Route.Stems)
     {
