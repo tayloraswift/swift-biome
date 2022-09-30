@@ -107,17 +107,6 @@ extension HTML.Element
 extension HTML.Element
 {
     static 
-    func render<Fragments, Link>(fragments:Fragments, 
-        transform:(Link) throws -> Anchor) 
-        rethrows -> Self
-        where   Fragments:Sequence, 
-                Fragments.Element == Notebook<Highlight, Link>.Fragment
-    {
-        let fragments:[Self] = try Self.highlight(fragments, transform: transform)
-        let code:Self = .code(fragments, attributes: [.class("swift")])
-        return .section(.pre(code), attributes: [.class("declaration")])
-    }
-    static 
     func render<Fragments>(signature:Fragments) -> Self
         where   Fragments:Sequence, 
                 Fragments.Element == Notebook<Highlight, Never>.Fragment
