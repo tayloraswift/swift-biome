@@ -129,9 +129,8 @@ extension Tree.SymbolTraits
                 case .refinement(let downstream):
                     self.downstream.insert(downstream)
                 //  [3] conforming types (``conformers``)
-                case .conformer(let conformer):
-                    self.conformers[conformer.target.atom] = 
-                        (conformer.target.branch, conformer.conditions)
+                case .conformer(let conformer, where: let constraints):
+                    self.conformers[conformer.atom] = (conformer.branch, constraints)
                 default: 
                     fatalError("unreachable")
                 }
@@ -158,9 +157,8 @@ extension Tree.SymbolTraits
                 case .subclass(let downstream):
                     self.downstream.insert(downstream)
                 //  [3] protocol conformances (``conformances``)
-                case .conformance(let conformance):
-                    self.conformances[conformance.target.atom] = 
-                        (conformance.target.branch, conformance.conditions)
+                case .conformance(let conformance, where: let constraints):
+                    self.conformances[conformance.atom] = (conformance.branch, constraints)
                 default: 
                     fatalError("unreachable")
                 }

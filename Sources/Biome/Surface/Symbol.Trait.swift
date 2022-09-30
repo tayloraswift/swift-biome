@@ -16,9 +16,9 @@ extension Symbol
         case subclass(Position)
         case override(Position)
         // conformers
-        case conformer(Generic.Conditional<Position>)
+        case conformer(Position, where:[Generic.Constraint<Position>])
         // conformances
-        case conformance(Generic.Conditional<Position>)
+        case conformance(Position, where:[Generic.Constraint<Position>])
         
         var feature:Position? 
         {
@@ -48,10 +48,12 @@ extension Symbol
                 return .subclass(try transform(target))
             case .override(let target): 
                 return .override(try transform(target))
-            case .conformer(let target): 
-                return .conformer(try target.map(transform))
-            case .conformance(let target): 
-                return .conformance(try target.map(transform))
+            case .conformer(let target, where: let constraints): 
+                return .conformer(try transform(target), 
+                    where: try constraints.map { try $0.map(transform) })
+            case .conformance(let target, where: let constraints): 
+                return .conformance(try transform(target), 
+                    where: try constraints.map { try $0.map(transform) })
             }
         }
     }

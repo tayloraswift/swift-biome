@@ -205,11 +205,11 @@ extension SymbolGraph.Edge<Atom<Symbol>.Position>
                     .init(target, .has(.member(    source)))
                 )
         
-        case    (.concretetype, let source, is: .conformer(let conditions), of: .protocol, let target):
+        case    (.concretetype, let source, is: .conformer(let constraints), of: .protocol, let target):
             return 
                 (
-                    .init(source, .has(.conformance(.init(target, where: conditions)))), 
-                    .init(target, .has(  .conformer(.init(source, where: conditions))))
+                    .init(source, .has(.conformance(target, where: constraints))), 
+                    .init(target, .has(  .conformer(source, where: constraints)))
                 )
          
         case    (.protocol, let source, is: .conformer([]), of: .protocol, let target):
