@@ -14,7 +14,7 @@ extension SignatureCard
 {
     var html:HTML.Element<Never>
     {
-        let signature:HTML.Element<Never> = .a(.render(signature: self.signature), 
+        let signature:HTML.Element<Never> = .a(.highlight(signature: self.signature), 
             attributes: [.href(self.uri), .class("signature")])
         if  let utf8:[UInt8] = self.overview
         {

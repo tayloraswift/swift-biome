@@ -4,6 +4,7 @@ import Notebook
 import SymbolAvailability
 import SymbolGraphs
 import SymbolSource
+import Versions
 
 extension SymbolPage 
 {
@@ -250,11 +251,7 @@ struct SymbolPage
             return [UInt8].init(self.navigator.constants.utf8)
         
         case .availability: 
-            html = .render(availability: 
-            (
-                self.availability.swift, 
-                self.availability.general
-            ))
+            html = self.availability.html
         case .base: 
             html = self.names.culture.base.map 
             { 
@@ -291,7 +288,7 @@ struct SymbolPage
         case .notices: 
             html = self.evolution.newer?.html
         case .platforms: 
-            html = .render(availability: self.availability.platforms)
+            html = self.availability.platforms.html
         case .station: 
             html = self.navigator.station
         case .versions: 
