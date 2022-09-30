@@ -4,6 +4,7 @@ import PackageResolution
 import Resources
 import SymbolGraphs
 import SymbolSource
+import Versions
 import WebSemantics
 import URI
 

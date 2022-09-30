@@ -13,22 +13,25 @@ struct Date:Hashable, Sendable
         case gregorian(Integer)
     }
 
-    public 
+    @frozen public 
     struct Component:Hashable, Sendable
     {
+        public
         let value:UInt8
 
+        @inlinable public
         init(_ value:UInt8)
         {
             self.value = value
         }
     }
-    public 
+    @frozen public 
     struct Year:Hashable, Sendable
     {
+        public
         let offset:UInt8
 
-        public 
+        @inlinable public 
         init<Integer>(gregorian:Integer) throws where Integer:BinaryInteger
         {
             guard 2020 ..< 2276 ~= gregorian
@@ -55,7 +58,7 @@ struct Date:Hashable, Sendable
     public 
     var hour:UInt8
 
-    public 
+    @inlinable public 
     init<Component>(year:Year, month:Component, day:Component, hour:UInt8) throws
         where Component:BinaryInteger
     {
@@ -78,7 +81,7 @@ struct Date:Hashable, Sendable
 }
 extension Date.Component:Comparable 
 {
-    public static 
+    @inlinable public static 
     func < (lhs:Self, rhs:Self) -> Bool
     {
         lhs.value < rhs.value
@@ -86,7 +89,7 @@ extension Date.Component:Comparable
 }
 extension Date.Year:Comparable 
 {
-    public static 
+    @inlinable public static 
     func < (lhs:Self, rhs:Self) -> Bool
     {
         lhs.offset < rhs.offset
@@ -94,7 +97,7 @@ extension Date.Year:Comparable
 }
 extension Date:Comparable 
 {
-    public static 
+    @inlinable public static 
     func < (lhs:Self, rhs:Self) -> Bool
     {
         (lhs.year, lhs.month, lhs.day, lhs.hour) <

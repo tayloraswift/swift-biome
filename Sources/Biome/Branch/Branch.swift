@@ -1,6 +1,7 @@
 import PackageResolution
 import SymbolGraphs
 import SymbolSource
+import Versions
 
 enum _Dependency:Sendable 
 {
