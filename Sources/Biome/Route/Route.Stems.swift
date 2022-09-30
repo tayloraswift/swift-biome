@@ -26,14 +26,13 @@ extension Route
         }
         
         private static 
-        func subpath<S>(_ component:S) -> String 
-            where S:StringProtocol 
+        func subpath(_ component:some StringProtocol) -> String 
         {
             component.lowercased()
         }
         private static 
-        func subpath<S>(_ components:S) -> String 
-            where S:Sequence, S.Element:StringProtocol 
+        func subpath<Component>(_ components:some Sequence<Component>) -> String 
+            where Component:StringProtocol 
         {
             components.map { $0.lowercased() }.joined(separator: "\u{0}")
         }
@@ -44,19 +43,19 @@ extension Route
             self.table[subpath]
         }
         
+        // https://github.com/apple/swift/issues/61387
         subscript<Component>(leaf component:Component) -> Stem? 
-            where Component:StringProtocol 
+            where Component:StringProtocol
         {
             self.table[Self.subpath(component)]
         }
         private 
-        subscript<Path>(stem components:Path) -> Stem? 
-            where Path:Sequence, Path.Element:StringProtocol 
+        subscript<Component>(stem components:some Sequence<Component>) -> Stem? 
+            where Component:StringProtocol
         {
             self.table[Self.subpath(components)]
         }
 
-        
         private 
         subscript(leaf component:_SymbolLink.Component) -> Stem? 
         {
@@ -133,14 +132,13 @@ extension Route
             }
         }
         mutating 
-        func register<S>(components:S) -> Stem 
-            where S:Sequence, S.Element:StringProtocol 
+        func register<Component>(components:some Sequence<Component>) -> Stem 
+            where Component:StringProtocol 
         {
             self.register(Self.subpath(components))
         }
         mutating 
-        func register<S>(component:S) -> Stem 
-            where S:StringProtocol 
+        func register(component:some StringProtocol) -> Stem 
         {
             self.register(Self.subpath(component))
         }
