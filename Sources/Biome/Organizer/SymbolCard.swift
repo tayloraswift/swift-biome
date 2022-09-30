@@ -1,4 +1,5 @@
 import Notebook
+import SymbolSource
 
 struct SymbolCard:SignatureCard
 {

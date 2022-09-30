@@ -1,4 +1,6 @@
 import PackageResolution
+import SymbolGraphs
+import SymbolSource
 
 enum _Dependency:Sendable 
 {
@@ -246,13 +248,13 @@ extension Branch
             let route:Route = .init(namespace, 
                       stems.register(components: vertex.path.prefix), 
                 .init(stems.register(component:  vertex.path.last), 
-                orientation: vertex.community.orientation))
+                orientation: vertex.shape.orientation))
             // if the symbol could inherit features, generate a stem 
             // for its children from its full path. this stem will only 
             // go to waste if a concretetype is completely uninhabited, 
             // which is very rare.
             let kind:Symbol.Kind 
-            switch vertex.community
+            switch vertex.shape
             {
             case .associatedtype: 
                 kind = .associatedtype 

@@ -98,7 +98,7 @@ struct Resolver
 
     func resolve(expression:String, 
         imports:Set<Atom<Module>>, 
-        scope:_Scope?, 
+        scope:LexicalScope?, 
         stems:Route.Stems) throws -> GlobalLink.Presentation
     {
         let schemeless:Substring 
@@ -163,7 +163,7 @@ struct Resolver
                 }
                 else if let link:_SymbolLink = try .init(uri)
                 {
-                    let scope:_Scope? = slashes == 0 ? scope : nil
+                    let scope:LexicalScope? = slashes == 0 ? scope : nil
                     return try self.resolve(scheme: scheme, 
                         symbolLink: link, 
                         imports: imports, 
@@ -181,7 +181,7 @@ struct Resolver
     private 
     func resolve(scheme:Scheme, symbolLink link:_SymbolLink, 
         imports:Set<Atom<Module>>, 
-        scope:_Scope?, 
+        scope:LexicalScope?, 
         stems:Route.Stems) throws -> GlobalLink.Presentation
     {
         if  case .doc = scheme, 
@@ -230,10 +230,10 @@ struct Resolver
     private 
     func resolve(docLink link:_SymbolLink, 
         imports:Set<Atom<Module>>, 
-        scope:_Scope?, 
+        scope:LexicalScope?, 
         stems:Route.Stems) -> Atom<Article>?
     {
-        if  let scope:_Scope, 
+        if  let scope:LexicalScope, 
             let article:Atom<Article>.Position = scope.scan(concatenating: link, 
                 stems: stems, 
                 until: { self.context[$0.namespace.nationality]?.articles.find(.init($0)) })
@@ -258,10 +258,10 @@ struct Resolver
     private 
     func resolve(symbolLink link:_SymbolLink, 
         imports:Set<Atom<Module>>, 
-        scope:_Scope?, 
+        scope:LexicalScope?, 
         stems:Route.Stems) -> _SymbolLink.Resolution?
     {
-        if  let scope:_Scope, 
+        if  let scope:LexicalScope, 
             let selection:_Selection<Composite> = scope.scan(concatenating: link, 
                 stems: stems, 
                 until: 

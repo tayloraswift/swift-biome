@@ -1,4 +1,4 @@
-import SymbolGraphs
+import SymbolSource
 
 extension Generic.Conditional:Equatable where Target:Equatable {}
 extension Generic.Conditional:Hashable where Target:Hashable {}

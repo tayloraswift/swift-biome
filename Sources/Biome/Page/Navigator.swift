@@ -1,6 +1,6 @@
 import HTML 
 
-struct Navigator 
+struct Navigator
 {
     let nationality:PackageReference 
     let searchable:[String]

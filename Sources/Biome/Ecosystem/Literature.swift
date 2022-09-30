@@ -36,8 +36,8 @@ struct DocumentationExtension<Extended>
     init(compiling _extension:__owned Extension, extending extends:Extended? = nil,
         resolver:Resolver,
         imports:Set<Atom<Module>>, 
-        scope:_Scope?, 
-        stems:Route.Stems) 
+        scope:LexicalScope?, 
+        stems:Route.Stems)
     {
         let (card, body):(DOM.Flattened<String>, DOM.Flattened<String>) = 
             _extension.rendered()

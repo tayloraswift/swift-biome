@@ -1,4 +1,6 @@
-import URI 
+import SymbolGraphs
+import SymbolSource
+import URI
 
 extension Package 
 {
@@ -239,7 +241,7 @@ extension Package.Pinned
 
 extension Package.Pinned 
 {
-    func resolve(_ link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
+    func resolve(_ link:_SymbolLink, scope:LexicalScope?, stems:Route.Stems, 
         where predicate:(Composite) throws -> Bool) 
         rethrows -> _SymbolLink.Resolution?
     {
@@ -264,11 +266,11 @@ extension Package.Pinned
         }
     }
     private 
-    func resolve(exactly link:_SymbolLink, scope:_Scope?, stems:Route.Stems, 
+    func resolve(exactly link:_SymbolLink, scope:LexicalScope?, stems:Route.Stems, 
         where predicate:(Composite) throws -> Bool) 
         rethrows -> _SymbolLink.Resolution?
     {
-        if  let scope:_Scope, 
+        if  let scope:LexicalScope, 
             let selection:_Selection<Composite> = try scope.scan(concatenating: link, 
                 stems: stems, 
                 until: { try self.routes.select($0, where: predicate) })

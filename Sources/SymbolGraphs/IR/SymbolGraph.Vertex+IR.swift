@@ -1,5 +1,7 @@
 import JSON
 import Notebook
+import SymbolAvailability
+import SymbolSource
 
 extension IR 
 {
@@ -21,12 +23,12 @@ extension IR
 }
 extension SymbolGraph.Vertex<Int> 
 {
-    init(from json:JSON, community:Community) throws 
+    init(from json:JSON, shape:Shape) throws 
     {
         self = try json.lint 
         {
             .init(path: try $0.remove(IR.Vertex.path, Path.init(from:)) as Path,
-                community: community,
+                shape: shape,
                 declaration: .init(
                     fragments: try $0.remove(IR.Declaration.fragments, 
                         Notebook<Highlight, Int>.init(from:)),  

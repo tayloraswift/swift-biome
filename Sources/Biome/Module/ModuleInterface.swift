@@ -1,3 +1,6 @@
+import SymbolGraphs
+import SymbolSource
+
 struct ModuleInterface 
 {
     struct LookupError:Error 
@@ -163,8 +166,8 @@ extension ModuleInterface.Abstractor<Symbol>
                 continue
             }
             switch opaque.beliefs(
-                source: context[global: opaque.source].community, 
-                target: context[global: opaque.target].community)
+                source: context[global: opaque.source].shape, 
+                target: context[global: opaque.target].shape)
             {
             case (let source?,  let target):
                 beliefs.append(source)
@@ -179,7 +182,7 @@ extension ModuleInterface.Abstractor<Symbol>
 extension SymbolGraph.Edge<Atom<Symbol>.Position>
 {
     fileprivate
-    func beliefs(source:Community, target:Community) -> (source:Belief?, target:Belief)
+    func beliefs(source:Shape, target:Shape) -> (source:Belief?, target:Belief)
     {
         switch (source, self.source, is: self.relation, of: target, self.target) 
         {

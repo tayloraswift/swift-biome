@@ -1,5 +1,6 @@
 import DOM
 import HTML 
+import SymbolGraphs
 import URI
 
 struct DisambiguationPage 

@@ -1,36 +1,34 @@
 import URI 
-import Versions
 
-
-extension URI 
-{
-    mutating 
-    func insert(parameters query:Symbol.Link.Query)
-    {
-        if let base:Symbol.ID = query.base
-        {
-            self.insert(parameter: (Symbol.Link.Query.base, base.string))
-        }
-        if let host:Symbol.ID = query.host
-        {
-            self.insert(parameter: (Symbol.Link.Query.host, host.string))
-        }
-        guard let lens:Symbol.Link.Lens = query.lens 
-        else 
-        {
-            return 
-        }
-        if let version:MaskedVersion = lens.version 
-        {
-            self.insert(parameter: (Symbol.Link.Query.lens, 
-                "\(lens.culture.string)/\(version.description)"))
-        }
-        else 
-        {
-            self.insert(parameter: (Symbol.Link.Query.lens, lens.culture.string))
-        }
-    }
-}
+// extension URI 
+// {
+//     mutating 
+//     func insert(parameters query:Symbol.Link.Query)
+//     {
+//         if let base:Symbol.ID = query.base
+//         {
+//             self.insert(parameter: (Symbol.Link.Query.base, base.string))
+//         }
+//         if let host:Symbol.ID = query.host
+//         {
+//             self.insert(parameter: (Symbol.Link.Query.host, host.string))
+//         }
+//         guard let lens:Symbol.Link.Lens = query.lens 
+//         else 
+//         {
+//             return 
+//         }
+//         if let version:MaskedVersion = lens.version 
+//         {
+//             self.insert(parameter: (Symbol.Link.Query.lens, 
+//                 "\(lens.culture.string)/\(version.description)"))
+//         }
+//         else 
+//         {
+//             self.insert(parameter: (Symbol.Link.Query.lens, lens.culture.string))
+//         }
+//     }
+// }
 extension RangeReplaceableCollection where Element == URI.Vector? 
 {
     @available(*, deprecated)

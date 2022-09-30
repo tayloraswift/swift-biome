@@ -1,5 +1,6 @@
-import Notebook
 import HTML
+import Notebook
+import SymbolSource
 
 protocol SignatureCard:HTMLElementConvertible
 {

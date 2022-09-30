@@ -1,3 +1,5 @@
+import SymbolSource
+
 extension SymbolGraph.Edge:Sendable where Target:Sendable {}
 extension SymbolGraph.Edge:Hashable where Target:Hashable {}
 extension SymbolGraph.Edge:Equatable where Target:Equatable {}

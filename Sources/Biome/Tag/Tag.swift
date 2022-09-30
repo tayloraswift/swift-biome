@@ -1,17 +1,10 @@
 import PackageResolution
+import Versions
 
 public
 enum Tag:Hashable, Sendable 
 {
-    public 
-    enum Semantic:Hashable, Sendable
-    {
-        case major(UInt16)
-        case minor(UInt16, UInt16)
-        case patch(UInt16, UInt16, UInt16)
-    }
-
-    case semantic(Semantic)
+    case semantic(SemanticVersion.Masked)
     case named(String)
 
     init?(parsing string:some StringProtocol) 
@@ -20,7 +13,7 @@ enum Tag:Hashable, Sendable
         {
             return nil 
         }
-        if let semantic:Semantic = try? .init(parsing: string)
+        if let semantic:SemanticVersion.Masked = try? .init(parsing: string)
         {
             self = .semantic(semantic)
             return 
@@ -44,31 +37,13 @@ enum Tag:Hashable, Sendable
         switch requirement 
         {
         case .version(let version): 
-            self = .semantic(.patch(
-                .init(version.major), 
-                .init(version.minor), 
-                .init(version.patch)))
+            self = .semantic(.init(version))
         case .branch(let name): 
             self.init(parsing: name)
         }
     }
 }
-extension Tag.Semantic:CustomStringConvertible 
-{
-    public 
-    var description:String
-    {
-        switch self 
-        {
-        case .major(let major): 
-            return "\(major)"
-        case .minor(let major, let minor):
-            return "\(major).\(minor)"
-        case .patch(let major, let minor, let patch):
-            return "\(major).\(minor).\(patch)"
-        }
-    }
-}
+
 extension Tag:CustomStringConvertible 
 {
     public 
@@ -76,10 +51,8 @@ extension Tag:CustomStringConvertible
     {
         switch self 
         {
-        case .semantic(let version): 
-            return version.description
-        case .named(let name):
-            return name
+        case .semantic(let version):    return version.description
+        case .named(let name):          return name
         }
     }
 }

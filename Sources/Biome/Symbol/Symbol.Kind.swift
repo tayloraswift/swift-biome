@@ -1,4 +1,4 @@
-import SymbolGraphs
+import SymbolSource
 
 extension Symbol 
 {
@@ -6,9 +6,9 @@ extension Symbol
     enum Kind:Sendable, Hashable 
     {
         case `associatedtype`
-        case  concretetype(Community.ConcreteType, path:Route.Stem)
-        case  callable(Community.Callable)
-        case  global(Community.Global)
+        case  concretetype(Shape.ConcreteType, path:Route.Stem)
+        case  callable(Shape.Callable)
+        case  global(Shape.Global)
         case `protocol`
         case `typealias`
         
@@ -23,7 +23,7 @@ extension Symbol
                 return nil 
             }
         }
-        var community:Community 
+        var shape:Shape 
         {
             switch self 
             {
@@ -37,9 +37,9 @@ extension Symbol
         }
     }
 }
-extension Community 
+extension Shape 
 {
-    var orientation:Symbol.Link.Orientation 
+    var orientation:_SymbolLink.Orientation 
     {
         switch self
         {

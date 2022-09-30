@@ -1,3 +1,5 @@
+import SymbolSource 
+
 extension SymbolGraph 
 {
     public 

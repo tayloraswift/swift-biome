@@ -1,5 +1,6 @@
 import PackageResolution
 import SymbolGraphs
+import SymbolSource
 import Versions
 
 public 
@@ -70,31 +71,7 @@ extension Packages
     {
         self.index[package].map { self[$0] }
     }
-
-    //@available(*, deprecated, renamed: "subscript(global:)")
-    subscript(module:Module.Index) -> Module
-    {
-        _read 
-        {
-            yield self[module.nationality][local: module]
-        }
-    } 
-    //@available(*, deprecated, renamed: "subscript(global:)")
-    subscript(symbol:Symbol.Index) -> Symbol
-    {
-        _read 
-        {
-            yield self[symbol.nationality][local: symbol]
-        }
-    } 
-    //@available(*, deprecated, renamed: "subscript(global:)")
-    subscript(article:Article.Index) -> Article
-    {
-        _read 
-        {
-            yield self[article.nationality][local: article]
-        }
-    } 
+    
 
     subscript(global module:Atom<Module>.Position) -> Module
     {

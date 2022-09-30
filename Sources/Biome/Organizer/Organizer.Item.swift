@@ -1,4 +1,5 @@
 import HTML
+import SymbolSource
 
 extension Organizer 
 {
@@ -59,10 +60,10 @@ extension Organizer.Item
         cache:inout ReferenceCache) throws
     {
         let display:Symbol.Display 
-        switch symbol.community 
+        switch symbol.shape 
         {
         case .associatedtype, .callable(_):
-            guard let scope:Atom<Symbol>.Position = symbol.shape?.target 
+            guard let scope:Atom<Symbol>.Position = symbol.scope?.target 
             else 
             {
                 fallthrough

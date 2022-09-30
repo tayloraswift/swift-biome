@@ -1,4 +1,4 @@
-import SymbolGraphs
+import SymbolSource
 
 enum DependencyError:Error 
 {

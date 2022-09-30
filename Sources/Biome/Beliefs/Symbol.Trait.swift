@@ -1,4 +1,4 @@
-import SymbolGraphs
+import SymbolSource
 
 extension Symbol.Trait:Equatable where Position:Equatable {}
 extension Symbol.Trait:Sendable where Position:Sendable {}

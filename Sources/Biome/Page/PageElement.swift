@@ -1,5 +1,6 @@
 import HTML 
 import MIME
+import SymbolSource
 
 extension PackageIdentifier 
 {

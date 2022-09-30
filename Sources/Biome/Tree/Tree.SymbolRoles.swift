@@ -45,11 +45,11 @@
 //     init?(_ roles:some Sequence<Symbol.Role<Atom<Symbol>.Position>>, 
 //         superclass:Atom<Symbol>.Position?, 
 //         shape:Symbol.Shape<Atom<Symbol>.Position>?, 
-//         as community:Community) 
+//         as shape:Shape) 
 //     {
 //         if  let superclass:Atom<Symbol>.Position = superclass 
 //         {
-//             switch  (community, shape)
+//             switch  (shape, shape)
 //             {
 //             case    (.class, .member(of: _)?), 
 //                     (.class,           nil):
@@ -66,7 +66,7 @@
 //         }
 //         else 
 //         {
-//             switch  (community, shape)
+//             switch  (shape, shape)
 //             {
 //             case    (.callable(_),      .requirement(of: _)?), 
 //                     (.associatedtype,   .requirement(of: _)?):

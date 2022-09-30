@@ -1,7 +1,8 @@
+import SymbolSource 
+
 public 
 enum SymbolGraphDecodingError:Error, CustomStringConvertible 
 {
-    case duplicateAvailabilityDomain(Availability.Domain)
     case mismatchedCulture(ModuleIdentifier, expected:ModuleIdentifier)
 
     case unknownDeclarationKind(String) 
@@ -14,8 +15,6 @@ enum SymbolGraphDecodingError:Error, CustomStringConvertible
     {
         switch self 
         {
-        case .duplicateAvailabilityDomain(let domain):
-            return "duplicate entries for availability domain '\(domain.rawValue)'"
         case .mismatchedCulture(let id, expected: let expected): 
             return "subgraph culture is '\(id)', expected '\(expected)'"
         case .unknownDeclarationKind(let string): 
@@ -149,7 +148,7 @@ struct SymbolGraph:Identifiable, Sendable
         {
             self.identifiers.append(contentsOf: subgraph.vertices.map 
             {
-                (community: $0.value.community, id: $0.key)
+                (shape: $0.value.shape, id: $0.key)
             }
             .sorted
             {

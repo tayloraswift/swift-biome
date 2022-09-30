@@ -1,3 +1,5 @@
+import SymbolSource 
+
 extension Module:BranchElement
 {
     struct Metadata:Equatable, Sendable 

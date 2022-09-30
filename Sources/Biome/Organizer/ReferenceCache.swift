@@ -1,5 +1,6 @@
 import HTML 
 import DOM
+import SymbolSource
 
 struct ArticleReference 
 {
@@ -41,7 +42,7 @@ struct ModuleReference
 }
 struct SymbolReference 
 {
-    let shape:Symbol.Shape<Atom<Symbol>.Position>?
+    let scope:Symbol.Scope<Atom<Symbol>.Position>?
     let display:Symbol.Display
     let namespace:Atom<Module>
     let uri:String 
@@ -54,9 +55,9 @@ struct SymbolReference
     {
         self.display.path
     }
-    var community:Community 
+    var shape:Shape 
     {
-        self.display.community
+        self.display.shape
     }
 }
 struct CompositeReference 
@@ -130,7 +131,7 @@ struct ReferenceCache
     private mutating
     func miss(_ key:Atom<Symbol>, symbol:Symbol, address:Address) -> SymbolReference
     {
-        let reference:SymbolReference = .init(shape: symbol.shape, display: symbol.display, 
+        let reference:SymbolReference = .init(scope: symbol.scope, display: symbol.display, 
             namespace: symbol.namespace, 
             uri: address.uri(functions: self.functions).description)
         self.symbols[key] = reference 
@@ -375,7 +376,7 @@ extension ReferenceCache
 
             crumbs.append(.a(current.name, attributes: [.href(current.uri)]))
 
-            if let next:Atom<Symbol>.Position = current.shape?.target 
+            if let next:Atom<Symbol>.Position = current.scope?.target 
             {
                 current = try self.load(next, context: context)
             }

@@ -1,10 +1,11 @@
 import SymbolGraphs
+import SymbolSource
 
 public
 struct Symbol:Sendable  
 {
     public 
-    typealias Culture = Module.Index 
+    typealias Culture = Atom<Module>
     public 
     typealias Offset = UInt32
     
@@ -16,32 +17,28 @@ struct Symbol:Sendable
     let path:Path
     let kind:Kind
     let route:Route
-    var shape:Shape<Atom<Self>.Position>?
+    var scope:Scope<Atom<Self>.Position>?
 
     var metadata:History<Metadata?>.Head?
     var declaration:History<Declaration<Atom<Symbol>>>.Head?
     var documentation:History<DocumentationExtension<Atom<Symbol>>>.Head?
 
-    var pollen:Set<Module.Pin>
-    
     init(id:ID, path:Path, kind:Kind, route:Route)
     {
         self.id = id 
         self.path = path
         self.kind = kind
         self.route = route
-        self.shape = nil
+        self.scope = nil
         
         self.metadata = nil 
         self.declaration = nil
         self.documentation = nil
-        
-        self.pollen = []
     }
 
-    var community:Community 
+    var shape:Shape 
     {
-        self.kind.community 
+        self.kind.shape 
     } 
     var name:String 
     {
@@ -57,20 +54,9 @@ struct Symbol:Sendable
     {
         self.route.namespace.nationality
     }
-    @available(*, deprecated)
-    var type:Index?
+    var orientation:_SymbolLink.Orientation
     {
-        switch self.community 
-        {
-        case .associatedtype, .callable(_):
-            return self.shape?.target.atom 
-        default: 
-            return nil
-        }
-    }
-    var orientation:Link.Orientation
-    {
-        self.community.orientation
+        self.shape.orientation
     }
 }
 extension Symbol 
@@ -78,7 +64,7 @@ extension Symbol
     struct Display 
     {
         let path:Path
-        let community:Community
+        let shape:Shape
 
         var name:String 
         {
@@ -88,7 +74,7 @@ extension Symbol
     
     var display:Display 
     {
-        .init(path: self.path, community: self.community)
+        .init(path: self.path, shape: self.shape)
     }
 }
 extension Symbol:CustomStringConvertible 

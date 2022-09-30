@@ -1,3 +1,5 @@
+import SymbolSource 
+
 extension Branch
 {
     /// symbol relationships that are independent of, and unaffected by any 
@@ -33,7 +35,7 @@ extension Branch
     /// 
     /// -   protocols can have requirements, and can also have upstream protocols 
     ///     they refine. both kinds of roles are stored in the same buffer; they 
-    ///     can be distinguished by querying the community of the symbol they reference.
+    ///     can be distinguished by querying the shape of the symbol they reference.
     /// 
     ///     protocol requirements *always* have the same culture as the protocol 
     ///     itself.
@@ -66,12 +68,12 @@ extension Branch
         }
         init?(_ roles:some Sequence<Symbol.Role<Atom<Symbol>>>, 
             superclass:Atom<Symbol>?, 
-            shape:Symbol.Shape<Atom<Symbol>>?, 
-            as community:Community) 
+            scope:Symbol.Scope<Atom<Symbol>>?, 
+            as shape:Shape) 
         {
             if  let superclass:Atom<Symbol> = superclass 
             {
-                switch  (community, shape)
+                switch  (shape, scope)
                 {
                 case    (.class, .member(of: _)?), 
                         (.class,           nil):
@@ -88,7 +90,7 @@ extension Branch
             }
             else 
             {
-                switch  (community, shape)
+                switch  (shape, scope)
                 {
                 case    (.callable(_),      .requirement(of: _)?), 
                         (.associatedtype,   .requirement(of: _)?):

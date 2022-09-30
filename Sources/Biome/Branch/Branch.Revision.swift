@@ -19,11 +19,6 @@ extension Branch
         let date:Date
         var tag:Tag? 
 
-        var version:PreciseVersion 
-        {
-            fatalError("obsoleted")
-        }
-
         init(token:UInt, hash:String, ring:Ring, pins:[Packages.Index: Version], date:Date, tag:Tag?)
         {
             self.token = token 

@@ -1,5 +1,6 @@
 import HTML
 import Notebook
+import SymbolSource
 
 extension Organizer 
 {

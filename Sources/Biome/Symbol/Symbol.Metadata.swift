@@ -1,3 +1,6 @@
+import SymbolGraphs
+import SymbolSource
+
 extension Symbol:BranchElement
 {
     struct Metadata:Equatable, Sendable

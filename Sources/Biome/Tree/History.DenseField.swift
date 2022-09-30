@@ -1,3 +1,5 @@
+import SymbolGraphs
+
 extension History 
 {
     struct DenseField<Element> where Element:BranchElement

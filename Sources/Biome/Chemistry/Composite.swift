@@ -9,11 +9,6 @@ struct Composite:Hashable, Sendable
     let base:Atom<Symbol>
     let diacritic:Diacritic 
     
-    @available(*, deprecated, renamed: "init(atomic:)")
-    init(natural:Atom<Symbol>) 
-    {
-        self.init(atomic: natural)
-    }
     init(atomic:Atom<Symbol>) 
     {
         self.base = atomic

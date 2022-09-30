@@ -1,4 +1,4 @@
-import struct SymbolGraphs.Path
+import SymbolSource
 import Markdown
 
 extension Extension 
@@ -18,7 +18,7 @@ extension Extension
     struct Metadata 
     {
         var path:PathDirective?
-        var imports:Set<Module.ID> 
+        var imports:Set<ModuleIdentifier> 
         var errors:[DirectiveArgumentText.ParseError]
         
         var noTitle:Bool
@@ -47,7 +47,7 @@ extension Extension
                     {
                         continue 
                     }
-                    self.imports.insert(Module.ID.init(imported))
+                    self.imports.insert(ModuleIdentifier.init(imported))
                 }
             }
             // @path(_:)

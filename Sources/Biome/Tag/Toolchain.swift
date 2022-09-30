@@ -1,6 +1,8 @@
+import Versions 
+
 @frozen public 
 enum Toolchain 
 {
     case nightly(Date)
-    case release(Tag.Semantic)
+    case release(SemanticVersion.Masked)
 }

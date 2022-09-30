@@ -1,3 +1,6 @@
+import SymbolGraphs
+import SymbolSource
+
 extension SurfaceBuilder 
 {
     fileprivate 
@@ -5,7 +8,7 @@ extension SurfaceBuilder
     {
         var metadata:Symbol.Metadata
         let element:Atom<Symbol> 
-        var shape:Symbol.Shape<Atom<Symbol>.Position>?
+        var scope:Symbol.Scope<Atom<Symbol>.Position>?
     }
     fileprivate 
     struct Nodes:RandomAccessCollection 
@@ -262,45 +265,39 @@ struct SurfaceBuilder
     {
         let symbol:Symbol = context.local.tree[local: position] 
 
-        var shape:Symbol.Shape<Atom<Symbol>.Position>? = nil
+        var scope:Symbol.Scope<Atom<Symbol>.Position>? = nil
         // partition relationships buffer 
         var superclass:Atom<Symbol>? = nil 
         var residuals:[Symbol.Role<Atom<Symbol>>] = []
         for role:Symbol.Role<Atom<Symbol>.Position> in roles
         {
-            switch (shape, role) 
+            switch (scope, role) 
             {
             case  (nil,            .member(of: let type)): 
-                shape =            .member(of:     type) 
+                scope =            .member(of:     type) 
             case (nil,        .requirement(of: let interface)): 
-                shape =       .requirement(of:     interface) 
+                scope =       .requirement(of:     interface) 
             
-            case (let shape?,      .member(of: let type)):
-                guard case         .member(of:     type) = shape 
+            case (let scope?,      .member(of: let type)):
+                guard case         .member(of:     type) = scope 
                 else 
                 {
                     fatalError("unimplemented")
-                    // throw PoliticalError.conflict(is: shape.role, 
-                    //     and: .member(of: type))
                 }
-            case (let shape?, .requirement(of: let interface)): 
-                guard case    .requirement(of:     interface) = shape 
+            case (let scope?, .requirement(of: let interface)): 
+                guard case    .requirement(of:     interface) = scope 
                 else 
                 {
                     fatalError("unimplemented")
-                    // throw PoliticalError.conflict(is: shape.role, 
-                    //     and: .requirement(of: interface))
                 }
                 
             case (_,             .subclass(of: let type)): 
-                switch superclass 
+                switch superclass
                 {
                 case nil, type.atom?:
                     superclass = type.atom
                 case _?:
                     fatalError("unimplemented")
-                    // throw PoliticalError.conflict(is: .subclass(of: superclass), 
-                    //     and: .subclass(of: type))
                 }
                 
             default: 
@@ -310,9 +307,9 @@ struct SurfaceBuilder
             
         let roles:Branch.SymbolRoles? = .init(residuals,
             superclass: superclass, 
-            shape: shape?.map(\.atom), 
-            as: symbol.community)
-        let traits:Tree.SymbolTraits = .init(traits, as: symbol.community)
+            scope: scope?.map(\.atom), 
+            as: symbol.shape)
+        let traits:Tree.SymbolTraits = .init(traits, as: symbol.shape)
         
         self.routes.atomic.append(symbol.route, element: position.atom)
         if  let routes:CompoundRoutes = .init(host: symbol, 
@@ -325,7 +322,7 @@ struct SurfaceBuilder
         
         return .init(metadata: .init(roles: roles, primary: traits.idealized()),
             element: position.atom, 
-            shape: shape)
+            scope: scope)
     }
     private mutating 
     func createForeignSurface(for subject:Symbol, metadata:Symbol.Metadata, diacritic:Diacritic, 
@@ -334,7 +331,7 @@ struct SurfaceBuilder
         -> Branch.SymbolTraits
     {
         let traits:Tree.SymbolTraits = 
-            .init(traits, as: subject.community)
+            .init(traits, as: subject.shape)
             .subtracting(metadata.primary)
 
         if  let routes:CompoundRoutes = .init(host: subject, diacritic: diacritic, 
@@ -389,15 +386,15 @@ extension SurfaceBuilder
             {
                 continue 
             }
-            if let shape:Symbol.Shape<Atom<Symbol>.Position> = node.shape 
+            if let scope:Symbol.Scope<Atom<Symbol>.Position> = node.scope 
             {
-                // already have a shape from a member or requirement belief
-                symbols[contemporary: node.element].shape = shape
+                // already have a scope from a member or requirement belief
+                symbols[contemporary: node.element].scope = scope
                 continue 
             }
 
             let symbol:Symbol = symbols[_contemporary: node.element]
-            guard   case nil = symbol.shape, 
+            guard   case nil = symbol.scope, 
                     let scope:Path = .init(symbol.path.prefix)
             else 
             {
@@ -414,7 +411,7 @@ extension SurfaceBuilder
                 }
                 if case .one(let scope)? = selection 
                 {
-                    symbols[contemporary: node.element].shape = .member(of: scope)
+                    symbols[contemporary: node.element].scope = .member(of: scope)
                     self.add(member: node.element, to: scope.atom) 
                     continue 
                 }

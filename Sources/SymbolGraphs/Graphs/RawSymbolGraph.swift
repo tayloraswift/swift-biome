@@ -1,3 +1,5 @@
+import SymbolSource 
+
 public 
 struct RawSymbolGraph:Identifiable, Sendable 
 {

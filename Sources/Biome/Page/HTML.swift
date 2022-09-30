@@ -1,7 +1,8 @@
-import SymbolGraphs
-import Versions
-import Notebook
 import HTML
+import Notebook
+import SymbolAvailability
+import SymbolSource
+import Versions
 
 extension HTML.Element
 {
@@ -242,17 +243,17 @@ extension HTML.Element
         }
         let adjective:String 
         let toolchain:Self
-        if let version:MaskedVersion = availability.obsoleted 
+        if let version:SemanticVersion.Masked = availability.obsoleted 
         {
             adjective = "Obsolete"
             toolchain = .span(version.description, attributes: [.class("version")])
         } 
-        else if let version:MaskedVersion = availability.deprecated 
+        else if let version:SemanticVersion.Masked = availability.deprecated 
         {
             adjective = "Deprecated"
             toolchain = .span(version.description, attributes: [.class("version")])
         }
-        else if let version:MaskedVersion = availability.introduced
+        else if let version:SemanticVersion.Masked = availability.introduced
         {
             adjective = "Available"
             toolchain = .span(version.description, attributes: [.class("version")])
@@ -309,7 +310,7 @@ extension HTML.Element
                     platforms.append(.li("\(platform.rawValue) deprecated since \(version.description)"))
                 }
             }
-            else if let version:MaskedVersion = availability.introduced 
+            else if let version:SemanticVersion.Masked = availability.introduced 
             {
                 platforms.append(.li("\(platform.rawValue) \(version.description)+"))
             }

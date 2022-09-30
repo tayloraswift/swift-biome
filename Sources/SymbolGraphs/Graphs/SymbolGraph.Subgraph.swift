@@ -1,5 +1,6 @@
+import JSON
 import Notebook
-import JSON 
+import SymbolSource
 
 extension SymbolGraph 
 {
@@ -138,7 +139,7 @@ extension SymbolGraph
                     // to the protocol and not the concrete type we discovered it in 
                     let vertex:Vertex<SymbolIdentifier> = .init(
                         path: .init(prefix: [mythical.name], last: symbol.vertex.path.last), 
-                        community: symbol.vertex.community, 
+                        shape: symbol.vertex.shape, 
                         declaration: symbol.vertex.declaration, 
                         comment: symbol.vertex.comment)
                     

@@ -1,185 +1,8 @@
-import SymbolGraphs
+import SymbolSource
 import URI
-
-struct GlobalLink:RandomAccessCollection 
-{
-    enum Parameter:String 
-    {
-        case base           = "overload"
-        case host           = "self"
-        case nationality    = "from"
-    }
-
-    var nationality:_SymbolLink.Nationality?
-    var base:Symbol.ID?
-    var host:Symbol.ID?
-
-    private 
-    let components:[String]
-    private(set)
-    var startIndex:Int 
-    let fold:Int 
-    var endIndex:Int 
-    {
-        self.components.endIndex
-    }
-    subscript(index:Int) -> String
-    {
-        _read 
-        {
-            yield self.components[index]
-        }
-    }
-
-    init(_ uri:URI)  
-    {
-        self.init(uri.path)
-        if let query:[URI.Parameter] = uri.query 
-        {
-            self.update(with: query)
-        }
-    }
-    
-    init(_ vectors:some Sequence<URI.Vector?>)  
-    {
-        (self.components, self.fold) = vectors.normalized
-        self.startIndex = self.components.startIndex
-        self.nationality = nil 
-        self.base = nil 
-        self.host = nil 
-    }
-
-    mutating 
-    func update(with parameters:some Sequence<URI.Parameter>)
-    {
-        for (key, value):(String, String) in parameters 
-        {
-            switch Parameter.init(rawValue: key)
-            {
-            case nil: 
-                continue 
-            
-            case .nationality?:
-                // either 'from=swift-foo' or 'from=swift-foo/0.1.2'. 
-                // we do not tolerate missing slashes
-                var separator:String.Index = value.firstIndex(of: "/") ?? value.endIndex
-                let id:Package.ID = .init(value[..<separator])
-
-                while separator < value.endIndex, value[separator] != "/"
-                {
-                    value.formIndex(after: &separator)
-                }
-                self.nationality = .init(id: id, version: .init(parsing: value[separator...]))
-            
-            case .host?:
-                // if the mangled name contained a colon ('SymbolGraphGen style'), 
-                // the parsing rule will remove it.
-                if  let host:Symbol.ID = 
-                        try? USR.Rule<String.Index>.OpaqueName.parse(value.utf8)
-                {
-                    self.host = host
-                }
-            
-            case .base?: 
-                switch try? USR.init(parsing: value.utf8) 
-                {
-                case nil: 
-                    continue 
-                
-                case .natural(let base)?:
-                    self.base = base
-                
-                case .synthesized(from: let base, for: let host)?:
-                    // this is supported for backwards-compatibility, 
-                    // but the `::SYNTHESIZED::` infix is deprecated, 
-                    // so this will end up causing a redirect 
-                    self.host = host
-                    self.base = base 
-                }
-            }
-        }
-    }
-
-    mutating 
-    func descend() -> String?
-    {
-        if let first:String = self.first 
-        {
-            self.startIndex += 1 
-            return first
-        }
-        else 
-        {
-            return nil 
-        }
-    }
-    mutating 
-    func descend<T>(where transform:(String) throws -> T?) rethrows -> T? 
-    {
-        if  let first:String = self.first, 
-            let transformed:T = try transform(first)
-        {
-            self.startIndex += 1 
-            return transformed
-        }
-        else 
-        {
-            return nil 
-        }
-    }
-}
 
 struct _SymbolLink:RandomAccessCollection
 {
-    // warning: do not make ``Equatable``, unless we enforce the correctness 
-    // of the `hyphen` field!
-    struct Component 
-    {
-        private(set)
-        var string:String 
-        private(set)
-        var hyphen:String.Index?
-
-        init(_ string:String, hyphen:String.Index? = nil)
-        {
-            self.string = string 
-            self.hyphen = hyphen
-        }
-
-        mutating 
-        func removeDocCFragment(global:Bool) -> Disambiguator.DocC?
-        {
-            guard let hyphen:String.Index = self.hyphen
-            else 
-            {
-                return nil 
-            }
-
-            let text:Substring = self.string[self.string.index(after: hyphen)...]
-            let disambiguator:Disambiguator.DocC?
-            // will never collide with symbol communities, since they always contain 
-            // a period ('.')
-            // https://github.com/apple/swift-docc/blob/d94139a5e64e9ecf158214b1cded2a2880fc1b02/Sources/SwiftDocC/Utility/FoundationExtensions/String%2BHashing.swift
-            if let hash:UInt32 = .init(text, radix: 36)
-            {
-                disambiguator = .fnv(hash: hash)
-            }
-            else if let community:Community = .init(declarationKind: text, global: global)
-            {
-                disambiguator = .community(community)
-            }
-            else 
-            {
-                disambiguator = nil
-            }
-            if case _? = disambiguator 
-            {
-                self.string = .init(self.string[..<hyphen])
-                self.hyphen = nil 
-            }
-            return disambiguator
-        }
-    }
     struct Path:RandomAccessCollection 
     {
         private
@@ -298,7 +121,7 @@ struct _SymbolLink:RandomAccessCollection
         {
             for component:S in components
             {
-                switch try Symbol.Link.ComponentSegmentation<String.Index>.init(parsing: component)
+                switch try ComponentSegmentation<String.Index>.init(parsing: component)
                 {
                 case .opaque(let hyphen): 
                     self.components.append(.init(String.init(component), hyphen: hyphen))
@@ -326,15 +149,15 @@ struct _SymbolLink:RandomAccessCollection
     {
         enum DocC 
         {
-            case community(Community)
+            case shape(Shape)
             case fnv(hash:UInt32)
         }
 
-        var base:Symbol.ID?
-        var host:Symbol.ID?
+        var base:SymbolIdentifier?
+        var host:SymbolIdentifier?
         var docC:DocC?
 
-        init(base:Symbol.ID? = nil, host:Symbol.ID? = nil)
+        init(base:SymbolIdentifier? = nil, host:SymbolIdentifier? = nil)
         {
             self.base = base 
             self.host = host 
@@ -357,7 +180,7 @@ struct _SymbolLink:RandomAccessCollection
         {
             if  let host:Atom<Symbol> = composite.host
             {
-                if  let id:Symbol.ID = self.host, 
+                if  let id:SymbolIdentifier = self.host, 
                     let host:Symbol = context.load(host), 
                         host.id != id 
                 {
@@ -372,7 +195,7 @@ struct _SymbolLink:RandomAccessCollection
                     return false 
                 }
             }
-            if  let id:Symbol.ID = self.base, 
+            if  let id:SymbolIdentifier = self.base, 
                 let base:Symbol = context.load(composite.base)
             {
                 return base.id == id 
@@ -415,17 +238,7 @@ struct _SymbolLink:RandomAccessCollection
             yield self.path[index].string
         }
     }
-
-    // init(revealing path:some Collection<some StringProtocol>, base:Symbol.ID?, host:Symbol.ID?) 
-    //     throws 
-    // {
-    //     self.init(path: try Path.init(path).revealed, base: base, host: host)
-    // }
-    // init(path:some Collection<some StringProtocol>, base:Symbol.ID?, host:Symbol.ID?) 
-    //     throws 
-    // {
-    //     self.init(path: try .init(path), base: base, host: host)
-    // }
+    
     private 
     init(path:Path, nationality:Nationality?, disambiguator:Disambiguator) 
     {
@@ -521,7 +334,7 @@ extension _SymbolLink
         {
             // slightly different from the parser in `PluralReference.swift`
             if  let key:GlobalLink.Parameter = .init(rawValue: key), 
-                let id:Symbol.ID = try? USR.Rule<String.Index>.OpaqueName.parse(value.utf8)
+                let id:SymbolIdentifier = try? .init(parsing: value.utf8)
             {
                 switch key 
                 {

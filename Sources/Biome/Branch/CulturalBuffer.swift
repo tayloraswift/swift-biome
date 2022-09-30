@@ -1,1 +1,0 @@
-typealias CulturalBuffer = Branch.Buffer

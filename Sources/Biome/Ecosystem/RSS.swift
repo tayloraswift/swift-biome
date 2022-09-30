@@ -4,7 +4,7 @@ import URI
 extension Ecosystem 
 {
     public 
-    func generateRssFeed(for module:Module.Index, domain:String) -> [RSS.Element<Never>] 
+    func generateRssFeed(for module:Atom<Module>, domain:String) -> [RSS.Element<Never>] 
     {
         fatalError("unimplemented")
         // let pinned:Package.Pinned = self[module.package].pinned()

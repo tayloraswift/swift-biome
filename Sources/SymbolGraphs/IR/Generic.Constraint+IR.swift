@@ -1,4 +1,5 @@
-import JSON 
+import JSON
+import SymbolSource
 
 extension Generic.Constraint<Int> 
 {
@@ -7,7 +8,7 @@ extension Generic.Constraint<Int>
         let tuple:[JSON] = try json.as([JSON].self) { 3 ... 4 ~= $0 }
         self.init(
             try tuple.load(0),
-            try tuple.load(1) { try $0.as(cases: Generic.Verb.self) },
+            try tuple.load(1) { try $0.as(cases: Generic.ConstraintVerb.self) },
             try tuple.load(2),
             target: try tuple.count == 4 ? tuple.load(3, as: Int.self) : nil
         )

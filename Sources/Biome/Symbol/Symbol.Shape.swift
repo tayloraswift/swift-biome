@@ -1,10 +1,10 @@
-extension Symbol.Shape:Equatable where Position:Equatable {}
-extension Symbol.Shape:Hashable where Position:Hashable {}
-extension Symbol.Shape:Sendable where Position:Sendable {}
+extension Symbol.Scope:Equatable where Position:Equatable {}
+extension Symbol.Scope:Hashable where Position:Hashable {}
+extension Symbol.Scope:Sendable where Position:Sendable {}
 extension Symbol 
 {
-    // should have stride of 16 B, as well as `Shape?` and `Shape??`
-    enum Shape<Position>
+    // should have stride of 16 B, as well as `Scope?` and `Scope??`
+    enum Scope<Position>
     {
         case member(of:Position)
         case requirement(of:Position)
@@ -26,7 +26,7 @@ extension Symbol
             }
         }
         
-        func map<T>(_ transform:(Position) throws -> T) rethrows -> Shape<T>
+        func map<T>(_ transform:(Position) throws -> T) rethrows -> Scope<T>
         {
             switch self 
             {

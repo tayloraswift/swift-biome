@@ -145,5 +145,17 @@ struct PackagePage
             html = self.evolution.items.html
         }
         return html?.node.rendered(as: [UInt8].self)
+
+        //         let pie:SVG.Root<Never> = Pie.svg(
+        //         [
+        //             .init(weight: 57, classes: "-pink"),
+        //             .init(weight: 27, classes: "-yellow"),
+        //             .init(weight: 16, classes: "-white"),
+        //         ])
+        //         substitutions[.discussion] = .div(
+        //             .div(.init(escaped: pie.rendered(as: [UInt8].self)), 
+        //                 attributes: [.class("pie-color")]),
+        //             .div(attributes: [.class("pie-geometry")]),
+        //             attributes: [.class("pie")])
     }
 }

@@ -1,9 +1,9 @@
 import SymbolGraphs
 
-extension [Packages.Index: Package._Pinned] 
+extension [Packages.Index: Package.Pinned] 
 {
     fileprivate mutating 
-    func update(with pinned:__owned Package._Pinned) 
+    func update(with pinned:__owned Package.Pinned) 
     {
         self[pinned.nationality] = pinned
     }
@@ -160,7 +160,7 @@ struct Namespaces
     func link(upstream package:Package.ID, 
         linkable:[Packages.Index: _Dependency], 
         context:Packages) 
-        throws -> Package._Pinned
+        throws -> Package.Pinned
     {
         if let package:Package = context[package]
         {
@@ -174,7 +174,7 @@ struct Namespaces
     private mutating 
     func link(upstream package:__owned Package, dependencies:[Module.ID]? = nil, 
         linkable:[Packages.Index: _Dependency]) 
-        throws -> Package._Pinned
+        throws -> Package.Pinned
     {
         switch linkable[package.nationality] 
         {
@@ -184,7 +184,7 @@ struct Namespaces
             throw _DependencyError.version(unavailable: (requirement, revision), package.id)
         case .available(let version):
             // upstream dependency 
-            let pinned:Package._Pinned = .init(_move package, version: version)
+            let pinned:Package.Pinned = .init(_move package, version: version)
             if let dependencies:[Module.ID] 
             {
                 for module:Module.ID in dependencies
@@ -209,7 +209,7 @@ struct Namespaces
                 {
                     for module:Module in epoch 
                     {
-                        self.linked[module.id] = module.index.positioned(epoch.branch)
+                        self.linked[module.id] = module.culture.positioned(epoch.branch)
                     }
                 }
             }

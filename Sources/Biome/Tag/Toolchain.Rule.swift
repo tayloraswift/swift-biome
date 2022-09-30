@@ -1,4 +1,5 @@
 import Grammar 
+import Versions
 
 extension Toolchain 
 {
@@ -69,8 +70,8 @@ extension Toolchain
             }
             else 
             {
-                let semantic:Tag.Semantic = 
-                    try input.parse(as: Tag.Rule<Location>.Semantic.self)
+                let semantic:SemanticVersion.Masked = 
+                    try input.parse(as: SemanticVersion.Rule<Location>.Masked.self)
                 try input.parse(as: Encoding.Hyphen.self)
                 try input.parse(as: Release.self)
                 return .release(semantic)

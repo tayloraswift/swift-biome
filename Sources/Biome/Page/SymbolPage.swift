@@ -1,6 +1,9 @@
 import DOM
 import HTML
 import Notebook
+import SymbolAvailability
+import SymbolGraphs
+import SymbolSource
 
 extension SymbolPage 
 {
@@ -45,14 +48,14 @@ extension SymbolPage.Breadcrumbs
         self.elements.reserveCapacity(self.host == nil ? 
             base.path.count - 1 : 
             base.path.count)
-        var next:SymbolReference? = try self.host ?? base.shape.map 
+        var next:SymbolReference? = try self.host ?? base.scope.map 
         {
             try cache.load($0.target, context: context)
         }
         while let current:SymbolReference = next 
         {
             self.elements.append((display: current.name, uri: current.uri))
-            next = try current.shape.map 
+            next = try current.scope.map 
             {
                 try cache.load($0.target, context: context)
             }
@@ -279,7 +282,7 @@ struct SymbolPage
                 .span($0.html, attributes: [.class("namespace")]) 
             }
         case .kind: 
-            return [UInt8].init(self.base.community.title.utf8)
+            return [UInt8].init(self.base.shape.title.utf8)
         case .meta: 
             return nil 
 
@@ -327,7 +330,7 @@ struct SymbolPage
             for overridden:Organizer.Item<Organizer.Unconditional> in overridden
             {
                 let prose:String 
-                switch overridden.display.community 
+                switch overridden.display.shape 
                 {
                 case .protocol: 
                     prose = "Implements requirement of "

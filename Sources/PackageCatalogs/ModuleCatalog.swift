@@ -1,5 +1,6 @@
 import JSON
-import SymbolGraphs 
+import SymbolGraphs
+import SymbolSource
 import SystemExtras
 @preconcurrency import SystemPackage
 

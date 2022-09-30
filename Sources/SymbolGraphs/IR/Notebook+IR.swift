@@ -1,5 +1,6 @@
-import Notebook 
 import JSON
+import Notebook
+import SymbolSource
 
 extension Notebook<Highlight, Never>
 {

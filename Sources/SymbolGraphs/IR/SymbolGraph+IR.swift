@@ -1,4 +1,5 @@
-import JSON 
+import JSON
+import SymbolSource
 
 enum IR 
 {
@@ -11,9 +12,9 @@ enum IR
     static let edges:String = "edges"
     static let sourcemap:String = "sourcemap"
 
-    enum Communities 
+    enum Shapes 
     {
-        static let community:String = "community"
+        static let shape:String = "shape"
         static let startIndex:String = "startIndex"
         static let endIndex:String = "endIndex"
     }
@@ -30,7 +31,7 @@ enum IR
     enum Partition 
     {
         static let namespace:String = "namespace"
-        static let communities:String = "communities"
+        static let shapes:String = "shapes"
     }
     enum SourceFeature 
     {
@@ -51,7 +52,7 @@ extension SymbolGraph
     {
         self = try json.lint 
         {
-            let partitions:[(namespace:ModuleIdentifier, communities:[(Community, Range<Int>)])] = 
+            let partitions:[(namespace:ModuleIdentifier, shapes:[(Shape, Range<Int>)])] = 
                 try $0.remove(IR.partitions, as: [JSON].self)
             {
                 try $0.map 
@@ -61,29 +62,29 @@ extension SymbolGraph
                         (
                             try $0.remove(IR.Partition.namespace, as: String.self, 
                                 ModuleIdentifier.init(_:)),
-                            try $0.remove(IR.Partition.communities, as: [JSON].self)
+                            try $0.remove(IR.Partition.shapes, as: [JSON].self)
                             {
                                 try $0.map 
                                 {
                                     try $0.lint 
                                     {
                                         (
-                                            try $0.remove(IR.Communities.community, as: String.self)
+                                            try $0.remove(IR.Shapes.shape, as: String.self)
                                             {
-                                                if let community:Community = .init($0)
+                                                if let shape:Shape = .init($0)
                                                 {
-                                                    return community
+                                                    return shape
                                                 }
                                                 else 
                                                 {
                                                     throw JSON.PrimitiveError.matching(
                                                         variant: .string($0), 
-                                                        as: Community.self)
+                                                        as: Shape.self)
                                                 }
                                             }, 
-                                            try $0.remove(IR.Communities.startIndex, as: Int.self) 
+                                            try $0.remove(IR.Shapes.startIndex, as: Int.self) 
                                                 ..<
-                                                $0.remove(IR.Communities.endIndex,   as: Int.self)
+                                                $0.remove(IR.Shapes.endIndex,   as: Int.self)
                                         )
                                     }
                                 }
@@ -112,8 +113,8 @@ extension SymbolGraph
                 }, 
                 partitions: partitions.compactMap 
                 {
-                    if  let start:Int = $0.communities.first?.1.lowerBound,
-                        let end:Int = $0.communities.last?.1.upperBound
+                    if  let start:Int = $0.shapes.first?.1.lowerBound,
+                        let end:Int = $0.shapes.last?.1.upperBound
                     {
                         return ($0.namespace, start ..< end)
                     }
@@ -128,7 +129,7 @@ extension SymbolGraph
                 },
                 vertices: try $0.remove(IR.vertices) 
                 {
-                    try .init(from: $0, communities: partitions.lazy.map(\.communities).joined())
+                    try .init(from: $0, shapes: partitions.lazy.map(\.shapes).joined())
                 },
                 edges: try $0.remove(IR.edges, [Edge<Int>].init(from:)), 
                 sourcemap: try $0.remove(IR.sourcemap, as: [JSON].self)
@@ -178,7 +179,7 @@ extension SymbolGraph
             {
                 [
                     IR.Partition.namespace: .string($0.namespace.string),
-                    IR.Partition.communities: .array(self.vertices[$0.indices].communities),
+                    IR.Partition.shapes: .array(self.vertices[$0.indices].shapes),
                 ]
             }),
             IR.identifiers: .array(self.identifiers.map { .string($0.string) }),
@@ -228,18 +229,18 @@ extension SymbolGraph.Dependency
 
 extension RangeReplaceableCollection<SymbolGraph.Vertex<Int>> 
 {
-    init(from json:JSON, communities:some Sequence<(Community, Range<Int>)>) throws 
+    init(from json:JSON, shapes:some Sequence<(Shape, Range<Int>)>) throws 
     {
         let vertices:[JSON] = try json.as([JSON].self)
         self.init()
         self.reserveCapacity(vertices.count)
-        for (community, range):(Community, Range<Int>) in communities 
+        for (shape, range):(Shape, Range<Int>) in shapes 
         {
             for index:Int in range 
             {
                 self.append(try vertices.load(index) 
                 { 
-                    try SymbolGraph.Vertex<Int>.init(from: $0, community: community) 
+                    try SymbolGraph.Vertex<Int>.init(from: $0, shape: shape) 
                 })
             }
         }
@@ -247,34 +248,34 @@ extension RangeReplaceableCollection<SymbolGraph.Vertex<Int>>
 }
 extension Collection<SymbolGraph.Vertex<Int>> where Index == Int 
 {
-    var communities:[JSON]
+    var shapes:[JSON]
     {
-        guard var community:Community = self.first?.community 
+        guard var shape:Shape = self.first?.shape 
         else 
         {
             return []
         }
-        var communities:[(community:Community, range:Range<Int>)] = []
+        var shapes:[(shape:Shape, range:Range<Int>)] = []
         var start:Int = self.startIndex
         for (end, vertex):(Int, SymbolGraph.Vertex<Int>) in zip(self.indices, self).dropFirst()
         {
-            if vertex.community != community 
+            if vertex.shape != shape 
             {
-                communities.append((community, start ..< end))
-                community = vertex.community 
+                shapes.append((shape, start ..< end))
+                shape = vertex.shape
                 start = end 
             }
         }
         if start < self.endIndex
         {
-            communities.append((community, start ..< self.endIndex))
+            shapes.append((shape, start ..< self.endIndex))
         }
-        return communities.map 
+        return shapes.map 
         { 
             [
-                IR.Communities.community: .string($0.community.description), 
-                IR.Communities.startIndex: .number($0.range.lowerBound),
-                IR.Communities.endIndex: .number($0.range.upperBound),
+                IR.Shapes.shape: .string($0.shape.description), 
+                IR.Shapes.startIndex: .number($0.range.lowerBound),
+                IR.Shapes.endIndex: .number($0.range.upperBound),
             ] 
         }
     }

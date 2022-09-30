@@ -1,6 +1,7 @@
 import DOM
 import HTML
-import Notebook 
+import Notebook
+import SymbolSource
 
 infix operator |<| :ComparisonPrecedence 
 
@@ -61,10 +62,10 @@ extension Organizer
         let articles:[ArticleCard]
         let dependencies:[Enclave<H3, Nationality, ModuleCard>]
 
-        let requirements:[(Community, [SymbolCard])]
+        let requirements:[(Shape, [SymbolCard])]
 
-        let members:[(Community, [Enclave<H4, Culture, SymbolCard>])]
-        let removed:[(Community, [Enclave<H4, Culture, SymbolCard>])]
+        let members:[(Shape, [Enclave<H4, Culture, SymbolCard>])]
+        let removed:[(Shape, [Enclave<H4, Culture, SymbolCard>])]
 
         let implications:[Item<Unconditional>]
 
@@ -126,7 +127,7 @@ extension Organizer
         }
     }
 }
-extension Dictionary where Key == Community 
+extension Dictionary where Key == Shape 
 {
     fileprivate
     func sublists<Sublist>(_ transform:(Value) throws -> Sublist) rethrows -> [(Key, Sublist)]
@@ -223,7 +224,7 @@ extension Organizer.Topics
         let notes:Notes? 
         if let roles:Branch.SymbolRoles = metadata.roles 
         {
-            switch (base.community, base.shape) 
+            switch (base.shape, base.scope) 
             {
             case (.protocol, _):
                 try organizer.organize(roles, context: context, cache: &cache)

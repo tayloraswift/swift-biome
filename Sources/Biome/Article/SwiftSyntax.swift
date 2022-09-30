@@ -1,4 +1,4 @@
-import enum SymbolGraphs.Highlight
+import SymbolSource
 import SwiftSyntaxParser
 import SwiftSyntax
 

@@ -1,5 +1,6 @@
+import JSON
 import Notebook
-import JSON 
+import SymbolSource
 
 extension SymbolGraph.Vertex:Sendable where Target:Sendable {}
 extension SymbolGraph.Vertex:Equatable where Target:Equatable {}
@@ -46,7 +47,7 @@ extension SymbolGraph
         public 
         var path:Path
         public 
-        var community:Community 
+        var shape:Shape 
         public 
         var declaration:Declaration<Target>
         public 
@@ -54,12 +55,12 @@ extension SymbolGraph
 
         @inlinable public 
         init(path:Path,
-            community:Community, 
+            shape:Shape, 
             declaration:Declaration<Target>, 
             comment:Comment = .init())
         {
             self.path = path
-            self.community = community
+            self.shape = shape
             self.declaration = declaration
             self.comment = comment
         }
@@ -72,7 +73,7 @@ extension SymbolGraph
         @inlinable public 
         func map<T>(_ transform:(Target) throws -> T) rethrows -> Vertex<T>
         {
-            .init(path: self.path, community: self.community, 
+            .init(path: self.path, shape: self.shape, 
                 declaration: try self.declaration.map(transform), 
                 comment: try self.comment.map(transform))
         }
@@ -89,8 +90,7 @@ extension SymbolGraph.Vertex
             .init(" ",          color: .text),
             .init(name,         color: .identifier),
         ]
-        return .init(path: .init(last: name), 
-            community: .protocol, 
+        return .init(path: .init(last: name), shape: .protocol, 
             declaration: .init(
                 fragments: .init(fragments), 
                 signature: .init(fragments)))

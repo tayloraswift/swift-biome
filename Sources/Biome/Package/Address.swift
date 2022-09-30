@@ -1,3 +1,4 @@
+import SymbolSource
 import URI
 
 struct Address 

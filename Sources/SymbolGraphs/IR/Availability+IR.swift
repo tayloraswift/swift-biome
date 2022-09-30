@@ -1,5 +1,6 @@
-import Versions 
 import JSON
+import SymbolAvailability
+import Versions
 
 extension IR 
 {
@@ -20,7 +21,7 @@ extension Availability
 {
     init(from json:JSON) throws 
     {
-        (self.swift, self.general, self.platforms) = try json.lint
+        self = try json.lint
         {
             let swift:SwiftAvailability? = 
                 try $0.pop(IR.Availability.swift, SwiftAvailability.init(from:))
@@ -34,7 +35,7 @@ extension Availability
                     platforms[platform] = try $0.remove(key, VersionedAvailability.init(from:))
                 }
             }
-            return (swift, general, platforms)
+            return .init(swift: swift, general: general, platforms: platforms)
         }
     }
     var serialized:JSON 
@@ -62,21 +63,15 @@ extension SwiftAvailability
 {
     init(from json:JSON) throws 
     {
-        (
-            self.deprecated,
-            self.introduced,
-            self.obsoleted,
-            self.renamed,
-            self.message
-        ) = try json.lint
+        self = try json.lint
         {
-            (
+            .init(
                 deprecated: try $0.pop(IR.Availability.deprecated, as: String.self)
-                    .map(MaskedVersion.init(parsing:)),
+                    .map(SemanticVersion.Masked.init(parsing:)),
                 introduced: try $0.pop(IR.Availability.introduced, as: String.self)
-                    .map(MaskedVersion.init(parsing:)), 
+                    .map(SemanticVersion.Masked.init(parsing:)), 
                 obsoleted: try $0.pop(IR.Availability.obsoleted, as: String.self)
-                    .map(MaskedVersion.init(parsing:)), 
+                    .map(SemanticVersion.Masked.init(parsing:)), 
                 renamed: try $0.pop(IR.Availability.renamed, as: String.self),
                 message: try $0.pop(IR.Availability.message, as: String.self)
             )
@@ -85,15 +80,15 @@ extension SwiftAvailability
     var serialized:JSON 
     {
         var items:[(key:String, value:JSON)] = []
-        if let deprecated:MaskedVersion = self.deprecated
+        if let deprecated:SemanticVersion.Masked = self.deprecated
         {
             items.append((IR.Availability.deprecated, .string(deprecated.description)))
         }
-        if let introduced:MaskedVersion = self.introduced
+        if let introduced:SemanticVersion.Masked = self.introduced
         {
             items.append((IR.Availability.introduced, .string(introduced.description)))
         }
-        if let obsoleted:MaskedVersion = self.obsoleted
+        if let obsoleted:SemanticVersion.Masked = self.obsoleted
         {
             items.append((IR.Availability.obsoleted, .string(obsoleted.description)))
         }
@@ -112,16 +107,9 @@ extension VersionedAvailability
 {
     init(from json:JSON) throws 
     {
-        (
-            self.unavailable,
-            self.deprecated,
-            self.introduced,
-            self.obsoleted,
-            self.renamed,
-            self.message
-        ) = try json.lint
+        self = try json.lint
         {
-            (
+            .init(
                 unavailable: try $0.pop(IR.Availability.unavailable, as: Bool.self) ?? false,
                 deprecated: try $0.pop(IR.Availability.deprecated)
                 {
@@ -137,9 +125,9 @@ extension VersionedAvailability
                     }
                 } ?? nil,
                 introduced: try $0.pop(IR.Availability.introduced, as: String.self)
-                    .map(MaskedVersion.init(parsing:)), 
+                    .map(SemanticVersion.Masked.init(parsing:)), 
                 obsoleted: try $0.pop(IR.Availability.obsoleted, as: String.self)
-                    .map(MaskedVersion.init(parsing:)), 
+                    .map(SemanticVersion.Masked.init(parsing:)), 
                 renamed: try $0.pop(IR.Availability.renamed, as: String.self),
                 message: try $0.pop(IR.Availability.message, as: String.self)
             )
@@ -161,11 +149,11 @@ extension VersionedAvailability
         case .since(let deprecated)?:
             items.append((IR.Availability.deprecated, .string(deprecated.description)))
         }
-        if let introduced:MaskedVersion = self.introduced
+        if let introduced:SemanticVersion.Masked = self.introduced
         {
             items.append((IR.Availability.introduced, .string(introduced.description)))
         }
-        if let obsoleted:MaskedVersion = self.obsoleted
+        if let obsoleted:SemanticVersion.Masked = self.obsoleted
         {
             items.append((IR.Availability.obsoleted, .string(obsoleted.description)))
         }
@@ -184,14 +172,9 @@ extension UnversionedAvailability
 {
     init(from json:JSON) throws 
     {
-        (
-            self.unavailable,
-            self.deprecated,
-            self.renamed,
-            self.message
-        ) = try json.lint
+        self = try json.lint
         {
-            (
+            .init(
                 unavailable: try $0.pop(IR.Availability.unavailable, as: Bool.self) ?? false,
                 deprecated: try $0.pop(IR.Availability.deprecated, as: Bool.self) ?? false,
                 renamed: try $0.pop(IR.Availability.renamed, as: String.self),

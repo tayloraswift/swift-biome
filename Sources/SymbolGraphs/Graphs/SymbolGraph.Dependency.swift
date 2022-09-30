@@ -1,4 +1,5 @@
 import JSON
+import SymbolSource
 
 extension SymbolGraph 
 {

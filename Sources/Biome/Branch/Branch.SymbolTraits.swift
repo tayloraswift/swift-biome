@@ -1,3 +1,5 @@
+import SymbolSource 
+
 extension Branch 
 {
     struct SymbolTraits:Equatable, Sendable

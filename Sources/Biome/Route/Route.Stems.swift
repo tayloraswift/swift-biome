@@ -69,19 +69,6 @@ extension Route
                 return self[leaf: component.string]
             }
         }
-        
-        private 
-        subscript(leaf component:Symbol.Link.Component) -> Stem? 
-        {
-            if let hyphen:String.Index = component.hyphen 
-            {
-                return self[leaf: component.string[..<hyphen]]
-            }
-            else 
-            {
-                return self[leaf: component.string]
-            }
-        }
 
         subscript<Component>(namespace:Module.Index, 
             straight infix:some BidirectionalCollection<Component>) -> Route? 
@@ -130,25 +117,6 @@ extension Route
         subscript(namespace:Module.Index, suffix:_SymbolLink) -> Route? 
         {
             self[namespace, EmptyCollection<String>.init(), suffix]
-        }
-
-
-        subscript(namespace:Module.Index, infix:[String], suffix:Symbol.Link) -> Route? 
-        {
-            if  let leaf:Symbol.Link.Component = suffix.last,
-                let leaf:Stem = self[leaf: leaf],
-                let stem:Stem = self[stem: suffix.prefix(prepending: infix)]
-            {
-                return .init(namespace, stem, leaf, orientation: suffix.orientation)
-            }
-            else 
-            {
-                return nil
-            }
-        }
-        subscript(namespace:Module.Index, suffix:Symbol.Link) -> Route? 
-        {
-            self[namespace, [], suffix]
         }
         
         private mutating 

@@ -1,3 +1,5 @@
+import SymbolSource
+
 extension Tree.SymbolTraits.Unconditional 
 {
     fileprivate mutating 
@@ -37,10 +39,10 @@ extension Tree
             self.conditional = conditional
         }
         
-        init(_ traits:some Sequence<Symbol.Trait<Atom<Symbol>.Position>>, as community:Community)
+        init(_ traits:some Sequence<Symbol.Trait<Atom<Symbol>.Position>>, as shape:Shape)
         {
             self.init()
-            self.update(with: traits, as: community)
+            self.update(with: traits, as: shape)
         }
     }
 }
@@ -92,10 +94,9 @@ extension Tree.SymbolTraits
     }
 
     mutating 
-    func update(with traits:some Sequence<Symbol.Trait<Atom<Symbol>.Position>>, 
-        as community:Community) 
+    func update(with traits:some Sequence<Symbol.Trait<Atom<Symbol>.Position>>, as shape:Shape) 
     {
-        switch community 
+        switch shape 
         {
         case .associatedtype:
             for trait:Symbol.Trait<Atom<Symbol>.Position> in traits 

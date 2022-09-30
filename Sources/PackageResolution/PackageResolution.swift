@@ -1,5 +1,5 @@
-import SymbolGraphs
 import JSON
+import SymbolSource
 
 public 
 struct PackageResolution

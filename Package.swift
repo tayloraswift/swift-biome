@@ -59,13 +59,26 @@ let package = Package(
                 .product(name: "Grammar",           package: "swift-grammar"),
             ]),
         
-        .target(name: "SymbolGraphs", 
+        .target(name: "SymbolSource", 
+            dependencies: 
+            [
+                .product(name: "Grammar",           package: "swift-grammar"),
+                .product(name: "Notebook",          package: "swift-highlight"),
+            ]),
+        
+        .target(name: "SymbolAvailability", 
             dependencies: 
             [
                 .target(name: "Versions"),
+            ]),
+        
+        .target(name: "SymbolGraphs", 
+            dependencies: 
+            [
+                .target(name: "SymbolSource"),
+                .target(name: "SymbolAvailability"),
 
                 .product(name: "JSON",              package: "swift-json"),
-                .product(name: "Notebook",          package: "swift-highlight"),
             ]),
         
         .target(name: "Biome", 
@@ -73,6 +86,7 @@ let package = Package(
             [
                 .target(name: "PieCharts"),
                 .target(name: "PackageResolution"),
+                .target(name: "SymbolGraphs"),
                 .target(name: "URI"),
 
                 .target(name: "Forest"),
@@ -96,7 +110,7 @@ let package = Package(
         .target(name: "PackageResolution", 
             dependencies: 
             [
-                .target(name: "SymbolGraphs"),
+                .target(name: "SymbolSource"),
 
                 .product(name: "JSON",              package: "swift-json"),
             ]),

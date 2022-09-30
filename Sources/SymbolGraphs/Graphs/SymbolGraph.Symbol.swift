@@ -1,5 +1,7 @@
+import JSON
 import Notebook
-import JSON 
+import SymbolAvailability
+import SymbolSource
 
 extension SymbolGraph 
 {
@@ -103,16 +105,16 @@ extension SymbolGraph.Symbol
                 }
             }
             let path:Path = try $0.remove("pathComponents", Path.init(from:))
-            let community:Community = try $0.remove("kind")
+            let shape:Shape = try $0.remove("kind")
             {
                 try $0.lint(whitelisting: ["displayName"])
                 {
                     try $0.remove("identifier", as: String.self) 
                     { 
-                        if  let community:Community = .init(declarationKind: $0, 
+                        if  let shape:Shape = .init(declarationKind: $0, 
                             global: path.count == 1)
                         {
-                            return community 
+                            return shape 
                         }
                         else 
                         {
@@ -156,7 +158,7 @@ extension SymbolGraph.Symbol
                     }
                 }
             }
-            let vertex:SymbolGraph.Vertex = .init(path: path, community: community, 
+            let vertex:SymbolGraph.Vertex = .init(path: path, shape: shape, 
                 declaration: .init(
                     fragments: fragments, 
                     signature: signature, 

@@ -1,6 +1,6 @@
-import SymbolGraphs
-import Versions 
 import JSON
+import SymbolSource
+import Versions
 
 extension PackageResolution
 {

@@ -1,15 +1,17 @@
 import DOM
 import Notebook
+import SymbolGraphs
+import SymbolSource
 
 struct Organizer
 {
     var articles:[(ArticleCard, SortingKey)]
     var dependencies:[Packages.Index: Enclave<H3, Nationality, ModuleCard>]
 
-    var requirements:[Community: [(SymbolCard, SortingKey)]]
+    var requirements:[Shape: [(SymbolCard, SortingKey)]]
 
-    var members:[Community: [Atom<Module>: Enclave<H4, Culture, (SymbolCard, SortingKey)>]]
-    var removed:[Community: [Atom<Module>: Enclave<H4, Culture, (SymbolCard, SortingKey)>]]
+    var members:[Shape: [Atom<Module>: Enclave<H4, Culture, (SymbolCard, SortingKey)>]]
+    var removed:[Shape: [Atom<Module>: Enclave<H4, Culture, (SymbolCard, SortingKey)>]]
 
     var implications:[Item<Unconditional>]
 
@@ -111,7 +113,7 @@ extension Organizer
         context:some PackageContext, 
         cache:inout ReferenceCache) throws
     {
-        switch (host.community, host.shape) 
+        switch (host.shape, host.scope) 
         {
         case (_, .requirement(of: _)?):
             for parrot:Atom<Symbol> in traits.downstream
@@ -225,15 +227,15 @@ extension Organizer
         let card:SymbolCard = .init(signature: declaration.signature, 
             overview: try overview.flatMap { try cache.link($0, context: context) }, 
             uri: composite.uri)
-        let community:Community = composite.base.community
+        let shape:Shape = composite.base.shape
         if  declaration.availability.isUsable 
         {
-            self.members[community, default: [:]][enclave, default: .init(culture)]
+            self.members[shape, default: [:]][enclave, default: .init(culture)]
                 .elements.append((card, composite.key))
         }
         else 
         {
-            self.removed[community, default: [:]][enclave, default: .init(culture)]
+            self.removed[shape, default: [:]][enclave, default: .init(culture)]
                 .elements.append((card, composite.key))
         }
     }
@@ -257,11 +259,11 @@ extension Organizer
     {
         // protocol roles may originate from a different package
         let symbol:SymbolReference = try cache.load(role, context: context)
-        switch symbol.community
+        switch symbol.shape
         {
         case .protocol:
             self.implications.append(try .init(symbol, context: context, cache: &cache))
-        case let community:
+        case let shape:
             // this is always valid, because non-protocol roles are always 
             // requirements, and requirements always live in the same package as 
             // the protocol they are part of.
@@ -276,7 +278,7 @@ extension Organizer
             let card:SymbolCard = .init(signature: declaration.signature, 
                 overview: try overview.flatMap { try cache.link($0, context: context) }, 
                 uri: symbol.uri)
-            self.requirements[community, default: []].append((card, .atomic(symbol.path)))
+            self.requirements[shape, default: []].append((card, .atomic(symbol.path)))
         }
     }
 }

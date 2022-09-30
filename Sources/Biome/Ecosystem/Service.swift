@@ -1,7 +1,10 @@
-import Resources
-import WebSemantics
 import DOM
 import HTML
+import PackageResolution
+import Resources
+import SymbolGraphs
+import SymbolSource
+import WebSemantics
 import URI
 
 public typealias Ecosystem = Service 
@@ -39,52 +42,6 @@ struct Service
     var template:DOM.Flattened<PageElement>
 
     let logo:[UInt8]
-
-    var whitelist:[Package.ID]
-    {
-        fatalError("obsoleted")
-    }
-    
-    var roots:[Route.Stem: Root]
-    {
-        fatalError("obsoleted")
-    }
-    var root:
-    (    
-        master:URI,
-        article:URI,
-        sitemap:URI,
-        searchIndex:URI
-    )
-    {
-        fatalError("obsoleted")
-    }
-    var redirects:[String: Redirect]
-    {
-        get 
-        {
-            fatalError("obsoleted")
-        }
-        set 
-        {
-            fatalError("obsoleted")
-        }
-    }
-    var caches:[Packages.Index: Cache]
-    {
-        get 
-        {
-            fatalError("obsoleted")
-        }
-        set 
-        {
-            fatalError("obsoleted")
-        }
-    }
-    var _template:DOM.Flattened<Page.Key>
-    {
-        fatalError("obsoleted")
-    }
 
     public 
     init() 

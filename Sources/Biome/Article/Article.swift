@@ -1,11 +1,11 @@
-import struct SymbolGraphs.Path
+import SymbolSource
 import HTML
 
 @usableFromInline 
 struct Article:Sendable
 {
     @usableFromInline 
-    typealias Culture = Module.Index 
+    typealias Culture = Atom<Module>
     @usableFromInline 
     typealias Offset = UInt32 
 
