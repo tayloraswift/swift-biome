@@ -164,8 +164,8 @@ struct _SymbolLink:RandomAccessCollection
             self.docC = nil
         }
 
-        func disambiguate(_ selection:__owned _Selection<Composite>, 
-            context:some PackageContext) -> _Selection<Composite>
+        func disambiguate(_ selection:__owned Selection<Composite>, 
+            context:some PackageContext) -> Selection<Composite>
         {
             guard case .many(let composites) = selection 
             else 

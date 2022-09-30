@@ -39,10 +39,9 @@ struct Resolver
 
         func select(_ key:Route, 
             disambiguator:_SymbolLink.Disambiguator, 
-            imports:Set<Atom<Module>>)
-            -> _Selection<Composite>?
+            imports:Set<Atom<Module>>) -> Selection<Composite>?
         {
-            var selection:_Selection<Composite>? = nil 
+            var selection:Selection<Composite>? = nil 
             for lens:Package.Pinned in self
             {
                 lens.routes.select(key)
@@ -262,7 +261,7 @@ struct Resolver
         stems:Route.Stems) -> _SymbolLink.Resolution?
     {
         if  let scope:LexicalScope, 
-            let selection:_Selection<Composite> = scope.scan(concatenating: link, 
+            let selection:Selection<Composite> = scope.scan(concatenating: link, 
                 stems: stems, 
                 until: 
                 { 
@@ -284,7 +283,7 @@ struct Resolver
             return .module(namespace.atom)
         }
         if  let key:Route = stems[namespace.atom, link], 
-            let selection:_Selection<Composite> = 
+            let selection:Selection<Composite> = 
                 self.lenses.select(key, disambiguator: link.disambiguator, imports: imports)
         {
             return .init(selection)

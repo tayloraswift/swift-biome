@@ -1,9 +1,4 @@
-// enum SelectionError<Element>:Error 
-// {
-//     case none
-//     case many([Element])
-// }
-enum _Selection<Element>
+enum Selection<Element>
 {
     case one(Element)
     case many([Element])
@@ -29,7 +24,7 @@ enum _Selection<Element>
 }
 extension Optional 
 {
-    // func unique<Element>() throws -> Element where Wrapped == _Selection<Element>
+    // func unique<Element>() throws -> Element where Wrapped == Selection<Element>
     // {
     //     switch self 
     //     {
@@ -43,7 +38,7 @@ extension Optional
     // }
 
     mutating 
-    func append<Element>(_ element:Element) where Wrapped == _Selection<Element>
+    func append<Element>(_ element:Element) where Wrapped == Selection<Element>
     {
         switch _move self 
         {

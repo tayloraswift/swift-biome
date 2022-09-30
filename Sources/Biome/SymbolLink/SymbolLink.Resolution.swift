@@ -92,7 +92,7 @@ extension _SymbolLink
         case composite(Composite) 
         case composites([Composite]) 
 
-        init(_ selection:_Selection<Composite>)
+        init(_ selection:Selection<Composite>)
         {
             switch selection 
             {

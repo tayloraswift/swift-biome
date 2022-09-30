@@ -271,7 +271,7 @@ extension Package.Pinned
         rethrows -> _SymbolLink.Resolution?
     {
         if  let scope:LexicalScope, 
-            let selection:_Selection<Composite> = try scope.scan(concatenating: link, 
+            let selection:Selection<Composite> = try scope.scan(concatenating: link, 
                 stems: stems, 
                 until: { try self.routes.select($0, where: predicate) })
         {
@@ -288,7 +288,7 @@ extension Package.Pinned
             return .module(namespace.atom)
         }
         if  let key:Route = stems[namespace.atom, link], 
-            let selection:_Selection<Composite> = try self.routes.select(key, 
+            let selection:Selection<Composite> = try self.routes.select(key, 
                 where: predicate)
         {
             return .init(selection)

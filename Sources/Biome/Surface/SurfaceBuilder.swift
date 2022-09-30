@@ -404,7 +404,7 @@ extension SurfaceBuilder
             //  this is a *very* heuristical process.
             if  let scope:Route = stems[symbol.route.namespace, straight: scope]
             {
-                let selection:_Selection<Atom<Symbol>.Position>? = routes.select(scope)
+                let selection:Selection<Atom<Symbol>.Position>? = routes.select(scope)
                 {
                     (branch:Version.Branch, composite:Composite) in 
                     composite.atom.map { $0.positioned(branch) }

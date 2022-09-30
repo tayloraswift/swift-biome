@@ -429,7 +429,7 @@ extension Service
 
         // first class: select symbols that exist in the requested version of `nationality`
         let context:LocalContext = .init(local: _move nationality, context: self.packages)
-        if      let selection:_Selection<Composite> = context.local.routes.select(key, 
+        if      let selection:Selection<Composite> = context.local.routes.select(key, 
                     where: context.local.exists(_:))
         {
             // no excavation required, because we already filtered by extancy.
@@ -450,7 +450,7 @@ extension Service
             }
         }
         // second class: select symbols that existed at any time in `nationality`’s history
-        else if let selection:_Selection<Composite> = context.local.routes.select(key)
+        else if let selection:Selection<Composite> = context.local.routes.select(key)
         {
             switch link.disambiguator.disambiguate(_move selection, context: context) 
             {

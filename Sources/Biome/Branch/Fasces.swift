@@ -132,10 +132,9 @@ struct Fasces
         }
 
         func select<T>(_ key:Route, 
-            where filter:(Version.Branch, Composite) throws -> T?) 
-            rethrows -> _Selection<T>?
+            where filter:(Version.Branch, Composite) throws -> T?) rethrows -> Selection<T>?
         {
-            var selection:_Selection<T>? = nil
+            var selection:Selection<T>? = nil
             try self.select(key)
             {
                 if let selected:T = try filter($0, $1)
