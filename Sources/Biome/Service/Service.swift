@@ -63,7 +63,7 @@ struct Service
 extension Service 
 {
     public mutating 
-    func enable(function namespace:Module.ID, 
+    func enable(function namespace:ModuleIdentifier, 
         nationality:Packages.Index, 
         template:DOM.Flattened<PageElement>? = nil) -> Bool 
     {
@@ -84,7 +84,7 @@ extension Service
 
     @discardableResult
     public mutating 
-    func updatePackage(_ id:Package.ID, 
+    func updatePackage(_ id:PackageIdentifier, 
         resolved:PackageResolution,
         branch:String, 
         fork:String? = nil,

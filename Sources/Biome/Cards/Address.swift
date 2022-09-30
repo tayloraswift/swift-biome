@@ -21,11 +21,11 @@ struct Address
 
     struct Global
     {
-        var residency:Package.ID?
+        var residency:PackageIdentifier?
         var version:Version.Selector?
         var local:Local?
 
-        init(_ local:Local?, residency:Package.ID?, version:Version.Selector?)
+        init(_ local:Local?, residency:PackageIdentifier?, version:Version.Selector?)
         {
             self.residency = residency
             self.version = version
@@ -34,10 +34,10 @@ struct Address
     }
     struct Local
     {
-        var namespace:Module.ID 
+        var namespace:ModuleIdentifier 
         var symbolic:Symbolic?
 
-        init(_ symbolic:Symbolic?, namespace:Module.ID)
+        init(_ symbolic:Symbolic?, namespace:ModuleIdentifier)
         {
             self.namespace = namespace 
             self.symbolic = symbolic
@@ -47,8 +47,8 @@ struct Address
     {
         var orientation:_SymbolLink.Orientation 
         var path:Path 
-        var host:Symbol.ID? 
-        var base:Symbol.ID?
+        var host:SymbolIdentifier? 
+        var base:SymbolIdentifier?
         var nationality:_SymbolLink.Nationality?
 
         init(path:Path, orientation:_SymbolLink.Orientation)
@@ -124,7 +124,7 @@ extension Address
         {
             uri = functions.uri(function)
 
-            if let residency:Package.ID = self.global.residency 
+            if let residency:PackageIdentifier = self.global.residency 
             {
                 uri.path.append(component: residency.string)
             }
@@ -145,11 +145,11 @@ extension Address
                     lowercasing: symbolic.path, 
                     orientation: symbolic.orientation)
                 
-                if let base:Symbol.ID = symbolic.base
+                if let base:SymbolIdentifier = symbolic.base
                 {
                     uri.insert(parameter: (GlobalLink.Parameter.base.rawValue, base.string))
                 }
-                if let host:Symbol.ID = symbolic.host
+                if let host:SymbolIdentifier = symbolic.host
                 {
                     uri.insert(parameter: (GlobalLink.Parameter.host.rawValue, host.string))
                 }

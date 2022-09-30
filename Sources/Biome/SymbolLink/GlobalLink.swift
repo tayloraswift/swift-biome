@@ -63,7 +63,7 @@ struct GlobalLink:RandomAccessCollection
                 // either 'from=swift-foo' or 'from=swift-foo/0.1.2'. 
                 // we do not tolerate missing slashes
                 var separator:String.Index = value.firstIndex(of: "/") ?? value.endIndex
-                let id:Package.ID = .init(value[..<separator])
+                let id:PackageIdentifier = .init(value[..<separator])
 
                 while separator < value.endIndex, value[separator] != "/"
                 {

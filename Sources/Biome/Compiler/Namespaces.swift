@@ -1,4 +1,5 @@
 import SymbolGraphs
+import SymbolSource
 
 extension [Packages.Index: Package.Pinned] 
 {
@@ -20,7 +21,7 @@ extension [Packages.Index: Package.Pinned]
 //  as the target itself does not also depend upon the shadowed local module.)
 struct Namespace 
 {
-    let id:Module.ID 
+    let id:ModuleIdentifier 
     let position:Atom<Module>.Position
 
     var culture:Atom<Module>
@@ -28,7 +29,7 @@ struct Namespace
         self.position.atom
     }
 
-    init(id:Module.ID, position:Atom<Module>.Position)
+    init(id:ModuleIdentifier, position:Atom<Module>.Position)
     {
         self.id = id 
         self.position = position
@@ -49,7 +50,7 @@ struct Namespaces
     var pins:[Packages.Index: Version]
     let module:Namespace
     private(set)
-    var linked:[Module.ID: Atom<Module>.Position]
+    var linked:[ModuleIdentifier: Atom<Module>.Position]
 
     init(_ module:Namespace)
     {
@@ -57,7 +58,7 @@ struct Namespaces
         self.module = module 
         self.linked = [module.id: module.position]
     }
-    init(id:Module.ID, position:Atom<Module>.Position)
+    init(id:ModuleIdentifier, position:Atom<Module>.Position)
     {
         self.init(.init(id: id, position: position))
     }
@@ -92,11 +93,11 @@ struct Namespaces
     /// Returns a set containing all modules that can be imported, among the requested 
     /// list of module names. The current module is always included in the set, 
     /// even if not explicitly requested.
-    func `import`(_ modules:some Sequence<Module.ID>) -> Set<Atom<Module>>
+    func `import`(_ modules:some Sequence<ModuleIdentifier>) -> Set<Atom<Module>>
     {
         var imported:Set<Atom<Module>> = []
             imported.reserveCapacity(modules.underestimatedCount + 1)
-        for module:Module.ID in modules 
+        for module:ModuleIdentifier in modules 
         {
             if let element:Atom<Module> = self.linked[module]?.atom
             {
@@ -157,7 +158,7 @@ struct Namespaces
         return pinned
     }
     private mutating 
-    func link(upstream package:Package.ID, 
+    func link(upstream package:PackageIdentifier, 
         linkable:[Packages.Index: _Dependency], 
         context:Packages) 
         throws -> Package.Pinned
@@ -172,7 +173,7 @@ struct Namespaces
         }
     }
     private mutating 
-    func link(upstream package:__owned Package, dependencies:[Module.ID]? = nil, 
+    func link(upstream package:__owned Package, dependencies:[ModuleIdentifier]? = nil, 
         linkable:[Packages.Index: _Dependency]) 
         throws -> Package.Pinned
     {
@@ -185,9 +186,9 @@ struct Namespaces
         case .available(let version):
             // upstream dependency 
             let pinned:Package.Pinned = .init(_move package, version: version)
-            if let dependencies:[Module.ID] 
+            if let dependencies:[ModuleIdentifier] 
             {
-                for module:Module.ID in dependencies
+                for module:ModuleIdentifier in dependencies
                 {
                     if let module:Atom<Module>.Position = pinned.modules.find(module)
                     {
@@ -218,14 +219,14 @@ struct Namespaces
         }
     }
     private mutating 
-    func link(local package:Package, dependencies:[Module.ID], 
+    func link(local package:Package, dependencies:[ModuleIdentifier], 
         branch:Version.Branch, 
         fasces:Fasces) 
         throws 
     {
         let contemporary:Branch.Buffer<Module>.SubSequence = 
             package.tree[branch].modules[...]
-        for module:Module.ID in dependencies
+        for module:ModuleIdentifier in dependencies
         {
             if  let module:Atom<Module>.Position = 
                     contemporary.atoms[module].map({ $0.positioned(branch) }) ?? 

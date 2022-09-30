@@ -32,7 +32,7 @@ struct PackageReference
 }
 struct ModuleReference 
 {
-    let name:Module.ID 
+    let name:ModuleIdentifier 
     let uri:String
 
     // var path:Path 

@@ -240,7 +240,7 @@ extension Packages
         else 
         {
             let index:Index = self.endIndex
-            self.packages.append(.init(id: package, index: index))
+            self.packages.append(.init(id: package, nationality: index))
             self.index[package] = index
             return index
         }

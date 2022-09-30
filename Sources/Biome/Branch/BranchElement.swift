@@ -5,8 +5,3 @@ protocol BranchElement<Culture, Offset>:Identifiable
     associatedtype Culture:Hashable 
     associatedtype Divergence
 }
-extension BranchElement
-{
-    public 
-    typealias Index = Atom<Self>
-}

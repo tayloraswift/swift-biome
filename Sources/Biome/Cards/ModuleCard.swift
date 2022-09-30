@@ -12,7 +12,7 @@ struct ModuleCard:SignatureCard
         self.overview = overview
     }
 
-    var namespace:Module.ID 
+    var namespace:ModuleIdentifier 
     {
         self.reference.name
     }

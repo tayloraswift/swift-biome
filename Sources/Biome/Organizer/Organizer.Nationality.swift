@@ -1,4 +1,5 @@
-import HTML 
+import HTML
+import SymbolSource
 
 extension Organizer 
 {
@@ -13,7 +14,7 @@ extension Organizer.Nationality:Comparable
     enum SortingKey:Comparable 
     {
         case local 
-        case foreign(Package.ID)
+        case foreign(PackageIdentifier)
     }
 
     var sortingKey:SortingKey

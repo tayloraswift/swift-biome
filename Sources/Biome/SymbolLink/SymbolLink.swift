@@ -208,7 +208,7 @@ struct _SymbolLink:RandomAccessCollection
     }
     struct Nationality 
     {
-        let id:Package.ID 
+        let id:PackageIdentifier 
         let version:Version.Selector?
     }
 

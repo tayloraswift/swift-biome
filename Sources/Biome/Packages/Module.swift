@@ -27,7 +27,7 @@ struct Module:Sendable
     var isFunction:Bool
 
     
-    init(id:ID, culture:Atom<Self>)
+    init(id:ModuleIdentifier, culture:Atom<Self>)
     {
         self.id = id 
         self.culture = culture

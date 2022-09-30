@@ -1,4 +1,5 @@
-import SymbolGraphs 
+import SymbolGraphs
+import SymbolSource
 
 extension Package 
 {
@@ -55,7 +56,7 @@ extension Package.Data
                     return target 
                 }
                 // ignore warnings related to c-language symbols 
-                let id:Symbol.ID = graph.identifiers[$0]
+                let id:SymbolIdentifier = graph.identifiers[$0]
                 if case .swift = id.language 
                 {
                     print("warning: unknown id '\(id)' (in declaration for symbol '\(vertex.path)')")

@@ -1,4 +1,5 @@
 import HTML 
+import SymbolSource
 
 extension Organizer 
 {
@@ -14,8 +15,8 @@ extension Organizer.Culture:Comparable
     enum SortingKey:Comparable 
     {
         case primary 
-        case accepted(Module.ID)
-        case nonaccepted(Package.ID, Module.ID)
+        case accepted(ModuleIdentifier)
+        case nonaccepted(PackageIdentifier, ModuleIdentifier)
     }
 
     var sortingKey:SortingKey

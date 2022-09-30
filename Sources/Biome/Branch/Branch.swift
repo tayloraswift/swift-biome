@@ -10,11 +10,11 @@ enum _Dependency:Sendable
 }
 enum _DependencyError:Error 
 {
-    case package                                (unavailable:Package.ID)
-    case pin                                    (unavailable:Package.ID)
-    case version                 (unavailable:(Tag, String), Package.ID)
-    case module (unavailable:Module.ID, (Branch.ID, String), Package.ID)
-    case target (unavailable:Module.ID,  Branch.ID)
+    case package                                       (unavailable:PackageIdentifier)
+    case pin                                           (unavailable:PackageIdentifier)
+    case version                        (unavailable:(Tag, String), PackageIdentifier)
+    case module (unavailable:ModuleIdentifier, (Branch.ID, String), PackageIdentifier)
+    case target (unavailable:ModuleIdentifier,  Branch.ID)
 }
 
 public 
@@ -97,7 +97,7 @@ extension Branch
 extension Branch 
 {
     mutating 
-    func add(module id:Module.ID, culture:Packages.Index, fasces:Fasces) 
+    func add(module id:ModuleIdentifier, culture:Packages.Index, fasces:Fasces) 
         -> Atom<Module>.Position
     {
         if let existing:Atom<Module>.Position = fasces.modules.find(id)
@@ -169,7 +169,7 @@ extension Branch
     {
         var positions:[Atom<Symbol>.Position?] = []
             positions.reserveCapacity(graph.identifiers.count)
-        for (namespace, vertices):(Module.ID, ArraySlice<SymbolGraph.Vertex<Int>>) in 
+        for (namespace, vertices):(ModuleIdentifier, ArraySlice<SymbolGraph.Vertex<Int>>) in 
             graph.colonies
         {
             // will always succeed for the core subgraph
@@ -214,7 +214,7 @@ extension Branch
         return .init(_move positions)
     }
     private mutating 
-    func addSymbol(_ id:Symbol.ID, culture:Atom<Module>, namespace:Atom<Module>, 
+    func addSymbol(_ id:SymbolIdentifier, culture:Atom<Module>, namespace:Atom<Module>, 
         linked:Set<Atom<Module>>,
         vertex:SymbolGraph.Vertex<Int>,
         upstream:[Packages.Index: Package.Pinned], 
@@ -245,7 +245,7 @@ extension Branch
         }
         let atom:Atom<Symbol> = self.symbols.insert(id, culture: culture)
         {
-            (id:Symbol.ID, _:Atom<Symbol>) in 
+            (id:SymbolIdentifier, _:Atom<Symbol>) in 
             let route:Route = .init(namespace, 
                       stems.register(components: vertex.path.prefix), 
                 .init(stems.register(component:  vertex.path.last), 

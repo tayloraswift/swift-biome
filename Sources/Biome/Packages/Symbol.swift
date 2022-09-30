@@ -23,7 +23,7 @@ struct Symbol:Sendable
     var declaration:History<Declaration<Atom<Symbol>>>.Head?
     var documentation:History<DocumentationExtension<Atom<Symbol>>>.Head?
 
-    init(id:ID, path:Path, kind:Kind, route:Route)
+    init(id:SymbolIdentifier, path:Path, kind:Kind, route:Route)
     {
         self.id = id 
         self.path = path

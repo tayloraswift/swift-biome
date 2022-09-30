@@ -20,7 +20,7 @@ struct Package:Identifiable, Sendable
         data:Data 
     var tree:Tree
 
-    init(id:ID, index:Packages.Index)
+    init(id:PackageIdentifier, nationality:Packages.Index)
     {
         self.id = id 
         switch id 
@@ -33,7 +33,7 @@ struct Package:Identifiable, Sendable
         
         self.metadata = .init()
         self.data = .init()
-        self.tree = .init(nationality: index)
+        self.tree = .init(nationality: nationality)
     }
 
     var nationality:Packages.Index 

@@ -1,3 +1,5 @@
+import SymbolSource 
+
 protocol AnisotropicContext:PackageContext
 {
     var local:Package.Pinned { get }
@@ -25,7 +27,7 @@ extension AnisotropicContext
 }
 extension AnisotropicContext
 {
-    func find(_ id:Symbol.ID, linked:Set<Atom<Module>>) -> (Atom<Symbol>.Position, Symbol)?
+    func find(_ id:SymbolIdentifier, linked:Set<Atom<Module>>) -> (Atom<Symbol>.Position, Symbol)?
     {
         if  let position:Atom<Symbol>.Position = self.local.symbols.find(id), 
                 linked.contains(position.culture)

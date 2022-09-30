@@ -1,3 +1,4 @@
+import SymbolSource
 import URI
 
 public 
@@ -61,7 +62,7 @@ struct Resolver
     private 
     let lenses:Lenses 
     private 
-    let linked:[Package.ID: Package.Pinned]
+    let linked:[PackageIdentifier: Package.Pinned]
     let namespaces:Namespaces
 
     init(local:Package.Pinned, pins:__shared [Packages.Index: Version], 
@@ -69,7 +70,7 @@ struct Resolver
         context:__shared Packages)
     {
         let context:LocalContext = .init(local: _move local, pins: pins, context: context)
-        var linked:[Package.ID: Package.Pinned] = .init(minimumCapacity: pins.count + 1)
+        var linked:[PackageIdentifier: Package.Pinned] = .init(minimumCapacity: pins.count + 1)
             linked[context.local.package.id] = context.local 
         for upstream:Package.Pinned in context.foreign.values 
         {
@@ -135,7 +136,8 @@ struct Resolver
                     var link:GlobalLink = .init(uri)
                     // uri begins with an authority component (package residency).
                     // '//swift-foo/foomodule/footype.foomember(_:)'.
-                    guard   let residency:Package.ID = link.descend().map(Package.ID.init(_:)),
+                    guard   let residency:PackageIdentifier = 
+                                link.descend().map(PackageIdentifier.init(_:)),
                             let residency:Package.Pinned = self.linked[residency]
                     else 
                     {

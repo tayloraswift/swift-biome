@@ -1,4 +1,5 @@
 import DOM
+import SymbolSource
 import URI 
 
 @frozen public 
@@ -19,7 +20,7 @@ struct CaselessString:Hashable, Sendable
         self.init(lowercased: string.lowercased())
     }
 
-    init(_ namespace:Module.ID)
+    init(_ namespace:ModuleIdentifier)
     {
         self.init(lowercased: namespace.value)
     }
@@ -63,7 +64,7 @@ extension Service
         let nationality:Packages.Index
         // store a module identifier instead of a position or atom, 
         // to make this more resilient against version editing
-        let namespace:Module.ID
+        let namespace:ModuleIdentifier
         let template:DOM.Flattened<PageElement> 
     }
     enum Function 
@@ -118,7 +119,7 @@ extension Service
         }
 
         mutating 
-        func create(_ namespace:Module.ID, 
+        func create(_ namespace:ModuleIdentifier, 
             nationality:Packages.Index, 
             template:DOM.Flattened<PageElement>) -> Bool 
         {

@@ -1,4 +1,5 @@
 import HTML 
+import SymbolSource
 
 struct Evolution 
 {
@@ -81,7 +82,7 @@ extension Evolution
     {
         assert(local.nationality == module.nationality)
 
-        let id:Module.ID = local.package.tree[local: module].id
+        let id:ModuleIdentifier = local.package.tree[local: module].id
         self.init(local: local, functions: functions)
         {
             if  let module:Atom<Module>.Position = 
@@ -128,7 +129,7 @@ extension Evolution
     {
         assert(local.nationality == symbol.nationality)
 
-        let id:Symbol.ID = local.package.tree[local: symbol].id
+        let id:SymbolIdentifier = local.package.tree[local: symbol].id
         self.init(local: local, functions: functions)
         {
             if  let symbol:Atom<Symbol>.Position = 
@@ -158,9 +159,11 @@ extension Evolution
     {
         assert(local.nationality == compound.nationality)
         
-        let culture:Module.ID = local.package.tree[local: compound.culture].id
-        let host:Symbol.ID = context[compound.host.nationality].tree[local: compound.host].id
-        let base:Symbol.ID = context[compound.base.nationality].tree[local: compound.base].id
+        let culture:ModuleIdentifier = local.package.tree[local: compound.culture].id
+        let host:SymbolIdentifier = 
+            context[compound.host.nationality].tree[local: compound.host].id
+        let base:SymbolIdentifier = 
+            context[compound.base.nationality].tree[local: compound.base].id
 
         self.init(local: local, functions: functions)
         {
