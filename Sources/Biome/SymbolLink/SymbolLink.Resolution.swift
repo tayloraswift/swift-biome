@@ -1,59 +1,3 @@
-extension GlobalLink 
-{
-    enum Target:Hashable, Sendable 
-    {
-        case article(Atom<Article>)
-        case module(Atom<Module>)
-        case package(Packages.Index)
-        case composite(Composite)
-
-        init(_ resolution:_SymbolLink.Resolution?) throws 
-        {
-            switch resolution 
-            {
-            case nil: 
-                throw _SymbolLink.ResolutionProblem.noResults
-            case .module(let module): 
-                self = .module(module)
-            case .composite(let composite): 
-                self = .composite(composite)
-            case .composites(let composites): 
-                throw _SymbolLink.ResolutionProblem.multipleResults(composites)
-            }
-        }
-    }
-    // enum TargetExpansion:Hashable, Sendable 
-    // {
-    //     case article(Atom<Article>.Position)
-    //     case package(Packages.Index)
-    //     case implicit                         ([Atom<Symbol>.Position])
-    //     case qualified(Atom<Module>.Position, [Atom<Symbol>.Position] = [])
-    // }
-
-    enum Presentation:Hashable, Sendable
-    {
-        case article(Atom<Article>)
-        case module(Atom<Module>)
-        case package(Packages.Index)
-        case composite(Composite, visible:Int)
-
-        init(_ target:Target, visible:Int)
-        {
-            switch target 
-            {
-            case .article(let article):
-                self = .article(article)
-            case .module(let module):
-                self = .module(module)
-            case .package(let package):
-                self = .package(package)
-            case .composite(let composite):
-                self = .composite(composite, visible: visible)
-            }
-        }
-    }
-}
-
 extension _SymbolLink 
 {
     enum ResolutionProblem:Error 
@@ -68,6 +12,7 @@ extension _SymbolLink
         case noResults
         case multipleResults([Composite])
     }
+    
     struct ResolutionError:Error 
     {
         let link:String 
