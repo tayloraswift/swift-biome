@@ -41,20 +41,6 @@ struct Package:Identifiable, Sendable
         self.tree.nationality
     }
 
-    
-    // subscript(module:Atom<Module>.Position) -> Module?
-    // {
-    //     self.nationality == module.nationality ? self.tree[local: module] : nil
-    // }
-    // subscript(symbol:Atom<Symbol>.Position) -> Symbol?
-    // {
-    //     self.nationality == symbol.nationality ? self.tree[local: symbol] : nil
-    // }
-    // subscript(article:Atom<Article>.Position) -> Article?
-    // {
-    //     self.nationality == article.nationality ? self.tree[local: article] : nil
-    // }
-
     func latest() -> Pinned?
     {
         self.tree.default.map { .init(self, version: $0) }
