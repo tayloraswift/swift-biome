@@ -10,10 +10,6 @@ extension Module:BranchElement
         {
             self.dependencies = dependencies
         }
-        init(namespaces:__shared Namespaces)
-        {
-            self.init(dependencies: namespaces.dependencies())
-        }
     }
 
     public 

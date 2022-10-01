@@ -1,21 +1,6 @@
-import PackageResolution
 import SymbolGraphs
 import SymbolSource
 import Versions
-
-enum _Dependency:Sendable 
-{
-    case available(Version)
-    case unavailable(Tag, String)
-}
-enum _DependencyError:Error 
-{
-    case package                                       (unavailable:PackageIdentifier)
-    case pin                                           (unavailable:PackageIdentifier)
-    case version                        (unavailable:(Tag, String), PackageIdentifier)
-    case module (unavailable:ModuleIdentifier, (Branch.ID, String), PackageIdentifier)
-    case target (unavailable:ModuleIdentifier,  Branch.ID)
-}
 
 public 
 struct Branch:Identifiable, Sendable 
@@ -33,8 +18,6 @@ struct Branch:Identifiable, Sendable
         modules:Buffer<Module>
     var routes:[Route: Stack]
 
-    var _surface:Surface 
-
     init(id:ID, index:Version.Branch, fork:(version:Version, ring:Ring)?)
     {
         self.id = id 
@@ -49,8 +32,6 @@ struct Branch:Identifiable, Sendable
         self.symbols = .init(startIndex: fork?.ring.symbols ?? 0)
         self.modules = .init(startIndex: fork?.ring.modules ?? 0)
         self.routes = [:]
-
-        self._surface = .init()
     }
 
     var head:Version.Revision? 
@@ -79,93 +60,41 @@ struct Branch:Identifiable, Sendable
 extension Branch 
 {
     mutating 
-    func commit(token:UInt, hash:String, pins:[Packages.Index: Version], date:Date, tag:Tag?) 
-        -> Version
+    func commit(_ commit:__owned Commit, token:UInt, 
+        pins:__owned [Packages.Index: Version]) -> Version
     {
-        let commit:Version.Revision = self.revisions.endIndex
-        self.revisions.append(.init(token: token, hash: hash, 
+        let revision:Version.Revision = self.revisions.endIndex
+        self.revisions.append(.init(commit: commit, token: token,
             ring: .init(
                 modules: self.modules.endIndex, 
                 symbols: self.symbols.endIndex, 
                 articles: self.articles.endIndex), 
-            pins: pins, 
-            date: date,
-            tag: tag))
-        return .init(self.index, commit)
+            pins: pins))
+        return .init(self.index, revision)
     }
 }
 extension Branch 
 {
     mutating 
-    func add(module id:ModuleIdentifier, culture:Packages.Index, fasces:Fasces) 
+    func addModule(_ namespace:ModuleIdentifier, nationality:Packages.Index, local:Fasces) 
         -> Atom<Module>.Position
     {
-        if let existing:Atom<Module>.Position = fasces.modules.find(id)
+        if let existing:Atom<Module>.Position = local.modules.find(namespace)
         {
             return existing 
         }
         else 
         {
             return self.modules
-                .insert(id, culture: culture, Module.init(id:culture:))
+                .insert(namespace, culture: nationality, Module.init(id:culture:))
                 .positioned(self.index)
         }
     }
+
     mutating 
-    func add(graph:SymbolGraph, namespaces:__owned Namespaces, 
-        upstream:[Packages.Index: Package.Pinned],
-        fasces:Fasces, 
-        stems:inout Route.Stems) 
-        -> ModuleInterface
-    {
-        let linked:Set<Atom<Module>> = namespaces.import()
-        let (articles, _extensions):(ModuleInterface.Abstractor<Article>, [Extension]) = self.addExtensions(from: graph, 
-            namespace: namespaces.module, 
-            trunk: fasces.articles, 
-            stems: &stems)
-        var symbols:ModuleInterface.Abstractor<Symbol> = self.addSymbols(from: graph, 
-            namespaces: namespaces, 
-            upstream: upstream, 
-            linked: linked,
-            trunk: fasces.symbols, 
-            stems: &stems)
-        
-        assert(symbols.count == graph.vertices.count)
-
-        symbols.extend(over: graph.identifiers) 
-        {
-            if let local:Atom<Symbol> = self.symbols.atoms[$0] 
-            {
-                return local.positioned(self.index)
-            }
-            if let local:Atom<Symbol>.Position = fasces.symbols.find($0)
-            {
-                return local 
-            } 
-            for upstream:Package.Pinned in upstream.values 
-            {
-                if  let upstream:Atom<Symbol>.Position = upstream.symbols.find($0), 
-                        linked.contains(upstream.culture)
-                {
-                    return upstream
-                }
-            }
-            return nil 
-        }
-
-        return .init(namespaces: _move namespaces, 
-            _extensions: _move _extensions,
-            articles: _move articles,
-            symbols: _move symbols)
-    }
-
-    private mutating 
-    func addSymbols(from graph:SymbolGraph, namespaces:Namespaces, 
-        upstream:[Packages.Index: Package.Pinned], 
-        linked:Set<Atom<Module>>,
-        trunk:Fasces.SymbolView, 
-        stems:inout Route.Stems) 
-        -> ModuleInterface.Abstractor<Symbol>
+    func addSymbols(from graph:SymbolGraph, visible:Set<Atom<Module>>,
+        context:ModuleUpdateContext, 
+        stems:inout Route.Stems) -> ModuleInterface.Abstractor<Symbol>
     {
         var positions:[Atom<Symbol>.Position?] = []
             positions.reserveCapacity(graph.identifiers.count)
@@ -173,7 +102,7 @@ extension Branch
             graph.colonies
         {
             // will always succeed for the core subgraph
-            guard let namespace:Atom<Module> = namespaces.linked[namespace]?.atom
+            guard let namespace:Atom<Module> = context.linked[namespace]?.atom
             else 
             {
                 print("warning: ignored colonial symbolgraph '\(graph.id)@\(namespace)'")
@@ -188,25 +117,24 @@ extension Branch
                 zip(vertices.indices, vertices)
             {
                 positions.append(self.addSymbol(graph.identifiers[offset], 
-                    culture: namespaces.culture, 
+                    culture: context.culture, 
                     namespace: namespace, 
-                    linked: linked, 
+                    visible: visible, 
                     vertex: vertex, 
-                    upstream: upstream, 
-                    trunk: trunk, 
+                    context: context, 
                     stems: &stems))
             }
             let end:Symbol.Offset = self.symbols.endIndex 
             if start < end
             {
-                if self.index == namespaces.module.position.branch 
+                if self.index == context.module.branch 
                 {
-                    self.modules[contemporary: namespaces.culture].symbols
+                    self.modules[contemporary: context.culture].symbols
                         .append((start ..< end, namespace))
                 }
                 else 
                 {
-                    self.modules.divergences[namespaces.culture, default: .init()].symbols
+                    self.modules.divergences[context.culture, default: .init()].symbols
                         .append((start ..< end, namespace))
                 }
             }
@@ -215,14 +143,13 @@ extension Branch
     }
     private mutating 
     func addSymbol(_ id:SymbolIdentifier, culture:Atom<Module>, namespace:Atom<Module>, 
-        linked:Set<Atom<Module>>,
+        visible:Set<Atom<Module>>,
         vertex:SymbolGraph.Vertex<Int>,
-        upstream:[Packages.Index: Package.Pinned], 
-        trunk:Fasces.SymbolView, 
+        context:ModuleUpdateContext,
         stems:inout Route.Stems)
         -> Atom<Symbol>.Position
     {
-        if let existing:Atom<Symbol>.Position = trunk.find(id)
+        if let existing:Atom<Symbol>.Position = context.local.symbols.find(id)
         {
             // swift encodes module names in symbol identifiers, so if a symbol changes culture, 
             // something really weird has happened.
@@ -235,10 +162,10 @@ extension Branch
                 fatalError("symbol with id '\(id)' has already been registered in a different module! symbolgraph may have been corrupted!")
             }
         } 
-        for upstream:Package.Pinned in upstream.values 
+        for upstream:Package.Pinned in context.upstream.values 
         {
             if  let restated:Atom<Symbol>.Position = upstream.symbols.find(id), 
-                    linked.contains(restated.culture)
+                    visible.contains(restated.culture)
             {
                 return restated 
             }
@@ -278,8 +205,9 @@ extension Branch
 
     // TODO: ideally we want to be rendering markdown AOT. so once that is implemented 
     // in the `SymbolGraphs` module, we can get rid of the ugly tuple return here.
-    private mutating 
-    func addExtensions(from graph:SymbolGraph, namespace:Namespace, trunk:Fasces.ArticleView, 
+    mutating 
+    func addExtensions(from graph:SymbolGraph, namespace:Atom<Module>.Position, 
+        trunk:Fasces.ArticleView, 
         stems:inout Route.Stems) 
         -> (ModuleInterface.Abstractor<Article>, [Extension])
     {
@@ -300,7 +228,7 @@ extension Branch
                 // articles are always associated with modules, and the name
                 // of that module is part of the article identity.
                 positions.append(self.addArticle(path, 
-                    culture: namespace.culture, 
+                    culture: namespace.atom, 
                     trunk: trunk, 
                     stems: &stems))
             
@@ -311,14 +239,14 @@ extension Branch
         let end:Article.Offset = self.articles.endIndex
         if start < end
         {
-            if self.index == namespace.position.branch 
+            if self.index == namespace.branch 
             {
-                self.modules[contemporary: namespace.culture].articles
+                self.modules[contemporary: namespace.atom].articles
                     .append(start ..< end)
             }
             else 
             {
-                self.modules.divergences[namespace.culture, default: .init()].articles
+                self.modules.divergences[namespace.atom, default: .init()].articles
                     .append(start ..< end)
             }
         }

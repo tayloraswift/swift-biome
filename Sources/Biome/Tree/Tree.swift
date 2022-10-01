@@ -1,5 +1,14 @@
 import Versions
 
+struct VersionNotFoundError:Error 
+{
+    let selector:Version.Selector
+
+    init(_ selector:Version.Selector)
+    {
+        self.selector = selector
+    }
+}
 struct Tree 
 {
     let nationality:Packages.Index
@@ -189,39 +198,46 @@ extension Tree
 extension Tree 
 {
     mutating 
-    func branch(_ name:Branch.ID, from fork:Version?) -> Version.Branch 
+    func branch(_ name:Branch.ID, from fork:Version.Selector?) 
+        throws -> (branch:Version.Branch, previous:Version?)
     {
         if  let branch:Version.Branch = self.branches[name]
         {
-            return branch 
+            // pushing to an existing branch (ignores `fork` argument)
+            return (branch, self[branch].latest) 
         }
+
         let branch:Version.Branch = self.endIndex
-        if  let fork:Version 
-        {
-            let ring:Branch.Ring = self[fork].branch(branch)
-            self.storage.append(.init(id: name, index: branch, fork: (fork, ring)))
-        }
+
+        guard let fork:Version.Selector
         else 
         {
+            // creating a new branch
             self.storage.append(.init(id: name, index: branch, fork: nil))
+            self.branches[name] = branch 
+            return (branch, nil) 
         }
+        guard let fork:Version = self.find(fork)
+        else 
+        {
+            throw VersionNotFoundError.init(fork)
+        }
+
+        let ring:Branch.Ring = self[fork].branch(branch)
+        self.storage.append(.init(id: name, index: branch, fork: (fork, ring)))
         self.branches[name] = branch 
-        return branch 
+        return (branch, fork) 
     }
+    
     mutating 
-    func commit(branch:Version.Branch, hash:String, pins:[Packages.Index: Version], 
-        date:Date, 
-        tag:Tag?) -> Version
+    func commit(_ commit:__owned Commit, to branch:Version.Branch, 
+        pins:__owned [Packages.Index: Version]) -> Version
     {
         defer 
         {
             self.counter += 1
         }
-        return self[branch].commit(token: self.counter, 
-            hash: hash, 
-            pins: pins, 
-            date: date, 
-            tag: tag)
+        return self[branch].commit(commit, token: self.counter, pins: pins)
     }
 }
 

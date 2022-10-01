@@ -15,23 +15,28 @@ extension Branch
         
         var alternates:[Version.Branch]
         var consumers:[Packages.Index: [Version: Set<Atom<Module>>]]
-        let hash:String
+        let commit:Commit
         let ring:Ring
         let pins:[Packages.Index: Version]
-        let date:Date
-        var tag:Tag? 
 
-        init(token:UInt, hash:String, ring:Ring, pins:[Packages.Index: Version], date:Date, tag:Tag?)
+        init(commit:Commit, token:UInt, ring:Ring, pins:[Packages.Index: Version])
         {
-            self.token = token 
 
             self.alternates = []
             self.consumers = [:]
-            self.hash = hash 
+            self.commit = commit
+            self.token = token 
             self.ring = ring 
             self.pins = pins 
-            self.date = date 
-            self.tag = tag 
+        }
+
+        var date:Date
+        {
+            self.commit.date
+        }
+        var tag:Tag?
+        {
+            self.commit.tag
         }
     }
 }

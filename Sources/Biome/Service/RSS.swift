@@ -1,7 +1,7 @@
 import RSS 
 import URI
 
-extension Ecosystem 
+extension Service 
 {
     public 
     func generateRssFeed(for module:Atom<Module>, domain:String) -> [RSS.Element<Never>] 

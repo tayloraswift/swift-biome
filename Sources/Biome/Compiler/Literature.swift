@@ -33,12 +33,14 @@ struct DocumentationExtension<Extended>
         self.card = .init()
         self.body = .init()
     }
+    fileprivate
     init(compiling _extension:__owned Extension, extending extends:Extended? = nil,
         resolver:Resolver,
-        imports:Set<Atom<Module>>, 
         scope:LexicalScope?, 
         stems:Route.Stems)
     {
+        let imports:Set<Atom<Module>> = resolver.namespaces.import(_extension.metadata.imports)
+
         let (card, body):(DOM.Flattened<String>, DOM.Flattened<String>) = 
             _extension.rendered()
         
@@ -173,7 +175,7 @@ struct Literature
             }
         }
 
-        func consolidated(culture:Packages.Index) -> [Atom<Symbol>: Comment]
+        func consolidated(nationality:Packages.Index) -> [Atom<Symbol>: Comment]
         {
             var skipped:Int = 0,
                 dropped:Int = 0
@@ -196,7 +198,7 @@ struct Literature
                     // or a local symbol that has documentation
                     var visited:Set<Atom<Symbol>> = []
                     fastforwarding:
-                    while origin.nationality == culture
+                    while origin.nationality == nationality
                     {
                         if case _? = visited.update(with: origin)
                         {
@@ -232,10 +234,9 @@ struct Literature
     private(set) 
     var package:DocumentationExtension<Never>?
 
-    init(compiling graphs:__owned [SymbolGraph], interfaces:__owned [ModuleInterface], 
-        package local:Packages.Index, 
-        version:Version, 
-        context:__shared Packages, 
+    init(compiling graphs:__shared [SymbolGraph], 
+        interface:__shared PackageInterface, 
+        local:__shared Package, 
         stems:__shared Route.Stems)
     {
         self.articles = []
@@ -244,7 +245,7 @@ struct Literature
         self.package = nil
 
         var comments:Comments = .init()
-        for (graph, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interfaces)
+        for (graph, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interface)
         {
             comments.update(with: graph, interface: interface)
         }
@@ -253,41 +254,34 @@ struct Literature
             print("pruned \(comments.pruned) duplicate comments")
         }
 
-        self.compile(graphs: _move graphs, interfaces: _move interfaces, 
-            comments: (_move comments).consolidated(culture: local),
-            package: .init(context[local], version: version), 
-            context: context, 
+        self.compile(graphs: graphs, interface: interface, 
+            comments: (_move comments).consolidated(nationality: local.nationality),
+            local: .init(local, version: interface.version), 
             stems: stems)
     }
     private mutating 
-    func compile(graphs:__owned [SymbolGraph], 
-        interfaces:__owned [ModuleInterface], 
+    func compile(graphs:[SymbolGraph], 
+        interface:PackageInterface, 
         comments:__owned [Atom<Symbol>: Comment], 
-        package local:Package.Pinned, 
-        context:Packages,
+        local:Package.Pinned, 
         stems:Route.Stems)
     {
         var resolvers:[Atom<Module>: Resolver] = .init(minimumCapacity: graphs.count)
-        for (_, interface):(SymbolGraph, ModuleInterface) in zip(_move graphs, _move interfaces)
+        for (_, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interface)
         {
             // use the interface-level pins and not the package-level pins, 
             // to reduce the size of the search context
-            let resolver:Resolver = .init(local: local, pins: interface.pins,
-                namespaces: interface.namespaces,
-                context: context)
+            let resolver:Resolver = .init(local: local, context: interface.context)
 
             for (position, _extension):(Atom<Article>.Position?, Extension) in 
                 zip(interface.citizenArticles, interface._cachedMarkdown)
             {
-                let imports:Set<Atom<Module>> = 
-                    interface.namespaces.import(_extension.metadata.imports)
                 // TODO: handle merge behavior block directive 
                 if let position:Atom<Article>.Position 
                 {
                     self.articles.append((position.atom, .init(
                         compiling: _move _extension, 
                         resolver: resolver, 
-                        imports: imports, 
                         scope: .init(interface.culture), 
                         stems: stems)))
                 }
@@ -311,14 +305,12 @@ struct Literature
                     // case .package(_): 
                     //     self.package = .init(compiling: _move _extension, 
                     //         resolver: resolver, 
-                    //         imports: imports, 
                     //         scope: nil, 
                     //         stems: stems)
                     
                     case .module(let module): 
                         self.modules.append((module, .init(compiling: _move _extension, 
                             resolver: resolver, 
-                            imports: imports, 
                             scope: .init(module), 
                             stems: stems)))
                     
@@ -342,7 +334,6 @@ struct Literature
                         }
                         self.symbols.append((symbol, .init(compiling: _move _extension, 
                             resolver: resolver,
-                            imports: imports, 
                             scope: .init(local.package.tree[local: plural]), 
                             stems: stems)))
                     
@@ -382,7 +373,6 @@ struct Literature
                     resolver.local.package.tree[local: element.positioned(comment.branch)]
                 documentation = .init(compiling: _extension, extending: origin, 
                     resolver: resolver,
-                    imports: resolver.namespaces.import(_extension.metadata.imports), 
                     scope: .init(symbol), 
                     stems: stems)
             }

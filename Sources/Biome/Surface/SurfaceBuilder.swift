@@ -11,7 +11,7 @@ extension SurfaceBuilder
         var scope:Symbol.Scope<Atom<Symbol>.Position>?
     }
     fileprivate 
-    struct Nodes:RandomAccessCollection 
+    struct Nodes:RandomAccessCollection
     {
         private 
         var storage:[Node]
@@ -98,7 +98,8 @@ extension SurfaceBuilder
         }
     }
 }
-struct SurfaceBuilder 
+
+extension SurfaceBuilder
 {
     struct Context:Sendable 
     {
@@ -118,7 +119,49 @@ struct SurfaceBuilder
             }
         }
     }
+}
+extension SurfaceBuilder.Context
+{
+    fileprivate 
+    func validate(edges:[SymbolGraph.Edge<Int>], abstractor:ModuleInterface.Abstractor<Symbol>) 
+        -> (beliefs:[SurfaceBuilder.Belief], errors:[any Error])
+    {
+        var errors:[any Error] = []
+        // if we have `n` edges, we will get between `n` and `2n` beliefs
+        var beliefs:[SurfaceBuilder.Belief] = []
+            beliefs.reserveCapacity(edges.count)
+        for edge:SymbolGraph.Edge<Int> in edges
+        {
+            do 
+            {
+                let edge:SymbolGraph.Edge<Atom<Symbol>.Position> = try edge.map 
+                {
+                    if let position:Atom<Symbol>.Position = abstractor[$0]
+                    {
+                        return position
+                    }
+                    else 
+                    {
+                        throw ModuleInterface.SymbolLookupError.init($0)
+                    }
+                }
+                beliefs.append(contentsOf: try .init(edge: edge,
+                    source: self[global: edge.source].shape,
+                    target: self[global: edge.target].shape))
+            } 
+            catch let error 
+            {
+                errors.append(error)
+                continue
+            }
+        }
+        return (beliefs, errors)
+    }
+}
 
+
+struct SurfaceBuilder 
+{
     private(set)
     var previous:Surface 
     private(set)
@@ -149,8 +192,10 @@ struct SurfaceBuilder
     }
 
     mutating 
-    func update(with edges:[SymbolGraph.Edge<Int>], interface:ModuleInterface, context:Context) 
+    func update(with edges:[SymbolGraph.Edge<Int>], interface:ModuleInterface, local:Package) 
     {
+        assert(interface.nationality == local.nationality)
+
         self.previous.modules.remove(interface.culture)
         self.modules.append(interface.culture)
 
@@ -164,16 +209,16 @@ struct SurfaceBuilder
             }
         }
         
-        let (beliefs, errors):([Belief], [ModuleInterface.LookupError]) = 
-            interface.symbols.translate(edges: edges, context: context)
+        let context:Context = .init(upstream: interface.context.upstream, local: local)
+        
+        let (beliefs, errors):([Belief], [any Error]) = context.validate(edges: edges, 
+            abstractor: interface.symbols)
         
         if !errors.isEmpty 
         {
             print("warning: dropped \(errors.count) edges")
         }
 
-        assert(interface.nationality == context.local.nationality)
-        
         self.insert(_move beliefs, symbols: interface.citizenSymbols, context: context)
     }
 
@@ -432,3 +477,4 @@ extension SurfaceBuilder
             foreign: .init(self.foreign.lazy.map(\.0)))
     }
 }
+

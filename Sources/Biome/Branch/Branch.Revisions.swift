@@ -48,7 +48,7 @@ extension Branch.Revisions
     // FIXME: this could be made a lot more efficient
     func find(_ hash:String) -> Version.Revision?
     {
-        self.firstIndex { $0.hash == hash }
+        self.firstIndex { $0.commit.hash == hash }
     }
 }
 extension Branch.Revisions:ExpressibleByArrayLiteral 

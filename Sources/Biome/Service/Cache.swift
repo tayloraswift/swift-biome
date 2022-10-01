@@ -8,7 +8,7 @@ struct Cache
     let search:Resource 
 }
 
-extension Ecosystem 
+extension Service 
 {
     func generateSearchIndex(for package:Packages.Index) -> Resource
     {

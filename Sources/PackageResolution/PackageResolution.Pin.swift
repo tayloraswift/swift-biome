@@ -12,7 +12,7 @@ extension PackageResolution
     }
     
     public 
-    struct Pin:Identifiable 
+    struct Pin:Identifiable, Sendable 
     {
         public 
         let id:PackageIdentifier

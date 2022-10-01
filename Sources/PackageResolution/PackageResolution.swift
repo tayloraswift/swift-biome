@@ -2,7 +2,7 @@ import JSON
 import SymbolSource
 
 public 
-struct PackageResolution
+struct PackageResolution:Sendable
 {
     public
     var pins:[Pin.ID: Pin]

@@ -86,7 +86,7 @@ extension GetRequest
 }
 extension GetRequest 
 {
-    init?(_ request:URI, extant composite:Composite, context:__shared LocalContext, 
+    init?(_ request:URI, extant composite:Composite, context:__shared DirectionalContext, 
         functions:__shared Service.PublicFunction.Names)
     {
         var origin:Atom<Symbol> = composite.base 
@@ -140,7 +140,7 @@ extension GetRequest
             pinned: context.local)))
     }
 
-    init?(_ request:URI, choices:[Composite], context:__shared LocalContext, 
+    init?(_ request:URI, choices:[Composite], context:__shared DirectionalContext, 
         functions:__shared Service.PublicFunction.Names, 
         migration:Bool = false)
     {

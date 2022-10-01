@@ -5,8 +5,11 @@ let package = Package(
     name: "swift-biome",
     products: 
     [
+        .library(name: "URI",                   targets: ["URI"]),
         .library(name: "Versions",              targets: ["Versions"]),
+        .library(name: "SymbolAvailability",    targets: ["SymbolAvailability"]),
         .library(name: "SymbolGraphs",          targets: ["SymbolGraphs"]),
+        .library(name: "SymbolSource",          targets: ["SymbolSource"]),
         .library(name: "Biome",                 targets: ["Biome"]),
         .library(name: "PackageResolution",     targets: ["PackageResolution"]),
         .library(name: "PackageCatalogs",       targets: ["PackageCatalogs"]),
@@ -15,7 +18,7 @@ let package = Package(
         .executable(name: "preview",            targets: ["Preview"]),
         .executable(name: "swift-symbolgraphc", targets: ["SymbolGraphConvert"]),
 
-        .executable(name: "biome-tests", targets: ["BiomeTests"]),
+        .executable(name: "biome-tests",        targets: ["BiomeTests"]),
     ],
     dependencies: 
     [
@@ -27,8 +30,8 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-resource", .upToNextMinor(from: "0.3.2")),
         .package(url: "https://github.com/kelvin13/swift-dom", .upToNextMinor(from: "0.5.2")),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",    branch: "swift-DEVELOPMENT-SNAPSHOT-2022-09-27-a"),
-        .package(url: "https://github.com/apple/swift-syntax.git",      revision: "swift-DEVELOPMENT-SNAPSHOT-2022-09-27-a"),
+        .package(url: "https://github.com/apple/swift-markdown.git",    revision: "swift-DEVELOPMENT-SNAPSHOT-2022-09-29-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",      revision: "swift-DEVELOPMENT-SNAPSHOT-2022-09-29-a"),
         
         // only used by the PackageLoader target
         .package(url: "https://github.com/kelvin13/swift-system-extras.git", .upToNextMinor(from: "0.2.0")),

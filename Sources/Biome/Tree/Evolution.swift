@@ -138,7 +138,7 @@ extension Evolution
                 let metadata:Module.Metadata = 
                     $0.metadata(local: symbol.culture)
             {
-                let context:LocalContext = .init(local: $0,
+                let context:DirectionalContext = .init(local: $0,
                     metadata: metadata, 
                     context: context)
                 return context.local.address(of: symbol.atom, 
@@ -174,7 +174,7 @@ extension Evolution
                 return nil 
             }
 
-            let context:LocalContext = .init(local: $0,
+            let context:DirectionalContext = .init(local: $0,
                 metadata: metadata, 
                 context: context)
             

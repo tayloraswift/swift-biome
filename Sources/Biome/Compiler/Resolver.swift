@@ -9,93 +9,66 @@ enum Scheme
 }
 struct Resolver 
 {
-    private 
-    struct Lenses:RandomAccessCollection
-    {
-        let context:LocalContext
-        private 
-        let upstream:[Package.Pinned]
-
-        var startIndex:Int 
-        {
-            -1 
-        }
-        var endIndex:Int
-        {
-            self.upstream.endIndex
-        }
-        subscript(index:Int) -> Package.Pinned 
-        {
-            _read 
-            {
-                yield index < 0 ? self.context.local : self.upstream[index]
-            }
-        }
-
-        init(_ context:LocalContext)
-        {
-            self.upstream = .init(context.foreign.values) 
-            self.context = context
-        }
-
-        func select(_ key:Route, 
-            disambiguator:_SymbolLink.Disambiguator, 
-            imports:Set<Atom<Module>>) -> Selection<Composite>?
-        {
-            var selection:Selection<Composite>? = nil 
-            for lens:Package.Pinned in self
-            {
-                lens.routes.select(key)
-                {
-                    if  imports.contains($0.culture), 
-                        lens.exists($0), 
-                        disambiguator.matches($0, context: self.context)
-                    {
-                        selection.append($0)
-                    }
-                } as ()
-            }
-            return selection
-        }
-    }
-
-    private 
-    let lenses:Lenses 
+    // these exists to make lookups/iteration easier
     private 
     let linked:[PackageIdentifier: Package.Pinned]
+    let context:DirectionalContext
     let namespaces:Namespaces
 
-    init(local:Package.Pinned, pins:__shared [Packages.Index: Version], 
-        namespaces:Namespaces, 
-        context:__shared Packages)
+    init(local:Package.Pinned, context:__shared ModuleUpdateContext)
     {
-        let context:LocalContext = .init(local: _move local, pins: pins, context: context)
-        var linked:[PackageIdentifier: Package.Pinned] = .init(minimumCapacity: pins.count + 1)
-            linked[context.local.package.id] = context.local 
-        for upstream:Package.Pinned in context.foreign.values 
+        //let context:DirectionalContext = .init(local: _move local, upstream: context.upstream)
+        var linked:[PackageIdentifier: Package.Pinned] = [:]
+
+        linked.reserveCapacity(context.upstream.count + 1)
+        linked[local.package.id] = local 
+        for upstream:Package.Pinned in context.upstream.values 
         {
             linked[upstream.package.id] = upstream
         }
-        self.namespaces = namespaces
-        self.lenses = .init(_move context)
+
+        self.namespaces = context.namespaces
+        self.context = .init(local: local, upstream: context.upstream)
         self.linked = linked
     }
 
-    var context:LocalContext
-    {
-        _read 
-        {
-            yield self.lenses.context
-        }
-    }
     var local:Package.Pinned 
     {
-        _read 
-        {
-            yield self.context.local
-        }
+        self.context.local
     }
+}
+extension Resolver
+{
+    private
+    func select(_ key:Route, disambiguator:_SymbolLink.Disambiguator, 
+        imports:Set<Atom<Module>>) -> Selection<Composite>?
+    {
+        var selection:Selection<Composite>? = nil 
 
+        func inspect(_ lens:Package.Pinned)
+        {
+            lens.routes.select(key)
+            {
+                if  imports.contains($0.culture), 
+                    lens.exists($0), 
+                    disambiguator.matches($0, context: self.context)
+                {
+                    selection.append($0)
+                }
+            } as ()
+        }
+
+        inspect(self.local)
+        for lens:Package.Pinned in self.context.foreign.values
+        {
+            inspect(lens)
+        }
+
+        return selection
+    }
+}
+extension Resolver
+{
     func resolve(expression:String, 
         imports:Set<Atom<Module>>, 
         scope:LexicalScope?, 
@@ -267,7 +240,7 @@ struct Resolver
                 stems: stems, 
                 until: 
                 { 
-                    self.lenses.select($0, disambiguator: link.disambiguator, imports: imports) 
+                    self.select($0, disambiguator: link.disambiguator, imports: imports) 
                 })
         {
             return .init(selection)
@@ -285,8 +258,9 @@ struct Resolver
             return .module(namespace.atom)
         }
         if  let key:Route = stems[namespace.atom, link], 
-            let selection:Selection<Composite> = 
-                self.lenses.select(key, disambiguator: link.disambiguator, imports: imports)
+            let selection:Selection<Composite> = self.select(key, 
+                disambiguator: link.disambiguator, 
+                imports: imports)
         {
             return .init(selection)
         }

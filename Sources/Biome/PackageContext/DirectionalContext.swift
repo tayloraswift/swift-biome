@@ -1,10 +1,15 @@
 // this isn’t *quite* ``SurfaceBuilder.Context``, because ``local`` is pinned here.
-struct LocalContext:AnisotropicContext, Sendable 
+struct DirectionalContext:AnisotropicContext, Sendable 
 {
     private(set) 
     var foreign:[Packages.Index: Package.Pinned]
     let local:Package.Pinned 
 
+    init(local:Package.Pinned, upstream:[Packages.Index: Package.Pinned])
+    {
+        self.foreign = upstream 
+        self.local = local
+    }
     init(local:Package.Pinned, pins:__shared [Packages.Index: Version], 
         context:__shared Packages)
     {
@@ -17,7 +22,7 @@ struct LocalContext:AnisotropicContext, Sendable
     }
 }
 
-extension LocalContext 
+extension DirectionalContext 
 {
     init(local:Package.Pinned, context:__shared Packages) 
     {
@@ -31,7 +36,7 @@ extension LocalContext
             context: context)
     }
 }
-extension LocalContext 
+extension DirectionalContext 
 {
     func repinned(to version:Version, context:__shared Packages) -> Self 
     {
