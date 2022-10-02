@@ -50,6 +50,11 @@ let package = Package(
                 .product(name: "SVG",               package: "swift-dom"),
             ]),
         
+        .target(name: "Sediment", 
+            dependencies: 
+            [
+            ]),
+        
         .target(name: "URI", 
             dependencies: 
             [
@@ -153,6 +158,14 @@ let package = Package(
                 .product(name: "SystemExtras",      package: "swift-system-extras"),
                 .product(name: "ArgumentParser",    package: "swift-argument-parser"),
             ]),
+        
+
+        .executableTarget(name: "SedimentTests", 
+            dependencies: 
+            [
+                .target(name: "Sediment"),
+            ], 
+            path: "Tests/SedimentTests"),
         
         .executableTarget(name: "BiomeTests", 
             dependencies: 
