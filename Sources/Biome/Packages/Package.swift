@@ -50,21 +50,13 @@ struct Package:Identifiable, Sendable
 extension Package
 {
     mutating 
-    func updateMetadata(context:__owned PackageUpdateContext, commit:__owned Commit,
+    func updateMetadata(interface:PackageInterface, graphs:[SymbolGraph],
         branch:Version.Branch, 
-        graphs:[SymbolGraph],
-        stems:inout Route.Stems, 
-        api:inout SurfaceBuilder) -> PackageInterface
+        stems:Route.Stems, 
+        api:inout SurfaceBuilder)
     {
-        var interface:PackageInterface = .init(capacity: graphs.count, 
-            version: self.tree.commit(commit, to: branch, pins: context.pins()),
-            local: context.local)
-        for (graph, context):(SymbolGraph, ModuleUpdateContext) in zip(graphs, _move context)
+        for (graph, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interface)
         {
-            let interface:ModuleInterface = interface.update(&self.tree[branch], with: graph, 
-                context: context, 
-                stems: &stems)
-
             api.update(with: graph.edges, interface: interface, local: self)
         }
 
@@ -78,8 +70,6 @@ extension Package
         self.metadata.update(&self.tree[interface.version.branch], 
             interface: interface, 
             builder: api)
-        
-        return interface
     }
 }
 extension Package 

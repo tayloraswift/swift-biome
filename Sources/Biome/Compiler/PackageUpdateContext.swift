@@ -16,12 +16,35 @@ struct PackageUpdateContext
     let local:Fasces 
     private
     var storage:[BasisElement]
-
-    init(capacity:Int = 0, local:Fasces)
+    
+    init(resolution:PackageResolution,
+        nationality:Packages.Index,
+        graphs:__shared [SymbolGraph],
+        branch:Version.Branch,
+        packages:inout Packages) throws
     {
-        self.local = local
+        let linkable:[Packages.Index: PackageUpdateContext.Dependency] = 
+            packages.find(pins: resolution.pins.values)
+        
+        self.local = packages[nationality].tree.fasces(upTo: branch)
         self.storage = []
-        self.storage.reserveCapacity(capacity)
+        self.storage.reserveCapacity(graphs.count)
+        
+        for graph:SymbolGraph in graphs 
+        {
+            let module:Atom<Module>.Position = 
+                packages[nationality].tree[branch].addModule(graph.id,
+                    nationality: nationality, 
+                    local: self.local)
+            // use this instead of `graph.id` to prevent string duplication
+            var element:BasisElement = .init(module, id: packages[global: module].id)
+            try element.link(dependencies: graph.dependencies, 
+                linkable: linkable, 
+                packages: packages,
+                branch: branch, 
+                fasces: self.local)
+            self.storage.append(element)
+        }
     }
 }
 extension PackageUpdateContext
@@ -30,23 +53,6 @@ extension PackageUpdateContext
     {
         case available(Version)
         case unavailable(Tag, String)
-    }
-
-    mutating 
-    func append(_ module:Atom<Module>.Position,
-        dependencies:[SymbolGraph.Dependency], 
-        linkable:[Packages.Index: Dependency], 
-        branch:Version.Branch, 
-        context:Packages) throws
-    {
-        // use this instead of `graph.id` to prevent string duplication
-        var element:BasisElement = .init(module, id: context[global: module].id)
-        try element.link(dependencies: dependencies, 
-            linkable: linkable, 
-            branch: branch, 
-            fasces: self.local, 
-            context: context)
-        self.storage.append(element)
     }
 
     func pins() -> [Packages.Index: Version]
@@ -107,15 +113,15 @@ extension PackageUpdateContext
         mutating 
         func link(dependencies:[SymbolGraph.Dependency], 
             linkable:[Packages.Index: Dependency], 
+            packages:Packages,
             branch:Version.Branch, 
-            fasces:Fasces, 
-            context:Packages) throws
+            fasces:Fasces) throws
         {
             self.upstream.reserveCapacity(dependencies.count + 2)
             // add explicit dependencies 
             for dependency:SymbolGraph.Dependency in dependencies
             {
-                guard let package:Package = context[dependency.package]
+                guard let package:Package = packages[dependency.package]
                 else 
                 {
                     throw DependencyNotFoundError.package(dependency.package)
@@ -135,20 +141,20 @@ extension PackageUpdateContext
             // add implicit dependencies
             if self.nationality != .swift 
             {
-                try self.link(upstream: .swift, linkable: linkable, context: context)
+                try self.link(upstream: .swift, linkable: linkable, packages: packages)
                 
                 if self.nationality != .core 
                 {
-                    try self.link(upstream: .core, linkable: linkable, context: context)
+                    try self.link(upstream: .core, linkable: linkable, packages: packages)
                 }
             }
         }
         private mutating 
         func link(upstream package:PackageIdentifier, 
             linkable:[Packages.Index: Dependency], 
-            context:Packages) throws
+            packages:Packages) throws
         {
-            if let package:Package = context[package]
+            if let package:Package = packages[package]
             {
                 try self.link(upstream: _move package, linkable: linkable)
             }

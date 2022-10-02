@@ -29,7 +29,7 @@ actor Service
 extension Service 
 {
     func updatePackage(_ id:PackageIdentifier, 
-        resolved:PackageResolution,
+        resolution:PackageResolution,
         branch:String, 
         fork:String? = nil,
         date:Date, 
@@ -39,7 +39,7 @@ extension Service
     {
         try Task.checkCancellation()
 
-        guard let pin:PackageResolution.Pin = resolved.pins[id]
+        guard let pin:PackageResolution.Pin = resolution.pins[id]
         else 
         {
             fatalError("missing pin for '\(id)'")
@@ -53,25 +53,38 @@ extension Service
         let fork:Version.Selector? = fork.flatMap(Version.Selector.init(parsing:))
         // topological sort  
         let graphs:[SymbolGraph] = try graphs.topologicallySorted(for: id)
-        return try await self.add(package: id, 
-            resolved: resolved, 
+
+        let nationality:Packages.Index = self.packages.addPackage(id)
+
+        let impact:PackageImpact = try await self.updatePackage(nationality, 
+            resolution: resolution, 
             commit: .init(hash: pin.revision, date: date, tag: tag.flatMap(Tag.init(parsing:))),
             branch: branch, 
             fork: fork,
             graphs: graphs, 
             database: database)
+        
+        for (dependency, (pin, consumers)):(Packages.Index, (Version, Set<Atom<Module>>)) in 
+            impact.dependencies
+        {
+            assert(dependency != nationality)
+
+            self.packages[dependency].tree[pin]
+                .consumers[nationality, default: [:]][impact.version] = consumers
+        }
+
+        return nationality
     }
 
     private  
-    func add<Database:_Database>(package id:PackageIdentifier, 
-        resolved:__owned PackageResolution, 
+    func updatePackage<Database:_Database>(_ nationality:Packages.Index,
+        resolution:__owned PackageResolution, 
         commit:__owned Commit,
         branch:Tag, 
         fork:Version.Selector?,
         graphs:__owned [SymbolGraph], 
-        database:Database) async throws -> Packages.Index
+        database:Database) async throws -> PackageImpact
     {
-        let nationality:Packages.Index = self.packages.addPackage(id)
         let (branch, previous):(Version.Branch, Version?) = 
             try self.packages[nationality].tree.branch(branch, from: fork)
 
@@ -88,32 +101,45 @@ extension Service
             api = .init(previous: .init())
         }
         
-        let context:PackageUpdateContext = try self.packages.addModules(to: branch, 
-            nationality: nationality, 
-            resolved: _move resolved,
-            graphs: graphs)
-        
-        let interface:PackageInterface = self.packages[nationality].updateMetadata(
-            context: _move context, 
-            commit: _move commit,
-            branch: branch,
-            graphs: graphs,
-            stems: &self.stems,
-            api: &api)
-        
-        let literature:Literature = .init(compiling: graphs, 
-            interface: interface, 
-            local: self.packages[nationality], 
-            stems: stems)
-        
-        let surface:Surface = (_move api).surface()
-        try await database.storeSurface(_move surface, for: nationality, version: interface.version)
-        try await database.storeLiterature(literature)
+        do 
+        {
+            let context:PackageUpdateContext = try .init(resolution: _move resolution,
+                nationality: nationality,
+                graphs: graphs,
+                branch: branch,
+                packages: &self.packages)
+            
+            let interface:PackageInterface = .init(context: _move context, commit: _move commit, 
+                graphs: graphs,
+                branch: branch,
+                stems: &self.stems,
+                tree: &self.packages[nationality].tree)
+            
+            self.packages[nationality].updateMetadata(interface: interface,
+                graphs: graphs,
+                branch: branch,
+                stems: self.stems,
+                api: &api)
+            
+            let literature:Literature = .init(compiling: graphs, 
+                interface: interface, 
+                local: self.packages[nationality], 
+                stems: stems)
+            
+            let surface:Surface = (_move api).surface()
+            try await database.storeSurface(_move surface, for: nationality, version: interface.version)
+            try await database.storeLiterature(literature)
 
-        self.packages[nationality].updateData(literature: _move literature, 
-            interface: _move interface, 
-            graphs: _move graphs)
-        
-        return nationality 
+            self.packages[nationality].updateData(literature: _move literature, 
+                interface: interface, 
+                graphs: _move graphs)
+            
+            return .init(interface: _move interface)
+        }
+        catch let error
+        {
+            //self.packages[nationality].rollback(branch: branch, to: previous)
+            throw error 
+        }
     }
 }

@@ -25,6 +25,27 @@ struct Packages
         precondition(core == .core) 
     }
 }
+extension Packages
+{
+    /// Creates a package entry for the given package graph, if it does not already exist.
+    /// 
+    /// -   Returns: The index of the package, identified by its ``PackageIdentifier``.
+    mutating 
+    func addPackage(_ package:PackageIdentifier) -> Index
+    {
+        if let index:Index = self.index[package]
+        {
+            return index 
+        }
+        else 
+        {
+            let index:Index = self.endIndex
+            self.packages.append(.init(id: package, nationality: index))
+            self.index[package] = index
+            return index
+        }
+    }
+}
 extension Packages:RandomAccessCollection
 {
     public 
@@ -97,51 +118,6 @@ extension Packages
 }
 extension Packages
 {
-    /// Creates a package entry for the given package graph, if it does not already exist.
-    /// 
-    /// -   Returns: The index of the package, identified by its ``PackageIdentifier``.
-    mutating 
-    func addPackage(_ package:PackageIdentifier) -> Index
-    {
-        if let index:Index = self.index[package]
-        {
-            return index 
-        }
-        else 
-        {
-            let index:Index = self.endIndex
-            self.packages.append(.init(id: package, nationality: index))
-            self.index[package] = index
-            return index
-        }
-    }
-}
-extension Packages
-{
-    mutating 
-    func addModules(to branch:Version.Branch, nationality:Index,
-        resolved:__owned PackageResolution, 
-        graphs:__shared [SymbolGraph]) throws -> PackageUpdateContext
-    {
-        let linkable:[Index: PackageUpdateContext.Dependency] = 
-            self.find(pins: resolved.pins.values)
-        var context:PackageUpdateContext = .init(capacity: graphs.count,
-            local: self[nationality].tree.fasces(upTo: branch))
-        
-        for graph:SymbolGraph in graphs 
-        {
-            let module:Atom<Module>.Position = self[nationality].tree[branch].addModule(graph.id,
-                nationality: nationality, 
-                local: context.local)
-            try context.append(module, dependencies: graph.dependencies, 
-                linkable: linkable, 
-                branch: branch,
-                context: self)
-        }
-
-        return context 
-    }
-    private 
     func find(pins:some Sequence<PackageResolution.Pin>) 
         -> [Index: PackageUpdateContext.Dependency]
     {
