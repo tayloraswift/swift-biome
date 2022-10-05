@@ -17,7 +17,7 @@ struct Symbol:IntrinsicElement, Sendable
     let path:Path
     let kind:Kind
     let route:Route
-    var scope:Scope<Atom<Self>.Position>?
+    var scope:Scope?
 
     var metadata:OriginalHead<Metadata?>?
     var declaration:OriginalHead<Declaration<Atom<Symbol>>>?
@@ -36,7 +36,7 @@ struct Symbol:IntrinsicElement, Sendable
         self.documentation = nil
     }
 
-    var shape:Shape 
+    var shape:Shape
     {
         self.kind.shape 
     } 

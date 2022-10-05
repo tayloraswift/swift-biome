@@ -8,7 +8,7 @@ extension SurfaceBuilder
     {
         var metadata:Symbol.Metadata
         let element:Atom<Symbol> 
-        var scope:Symbol.Scope<Atom<Symbol>.Position>?
+        var scope:Symbol.Scope?
     }
     fileprivate 
     struct Nodes:RandomAccessCollection
@@ -310,7 +310,7 @@ struct SurfaceBuilder
     {
         let symbol:Symbol = context.local.tree[local: position] 
 
-        var scope:Symbol.Scope<Atom<Symbol>.Position>? = nil
+        var scope:Symbol.Scope? = nil
         // partition relationships buffer 
         var superclass:Atom<Symbol>? = nil 
         var residuals:[Symbol.Role<Atom<Symbol>>] = []
@@ -352,7 +352,7 @@ struct SurfaceBuilder
             
         let roles:Branch.SymbolRoles? = .init(residuals,
             superclass: superclass, 
-            scope: scope?.map(\.atom), 
+            scope: scope, 
             as: symbol.shape)
         let traits:Tree.SymbolTraits = .init(traits, as: symbol.shape)
         
@@ -431,7 +431,7 @@ extension SurfaceBuilder
             {
                 continue 
             }
-            if let scope:Symbol.Scope<Atom<Symbol>.Position> = node.scope 
+            if let scope:Symbol.Scope = node.scope 
             {
                 // already have a scope from a member or requirement belief
                 symbols[contemporary: node.element].scope = scope

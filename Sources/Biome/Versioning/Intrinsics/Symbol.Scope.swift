@@ -1,15 +1,12 @@
-extension Symbol.Scope:Equatable where Position:Equatable {}
-extension Symbol.Scope:Hashable where Position:Hashable {}
-extension Symbol.Scope:Sendable where Position:Sendable {}
 extension Symbol 
 {
     // should have stride of 16 B, as well as `Scope?` and `Scope??`
-    enum Scope<Position>
+    enum Scope:Sendable
     {
-        case member(of:Position)
-        case requirement(of:Position)
+        case member(of:Atom<Symbol>.Position)
+        case requirement(of:Atom<Symbol>.Position)
         
-        var role:Role<Position>
+        var role:Role<Atom<Symbol>.Position>
         {
             switch self 
             {
@@ -17,23 +14,12 @@ extension Symbol
             case .requirement(of: let target):  return .requirement(of: target)
             }
         }
-        var target:Position 
+        var target:Atom<Symbol>.Position 
         {
             switch self 
             {
-            case .member(let index), .requirement(let index): 
-                return index
-            }
-        }
-        
-        func map<T>(_ transform:(Position) throws -> T) rethrows -> Scope<T>
-        {
-            switch self 
-            {
-            case .member(of: let target): 
-                return .member(of: try transform(target))
-            case .requirement(of: let target): 
-                return .requirement(of: try transform(target))
+            case .member(let target), .requirement(let target): 
+                return target
             }
         }
     }

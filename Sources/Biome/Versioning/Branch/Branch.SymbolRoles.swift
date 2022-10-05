@@ -68,7 +68,7 @@ extension Branch
         }
         init?(_ roles:some Sequence<Symbol.Role<Atom<Symbol>>>, 
             superclass:Atom<Symbol>?, 
-            scope:Symbol.Scope<Atom<Symbol>>?, 
+            scope:Symbol.Scope?, 
             as shape:Shape) 
         {
             if  let superclass:Atom<Symbol> = superclass 
@@ -141,7 +141,7 @@ extension Branch
                         case .implementation(of: let upstream): 
                             return upstream
                         default: 
-                            fatalError("unreachable") 
+                            fatalError("unreachable")
                         }
                     })
                     

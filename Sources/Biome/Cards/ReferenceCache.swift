@@ -42,7 +42,7 @@ struct ModuleReference
 }
 struct SymbolReference 
 {
-    let scope:Symbol.Scope<Atom<Symbol>.Position>?
+    let scope:Symbol.Scope?
     let display:Symbol.Display
     let namespace:Atom<Module>
     let uri:String 
