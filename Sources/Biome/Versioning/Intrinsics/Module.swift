@@ -14,8 +14,8 @@ struct Module:IntrinsicElement, Sendable
     let id:ModuleIdentifier
     let culture:Atom<Self>
 
-    var symbols:[(range:Range<Symbol.Offset>, namespace:Atom<Module>)]
-    var articles:[Range<Article.Offset>]
+    // var symbols:[(range:Range<Symbol.Offset>, namespace:Atom<Module>)]
+    // var articles:[Range<Article.Offset>]
     
     var metadata:OriginalHead<Metadata?>?
 
@@ -32,8 +32,8 @@ struct Module:IntrinsicElement, Sendable
         self.id = id 
         self.culture = culture
 
-        self.symbols = []
-        self.articles = []
+        // self.symbols = []
+        // self.articles = []
 
         self.metadata = nil
         self.topLevelArticles = nil 

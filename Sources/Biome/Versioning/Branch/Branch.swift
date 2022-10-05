@@ -224,8 +224,7 @@ struct Branch:Identifiable, Sendable
         articles:IntrinsicBuffer<Article>, 
         symbols:IntrinsicBuffer<Symbol>
     var overlays:Overlays
-
-    var routes:[Route: Stack]
+    var routes:RoutingTable
 
     var history:History
 
@@ -242,7 +241,7 @@ struct Branch:Identifiable, Sendable
         self.articles = .init(startIndex: fork?.ring.articles ?? 0)
         self.symbols = .init(startIndex: fork?.ring.symbols ?? 0)
         self.modules = .init(startIndex: fork?.ring.modules ?? 0)
-        self.routes = [:]
+        self.routes = .init()
 
         self.history = .init()
     }
@@ -286,6 +285,16 @@ extension Branch
             pins: pins))
         return .init(self.index, revision)
     }
+    mutating 
+    func revert(to previous:Version.Revision)
+    {
+        let revision:Revision = self.revisions[previous]
+
+        self.modules.remove(from: revision.ring.modules)
+        self.symbols.remove(from: revision.ring.symbols)
+        self.articles.remove(from: revision.ring.articles)
+        self.routes.revert(to: previous)
+    }
 }
 extension Branch 
 {
@@ -326,7 +335,7 @@ extension Branch
                 continue 
             }
             
-            let start:Symbol.Offset = self.symbols.endIndex
+            // let start:Symbol.Offset = self.symbols.endIndex
             for (offset, vertex):(Int, SymbolGraph.Vertex<Int>) in 
                 zip(vertices.indices, vertices)
             {
@@ -338,20 +347,20 @@ extension Branch
                     context: context, 
                     stems: &stems))
             }
-            let end:Symbol.Offset = self.symbols.endIndex 
-            if start < end
-            {
-                if self.index == context.module.branch 
-                {
-                    self.modules[contemporary: context.culture].symbols
-                        .append((start ..< end, namespace))
-                }
-                else 
-                {
-                    self.modules.divergences[context.culture, default: .init()].symbols
-                        .append((start ..< end, namespace))
-                }
-            }
+            // let end:Symbol.Offset = self.symbols.endIndex 
+            // if start < end
+            // {
+            //     if self.index == context.module.branch 
+            //     {
+            //         self.modules[contemporary: context.culture].symbols
+            //             .append((start ..< end, namespace))
+            //     }
+            //     else 
+            //     {
+            //         self.modules.divergences[context.culture, default: .init()].symbols
+            //             .append((start ..< end, namespace))
+            //     }
+            // }
         }
         return .init(_move positions)
     }
@@ -432,7 +441,7 @@ extension Branch
 
         var positions:[Atom<Article>.Position?] = []
             positions.reserveCapacity(graph.extensions.count)
-        let start:Article.Offset = self.articles.endIndex
+        // let start:Article.Offset = self.articles.endIndex
         for article:Extension in _extensions
         {
             switch (article.metadata.path, article.binding)
@@ -450,20 +459,20 @@ extension Branch
                 positions.append(nil)
             }
         }
-        let end:Article.Offset = self.articles.endIndex
-        if start < end
-        {
-            if self.index == namespace.branch 
-            {
-                self.modules[contemporary: namespace.atom].articles
-                    .append(start ..< end)
-            }
-            else 
-            {
-                self.modules.divergences[namespace.atom, default: .init()].articles
-                    .append(start ..< end)
-            }
-        }
+        // let end:Article.Offset = self.articles.endIndex
+        // if start < end
+        // {
+        //     if self.index == namespace.branch 
+        //     {
+        //         self.modules[contemporary: namespace.atom].articles
+        //             .append(start ..< end)
+        //     }
+        //     else 
+        //     {
+        //         self.modules.divergences[namespace.atom, default: .init()].articles
+        //             .append(start ..< end)
+        //     }
+        // }
         return (.init(_move positions), _extensions)
     }
     private mutating 

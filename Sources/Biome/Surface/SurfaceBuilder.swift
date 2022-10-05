@@ -419,7 +419,7 @@ extension SurfaceBuilder
     }
     private mutating 
     func inferScopes(for symbols:inout IntrinsicBuffer<Symbol>, 
-        routes:Fasces.AugmentedRoutingView, 
+        routes:Fasces.AugmentedRoutes, 
         stems:Route.Stems)
     {
         for node:Node in self.nodes
@@ -451,7 +451,7 @@ extension SurfaceBuilder
             {
                 let selection:Selection<Atom<Symbol>.Position>? = routes.select(scope)
                 {
-                    (branch:Version.Branch, composite:Composite) in 
+                    (composite:Composite, branch:Version.Branch) in 
                     composite.atom.map { $0.positioned(branch) }
                 }
                 if case .one(let scope)? = selection 

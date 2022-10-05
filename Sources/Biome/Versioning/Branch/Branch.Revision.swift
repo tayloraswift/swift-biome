@@ -4,7 +4,6 @@ extension Branch
 {
     struct Ring:Sendable 
     {
-        //let revision:Int 
         let modules:Module.Offset
         let symbols:Symbol.Offset
         let articles:Article.Offset

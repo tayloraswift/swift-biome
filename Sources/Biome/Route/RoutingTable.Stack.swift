@@ -1,4 +1,4 @@
-extension Branch 
+extension RoutingTable 
 {
     // 24B stride. the ``many`` case should be quite rare, since we are now 
     // encoding path orientation in the leaf key.
@@ -8,11 +8,6 @@ extension Branch
         case one ((Composite, Version.Revision))
         case many([Atom<Symbol>: Substack])
         
-        @available(*, deprecated)
-        func forEach(_ body:(Composite) throws -> ()) rethrows 
-        {
-            try self.forEach { (composite, _) in try body(composite) }
-        }
         func forEach(_ body:(Composite, Version.Revision) throws -> ()) rethrows 
         {
             switch self
@@ -39,7 +34,22 @@ extension Branch
         }
     }
 }
-extension Branch.Stack? 
+extension RoutingTable.Stack
+{
+    func reverted(to revision:Version.Revision) -> Self?
+    {
+        var reverted:Self? = nil
+        self.forEach
+        {
+            if $1 <= revision
+            {
+                reverted.insert($0, revision: $1)
+            }
+        }
+        return reverted
+    }
+}
+extension RoutingTable.Stack?
 {
     mutating 
     func insert(_ element:Composite, revision:Version.Revision)
@@ -51,7 +61,7 @@ extension Branch.Stack?
         case .one((element, let revision))?: 
             self = .one((element, revision)) 
         case .one(let other)?: 
-            let two:[Atom<Symbol>: Branch.Substack]
+            let two:[Atom<Symbol>: RoutingTable.Substack]
             // overloading on host id is extremely rare; the column 
             // array layout is inefficient, but allows us to represent the 
             // more-common row layout efficiently
@@ -75,73 +85,6 @@ extension Branch.Stack?
         case .many(var subgroups)?:
             subgroups[element.base].insert(element.diacritic, revision: revision)
             self = .many(subgroups)
-        }
-    }
-    @available(*, unavailable)
-    mutating 
-    func remove(_ element:Composite)
-    {
-    }
-}
-
-extension [Route: Branch.Stack]
-{
-    mutating 
-    func stack(routes:some Sequence<(Key, Composite)>, revision:Version.Revision) 
-    {
-        for (key, composite):(Key, Composite) in routes 
-        {
-            self[key].insert(composite, revision: revision)
-        }
-    }
-
-    func select(_ key:Key, _ body:(Composite) throws -> ()) rethrows 
-    {
-        try self[key]?.forEach { (composite, _) in try body(composite) }
-    }
-}
-extension Period<[Route: Branch.Stack]>
-{
-    func select(_ key:Route, _ body:(Composite) throws -> ()) rethrows 
-    {
-        try self.axis[key]?.forEach 
-        {
-            if $1 <= self.latest.revision 
-            {
-                try body($0)
-            }
-        }
-    }
-}
-extension Sequence<Period<[Route: Branch.Stack]>>
-{
-    func select(_ key:Route) -> Selection<Composite>?
-    {
-        self.select(key) { $0 }
-    }
-    func select(_ key:Route, where predicate:(Composite) throws -> Bool) rethrows 
-        -> Selection<Composite>?
-    {
-        try self.select(key) { try predicate($0) ? $0 : nil }
-    }
-    func select<T>(_ key:Route, where filter:(Composite) throws -> T?) rethrows 
-        -> Selection<T>?
-    {
-        var selection:Selection<T>? = nil
-        try self.select(key) 
-        {
-            if let selected:T = try filter($0)
-            {
-                selection.append(selected)
-            }
-        } as ()
-        return selection
-    }
-    func select(_ key:Route, _ body:(Composite) throws -> ()) rethrows 
-    {
-        for period:Period<[Route: Branch.Stack]> in self
-        {
-            try period.select(key, body)
         }
     }
 }

@@ -47,7 +47,7 @@ extension Resolver
 
         func inspect(_ lens:Package.Pinned)
         {
-            lens.routes.select(key)
+            lens.routes.query(key)
             {
                 if  imports.contains($0.culture), 
                     lens.exists($0), 
@@ -55,7 +55,7 @@ extension Resolver
                 {
                     selection.append($0)
                 }
-            } as ()
+            }
         }
 
         inspect(self.local)

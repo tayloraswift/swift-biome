@@ -59,7 +59,7 @@ extension Package
             self.fasces.metadata
         }
 
-        var routes:Fasces.RoutingView 
+        var routes:Fasces.Routes 
         {
             self.fasces.routes
         }
@@ -490,7 +490,7 @@ extension Package.Pinned
     {
         do 
         {
-            try self.routes.select(route) 
+            try self.routes.query(route) 
             {
                 guard self.exists($0)
                 else 
@@ -501,7 +501,7 @@ extension Package.Pinned
                 {
                     throw Branch.AtomicDepth.base 
                 }
-            } as ()
+            }
             return nil  
         }
         catch 
@@ -515,7 +515,7 @@ extension Package.Pinned
         do 
         {
             var depth:Branch.CompoundDepth? = nil
-            try self.routes.select(route) 
+            try self.routes.query(route) 
             {
                 guard self.exists($0)
                 else 
@@ -534,7 +534,7 @@ extension Package.Pinned
                 {
                     throw Branch.CompoundDepth.host
                 }
-            } as ()
+            }
             return depth 
         }
         catch 

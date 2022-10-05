@@ -8,7 +8,7 @@ struct Fascis:Sendable
         _modules:IntrinsicSlice<Module>,
         _overlays:Overlays
     private 
-    let _routes:[Route: Branch.Stack]
+    let _routes:RoutingTable
     
     let history:History
 
@@ -24,7 +24,7 @@ struct Fascis:Sendable
         symbols:IntrinsicSlice<Symbol>,
         overlays:Overlays,
         history:History,
-        routes:[Route: Branch.Stack],
+        routes:RoutingTable,
         branch:Version.Branch, 
         limit:Version.Revision, 
         fork:Version?)
@@ -55,7 +55,7 @@ struct Fascis:Sendable
         self.latest.revision
     }
 
-    var routes:Period<[Route: Branch.Stack]> 
+    var routes:Period<RoutingTable> 
     {
         .init(self._routes, latest: self.latest, fork: self.fork)
     }

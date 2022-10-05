@@ -114,9 +114,14 @@ extension IntrinsicBuffer
         private 
         var table:[Element.ID: Atom<Element>]
 
+        private 
+        init(_ table:[Element.ID: Atom<Element>])
+        {
+            self.table = table
+        }
         init()
         {
-            self.table = [:]
+            self.init([:])
         }
 
         subscript(id:Element.ID) -> Atom<Element>?
@@ -129,6 +134,11 @@ extension IntrinsicBuffer
             {
                 yield &self.table[id]
             }
+        }
+
+        func filter(where predicate:(Atom<Element>) throws -> Bool) rethrows -> Self
+        {
+            .init(try self.table.filter { try predicate($0.value) })
         }
     }
 
@@ -165,5 +175,12 @@ extension IntrinsicBuffer
             self.atoms[id] = atom
             return atom 
         }
+    }
+    mutating 
+    func remove(from end:Element.Offset)
+    {
+        self.elements.removeSubrange(Int.init(end)...)
+        self.atoms = self.atoms.filter { $0.offset < end }
+        fatalError("unimplemented")
     }
 }

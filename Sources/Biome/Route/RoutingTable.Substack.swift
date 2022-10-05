@@ -1,4 +1,4 @@
-extension Branch 
+extension RoutingTable 
 {
     enum Substack:Sendable 
     {
@@ -7,7 +7,7 @@ extension Branch
     }
 }
 
-extension Branch.Substack? 
+extension RoutingTable.Substack? 
 {
     mutating 
     func insert(_ element:Diacritic, revision:Version.Revision)
@@ -24,10 +24,5 @@ extension Branch.Substack?
             { _ in }(&diacritics[element, default: revision])
             self = .many(diacritics)
         }
-    }
-    @available(*, unavailable)
-    mutating 
-    func remove(_ element:Diacritic)
-    {
     }
 }
