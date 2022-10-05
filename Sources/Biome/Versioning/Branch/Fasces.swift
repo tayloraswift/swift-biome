@@ -126,11 +126,11 @@ extension Fasces:RandomAccessCollection, RangeReplaceableCollection
 }
 
 
-protocol Periods<Axis>:Collection where Element == _Period<Axis>
+protocol Periods<Axis>:Collection where Element == Period<Axis>
 {
     associatedtype Axis:PeriodAxis
 
-    subscript(index:Int) -> _Period<Axis>
+    subscript(index:Int) -> Period<Axis>
     {
         get
     }
@@ -140,7 +140,7 @@ extension Periods
     func find<Element>(_ id:Element.ID) -> Atom<Element>.Position? 
         where Axis == IntrinsicSlice<Element>
     {
-        for period:_Period<Axis> in self 
+        for period:Period<Axis> in self 
         {
             if let atom:Atom<Element> = period.axis.atoms[id]
             {
@@ -151,12 +151,12 @@ extension Periods
     }
 }
 
-protocol FieldViews<Axis, Value>:Collection where Element == _Period<Axis>.FieldView<Value>
+protocol FieldViews<Axis, Value>:Collection where Element == Period<Axis>.FieldView<Value>
 {
     associatedtype Axis:PeriodAxis
     associatedtype Value:Equatable
 
-    subscript(index:Int) -> _Period<Axis>.FieldView<Value>
+    subscript(index:Int) -> Period<Axis>.FieldView<Value>
     {
         get
     }
@@ -220,7 +220,7 @@ struct Timeline<Trunk>:Sequence, IteratorProtocol where Trunk:FieldViews
     mutating 
     func next() -> FieldValues?
     {
-        guard let view:_Period<Trunk.Axis>.FieldView<Trunk.Value> = self.trunk?.next() 
+        guard let view:Period<Trunk.Axis>.FieldView<Trunk.Value> = self.trunk?.next() 
         else 
         {
             return nil 

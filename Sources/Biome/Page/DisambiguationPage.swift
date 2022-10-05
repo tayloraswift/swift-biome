@@ -42,7 +42,7 @@ struct DisambiguationPage
                             base.declaration(for: $0.base)
                 else 
                 {
-                    throw Package.DataLoadingError.declaration
+                    throw History.DataLoadingError.declaration
                 }
                 let overview:DOM.Flattened<GlobalLink.Presentation>? = 
                     base.documentation(for: $0.base)?.card 

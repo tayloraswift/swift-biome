@@ -48,28 +48,28 @@ extension Fasces.Metadata
 
 extension Fasces.Metadata.Modules:FieldViews
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Module>>.FieldView<Module.Metadata?>
+    subscript(index:Int) -> Period<IntrinsicSlice<Module>>.FieldView<Module.Metadata?>
     {
         self.base[index].metadata.modules
     }
 }
 extension Fasces.Metadata.Articles:FieldViews
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Article>>.FieldView<Article.Metadata?>
+    subscript(index:Int) -> Period<IntrinsicSlice<Article>>.FieldView<Article.Metadata?>
     {
         self.base[index].metadata.articles
     }
 }
 extension Fasces.Metadata.Symbols:FieldViews
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Symbol>>.FieldView<Symbol.Metadata?>
+    subscript(index:Int) -> Period<IntrinsicSlice<Symbol>>.FieldView<Symbol.Metadata?>
     {
         self.base[index].metadata.symbols
     }
 }
 extension Fasces.Metadata.Overlays:FieldViews
 {
-    subscript(index:Int) -> _Period<Overlays>.FieldView<Overlay.Metadata?>
+    subscript(index:Int) -> Period<Overlays>.FieldView<Overlay.Metadata?>
     {
         self.base[index].metadata.overlays
     }

@@ -1,6 +1,6 @@
 import Sediment
 
-struct _Period<Axis> where Axis:PeriodAxis
+struct Period<Axis> where Axis:PeriodAxis
 {
     let axis:Axis
     /// The last version contained within this period.
@@ -16,7 +16,7 @@ struct _Period<Axis> where Axis:PeriodAxis
         self.fork = fork
     }
 }
-extension _Period
+extension Period
 {
     /// The index of the original branch this period was cut from.
     /// 
@@ -28,21 +28,21 @@ extension _Period
     }
 }
 
-extension _Period
+extension Period
 {
     struct FieldView<Value> where Value:Equatable
     {
         let sediment:Sediment<Version.Revision, Value>
-        let period:_Period<Axis>
+        let period:Period<Axis>
 
-        init(_ period:_Period<Axis>, sediment:Sediment<Version.Revision, Value>)
+        init(_ period:Period<Axis>, sediment:Sediment<Version.Revision, Value>)
         {
             self.sediment = sediment
             self.period = period
         }
     }
 }
-extension _Period.FieldView
+extension Period.FieldView
 {
     var axis:Axis
     {

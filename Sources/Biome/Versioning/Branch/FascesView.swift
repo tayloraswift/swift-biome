@@ -52,28 +52,28 @@ extension Fasces
 }
 extension Fasces.Modules:Periods
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Module>>
+    subscript(index:Int) -> Period<IntrinsicSlice<Module>>
     {
         self.base[index].modules
     }
 }
 extension Fasces.Articles:Periods
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Article>>
+    subscript(index:Int) -> Period<IntrinsicSlice<Article>>
     {
         self.base[index].articles
     }
 }
 extension Fasces.Symbols:Periods
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Symbol>>
+    subscript(index:Int) -> Period<IntrinsicSlice<Symbol>>
     {
         self.base[index].symbols
     }
 }
 extension Fasces.Overlays:Periods
 {
-    subscript(index:Int) -> _Period<Overlays>
+    subscript(index:Int) -> Period<Overlays>
     {
         self.base[index].overlays
     }

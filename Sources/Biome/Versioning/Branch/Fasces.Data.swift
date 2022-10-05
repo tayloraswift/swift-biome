@@ -68,21 +68,21 @@ extension Fasces.Data
 
 extension Fasces.Data.TopLevelArticles:FieldViews
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Article>>>
+    subscript(index:Int) -> Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Article>>>
     {
         self.base[index].data.topLevelArticles
     }
 }
 extension Fasces.Data.TopLevelSymbols:FieldViews
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Symbol>>>
+    subscript(index:Int) -> Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Symbol>>>
     {
         self.base[index].data.topLevelSymbols
     }
 }
 extension Fasces.Data.Declarations:FieldViews
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Symbol>>.FieldView<Declaration<Atom<Symbol>>>
+    subscript(index:Int) -> Period<IntrinsicSlice<Symbol>>.FieldView<Declaration<Atom<Symbol>>>
     {
         self.base[index].data.declarations
     }
@@ -90,21 +90,21 @@ extension Fasces.Data.Declarations:FieldViews
 
 extension Fasces.Data.ModuleDocumentation:FieldViews
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Module>>.FieldView<DocumentationExtension<Never>>
+    subscript(index:Int) -> Period<IntrinsicSlice<Module>>.FieldView<DocumentationExtension<Never>>
     {
         self.base[index].data.moduleDocumentation
     }
 }
 extension Fasces.Data.ArticleDocumentation:FieldViews
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Article>>.FieldView<DocumentationExtension<Never>>
+    subscript(index:Int) -> Period<IntrinsicSlice<Article>>.FieldView<DocumentationExtension<Never>>
     {
         self.base[index].data.articleDocumentation
     }
 }
 extension Fasces.Data.SymbolDocumentation:FieldViews
 {
-    subscript(index:Int) -> _Period<IntrinsicSlice<Symbol>>.FieldView<DocumentationExtension<Atom<Symbol>>>
+    subscript(index:Int) -> Period<IntrinsicSlice<Symbol>>.FieldView<DocumentationExtension<Atom<Symbol>>>
     {
         self.base[index].data.symbolDocumentation
     }

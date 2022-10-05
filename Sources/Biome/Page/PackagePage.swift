@@ -58,7 +58,7 @@ struct PackagePage
         self.logo = logo 
 
         self.modules = []
-        for period:_Period<IntrinsicSlice<Module>> in context.local.modules
+        for period:Period<IntrinsicSlice<Module>> in context.local.modules
         {
             for module:Module in period.axis where context.local.exists(module.culture)
             {

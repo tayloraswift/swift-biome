@@ -52,10 +52,10 @@ extension Atom
         .init(self, branch: branch)
     }
     func positioned(
-        bisecting trunk:some RandomAccessCollection<_Period<IntrinsicSlice<Element>>>) 
+        bisecting trunk:some RandomAccessCollection<Period<IntrinsicSlice<Element>>>) 
         -> Atom<Element>.Position?
     {
-        let period:_Period<IntrinsicSlice<Element>>? = trunk.search 
+        let period:Period<IntrinsicSlice<Element>>? = trunk.search 
         {
             if      self.offset < $0.axis.indices.lowerBound 
             {

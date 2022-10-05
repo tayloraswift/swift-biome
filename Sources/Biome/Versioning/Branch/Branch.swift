@@ -244,7 +244,7 @@ extension Branch
             }
             self.history.data.declarations.deposit(inserting: declaration, 
                 revision: revision, 
-                field: .declaration(of: element), 
+                field: .declaration(of: element),
                 trunk: interface.local.data.declarations,
                 axis: &self.symbols)
         }
@@ -287,52 +287,6 @@ extension Branch
 public 
 struct Branch:Identifiable, Sendable 
 {
-    struct _History
-    {
-        struct Metadata
-        {
-            var modules:Sediment<Version.Revision, Module.Metadata?>
-            var articles:Sediment<Version.Revision, Article.Metadata?>
-            var symbols:Sediment<Version.Revision, Symbol.Metadata?>
-            var overlays:Sediment<Version.Revision, Overlay.Metadata?>
-
-            init()
-            {
-                self.modules = .init()
-                self.articles = .init()
-                self.symbols = .init()
-                self.overlays = .init()
-            }
-        }
-        struct Data
-        {
-            var topLevelArticles:Sediment<Version.Revision, Set<Atom<Article>>>
-            var topLevelSymbols:Sediment<Version.Revision, Set<Atom<Symbol>>>
-            var declarations:Sediment<Version.Revision, Declaration<Atom<Symbol>>>
-
-            var standaloneDocumentation:Sediment<Version.Revision, DocumentationExtension<Never>>
-            var cascadingDocumentation:Sediment<Version.Revision, DocumentationExtension<Atom<Symbol>>>
-            init()
-            {
-                self.topLevelArticles = .init()
-                self.topLevelSymbols = .init()
-                self.declarations = .init()
-
-                self.standaloneDocumentation = .init()
-                self.cascadingDocumentation = .init()
-            }
-        }
-
-        var metadata:Metadata
-        var data:Data
-
-        init()
-        {
-            self.metadata = .init()
-            self.data = .init()
-        }
-    }
-
     public 
     let id:Tag
     let index:Version.Branch
@@ -347,7 +301,7 @@ struct Branch:Identifiable, Sendable
 
     var routes:[Route: Stack]
 
-    var history:_History
+    var history:History
 
     init(id:ID, index:Version.Branch, fork:(version:Version, ring:Ring)?)
     {

@@ -217,7 +217,7 @@ extension Organizer
                     context[composite.base.nationality]?.declaration(for: composite.base)
         else 
         {
-            throw Package.DataLoadingError.declaration
+            throw History.DataLoadingError.declaration
         }
 
         let overview:DOM.Flattened<GlobalLink.Presentation>? = 
@@ -271,7 +271,7 @@ extension Organizer
                         context.local.declaration(for: role)
             else 
             {
-                throw Package.DataLoadingError.declaration
+                throw History.DataLoadingError.declaration
             }
             let overview:DOM.Flattened<GlobalLink.Presentation>? = 
                 context.documentation(for: role)?.card

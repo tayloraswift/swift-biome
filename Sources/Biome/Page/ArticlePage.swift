@@ -24,7 +24,7 @@ struct ArticlePage
         guard let metadata:Article.Metadata = context.local.metadata(local: article.atom) 
         else 
         {
-            throw Package.MetadataLoadingError.article
+            throw History.MetadataLoadingError.article
         }
 
         self.branch = context.local.branch.id

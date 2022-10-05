@@ -148,17 +148,17 @@ extension Organizer.Topics
         guard let metadata:Module.Metadata = context.local.metadata(local: module)
         else 
         {
-            throw Package.MetadataLoadingError.module
+            throw History.MetadataLoadingError.module
         }
         guard let articles:Set<Atom<Article>> = context.local.topLevelArticles(of: module) 
         else 
         {
-            throw Package.DataLoadingError.topLevelArticles
+            throw History.DataLoadingError.topLevelArticles
         }
         guard let symbols:Set<Atom<Symbol>> = context.local.topLevelSymbols(of: module)
         else 
         {
-            throw Package.DataLoadingError.topLevelSymbols
+            throw History.DataLoadingError.topLevelSymbols
         }
 
         var organizer:Organizer = .init()
@@ -183,7 +183,7 @@ extension Organizer.Topics
         guard let metadata:Symbol.Metadata = context.local.metadata(local: atomic)
         else 
         {
-            throw Package.MetadataLoadingError.symbol
+            throw History.MetadataLoadingError.symbol
         }
 
         var organizer:Organizer = .init()

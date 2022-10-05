@@ -10,7 +10,7 @@ struct Fascis:Sendable
     private 
     let _routes:[Route: Branch.Stack]
     
-    let history:Branch._History
+    let history:History
 
     /// The last version contained within this fascis.
     let latest:Version
@@ -23,7 +23,7 @@ struct Fascis:Sendable
         articles:IntrinsicSlice<Article>, 
         symbols:IntrinsicSlice<Symbol>,
         overlays:Overlays,
-        history:Branch._History,
+        history:History,
         routes:[Route: Branch.Stack],
         branch:Version.Branch, 
         limit:Version.Revision, 
@@ -62,19 +62,19 @@ struct Fascis:Sendable
 }
 extension Fascis
 {
-    var modules:_Period<IntrinsicSlice<Module>>
+    var modules:Period<IntrinsicSlice<Module>>
     {
         .init(self._modules, latest: self.latest, fork: self.fork)
     }
-    var articles:_Period<IntrinsicSlice<Article>>
+    var articles:Period<IntrinsicSlice<Article>>
     {
         .init(self._articles, latest: self.latest, fork: self.fork)
     }
-    var symbols:_Period<IntrinsicSlice<Symbol>>
+    var symbols:Period<IntrinsicSlice<Symbol>>
     {
         .init(self._symbols, latest: self.latest, fork: self.fork)
     }
-    var overlays:_Period<Overlays>
+    var overlays:Period<Overlays>
     {
         .init(self._overlays, latest: self.latest, fork: self.fork)
     }
@@ -94,19 +94,19 @@ extension Fascis
 }
 extension Fascis.Metadata
 {
-    var modules:_Period<IntrinsicSlice<Module>>.FieldView<Module.Metadata?>
+    var modules:Period<IntrinsicSlice<Module>>.FieldView<Module.Metadata?>
     {
         .init(self.base.modules, sediment: self.base.history.metadata.modules)
     }
-    var articles:_Period<IntrinsicSlice<Article>>.FieldView<Article.Metadata?>
+    var articles:Period<IntrinsicSlice<Article>>.FieldView<Article.Metadata?>
     {
         .init(self.base.articles, sediment: self.base.history.metadata.articles)
     }
-    var symbols:_Period<IntrinsicSlice<Symbol>>.FieldView<Symbol.Metadata?>
+    var symbols:Period<IntrinsicSlice<Symbol>>.FieldView<Symbol.Metadata?>
     {
         .init(self.base.symbols, sediment: self.base.history.metadata.symbols)
     }
-    var overlays:_Period<Overlays>.FieldView<Overlay.Metadata?>
+    var overlays:Period<Overlays>.FieldView<Overlay.Metadata?>
     {
         .init(self.base.overlays, sediment: self.base.history.metadata.overlays)
     }
@@ -128,30 +128,30 @@ extension Fascis
 
 extension Fascis.Data
 {
-    var topLevelArticles:_Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Article>>>
+    var topLevelArticles:Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Article>>>
     {
         .init(self.base.modules, sediment: self.base.history.data.topLevelArticles)
     }
-    var topLevelSymbols:_Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Symbol>>>
+    var topLevelSymbols:Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Symbol>>>
     {
         .init(self.base.modules, sediment: self.base.history.data.topLevelSymbols)
     }
-    var declarations:_Period<IntrinsicSlice<Symbol>>.FieldView<Declaration<Atom<Symbol>>>
+    var declarations:Period<IntrinsicSlice<Symbol>>.FieldView<Declaration<Atom<Symbol>>>
     {
         .init(self.base.symbols, sediment: self.base.history.data.declarations)
     }
 }
 extension Fascis.Data
 {
-    var moduleDocumentation:_Period<IntrinsicSlice<Module>>.FieldView<DocumentationExtension<Never>>
+    var moduleDocumentation:Period<IntrinsicSlice<Module>>.FieldView<DocumentationExtension<Never>>
     {
         .init(self.base.modules, sediment: self.base.history.data.standaloneDocumentation)
     }
-    var articleDocumentation:_Period<IntrinsicSlice<Article>>.FieldView<DocumentationExtension<Never>>
+    var articleDocumentation:Period<IntrinsicSlice<Article>>.FieldView<DocumentationExtension<Never>>
     {
         .init(self.base.articles, sediment: self.base.history.data.standaloneDocumentation)
     }
-    var symbolDocumentation:_Period<IntrinsicSlice<Symbol>>.FieldView<DocumentationExtension<Atom<Symbol>>>
+    var symbolDocumentation:Period<IntrinsicSlice<Symbol>>.FieldView<DocumentationExtension<Atom<Symbol>>>
     {
         .init(self.base.symbols, sediment: self.base.history.data.cascadingDocumentation)
     }

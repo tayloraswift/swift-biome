@@ -143,7 +143,7 @@ struct SymbolPage
                     context.local.declaration(for: symbol.atom)
         else 
         {
-            throw Package.DataLoadingError.declaration
+            throw History.DataLoadingError.declaration
         }
 
         let base:SymbolReference = try cache.load(symbol, context: context)
@@ -173,7 +173,7 @@ struct SymbolPage
                     context[compound.base.nationality]?.declaration(for: compound.atoms.base)
         else 
         {
-            throw Package.DataLoadingError.declaration
+            throw History.DataLoadingError.declaration
         }
         
         let base:SymbolReference = try cache.load(compound.base, context: context)

@@ -197,7 +197,7 @@ extension PackageUpdateContext
                 }
                 else 
                 {
-                    for period:_Period<IntrinsicSlice<Module>> in pinned.modules 
+                    for period:Period<IntrinsicSlice<Module>> in pinned.modules 
                     {
                         for module:Module in period.axis
                         {
