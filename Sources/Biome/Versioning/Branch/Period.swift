@@ -1,6 +1,6 @@
 import Sediment
 
-struct Period<Axis> where Axis:PeriodAxis
+struct Period<Axis>
 {
     let axis:Axis
     /// The last version contained within this period.
@@ -28,7 +28,7 @@ extension Period
     }
 }
 
-extension Period
+extension Period where Axis:PeriodAxis
 {
     struct FieldView<Value> where Value:Equatable
     {

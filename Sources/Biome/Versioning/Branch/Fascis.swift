@@ -55,7 +55,7 @@ struct Fascis:Sendable
         self.latest.revision
     }
 
-    var routes:Divergences<Route, Branch.Stack> 
+    var routes:Period<[Route: Branch.Stack]> 
     {
         .init(self._routes, latest: self.latest, fork: self.fork)
     }

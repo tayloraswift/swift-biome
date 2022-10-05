@@ -20,7 +20,7 @@ struct Fasces
         {
             self.segments.endIndex
         }
-        subscript(index:Int) -> Divergences<Route, Branch.Stack> 
+        subscript(index:Int) -> Period<[Route: Branch.Stack]> 
         {
             self.segments[index].routes
         }

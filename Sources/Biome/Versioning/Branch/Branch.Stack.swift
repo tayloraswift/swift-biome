@@ -84,7 +84,7 @@ extension Branch.Stack?
     }
 }
 
-extension Dictionary where Value == Branch.Stack 
+extension [Route: Branch.Stack]
 {
     mutating 
     func stack(routes:some Sequence<(Key, Composite)>, revision:Version.Revision) 
@@ -100,11 +100,11 @@ extension Dictionary where Value == Branch.Stack
         try self[key]?.forEach { (composite, _) in try body(composite) }
     }
 }
-extension Divergences where Divergence == Branch.Stack
+extension Period<[Route: Branch.Stack]>
 {
-    func select(_ key:Key, _ body:(Composite) throws -> ()) rethrows 
+    func select(_ key:Route, _ body:(Composite) throws -> ()) rethrows 
     {
-        try self[key]?.forEach 
+        try self.axis[key]?.forEach 
         {
             if $1 <= self.latest.revision 
             {
@@ -113,7 +113,7 @@ extension Divergences where Divergence == Branch.Stack
         }
     }
 }
-extension Sequence<Divergences<Route, Branch.Stack>>
+extension Sequence<Period<[Route: Branch.Stack]>>
 {
     func select(_ key:Route) -> Selection<Composite>?
     {
@@ -139,9 +139,9 @@ extension Sequence<Divergences<Route, Branch.Stack>>
     }
     func select(_ key:Route, _ body:(Composite) throws -> ()) rethrows 
     {
-        for divergences:Divergences<Route, Branch.Stack> in self 
+        for period:Period<[Route: Branch.Stack]> in self
         {
-            try divergences.select(key, body)
+            try period.select(key, body)
         }
     }
 }
