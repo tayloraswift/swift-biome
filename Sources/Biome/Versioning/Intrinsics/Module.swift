@@ -3,7 +3,7 @@ import Notebook
 import URI
 
 public 
-struct Module:AtomicElement, Sendable
+struct Module:IntrinsicElement, Sendable
 {
     public 
     typealias Culture = Packages.Index 

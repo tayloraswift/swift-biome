@@ -5,7 +5,7 @@ extension IntrinsicBuffer:Sendable
             Element:Sendable, Element.ID:Sendable, Element.Divergence:Sendable
 {
 }
-struct IntrinsicBuffer<Element> where Element:AtomicElement & BranchElement
+struct IntrinsicBuffer<Element> where Element:IntrinsicElement & BranchElement
 {
     var divergences:[Atom<Element>: Element.Divergence]
     fileprivate 

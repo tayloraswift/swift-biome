@@ -2,7 +2,7 @@ import SymbolSource
 import HTML
 
 @usableFromInline 
-struct Article:AtomicElement, Sendable
+struct Article:IntrinsicElement, Sendable
 {
     @usableFromInline 
     typealias Culture = Atom<Module>

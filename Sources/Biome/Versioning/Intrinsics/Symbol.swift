@@ -2,7 +2,7 @@ import SymbolGraphs
 import SymbolSource
 
 public
-struct Symbol:AtomicElement, Sendable  
+struct Symbol:IntrinsicElement, Sendable  
 {
     public 
     typealias Culture = Atom<Module>

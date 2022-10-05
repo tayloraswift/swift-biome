@@ -1,6 +1,6 @@
 import Sediment
 
-struct IntrinsicSlice<Element> where Element:AtomicElement & BranchElement 
+struct IntrinsicSlice<Element> where Element:IntrinsicElement & BranchElement 
 {
     private 
     let base:IntrinsicBuffer<Element>
