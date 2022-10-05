@@ -1,4 +1,4 @@
-extension Sediment.Bed:Sendable where Age:Sendable, Value:Sendable {}
+extension Sediment.Bed:Sendable where Instant:Sendable, Value:Sendable {}
 extension Sediment
 {
     @frozen public 
@@ -7,7 +7,7 @@ extension Sediment
         public 
         var value:Value
         public 
-        var since:Age
+        var since:Instant
         public 
         var color:Color
         public 
@@ -18,11 +18,11 @@ extension Sediment
         var parent:Index
 
         @inlinable public 
-        init(_ value:Value, age:Age, color:Color, index:Index, parent:Index?)
+        init(_ value:Value, since time:Instant, color:Color, index:Index, parent:Index?)
         {
             self.value = value 
             self.color = color
-            self.since = age
+            self.since = time
             self.left = index 
             self.right = index 
             self.parent = parent ?? index 
@@ -76,7 +76,7 @@ extension Sediment.Bed
     }
 
     @inlinable public 
-    subscript(child:Side) -> Sediment<Age, Value>.Index 
+    subscript(child:Side) -> Sediment<Instant, Value>.Index 
     {
         _read 
         {

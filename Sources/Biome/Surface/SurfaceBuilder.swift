@@ -169,7 +169,7 @@ struct SurfaceBuilder
 
     private(set)
     var articles:[(Atom<Article>, Article.Metadata)], 
-        foreign:[(Diacritic, Symbol.ForeignMetadata)], 
+        overlays:[(Diacritic, Overlay.Metadata)], 
         modules:[Atom<Module>]
     private 
     var nodes:Nodes
@@ -185,7 +185,7 @@ struct SurfaceBuilder
         self.routes = .init() 
 
         self.articles = []
-        self.foreign = []
+        self.overlays = []
         self.modules = []
 
         self.nodes = .init()
@@ -223,7 +223,7 @@ struct SurfaceBuilder
     }
 
     private mutating 
-    func insert(_ beliefs:__owned [Belief], symbols:ModuleInterface.Citizens<Symbol>, 
+    func insert(_ beliefs:__owned [Belief], symbols:ModuleInterface.Citizens<Symbol>,
         context:Context) 
     {
 
@@ -285,14 +285,14 @@ struct SurfaceBuilder
                 let diacritic:Diacritic = .init(host: position.atom, 
                     culture: symbols.culture)
                 
-                let metadata:Symbol.ForeignMetadata = .init(traits: 
+                let metadata:Overlay.Metadata = .init(traits: 
                     self.createForeignSurface(for: subject, metadata: metadata, 
                         diacritic: diacritic,
                         traits: traits, 
                         context: context))
                 
-                self.previous.foreign.remove(diacritic)
-                self.foreign.append((diacritic, metadata))
+                self.previous.overlays.remove(diacritic)
+                self.overlays.append((diacritic, metadata))
             }
             else 
             {
@@ -418,7 +418,7 @@ extension SurfaceBuilder
             stems: stems)
     }
     private mutating 
-    func inferScopes(for symbols:inout Branch.Buffer<Symbol>, 
+    func inferScopes(for symbols:inout IntrinsicBuffer<Symbol>, 
         routes:Fasces.AugmentedRoutingView, 
         stems:Route.Stems)
     {
@@ -474,7 +474,7 @@ extension SurfaceBuilder
         .init(articles: .init(self.articles.lazy.map(\.0)), 
             symbols: .init(self.nodes.indices.keys), 
             modules: .init(self.modules), 
-            foreign: .init(self.foreign.lazy.map(\.0)))
+            overlays: .init(self.overlays.lazy.map(\.0)))
     }
 }
 

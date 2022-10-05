@@ -2,7 +2,7 @@ import SymbolGraphs
 import SymbolSource
 
 public
-struct Symbol:Sendable  
+struct Symbol:AtomicElement, Sendable  
 {
     public 
     typealias Culture = Atom<Module>
@@ -19,9 +19,9 @@ struct Symbol:Sendable
     let route:Route
     var scope:Scope<Atom<Self>.Position>?
 
-    var metadata:History<Metadata?>.Head?
-    var declaration:History<Declaration<Atom<Symbol>>>.Head?
-    var documentation:History<DocumentationExtension<Atom<Symbol>>>.Head?
+    var metadata:OriginalHead<Metadata?>?
+    var declaration:OriginalHead<Declaration<Atom<Symbol>>>?
+    var documentation:OriginalHead<DocumentationExtension<Atom<Symbol>>>?
 
     init(id:SymbolIdentifier, path:Path, kind:Kind, route:Route)
     {

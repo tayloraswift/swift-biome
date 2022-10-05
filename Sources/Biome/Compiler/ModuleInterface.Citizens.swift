@@ -1,6 +1,6 @@
 extension ModuleInterface
 {
-    struct Citizens<Element>:RandomAccessCollection where Element:BranchElement
+    struct Citizens<Element>:RandomAccessCollection where Element:AtomicElement
     {
         private 
         let table:ArraySlice<Atom<Element>.Position?>

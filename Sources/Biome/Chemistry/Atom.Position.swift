@@ -1,6 +1,6 @@
 extension Atom 
 {
-    struct Position:Hashable where Element:BranchElement
+    struct Position:Hashable
     {
         let atom:Atom<Element>
         let branch:Version.Branch 

@@ -1,10 +1,338 @@
 import SymbolGraphs
 import SymbolSource
 import Versions
+import Sediment
+
+
+typealias OriginalHead<Value> = Sediment<Version.Revision, Value>.Head
+/// A descriptor for a field of a symbol that was founded in a different 
+/// branch than the branch the descriptor lives in, whose value has diverged 
+/// from the value it held when the descriptor’s branch was forked from 
+/// its trunk.
+struct AlternateHead<Value>
+{
+    var head:Sediment<Version.Revision, Value>.Head
+    /// The first revision in which this field diverged from its parent branch.
+    let since:Version.Revision
+}
+enum PeriodHead<Value>
+{
+    case original(OriginalHead<Value>?)
+    case alternate(AlternateHead<Value>?)
+}
+
+extension Optional
+{
+    subscript<Value>(since revision:Version.Revision) -> OriginalHead<Value>?
+        where Wrapped == AlternateHead<Value>
+    {
+        _read
+        {
+            yield self?.head
+        }
+        _modify
+        {
+            if  let existing:AlternateHead<Value> = self 
+            {
+                var head:OriginalHead<Value>? = existing.head
+                let revision:Version.Revision = existing.since
+                yield &head
+                self = head.map { .init(head: $0, since: revision) }
+            }
+            else 
+            {
+                var head:OriginalHead<Value>? = nil
+                yield &head 
+                self = head.map { .init(head: $0, since: revision) }
+            }
+        }
+    }
+}
+
+protocol PluralAxis<Key, Element>
+{
+    associatedtype Key
+    associatedtype Element:BranchElement
+
+    typealias Field<Value> = FieldAccessor<Element, Key, Value>
+}
+protocol BranchAxis<Key, Element>:PluralAxis
+{
+    subscript<Value>(field:Field<Value>) -> OriginalHead<Value>?
+    {
+        get
+    }
+    subscript<Value>(field:Field<Value>, 
+        since revision:Version.Revision) -> OriginalHead<Value>?
+    {
+        get set
+    }
+}
+protocol PeriodAxis<Key, Element>:PluralAxis
+{
+    subscript<Value>(field:Field<Value>) -> PeriodHead<Value>
+    {
+        get
+    }
+}
+
+extension Sediment where Instant == Version.Revision, Value:Equatable
+{
+    mutating 
+    func deposit<Trunk, Axis>(inserting value:__owned Value,
+        revision:Version.Revision,
+        field:Axis.Field<Value>,
+        trunk:Trunk,
+        axis:inout Axis) 
+        where   Trunk:FieldViews, Axis:BranchAxis, 
+                Trunk.Axis.Element == Axis.Element, 
+                Trunk.Axis.Key == Axis.Key,
+                Trunk.Value == Value
+    {
+        let current:OriginalHead<Value>? = axis[field]
+
+        if  let current:OriginalHead<Value>
+        {
+            guard self[current.index].value != value
+            else
+            {
+                return
+            }
+        }
+        else if let existing:Value = trunk.value(of: field)
+        {
+            guard existing != value
+            else
+            {
+                return
+            }
+        }
+
+        axis[field, since: revision] = self.deposit(value, time: revision, over: current)
+    }
+}
+
+extension Branch
+{
+    mutating 
+    func updateMetadata(interface:PackageInterface, builder:SurfaceBuilder)
+    {
+        for missing:Atom<Module> in builder.previous.modules 
+        {
+            self.history.metadata.modules.deposit(inserting: nil,
+                revision: interface.revision, 
+                field: .metadata(of: missing), 
+                trunk: interface.local.metadata.modules,
+                axis: &self.modules)
+        }
+        for missing:Atom<Article> in builder.previous.articles 
+        {
+            self.history.metadata.articles.deposit(inserting: nil,
+                revision: interface.revision, 
+                field: .metadata(of: missing), 
+                trunk: interface.local.metadata.articles,
+                axis: &self.articles)
+        }
+        for missing:Atom<Symbol> in builder.previous.symbols
+        {
+            self.history.metadata.symbols.deposit(inserting: nil, 
+                revision: interface.revision, 
+                field: .metadata(of: missing), 
+                trunk: interface.local.metadata.symbols,
+                axis: &self.symbols)
+        }
+        for missing:Diacritic in builder.previous.overlays
+        {
+            self.history.metadata.overlays.deposit(inserting: nil, 
+                revision: interface.revision, 
+                field: .metadata(of: missing),
+                trunk: interface.local.metadata.overlays,
+                axis: &self.overlays)
+        }
+        
+        for module:ModuleInterface in interface
+        {
+            self.history.metadata.modules.deposit(
+                inserting: .init(dependencies: module.namespaces.dependencies()),
+                revision: interface.revision, 
+                field: .metadata(of: module.culture), 
+                trunk: interface.local.metadata.modules,
+                axis: &self.modules)
+        }
+        for (article, metadata):(Atom<Article>, Article.Metadata) in 
+            builder.articles
+        {
+            self.history.metadata.articles.deposit(
+                inserting: metadata,
+                revision: interface.revision, 
+                field: .metadata(of: article), 
+                trunk: interface.local.metadata.articles,
+                axis: &self.articles) 
+        }
+        for (symbol, metadata):(Atom<Symbol>, Symbol.Metadata) in 
+            builder.symbols
+        {
+            self.history.metadata.symbols.deposit(
+                inserting: metadata,
+                revision: interface.revision, 
+                field: .metadata(of: symbol), 
+                trunk: interface.local.metadata.symbols,
+                axis: &self.symbols) 
+        }
+        for (diacritic, metadata):(Diacritic, Overlay.Metadata) in 
+            builder.overlays
+        {
+            self.history.metadata.overlays.deposit(
+                inserting: metadata, 
+                revision: interface.revision, 
+                field: .metadata(of: diacritic), 
+                trunk: interface.local.metadata.overlays,
+                axis: &self.overlays)
+        }
+    }
+
+    mutating 
+    func updateTopLevelSymbols(_ topLevelSymbols:__owned Set<Atom<Symbol>>, 
+        interface:ModuleInterface, 
+        revision:Version.Revision)
+    {
+        self.history.data.topLevelSymbols.deposit(
+            inserting: topLevelSymbols, 
+            revision: revision, 
+            field: .topLevelSymbols(of: interface.culture), 
+            trunk: interface.local.data.topLevelSymbols,
+            axis: &self.modules)
+    }
+    mutating 
+    func updateTopLevelArticles(_ topLevelArticles:__owned Set<Atom<Article>>, 
+        interface:ModuleInterface, 
+        revision:Version.Revision)
+    {
+        self.history.data.topLevelArticles.deposit(
+            inserting: topLevelArticles, 
+            revision: revision, 
+            field: .topLevelArticles(of: interface.culture), 
+            trunk: interface.local.data.topLevelArticles,
+            axis: &self.modules)
+    }
+    mutating 
+    func updateDeclarations(graph:__owned SymbolGraph, 
+        interface:ModuleInterface, 
+        revision:Version.Revision)
+    {
+        for (position, vertex):(Atom<Symbol>.Position?, SymbolGraph.Vertex<Int>) in 
+            zip(interface.citizenSymbols, graph.vertices)
+        {
+            guard let element:Atom<Symbol> = position?.atom
+            else 
+            {
+                continue 
+            }
+            let declaration:Declaration<Atom<Symbol>> = vertex.declaration.flatMap 
+            {
+                if let target:Atom<Symbol> = interface.symbols[$0]?.atom
+                {
+                    return target 
+                }
+                // ignore warnings related to c-language symbols 
+                let id:SymbolIdentifier = graph.identifiers[$0]
+                if case .swift = id.language 
+                {
+                    print("warning: unknown id '\(id)' (in declaration for symbol '\(vertex.path)')")
+                }
+                return nil
+            }
+            self.history.data.declarations.deposit(inserting: declaration, 
+                revision: revision, 
+                field: .declaration(of: element), 
+                trunk: interface.local.data.declarations,
+                axis: &self.symbols)
+        }
+    }
+
+    mutating 
+    func updateDocumentation(_ literature:__owned Literature, interface:PackageInterface)
+    {
+        for (key, documentation):(Atom<Module>, DocumentationExtension<Never>)
+            in literature.modules 
+        {
+            self.history.data.standaloneDocumentation.deposit(inserting: documentation, 
+                revision: interface.revision, 
+                field: .documentation(of: key), 
+                trunk: interface.local.data.moduleDocumentation,
+                axis: &self.modules)
+        }
+        for (key, documentation):(Atom<Article>, DocumentationExtension<Never>)
+            in literature.articles 
+        {
+            self.history.data.standaloneDocumentation.deposit(inserting: documentation, 
+                revision: interface.revision, 
+                field: .documentation(of: key), 
+                trunk: interface.local.data.articleDocumentation,
+                axis: &self.articles)
+        }
+        for (key, documentation):(Atom<Symbol>, DocumentationExtension<Atom<Symbol>>)
+            in literature.symbols 
+        {
+            self.history.data.cascadingDocumentation.deposit(inserting: documentation, 
+                revision: interface.revision, 
+                field: .documentation(of: key), 
+                trunk: interface.local.data.symbolDocumentation,
+                axis: &self.symbols)
+        }
+    }
+}
+
 
 public 
 struct Branch:Identifiable, Sendable 
 {
+    struct _History
+    {
+        struct Metadata
+        {
+            var modules:Sediment<Version.Revision, Module.Metadata?>
+            var articles:Sediment<Version.Revision, Article.Metadata?>
+            var symbols:Sediment<Version.Revision, Symbol.Metadata?>
+            var overlays:Sediment<Version.Revision, Overlay.Metadata?>
+
+            init()
+            {
+                self.modules = .init()
+                self.articles = .init()
+                self.symbols = .init()
+                self.overlays = .init()
+            }
+        }
+        struct Data
+        {
+            var topLevelArticles:Sediment<Version.Revision, Set<Atom<Article>>>
+            var topLevelSymbols:Sediment<Version.Revision, Set<Atom<Symbol>>>
+            var declarations:Sediment<Version.Revision, Declaration<Atom<Symbol>>>
+
+            var standaloneDocumentation:Sediment<Version.Revision, DocumentationExtension<Never>>
+            var cascadingDocumentation:Sediment<Version.Revision, DocumentationExtension<Atom<Symbol>>>
+            init()
+            {
+                self.topLevelArticles = .init()
+                self.topLevelSymbols = .init()
+                self.declarations = .init()
+
+                self.standaloneDocumentation = .init()
+                self.cascadingDocumentation = .init()
+            }
+        }
+
+        var metadata:Metadata
+        var data:Data
+
+        init()
+        {
+            self.metadata = .init()
+            self.data = .init()
+        }
+    }
+
     public 
     let id:Tag
     let index:Version.Branch
@@ -12,11 +340,14 @@ struct Branch:Identifiable, Sendable
     let fork:Version?
     var revisions:Revisions
 
-    var foreign:[Diacritic: Symbol.ForeignDivergence]
-    var articles:Buffer<Article>, 
-        symbols:Buffer<Symbol>,
-        modules:Buffer<Module>
+    var modules:IntrinsicBuffer<Module>,
+        articles:IntrinsicBuffer<Article>, 
+        symbols:IntrinsicBuffer<Symbol>
+    var overlays:Overlays
+
     var routes:[Route: Stack]
+
+    var history:_History
 
     init(id:ID, index:Version.Branch, fork:(version:Version, ring:Ring)?)
     {
@@ -27,11 +358,13 @@ struct Branch:Identifiable, Sendable
 
         self.revisions = .init()
         
-        self.foreign = [:]
+        self.overlays = .init()
         self.articles = .init(startIndex: fork?.ring.articles ?? 0)
         self.symbols = .init(startIndex: fork?.ring.symbols ?? 0)
         self.modules = .init(startIndex: fork?.ring.modules ?? 0)
         self.routes = [:]
+
+        self.history = .init()
     }
 
     var head:Version.Revision? 
@@ -47,10 +380,11 @@ struct Branch:Identifiable, Sendable
     {
         let ring:Ring = self.revisions[range.upperBound].ring
         return .init(
+            modules: self.modules[..<ring.modules], 
             articles: self.articles[..<ring.articles],
             symbols: self.symbols[..<ring.symbols], 
-            modules: self.modules[..<ring.modules], 
-            foreign: self.foreign, 
+            overlays: self.overlays,
+            history: self.history,
             routes: self.routes, 
             branch: self.index,
             limit: range.upperBound, 
@@ -207,7 +541,7 @@ extension Branch
     // in the `SymbolGraphs` module, we can get rid of the ugly tuple return here.
     mutating 
     func addExtensions(from graph:SymbolGraph, namespace:Atom<Module>.Position, 
-        trunk:Fasces.ArticleView, 
+        trunk:Fasces.Articles, 
         stems:inout Route.Stems) 
         -> (ModuleInterface.Abstractor<Article>, [Extension])
     {
@@ -253,7 +587,7 @@ extension Branch
         return (.init(_move positions), _extensions)
     }
     private mutating 
-    func addArticle(_ path:Path, culture:Atom<Module>, trunk:Fasces.ArticleView, 
+    func addArticle(_ path:Path, culture:Atom<Module>, trunk:Fasces.Articles, 
         stems:inout Route.Stems)
         -> Atom<Article>.Position
     {

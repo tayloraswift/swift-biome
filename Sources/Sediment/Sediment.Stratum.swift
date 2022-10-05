@@ -15,48 +15,19 @@ extension Sediment
     @frozen public 
     struct Stratum:Sequence
     {
-        @frozen public 
-        struct Iterator:IteratorProtocol 
-        {
-            public 
-            var current:Index? 
-            public 
-            let sediment:Sediment<Age, Value>
-
-            @inlinable public 
-            init(current:Index?, sediment:Sediment<Age, Value>)
-            {
-                self.current = current 
-                self.sediment = sediment
-            }
-            @inlinable public mutating 
-            func next() -> Value?
-            {
-                if let current:Index = self.current
-                {
-                    self.current = self.sediment.predecessor(of: current) 
-                    return self.sediment[current].value
-                }
-                else 
-                {
-                    return nil 
-                }
-            }
-        }
-
         public 
         let head:Head?
         public 
-        let sediment:Sediment<Age, Value>
+        let sediment:Sediment<Instant, Value>
 
         @inlinable public 
-        func makeIterator() -> Iterator
+        func makeIterator() -> StratumIterator
         {
             .init(current: self.head?.index, sediment: self.sediment)
         }
 
         @inlinable public 
-        init(_ head:Head?, sediment:Sediment<Age, Value>)
+        init(_ head:Head?, sediment:Sediment<Instant, Value>)
         {
             self.head = head 
             self.sediment = sediment
@@ -71,7 +42,7 @@ extension Sediment
         ///             ──────└───────────────────────────└───└───────
         /// ``` 
         @inlinable public 
-        func find(_ age:Age) -> Index?
+        func find(_ time:Instant) -> Index?
         {
             guard var current:Index = self.head?.index
             else 
@@ -79,7 +50,7 @@ extension Sediment
                 return nil
             }
 
-            guard age < self.sediment[current].since
+            guard time < self.sediment[current].since
             else 
             {
                 return current 
@@ -89,16 +60,16 @@ extension Sediment
             // ascend
             while let parent:Index = self.sediment.parent(of: current)
             {
-                let since:Age = self.sediment[parent].since
-                if      age < since
+                let since:Instant = self.sediment[parent].since
+                if      time < since
                 {
                     current = parent
                 }
-                else if since < age, 
+                else if since < time, 
                     let left:Index = self.sediment.left(of: current) 
                 {
                     // because ascension can skip elements, we don’t 
-                    // know if this is the *last* element where `since <= age`,
+                    // know if this is the *last* element where `since <= time`,
                     // so we need to check the left subtree of the child.
                     current = left
                     bound = parent 
@@ -112,8 +83,8 @@ extension Sediment
             // descend
             while true 
             {
-                let since:Age = self.sediment[current].since
-                if      age < since
+                let since:Instant = self.sediment[current].since
+                if      time < since
                 {
                     guard   let left:Index = self.sediment.left(of: current)
                     else 
@@ -125,7 +96,7 @@ extension Sediment
                 else 
                 {
                     bound = current 
-                    guard   since < age, 
+                    guard   since < time, 
                             let right:Index = self.sediment.right(of: current) 
                     else 
                     {

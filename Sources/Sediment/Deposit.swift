@@ -1,32 +1,63 @@
+// extension Sediment where Value:Equatable
+// {
+//     /// Deposits the given value if it is not equivalent to the existing value.
+//     @inlinable public mutating 
+//     func deposit(_ head:inout Head?, inserting value:__owned Value, time:Instant) 
+//     {
+//         head = self.deposit(inserting: value, time: time, over: head)
+//     }
+//     /// Deposits the given value if it is not equivalent to the existing value.
+//     ///
+//     /// -   Returns: 
+//     ///     The `head` parameter unchanged, if it is not [`nil`]() *and* its value 
+//     ///     equals the `value` parameter, otherwise a new head.
+//     @inlinable public mutating 
+//     func deposit(inserting value:__owned Value, time:Instant, over head:Head?) -> Head
+//     {
+//         guard let top:Head = head
+//         else 
+//         {
+//             return self.deposit(value, time: time)
+//         }
+//         if self[top.index].value != value 
+//         {
+//             return self.deposit(value, time: time, over: top)
+//         }
+//         else 
+//         {
+//             return top
+//         }
+//     }
+// }
 extension Sediment
 {
-    /// Deposits a value of the given age to this sedimentary buffer. The age must 
+    /// Deposits a value to this sedimentary buffer. The timestamp must 
     /// be equal to or greater than that of any existing element in the buffer.
     @inlinable public mutating
-    func deposit(_ value:__owned Value, age:__owned Age, 
-        after head:Head?) -> Head
+    func deposit(_ value:__owned Value, time:__owned Instant, 
+        over head:Head?) -> Head
     {
         if let head:Head 
         {
-            return self.deposit(value, age: age, after: head)
+            return self.deposit(value, time: time, over: head)
         }
         else 
         {
-            return self.deposit(value, age: age)
+            return self.deposit(value, time: time)
         }
     }
     @inlinable public mutating
-    func deposit(_ value:__owned Value, age:__owned Age, 
-        after head:Head) -> Head
+    func deposit(_ value:__owned Value, time:__owned Instant, 
+        over head:Head) -> Head
     {
-        let new:Index = self.append(value, age: age, color: .red, parent: head.index)
+        let new:Index = self.append(value, since: time, color: .red, parent: head.index)
         self.attach(new, on: .right, of: head.index)
         return .init(new)
     }
     @inlinable public mutating 
-    func deposit(_ value:__owned Value, age:__owned Age) -> Head  
+    func deposit(_ value:__owned Value, time:__owned Instant) -> Head  
     {
-        return .init(self.append(value, age: age, color: .black))
+        return .init(self.append(value, since: time, color: .black))
     }
 }
 extension Sediment

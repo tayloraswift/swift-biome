@@ -64,13 +64,13 @@ extension Sediment
     /// 
     /// This method does *not* shrink the underlying buffer allocation.
     @inlinable public mutating
-    func erode(until age:Age) -> Rollbacks
+    func erode(until time:Instant) -> Rollbacks
     {
         var uptree:[Index: Head?] = [:], 
             threshold:Index = self.endIndex
         while let head:Head = self.top
         {
-            guard age < self[head.index].since
+            guard time < self[head.index].since
             else
             {
                 break

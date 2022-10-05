@@ -197,12 +197,12 @@ extension PackageUpdateContext
                 }
                 else 
                 {
-                    for epoch:Epoch<Module> in pinned.modules 
+                    for period:_Period<IntrinsicSlice<Module>> in pinned.modules 
                     {
-                        for module:Module in epoch 
+                        for module:Module in period.axis
                         {
                             self.namespaces.linked[module.id] = module.culture
-                                .positioned(epoch.branch)
+                                .positioned(period.branch)
                         }
                     }
                 }
@@ -214,7 +214,7 @@ extension PackageUpdateContext
             branch:Version.Branch, 
             fasces:Fasces) throws 
         {
-            let contemporary:Branch.Buffer<Module>.SubSequence = 
+            let contemporary:IntrinsicSlice<Module> = 
                 package.tree[branch].modules[...]
             for module:ModuleIdentifier in dependencies
             {

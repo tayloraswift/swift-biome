@@ -1,12 +1,22 @@
-protocol TrunkPeriod
+import Sediment
+
+struct _Period<Axis> where Axis:PeriodAxis
 {
+    let axis:Axis
     /// The last version contained within this period.
-    var latest:Version { get }
+    let latest:Version
     /// The branch and revision this period was forked from, 
     /// if applicable.
-    var fork:Version? { get }
+    let fork:Version?
+
+    init(_ axis:Axis, latest:Version, fork:Version?)
+    {
+        self.axis = axis 
+        self.latest = latest 
+        self.fork = fork
+    }
 }
-extension TrunkPeriod 
+extension _Period
 {
     /// The index of the original branch this period was cut from.
     /// 
@@ -16,14 +26,34 @@ extension TrunkPeriod
     {
         self.latest.branch
     }
-    /// The index of the last revision contained within this period.
-    var limit:Version.Revision 
+}
+
+extension _Period
+{
+    struct FieldView<Value> where Value:Equatable
     {
-        self.latest.revision
+        let sediment:Sediment<Version.Revision, Value>
+        let period:_Period<Axis>
+
+        init(_ period:_Period<Axis>, sediment:Sediment<Version.Revision, Value>)
+        {
+            self.sediment = sediment
+            self.period = period
+        }
     }
-    
-    func version(before revision:Version.Revision) -> Version?
+}
+extension _Period.FieldView
+{
+    var axis:Axis
     {
-        revision.predecessor.map { .init(self.branch, $0) } ?? self.fork
+        self.period.axis
+    }
+    var fork:Version?
+    {
+        self.period.fork
+    }
+    var latest:Version
+    {
+        self.period.latest
     }
 }

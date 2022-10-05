@@ -29,9 +29,9 @@ extension Symbol:BranchElement
     public
     struct Divergence:Voidable, Sendable 
     {
-        var metadata:History<Metadata?>.Divergent?
-        var declaration:History<Declaration<Atom<Symbol>>>.Divergent?
-        var documentation:History<DocumentationExtension<Atom<Symbol>>>.Divergent?
+        var metadata:AlternateHead<Metadata?>?
+        var declaration:AlternateHead<Declaration<Atom<Symbol>>>?
+        var documentation:AlternateHead<DocumentationExtension<Atom<Symbol>>>?
 
         init() 
         {
@@ -39,30 +39,19 @@ extension Symbol:BranchElement
             self.declaration = nil
             self.documentation = nil
         }
-    }
 
-    struct ForeignMetadata:Equatable, Sendable 
-    {
-        let traits:Branch.SymbolTraits
-
-        init(traits:Branch.SymbolTraits)
+        var isEmpty:Bool
         {
-            self.traits = traits 
-        }
-
-        func contains(feature:Atom<Symbol>) -> Bool 
-        {
-            self.traits.features.contains(feature)
-        }
-    }
-    
-    struct ForeignDivergence:Voidable
-    {
-        var metadata:History<ForeignMetadata?>.Divergent?
-
-        init() 
-        {
-            self.metadata = nil
+            if  case nil = self.metadata, 
+                case nil = self.declaration,
+                case nil = self.documentation
+            {
+                return true
+            }
+            else
+            {
+                return false
+            }
         }
     }
 }

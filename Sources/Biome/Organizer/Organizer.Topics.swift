@@ -208,7 +208,7 @@ extension Organizer.Topics
                 assert(culture.nationality == consumer.nationality)
 
                 let diacritic:Diacritic = .init(host: atomic, culture: culture)
-                if  let extra:Symbol.ForeignMetadata = 
+                if  let extra:Overlay.Metadata = 
                         consumer.pinned.metadata(foreign: diacritic)
                 {
                     try organizer.organize(extra.traits, of: base, 

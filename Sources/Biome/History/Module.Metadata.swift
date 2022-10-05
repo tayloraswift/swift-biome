@@ -15,14 +15,15 @@ extension Module:BranchElement
     public 
     struct Divergence:Voidable, Sendable 
     {
+        // important! do not add fields without also updating the `isEmpty` definition!
         var symbols:[(range:Range<Symbol.Offset>, namespace:Atom<Module>)]
         var articles:[Range<Article.Offset>]
 
-        var metadata:History<Metadata?>.Divergent?
+        var metadata:AlternateHead<Metadata?>?
 
-        var topLevelArticles:History<Set<Atom<Article>>>.Divergent?
-        var topLevelSymbols:History<Set<Atom<Symbol>>>.Divergent?
-        var documentation:History<DocumentationExtension<Never>>.Divergent?
+        var topLevelArticles:AlternateHead<Set<Atom<Article>>>?
+        var topLevelSymbols:AlternateHead<Set<Atom<Symbol>>>?
+        var documentation:AlternateHead<DocumentationExtension<Never>>?
         
         init()
         {
@@ -34,6 +35,23 @@ extension Module:BranchElement
             self.topLevelArticles = nil
             self.topLevelSymbols = nil
             self.documentation = nil
+        }
+
+        var isEmpty:Bool
+        {
+            if  case nil = self.metadata, 
+                case nil = self.topLevelArticles,
+                case nil = self.topLevelSymbols,
+                case nil = self.documentation,
+                self.symbols.isEmpty,
+                self.articles.isEmpty
+            {
+                return true
+            }
+            else
+            {
+                return false
+            }
         }
     }
 }

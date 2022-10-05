@@ -1,7 +1,7 @@
-extension Sediment:Sendable where Age:Sendable, Value:Sendable {}
+extension Sediment:Sendable where Instant:Sendable, Value:Sendable {}
 
 @frozen public 
-struct Sediment<Age, Value> where Age:Comparable
+struct Sediment<Instant, Value> where Instant:Comparable
 {
     public 
     var beds:[Bed]
@@ -15,12 +15,12 @@ struct Sediment<Age, Value> where Age:Comparable
     /// Allocates a new bed at the top of the sedimentary buffer, and returns its index. 
     /// The new bed is not linked with any other bed.
     @inlinable public mutating 
-    func append(_ value:__owned Value, age:__owned Age, 
+    func append(_ value:__owned Value, since time:__owned Instant, 
         color:Bed.Color, 
         parent:Index? = nil) -> Index
     {
         let index:Index = self.endIndex
-        self.beds.append(.init(value, age: age, color: color, index: index, parent: parent))
+        self.beds.append(.init(value, since: time, color: color, index: index, parent: parent))
         return index
     }
     /// Returns the index of the topmost bed in this sediment, if this sediment is not empty.

@@ -43,7 +43,7 @@ extension Sediment.Stratum
     public 
     func validate() -> Bool
     {
-        guard let root:Sediment<Age, Value>.Index = 
+        guard let root:Sediment<Instant, Value>.Index = 
             (self.head?.index).map(self.sediment.root(of:))
         else 
         {

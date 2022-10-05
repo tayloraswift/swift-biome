@@ -2,7 +2,7 @@ import SymbolSource
 import HTML
 
 @usableFromInline 
-struct Article:Sendable
+struct Article:AtomicElement, Sendable
 {
     @usableFromInline 
     typealias Culture = Atom<Module>
@@ -28,8 +28,8 @@ struct Article:Sendable
     let id:ID 
     var path:Path
 
-    var metadata:History<Metadata?>.Head?
-    var documentation:History<DocumentationExtension<Never>>.Head?
+    var metadata:OriginalHead<Metadata?>?
+    var documentation:OriginalHead<DocumentationExtension<Never>>?
     
     init(id:ID, path:Path)
     {

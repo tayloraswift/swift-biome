@@ -86,7 +86,7 @@ struct Validator
         {
             let token:String = "\(self.name).\(self.counter)"
             self.counter += 1
-            self.head = sediment.deposit(token, age: time.lowerBound, after: self.head)
+            self.head = sediment.deposit(token, time: time.lowerBound, over: self.head)
             self.history.append(contentsOf: time.map { ($0, token) })
         }
         else if let token:String = self.history.last?.1 
@@ -94,7 +94,7 @@ struct Validator
             self.history.append(contentsOf: time.map { ($0, token) })
         }
     }
-    mutating 
+    mutating
     func rollback(until time:Int, rollbacks:Sediment<Int, String>.Rollbacks)
     {
         if let index:Int = self.history.firstIndex(where: { time < $0.0 })

@@ -260,7 +260,7 @@ struct Literature
             stems: stems)
     }
     private mutating 
-    func compile(graphs:[SymbolGraph], 
+    func compile(graphs:[SymbolGraph],
         interface:PackageInterface, 
         comments:__owned [Atom<Symbol>: Comment], 
         local:Package.Pinned, 

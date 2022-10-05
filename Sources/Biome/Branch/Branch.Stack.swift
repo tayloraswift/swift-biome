@@ -106,7 +106,7 @@ extension Divergences where Divergence == Branch.Stack
     {
         try self[key]?.forEach 
         {
-            if $1 <= self.limit 
+            if $1 <= self.latest.revision 
             {
                 try body($0)
             }

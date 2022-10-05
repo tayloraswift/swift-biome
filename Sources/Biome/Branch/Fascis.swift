@@ -1,22 +1,29 @@
+import SymbolGraphs
+
 struct Fascis:Sendable 
 {
     private
-    let _articles:Branch.Buffer<Article>.SubSequence, 
-        _symbols:Branch.Buffer<Symbol>.SubSequence,
-        _modules:Branch.Buffer<Module>.SubSequence 
+    let _articles:IntrinsicSlice<Article>, 
+        _symbols:IntrinsicSlice<Symbol>,
+        _modules:IntrinsicSlice<Module>,
+        _overlays:Overlays
     private 
-    let _foreign:[Diacritic: Symbol.ForeignDivergence], 
-        _routes:[Route: Branch.Stack]
+    let _routes:[Route: Branch.Stack]
+    
+    let history:Branch._History
+
     /// The last version contained within this fascis.
     let latest:Version
     /// The version this fascis (and its original branch) was forked from.
     let fork:Version?
 
+
     init(
-        articles:Branch.Buffer<Article>.SubSequence, 
-        symbols:Branch.Buffer<Symbol>.SubSequence,
-        modules:Branch.Buffer<Module>.SubSequence, 
-        foreign:[Diacritic: Symbol.ForeignDivergence],
+        modules:IntrinsicSlice<Module>, 
+        articles:IntrinsicSlice<Article>, 
+        symbols:IntrinsicSlice<Symbol>,
+        overlays:Overlays,
+        history:Branch._History,
         routes:[Route: Branch.Stack],
         branch:Version.Branch, 
         limit:Version.Revision, 
@@ -25,8 +32,11 @@ struct Fascis:Sendable
         self._articles = articles
         self._symbols = symbols
         self._modules = modules
-        self._foreign = foreign
+        self._overlays = overlays
+
         self._routes = routes
+
+        self.history = history 
 
         self.latest = .init(branch, limit)
         self.fork = nil
@@ -45,24 +55,104 @@ struct Fascis:Sendable
         self.latest.revision
     }
 
-    var articles:Epoch<Article> 
-    {
-        .init(self._articles, latest: self.latest, fork: self.fork)
-    }
-    var symbols:Epoch<Symbol> 
-    {
-        .init(self._symbols, latest: self.latest, fork: self.fork)
-    }
-    var modules:Epoch<Module> 
-    {
-        .init(self._modules, latest: self.latest, fork: self.fork)
-    }
-    var foreign:Divergences<Diacritic, Symbol.ForeignDivergence> 
-    {
-        .init(self._foreign, latest: self.latest, fork: self.fork)
-    }
     var routes:Divergences<Route, Branch.Stack> 
     {
         .init(self._routes, latest: self.latest, fork: self.fork)
+    }
+}
+extension Fascis
+{
+    var modules:_Period<IntrinsicSlice<Module>>
+    {
+        .init(self._modules, latest: self.latest, fork: self.fork)
+    }
+    var articles:_Period<IntrinsicSlice<Article>>
+    {
+        .init(self._articles, latest: self.latest, fork: self.fork)
+    }
+    var symbols:_Period<IntrinsicSlice<Symbol>>
+    {
+        .init(self._symbols, latest: self.latest, fork: self.fork)
+    }
+    var overlays:_Period<Overlays>
+    {
+        .init(self._overlays, latest: self.latest, fork: self.fork)
+    }
+}
+extension Fascis
+{
+    struct Metadata
+    {
+        fileprivate 
+        let base:Fascis
+    }
+
+    var metadata:Metadata
+    {
+        .init(base: self)
+    }
+}
+extension Fascis.Metadata
+{
+    var modules:_Period<IntrinsicSlice<Module>>.FieldView<Module.Metadata?>
+    {
+        .init(self.base.modules, sediment: self.base.history.metadata.modules)
+    }
+    var articles:_Period<IntrinsicSlice<Article>>.FieldView<Article.Metadata?>
+    {
+        .init(self.base.articles, sediment: self.base.history.metadata.articles)
+    }
+    var symbols:_Period<IntrinsicSlice<Symbol>>.FieldView<Symbol.Metadata?>
+    {
+        .init(self.base.symbols, sediment: self.base.history.metadata.symbols)
+    }
+    var overlays:_Period<Overlays>.FieldView<Overlay.Metadata?>
+    {
+        .init(self.base.overlays, sediment: self.base.history.metadata.overlays)
+    }
+}
+
+extension Fascis
+{
+    struct Data
+    {
+        fileprivate 
+        let base:Fascis
+    }
+
+    var data:Data
+    {
+        .init(base: self)
+    }
+}
+
+extension Fascis.Data
+{
+    var topLevelArticles:_Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Article>>>
+    {
+        .init(self.base.modules, sediment: self.base.history.data.topLevelArticles)
+    }
+    var topLevelSymbols:_Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Symbol>>>
+    {
+        .init(self.base.modules, sediment: self.base.history.data.topLevelSymbols)
+    }
+    var declarations:_Period<IntrinsicSlice<Symbol>>.FieldView<Declaration<Atom<Symbol>>>
+    {
+        .init(self.base.symbols, sediment: self.base.history.data.declarations)
+    }
+}
+extension Fascis.Data
+{
+    var moduleDocumentation:_Period<IntrinsicSlice<Module>>.FieldView<DocumentationExtension<Never>>
+    {
+        .init(self.base.modules, sediment: self.base.history.data.standaloneDocumentation)
+    }
+    var articleDocumentation:_Period<IntrinsicSlice<Article>>.FieldView<DocumentationExtension<Never>>
+    {
+        .init(self.base.articles, sediment: self.base.history.data.standaloneDocumentation)
+    }
+    var symbolDocumentation:_Period<IntrinsicSlice<Symbol>>.FieldView<DocumentationExtension<Atom<Symbol>>>
+    {
+        .init(self.base.symbols, sediment: self.base.history.data.cascadingDocumentation)
     }
 }

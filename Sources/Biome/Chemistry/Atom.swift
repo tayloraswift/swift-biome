@@ -1,5 +1,5 @@
 @frozen public 
-struct Atom<Element> where Element:BranchElement
+struct Atom<Element> where Element:AtomicElement
 {
     public 
     let culture:Element.Culture
@@ -51,16 +51,17 @@ extension Atom
     {
         .init(self, branch: branch)
     }
-    func positioned(bisecting trunk:some RandomAccessCollection<Epoch<Element>>) 
+    func positioned(
+        bisecting trunk:some RandomAccessCollection<_Period<IntrinsicSlice<Element>>>) 
         -> Atom<Element>.Position?
     {
-        let epoch:Epoch<Element>? = trunk.search 
+        let period:_Period<IntrinsicSlice<Element>>? = trunk.search 
         {
-            if      self.offset < $0.indices.lowerBound 
+            if      self.offset < $0.axis.indices.lowerBound 
             {
                 return .lower 
             }
-            else if self.offset < $0.indices.upperBound 
+            else if self.offset < $0.axis.indices.upperBound 
             {
                 return nil 
             }
@@ -69,7 +70,7 @@ extension Atom
                 return .upper
             }
         }
-        return (epoch?.branch).map(self.positioned(_:))
+        return (period?.branch).map(self.positioned(_:))
     }
 }
 private
