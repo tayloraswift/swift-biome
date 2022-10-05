@@ -22,8 +22,6 @@ let package = Package(
     ],
     dependencies: 
     [
-        // .package(name: "swift-balanced-trees", path: "./swift-balanced-trees"),
-
         .package(url: "https://github.com/kelvin13/swift-json", branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-grammar", .upToNextMinor(from: "0.2.0")),
         .package(url: "https://github.com/kelvin13/swift-highlight", .upToNextMinor(from: "0.1.4")),
@@ -42,8 +40,6 @@ let package = Package(
     ],
     targets: 
     [
-        .target(name: "Forest", path: "swift-balanced-trees/Sources/Forest"),
-
         .target(name: "PieCharts", 
             dependencies: 
             [
@@ -96,9 +92,7 @@ let package = Package(
                 .target(name: "PackageResolution"),
                 .target(name: "SymbolGraphs"),
                 .target(name: "URI"),
-
-                .target(name: "Forest"),
-                //.product(name: "Forest",            package: "swift-balanced-trees"),
+                .target(name: "Sediment"),
 
                 .product(name: "HTML",              package: "swift-dom"),
                 .product(name: "RSS",               package: "swift-dom"),
