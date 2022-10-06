@@ -1,15 +1,20 @@
 import Sediment
 
 extension IntrinsicBuffer:Sendable 
-    where   Element.Offset:Sendable, Element.Culture:Sendable, 
-            Element:Sendable, Element.ID:Sendable, Element.Divergence:Sendable
+    where   Element:Sendable, 
+            Element.Offset:Sendable, 
+            Element.Culture:Sendable, 
+            Element.ID:Sendable, 
+            Divergence:Sendable, 
+            Divergence.Base:Sendable
 {
 }
-struct IntrinsicBuffer<Element> where Element:IntrinsicElement & BranchElement
+
+struct IntrinsicBuffer<Element> where Element:BranchIntrinsic
 {
-    var divergences:[Atom<Element>: Element.Divergence]
-    fileprivate 
-    var elements:[Element] 
+    var divergences:[Atom<Element>: Divergence]
+    private 
+    var intrinsics:[(element:Element, base:Divergence.Base)] 
     private(set)
     var atoms:Atoms
     let startIndex:Element.Offset
@@ -17,41 +22,94 @@ struct IntrinsicBuffer<Element> where Element:IntrinsicElement & BranchElement
     private 
     init(startIndex:Element.Offset, 
         divergences:[Atom<Element>: Element.Divergence],
-        elements:[Element],
+        intrinsics:[(element:Element, base:Divergence.Base)],
         atoms:Atoms) 
     {
         self.startIndex = startIndex
         self.divergences = divergences
-        self.elements = elements
+        self.intrinsics = intrinsics
         self.atoms = atoms
     }
     init(startIndex:Element.Offset) 
     {
         self.startIndex = startIndex
         self.divergences = [:]
-        self.elements = []
+        self.intrinsics = []
         self.atoms = .init()
+    }
+}
+extension IntrinsicBuffer
+{
+    private
+    subscript(offset offset:Element.Offset) -> (element:Element, base:Divergence.Base)
+    {
+        _read 
+        {
+            yield  self.intrinsics[.init(offset - self.startIndex)]
+        }
+        _modify
+        {
+            yield &self.intrinsics[.init(offset - self.startIndex)]
+        }
+    }
+
+    mutating 
+    func insert(_ id:Element.ID, culture:Element.Culture, 
+        _ create:(Element.ID, Atom<Element>) throws -> Element) 
+        rethrows -> Atom<Element>
+    {
+        if let atom:Atom<Element> = self.atoms[id]
+        {
+            return atom 
+        }
+        else 
+        {
+            // create records for elements if they do not yet exist 
+            let atom:Atom<Element> = .init(culture, offset: self.endIndex)
+            self.intrinsics.append((try create(id, atom), .init()))
+            self.atoms[id] = atom
+            return atom 
+        }
+    }
+    mutating 
+    func remove(from end:Element.Offset)
+    {
+        self.intrinsics.removeSubrange(Int.init(end - self.startIndex)...)
+        self.atoms = self.atoms.filter { $0.offset < end }
+        fatalError("unimplemented")
     }
 }
 extension IntrinsicBuffer:BranchAxis
 {
-    typealias Key = Atom<Element>
+    private(set)
+    subscript<Value>(key:Atom<Element>, 
+        field field:WritableKeyPath<Divergence.Base, Value>) -> Value
+    {
+        _read
+        {
+            yield  self[offset: key.offset].base[keyPath: field]
+        }
+        _modify
+        {
+            yield &self[offset: key.offset].base[keyPath: field]
+        }
+    }
 
-    subscript<Value>(field:Field<Value>) -> OriginalHead<Value>?
+    subscript<Value>(field:FieldAccessor<Element.Divergence, Value>) -> OriginalHead<Value>?
     {
         _read
         {
             if field.key.offset < self.startIndex 
             {
-                yield  self.divergences[  field.key][keyPath: field.alternate]?.head
+                yield  self.divergences[field.key][keyPath: field.alternate]?.head
             }
             else
             {
-                yield  self[contemporary: field.key][keyPath: field.original]
+                yield  self[field.key, field: field.original]
             }
         }
     }
-    subscript<Value>(field:Field<Value>,
+    subscript<Value>(field:FieldAccessor<Element.Divergence, Value>,
         since revision:Version.Revision) -> OriginalHead<Value>?
     {
         _read
@@ -62,11 +120,11 @@ extension IntrinsicBuffer:BranchAxis
         {
             if field.key.offset < self.startIndex
             {
-                yield &self.divergences[  field.key][keyPath: field.alternate][since: revision]
+                yield &self.divergences[field.key][keyPath: field.alternate][since: revision]
             }
             else 
             {
-                yield &self[contemporary: field.key][keyPath: field.original]
+                yield &self[field.key, field: field.original]
             }
         }
     }
@@ -75,26 +133,26 @@ extension IntrinsicBuffer:RandomAccessCollection
 {
     var endIndex:Element.Offset
     {
-        self.startIndex + Element.Offset.init(self.elements.count)
+        self.startIndex + Element.Offset.init(self.intrinsics.count)
     }
 
     subscript(offset:Element.Offset) -> Element
     {
-        _read 
+        _read
         {
-            yield  self.elements[.init(offset - self.startIndex)]
+            yield  self[offset: offset].element
         }
         _modify
         {
-            yield &self.elements[.init(offset - self.startIndex)]
+            yield &self[offset: offset].element
         }
     }
-
+    
     subscript(indices:Range<Element.Offset>) -> IntrinsicSlice<Element> 
     {
         .init(.init(startIndex: indices.lowerBound, 
                 divergences: self.divergences,
-                elements: self.elements,
+                intrinsics: self.intrinsics,
                 atoms: self.atoms),
             upTo: indices.upperBound)
     }
@@ -157,30 +215,5 @@ extension IntrinsicBuffer
         {
             yield &self[atom.offset]
         }
-    }
-    mutating 
-    func insert(_ id:Element.ID, culture:Element.Culture, 
-        _ create:(Element.ID, Atom<Element>) throws -> Element) 
-        rethrows -> Atom<Element>
-    {
-        if let atom:Atom<Element> = self.atoms[id]
-        {
-            return atom 
-        }
-        else 
-        {
-            // create records for elements if they do not yet exist 
-            let atom:Atom<Element> = .init(culture, offset: self.endIndex)
-            self.elements.append(try create(id, atom))
-            self.atoms[id] = atom
-            return atom 
-        }
-    }
-    mutating 
-    func remove(from end:Element.Offset)
-    {
-        self.elements.removeSubrange(Int.init(end)...)
-        self.atoms = self.atoms.filter { $0.offset < end }
-        fatalError("unimplemented")
     }
 }

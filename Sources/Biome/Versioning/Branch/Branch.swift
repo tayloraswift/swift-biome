@@ -6,15 +6,12 @@ import Sediment
 extension Sediment where Instant == Version.Revision, Value:Equatable
 {
     fileprivate mutating 
-    func deposit<Trunk, Axis>(inserting value:__owned Value,
+    func deposit<Axis>(inserting value:__owned Value,
         revision:Version.Revision,
-        field:Axis.Field<Value>,
-        trunk:Trunk,
+        field:FieldAccessor<Axis.Divergence, Value>,
+        trunk:some FieldViews<some PeriodAxis<Axis.Divergence>, Value>,
         axis:inout Axis) 
-        where   Trunk:FieldViews, Axis:BranchAxis, 
-                Trunk.Axis.Element == Axis.Element, 
-                Trunk.Axis.Key == Axis.Key,
-                Trunk.Value == Value
+        where Axis:BranchAxis
     {
         let current:OriginalHead<Value>? = axis[field]
 
@@ -223,7 +220,7 @@ struct Branch:Identifiable, Sendable
     var modules:IntrinsicBuffer<Module>,
         articles:IntrinsicBuffer<Article>, 
         symbols:IntrinsicBuffer<Symbol>
-    var overlays:Overlays
+    var overlays:OverlayTable
     var routes:RoutingTable
 
     var history:History

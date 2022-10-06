@@ -69,7 +69,7 @@ extension Fasces.Metadata.Symbols:FieldViews
 }
 extension Fasces.Metadata.Overlays:FieldViews
 {
-    subscript(index:Int) -> Period<Overlays>.FieldView<Overlay.Metadata?>
+    subscript(index:Int) -> Period<OverlayTable>.FieldView<Overlay.Metadata?>
     {
         self.base[index].metadata.overlays
     }

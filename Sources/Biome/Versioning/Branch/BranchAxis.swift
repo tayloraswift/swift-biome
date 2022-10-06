@@ -1,10 +1,12 @@
-protocol BranchAxis<Key, Element>:PluralAxis
+protocol BranchAxis<Divergence>
 {
-    subscript<Value>(field:Field<Value>) -> OriginalHead<Value>?
+    associatedtype Divergence:BranchDivergence
+
+    subscript<Value>(field:FieldAccessor<Divergence, Value>) -> OriginalHead<Value>?
     {
         get
     }
-    subscript<Value>(field:Field<Value>, 
+    subscript<Value>(field:FieldAccessor<Divergence, Value>, 
         since revision:Version.Revision) -> OriginalHead<Value>?
     {
         get set

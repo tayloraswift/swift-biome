@@ -6,7 +6,7 @@ struct Fascis:Sendable
     let _articles:IntrinsicSlice<Article>, 
         _symbols:IntrinsicSlice<Symbol>,
         _modules:IntrinsicSlice<Module>,
-        _overlays:Overlays
+        _overlays:OverlayTable
     private 
     let _routes:RoutingTable
     
@@ -22,7 +22,7 @@ struct Fascis:Sendable
         modules:IntrinsicSlice<Module>, 
         articles:IntrinsicSlice<Article>, 
         symbols:IntrinsicSlice<Symbol>,
-        overlays:Overlays,
+        overlays:OverlayTable,
         history:History,
         routes:RoutingTable,
         branch:Version.Branch, 
@@ -74,7 +74,7 @@ extension Fascis
     {
         .init(self._symbols, latest: self.latest, fork: self.fork)
     }
-    var overlays:Period<Overlays>
+    var overlays:Period<OverlayTable>
     {
         .init(self._overlays, latest: self.latest, fork: self.fork)
     }
@@ -106,7 +106,7 @@ extension Fascis.Metadata
     {
         .init(self.base.symbols, sediment: self.base.history.metadata.symbols)
     }
-    var overlays:Period<Overlays>.FieldView<Overlay.Metadata?>
+    var overlays:Period<OverlayTable>.FieldView<Overlay.Metadata?>
     {
         .init(self.base.overlays, sediment: self.base.history.metadata.overlays)
     }

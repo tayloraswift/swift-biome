@@ -1,34 +1,31 @@
 import Sediment
 
-struct Overlays:Sendable
+struct OverlayTable:Sendable
 {
-    var divergences:[Diacritic: Overlay.Divergence]
+    var divergences:[Diacritic: Overlay]
 
     init()
     {
         self.divergences = [:]
     }
 }
-extension Overlays:PeriodAxis
+extension OverlayTable:PeriodAxis
 {
-    typealias Key = Diacritic
-    typealias Element = Overlay
-
-    subscript<Value>(field:Field<Value>) -> PeriodHead<Value>
+    subscript<Value>(field:FieldAccessor<Overlay, Value>) -> PeriodHead<Value>
     {
         .alternate(self.divergences[field.key][keyPath: field.alternate])
     }
 }
-extension Overlays:BranchAxis
+extension OverlayTable:BranchAxis
 {
-    subscript<Value>(field:Field<Value>) -> OriginalHead<Value>?
+    subscript<Value>(field:FieldAccessor<Overlay, Value>) -> OriginalHead<Value>?
     {
         _read
         {
             yield self.divergences[field.key][keyPath: field.alternate]?.head
         }
     }
-    subscript<Value>(field:Field<Value>, 
+    subscript<Value>(field:FieldAccessor<Overlay, Value>, 
         since revision:Version.Revision) -> OriginalHead<Value>?
     {
         _read

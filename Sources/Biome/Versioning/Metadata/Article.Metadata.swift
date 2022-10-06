@@ -1,4 +1,4 @@
-extension Article:BranchElement
+extension Article
 {
     struct Headline:Equatable, Sendable
     {
@@ -40,33 +40,4 @@ extension Article:BranchElement
             self.excerpt = _extension.snippet
         }
     }
-
-    @usableFromInline 
-    struct Divergence:Voidable, Sendable
-    {
-        var metadata:AlternateHead<Metadata?>?
-        var documentation:AlternateHead<DocumentationExtension<Never>>?
-
-        init()
-        {
-            self.metadata = nil 
-            self.documentation = nil
-        }
-
-        var isEmpty:Bool
-        {
-            if  case nil = self.metadata, 
-                case nil = self.documentation
-            {
-                return true
-            }
-            else
-            {
-                return false
-            }
-        }
-    }
-    
-    @available(*, deprecated, renamed: "Metadata")
-    typealias Excerpt = Metadata
 }

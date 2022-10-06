@@ -1,5 +1,5 @@
 @frozen public 
-struct Atom<Element> where Element:IntrinsicElement
+struct Atom<Element> where Element:Intrinsic
 {
     public 
     let culture:Element.Culture

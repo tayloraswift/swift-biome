@@ -1,15 +1,14 @@
 import SymbolSource
-import HTML
 
-@usableFromInline 
-struct Article:IntrinsicElement, Sendable
+public
+struct Article:Intrinsic, Sendable
 {
-    @usableFromInline 
+    public
     typealias Culture = Atom<Module>
-    @usableFromInline 
+    public
     typealias Offset = UInt32 
 
-    @usableFromInline 
+    public
     struct ID:Hashable, Sendable 
     {
         let route:Route
@@ -24,22 +23,18 @@ struct Article:IntrinsicElement, Sendable
         }
     }
 
-    @usableFromInline 
+    public
     let id:ID 
     var path:Path
 
-    var metadata:OriginalHead<Metadata?>?
-    var documentation:OriginalHead<DocumentationExtension<Never>>?
-    
     init(id:ID, path:Path)
     {
         self.id = id
         self.path = path
-
-        self.metadata = nil 
-        self.documentation = nil
     }
-
+}
+extension Article
+{
     var name:String 
     {
         self.path.last

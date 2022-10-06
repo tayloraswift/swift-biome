@@ -1,7 +1,4 @@
-import SymbolGraphs
-import SymbolSource
-
-extension Symbol:BranchElement
+extension Symbol
 {
     struct Metadata:Equatable, Sendable
     {
@@ -23,35 +20,6 @@ extension Symbol:BranchElement
             feature.culture == feature.host.culture ?
                 self.primary.features.contains(feature.base) :
                 self.accepted[feature.culture]?.features.contains(feature.base) ?? false
-        }
-    }
-
-    public
-    struct Divergence:Voidable, Sendable 
-    {
-        var metadata:AlternateHead<Metadata?>?
-        var declaration:AlternateHead<Declaration<Atom<Symbol>>>?
-        var documentation:AlternateHead<DocumentationExtension<Atom<Symbol>>>?
-
-        init() 
-        {
-            self.metadata = nil
-            self.declaration = nil
-            self.documentation = nil
-        }
-
-        var isEmpty:Bool
-        {
-            if  case nil = self.metadata, 
-                case nil = self.declaration,
-                case nil = self.documentation
-            {
-                return true
-            }
-            else
-            {
-                return false
-            }
         }
     }
 }

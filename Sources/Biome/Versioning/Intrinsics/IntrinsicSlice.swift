@@ -1,6 +1,6 @@
 import Sediment
 
-struct IntrinsicSlice<Element> where Element:IntrinsicElement & BranchElement 
+struct IntrinsicSlice<Element> where Element:BranchIntrinsic
 {
     private 
     let base:IntrinsicBuffer<Element>
@@ -14,15 +14,13 @@ struct IntrinsicSlice<Element> where Element:IntrinsicElement & BranchElement
 }
 extension IntrinsicSlice:PeriodAxis
 {
-    typealias Key = Atom<Element>
-
-    subscript<Value>(field:Field<Value>) -> PeriodHead<Value>
+    subscript<Value>(field:FieldAccessor<Element.Divergence, Value>) -> PeriodHead<Value>
     {
         assert(field.key.offset < self.endIndex)
 
         return field.key.offset < self.startIndex ?
-            .alternate(self.divergences[ field.key][keyPath: field.alternate]) :
-            .original(self[contemporary: field.key][keyPath: field.original])
+            .alternate(self.divergences[field.key][keyPath: field.alternate]) :
+            .original(        self.base[field.key,   field: field.original])
     }
 }
 extension IntrinsicSlice:RandomAccessCollection

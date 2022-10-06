@@ -1,14 +1,19 @@
-protocol Voidable 
+protocol BranchDivergenceBase
 {
+}
+protocol BranchDivergence
+{
+    associatedtype Base:BranchDivergenceBase
+    associatedtype Key
+
     init()
-    
     var isEmpty:Bool
     {
         get
     }
 }
 
-extension Optional where Wrapped:Voidable
+extension Optional where Wrapped:BranchDivergence
 {
     subscript<Value>(keyPath path:WritableKeyPath<Wrapped, Value?>) -> Value?
     {

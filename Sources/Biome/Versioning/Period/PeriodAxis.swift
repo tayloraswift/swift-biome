@@ -1,6 +1,8 @@
-protocol PeriodAxis<Key, Element>:PluralAxis
+protocol PeriodAxis<Divergence>
 {
-    subscript<Value>(field:Field<Value>) -> PeriodHead<Value>
+    associatedtype Divergence:BranchDivergence
+
+    subscript<Value>(field:FieldAccessor<Divergence, Value>) -> PeriodHead<Value>
     {
         get
     }

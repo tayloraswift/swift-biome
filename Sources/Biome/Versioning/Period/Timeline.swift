@@ -5,9 +5,9 @@ struct Timeline<Trunk>:Sequence, IteratorProtocol where Trunk:FieldViews
     private 
     var trunk:Trunk.Iterator? 
     private 
-    let field:Trunk.Axis.Field<Trunk.Value>
+    let field:FieldAccessor<Trunk.Axis.Divergence, Trunk.Value>
     
-    init(_ trunk:__shared Trunk, field:Trunk.Axis.Field<Trunk.Value>)
+    init(_ trunk:__shared Trunk, field:FieldAccessor<Trunk.Axis.Divergence, Trunk.Value>)
     {
         self.trunk = trunk.makeIterator()
         self.field = field

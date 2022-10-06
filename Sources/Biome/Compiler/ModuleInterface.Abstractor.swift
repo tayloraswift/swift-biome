@@ -3,7 +3,7 @@ import SymbolSource
 
 extension ModuleInterface
 {
-    struct Abstractor<Element>:RandomAccessCollection where Element:IntrinsicElement 
+    struct Abstractor<Element>:RandomAccessCollection where Element:Intrinsic & Identifiable 
     {
         private 
         var table:[Atom<Element>.Position?]

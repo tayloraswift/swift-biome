@@ -1,15 +1,14 @@
 import SymbolGraphs
 import SymbolSource
 
-public
-struct Symbol:IntrinsicElement, Sendable  
+public 
+struct Symbol:Intrinsic, Identifiable, Sendable
 {
     public 
     typealias Culture = Atom<Module>
     public 
     typealias Offset = UInt32
-    
-    // these stored properties are constant with respect to symbol identity. 
+
     public
     let id:SymbolIdentifier
     //  TODO: see if small-array optimizations here are beneficial, since this could 
@@ -19,10 +18,6 @@ struct Symbol:IntrinsicElement, Sendable
     let route:Route
     var scope:Scope?
 
-    var metadata:OriginalHead<Metadata?>?
-    var declaration:OriginalHead<Declaration<Atom<Symbol>>>?
-    var documentation:OriginalHead<DocumentationExtension<Atom<Symbol>>>?
-
     init(id:SymbolIdentifier, path:Path, kind:Kind, route:Route)
     {
         self.id = id 
@@ -30,12 +25,22 @@ struct Symbol:IntrinsicElement, Sendable
         self.kind = kind
         self.route = route
         self.scope = nil
-        
-        self.metadata = nil 
-        self.declaration = nil
-        self.documentation = nil
     }
+}
 
+extension Symbol
+{
+    struct Display 
+    {
+        let path:Path
+        let shape:Shape
+
+        var name:String 
+        {
+            self.path.last
+        }
+    }
+    
     var shape:Shape
     {
         self.kind.shape 
@@ -58,21 +63,7 @@ struct Symbol:IntrinsicElement, Sendable
     {
         self.shape.orientation
     }
-}
-extension Symbol 
-{
-    struct Display 
-    {
-        let path:Path
-        let shape:Shape
-
-        var name:String 
-        {
-            self.path.last
-        }
-    }
-    
-    var display:Display 
+    var display:Symbol.Display 
     {
         .init(path: self.path, shape: self.shape)
     }

@@ -101,7 +101,7 @@ extension Fasces.Symbols:Periods
 }
 extension Fasces.Overlays:Periods
 {
-    subscript(index:Int) -> Period<Overlays>
+    subscript(index:Int) -> Period<OverlayTable>
     {
         self.base[index].overlays
     }
