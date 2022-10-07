@@ -1,5 +1,3 @@
-import Sediment
-
 struct OverlayTable:Sendable
 {
     var divergences:[Diacritic: Overlay]
@@ -9,11 +7,19 @@ struct OverlayTable:Sendable
         self.divergences = [:]
     }
 }
+extension OverlayTable
+{
+    mutating
+    func revert(to rollbacks:History.Rollbacks)
+    {
+        self.divergences.revert(to: rollbacks)
+    }
+}
 extension OverlayTable:PeriodAxis
 {
     subscript<Value>(field:FieldAccessor<Overlay, Value>) -> PeriodHead<Value>
     {
-        .alternate(self.divergences[field.key][keyPath: field.alternate])
+        .alternate(self.divergences[field.key]?[keyPath: field.alternate])
     }
 }
 extension OverlayTable:BranchAxis
@@ -22,7 +28,7 @@ extension OverlayTable:BranchAxis
     {
         _read
         {
-            yield self.divergences[field.key][keyPath: field.alternate]?.head
+            yield self.divergences[field.key]?[keyPath: field.alternate]?.head
         }
     }
     subscript<Value>(field:FieldAccessor<Overlay, Value>, 
@@ -34,7 +40,7 @@ extension OverlayTable:BranchAxis
         }
         _modify
         {
-            yield &self.divergences[field.key][keyPath: field.alternate][since: revision]
+            yield &self.divergences[field.key, default: .init()][keyPath: field.alternate][since: revision]
         }
     }
 }

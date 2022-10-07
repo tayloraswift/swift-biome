@@ -125,10 +125,3 @@ extension History
             data: self.data.erode(until: previous))
     }
 }
-extension History.Rollbacks
-{
-    func revert(_ intrinsic:inout Symbol)
-    {
-        fatalError("unimplemented")
-    }
-}

@@ -39,6 +39,31 @@ extension Branch
 }
 extension Branch.Revisions 
 {
+    mutating 
+    func append(_ revision:Branch.Revision)
+    {
+        self.revisions.append(revision)
+    }
+    mutating 
+    func remove(from start:Version.Revision) 
+    {
+        // sanity check
+        for revision:Branch.Revision in self[start...]
+        {
+            assert(revision.consumers.isEmpty, "removing a revision that still has linked consumers!")
+            assert(revision.alternates.isEmpty, "removing a revision that still has forked branches!")
+        }
+        let index:Int = .init(start.offset)
+        self.revisions.removeSubrange(index...)
+    }
+    mutating
+    func removeAll()
+    {
+        self.remove(from: self.startIndex)
+    }
+}
+extension Branch.Revisions 
+{
     // FIXME: this could be made a lot more efficient assuming the dates are ordered 
     func find(_ date:Date) -> Version.Revision?
     {
@@ -56,22 +81,5 @@ extension Branch.Revisions:ExpressibleByArrayLiteral
     init(arrayLiteral:Branch.Revision...)
     {
         self.revisions = arrayLiteral
-    }
-}
-extension Branch.Revisions:RangeReplaceableCollection 
-{
-    mutating 
-    func append(_ revision:Branch.Revision)
-    {
-        self.revisions.append(revision)
-    }
-    mutating 
-    func replaceSubrange(_ range:Range<Version.Revision>, 
-        with revisions:some Collection<Branch.Revision>)
-    {
-        let range:Range<Int> = 
-            Int.init(range.lowerBound.offset) ..< 
-            Int.init(range.upperBound.offset)
-        self.revisions.replaceSubrange(range, with: revisions)
     }
 }

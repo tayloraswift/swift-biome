@@ -12,7 +12,7 @@ extension Branch
     {
         let token:UInt 
         
-        var alternates:[Version.Branch]
+        var alternates:Set<Version.Branch>
         var consumers:[Packages.Index: [Version: Set<Atom<Module>>]]
         let commit:Commit
         let ring:Ring
@@ -44,7 +44,7 @@ extension Branch.Revision
     mutating 
     func branch(_ branch:Version.Branch) -> Branch.Ring 
     {
-        self.alternates.append(branch)
+        self.alternates.insert(branch)
         return self.ring 
     }
 }

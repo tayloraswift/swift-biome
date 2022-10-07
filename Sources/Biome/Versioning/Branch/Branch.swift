@@ -285,12 +285,34 @@ extension Branch
     mutating 
     func revert(to previous:Version.Revision)
     {
-        let revision:Revision = self.revisions[previous]
+        let current:Version.Revision = self.revisions.index(after: previous)
+        guard current < self.revisions.endIndex 
+        else 
+        {
+            return 
+        }
 
-        self.modules.remove(from: revision.ring.modules)
-        self.symbols.remove(from: revision.ring.symbols)
-        self.articles.remove(from: revision.ring.articles)
+        let ring:Ring = self.revisions[previous].ring
+        let rollbacks:History.Rollbacks = self.history.erode(until: previous)
+
+        self.modules.revert(to: rollbacks, through: ring.modules)
+        self.symbols.revert(to: rollbacks, through: ring.symbols)
+        self.articles.revert(to: rollbacks, through: ring.articles)
+        self.overlays.revert(to: rollbacks)
         self.routes.revert(to: previous)
+
+        self.revisions.remove(from: current)
+    }
+    mutating 
+    func revert()
+    {
+        self.revisions.removeAll()
+        self.overlays = .init()
+        self.articles.revert()
+        self.symbols.revert()
+        self.modules.revert()
+        self.routes = .init()
+        self.history = .init()
     }
 }
 extension Branch 
@@ -306,7 +328,7 @@ extension Branch
         else 
         {
             return self.modules
-                .insert(namespace, culture: nationality, Module.init(id:culture:))
+                .insert(namespace, culture: nationality, creator: Module.init(id:culture:))
                 .positioned(self.index)
         }
     }

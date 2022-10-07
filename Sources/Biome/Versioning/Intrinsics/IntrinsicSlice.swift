@@ -1,5 +1,3 @@
-import Sediment
-
 struct IntrinsicSlice<Element> where Element:BranchIntrinsic
 {
     private 
@@ -19,8 +17,8 @@ extension IntrinsicSlice:PeriodAxis
         assert(field.key.offset < self.endIndex)
 
         return field.key.offset < self.startIndex ?
-            .alternate(self.divergences[field.key][keyPath: field.alternate]) :
-            .original(        self.base[field.key,   field: field.original])
+            .alternate(self.divergences[field.key]?[keyPath: field.alternate]) :
+            .original(        self.base[field.key,    field: field.original])
     }
 }
 extension IntrinsicSlice:RandomAccessCollection

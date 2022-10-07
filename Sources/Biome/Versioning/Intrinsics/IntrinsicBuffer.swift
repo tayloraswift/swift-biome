@@ -1,5 +1,3 @@
-import Sediment
-
 extension IntrinsicBuffer:Sendable 
     where   Element:Sendable, 
             Element.Offset:Sendable, 
@@ -10,52 +8,103 @@ extension IntrinsicBuffer:Sendable
 {
 }
 
+extension IntrinsicBuffer
+{
+    struct Intrinsics
+    {
+        private 
+        var storage:[(element:Element, base:Divergence.Base)] 
+        let startIndex:Element.Offset
+
+        private
+        init(startIndex:Element.Offset, storage:[(element:Element, base:Divergence.Base)])
+        {
+            self.storage = storage
+            self.startIndex = startIndex
+        }
+        init(startIndex:Element.Offset)
+        {
+            self.init(startIndex: startIndex, storage: [])
+        }
+    }
+}
+extension IntrinsicBuffer.Intrinsics
+{
+    mutating 
+    func append(id:Element.ID, culture:Element.Culture, 
+        creator create:(Element.ID, Atom<Element>) throws -> Element) rethrows -> Atom<Element>
+    {
+        let atom:Atom<Element> = .init(culture, offset: self.endIndex)
+        self.storage.append((try create(id, atom), .init()))
+        return atom 
+    }
+    mutating 
+    func remove(from index:Element.Offset)
+    {
+        self.storage.removeSubrange(Int.init(index - self.startIndex)...)
+    }
+    mutating 
+    func removeAll()
+    {
+        self.storage = []
+    }
+}
+extension IntrinsicBuffer.Intrinsics
+{
+    func suffix(from index:Element.Offset) -> Self
+    {
+        .init(startIndex: indices.lowerBound, storage: self.storage)
+    }
+}
+extension IntrinsicBuffer.Intrinsics:RandomAccessCollection
+{
+    var endIndex:Element.Offset
+    {
+        self.startIndex + Element.Offset.init(self.storage.count)
+    }
+    subscript(index:Element.Offset) -> (element:Element, base:Element.Divergence.Base)
+    {
+        _read 
+        {
+            yield  self.storage[.init(index - self.startIndex)]
+        }
+        _modify
+        {
+            yield &self.storage[.init(index - self.startIndex)]
+        }
+    }
+}
+
 struct IntrinsicBuffer<Element> where Element:BranchIntrinsic
 {
-    var divergences:[Atom<Element>: Divergence]
-    private 
-    var intrinsics:[(element:Element, base:Divergence.Base)] 
     private(set)
     var atoms:Atoms
-    let startIndex:Element.Offset
+    private(set)
+    var divergences:[Atom<Element>: Divergence]
+    private 
+    var intrinsics:Intrinsics
     
     private 
-    init(startIndex:Element.Offset, 
-        divergences:[Atom<Element>: Element.Divergence],
-        intrinsics:[(element:Element, base:Divergence.Base)],
+    init(divergences:[Atom<Element>: Element.Divergence],
+        intrinsics:Intrinsics,
         atoms:Atoms) 
     {
-        self.startIndex = startIndex
         self.divergences = divergences
         self.intrinsics = intrinsics
         self.atoms = atoms
     }
     init(startIndex:Element.Offset) 
     {
-        self.startIndex = startIndex
         self.divergences = [:]
-        self.intrinsics = []
+        self.intrinsics = .init(startIndex: startIndex)
         self.atoms = .init()
     }
 }
 extension IntrinsicBuffer
 {
-    private
-    subscript(offset offset:Element.Offset) -> (element:Element, base:Divergence.Base)
-    {
-        _read 
-        {
-            yield  self.intrinsics[.init(offset - self.startIndex)]
-        }
-        _modify
-        {
-            yield &self.intrinsics[.init(offset - self.startIndex)]
-        }
-    }
-
     mutating 
     func insert(_ id:Element.ID, culture:Element.Culture, 
-        _ create:(Element.ID, Atom<Element>) throws -> Element) 
+        creator create:(Element.ID, Atom<Element>) throws -> Element) 
         rethrows -> Atom<Element>
     {
         if let atom:Atom<Element> = self.atoms[id]
@@ -65,18 +114,29 @@ extension IntrinsicBuffer
         else 
         {
             // create records for elements if they do not yet exist 
-            let atom:Atom<Element> = .init(culture, offset: self.endIndex)
-            self.intrinsics.append((try create(id, atom), .init()))
+            let atom:Atom<Element> = try self.intrinsics.append(id: id, culture: culture, 
+                creator: create)
             self.atoms[id] = atom
             return atom 
         }
     }
     mutating 
-    func remove(from end:Element.Offset)
+    func revert(to rollbacks:History.Rollbacks, through end:Element.Offset)
     {
-        self.intrinsics.removeSubrange(Int.init(end - self.startIndex)...)
+        self.intrinsics.remove(from: end)
+        for index:Element.Offset in self.intrinsics.indices
+        {
+            self.intrinsics[index].base.revert(to: rollbacks)
+        }
+        self.divergences.revert(to: rollbacks)
         self.atoms = self.atoms.filter { $0.offset < end }
-        fatalError("unimplemented")
+    }
+    mutating 
+    func revert()
+    {
+        self.intrinsics.removeAll()
+        self.divergences = [:]
+        self.atoms = .init()
     }
 }
 extension IntrinsicBuffer:BranchAxis
@@ -87,11 +147,11 @@ extension IntrinsicBuffer:BranchAxis
     {
         _read
         {
-            yield  self[offset: key.offset].base[keyPath: field]
+            yield  self.intrinsics[key.offset].base[keyPath: field]
         }
         _modify
         {
-            yield &self[offset: key.offset].base[keyPath: field]
+            yield &self.intrinsics[key.offset].base[keyPath: field]
         }
     }
 
@@ -101,7 +161,7 @@ extension IntrinsicBuffer:BranchAxis
         {
             if field.key.offset < self.startIndex 
             {
-                yield  self.divergences[field.key][keyPath: field.alternate]?.head
+                yield  self.divergences[field.key]?[keyPath: field.alternate]?.head
             }
             else
             {
@@ -120,7 +180,7 @@ extension IntrinsicBuffer:BranchAxis
         {
             if field.key.offset < self.startIndex
             {
-                yield &self.divergences[field.key][keyPath: field.alternate][since: revision]
+                yield &self.divergences[field.key, default: .init()][keyPath: field.alternate][since: revision]
             }
             else 
             {
@@ -131,28 +191,31 @@ extension IntrinsicBuffer:BranchAxis
 }
 extension IntrinsicBuffer:RandomAccessCollection 
 {
+    var startIndex:Element.Offset
+    {
+        self.intrinsics.startIndex
+    }
     var endIndex:Element.Offset
     {
-        self.startIndex + Element.Offset.init(self.intrinsics.count)
+        self.intrinsics.endIndex
     }
 
-    subscript(offset:Element.Offset) -> Element
+    subscript(index:Element.Offset) -> Element
     {
         _read
         {
-            yield  self[offset: offset].element
+            yield  self.intrinsics[index].element
         }
         _modify
         {
-            yield &self[offset: offset].element
+            yield &self.intrinsics[index].element
         }
     }
     
     subscript(indices:Range<Element.Offset>) -> IntrinsicSlice<Element> 
     {
-        .init(.init(startIndex: indices.lowerBound, 
-                divergences: self.divergences,
-                intrinsics: self.intrinsics,
+        .init(.init(divergences: self.divergences,
+                intrinsics: self.intrinsics.suffix(from: indices.lowerBound),
                 atoms: self.atoms),
             upTo: indices.upperBound)
     }

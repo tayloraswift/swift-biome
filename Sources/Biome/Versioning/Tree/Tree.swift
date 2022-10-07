@@ -239,6 +239,21 @@ extension Tree
         }
         return self[branch].commit(commit, token: self.counter, pins: pins)
     }
+
+    mutating 
+    func revert(_ branch:Version.Branch, to previous:Version?)
+    {
+        self.counter += 1
+        if  let previous:Version,
+                previous.branch == branch
+        {
+            self[branch].revert(to: previous.revision)
+        }
+        else //if case _? = self[previous].alternates.remove(branch)
+        {
+            self[branch].revert()
+        }
+    }
 }
 
 extension Tree 

@@ -138,8 +138,8 @@ extension Service
         }
         catch let error
         {
-            //self.packages[nationality].tree[branch].revert(to: previous)
-            throw error 
+            self.packages[nationality].tree.revert(branch, to: previous)
+            throw error
         }
     }
 }

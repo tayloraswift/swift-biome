@@ -11,10 +11,38 @@ struct AlternateHead<Value>
     /// The first revision in which this field diverged from its parent branch.
     let since:Version.Revision
 }
+
 enum PeriodHead<Value>
 {
     case original(OriginalHead<Value>?)
     case alternate(AlternateHead<Value>?)
+}
+
+extension Optional
+{
+    mutating
+    func revert<Value>(to rollbacks:Sediment<Version.Revision, Value>.Rollbacks)
+        where Wrapped == OriginalHead<Value>
+    {
+        if  let head:Sediment<Version.Revision, Value>.Head = self
+        {
+            self = rollbacks[head]
+        }
+    }
+    mutating 
+    func revert<Value>(to rollbacks:Sediment<Version.Revision, Value>.Rollbacks)
+        where Wrapped == AlternateHead<Value>
+    {
+        if  let alternate:AlternateHead<Value> = self,
+            let head:Sediment<Version.Revision, Value>.Head = rollbacks[alternate.head]
+        {
+            self = .init(head: head, since: alternate.since)
+        }
+        else
+        {
+            self = nil
+        }
+    }
 }
 
 extension Optional
