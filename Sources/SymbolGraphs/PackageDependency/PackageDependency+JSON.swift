@@ -9,7 +9,7 @@ extension PackageDependency
         static let package:String = "package"
         static let modules:String = "modules"
     }
-
+    public
     var serialized:JSON 
     {
         [
@@ -17,6 +17,7 @@ extension PackageDependency
             CodingKeys.modules: .array(self.modules.map { .string($0.string) }),
         ]
     }
+    public
     init(from json:JSON) throws 
     {
         self = try json.lint 

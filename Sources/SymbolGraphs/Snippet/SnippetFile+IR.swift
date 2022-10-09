@@ -26,15 +26,14 @@ extension SnippetFile
         {
             .init(name: try $0.remove(CodingKeys.name,   as: String.self, 
                     ModuleIdentifier.init(_:)),
-                source: try $0.remove(CodingKeys.source, as: String.self),
                 dependencies: try $0.remove(CodingKeys.dependencies, as: [JSON].self)
                 {
                     try $0.map(PackageDependency.init(from:)).sorted
                     {
                         $0.package < $1.package
                     }
-                }
-            )
+                },
+                source: try $0.remove(CodingKeys.source, as: String.self))
         }
     }
 }

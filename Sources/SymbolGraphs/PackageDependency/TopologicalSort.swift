@@ -14,6 +14,7 @@ extension Collection<RawCulturalGraph>
                 dependencies[module.id, default: []].formUnion(dependency.modules)
             }
         }
+
         var consumers:[ModuleIdentifier: [RawCulturalGraph]] = [:]
         for module:RawCulturalGraph in self
         {

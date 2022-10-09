@@ -49,7 +49,7 @@ extension ColonialGraph.Symbol
                 [Generic.Constraint<SymbolIdentifier>]
             ) = try $0.pop("swiftExtension")
             {
-                try $0.lint
+                try $0.lint(whitelisting: ["typeKind"])
                 {
                     (
                         try $0.pop("extendedModule", as: String.self, ModuleIdentifier.init(_:)),

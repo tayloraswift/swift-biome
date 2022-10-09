@@ -6,14 +6,15 @@ struct SnippetFile:Equatable
     public
     let name:ModuleIdentifier
     public
-    let source:String
-    public
     let dependencies:[PackageDependency]
+    public
+    let source:String
 
-    init(name:ModuleIdentifier, source:String, dependencies:[PackageDependency])
+    public
+    init(name:ModuleIdentifier, dependencies:[PackageDependency], source:String)
     {
         self.name = name
-        self.dependencies = dependencies
         self.source = source
+        self.dependencies = dependencies.sorted { $0.package < $1.package }
     }
 }

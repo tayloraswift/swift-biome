@@ -67,18 +67,17 @@ struct SymbolIdentifierTable
 }
 extension SymbolGraph
 {
-    init(id:PackageIdentifier, compiling targets:[RawCulturalGraph], 
-        snippets:[SnippetFile]) throws
+    public
+    init(compiling graph:RawSymbolGraph) throws
     {
-        let targets:[RawCulturalGraph] = try (_move targets).topologicallySorted(for: id)
-        try self.init(id: id, compiling: try (_move targets).map(CulturalGraph.init(_:)),
-            snippets: snippets)
+        let cultures:[RawCulturalGraph] = try graph.cultures.topologicallySorted(for: graph.id)
+        try self.init(id: graph.id, cultures: try cultures.map(CulturalGraph.init(_:)),
+            snippets: graph.snippets)
     }
     private
-    init(id:PackageIdentifier, compiling targets:[CulturalGraph], 
-        snippets:[SnippetFile]) throws
+    init(id:PackageIdentifier, cultures:[CulturalGraph], snippets:[SnippetFile]) throws
     {
-        let capacity:Int = targets.reduce(0)
+        let capacity:Int = cultures.reduce(0)
         {
             $0 + $1.colonies.reduce(0) { $0 + $1.vertices.count }
         }
@@ -86,9 +85,9 @@ extension SymbolGraph
         // build the identifiers table. 
         var table:SymbolIdentifierTable = .init(capacity: capacity)
 
-        var cultures:[[ColonialPartition]] = []
-            cultures.reserveCapacity(targets.count)
-        for culture:CulturalGraph in targets
+        var partitions:[[ColonialPartition]] = []
+            partitions.reserveCapacity(cultures.count)
+        for culture:CulturalGraph in cultures
         {
             var colonies:[ColonialPartition] = []
                 colonies.reserveCapacity(culture.colonies.count)
@@ -107,12 +106,12 @@ extension SymbolGraph
                 colonies.append(.init(namespace: colony.namespace, 
                     vertices: table.append(contentsOf: sorted.lazy.map(\.id))))
             }
-            cultures.append(colonies)
+            partitions.append(colonies)
         }
 
         var cohorts:[Range<Int>] = []
-            cohorts.reserveCapacity(targets.count)
-        for culture:CulturalGraph in targets
+            cohorts.reserveCapacity(cultures.count)
+        for culture:CulturalGraph in cultures
         {
             var external:Set<SymbolIdentifier> = []
             for colony:ColonialGraph in culture.colonies
@@ -124,16 +123,16 @@ extension SymbolGraph
             }
             cohorts.append(table.append(contentsOf: external.sorted()))
         }
-        try self.init(id: id, compiling: _move targets, snippets: _move snippets,
+        try self.init(id: id, cultures: _move cultures, snippets: _move snippets,
             identifiers: _move table,
-            cultures: _move cultures,
+            colonies: _move partitions,
             cohorts: _move cohorts,
             vertices: capacity)
     }
     private
-    init(id:PackageIdentifier, compiling targets:[CulturalGraph], snippets:[SnippetFile],
+    init(id:PackageIdentifier, cultures:[CulturalGraph], snippets:[SnippetFile],
         identifiers table:SymbolIdentifierTable,
-        cultures:[[ColonialPartition]],
+        colonies:[[ColonialPartition]],
         cohorts:[Range<Int>],
         vertices:Int) throws
     {
@@ -145,9 +144,9 @@ extension SymbolGraph
         self.vertices = []
         self.partitions = []
         self.vertices.reserveCapacity(vertices)
-        self.partitions.reserveCapacity(targets.count)
+        self.partitions.reserveCapacity(cultures.count)
         for (culture, colonies):(CulturalGraph, [ColonialPartition]) in 
-            zip(targets, _move cultures)
+            zip(cultures, _move colonies)
         {
             let vertices:Range<Int> = 
                 (colonies.first?.vertices.lowerBound ?? self.vertices.endIndex) ..<
@@ -212,7 +211,7 @@ extension SymbolGraph
 
         // uniquify hints
         var uptree:[Int: Int] = [:]
-        for culture:CulturalGraph in _move targets
+        for culture:CulturalGraph in _move cultures
         {
             for colony:ColonialGraph in culture.colonies
             {
