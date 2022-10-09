@@ -6,24 +6,70 @@ struct PackageInterface
     let local:Fasces
     let version:Version
     private
-    var storage:[BasisElement]
+    var cultures:[BasisElement]
+    private
+    var symbols:[Atom<Symbol>.Position?]
 
     init(context:PackageUpdateContext, commit:Commit,
-        graphs:__shared [SymbolGraph],
         branch:Version.Branch, 
+        graph:__shared SymbolGraph,
         stems:inout Route.Stems,
         tree:inout Tree)
     {
-        self.storage = []
-        self.storage.reserveCapacity(graphs.count)
+        self.cultures = []
+        self.cultures.reserveCapacity(graph.cultures.count)
+
+        self.symbols = []
+        self.symbols.reserveCapacity(graph.identifiers.table.count)
+
         self.local = context.local
 
-        for (graph, context):(SymbolGraph, ModuleUpdateContext) in zip(graphs, context)
+        for (culture, context):(SymbolGraph.Culture, ModuleUpdateContext) in 
+            zip(graph.cultures, context)
         {
-            self.storage.append(.init(graph: graph, context: context, 
-                branch: &tree[branch],
-                stems: &stems))
+            let visible:Set<Atom<Module>> = context.namespaces.import()
+            let (articles, _extensions):([Atom<Article>.Position?], [Extension]) = tree[branch].addExtensions(from: culture, 
+                namespace: context.module, 
+                trunk: context.local.articles, 
+                stems: &stems)
+            let symbols:[Atom<Symbol>.Position?] = tree[branch].addSymbols(from: culture, 
+                visible: visible,
+                context: context,
+                stems: &stems)
+            
+            assert(articles.count == culture.markdown.count)
+            assert(symbols.count == culture.count)
+
+            assert(self.symbols.endIndex == culture.startIndex)
+            self.symbols.append(contentsOf: symbols)
+            assert(self.symbols.endIndex == culture.endIndex)
+
+            self.cultures.append(.init(articles: articles, symbols: culture.indices, 
+                _cachedMarkdown: _extensions, 
+                context: context))
         }
+        // external symbols
+        for (cohort, context):(ArraySlice<SymbolIdentifier>, ModuleUpdateContext) in 
+            zip(graph.identifiers.external, context)
+        {
+            // not worth caching this
+            let visible:Set<Atom<Module>> = context.namespaces.import()
+            self.symbols.append(contentsOf: cohort.lazy.map
+            {
+                for upstream:Package.Pinned in context.upstream.values 
+                {
+                    if  let upstream:Atom<Symbol>.Position = upstream.symbols.find($0), 
+                            visible.contains(upstream.culture)
+                    {
+                        return upstream
+                    }
+                }
+                return nil 
+            })
+        }
+
+        assert(self.symbols.count == graph.identifiers.table.count)
+
         self.version = tree.commit(commit, to: branch, pins: context.pins())
     }
 
@@ -31,26 +77,32 @@ struct PackageInterface
     {
         self.version.revision
     }
+    var branch:Version.Branch
+    {
+        self.version.branch
+    }
 }
 extension PackageInterface:RandomAccessCollection
 {
     var startIndex:Int
     {
-        self.storage.startIndex
+        self.cultures.startIndex
     }
     var endIndex:Int
     {
-        self.storage.endIndex
+        self.cultures.endIndex
     }
     subscript(index:Int) -> ModuleInterface
     {
-        let element:BasisElement = self.storage[index]
+        let element:BasisElement = self.cultures[index]
+        let symbols:ModuleInterface.SymbolPositions = .init(self.symbols, 
+            citizens: element.symbols)
         return .init(context: .init(namespaces: element.namespaces, 
                 upstream: element.upstream, 
                 local: self.local), 
             _extensions: element._cachedMarkdown, 
-            articles: element.articles, 
-            symbols: element.symbols)
+            articles: element.articles,
+            symbols: symbols)
     }
 }
 extension PackageInterface
@@ -61,16 +113,14 @@ extension PackageInterface
         let namespaces:Namespaces
         let upstream:[Packages.Index: Package.Pinned]
 
-        let articles:ModuleInterface.Abstractor<Article>
-        let symbols:ModuleInterface.Abstractor<Symbol>
+        let articles:[Atom<Article>.Position?]
+        let symbols:Range<Int>
 
         // this does not belong here! once AOT article rendering lands in the `SymbolGraphs` module, 
         // we can get rid of it
         let _cachedMarkdown:[Extension]
 
-        private 
-        init(articles:ModuleInterface.Abstractor<Article>,
-            symbols:ModuleInterface.Abstractor<Symbol>,
+        init(articles:[Atom<Article>.Position?], symbols:Range<Int>, 
             _cachedMarkdown:[Extension],
             context:__shared ModuleUpdateContext)
         {
@@ -80,49 +130,6 @@ extension PackageInterface
             self.articles = articles
             self.symbols = symbols
             self._cachedMarkdown = _cachedMarkdown
-        }
-
-        init(graph:__shared SymbolGraph,
-            context:__shared ModuleUpdateContext,
-            branch:inout Branch,
-            stems:inout Route.Stems)
-        {
-            let visible:Set<Atom<Module>> = context.namespaces.import()
-            let (articles, _extensions):(ModuleInterface.Abstractor<Article>, [Extension]) = branch.addExtensions(from: graph, 
-                namespace: context.module, 
-                trunk: context.local.articles, 
-                stems: &stems)
-            var symbols:ModuleInterface.Abstractor<Symbol> = branch.addSymbols(from: graph, 
-                visible: visible,
-                context: context,
-                stems: &stems)
-            
-            assert(symbols.count == graph.vertices.count)
-
-            symbols.extend(over: graph.identifiers) 
-            {
-                if let local:Atom<Symbol> = branch.symbols.atoms[$0] 
-                {
-                    return local.positioned(branch.index)
-                }
-                if let local:Atom<Symbol>.Position = context.local.symbols.find($0)
-                {
-                    return local 
-                } 
-                for upstream:Package.Pinned in context.upstream.values 
-                {
-                    if  let upstream:Atom<Symbol>.Position = upstream.symbols.find($0), 
-                            visible.contains(upstream.culture)
-                    {
-                        return upstream
-                    }
-                }
-                return nil 
-            }
-
-            self.init(articles: articles, symbols: symbols, 
-                _cachedMarkdown: _extensions, 
-                context: context)
         }
     }
 }

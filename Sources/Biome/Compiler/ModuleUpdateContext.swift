@@ -15,6 +15,15 @@ struct ModuleUpdateContext
     let upstream:[Packages.Index: Package.Pinned]
     let local:Fasces
 
+    init(namespaces:Namespaces,
+        upstream:[Packages.Index: Package.Pinned],
+        local:Fasces)
+    {
+        self.namespaces = namespaces
+        self.upstream = upstream
+        self.local = local
+    }
+
     var nationality:Packages.Index
     {
         self.namespaces.nationality

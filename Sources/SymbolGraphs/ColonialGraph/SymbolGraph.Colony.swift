@@ -39,8 +39,8 @@ extension SymbolGraph
 extension SymbolGraph.Colony:RandomAccessCollection
 {
     @inlinable public
-    subscript(index:Int) -> (id:SymbolIdentifier, vertex:SymbolGraph.Vertex<Int>)
+    subscript(index:Int) -> (id:SymbolIdentifier, intrinsic:SymbolGraph.Intrinsic)
     {
-        (self.identifiers[index], self.vertices[index])
+        (self.identifiers[index], self.vertices[index].intrinsic)
     }
 }

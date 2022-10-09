@@ -90,7 +90,7 @@ extension DocumentationExtension
 }
 
 
-struct Literature 
+struct PackageDocumentation 
 {
     private 
     struct Comment 
@@ -110,121 +110,121 @@ struct Literature
             self.branch = branch
         }
     }
-    private 
-    struct Comments 
-    {
-        private 
-        var uptree:[Atom<Symbol>: Comment] = [:]
-        private(set)
-        var pruned:Int
+    // private 
+    // struct Comments 
+    // {
+    //     private 
+    //     var uptree:[Atom<Symbol>: Comment] = [:]
+    //     private(set)
+    //     var pruned:Int
 
-        init() 
-        {
-            self.uptree = [:]
-            self.pruned = 0
-        }
+    //     init() 
+    //     {
+    //         self.uptree = [:]
+    //         self.pruned = 0
+    //     }
 
-        mutating 
-        func update(with graph:SymbolGraph, interface:ModuleInterface)
-        {
-            for (position, vertex):(Atom<Symbol>.Position?, SymbolGraph.Vertex<Int>) in 
-                zip(interface.citizenSymbols, graph.vertices)
-            {
-                guard let position:Atom<Symbol>.Position = position
-                else 
-                {
-                    continue 
-                }
+    //     mutating 
+    //     func update(with graph:SymbolGraph, interface:ModuleInterface)
+    //     {
+    //         for (position, vertex):(Atom<Symbol>.Position?, SymbolGraph.Vertex<Int>) in 
+    //             zip(interface.citizenSymbols, graph.vertices)
+    //         {
+    //             guard let position:Atom<Symbol>.Position = position
+    //             else 
+    //             {
+    //                 continue 
+    //             }
 
-                assert(position.culture == interface.culture)
+    //             assert(position.culture == interface.culture)
                 
-                switch 
-                (
-                    vertex.comment.string, 
-                    vertex.comment.extends.flatMap { interface.symbols[$0]?.atom }
-                )
-                {
-                case (nil, nil): 
-                    continue 
+    //             switch 
+    //             (
+    //                 vertex.comment.string, 
+    //                 vertex.comment.extends.flatMap { interface.symbols[$0]?.atom }
+    //             )
+    //             {
+    //             case (nil, nil): 
+    //                 continue 
                 
-                case (let comment?, nil):
-                    self.uptree[position.atom] = .init(.extends(nil, with: comment), 
-                        branch: position.branch)
+    //             case (let comment?, nil):
+    //                 self.uptree[position.atom] = .init(.extends(nil, with: comment), 
+    //                     branch: position.branch)
                 
-                case (let comment?, let origin?):
-                    if  origin.culture != interface.culture,
-                        case .extends(_, with: comment)? = self.uptree[origin]?.node
-                    {
-                        // inherited a comment from a *different* module. 
-                        // if it were from the same module, symbolgraphconvert 
-                        // should have deleted it. 
-                        self.uptree[position.atom] = .init(.inherits(origin), 
-                            branch: position.branch)
-                        pruned += 1
-                    }
-                    else 
-                    {
-                        self.uptree[position.atom] = .init(.extends(origin, with: comment), 
-                            branch: position.branch)
-                    }
+    //             case (let comment?, let origin?):
+    //                 if  origin.culture != interface.culture,
+    //                     case .extends(_, with: comment)? = self.uptree[origin]?.node
+    //                 {
+    //                     // inherited a comment from a *different* module. 
+    //                     // if it were from the same module, symbolgraphconvert 
+    //                     // should have deleted it. 
+    //                     self.uptree[position.atom] = .init(.inherits(origin), 
+    //                         branch: position.branch)
+    //                     pruned += 1
+    //                 }
+    //                 else 
+    //                 {
+    //                     self.uptree[position.atom] = .init(.extends(origin, with: comment), 
+    //                         branch: position.branch)
+    //                 }
                 
-                case (nil, let origin?):
-                    self.uptree[position.atom] = .init(.inherits(origin), 
-                        branch: position.branch)
-                }
-            }
-        }
+    //             case (nil, let origin?):
+    //                 self.uptree[position.atom] = .init(.inherits(origin), 
+    //                     branch: position.branch)
+    //             }
+    //         }
+    //     }
 
-        func consolidated(nationality:Packages.Index) -> [Atom<Symbol>: Comment]
-        {
-            var skipped:Int = 0,
-                dropped:Int = 0
-            defer 
-            {
-                if skipped != 0 
-                {
-                    print("shortened \(skipped) doccomment inheritance links")
-                }
-                if dropped != 0 
-                {
-                    print("pruned \(dropped) nil-terminating doccomment inheritance chains")
-                }
-            }
-            return self.uptree.compactMapValues 
-            {
-                if case .inherits(var origin) = $0.node 
-                {
-                    // fast-forward until we either reach a package boundary, 
-                    // or a local symbol that has documentation
-                    var visited:Set<Atom<Symbol>> = []
-                    fastforwarding:
-                    while origin.nationality == nationality
-                    {
-                        if case _? = visited.update(with: origin)
-                        {
-                            fatalError("detected cycle in doccomment inheritance graph")
-                        }
-                        switch self.uptree[origin]?.node
-                        {
-                        case nil: 
-                            dropped += 1
-                            return nil 
-                        case .extends(_, with: _)?: 
-                            break fastforwarding
-                        case .inherits(let next)?: 
-                            origin = next 
-                            skipped += 1
-                        }
-                    }
-                    return .init(.inherits(origin), branch: $0.branch)
-                }
-                else 
-                {
-                    return $0
-                }
-            }
-        }
-    }
+    //     func consolidated(nationality:Packages.Index) -> [Atom<Symbol>: Comment]
+    //     {
+    //         var skipped:Int = 0,
+    //             dropped:Int = 0
+    //         defer 
+    //         {
+    //             if skipped != 0 
+    //             {
+    //                 print("shortened \(skipped) doccomment inheritance links")
+    //             }
+    //             if dropped != 0 
+    //             {
+    //                 print("pruned \(dropped) nil-terminating doccomment inheritance chains")
+    //             }
+    //         }
+    //         return self.uptree.compactMapValues 
+    //         {
+    //             if case .inherits(var origin) = $0.node 
+    //             {
+    //                 // fast-forward until we either reach a package boundary, 
+    //                 // or a local symbol that has documentation
+    //                 var visited:Set<Atom<Symbol>> = []
+    //                 fastforwarding:
+    //                 while origin.nationality == nationality
+    //                 {
+    //                     if case _? = visited.update(with: origin)
+    //                     {
+    //                         fatalError("detected cycle in doccomment inheritance graph")
+    //                     }
+    //                     switch self.uptree[origin]?.node
+    //                     {
+    //                     case nil: 
+    //                         dropped += 1
+    //                         return nil 
+    //                     case .extends(_, with: _)?: 
+    //                         break fastforwarding
+    //                     case .inherits(let next)?: 
+    //                         origin = next 
+    //                         skipped += 1
+    //                     }
+    //                 }
+    //                 return .init(.inherits(origin), branch: $0.branch)
+    //             }
+    //             else 
+    //             {
+    //                 return $0
+    //             }
+    //         }
+    //     }
+    // }
     private(set) 
     var articles:[(Atom<Article>, DocumentationExtension<Never>)]
     private(set) 
@@ -234,8 +234,8 @@ struct Literature
     private(set) 
     var package:DocumentationExtension<Never>?
 
-    init(compiling graphs:__shared [SymbolGraph], 
-        interface:__shared PackageInterface, 
+    init(interface:__shared PackageInterface,
+        graph:__shared SymbolGraph,
         local:__shared Package, 
         stems:__shared Route.Stems)
     {
@@ -244,37 +244,66 @@ struct Literature
         self.modules = []
         self.package = nil
 
-        var comments:Comments = .init()
-        for (graph, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interface)
+        var comments:[Atom<Symbol>: Comment] = [:]
+        for (culture, interface):(SymbolGraph.Culture, ModuleInterface) in 
+            zip(graph.cultures, interface)
         {
-            comments.update(with: graph, interface: interface)
-        }
-        if  comments.pruned != 0 
-        {
-            print("pruned \(comments.pruned) duplicate comments")
+            for (position, comment):(Atom<Symbol>.Position?, SymbolGraph.Comment<Int>) in 
+                zip(interface.citizens, culture.comments)
+            {
+                guard let position:Atom<Symbol>.Position = position
+                else
+                {
+                    continue 
+                }
+
+                assert(position.culture == interface.culture)
+                
+                switch 
+                (
+                    comment.string, 
+                    comment.extends.flatMap { interface.symbols[$0]?.atom }
+                )
+                {
+                case (nil, nil): 
+                    continue 
+                
+                case (let comment?, nil):
+                    comments[position.atom] = .init(.extends(nil, with: comment), 
+                        branch: position.branch)
+                
+                case (let comment?, let origin?):
+                    comments[position.atom] = .init(.extends(origin, with: comment), 
+                        branch: position.branch)
+                
+                case (nil, let origin?):
+                    comments[position.atom] = .init(.inherits(origin), 
+                        branch: position.branch)
+                }
+            }
         }
 
-        self.compile(graphs: graphs, interface: interface, 
-            comments: (_move comments).consolidated(nationality: local.nationality),
+        self.compile(comments: _move comments, interface: interface, graph: graph,
             local: .init(local, version: interface.version), 
             stems: stems)
     }
     private mutating 
-    func compile(graphs:[SymbolGraph],
+    func compile(comments:__owned [Atom<Symbol>: Comment], 
         interface:PackageInterface, 
-        comments:__owned [Atom<Symbol>: Comment], 
+        graph:SymbolGraph,
         local:Package.Pinned, 
         stems:Route.Stems)
     {
-        var resolvers:[Atom<Module>: Resolver] = .init(minimumCapacity: graphs.count)
-        for (_, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interface)
+        var resolvers:[Atom<Module>: Resolver] = .init(minimumCapacity: graph.cultures.count)
+        for (_, interface):(SymbolGraph.Culture, ModuleInterface) in 
+            zip(graph.cultures, interface)
         {
             // use the interface-level pins and not the package-level pins, 
             // to reduce the size of the search context
             let resolver:Resolver = .init(local: local, context: interface.context)
 
             for (position, _extension):(Atom<Article>.Position?, Extension) in 
-                zip(interface.citizenArticles, interface._cachedMarkdown)
+                zip(interface.articles, interface._cachedMarkdown)
             {
                 // TODO: handle merge behavior block directive 
                 if let position:Atom<Article>.Position 

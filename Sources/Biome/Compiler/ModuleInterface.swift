@@ -2,19 +2,9 @@ import SymbolSource
 
 struct ModuleInterface 
 {
-    struct SymbolLookupError:Error 
-    {
-        let index:Int 
-
-        init(_ index:Int)
-        {
-            self.index = index
-        }
-    }
-
+    let articles:[Atom<Article>.Position?]
+    let symbols:SymbolPositions
     let context:ModuleUpdateContext
-    var articles:Abstractor<Article>
-    var symbols:Abstractor<Symbol>
 
     // this does not belong here! once AOT article rendering lands in the `SymbolGraphs` module, 
     // we can get rid of it
@@ -22,8 +12,8 @@ struct ModuleInterface
 
     init(context:ModuleUpdateContext, 
         _extensions:[Extension],
-        articles:Abstractor<Article>,
-        symbols:Abstractor<Symbol>)
+        articles:[Atom<Article>.Position?],
+        symbols:SymbolPositions)
     {
         self.context = context
         self.symbols = symbols
@@ -31,14 +21,11 @@ struct ModuleInterface
         self._cachedMarkdown = _extensions
     }
 
-    var citizenArticles:Citizens<Article> 
-    {
-        self.articles.citizens(culture: self.culture)
-    }
-    var citizenSymbols:Citizens<Symbol> 
+    var citizens:SymbolCitizens
     {
         self.symbols.citizens(culture: self.culture)
     }
+    
     var nationality:Packages.Index
     {
         self.context.nationality

@@ -11,7 +11,7 @@ protocol _Database:Sendable
         for nationality:Packages.Index, 
         version:Version) async throws
 
-    func storeLiterature(_ literature:Literature) async throws
+    func storeDocumentation(_ literature:PackageDocumentation) async throws
 }
 
 public 
@@ -29,21 +29,20 @@ actor Service
 }
 extension Service 
 {
-    func updatePackage(_ id:PackageIdentifier, 
-        resolution:PackageResolution,
+    func updatePackage(resolution:PackageResolution,
         branch:String, 
         fork:String? = nil,
         date:Date, 
         tag:String? = nil,
-        graphs:[SymbolGraph], 
+        graph:__owned SymbolGraph, 
         database:some _Database) async throws -> Packages.Index
     {
         try Task.checkCancellation()
 
-        guard let pin:PackageResolution.Pin = resolution.pins[id]
+        guard let pin:PackageResolution.Pin = resolution.pins[graph.id]
         else 
         {
-            fatalError("missing pin for '\(id)'")
+            fatalError("missing pin for '\(graph.id)'")
         }
         guard let branch:Tag = .init(parsing: branch) 
         else 
@@ -52,17 +51,15 @@ extension Service
         }
 
         let fork:Version.Selector? = fork.flatMap(Version.Selector.init(parsing:))
-        // topological sort  
-        let graphs:[SymbolGraph] = try graphs.topologicallySorted(for: id)
 
-        let nationality:Packages.Index = self.packages.addPackage(id)
+        let nationality:Packages.Index = self.packages.addPackage(graph.id)
 
         let impact:PackageImpact = try await self.updatePackage(nationality, 
             resolution: resolution, 
             commit: .init(hash: pin.revision, date: date, tag: tag.flatMap(Tag.init(parsing:))),
             branch: branch, 
             fork: fork,
-            graphs: graphs, 
+            graph: _move graph, 
             database: database)
         
         for (dependency, (pin, consumers)):(Packages.Index, (Version, Set<Atom<Module>>)) in 
@@ -83,7 +80,7 @@ extension Service
         commit:__owned Commit,
         branch:Tag, 
         fork:Version.Selector?,
-        graphs:__owned [SymbolGraph], 
+        graph:__owned SymbolGraph,
         database:Database) async throws -> PackageImpact
     {
         let (branch, previous):(Version.Branch, Version?) = 
@@ -106,34 +103,35 @@ extension Service
         {
             let context:PackageUpdateContext = try .init(resolution: _move resolution,
                 nationality: nationality,
-                graphs: graphs,
                 branch: branch,
+                graph: graph,
                 packages: &self.packages)
             
             let interface:PackageInterface = .init(context: _move context, commit: _move commit, 
-                graphs: graphs,
                 branch: branch,
+                graph: graph,
                 stems: &self.stems,
                 tree: &self.packages[nationality].tree)
             
             self.packages[nationality].updateMetadata(interface: interface,
-                graphs: graphs,
                 branch: branch,
+                graph: graph,
                 stems: self.stems,
                 api: &api)
             
-            let literature:Literature = .init(compiling: graphs, 
-                interface: interface, 
+            let documentation:PackageDocumentation = .init(interface: interface, 
+                graph: graph,
                 local: self.packages[nationality], 
                 stems: stems)
             
             let surface:Surface = (_move api).surface()
             try await database.storeSurface(_move surface, for: nationality, version: interface.version)
-            try await database.storeLiterature(literature)
+            try await database.storeDocumentation(documentation)
 
-            self.packages[nationality].updateData(literature: _move literature, 
-                interface: interface, 
-                graphs: _move graphs)
+            self.packages[nationality].updateDocumentation(_move documentation, 
+                interface: interface)
+            self.packages[nationality].updateData(_move graph,
+                interface: interface)
             
             return .init(interface: _move interface)
         }

@@ -23,8 +23,8 @@ extension SymbolGraph.Vertex<Int>
     {
         self = try json.lint 
         {
-            .init(path: try $0.remove(CodingKeys.path, Path.init(from:)) as Path,
-                shape: shape,
+            .init(intrinsic: .init(shape: shape,
+                    path: try $0.remove(CodingKeys.path, Path.init(from:)) as Path),
                 declaration: .init(
                     fragments: try $0.remove(CodingKeys.fragments, 
                         Notebook<Highlight, Int>.init(from:)),  
@@ -54,7 +54,7 @@ extension SymbolGraph.Vertex<Int>
     {
         var items:[(key:String, value:JSON)] =
         [
-            (CodingKeys.path, .array(self.path.map(JSON.string(_:)))),
+            (CodingKeys.path, .array(self.intrinsic.path.map(JSON.string(_:)))),
             (CodingKeys.fragments, .array(self.declaration.fragments.map(\.serialized))),
             (CodingKeys.signature, .array(self.declaration.signature.map(\.serialized))),
         ]

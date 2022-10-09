@@ -46,15 +46,25 @@ extension SymbolGraph
 extension SymbolGraph.Culture:RandomAccessCollection
 {
     @inlinable public
-    subscript(index:Int) -> (id:SymbolIdentifier, vertex:SymbolGraph.Vertex<Int>)
+    subscript(index:Int) -> SymbolIdentifier
     {
-        (self.identifiers[index], self.vertices[index])
+        self.identifiers[index]
     }
 }
 extension SymbolGraph.Culture
 {
     @inlinable public
     var colonies:Colonies
+    {
+        .init(self)
+    }
+    @inlinable public
+    var comments:Comments
+    {
+        .init(self)
+    }
+    @inlinable public
+    var declarations:Declarations
     {
         .init(self)
     }
@@ -94,5 +104,73 @@ extension SymbolGraph.Culture.Colonies:RandomAccessCollection
             identifiers: self.culture.identifiers, 
             vertices: self.culture.vertices,
             culture: self.culture.id)
+    }
+}
+
+extension SymbolGraph.Culture
+{
+    @frozen public
+    struct Comments
+    {
+        @usableFromInline
+        let culture:SymbolGraph.Culture
+
+        @inlinable public
+        init(_ culture:SymbolGraph.Culture)
+        {
+            self.culture = culture
+        }
+    }
+}
+extension SymbolGraph.Culture.Comments:RandomAccessCollection
+{
+    @inlinable public
+    var startIndex:Int
+    {
+        self.culture.startIndex
+    }
+    @inlinable public
+    var endIndex:Int
+    {
+        self.culture.endIndex
+    }
+    @inlinable public
+    subscript(index:Int) -> SymbolGraph.Comment<Int>
+    {
+        self.culture.vertices[index].comment
+    }
+}
+
+extension SymbolGraph.Culture
+{
+    @frozen public
+    struct Declarations
+    {
+        @usableFromInline
+        let culture:SymbolGraph.Culture
+
+        @inlinable public
+        init(_ culture:SymbolGraph.Culture)
+        {
+            self.culture = culture
+        }
+    }
+}
+extension SymbolGraph.Culture.Declarations:RandomAccessCollection
+{
+    @inlinable public
+    var startIndex:Int
+    {
+        self.culture.startIndex
+    }
+    @inlinable public
+    var endIndex:Int
+    {
+        self.culture.endIndex
+    }
+    @inlinable public
+    subscript(index:Int) -> Declaration<Int>
+    {
+        self.culture.vertices[index].declaration
     }
 }

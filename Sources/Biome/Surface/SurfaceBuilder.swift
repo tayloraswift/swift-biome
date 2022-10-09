@@ -123,7 +123,7 @@ extension SurfaceBuilder
 extension SurfaceBuilder.Context
 {
     fileprivate 
-    func validate(edges:[SymbolGraph.Edge<Int>], abstractor:ModuleInterface.Abstractor<Symbol>) 
+    func validate(edges:[SymbolGraph.Edge<Int>], positions:ModuleInterface.SymbolPositions) 
         -> (beliefs:[SurfaceBuilder.Belief], errors:[any Error])
     {
         var errors:[any Error] = []
@@ -136,7 +136,7 @@ extension SurfaceBuilder.Context
             {
                 let edge:SymbolGraph.Edge<Atom<Symbol>.Position> = try edge.map 
                 {
-                    if let position:Atom<Symbol>.Position = abstractor[$0]
+                    if let position:Atom<Symbol>.Position = positions[$0]
                     {
                         return position
                     }
@@ -200,7 +200,7 @@ struct SurfaceBuilder
         self.modules.append(interface.culture)
 
         for (article, _cached):(Atom<Article>.Position?, Extension) in 
-            zip(interface.citizenArticles, interface._cachedMarkdown)
+            zip(interface.articles, interface._cachedMarkdown)
         {
             if let article:Atom<Article>.Position
             {
@@ -212,21 +212,20 @@ struct SurfaceBuilder
         let context:Context = .init(upstream: interface.context.upstream, local: local)
         
         let (beliefs, errors):([Belief], [any Error]) = context.validate(edges: edges, 
-            abstractor: interface.symbols)
+            positions: interface.symbols)
         
         if !errors.isEmpty 
         {
             print("warning: dropped \(errors.count) edges")
         }
 
-        self.insert(_move beliefs, symbols: interface.citizenSymbols, context: context)
+        self.insert(_move beliefs, symbols: interface.citizens, context: context)
     }
 
     private mutating 
-    func insert(_ beliefs:__owned [Belief], symbols:ModuleInterface.Citizens<Symbol>,
+    func insert(_ beliefs:__owned [Belief], symbols:ModuleInterface.SymbolCitizens,
         context:Context) 
     {
-
         var external:[Atom<Symbol>.Position: [Symbol.Trait<Atom<Symbol>.Position>]] = [:]
         var traits:[Atom<Symbol>.Position: [Symbol.Trait<Atom<Symbol>.Position>]] = [:]
         var roles:[Atom<Symbol>.Position: [Symbol.Role<Atom<Symbol>.Position>]] = [:]

@@ -25,7 +25,7 @@ extension Highlight
         case "externalParam":       self =  .argument
         case "text":                self =  .text
         case let kind:
-            throw SymbolGraphDecodingError.unknownFragmentKind(kind)
+            throw ColonialGraphDecodingError.unknownFragmentKind(kind)
         }
     }
 }

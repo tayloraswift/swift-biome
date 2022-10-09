@@ -55,10 +55,7 @@ extension SymbolGraph
             }
             return .init(id: try $0.remove(CodingKeys.id, as: String.self, 
                     PackageIdentifier.init(_:)), 
-                identifiers: try $0.remove(CodingKeys.identifiers, as: [JSON].self)
-                {
-                    try $0.map(SymbolIdentifier.init(from:))
-                },
+                identifiers: try $0.remove(CodingKeys.identifiers, Identifiers.init(from:)),
                 vertices: try $0.remove(CodingKeys.vertices) 
                 {
                     try .init(from: $0, shapes: shapes)
@@ -81,7 +78,7 @@ extension SymbolGraph
     {
         [
             CodingKeys.id: .string(self.id.string),
-            CodingKeys.identifiers: .array(self.identifiers.map { .string($0.string) }),
+            CodingKeys.identifiers: self.identifiers.serialized,
             CodingKeys.snippets: .array(self.snippets.map(\.serialized)),
             CodingKeys.cultures: .array(self.partitions.map(\.serialized)),
             CodingKeys.vertices: .array(self.vertices.map(\.serialized)),
@@ -114,7 +111,7 @@ extension Collection<SymbolGraph.Vertex<Int>> where Index == Int
 {
     var shapes:[JSON]
     {
-        guard var shape:Shape = self.first?.shape 
+        guard var shape:Shape = self.first?.intrinsic.shape 
         else 
         {
             return []
@@ -123,10 +120,10 @@ extension Collection<SymbolGraph.Vertex<Int>> where Index == Int
         var start:Int = self.startIndex
         for (end, vertex):(Int, SymbolGraph.Vertex<Int>) in zip(self.indices, self).dropFirst()
         {
-            if vertex.shape != shape 
+            if vertex.intrinsic.shape != shape 
             {
                 shapes.append((shape, start ..< end))
-                shape = vertex.shape
+                shape = vertex.intrinsic.shape
                 start = end 
             }
         }

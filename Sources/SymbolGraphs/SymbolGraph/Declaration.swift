@@ -49,7 +49,7 @@ struct Declaration<Target>
         self.init(fragments: .init(), signature: .init(fallback))
     }
 
-    func forEach(_ body:(Target) throws -> ()) rethrows 
+    func forEachTarget(_ body:(Target) throws -> ()) rethrows 
     {
         for (_, target):(_, Target) in self.fragments.links 
         {

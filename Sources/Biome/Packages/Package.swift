@@ -45,14 +45,16 @@ struct Package:Identifiable, Sendable
 extension Package
 {
     mutating 
-    func updateMetadata(interface:PackageInterface, graphs:[SymbolGraph],
+    func updateMetadata(interface:PackageInterface, 
         branch:Version.Branch, 
+        graph:SymbolGraph,
         stems:Route.Stems, 
         api:inout SurfaceBuilder)
     {
-        for (graph, interface):(SymbolGraph, ModuleInterface) in zip(graphs, interface)
+        for (culture, interface):(SymbolGraph.Culture, ModuleInterface) in 
+            zip(graph.cultures, interface)
         {
-            api.update(with: graph.edges, interface: interface, local: self)
+            api.update(with: culture.edges, interface: interface, local: self)
         }
 
         self.tree[branch].routes.stack(routes: api.routes.atomic, 
@@ -62,26 +64,23 @@ extension Package
 
         api.inferScopes(for: &self.tree[branch], fasces: interface.local, stems: stems)
 
-        self.tree[interface.version.branch].updateMetadata(interface: interface, builder: api)
+        self.tree[interface.branch].updateMetadata(interface: interface, builder: api)
     }
 
     mutating 
-    func updateData(literature:__owned Literature,
-        interface:__owned PackageInterface, 
-        graphs:__owned [SymbolGraph])
+    func updateData(_ graph:__owned SymbolGraph, 
+        interface:PackageInterface)
     {
         let version:Version = interface.version
-
-        self.tree[version.branch].updateDocumentation(_move literature, interface: interface)
-
-        for (graph, interface):(SymbolGraph, ModuleInterface) in zip(_move graphs, interface)
+        for (culture, interface):(SymbolGraph.Culture, ModuleInterface) in 
+            zip((_move graph).cultures, interface)
         {
-            self.tree[version.branch].updateDeclarations(graph: graph, 
+            self.tree[version.branch].updateDeclarations(culture, 
                 interface: interface, 
                 revision: version.revision)
 
             var topLevelSymbols:Set<Atom<Symbol>> = [] 
-            for position:Atom<Symbol>.Position? in interface.citizenSymbols
+            for position:Atom<Symbol>.Position? in interface.citizens
             {
                 if  let position:Atom<Symbol>.Position, 
                     self.tree[local: position].path.prefix.isEmpty
@@ -97,10 +96,17 @@ extension Package
             
 
             let topLevelArticles:Set<Atom<Article>> = 
-                .init(interface.citizenArticles.lazy.compactMap { $0?.atom })
+                .init(interface.articles.lazy.compactMap { $0?.atom })
             self.tree[version.branch].updateTopLevelArticles(topLevelArticles, 
                 interface: interface,
                 revision: version.revision)
         }
+    }
+    mutating 
+    func updateDocumentation(_ documentation:__owned PackageDocumentation,
+        interface:PackageInterface)
+    {
+        self.tree[interface.branch].updateDocumentation(_move documentation, 
+            interface: interface)
     }
 }

@@ -19,8 +19,8 @@ struct PackageUpdateContext
     
     init(resolution:PackageResolution,
         nationality:Packages.Index,
-        graphs:__shared [SymbolGraph],
         branch:Version.Branch,
+        graph:__shared SymbolGraph,
         packages:inout Packages) throws
     {
         let linkable:[Packages.Index: PackageUpdateContext.Dependency] = 
@@ -28,17 +28,17 @@ struct PackageUpdateContext
         
         self.local = packages[nationality].tree.fasces(upTo: branch)
         self.storage = []
-        self.storage.reserveCapacity(graphs.count)
+        self.storage.reserveCapacity(graph.cultures.count)
         
-        for graph:SymbolGraph in graphs 
+        for culture:SymbolGraph.Culture in graph.cultures
         {
             let module:Atom<Module>.Position = 
-                packages[nationality].tree[branch].addModule(graph.id,
+                packages[nationality].tree[branch].addModule(culture.id,
                     nationality: nationality, 
                     local: self.local)
             // use this instead of `graph.id` to prevent string duplication
             var element:BasisElement = .init(module, id: packages[global: module].id)
-            try element.link(dependencies: graph.dependencies, 
+            try element.link(dependencies: culture.dependencies,
                 linkable: linkable, 
                 packages: packages,
                 branch: branch, 
@@ -111,7 +111,7 @@ extension PackageUpdateContext
         // the `branch` parameter may be *different* from `module.position.branch`, 
         // which refers to the branch in which the module itself was founded.
         mutating 
-        func link(dependencies:[SymbolGraph.Dependency], 
+        func link(dependencies:[PackageDependency], 
             linkable:[Packages.Index: Dependency], 
             packages:Packages,
             branch:Version.Branch, 
@@ -119,7 +119,7 @@ extension PackageUpdateContext
         {
             self.upstream.reserveCapacity(dependencies.count + 2)
             // add explicit dependencies 
-            for dependency:SymbolGraph.Dependency in dependencies
+            for dependency:PackageDependency in dependencies
             {
                 guard let package:Package = packages[dependency.package]
                 else 

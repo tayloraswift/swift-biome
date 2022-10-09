@@ -5,77 +5,87 @@ import SymbolSource
 extension SymbolGraph.Vertex:Sendable where Target:Sendable {}
 extension SymbolGraph.Vertex:Equatable where Target:Equatable {}
 
-extension SymbolGraph.Vertex.Comment:Sendable where Target:Sendable {}
-extension SymbolGraph.Vertex.Comment:Equatable where Target:Equatable {}
+extension SymbolGraph.Comment:Sendable where Target:Sendable {}
+extension SymbolGraph.Comment:Equatable where Target:Equatable {}
 
 extension SymbolGraph 
 {
     @frozen public
-    struct Vertex<Target>
+    struct Intrinsic:Equatable, Sendable
     {
-        @frozen public 
-        struct Comment
-        {
-            public 
-            var string:String?
-            public 
-            var extends:Target?
+        public 
+        let path:Path
+        public
+        let shape:Shape
 
-            @inlinable public 
-            init(string:String?, extends:Target?)
-            {
-                self.string = string 
-                self.extends = extends
-            }
-            @inlinable public 
-            init(_ string:String? = nil, extends:Target? = nil)
-            {
-                self.init(string: string.flatMap { $0.isEmpty ? nil : $0 }, extends: extends)
-            }
-            @inlinable public 
-            func forEach(_ body:(Target) throws -> ()) rethrows 
-            {
-                try self.extends.map(body)
-            }
-            @inlinable public 
-            func map<T>(_ transform:(Target) throws -> T) rethrows -> Vertex<T>.Comment
-            {
-                .init(string: self.string, extends: try self.extends.map(transform))
-            }
-        }
-
-        public 
-        var path:Path
-        public 
-        var shape:Shape 
-        public 
-        var declaration:Declaration<Target>
-        public 
-        var comment:Comment
-
-        @inlinable public 
-        init(path:Path,
-            shape:Shape, 
-            declaration:Declaration<Target>, 
-            comment:Comment = .init())
+        init(shape:Shape, path:Path)
         {
             self.path = path
             self.shape = shape
+        }
+    }
+    @frozen public
+    struct Comment<Target>
+    {
+        public
+        var string:String?
+        public
+        var extends:Target?
+
+        @inlinable public 
+        init(string:String?, extends:Target?)
+        {
+            self.string = string 
+            self.extends = extends
+        }
+        @inlinable public 
+        init(_ string:String? = nil, extends:Target? = nil)
+        {
+            self.init(string: string.flatMap { $0.isEmpty ? nil : $0 }, extends: extends)
+        }
+        @inlinable public 
+        func map<T>(_ transform:(Target) throws -> T) rethrows -> Comment<T>
+        {
+            .init(string: self.string, extends: try self.extends.map(transform))
+        }
+        @inlinable public 
+        func forEachTarget(_ body:(Target) throws -> ()) rethrows 
+        {
+            try self.extends.map(body)
+        }
+    }
+
+    @frozen public
+    struct Vertex<Target>
+    {
+        public
+        let intrinsic:Intrinsic
+        public 
+        let declaration:Declaration<Target>
+        public 
+        var comment:Comment<Target>
+
+        @inlinable public 
+        init(intrinsic:Intrinsic,
+            declaration:Declaration<Target>,
+            comment:Comment<Target> = .init())
+        {
+            self.intrinsic = intrinsic
             self.declaration = declaration
             self.comment = comment
         }
 
-        func forEach(_ body:(Target) throws -> ()) rethrows 
-        {
-            try self.declaration.forEach(body)
-            try self.comment.forEach(body)
-        }
         @inlinable public 
         func map<T>(_ transform:(Target) throws -> T) rethrows -> Vertex<T>
         {
-            .init(path: self.path, shape: self.shape, 
+            .init(intrinsic: self.intrinsic, 
                 declaration: try self.declaration.map(transform), 
                 comment: try self.comment.map(transform))
+        }
+        func forEachTarget(_ body:(Target) throws -> ()) rethrows 
+        {
+            try self.declaration.forEachTarget(body)
+            try self.comment.forEachTarget(body)
         }
     }
 }
@@ -90,7 +100,7 @@ extension SymbolGraph.Vertex
             .init(" ",          color: .text),
             .init(name,         color: .identifier),
         ]
-        return .init(path: .init(last: name), shape: .protocol, 
+        return .init(intrinsic: .init(shape: .protocol, path: .init(last: name)),
             declaration: .init(
                 fragments: .init(fragments), 
                 signature: .init(fragments)))

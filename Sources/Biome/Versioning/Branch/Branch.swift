@@ -140,31 +140,21 @@ extension Branch
             axis: &self.modules)
     }
     mutating 
-    func updateDeclarations(graph:__owned SymbolGraph, 
-        interface:ModuleInterface, 
+    func updateDeclarations(_ culture:SymbolGraph.Culture, 
+        interface:ModuleInterface,
         revision:Version.Revision)
     {
-        for (position, vertex):(Atom<Symbol>.Position?, SymbolGraph.Vertex<Int>) in 
-            zip(interface.citizenSymbols, graph.vertices)
+        for (position, declaration):(Atom<Symbol>.Position?, Declaration<Int>) in 
+            zip(interface.citizens, culture.declarations)
         {
             guard let element:Atom<Symbol> = position?.atom
             else 
             {
                 continue 
             }
-            let declaration:Declaration<Atom<Symbol>> = vertex.declaration.flatMap 
+            let declaration:Declaration<Atom<Symbol>> = declaration.flatMap 
             {
-                if let target:Atom<Symbol> = interface.symbols[$0]?.atom
-                {
-                    return target 
-                }
-                // ignore warnings related to c-language symbols 
-                let id:SymbolIdentifier = graph.identifiers[$0]
-                if case .swift = id.language 
-                {
-                    print("warning: unknown id '\(id)' (in declaration for symbol '\(vertex.path)')")
-                }
-                return nil
+                interface.symbols[$0]?.atom
             }
             self.history.data.declarations.deposit(inserting: declaration, 
                 revision: revision, 
@@ -175,10 +165,11 @@ extension Branch
     }
 
     mutating 
-    func updateDocumentation(_ literature:__owned Literature, interface:PackageInterface)
+    func updateDocumentation(_ documentation:__owned PackageDocumentation, 
+        interface:PackageInterface)
     {
         for (key, documentation):(Atom<Module>, DocumentationExtension<Never>)
-            in literature.modules 
+            in documentation.modules 
         {
             self.history.data.standaloneDocumentation.deposit(inserting: documentation, 
                 revision: interface.revision, 
@@ -187,7 +178,7 @@ extension Branch
                 axis: &self.modules)
         }
         for (key, documentation):(Atom<Article>, DocumentationExtension<Never>)
-            in literature.articles 
+            in documentation.articles 
         {
             self.history.data.standaloneDocumentation.deposit(inserting: documentation, 
                 revision: interface.revision, 
@@ -196,7 +187,7 @@ extension Branch
                 axis: &self.articles)
         }
         for (key, documentation):(Atom<Symbol>, DocumentationExtension<Atom<Symbol>>)
-            in literature.symbols 
+            in documentation.symbols 
         {
             self.history.data.cascadingDocumentation.deposit(inserting: documentation, 
                 revision: interface.revision, 
@@ -334,35 +325,32 @@ extension Branch
     }
 
     mutating 
-    func addSymbols(from graph:SymbolGraph, visible:Set<Atom<Module>>,
+    func addSymbols(from culture:SymbolGraph.Culture, visible:Set<Atom<Module>>,
         context:ModuleUpdateContext, 
-        stems:inout Route.Stems) -> ModuleInterface.Abstractor<Symbol>
+        stems:inout Route.Stems) -> [Atom<Symbol>.Position?]
     {
         var positions:[Atom<Symbol>.Position?] = []
-            positions.reserveCapacity(graph.identifiers.count)
-        for (namespace, vertices):(ModuleIdentifier, ArraySlice<SymbolGraph.Vertex<Int>>) in 
-            graph.colonies
+            positions.reserveCapacity(culture.count)
+        for colony:SymbolGraph.Colony in culture.colonies
         {
             // will always succeed for the core subgraph
-            guard let namespace:Atom<Module> = context.linked[namespace]?.atom
+            guard let namespace:Atom<Module> = context.linked[colony.namespace]?.atom
             else 
             {
-                print("warning: ignored colonial symbolgraph '\(graph.id)@\(namespace)'")
-                print("note: '\(namespace)' is not a known dependency of '\(graph.id)'")
+                print("warning: ignored colonial symbolgraph '\(colony.culture)@\(colony.namespace)'")
+                print("note: '\(colony.namespace)' is not a known dependency of '\(colony.culture)'")
 
-                positions.append(contentsOf: repeatElement(nil, count: vertices.count))
+                positions.append(contentsOf: repeatElement(nil, count: colony.count))
                 continue 
             }
             
             // let start:Symbol.Offset = self.symbols.endIndex
-            for (offset, vertex):(Int, SymbolGraph.Vertex<Int>) in 
-                zip(vertices.indices, vertices)
+            for (id, intrinsic):(SymbolIdentifier, SymbolGraph.Intrinsic) in colony
             {
-                positions.append(self.addSymbol(graph.identifiers[offset], 
-                    culture: context.culture, 
-                    namespace: namespace, 
+                positions.append(self.addSymbol(id, culture: context.culture, 
+                    namespace: namespace,
+                    intrinsic: intrinsic,
                     visible: visible, 
-                    vertex: vertex, 
                     context: context, 
                     stems: &stems))
             }
@@ -381,12 +369,12 @@ extension Branch
             //     }
             // }
         }
-        return .init(_move positions)
+        return positions
     }
     private mutating 
     func addSymbol(_ id:SymbolIdentifier, culture:Atom<Module>, namespace:Atom<Module>, 
+        intrinsic:SymbolGraph.Intrinsic,
         visible:Set<Atom<Module>>,
-        vertex:SymbolGraph.Vertex<Int>,
         context:ModuleUpdateContext,
         stems:inout Route.Stems)
         -> Atom<Symbol>.Position
@@ -416,21 +404,21 @@ extension Branch
         {
             (id:SymbolIdentifier, _:Atom<Symbol>) in 
             let route:Route = .init(namespace, 
-                      stems.register(components: vertex.path.prefix), 
-                .init(stems.register(component:  vertex.path.last), 
-                orientation: vertex.shape.orientation))
+                      stems.register(components: intrinsic.path.prefix), 
+                .init(stems.register(component:  intrinsic.path.last), 
+                orientation: intrinsic.shape.orientation))
             // if the symbol could inherit features, generate a stem 
             // for its children from its full path. this stem will only 
             // go to waste if a concretetype is completely uninhabited, 
             // which is very rare.
             let kind:Symbol.Kind 
-            switch vertex.shape
+            switch intrinsic.shape
             {
             case .associatedtype: 
                 kind = .associatedtype 
             case .concretetype(let concrete): 
-                kind = .concretetype(concrete, path: vertex.path.prefix.isEmpty ? 
-                    route.leaf.stem : stems.register(components: vertex.path))
+                kind = .concretetype(concrete, path: intrinsic.path.prefix.isEmpty ? 
+                    route.leaf.stem : stems.register(components: intrinsic.path))
             case .callable(let callable): 
                 kind = .callable(callable)
             case .global(let global): 
@@ -440,7 +428,7 @@ extension Branch
             case .typealias: 
                 kind = .typealias
             }
-            return .init(id: id, path: vertex.path, kind: kind, route: route)
+            return .init(id: id, path: intrinsic.path, kind: kind, route: route)
         }
         return atom.positioned(self.index)
     }
@@ -448,18 +436,18 @@ extension Branch
     // TODO: ideally we want to be rendering markdown AOT. so once that is implemented 
     // in the `SymbolGraphs` module, we can get rid of the ugly tuple return here.
     mutating 
-    func addExtensions(from graph:SymbolGraph, namespace:Atom<Module>.Position, 
+    func addExtensions(from culture:SymbolGraph.Culture, namespace:Atom<Module>.Position, 
         trunk:Fasces.Articles, 
         stems:inout Route.Stems) 
-        -> (ModuleInterface.Abstractor<Article>, [Extension])
+        -> ([Atom<Article>.Position?], [Extension])
     {
-        let _extensions:[Extension] = graph.extensions.map
+        let _extensions:[Extension] = culture.markdown.map
         {
             .init(markdown: $0.source, name: $0.name)
         }
 
         var positions:[Atom<Article>.Position?] = []
-            positions.reserveCapacity(graph.extensions.count)
+            positions.reserveCapacity(culture.markdown.count)
         // let start:Article.Offset = self.articles.endIndex
         for article:Extension in _extensions
         {
@@ -492,7 +480,7 @@ extension Branch
         //             .append(start ..< end)
         //     }
         // }
-        return (.init(_move positions), _extensions)
+        return (positions, _extensions)
     }
     private mutating 
     func addArticle(_ path:Path, culture:Atom<Module>, trunk:Fasces.Articles, 

@@ -25,7 +25,7 @@ extension SymbolGraph
             case optionalRequirement
             case defaultImplementation
 
-            func forEach(_ body:(Target) throws -> ()) rethrows 
+            func forEachTarget(_ body:(Target) throws -> ()) rethrows 
             {
                 if case .conformer(let constraints) = self 
                 {
@@ -75,18 +75,18 @@ extension SymbolGraph
             self.target = target
         }
 
-        func forEach(_ body:(Target) throws -> ()) rethrows 
-        {
-            try body(self.source)
-            try body(self.target)
-            try self.relation.forEach(body)
-        }
         @inlinable public
         func map<T>(_ transform:(Target) throws -> T) rethrows -> Edge<T>
         {
             .init(try transform(self.source), 
                 is: try self.relation.map(transform), 
                 of: try transform(self.target))
+        }
+        func forEachTarget(_ body:(Target) throws -> ()) rethrows 
+        {
+            try body(self.source)
+            try body(self.target)
+            try self.relation.forEachTarget(body)
         }
     }
 }

@@ -1,21 +1,21 @@
 import JSON
 import SymbolSource
 
-extension SymbolGraph 
+extension ColonialGraph 
 {
     struct Relationship:Sendable
     {
-        let edge:Edge<SymbolIdentifier> 
+        let edge:SymbolGraph.Edge<SymbolIdentifier> 
         let origin:SymbolIdentifier?
 
-        var hint:Hint<SymbolIdentifier>?
+        var hint:SymbolGraph.Hint<SymbolIdentifier>?
         {
             self.origin.map { .init(source: self.edge.source, origin: $0) }
         }
     }
 }
 
-extension SymbolGraph.Relationship 
+extension ColonialGraph.Relationship 
 {
     init(from json:JSON) throws
     {
@@ -56,9 +56,9 @@ extension SymbolGraph.Relationship
                 edge = .init(source, is: .defaultImplementation, of: target)
             
             case (.natural(_), let kind): 
-                throw SymbolGraphDecodingError.unknownRelationshipKind(kind)
+                throw ColonialGraphDecodingError.unknownRelationshipKind(kind)
             case (let source, let kind): 
-                throw SymbolGraphDecodingError.invalidRelationshipKind(source, is: kind)
+                throw ColonialGraphDecodingError.invalidRelationshipKind(source, is: kind)
             }
 
             let origin:SymbolIdentifier? = try $0.pop("sourceOrigin")

@@ -3,7 +3,7 @@ import Notebook
 import SymbolAvailability
 import SymbolSource
 
-extension SymbolGraph 
+extension ColonialGraph 
 {
     struct Symbol:Identifiable, Sendable
     {
@@ -32,11 +32,11 @@ extension SymbolGraph
         
         let id:ID
         let location:Location?
-        var vertex:Vertex<SymbolIdentifier>
+        var vertex:SymbolGraph.Vertex<SymbolIdentifier>
     }
 }
 
-extension SymbolGraph.Symbol
+extension ColonialGraph.Symbol
 {
     public 
     init(from json:JSON) throws 
@@ -118,7 +118,7 @@ extension SymbolGraph.Symbol
                         }
                         else 
                         {
-                            throw SymbolGraphDecodingError.unknownDeclarationKind($0)
+                            throw ColonialGraphDecodingError.unknownDeclarationKind($0)
                         }
                     }
                 }
@@ -158,7 +158,8 @@ extension SymbolGraph.Symbol
                     }
                 }
             }
-            let vertex:SymbolGraph.Vertex = .init(path: path, shape: shape, 
+            let vertex:SymbolGraph.Vertex = .init(
+                intrinsic: .init(shape: shape, path: path),
                 declaration: .init(
                     fragments: fragments, 
                     signature: signature, 
@@ -171,7 +172,7 @@ extension SymbolGraph.Symbol
         }
     }
 }
-extension SymbolGraph.Symbol.Location
+extension ColonialGraph.Symbol.Location
 {
     init(from json:JSON) throws 
     {

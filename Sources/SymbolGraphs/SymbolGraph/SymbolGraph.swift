@@ -1,33 +1,5 @@
 import SymbolSource 
 
-public 
-enum SymbolGraphDecodingError:Error, CustomStringConvertible 
-{
-    case mismatchedCulture(ModuleIdentifier, expected:ModuleIdentifier)
-
-    case unknownDeclarationKind(String) 
-    case unknownFragmentKind(String)
-    case unknownRelationshipKind(String)
-    case invalidRelationshipKind(USR, is:String)
-    
-    public 
-    var description:String 
-    {
-        switch self 
-        {
-        case .mismatchedCulture(let id, expected: let expected): 
-            return "subgraph culture is '\(id)', expected '\(expected)'"
-        case .unknownDeclarationKind(let string): 
-            return "unknown declaration kind '\(string)'"
-        case .unknownFragmentKind(let string): 
-            return "unknown fragment kind '\(string)'"
-        case .unknownRelationshipKind(let string): 
-            return "unknown relationship kind '\(string)'"
-        case .invalidRelationshipKind(let source, is: let string): 
-            return "symbol '\(source)' cannot be the source of a relationship of kind '\(string)'"
-        }
-    }
-}
 public
 enum SymbolGraphValidationError:Error
 {
@@ -41,8 +13,8 @@ struct SymbolGraph
     public
     let id:PackageIdentifier
 
-    public private(set)
-    var identifiers:[SymbolIdentifier]
+    public 
+    let identifiers:Identifiers
     public private(set)
     var vertices:[Vertex<Int>]
     public
@@ -50,7 +22,7 @@ struct SymbolGraph
     @usableFromInline private(set) 
     var partitions:[CulturalPartition]
 
-    init(id:PackageIdentifier, identifiers:[SymbolIdentifier],
+    init(id:PackageIdentifier, identifiers:Identifiers,
         vertices:[Vertex<Int>],
         snippets:[SnippetFile],
         partitions:[CulturalPartition])
@@ -63,6 +35,36 @@ struct SymbolGraph
     }
 }
 
+private
+struct SymbolIdentifierTable
+{
+    private(set)
+    var identifiers:[SymbolIdentifier]
+    private(set)
+    var indices:[SymbolIdentifier: Int]
+
+    init(capacity:Int)
+    {
+        self.identifiers = []
+        self.identifiers.reserveCapacity(capacity)
+        self.indices = .init(minimumCapacity: capacity)
+    }
+
+    func contains(_ identifier:SymbolIdentifier) -> Bool
+    {
+        self.indices.keys.contains(identifier)
+    }
+
+    mutating
+    func append(contentsOf identifiers:some Sequence<SymbolIdentifier>) -> Range<Int>
+    {
+        let start:Int = self.identifiers.endIndex
+        self.identifiers.append(contentsOf: identifiers)
+        let end:Int = self.identifiers.endIndex
+        self.indices.merge(zip(self.identifiers[start ..< end], start ..< end)) { $1 }
+        return start ..< end
+    }
+}
 extension SymbolGraph
 {
     init(id:PackageIdentifier, compiling targets:[RawCulturalGraph], 
@@ -72,31 +74,20 @@ extension SymbolGraph
         try self.init(id: id, compiling: try (_move targets).map(CulturalGraph.init(_:)),
             snippets: snippets)
     }
-
+    private
     init(id:PackageIdentifier, compiling targets:[CulturalGraph], 
         snippets:[SnippetFile]) throws
     {
-        self.id = id
-        self.snippets = snippets
-
         let capacity:Int = targets.reduce(0)
         {
             $0 + $1.colonies.reduce(0) { $0 + $1.vertices.count }
         }
 
-        self.identifiers = []
-        self.identifiers.reserveCapacity(capacity)
+        // build the identifiers table. 
+        var table:SymbolIdentifierTable = .init(capacity: capacity)
 
-        // build the identifiers table. this table contains two zones: 
-        //
-        // -    zone 0: 
-        //      all of the vertices stored in this symbolgraph, 
-        //      in lexicographical order. the *i*’th identifier in this zone 
-        //      is the identifier for the *i*’th (cumulative) vertex in the vertex arrays.
-        //      this allows us to omit the index field from the vertex structures.
         var cultures:[[ColonialPartition]] = []
             cultures.reserveCapacity(targets.count)
-        var start:Int = self.identifiers.endIndex
         for culture:CulturalGraph in targets
         {
             var colonies:[ColonialPartition] = []
@@ -104,66 +95,53 @@ extension SymbolGraph
             
             for colony:ColonialGraph in culture.colonies 
             {
-                self.identifiers.append(contentsOf: colony.vertices.map 
+                let sorted:[(shape:Shape, id:SymbolIdentifier)] = colony.vertices.compactMap
                 {
-                    (shape: $0.value.shape, id: $0.key)
+                    table.contains($0.key) ? nil : (shape: $0.value.intrinsic.shape, id: $0.key)
                 }
                 .sorted
                 {
                     $0 < $1
                 }
-                .lazy.map(\.id))
 
-                let end:Int = self.identifiers.endIndex
-                colonies.append(.init(namespace: colony.namespace, vertices: start ..< end))
-                start = end
+                colonies.append(.init(namespace: colony.namespace, 
+                    vertices: table.append(contentsOf: sorted.lazy.map(\.id))))
             }
             cultures.append(colonies)
         }
-        // -    zone 1: 
-        //      all remaining identifiers referenced by entities in this 
-        //      symbolgraph, *in lexicographical order*. this requires 
-        //      making a second pass over the symbolgraph data.
-        var outlined:Set<SymbolIdentifier> = []
-        var indices:[SymbolIdentifier: Int] = 
-            .init(uniqueKeysWithValues: zip(self.identifiers, self.identifiers.indices))
-        
+
+        var cohorts:[Range<Int>] = []
+            cohorts.reserveCapacity(targets.count)
         for culture:CulturalGraph in targets
         {
+            var external:Set<SymbolIdentifier> = []
             for colony:ColonialGraph in culture.colonies
             {
-                for vertex:Vertex<SymbolIdentifier> in colony.vertices.values 
+                colony.forEachIdentifier
                 {
-                    vertex.forEach
-                    {
-                        if !indices.keys.contains($0) { outlined.insert($0) }
-                    }
-                }
-                for edge:Edge<SymbolIdentifier> in colony.edges 
-                {
-                    edge.forEach 
-                    {
-                        if !indices.keys.contains($0) { outlined.insert($0) }
-                    }
-                }
-                for hint:Hint<SymbolIdentifier> in colony.hints 
-                {
-                    hint.forEach 
-                    {
-                        if !indices.keys.contains($0) { outlined.insert($0) }
-                    }
+                    if !table.contains($0) { external.insert($0) }
                 }
             }
+            cohorts.append(table.append(contentsOf: external.sorted()))
         }
-
-        self.identifiers.append(contentsOf: outlined.sorted())
-        let tail:ArraySlice<SymbolIdentifier> = self.identifiers[start...]
-
-        indices.merge(zip(tail, tail.indices)) { $1 }
-
+        try self.init(id: id, compiling: _move targets, snippets: _move snippets,
+            identifiers: _move table,
+            cultures: _move cultures,
+            cohorts: _move cohorts,
+            vertices: capacity)
+    }
+    private
+    init(id:PackageIdentifier, compiling targets:[CulturalGraph], snippets:[SnippetFile],
+        identifiers table:SymbolIdentifierTable,
+        cultures:[[ColonialPartition]],
+        cohorts:[Range<Int>],
+        vertices:Int) throws
+    {
+        self.id = id
+        self.snippets = snippets
         self.vertices = []
         self.partitions = []
-        self.vertices.reserveCapacity(capacity)
+        self.vertices.reserveCapacity(vertices)
         self.partitions.reserveCapacity(targets.count)
         for (culture, colonies):(CulturalGraph, [ColonialPartition]) in 
             zip(targets, _move cultures)
@@ -178,9 +156,9 @@ extension SymbolGraph
             for (colony, partition):(ColonialGraph, ColonialPartition) in 
                 zip(culture.colonies, colonies)
             {
-                for id:SymbolIdentifier in self.identifiers[partition.vertices]
+                for id:SymbolIdentifier in table.identifiers[partition.vertices]
                 {
-                    self.vertices.append(colony.vertices[id]!.map { indices[$0]! })
+                    self.vertices.append(colony.vertices[id]!.map { table.indices[$0]! })
                 }
             }
 
@@ -197,7 +175,7 @@ extension SymbolGraph
                     {
                         sourcemap[uri, default: []].append(.init(line: symbol.line,
                             character: symbol.character,
-                            vertex: indices[symbol.id]!))
+                            vertex: table.indices[symbol.id]!))
                     }
                 }
             }
@@ -213,11 +191,11 @@ extension SymbolGraph
                 {
                     $0.uri < $1.uri
                 },
-                colonies: colonies, 
-                vertices: vertices, 
+                colonies: colonies,
+                vertices: vertices,
                 edges: culture.colonies.flatMap 
                 {
-                    $0.edges.map { $0.map { indices[$0]! } }
+                    $0.edges.map { $0.map { table.indices[$0]! } }
                 }
                 .sorted 
                 {
@@ -241,7 +219,7 @@ extension SymbolGraph
                 for hint:Hint<SymbolIdentifier> in colony.hints
                     where hint.source != hint.origin
                 {
-                    let hint:Hint<Int> = hint.map { indices[$0]! } 
+                    let hint:Hint<Int> = hint.map { table.indices[$0]! } 
                     if  hint.source < self.vertices.endIndex 
                     {
                         uptree[hint.source] = hint.origin
@@ -249,6 +227,7 @@ extension SymbolGraph
                 }
             }
         }
+        self.identifiers = .init(table: table.identifiers, cohorts: cohorts)
         try self.apply(hints: uptree)
     }
 
@@ -268,7 +247,7 @@ extension SymbolGraph
         // var pruned:Int = 0
         for index:Int in self.vertices.indices
         {
-            let comment:Vertex<Int>.Comment = self.vertices[index].comment 
+            let comment:Comment<Int> = self.vertices[index].comment 
             if  let string:String = comment.string, 
                 let origin:Int = comment.extends, 
                     origin < self.vertices.endIndex, 
@@ -284,7 +263,7 @@ extension SymbolGraph
         // boundary, or a local symbol that has documentation. 
         for index:Int in self.vertices.indices
         {
-            let comment:Vertex<Int>.Comment = self.vertices[index].comment 
+            let comment:Comment<Int> = self.vertices[index].comment 
 
             guard   case nil = comment.string,
                     var origin:Int = comment.extends, 
@@ -302,10 +281,10 @@ extension SymbolGraph
                 else
                 {
                     throw SymbolGraphValidationError
-                        .cyclicDocumentationCommentDependency(self.identifiers[index])
+                        .cyclicDocumentationCommentDependency(self.identifiers.table[index])
                 }
 
-                let original:Vertex<Int>.Comment = self.vertices[origin].comment
+                let original:Comment<Int> = self.vertices[origin].comment
                 switch (original.extends, original.string)
                 {
                 case (let next?, nil): 
@@ -331,24 +310,24 @@ extension SymbolGraph
         }
     }
 }
-extension SymbolGraph:RandomAccessCollection
-{
-    @inlinable public
-    var startIndex:Int
-    {
-        self.vertices.startIndex
-    }
-    @inlinable public
-    var endIndex:Int
-    {
-        self.vertices.endIndex
-    }
-    @inlinable public
-    subscript(index:Int) -> (id:SymbolIdentifier, vertex:SymbolGraph.Vertex<Int>)
-    {
-        (self.identifiers[index], self.vertices[index])
-    }
-}
+// extension SymbolGraph:RandomAccessCollection
+// {
+//     @inlinable public
+//     var startIndex:Int
+//     {
+//         self.vertices.startIndex
+//     }
+//     @inlinable public
+//     var endIndex:Int
+//     {
+//         self.vertices.endIndex
+//     }
+//     @inlinable public
+//     subscript(index:Int) -> (id:SymbolIdentifier, vertex:SymbolGraph.Vertex<Int>)
+//     {
+//         (self.identifiers.table[index], self.vertices[index])
+//     }
+// }
 
 extension SymbolGraph
 {
@@ -387,7 +366,7 @@ extension SymbolGraph.Cultures:RandomAccessCollection
     subscript(index:Int) -> SymbolGraph.Culture
     {
         return .init(partition: self.graph.partitions[index], 
-            identifiers: self.graph.identifiers, 
+            identifiers: self.graph.identifiers.table, 
             vertices: self.graph.vertices)
     }
 }

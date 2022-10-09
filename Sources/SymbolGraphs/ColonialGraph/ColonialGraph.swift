@@ -2,6 +2,35 @@ import JSON
 import Notebook
 import SymbolSource
 
+public 
+enum ColonialGraphDecodingError:Error, CustomStringConvertible 
+{
+    case mismatchedCulture(ModuleIdentifier, expected:ModuleIdentifier)
+
+    case unknownDeclarationKind(String) 
+    case unknownFragmentKind(String)
+    case unknownRelationshipKind(String)
+    case invalidRelationshipKind(USR, is:String)
+    
+    public 
+    var description:String 
+    {
+        switch self 
+        {
+        case .mismatchedCulture(let id, expected: let expected): 
+            return "subgraph culture is '\(id)', expected '\(expected)'"
+        case .unknownDeclarationKind(let string): 
+            return "unknown declaration kind '\(string)'"
+        case .unknownFragmentKind(let string): 
+            return "unknown fragment kind '\(string)'"
+        case .unknownRelationshipKind(let string): 
+            return "unknown relationship kind '\(string)'"
+        case .invalidRelationshipKind(let source, is: let string): 
+            return "symbol '\(source)' cannot be the source of a relationship of kind '\(string)'"
+        }
+    }
+}
+
 struct ColonialGraph:Sendable 
 {
     public 
@@ -21,7 +50,7 @@ struct ColonialGraph:Sendable
     public  
     init(from json:JSON, culture:ModuleIdentifier, namespace:ModuleIdentifier? = nil) throws 
     {
-        let (symbols, relationships):([SymbolGraph.Symbol], [SymbolGraph.Relationship]) = 
+        let (symbols, relationships):([Symbol], [Relationship]) = 
             try json.lint(whitelisting: ["metadata"]) 
         {
             let module:ModuleIdentifier = try $0.remove("module")
@@ -34,18 +63,16 @@ struct ColonialGraph:Sendable
             guard module == culture
             else 
             {
-                throw SymbolGraphDecodingError.mismatchedCulture(module, expected: culture)
+                throw ColonialGraphDecodingError.mismatchedCulture(module, expected: culture)
             }
 
-            let relationships:[SymbolGraph.Relationship] = 
-                try $0.remove("relationships", as: [JSON].self) 
+            let relationships:[Relationship] = try $0.remove("relationships", as: [JSON].self) 
             { 
-                try $0.map(SymbolGraph.Relationship.init(from:)) 
+                try $0.map(Relationship.init(from:)) 
             }
-            let symbols:[SymbolGraph.Symbol] = 
-                try $0.remove("symbols", as: [JSON].self) 
+            let symbols:[Symbol] = try $0.remove("symbols", as: [JSON].self) 
             { 
-                try $0.map(SymbolGraph.Symbol.init(from:)) 
+                try $0.map(Symbol.init(from:)) 
             }
 
 
@@ -57,7 +84,7 @@ struct ColonialGraph:Sendable
     }
     private 
     init(culture:ModuleIdentifier, namespace:ModuleIdentifier, 
-        symbols:[SymbolGraph.Symbol], relationships:[SymbolGraph.Relationship])
+        symbols:[Symbol], relationships:[Relationship])
     {
         // about half of the symbols in a typical symbol graph are non-canonical. 
         // (i.e., they are inherited by victims). in theory, these symbols can 
@@ -80,7 +107,7 @@ struct ColonialGraph:Sendable
         self.hints = relationships.compactMap(\.hint)
         // it is possible to naturalize protocol members without naturalizing the 
         // protocols themselves.
-        for symbol:SymbolGraph.Symbol in symbols 
+        for symbol:Symbol in symbols 
         {
             // comb through generic constraints looking for references to 
             // underscored protocols and associatedtypes
@@ -137,8 +164,9 @@ struct ColonialGraph:Sendable
                 // fix the first path component of the vertex, so that it points 
                 // to the protocol and not the concrete type we discovered it in 
                 let vertex:SymbolGraph.Vertex<SymbolIdentifier> = .init(
-                    path: .init(prefix: [mythical.name], last: symbol.vertex.path.last), 
-                    shape: symbol.vertex.shape, 
+                    intrinsic: .init(shape: symbol.vertex.intrinsic.shape,
+                        path: .init(prefix: [mythical.name], 
+                            last: symbol.vertex.intrinsic.path.last)),
                     declaration: symbol.vertex.declaration, 
                     comment: symbol.vertex.comment)
                 
@@ -149,7 +177,7 @@ struct ColonialGraph:Sendable
                     self.edges.append(.init(inferred, is: .member, of: mythical.id))
                     self.vertices[inferred] = vertex
                     self.record(location: symbol.location, of: inferred)
-                    print("note: naturalized unavailable protocol member '\(vertex.path)'")
+                    print("note: naturalized unavailable protocol member '\(vertex.intrinsic.path)'")
                 }
                 else if case "_"? = mythical.name.first
                 {
@@ -158,7 +186,7 @@ struct ColonialGraph:Sendable
                     self.edges.append(.init(inferred, is: .member, of: mythical.id))
                     self.vertices[inferred] = vertex
                     self.record(location: symbol.location, of: inferred)
-                    print("note: naturalized underscored-protocol member '\(vertex.path)'")
+                    print("note: naturalized underscored-protocol member '\(vertex.intrinsic.path)'")
                     // make a note of the protocol name and identifier
                     if !self.vertices.keys.contains(mythical.id)
                     {
@@ -170,9 +198,9 @@ struct ColonialGraph:Sendable
         }
     }
     private mutating 
-    func record(location:SymbolGraph.Symbol.Location?, of symbol:SymbolIdentifier)
+    func record(location:Symbol.Location?, of symbol:SymbolIdentifier)
     {
-        guard let location:SymbolGraph.Symbol.Location 
+        guard let location:Symbol.Location 
         else 
         {
             return 
@@ -180,5 +208,23 @@ struct ColonialGraph:Sendable
         self.sourcemap[location.uri, default: []].append(.init(line: location.line,
             character: location.character,
             id: symbol))
+    }
+}
+extension ColonialGraph
+{
+    func forEachIdentifier(_ body:(SymbolIdentifier) throws -> ()) rethrows 
+    {
+        for vertex:SymbolGraph.Vertex<SymbolIdentifier> in self.vertices.values 
+        {
+            try vertex.forEachTarget(body)
+        }
+        for edge:SymbolGraph.Edge<SymbolIdentifier> in self.edges 
+        {
+            try edge.forEachTarget(body)
+        }
+        for hint:SymbolGraph.Hint<SymbolIdentifier> in self.hints 
+        {
+            try hint.forEachTarget(body)
+        }
     }
 }
