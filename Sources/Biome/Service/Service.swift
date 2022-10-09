@@ -20,6 +20,7 @@ actor Service
     var packages:Packages, 
         stems:Route.Stems
 
+    public
     init()
     {
         self.packages = .init()

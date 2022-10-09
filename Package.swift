@@ -83,6 +83,10 @@ let package = Package(
                 .target(name: "SymbolAvailability"),
 
                 .product(name: "JSON",              package: "swift-json"),
+            ],
+            swiftSettings:
+            [
+                .unsafeFlags(["-Xfrontend", "-enable-experimental-move-only"]),
             ]),
         
         .target(name: "Biome", 

@@ -1,31 +1,21 @@
 import SymbolSource 
 
-extension SymbolGraph 
+extension Collection<RawCulturalGraph> 
 {
-    public 
-    enum DependencyError:Error 
-    {
-        case moduleCycle(in:PackageIdentifier)
-    }
-}
-
-extension Collection<SymbolGraph> 
-{
-    public 
-    func topologicallySorted(for package:PackageIdentifier) throws -> [SymbolGraph]
+    func topologicallySorted(for package:PackageIdentifier) throws -> [RawCulturalGraph]
     {
         // collect intra-package dependencies
         var dependencies:[ModuleIdentifier: Set<ModuleIdentifier>] = [:]
-        for module:SymbolGraph in self
+        for module:RawCulturalGraph in self
         {
-            for dependency:SymbolGraph.Dependency in module.dependencies
+            for dependency:PackageDependency in module.dependencies
                 where package == dependency.package && !dependency.modules.isEmpty
             {
                 dependencies[module.id, default: []].formUnion(dependency.modules)
             }
         }
-        var consumers:[ModuleIdentifier: [SymbolGraph]] = [:]
-        for module:SymbolGraph in self
+        var consumers:[ModuleIdentifier: [RawCulturalGraph]] = [:]
+        for module:RawCulturalGraph in self
         {
             guard let dependencies:Set<ModuleIdentifier> = dependencies[module.id]
             else 
@@ -39,23 +29,23 @@ extension Collection<SymbolGraph>
             }
         }
 
-        var graphs:[SymbolGraph] = []
+        var graphs:[RawCulturalGraph] = []
             graphs.reserveCapacity(self.underestimatedCount)
         // perform topological sort
-        var sources:[SymbolGraph] = self.compactMap 
+        var sources:[RawCulturalGraph] = self.compactMap 
         {
             dependencies[$0.id, default: []].isEmpty ? $0 : nil
         }
-        while let source:SymbolGraph = sources.popLast()
+        while let source:RawCulturalGraph = sources.popLast()
         {
             graphs.append(source)
 
-            guard let next:[SymbolGraph] = consumers.removeValue(forKey: source.id)
+            guard let next:[RawCulturalGraph] = consumers.removeValue(forKey: source.id)
             else 
             {
                 continue 
             }
-            for next:SymbolGraph in next
+            for next:RawCulturalGraph in next
             {
                 guard let index:Dictionary<ModuleIdentifier, Set<ModuleIdentifier>>.Index = 
                     dependencies.index(forKey: next.id)
@@ -78,7 +68,7 @@ extension Collection<SymbolGraph>
         }
         else 
         {
-            throw SymbolGraph.DependencyError.moduleCycle(in: package)
+            throw SymbolGraphValidationError.cyclicModuleDependency
         }
     }
 }

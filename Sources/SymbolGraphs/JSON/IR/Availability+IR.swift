@@ -2,9 +2,10 @@ import JSON
 import SymbolAvailability
 import Versions
 
-extension IR 
+extension Availability 
 {
-    enum Availability 
+    fileprivate
+    enum CodingKeys 
     {
         static let swift:String = "s"
         static let general:String = "a"
@@ -16,17 +17,14 @@ extension IR
         static let renamed:String = "r"
         static let message:String = "m"
     }
-}
-extension Availability 
-{
     init(from json:JSON) throws 
     {
         self = try json.lint
         {
             let swift:SwiftAvailability? = 
-                try $0.pop(IR.Availability.swift, SwiftAvailability.init(from:))
+                try $0.pop(CodingKeys.swift, SwiftAvailability.init(from:))
             let general:UnversionedAvailability? = 
-                try $0.pop(IR.Availability.general, UnversionedAvailability.init(from:))
+                try $0.pop(CodingKeys.general, UnversionedAvailability.init(from:))
             var platforms:[Platform: VersionedAvailability] = [:]
             for key:String in $0.items.keys 
             {
@@ -43,11 +41,11 @@ extension Availability
         var items:[(key:String, value:JSON)] = []
         if let general:UnversionedAvailability = self.general
         {
-            items.append((IR.Availability.general, general.serialized))
+            items.append((CodingKeys.general, general.serialized))
         }
         if let swift:SwiftAvailability = self.swift 
         {
-            items.append((IR.Availability.swift, swift.serialized))
+            items.append((CodingKeys.swift, swift.serialized))
         }
         for platform:Platform in Platform.allCases 
         {
@@ -66,14 +64,14 @@ extension SwiftAvailability
         self = try json.lint
         {
             .init(
-                deprecated: try $0.pop(IR.Availability.deprecated, as: String.self)
+                deprecated: try $0.pop(Availability.CodingKeys.deprecated, as: String.self)
                     .map(SemanticVersion.Masked.init(parsing:)),
-                introduced: try $0.pop(IR.Availability.introduced, as: String.self)
+                introduced: try $0.pop(Availability.CodingKeys.introduced, as: String.self)
                     .map(SemanticVersion.Masked.init(parsing:)), 
-                obsoleted: try $0.pop(IR.Availability.obsoleted, as: String.self)
+                obsoleted: try $0.pop(Availability.CodingKeys.obsoleted, as: String.self)
                     .map(SemanticVersion.Masked.init(parsing:)), 
-                renamed: try $0.pop(IR.Availability.renamed, as: String.self),
-                message: try $0.pop(IR.Availability.message, as: String.self)
+                renamed: try $0.pop(Availability.CodingKeys.renamed, as: String.self),
+                message: try $0.pop(Availability.CodingKeys.message, as: String.self)
             )
         }
     }
@@ -82,23 +80,23 @@ extension SwiftAvailability
         var items:[(key:String, value:JSON)] = []
         if let deprecated:SemanticVersion.Masked = self.deprecated
         {
-            items.append((IR.Availability.deprecated, .string(deprecated.description)))
+            items.append((Availability.CodingKeys.deprecated, .string(deprecated.description)))
         }
         if let introduced:SemanticVersion.Masked = self.introduced
         {
-            items.append((IR.Availability.introduced, .string(introduced.description)))
+            items.append((Availability.CodingKeys.introduced, .string(introduced.description)))
         }
         if let obsoleted:SemanticVersion.Masked = self.obsoleted
         {
-            items.append((IR.Availability.obsoleted, .string(obsoleted.description)))
+            items.append((Availability.CodingKeys.obsoleted, .string(obsoleted.description)))
         }
         if let renamed:String = self.renamed
         {
-            items.append((IR.Availability.renamed, .string(renamed)))
+            items.append((Availability.CodingKeys.renamed, .string(renamed)))
         }
         if let message:String = self.message
         {
-            items.append((IR.Availability.message, .string(message)))
+            items.append((Availability.CodingKeys.message, .string(message)))
         }
         return .object(items)
     }
@@ -110,8 +108,9 @@ extension VersionedAvailability
         self = try json.lint
         {
             .init(
-                unavailable: try $0.pop(IR.Availability.unavailable, as: Bool.self) ?? false,
-                deprecated: try $0.pop(IR.Availability.deprecated)
+                unavailable: try $0.pop(Availability.CodingKeys.unavailable, as: Bool.self) ?? 
+                    false,
+                deprecated: try $0.pop(Availability.CodingKeys.deprecated)
                 {
                     (variant:JSON) -> Deprecation? in 
                     switch variant 
@@ -124,12 +123,12 @@ extension VersionedAvailability
                         return nil
                     }
                 } ?? nil,
-                introduced: try $0.pop(IR.Availability.introduced, as: String.self)
+                introduced: try $0.pop(Availability.CodingKeys.introduced, as: String.self)
                     .map(SemanticVersion.Masked.init(parsing:)), 
-                obsoleted: try $0.pop(IR.Availability.obsoleted, as: String.self)
+                obsoleted: try $0.pop(Availability.CodingKeys.obsoleted, as: String.self)
                     .map(SemanticVersion.Masked.init(parsing:)), 
-                renamed: try $0.pop(IR.Availability.renamed, as: String.self),
-                message: try $0.pop(IR.Availability.message, as: String.self)
+                renamed: try $0.pop(Availability.CodingKeys.renamed, as: String.self),
+                message: try $0.pop(Availability.CodingKeys.message, as: String.self)
             )
         }
     }
@@ -138,32 +137,32 @@ extension VersionedAvailability
         var items:[(key:String, value:JSON)] = []
         if self.unavailable
         {
-            items.append((IR.Availability.unavailable, true))
+            items.append((Availability.CodingKeys.unavailable, true))
         }
         switch self.deprecated
         {
         case nil: 
             break 
         case .always?:
-            items.append((IR.Availability.deprecated, true))
+            items.append((Availability.CodingKeys.deprecated, true))
         case .since(let deprecated)?:
-            items.append((IR.Availability.deprecated, .string(deprecated.description)))
+            items.append((Availability.CodingKeys.deprecated, .string(deprecated.description)))
         }
         if let introduced:SemanticVersion.Masked = self.introduced
         {
-            items.append((IR.Availability.introduced, .string(introduced.description)))
+            items.append((Availability.CodingKeys.introduced, .string(introduced.description)))
         }
         if let obsoleted:SemanticVersion.Masked = self.obsoleted
         {
-            items.append((IR.Availability.obsoleted, .string(obsoleted.description)))
+            items.append((Availability.CodingKeys.obsoleted, .string(obsoleted.description)))
         }
         if let renamed:String = self.renamed
         {
-            items.append((IR.Availability.renamed, .string(renamed)))
+            items.append((Availability.CodingKeys.renamed, .string(renamed)))
         }
         if let message:String = self.message
         {
-            items.append((IR.Availability.message, .string(message)))
+            items.append((Availability.CodingKeys.message, .string(message)))
         }
         return .object(items)
     }
@@ -175,10 +174,12 @@ extension UnversionedAvailability
         self = try json.lint
         {
             .init(
-                unavailable: try $0.pop(IR.Availability.unavailable, as: Bool.self) ?? false,
-                deprecated: try $0.pop(IR.Availability.deprecated, as: Bool.self) ?? false,
-                renamed: try $0.pop(IR.Availability.renamed, as: String.self),
-                message: try $0.pop(IR.Availability.message, as: String.self)
+                unavailable: try $0.pop(Availability.CodingKeys.unavailable, as: Bool.self) ?? 
+                    false,
+                deprecated: try $0.pop(Availability.CodingKeys.deprecated, as: Bool.self) ?? 
+                    false,
+                renamed: try $0.pop(Availability.CodingKeys.renamed, as: String.self),
+                message: try $0.pop(Availability.CodingKeys.message, as: String.self)
             )
         }
     }
@@ -187,19 +188,19 @@ extension UnversionedAvailability
         var items:[(key:String, value:JSON)] = []
         if self.unavailable
         {
-            items.append((IR.Availability.unavailable, true))
+            items.append((Availability.CodingKeys.unavailable, true))
         }
         if self.deprecated
         {
-            items.append((IR.Availability.deprecated, true))
+            items.append((Availability.CodingKeys.deprecated, true))
         }
         if let renamed:String = self.renamed
         {
-            items.append((IR.Availability.renamed, .string(renamed)))
+            items.append((Availability.CodingKeys.renamed, .string(renamed)))
         }
         if let message:String = self.message
         {
-            items.append((IR.Availability.message, .string(message)))
+            items.append((Availability.CodingKeys.message, .string(message)))
         }
         return .object(items)
     }
