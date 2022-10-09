@@ -33,21 +33,18 @@ enum ColonialGraphDecodingError:Error, CustomStringConvertible
 
 struct ColonialGraph:Sendable 
 {
-    public 
     let namespace:ModuleIdentifier
     var sourcemap:[String: [SourceFeature]]
     var vertices:[SymbolIdentifier: SymbolGraph.Vertex<SymbolIdentifier>],
         edges:[SymbolGraph.Edge<SymbolIdentifier>],
         hints:[SymbolGraph.Hint<SymbolIdentifier>]
     
-    @inlinable public 
     init<UTF8>(utf8:UTF8, culture:ModuleIdentifier, namespace:ModuleIdentifier? = nil) throws 
         where UTF8:Collection<UInt8>
     {
         try self.init(from: try JSON.init(parsing: utf8), 
             culture: culture, namespace: namespace)
     }
-    public  
     init(from json:JSON, culture:ModuleIdentifier, namespace:ModuleIdentifier? = nil) throws 
     {
         let (symbols, relationships):([Symbol], [Relationship]) = 

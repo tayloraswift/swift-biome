@@ -8,7 +8,7 @@ enum SymbolGraphValidationError:Error
 }
 
 @frozen public
-struct SymbolGraph
+struct SymbolGraph:Equatable, Sendable
 {
     public
     let id:PackageIdentifier
@@ -138,7 +138,10 @@ extension SymbolGraph
         vertices:Int) throws
     {
         self.id = id
-        self.snippets = snippets
+        self.snippets = snippets.sorted
+        {
+            $0.name < $1.name
+        }
         self.vertices = []
         self.partitions = []
         self.vertices.reserveCapacity(vertices)

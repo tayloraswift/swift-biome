@@ -1,7 +1,7 @@
 import SymbolSource
 
 @frozen public
-struct SnippetFile
+struct SnippetFile:Equatable
 {
     public
     let name:ModuleIdentifier
