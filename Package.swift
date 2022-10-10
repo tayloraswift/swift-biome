@@ -12,13 +12,15 @@ let package = Package(
         .library(name: "SymbolSource",          targets: ["SymbolSource"]),
         .library(name: "Biome",                 targets: ["Biome"]),
         .library(name: "PackageResolution",     targets: ["PackageResolution"]),
-        .library(name: "PackageCatalogs",       targets: ["PackageCatalogs"]),
-        .library(name: "PackageLoader",         targets: ["PackageLoader"]),
+        .library(name: "SymbolGraphCompiler",   targets: ["SymbolGraphCompiler"]),
+        //.library(name: "PackageLoader",         targets: ["PackageLoader"]),
         
-        .executable(name: "preview",            targets: ["Preview"]),
-        .executable(name: "swift-symbolgraphc", targets: ["SymbolGraphConvert"]),
+        .plugin(name: "SymbolGraphPlugin",      targets: ["SymbolGraphPlugin"]),
 
-        .executable(name: "biome-tests",        targets: ["BiomeTests"]),
+        //.executable(name: "preview",            targets: ["Preview"]),
+        .executable(name: "swift-symbolgraphc", targets: ["swift-symbolgraphc"]),
+
+        //.executable(name: "biome-tests",        targets: ["BiomeTests"]),
     ],
     dependencies: 
     [
@@ -121,7 +123,7 @@ let package = Package(
                 .product(name: "JSON",              package: "swift-json"),
             ]),
         
-        .target(name: "PackageCatalogs", 
+        .target(name: "SymbolGraphCompiler", 
             dependencies: 
             [
                 .target(name: "SymbolGraphs"),
@@ -130,32 +132,40 @@ let package = Package(
                 .product(name: "SystemExtras",      package: "swift-system-extras"),
             ]),
         
-        .target(name: "PackageLoader", 
+        // .target(name: "PackageLoader", 
+        //     dependencies: 
+        //     [
+        //         .target(name: "PackageResolution"),
+        //         .target(name: "PackageCatalogs"),
+        //         .target(name: "Biome"),
+        //     ]),
+        
+        .plugin(name: "SymbolGraphPlugin",
+            capability: .command(intent: .custom(verb: "symbolgraph", 
+                description: "compile symbolgraphs and documentation")),
             dependencies: 
             [
-                .target(name: "PackageResolution"),
-                .target(name: "PackageCatalogs"),
-                .target(name: "Biome"),
+                .target(name: "swift-symbolgraphc")
             ]),
         
-        .executableTarget(name: "SymbolGraphConvert", 
+        .executableTarget(name: "swift-symbolgraphc", 
             dependencies: 
             [
-                .target(name: "PackageCatalogs"),
+                .target(name: "SymbolGraphCompiler"),
                 .product(name: "ArgumentParser",    package: "swift-argument-parser"),
             ]),
         
-        .executableTarget(name: "Preview", 
-            dependencies: 
-            [
-                .target(name: "PackageLoader"),
+        // .executableTarget(name: "Preview", 
+        //     dependencies: 
+        //     [
+        //         .target(name: "PackageLoader"),
                 
-                .product(name: "NIO",               package: "swift-nio"),
-                .product(name: "NIOHTTP1",          package: "swift-nio"),
-                .product(name: "Backtrace",         package: "swift-backtrace"),
-                .product(name: "SystemExtras",      package: "swift-system-extras"),
-                .product(name: "ArgumentParser",    package: "swift-argument-parser"),
-            ]),
+        //         .product(name: "NIO",               package: "swift-nio"),
+        //         .product(name: "NIOHTTP1",          package: "swift-nio"),
+        //         .product(name: "Backtrace",         package: "swift-backtrace"),
+        //         .product(name: "SystemExtras",      package: "swift-system-extras"),
+        //         .product(name: "ArgumentParser",    package: "swift-argument-parser"),
+        //     ]),
         
 
         .executableTarget(name: "SedimentTests", 
@@ -165,11 +175,11 @@ let package = Package(
             ], 
             path: "Tests/SedimentTests"),
         
-        .executableTarget(name: "BiomeTests", 
-            dependencies: 
-            [
-                .target(name: "Biome"),
-            ], 
-            path: "Tests/BiomeTests"),
+        // .executableTarget(name: "BiomeTests", 
+        //     dependencies: 
+        //     [
+        //         .target(name: "Biome"),
+        //     ], 
+        //     path: "Tests/BiomeTests"),
     ]
 )

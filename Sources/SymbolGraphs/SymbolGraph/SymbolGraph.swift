@@ -3,7 +3,9 @@ import SymbolSource
 public
 enum SymbolGraphValidationError:Error
 {
-    case cyclicModuleDependency
+    case duplicateCulturalGraph(ModuleIdentifier)
+    case missingLocalDependency(ModuleIdentifier)
+    case cyclicLocalDependencies
     case cyclicDocumentationCommentDependency(SymbolIdentifier)
 }
 
@@ -70,7 +72,8 @@ extension SymbolGraph
     public
     init(compiling graph:RawSymbolGraph) throws
     {
-        let cultures:[RawCulturalGraph] = try graph.cultures.topologicallySorted(for: graph.id)
+        let cultures:[RawCulturalGraph] = try graph.cultures.topologicallySorted(
+            by: try graph.cultures.dependencies(localTo: graph.id))
         try self.init(id: graph.id, cultures: try cultures.map(CulturalGraph.init(_:)),
             snippets: graph.snippets)
     }

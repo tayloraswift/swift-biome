@@ -2,29 +2,51 @@ import SymbolSource
 
 extension Collection<RawCulturalGraph> 
 {
-    func topologicallySorted(for package:PackageIdentifier) throws -> [RawCulturalGraph]
+    /// Returns a table of intra-package dependencies. Every constituent culture in
+    /// this collection of culturegraphs has an associated entry in this table, even
+    /// if it is empty.
+    func dependencies(localTo nationality:PackageIdentifier) 
+        throws -> [ModuleIdentifier: Set<ModuleIdentifier>]
     {
-        // collect intra-package dependencies
-        var dependencies:[ModuleIdentifier: Set<ModuleIdentifier>] = [:]
-        for module:RawCulturalGraph in self
+        var cultures:[ModuleIdentifier: Set<ModuleIdentifier>] = 
+            .init(minimumCapacity: self.count)
+        
+        for culture:RawCulturalGraph in self
         {
-            for dependency:PackageDependency in module.dependencies
-                where package == dependency.package && !dependency.modules.isEmpty
+            var dependencies:Set<ModuleIdentifier> = []
+            for dependency:PackageDependency in culture.dependencies
+                where nationality == dependency.package
             {
-                dependencies[module.id, default: []].formUnion(dependency.modules)
+                dependencies.formUnion(dependency.modules)
+            }
+            if case _? = cultures.updateValue(dependencies, forKey: culture.id)
+            {
+                throw SymbolGraphValidationError.duplicateCulturalGraph(culture.id)
             }
         }
 
+        for dependency:ModuleIdentifier in cultures.values.joined()
+        {
+            guard cultures.keys.contains(dependency)
+            else
+            {
+                throw SymbolGraphValidationError.missingLocalDependency(dependency)
+            }
+        }
+        return cultures
+    }
+    func topologicallySorted(by dependencies:__owned [ModuleIdentifier: Set<ModuleIdentifier>]) 
+        throws -> [RawCulturalGraph]
+    {
+        var dependencies:[ModuleIdentifier: Set<ModuleIdentifier>] = (_move dependencies).filter
+        {
+            !$0.value.isEmpty
+        }
         var consumers:[ModuleIdentifier: [RawCulturalGraph]] = [:]
         for module:RawCulturalGraph in self
         {
-            guard let dependencies:Set<ModuleIdentifier> = dependencies[module.id]
-            else 
-            {
-                continue 
-            }
             // need to sort dependency set to make topological sort deterministic
-            for dependency:ModuleIdentifier in dependencies.sorted()
+            for dependency:ModuleIdentifier in dependencies[module.id, default: []].sorted()
             {
                 consumers[dependency, default: []].append(module)
             }
@@ -69,7 +91,7 @@ extension Collection<RawCulturalGraph>
         }
         else 
         {
-            throw SymbolGraphValidationError.cyclicModuleDependency
+            throw SymbolGraphValidationError.cyclicLocalDependencies
         }
     }
 }
