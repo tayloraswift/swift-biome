@@ -54,7 +54,7 @@ extension SymbolGraph.Vertex<Int>
     {
         var items:[(key:String, value:JSON)] =
         [
-            (CodingKeys.path, .array(self.intrinsic.path.map(JSON.string(_:)))),
+            (CodingKeys.path, .array(self.path.map(JSON.string(_:)))),
             (CodingKeys.fragments, .array(self.declaration.fragments.map(\.serialized))),
             (CodingKeys.signature, .array(self.declaration.signature.map(\.serialized))),
         ]

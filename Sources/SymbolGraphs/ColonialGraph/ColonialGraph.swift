@@ -39,13 +39,15 @@ struct ColonialGraph:Sendable
         edges:[SymbolGraph.Edge<SymbolIdentifier>],
         hints:[SymbolGraph.Hint<SymbolIdentifier>]
     
-    init<UTF8>(utf8:UTF8, culture:ModuleIdentifier, namespace:ModuleIdentifier? = nil) throws 
+    init<UTF8>(utf8:UTF8, culture:ModuleIdentifier, namespace:ModuleIdentifier? = nil,
+        diagnostics:inout [Diagnostic]?) throws 
         where UTF8:Collection<UInt8>
     {
         try self.init(from: try JSON.init(parsing: utf8), 
-            culture: culture, namespace: namespace)
+            culture: culture, namespace: namespace, diagnostics: &diagnostics)
     }
-    init(from json:JSON, culture:ModuleIdentifier, namespace:ModuleIdentifier? = nil) throws 
+    init(from json:JSON, culture:ModuleIdentifier, namespace:ModuleIdentifier? = nil,
+        diagnostics:inout [Diagnostic]?) throws 
     {
         let (symbols, relationships):([Symbol], [Relationship]) = 
             try json.lint(whitelisting: ["metadata"]) 
@@ -77,11 +79,13 @@ struct ColonialGraph:Sendable
         }
         
         self.init(culture: culture, namespace: namespace ?? culture, symbols: symbols, 
-            relationships: relationships)
+            relationships: relationships,
+            diagnostics: &diagnostics)
     }
     private 
     init(culture:ModuleIdentifier, namespace:ModuleIdentifier, 
-        symbols:[Symbol], relationships:[Relationship])
+        symbols:[Symbol], relationships:[Relationship], 
+        diagnostics:inout [Diagnostic]?)
     {
         // about half of the symbols in a typical symbol graph are non-canonical. 
         // (i.e., they are inherited by victims). in theory, these symbols can 
@@ -118,8 +122,11 @@ struct ColonialGraph:Sendable
                     case "_"? = mythical.name.first, 
                     !self.vertices.keys.contains(mythical.id)
                 {
-                    self.vertices[mythical.id] = .protocol(named: mythical.name)
-                    print("note: naturalized underscored protocol '\(mythical.name)'")
+                    let name:Path = .init(last: mythical.name)
+                    self.vertices[mythical.id] = .protocol(name)
+
+                    diagnostics?.append(.naturalized(.underscoredProtocol, name, 
+                        culture: culture))
                 }
             }
 
@@ -161,9 +168,9 @@ struct ColonialGraph:Sendable
                 // fix the first path component of the vertex, so that it points 
                 // to the protocol and not the concrete type we discovered it in 
                 let vertex:SymbolGraph.Vertex<SymbolIdentifier> = .init(
-                    intrinsic: .init(shape: symbol.vertex.intrinsic.shape,
+                    intrinsic: .init(shape: symbol.vertex.shape,
                         path: .init(prefix: [mythical.name], 
-                            last: symbol.vertex.intrinsic.path.last)),
+                            last: symbol.vertex.path.last)),
                     declaration: symbol.vertex.declaration, 
                     comment: symbol.vertex.comment)
                 
@@ -174,7 +181,9 @@ struct ColonialGraph:Sendable
                     self.edges.append(.init(inferred, is: .member, of: mythical.id))
                     self.vertices[inferred] = vertex
                     self.record(location: symbol.location, of: inferred)
-                    print("note: naturalized unavailable protocol member '\(vertex.intrinsic.path)'")
+
+                    diagnostics?.append(.naturalized(.unavailableProtocolMember, vertex.path, 
+                        culture: culture))
                 }
                 else if case "_"? = mythical.name.first
                 {
@@ -183,12 +192,18 @@ struct ColonialGraph:Sendable
                     self.edges.append(.init(inferred, is: .member, of: mythical.id))
                     self.vertices[inferred] = vertex
                     self.record(location: symbol.location, of: inferred)
-                    print("note: naturalized underscored-protocol member '\(vertex.intrinsic.path)'")
+
+                    diagnostics?.append(.naturalized(.underscoredProtocolMember, vertex.path, 
+                        culture: culture))
+                    
                     // make a note of the protocol name and identifier
                     if !self.vertices.keys.contains(mythical.id)
                     {
-                        self.vertices[mythical.id] = .protocol(named: mythical.name)
-                        print("note: naturalized underscored protocol '\(mythical.name)'")
+                        let name:Path = .init(last: mythical.name)
+                        self.vertices[mythical.id] = .protocol(name)
+                        
+                        diagnostics?.append(.naturalized(.underscoredProtocol, name, 
+                            culture: culture))
                     }
                 }
             }

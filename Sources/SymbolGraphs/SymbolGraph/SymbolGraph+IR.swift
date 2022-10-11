@@ -111,7 +111,7 @@ extension Collection<SymbolGraph.Vertex<Int>> where Index == Int
 {
     var shapes:[JSON]
     {
-        guard var shape:Shape = self.first?.intrinsic.shape 
+        guard var shape:Shape = self.first?.shape 
         else 
         {
             return []
@@ -120,10 +120,10 @@ extension Collection<SymbolGraph.Vertex<Int>> where Index == Int
         var start:Int = self.startIndex
         for (end, vertex):(Int, SymbolGraph.Vertex<Int>) in zip(self.indices, self).dropFirst()
         {
-            if vertex.intrinsic.shape != shape 
+            if vertex.shape != shape 
             {
                 shapes.append((shape, start ..< end))
-                shape = vertex.intrinsic.shape
+                shape = vertex.shape
                 start = end 
             }
         }

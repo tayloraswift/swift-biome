@@ -28,10 +28,7 @@ extension SnippetFile
                     ModuleIdentifier.init(_:)),
                 dependencies: try $0.remove(CodingKeys.dependencies, as: [JSON].self)
                 {
-                    try $0.map(PackageDependency.init(from:)).sorted
-                    {
-                        $0.package < $1.package
-                    }
+                    try $0.map(PackageDependency.init(from:))
                 },
                 source: try $0.remove(CodingKeys.source, as: String.self))
         }

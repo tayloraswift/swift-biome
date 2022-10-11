@@ -4,18 +4,18 @@ import SymbolSource
 struct PackageDependency:Equatable, Sendable
 {
     public
-    var package:PackageIdentifier
+    var nationality:PackageIdentifier
     public
-    var modules:[ModuleIdentifier]
+    var cultures:[ModuleIdentifier]
     
-    init(package:PackageIdentifier, sortedModules:[ModuleIdentifier])
+    init(nationality:PackageIdentifier, sortedCultures:[ModuleIdentifier])
     {
-        self.package = package 
-        self.modules = sortedModules
+        self.nationality = nationality 
+        self.cultures = sortedCultures
     }
     public 
-    init(package:PackageIdentifier, modules:[ModuleIdentifier])
+    init(nationality:PackageIdentifier, cultures:[ModuleIdentifier])
     {
-        self.init(package: package, sortedModules: modules.sorted())
+        self.init(nationality: nationality, sortedCultures: cultures.sorted())
     }
 }

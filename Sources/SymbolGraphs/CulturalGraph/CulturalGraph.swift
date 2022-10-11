@@ -7,12 +7,12 @@ struct CulturalGraph
     let markdown:[MarkdownFile]
     let colonies:[ColonialGraph]
 
-    init(_ raw:RawCulturalGraph) throws
+    init(_ raw:RawCulturalGraph, diagnostics:inout [Diagnostic]?) throws
     {
         self.id = raw.id
         self.dependencies = raw.dependencies.sorted
         {
-            $0.package < $1.package
+            $0.nationality < $1.nationality
         }
         self.markdown = raw.markdown.sorted
         {
@@ -20,7 +20,8 @@ struct CulturalGraph
         }
         self.colonies = try raw.colonies.map 
         {
-            try .init(utf8: $0.utf8, culture: $0.culture, namespace: $0.namespace)
+            try .init(utf8: $0.utf8, culture: $0.culture, namespace: $0.namespace,
+                diagnostics: &diagnostics)
         }
         .sorted 
         { 

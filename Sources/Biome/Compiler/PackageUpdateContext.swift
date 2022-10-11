@@ -121,20 +121,20 @@ extension PackageUpdateContext
             // add explicit dependencies 
             for dependency:PackageDependency in dependencies
             {
-                guard let package:Package = packages[dependency.package]
+                guard let package:Package = packages[dependency.nationality]
                 else 
                 {
-                    throw DependencyNotFoundError.package(dependency.package)
+                    throw DependencyNotFoundError.package(dependency.nationality)
                 }
                 if self.nationality == package.nationality 
                 {
-                    try self.link(local: package, dependencies: dependency.modules, 
+                    try self.link(local: package, dependencies: dependency.cultures, 
                         branch: branch, 
                         fasces: fasces)
                 }
                 else 
                 {
-                    try self.link(upstream: package, dependencies: dependency.modules, 
+                    try self.link(upstream: package, dependencies: dependency.cultures, 
                         linkable: linkable)
                 }
             }

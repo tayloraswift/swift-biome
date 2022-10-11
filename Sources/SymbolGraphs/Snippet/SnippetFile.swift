@@ -15,6 +15,6 @@ struct SnippetFile:Equatable
     {
         self.name = name
         self.source = source
-        self.dependencies = dependencies.sorted { $0.package < $1.package }
+        self.dependencies = dependencies.sorted { $0.nationality < $1.nationality }
     }
 }

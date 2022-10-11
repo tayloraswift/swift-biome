@@ -67,18 +67,62 @@ struct SymbolIdentifierTable
         return start ..< end
     }
 }
+
+struct SilentOutput:TextOutputStream
+{
+    func write(_:String)
+    {
+    }
+}
+struct VerboseOutput:TextOutputStream
+{
+    func write(_ string:String)
+    {
+        print(string)
+    }
+}
+
+public
+enum Diagnostic
+{
+    public
+    enum Naturalization
+    {
+        case underscoredProtocol
+        case underscoredProtocolMember
+        case unavailableProtocolMember
+    }
+
+    case naturalized                (Naturalization, Path, culture:ModuleIdentifier)
+
+    case prunedDuplicateComment     (from:Path, canonical:Path)
+    case prunedEmptyInheritedComment(from:Path, canonical:Path)
+    case optimizedInheritedComment  (from:Path, canonical:Path, skipped:Int)
+}
+
 extension SymbolGraph
 {
     public
     init(compiling graph:RawSymbolGraph) throws
     {
+        var none:[Diagnostic]? = nil
+        try self.init(compiling: graph, diagnostics: &none)
+    }
+    public
+    init(compiling graph:RawSymbolGraph, diagnostics:inout [Diagnostic]?) throws
+    {
         let cultures:[RawCulturalGraph] = try graph.cultures.topologicallySorted(
             by: try graph.cultures.dependencies(localTo: graph.id))
-        try self.init(id: graph.id, cultures: try cultures.map(CulturalGraph.init(_:)),
-            snippets: graph.snippets)
+        try self.init(id: graph.id, cultures: try cultures.map
+            {
+                try .init($0, diagnostics: &diagnostics)
+            },
+            snippets: graph.snippets,
+            diagnostics: &diagnostics)
     }
     private
-    init(id:PackageIdentifier, cultures:[CulturalGraph], snippets:[SnippetFile]) throws
+    init(id:PackageIdentifier, cultures:[CulturalGraph], snippets:[SnippetFile],
+        diagnostics:inout [Diagnostic]?) throws
     {
         let capacity:Int = cultures.reduce(0)
         {
@@ -99,7 +143,7 @@ extension SymbolGraph
             {
                 let sorted:[(shape:Shape, id:SymbolIdentifier)] = colony.vertices.compactMap
                 {
-                    table.contains($0.key) ? nil : (shape: $0.value.intrinsic.shape, id: $0.key)
+                    table.contains($0.key) ? nil : (shape: $0.value.shape, id: $0.key)
                 }
                 .sorted
                 {
@@ -130,14 +174,16 @@ extension SymbolGraph
             identifiers: _move table,
             colonies: _move partitions,
             cohorts: _move cohorts,
-            vertices: capacity)
+            vertices: capacity,
+            diagnostics: &diagnostics)
     }
     private
     init(id:PackageIdentifier, cultures:[CulturalGraph], snippets:[SnippetFile],
         identifiers table:SymbolIdentifierTable,
         colonies:[[ColonialPartition]],
         cohorts:[Range<Int>],
-        vertices:Int) throws
+        vertices:Int,
+        diagnostics:inout [Diagnostic]?) throws
     {
         self.id = id
         self.snippets = snippets.sorted
@@ -233,11 +279,11 @@ extension SymbolGraph
             }
         }
         self.identifiers = .init(table: table.identifiers, cohorts: cohorts)
-        try self.apply(hints: uptree)
+        try self.apply(hints: uptree, diagnostics: &diagnostics)
     }
 
     private mutating 
-    func apply(hints:[Int: Int]) throws
+    func apply(hints:[Int: Int], diagnostics:inout [Diagnostic]?) throws
     {
         for (source, origin):(Int, Int) in hints 
         {
@@ -259,7 +305,10 @@ extension SymbolGraph
                 case string? = self.vertices[origin].comment.string
             {
                 self.vertices[index].comment.string = nil
-                // pruned += 1
+
+                diagnostics?.append(.prunedDuplicateComment(
+                    from: self.vertices[index].path, 
+                    canonical: self.vertices[origin].path))
             }
         }
         // print("pruned \(pruned) duplicate comments")

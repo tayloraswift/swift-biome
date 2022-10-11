@@ -6,15 +6,15 @@ extension PackageDependency
     private
     enum CodingKeys 
     {
-        static let package:String = "package"
-        static let modules:String = "modules"
+        static let nationality:String = "nationality"
+        static let cultures:String = "cultures"
     }
     public
     var serialized:JSON 
     {
         [
-            CodingKeys.package: .string(self.package.string),
-            CodingKeys.modules: .array(self.modules.map { .string($0.string) }),
+            CodingKeys.nationality: .string(self.nationality.string),
+            CodingKeys.cultures: .array(self.cultures.map { .string($0.string) }),
         ]
     }
     public
@@ -23,9 +23,9 @@ extension PackageDependency
         self = try json.lint 
         {
             .init(
-                package: try $0.remove(CodingKeys.package, as: String.self, 
+                nationality: try $0.remove(CodingKeys.nationality, as: String.self, 
                     PackageIdentifier.init(_:)),
-                modules: try $0.remove(CodingKeys.modules, as: [JSON].self) 
+                cultures: try $0.remove(CodingKeys.cultures, as: [JSON].self) 
                 {
                     try $0.map { ModuleIdentifier.init(try $0.as(String.self)) }
                 })

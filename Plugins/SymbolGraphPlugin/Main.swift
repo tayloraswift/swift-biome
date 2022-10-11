@@ -1,6 +1,34 @@
 import PackagePlugin
 
 public
+struct InvalidOptionValueError:Error
+{
+    public 
+    let option:String
+    public 
+    let value:String
+    public 
+    let message:String
+
+    init(option:String, value:String, message:String = "")
+    {
+        self.option = option
+        self.value = value
+        self.message = message
+    }
+}
+extension InvalidOptionValueError:CustomStringConvertible
+{
+    public
+    var description:String 
+    {
+        """
+        invalid value '\(self.value)' for option '\(self.option)'\
+        \(self.message.isEmpty ? "" : ": \(self.message)")
+        """
+    }
+}
+public
 struct MissingOptionValueError:Error
 {
     public 
@@ -53,28 +81,132 @@ extension MissingCultureError:CustomStringConvertible
     }
 }
 
+enum KnownCulture:String
+{
+    case Swift
+    case _Concurrency
+    case _Differentiation
+    case Distributed
+    case RegexBuilder
+    case _RegexParser
+    case _StringProcessing
+
+    case Dispatch
+    case Foundation
+}
+extension KnownCulture
+{
+    var localDependencies:[Self]
+    {
+        switch self
+        {
+        case .Swift:
+            return []
+        
+        case ._Concurrency: 
+            return [.Swift]
+        
+        case ._Differentiation: 
+            return [.Swift]
+        
+        case .Distributed: 
+            return [.Swift, ._Concurrency]
+        
+        case .RegexBuilder: 
+            return [.Swift, ._RegexParser, ._StringProcessing]
+        
+        case ._RegexParser: 
+            return [.Swift]
+        
+        case ._StringProcessing: 
+            return [.Swift, ._RegexParser]
+        
+        case .Dispatch:
+            return []
+        
+        case .Foundation: 
+            return [.Dispatch]
+        }
+    }
+}
+extension KnownCulture:CustomStringConvertible
+{
+    var description:String
+    {
+        self.rawValue
+    }
+}
+
 struct Filter
 {
-    // private(set)
-    // var standardLibrary:Bool
     private
     var nationalities:Set<Package.ID>
     private
     var cultures:Set<String>
+    private(set)
+    var toolchain:Tool?
+    private(set)
+    var deadnames:[KnownCulture: String?]
+    private(set)
+    var verbose:Bool
 
     init(parsing arguments:[String]) throws
     {
-        // self.standardLibrary = false
         self.nationalities = []
         self.cultures = []
+        self.toolchain = nil
+        self.deadnames = [:]
+        self.verbose = false
 
         var iterator:Array<String>.Iterator = arguments.makeIterator()
         while let argument:String = iterator.next()
         {
             switch argument
             {
-            // case "-s", "-swift", "--swift":
-            //     self.standardLibrary = true
+            case "-v", "-verbose", "--verbose":
+                self.verbose = true
+            
+            case "-s", "-swift", "--swift":
+                switch iterator.next()
+                {
+                case nil:
+                    throw MissingOptionValueError.init(option: argument)
+                
+                case "swift"?:
+                    self.toolchain = .command("swift")
+                case let path?:
+                    self.toolchain = .executable(.init(path))
+                }
+            
+            case "-d", "-swift-deadnames", "--swift-deadnames":
+                guard let expression:String = iterator.next()
+                else
+                {
+                    throw MissingOptionValueError.init(option: argument)
+                }
+                for mapping:Substring in expression.split(separator: ",")
+                {
+                    let mapping:[Substring] = mapping.split(separator: ":")
+                    guard let culture:KnownCulture = .init(rawValue: .init(mapping[0]))
+                    else
+                    {
+                        throw InvalidOptionValueError.init(option: argument, value: expression,
+                            message: "\(mapping[0]) is not a valid standard- or core-library culture")
+                    }
+                    if      mapping.count == 1
+                    {
+                        self.deadnames[culture] = .some(nil)
+                    }
+                    else if mapping.count == 2
+                    {
+                        self.deadnames[culture] = .init(mapping[1])
+                    }
+                    else
+                    {
+                        throw InvalidOptionValueError.init(option: argument, value: expression)
+                    }
+                }
+
             case "-n", "-nationality", "--nationality":
                 if  let nationality:String = iterator.next()?.lowercased()
                 {
@@ -97,7 +229,7 @@ struct Filter
     }
     func matches(culture:String) -> Bool
     {
-        self.cultures.isEmpty ? true : self.cultures.contains(culture)
+        self.cultures.contains(culture)
     }
 
     func validate(_ found:[Module<SwiftSourceModuleTarget>]) throws
@@ -126,13 +258,88 @@ struct Main:CommandPlugin
 {
     func performCommand(context:PluginContext, arguments:[String]) throws 
     {
-        print(CommandLine.arguments)
-        
         let filter:Filter = try .init(parsing: arguments)
-        let tool:PluginContext.Tool = try context.tool(named: "swift-symbolgraphc")
-        try tool.run(arguments: try self.builds(context: context, filter: filter))
+        let symbolgraphc:Tool = .init(try context.tool(named: "swift-symbolgraphc"))
+
+        var builds:[Build]
+        if let swift:Tool = filter.toolchain
+        {
+            builds = try self.builds(context: context, filter: filter, toolchain: swift)
+        }
+        else
+        {
+            builds = []
+        }
+
+        builds.append(contentsOf: try self.builds(context: context, filter: filter))
+
+        let serialized:String = "[\(builds.lazy.map(\.description).joined(separator: ", "))]"
+        try symbolgraphc.run(arguments: filter.verbose ? [serialized, "-v"] : [serialized])
     }
-    func builds(context:PluginContext, filter:Filter) throws -> String
+    func builds(context:PluginContext, filter:Filter, toolchain swift:Tool) throws -> [Build]
+    {
+        let rm:Tool = .command("rm")
+
+        print("generating symbolgraphs for toolchain:")
+        try swift.run(arguments: "--version")
+
+        var builds:[Build] = []
+        for (nationality, cultures):(Package.ID, [KnownCulture]) in 
+        [
+            (
+                "swift-standard-library",
+                [
+                    .Swift,
+                    ._Concurrency,
+                    ._Differentiation,
+                    .Distributed,
+                    .RegexBuilder,
+                    ._RegexParser,
+                    ._StringProcessing,
+                ]
+            ),
+            (
+                "swift-core-libraries",
+                [
+                    .Dispatch,
+                    .Foundation,
+                ]
+            ),
+        ]
+        {
+            let directory:Path = context.pluginWorkDirectory.appending(nationality)
+            try rm.run(arguments: "-rf", directory.string)
+            try directory.makeDirectory()
+
+            let cultures:[Build.Culture] = try cultures.compactMap
+            {
+                guard let name:String = filter.deadnames[$0, default: $0.description]
+                else
+                {
+                    return nil as Build.Culture?
+                }
+                let dependencies:Build.Dependency = .init(nationality: nationality, 
+                    cultures: $0.localDependencies.compactMap
+                    {
+                        filter.deadnames[$0, default: $0.description]
+                    })
+
+                let directory:Path = directory.appending($0.description)
+                try directory.makeDirectory()
+                // TODO: use a native target on macOS instead of a linux target everywhere
+                try swift.run(arguments: "symbolgraph-extract",
+                    "-target", "x86_64-unknown-linux-gnu",
+                    "-output-dir", directory.string,
+                    "-module-name", name)
+                
+                return .init(id: name, dependencies: [dependencies], include: [directory])
+            }
+
+            builds.append(.init(id: nationality, cultures: cultures))
+        }
+        return builds
+    }
+    func builds(context:PluginContext, filter:Filter) throws -> some Sequence<Build>
     {
         // determine which products belong to which packages 
         let graph:PackageGraph = .init(context.package)
@@ -176,9 +383,8 @@ struct Main:CommandPlugin
             includeSynthesized: true,
             includeSPI: true)
         
-        // add dependencies implicitly
         var added:Set<Target.ID> = []
-        var packages:[Package.ID: Build] = [:]
+        var builds:[Package.ID: Build] = [:]
         for culture:Module<SwiftSourceModuleTarget> in cultures 
         {
             let implicit:[Package.ID: [SwiftSourceModuleTarget]] = 
@@ -209,61 +415,44 @@ struct Main:CommandPlugin
 
                     let graphs:PackageManager.SymbolGraphResult = 
                         try self.packageManager.getSymbolGraph(for: target, options: options)
-                    var include:[String] = [graphs.directoryPath.string]
+                    var include:[Path] = [graphs.directoryPath]
                     for file:File in target.sourceFiles
                     {
                         if  case .unknown = file.type, 
                             case "docc"?  = file.path.extension?.lowercased()
                         {
-                            include.append(file.path.string)
+                            include.append(file.path)
                         }
                     }
                     
-                    packages[nationality, default: .init()].append(culture: target, 
-                        dependencies: dependencies,
-                        include: include)
+                    builds[nationality, default: .init(id: nationality)].cultures.append(
+                        .init(id: target.name, 
+                            dependencies: dependencies.map(Build.Dependency.init(_:)),
+                            include: include))
                 }
             }
         }
         #if swift(>=5.7)
         for snippet:Module<SwiftSourceModuleTarget> in snippets
         {
-            let sources:[String] = snippet.target.sourceFiles.compactMap 
+            let sources:[Path] = snippet.target.sourceFiles.compactMap 
             {
                 if case .source = $0.type 
                 {
-                    return $0.path.string 
+                    return $0.path
                 }
                 else 
                 {
                     return nil 
                 }
             }
-            packages[snippet.nationality, default: .init()].append(snippet: snippet.target, 
-                dependencies: graph.dependencies(of: snippet), 
-                sources: sources)
+            builds[snippet.nationality, default: .init(id: snippet.nationality)].snippets.append(
+                .init(id: snippet.target.name, 
+                    dependencies: graph.dependencies(of: snippet).map(Build.Dependency.init(_:)), 
+                    sources: sources))
         }
         #endif
-        let builds:String =
-        """
-        [\(packages.sorted { $0.key < $1.key }.map 
-        { 
-            """
-            
-                {
-                    "symbolgraph_tools_version": 4,
-                    "id": "\($0.key)", 
-                    "cultures": 
-                    [\($0.value.cultures.joined(separator: ", "))
-                    ],
-                    "snippets": 
-                    [\($0.value.snippets.joined(separator: ", "))
-                    ]
-                }
-            """
-        }.joined(separator: ", "))
-        ]
-        """
-        return builds
+
+        return builds.values
     }
 }

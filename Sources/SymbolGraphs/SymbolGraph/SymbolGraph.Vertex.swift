@@ -87,20 +87,29 @@ extension SymbolGraph
             try self.declaration.forEachTarget(body)
             try self.comment.forEachTarget(body)
         }
+
+        var shape:Shape
+        {
+            self.intrinsic.shape
+        }
+        var path:Path
+        {
+            self.intrinsic.path
+        }
     }
 }
 extension SymbolGraph.Vertex 
 {
     static 
-    func `protocol`(named name:String) -> Self 
+    func `protocol`(_ path:Path) -> Self 
     {
         let fragments:[Notebook<Highlight, Target>.Fragment] = 
         [
             .init("protocol",   color: .keywordText),
             .init(" ",          color: .text),
-            .init(name,         color: .identifier),
+            .init(path.last,    color: .identifier),
         ]
-        return .init(intrinsic: .init(shape: .protocol, path: .init(last: name)),
+        return .init(intrinsic: .init(shape: .protocol, path: path),
             declaration: .init(
                 fragments: .init(fragments), 
                 signature: .init(fragments)))

@@ -15,9 +15,9 @@ extension Collection<RawCulturalGraph>
         {
             var dependencies:Set<ModuleIdentifier> = []
             for dependency:PackageDependency in culture.dependencies
-                where nationality == dependency.package
+                where nationality == dependency.nationality
             {
-                dependencies.formUnion(dependency.modules)
+                dependencies.formUnion(dependency.cultures)
             }
             if case _? = cultures.updateValue(dependencies, forKey: culture.id)
             {
