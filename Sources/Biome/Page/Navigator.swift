@@ -7,7 +7,7 @@ struct Navigator
     let brand:String? 
 
     init(local:__shared Package.Pinned, searchable:[String], 
-        functions:__shared Service.PublicFunction.Names)
+        functions:__shared Service.PublicFunctionNames)
     {
         self.nationality = .init(local, functions: functions)
         self.searchable = searchable

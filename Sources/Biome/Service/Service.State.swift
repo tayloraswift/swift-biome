@@ -1,60 +1,18 @@
 import DOM
-import HTML
-import Resources
 import SymbolSource
-import WebSemantics
+import WebResponse
 import URI
 
 extension Service 
 {
     struct State 
     {
-        private(set) 
-        var functions:Functions
-        var packages:Packages, 
+        let packages:Packages, 
             stems:Route.Stems
         
-        var template:DOM.Flattened<PageElement>
-
-        let logo:[UInt8]
-
-        init() 
-        {
-            self.functions = .init([:])
-            self.packages = .init()
-            self.stems = .init()
-
-            self.template = .init(freezing: .defaultPageTemplate)
-
-            let logo:HTML.Element<Never> = .ol(.li(.a(
-                    .init(escaped: "swift"), 
-                    .i(.init(escaped: "init")), 
-                attributes: [.class("logo"), .href("/")])))
-            self.logo = logo.node.rendered(as: [UInt8].self)
-        }
-    }
-}
-
-extension Service.State 
-{
-    mutating 
-    func enable(function namespace:ModuleIdentifier, 
-        nationality:Packages.Index, 
-        template:DOM.Flattened<PageElement>? = nil) -> Bool 
-    {
-        if  let position:Atom<Module>.Position = 
-                self.packages[nationality].latest()?.modules.find(namespace),
-                self.functions.create(namespace, 
-                    nationality: nationality, 
-                    template: template ?? self.template)
-        {
-            self.packages[nationality].tree[local: position].isFunction = true
-            return true 
-        }
-        else 
-        {
-            return false 
-        }
+        let functions:Functions,
+            template:DOM.Flattened<PageElement>,
+            logo:[UInt8]
     }
 }
 
@@ -62,7 +20,7 @@ extension Service.State
 {
     private 
     func response(for request:__owned GetRequest, template:DOM.Flattened<PageElement>) 
-        throws -> WebSemantics.Response<Resource>
+        throws -> WebResponse
     {
         let uri:String = request.uri.description
         switch request.query
@@ -75,17 +33,17 @@ extension Service.State
             fatalError("unimplemented")
         
         case .selection(let query): 
-            return .init(uri: uri, results: .many, 
-                payload: try self.response(for: query, template: template, uri: request.uri))
+            return .init(uri: uri, location: .many, 
+                payload: try self.payload(for: query, template: template, uri: request.uri))
         
         case .documentation(let query): 
             return .init(uri: uri, canonical: query.canonical?.description ?? uri, 
-                payload: try self.response(for: query, template: template))
+                payload: try self.payload(for: query, template: template))
         }
     }
     private 
-    func response(for query:DisambiguationQuery, template:DOM.Flattened<PageElement>, uri:URI) 
-        throws -> Resource
+    func payload(for query:DisambiguationQuery, template:DOM.Flattened<PageElement>, uri:URI) 
+        throws -> WebResponse.Payload
     {
         let searchable:[String] = self._searchable()
         var cache:ReferenceCache = .init(functions: self.functions.names) 
@@ -101,8 +59,8 @@ extension Service.State
             type: .utf8(encoded: .html))
     }
     private 
-    func response(for query:DocumentationQuery, template:DOM.Flattened<PageElement>) 
-        throws -> Resource
+    func payload(for query:DocumentationQuery, template:DOM.Flattened<PageElement>) 
+        throws -> WebResponse.Payload
     {
         let searchable:[String] = self._searchable()
         var cache:ReferenceCache = .init(functions: self.functions.names) 
@@ -190,7 +148,7 @@ extension Service.State
 }
 extension Service.State 
 {
-    func get(_ uri:URI) -> WebSemantics.Response<Resource>
+    func get(_ uri:URI) -> WebResponse
     {
         do 
         {
@@ -217,14 +175,39 @@ extension Service.State
                     {
                         return try self.response(for: _move request, template: custom.template)
                     }
+                
+                case ._administrator:
+                    return .init(uri: uri.description, location: .one("/administrator"),
+                        payload: .init(
+                        """
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                        <meta charset="utf-8"/>
+                        <title>upload</title>
+                        </head>
+                        <body>
+                        <form action="/test" method="post" enctype="multipart/form-data">
+                        <p><input type="text" name="text1" value="text default">
+                        <p><input type="text" name="text2" value="a&#x03C9;b">
+                        <p><input type="file" name="file1">
+                        <p><input type="file" name="file2">
+                        <p><input type="file" name="file3">
+                        <p><button type="submit">Submit</button>
+                        </form>
+                        </body>
+                        </html>
+                        """,
+                        type: .html))
+
                 }
             }
-            return .init(uri: uri.description, results: .none, 
+            return .init(uri: uri.description, location: .none, 
                 payload: .init("page not found.")) 
         }
         catch let error
         {
-            return .init(uri: uri.description, results: .error, 
+            return .init(uri: uri.description, location: .error, 
                 payload: .init("\(error)")) 
         }
     }

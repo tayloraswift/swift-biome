@@ -24,7 +24,7 @@ struct PackageReference
         self.uri = uri
     }
 
-    init(_ pinned:__shared Package.Pinned, functions:__shared Service.PublicFunction.Names)
+    init(_ pinned:__shared Package.Pinned, functions:__shared Service.PublicFunctionNames)
     {
         self.name = pinned.package.id 
         self.uri = Address.init(residency: pinned).uri(functions: functions).description
@@ -109,9 +109,9 @@ struct ReferenceCache
     var modules:[Atom<Module>: ModuleReference]
     private 
     var uris:[Compound: String]
-    let functions:Service.PublicFunction.Names
+    let functions:Service.PublicFunctionNames
 
-    init(functions:Service.PublicFunction.Names)
+    init(functions:Service.PublicFunctionNames)
     {
         self.functions = functions 
         self.articles = [:]

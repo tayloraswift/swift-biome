@@ -1,7 +1,6 @@
 import SymbolSource
 import URI
 
-public 
 enum Scheme 
 {
     case symbol

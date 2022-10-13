@@ -1,5 +1,4 @@
 import Markdown
-import Resources 
 import DOM
 import HTML
 

@@ -5,27 +5,27 @@ import URI
 extension Service 
 {
     public 
+    struct PublicFunctionNames 
+    {
+        var sitemap:CaselessString, 
+            lunr:CaselessString, 
+            doc:CaselessString,
+            symbol:CaselessString
+        
+        init() 
+        {
+            self.sitemap = "sitemaps"
+            self.lunr = "lunr"
+            self.doc = "learn"
+            self.symbol = "reference"
+        }
+    }
     enum PublicFunction 
     {
         case documentation(Scheme)
         case sitemap 
-        case lunr 
+        case lunr
 
-        struct Names 
-        {
-            var sitemap:CaselessString, 
-                lunr:CaselessString, 
-                doc:CaselessString,
-                symbol:CaselessString
-            
-            init() 
-            {
-                self.sitemap = "sitemaps"
-                self.lunr = "lunr"
-                self.doc = "learn"
-                self.symbol = "reference"
-            }
-        }
     }
     struct CustomFunction 
     {
@@ -39,6 +39,8 @@ extension Service
     {
         case `public`(PublicFunction)
         case custom(CustomFunction)
+
+        case _administrator
     }
 
     struct Functions 
@@ -46,7 +48,7 @@ extension Service
         private 
         var table:[CaselessString: Function]
         private(set)
-        var names:PublicFunction.Names
+        var names:PublicFunctionNames
         
         subscript(key:String) -> Function?
         {
@@ -59,6 +61,8 @@ extension Service
 
             self.table = 
             [
+                "administrator":    ._administrator,
+
                 self.names.sitemap: .public(.sitemap),
                 self.names.lunr:    .public(.lunr),
                 self.names.doc:     .public(.documentation(.doc)),
@@ -107,7 +111,7 @@ extension Service
         }
     }
 }
-extension Service.PublicFunction.Names
+extension Service.PublicFunctionNames
 {
     func uri(_ function:Service.PublicFunction) -> URI
     {

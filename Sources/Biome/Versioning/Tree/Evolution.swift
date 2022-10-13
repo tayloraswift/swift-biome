@@ -20,7 +20,7 @@ struct Evolution
 
     private 
     init(local:__shared Package.Pinned,
-        functions:__shared Service.PublicFunction.Names, 
+        functions:__shared Service.PublicFunctionNames, 
         address:(Package.Pinned) throws -> Address?) rethrows 
     {
         self.items = []
@@ -71,14 +71,14 @@ struct Evolution
 extension Evolution
 {
     init(local:__shared Package.Pinned, 
-        functions:__shared Service.PublicFunction.Names)
+        functions:__shared Service.PublicFunctionNames)
     {
         self.init(local: local, functions: functions, address: Address.init(residency:))
     }
     
     init(for module:Atom<Module>.Position, 
         local:__shared Package.Pinned, 
-        functions:__shared Service.PublicFunction.Names)
+        functions:__shared Service.PublicFunctionNames)
     {
         assert(local.nationality == module.nationality)
 
@@ -99,7 +99,7 @@ extension Evolution
     }
     init(for article:Atom<Article>.Position, 
         local:__shared Package.Pinned, 
-        functions:__shared Service.PublicFunction.Names)
+        functions:__shared Service.PublicFunctionNames)
     {
         assert(local.nationality == article.nationality)
 
@@ -125,7 +125,7 @@ extension Evolution
     init(for symbol:Atom<Symbol>.Position, 
         local:__shared Package.Pinned, 
         context:__shared Packages, 
-        functions:__shared Service.PublicFunction.Names)
+        functions:__shared Service.PublicFunctionNames)
     {
         assert(local.nationality == symbol.nationality)
 
@@ -155,7 +155,7 @@ extension Evolution
     init(for compound:Compound.Position, 
         local:__shared Package.Pinned,
         context:__shared Packages,
-        functions:__shared Service.PublicFunction.Names)
+        functions:__shared Service.PublicFunctionNames)
     {
         assert(local.nationality == compound.nationality)
         

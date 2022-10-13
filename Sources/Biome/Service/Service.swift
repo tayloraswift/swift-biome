@@ -1,7 +1,10 @@
+import DOM
 import PackageResolution
 import SymbolSource
 import SymbolGraphs
+import URI
 import Versions
+import WebSemantics
 
 protocol _Database:Sendable
 {
@@ -20,15 +23,95 @@ actor Service
     var packages:Packages, 
         stems:Route.Stems
 
+    private
+    var functions:Functions
+    private
+    var template:DOM.Flattened<PageElement>
+    private
+    let logo:[UInt8]
+    
     public
-    init()
+    init(logo:[UInt8])
     {
         self.packages = .init()
         self.stems = .init()
+
+        self.functions = .init([:])
+        self.template = .init(freezing: .defaultPageTemplate)
+        self.logo = logo
     }
 }
-extension Service 
+extension Service
 {
+    private
+    var state:State
+    {
+        .init(packages: self.packages, stems: self.stems, 
+            functions: self.functions, 
+            template: self.template, 
+            logo: self.logo)
+    }
+}
+extension Service:WebService
+{
+    @frozen public
+    struct Request:Sendable 
+    {
+        @frozen public
+        enum Method:Sendable
+        {
+            case get
+            case post([UInt8])
+        }
+
+        public
+        let uri:URI 
+        public
+        let method:Method
+
+        @inlinable public
+        init(_ method:Method, uri:URI)
+        {
+            self.method = method
+            self.uri = uri
+        }
+    }
+
+    public
+    func serve(_ request:Request) async throws -> WebResponse
+    {
+        switch request.method
+        {
+        case .get:
+            return self.state.get(request.uri)
+        
+        case .post(let bytes):
+            return .init(uri: request.uri.description, location: .none,
+                payload: .init("unimplemented."))
+        }
+    }
+}
+extension Service
+{
+    func enable(function namespace:ModuleIdentifier, 
+        nationality:Packages.Index, 
+        template:DOM.Flattened<PageElement>? = nil) -> Bool 
+    {
+        if  let position:Atom<Module>.Position = 
+                self.packages[nationality].latest()?.modules.find(namespace),
+                self.functions.create(namespace, 
+                    nationality: nationality, 
+                    template: template ?? self.template)
+        {
+            self.packages[nationality].tree[local: position].isFunction = true
+            return true 
+        }
+        else 
+        {
+            return false 
+        }
+    }
+
     func updatePackage(resolution:PackageResolution,
         branch:String, 
         fork:String? = nil,

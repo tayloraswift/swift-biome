@@ -37,7 +37,7 @@ struct GetRequest
 extension GetRequest 
 {
     init(_ request:URI, residency pinned:__shared Package.Pinned, 
-        functions:__shared Service.PublicFunction.Names)
+        functions:__shared Service.PublicFunctionNames)
     {
         let address:Address = .init(residency: pinned)
         self.init(request, uri: address.uri(functions: functions), 
@@ -48,7 +48,7 @@ extension GetRequest
 
     init?(_ request:URI, residency pinned:Package.Pinned, 
         namespace:Atom<Module>.Position,
-        functions:__shared Service.PublicFunction.Names)
+        functions:__shared Service.PublicFunctionNames)
     {
         guard   let pinned:Package.Pinned = 
                     pinned.excavate(namespace.atom).map(pinned.repinned(to:))
@@ -67,7 +67,7 @@ extension GetRequest
     init?(_ request:URI, residency pinned:Package.Pinned,
         namespace:Atom<Module>.Position, 
         article:Atom<Article>.Position, 
-        functions:__shared Service.PublicFunction.Names)
+        functions:__shared Service.PublicFunctionNames)
     {
         guard   let pinned:Package.Pinned = 
                     pinned.excavate(article.atom).map(pinned.repinned(to:))
@@ -87,7 +87,7 @@ extension GetRequest
 extension GetRequest 
 {
     init?(_ request:URI, extant composite:Composite, context:__shared DirectionalContext, 
-        functions:__shared Service.PublicFunction.Names)
+        functions:__shared Service.PublicFunctionNames)
     {
         var origin:Atom<Symbol> = composite.base 
         let documentation:DocumentationExtension<Never>? = context.documentation(for: &origin)
@@ -141,7 +141,7 @@ extension GetRequest
     }
 
     init?(_ request:URI, choices:[Composite], context:__shared DirectionalContext, 
-        functions:__shared Service.PublicFunction.Names, 
+        functions:__shared Service.PublicFunctionNames, 
         migration:Bool = false)
     {
         guard   let exemplar:Composite = choices.first, 

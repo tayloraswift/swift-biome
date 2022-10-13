@@ -1,16 +1,16 @@
 import JSON 
-import Resources
+import WebResponse
 import URI
 
 struct Cache 
 {
-    let sitemap:Resource
-    let search:Resource 
+    let sitemap:WebResponse.Payload
+    let search:WebResponse.Payload 
 }
 
 extension Service 
 {
-    func generateSearchIndex(for package:Packages.Index) -> Resource
+    func generateSearchIndex(for package:Packages.Index) -> WebResponse.Payload
     {
         fatalError("unimplemented")
         // let current:Package.Pinned = self[package].pinned()
@@ -65,7 +65,7 @@ extension Service
         // return .init(hashing: bytes, type: .utf8(encoded: .json))
     }
     
-    func generateSiteMap(for package:Packages.Index) -> Resource
+    func generateSiteMap(for package:Packages.Index) -> WebResponse.Payload
     {
         fatalError("unimplemented")
         // let domain:String.UTF8View = "https://swiftinit.org".utf8

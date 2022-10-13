@@ -117,7 +117,7 @@ extension Address
 
 extension Address 
 {
-    func uri(functions:Service.PublicFunction.Names) -> URI 
+    func uri(functions:Service.PublicFunctionNames) -> URI 
     {
         var uri:URI 
         if let function:Service.PublicFunction = self.function 

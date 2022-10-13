@@ -1,26 +1,11 @@
+import MIME
 import NIO
+#if canImport(NIOSSL)
+import NIOSSL
+#endif
 import NIOHTTP1
-import Resources
+import SHA2
 import WebSemantics
-
-protocol ExpressibleByPartialHTTPRequest 
-{
-    init?(source:SocketAddress?, head:HTTPRequestHead)
-    init?(source:SocketAddress?, head:HTTPRequestHead, body:[ByteBuffer], end:HTTPHeaders?)
-}
-extension ExpressibleByPartialHTTPRequest 
-{
-    typealias Enqueued = (request:Self, promise:EventLoopPromise<Response<Resource>>)
-    
-    init?(source _:SocketAddress?, head _:HTTPRequestHead)
-    {
-        return nil 
-    }
-    init?(source:SocketAddress?, head:HTTPRequestHead, body _:[ByteBuffer], end _:HTTPHeaders?)
-    {
-        return nil 
-    }
-}
 
 extension HTTPHeaders 
 {
@@ -28,45 +13,15 @@ extension HTTPHeaders
     {
         self["if-none-match"].first.flatMap(SHA256.init(etag:))
     }
-}
-
-extension Listener 
-{
-    static 
-    func send(to queue:AsyncStream<Request.Enqueued>.Continuation, 
-        domain:String, 
-        host:String, 
-        port:Int,
-        group:MultiThreadedEventLoopGroup) 
-        async throws -> any Channel
+    var contentType:String? 
     {
-        let bootstrap:ServerBootstrap = .init(group: group)
-            .serverChannelOption(ChannelOptions.backlog, value: 256)
-            .serverChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-            .childChannelInitializer 
-        { 
-            (channel:any Channel) -> EventLoopFuture<Void> in
-            
-            let endpoint:Self = .init(queue: queue, source: channel.remoteAddress, 
-                scheme: "http",
-                host: domain)
-            return channel.pipeline.configureHTTPServerPipeline(withErrorHandling: true)
-                .flatMap 
-            {
-                channel.pipeline.addHandler(endpoint)
-            }
-        }
-            .childChannelOption(ChannelOptions.socketOption(.so_reuseaddr), value: 1)
-            .childChannelOption(ChannelOptions.maxMessagesPerRead,          value: 1)
-            .childChannelOption(ChannelOptions.allowRemoteHalfClosure, value: true)
-        
-        return try await bootstrap.bind(host: host, port: port).get()
+        self["content-type"].first
     }
 }
 
 final
-class Listener<Request>:ChannelInboundHandler, RemovableChannelHandler
-    where Request:ExpressibleByPartialHTTPRequest & Sendable
+class Listener<Service>:ChannelInboundHandler, RemovableChannelHandler
+    where Service:WebService, Service.Request:ExpressibleByHTTPRequest
 {
     typealias InboundIn = HTTPServerRequestPart
     typealias OutboundOut = HTTPServerResponsePart
@@ -76,21 +31,20 @@ class Listener<Request>:ChannelInboundHandler, RemovableChannelHandler
         responding:Bool, 
         receiving:Bool
     private 
-    let queue:AsyncStream<Request.Enqueued>.Continuation 
-    private 
-    let source:SocketAddress?,
+    let service:Service,
+        source:SocketAddress?,
         scheme:String, 
-        host:String
+        host:Host
 
-    init(queue:AsyncStream<Request.Enqueued>.Continuation, 
+    init(service:Service, 
         source:SocketAddress?, 
         scheme:String,
-        host:String) 
+        host:Host) 
     {
         self.request    = nil 
         self.responding = false 
         self.receiving  = false
-        self.queue      = queue 
+        self.service    = service 
         self.source     = source
         self.scheme     = scheme
         self.host       = host
@@ -101,10 +55,9 @@ class Listener<Request>:ChannelInboundHandler, RemovableChannelHandler
         {
         case .head(let head):
             self.receiving = head.isKeepAlive
-            if  let request:Request = .init(source: self.source, head: head)
+            if  let request:Service.Request = .init(source: self.source, head: head)
             {
-                self.queue.yield((request, self.makePromise(hash: head.headers.hash, 
-                    context: context)))
+                self.conduct(request: _move request, context: context, hash: head.headers.hash)
                 self.request = nil
             }
             else 
@@ -128,13 +81,12 @@ class Listener<Request>:ChannelInboundHandler, RemovableChannelHandler
                 break 
             }
             self.request = nil
-            if  let request:Request = .init(source: self.source, 
+            if  let request:Service.Request = .init(source: self.source, 
                     head: head, 
                     body: body, 
                     end: end)
             {
-                self.queue.yield((request, self.makePromise(hash: head.headers.hash,
-                    context: context)))
+                self.conduct(request: _move request, context: context, hash: head.headers.hash)
             } 
             else 
             {
@@ -172,17 +124,17 @@ class Listener<Request>:ChannelInboundHandler, RemovableChannelHandler
 extension Listener
 {
     private 
-    func makePromise(hash:SHA256?, context:ChannelHandlerContext) 
-        -> EventLoopPromise<Response<Resource>>
+    func conduct(request:__owned Service.Request, context:ChannelHandlerContext, hash:SHA256?) 
     {
-        let promise:EventLoopPromise<Response<Resource>> = 
-            context.eventLoop.makePromise(of: Response<Resource>.self)
-            promise.futureResult.whenComplete 
+        let promise:EventLoopPromise<WebResponse> = 
+            context.eventLoop.makePromise(of: WebResponse.self)
+        
+        promise.futureResult.whenComplete 
         {
             switch $0 
             {
             case .failure(let error): 
-                let error:Response<Resource> = .init(uri: "/", results: .error, 
+                let error:WebResponse = .init(uri: "/", location: .error, 
                     payload: .init("\(error)"))
                 self.respond(with: error, context: context)
             
@@ -190,24 +142,27 @@ extension Listener
                 self.respond(with: response, ifNoneMatch: hash, context: context) 
             }
         }
-        return promise
+        promise.completeWithTask
+        {
+            try await self.service.serve(request)
+        }
     }
     
     private 
     func url(_ uri:String) -> String 
     {
-        "\(self.scheme)://\(self.host)\(uri)"
+        "\(self.scheme)://\(self.host.domain)\(uri)"
     }
     private 
     func createHeaders(canonical:String? = nil) -> HTTPHeaders 
     {
         if let canonical:String = canonical 
         {
-            return ["host": self.host, "link": "<\(self.url(canonical))>; rel=\"canonical\""]
+            return ["host": self.host.domain, "link": "<\(self.url(canonical))>; rel=\"canonical\""]
         }
         else 
         {
-            return ["host": self.host]
+            return ["host": self.host.domain]
         }
     }
     private 
@@ -222,7 +177,7 @@ extension Listener
         return .init(version: .http1_1, status: status, headers: headers)
     }
     private 
-    func createResponse(containing resource:Resource, 
+    func createResponse(containing payload:WebResponse.Payload, 
         allocator:ByteBufferAllocator,
         canonical:String? = nil, 
         status:HTTPResponseStatus)
@@ -231,7 +186,7 @@ extension Listener
         var headers:HTTPHeaders = self.createHeaders(canonical: canonical)
         let content:(length:Int, type:MIME), 
             buffer:ByteBuffer?
-        switch resource.payload
+        switch payload.content
         {
         case .text(let string, type: let type):
             content.length = string.utf8.count
@@ -244,7 +199,7 @@ extension Listener
         }
         headers.add(name: "content-length", value: content.length.description)
         headers.add(name: "content-type",   value: content.type.description)
-        if let hash:SHA256 = resource.hash
+        if let hash:SHA256 = payload.hash
         {
             headers.add(name: "etag",       value: hash.etag)
         }
@@ -253,7 +208,7 @@ extension Listener
         return (head, buffer.map(IOData.byteBuffer(_:)))
     }
     private 
-    func respond(with response:Response<Resource>, 
+    func respond(with response:WebResponse, 
         ifNoneMatch hash:SHA256? = nil,
         context:ChannelHandlerContext) 
     {
@@ -274,7 +229,7 @@ extension Listener
             body = nil
         
         case .none(let resource):
-            switch response.results 
+            switch response.location 
             {
             case .error:
                 (head, body) = self.createResponse(containing: resource, 
