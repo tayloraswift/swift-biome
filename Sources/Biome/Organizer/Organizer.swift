@@ -6,23 +6,23 @@ import SymbolSource
 struct Organizer
 {
     var articles:[(ArticleCard, SortingKey)]
-    var dependencies:[Packages.Index: Enclave<H3, Nationality, ModuleCard>]
+    var dependencies:[Package: Enclave<H3, Nationality, ModuleCard>]
 
     var requirements:[Shape: [(SymbolCard, SortingKey)]]
 
-    var members:[Shape: [Atom<Module>: Enclave<H4, Culture, (SymbolCard, SortingKey)>]]
-    var removed:[Shape: [Atom<Module>: Enclave<H4, Culture, (SymbolCard, SortingKey)>]]
+    var members:[Shape: [Module: Enclave<H4, Culture, (SymbolCard, SortingKey)>]]
+    var removed:[Shape: [Module: Enclave<H4, Culture, (SymbolCard, SortingKey)>]]
 
     var implications:[Item<Unconditional>]
 
-    var conformers:[Atom<Module>: Enclave<H3, Culture, Item<Conditional>>]
-    var conformances:[Atom<Module>: Enclave<H3, Culture, Item<Conditional>>]
+    var conformers:[Module: Enclave<H3, Culture, Item<Conditional>>]
+    var conformances:[Module: Enclave<H3, Culture, Item<Conditional>>]
 
-    var subclasses:[Atom<Module>: Enclave<H3, Culture, Item<Unconditional>>]
-    var refinements:[Atom<Module>: Enclave<H3, Culture, Item<Unconditional>>]
-    var implementations:[Atom<Module>: Enclave<H3, Culture, Item<Unconditional>>]
-    var restatements:[Atom<Module>: Enclave<H3, Culture, Item<Unconditional>>]
-    var overrides:[Atom<Module>: Enclave<H3, Culture, Item<Unconditional>>]
+    var subclasses:[Module: Enclave<H3, Culture, Item<Unconditional>>]
+    var refinements:[Module: Enclave<H3, Culture, Item<Unconditional>>]
+    var implementations:[Module: Enclave<H3, Culture, Item<Unconditional>>]
+    var restatements:[Module: Enclave<H3, Culture, Item<Unconditional>>]
+    var overrides:[Module: Enclave<H3, Culture, Item<Unconditional>>]
 
     init() 
     {
@@ -50,18 +50,18 @@ struct Organizer
 extension Organizer 
 {
     mutating 
-    func organize(dependencies:Set<Atom<Module>>, 
+    func organize(dependencies:Set<Module>, 
         context:some AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
-        let groups:[Packages.Index: [Atom<Module>]] = .init(grouping: dependencies, 
+        let groups:[Package: [Module]] = .init(grouping: dependencies, 
             by: \.nationality)
-        for (nationality, atoms):(Packages.Index, [Atom<Module>]) in groups
+        for (nationality, atoms):(Package, [Module]) in groups
         {
             let nationality:Nationality = nationality == context.local.nationality ? 
                 .local : .foreign(try cache.load(nationality, context: context))
             
-            for atom:Atom<Module> in atoms 
+            for atom:Module in atoms 
             {
                 let module:ModuleReference = try cache.load(atom, context: context)
                 let overview:DOM.Flattened<GlobalLink.Presentation>? = 
@@ -74,11 +74,11 @@ extension Organizer
         }
     }
     mutating 
-    func organize(articles:Set<Atom<Article>>, 
+    func organize(articles:Set<Article>, 
         context:some PackageContext, 
         cache:inout ReferenceCache) throws 
     {
-        for atom:Atom<Article> in articles
+        for atom:Article in articles
         {
             let article:ArticleReference = try cache.load(atom, context: context)
             let overview:DOM.Flattened<GlobalLink.Presentation>? = 
@@ -91,11 +91,11 @@ extension Organizer
     }
     // The enclave may be different from the atom’s own culture.
     mutating 
-    func organize(members:Set<Atom<Symbol>>, enclave:Atom<Module>, culture:Culture,
+    func organize(members:Set<Symbol>, enclave:Module, culture:Culture,
         context:some PackageContext, 
         cache:inout ReferenceCache) throws 
     {
-        for member:Atom<Symbol> in members
+        for member:Symbol in members
         {
             try self.add(member: member, to: enclave,
                     culture: culture, 
@@ -116,19 +116,19 @@ extension Organizer
         switch (host.shape, host.scope) 
         {
         case (_, .requirement(of: _)?):
-            for parrot:Atom<Symbol> in traits.downstream
+            for parrot:Symbol in traits.downstream
             {
                 self.restatements[diacritic.culture, default: .init(culture)]
                     .elements.append(try .init(parrot, context: context, cache: &cache))
             }
-            for implementation:Atom<Symbol> in traits.implementations
+            for implementation:Symbol in traits.implementations
             {
                 self.implementations[diacritic.culture, default: .init(culture)]
                     .elements.append(try .init(implementation, context: context, cache: &cache))
             }
         
         case (.protocol, _): 
-            for (conformer, constraints):(Atom<Symbol>, [Generic.Constraint<Atom<Symbol>>]) in 
+            for (conformer, constraints):(Symbol, [Generic.Constraint<Symbol>]) in 
                 traits.conformers
             {
                 self.conformers[diacritic.culture, default: .init(culture)]
@@ -136,7 +136,7 @@ extension Organizer
                         context: context, 
                         cache: &cache))
             }
-            for refinement:Atom<Symbol> in traits.downstream
+            for refinement:Symbol in traits.downstream
             {
                 self.refinements[diacritic.culture, default: .init(culture)]
                     .elements.append(try .init(refinement, context: context, cache: &cache))
@@ -148,7 +148,7 @@ extension Organizer
                 cache: &cache)
         
         case (.concretetype(_), _): 
-            for (conformance, constraints):(Atom<Symbol>, [Generic.Constraint<Atom<Symbol>>]) in 
+            for (conformance, constraints):(Symbol, [Generic.Constraint<Symbol>]) in 
                 traits.conformances
             {
                 self.conformances[diacritic.culture, default: .init(culture)]
@@ -156,12 +156,12 @@ extension Organizer
                         context: context, 
                         cache: &cache))
             }
-            for subclass:Atom<Symbol> in traits.downstream
+            for subclass:Symbol in traits.downstream
             {
                 self.subclasses[diacritic.culture, default: .init(culture)]
                     .elements.append(try .init(subclass, context: context, cache: &cache))
             }
-            for feature:Atom<Symbol> in traits.features
+            for feature:Symbol in traits.features
             {
                 try self.add(feature: feature, to: diacritic, 
                     culture: culture, 
@@ -175,7 +175,7 @@ extension Organizer
                 cache: &cache)
 
         case (.callable(_), _):
-            for override:Atom<Symbol> in traits.downstream
+            for override:Symbol in traits.downstream
             {
                 self.overrides[diacritic.culture, default: .init(culture)]
                     .elements.append(try .init(override, context: context, cache: &cache))
@@ -186,7 +186,7 @@ extension Organizer
         }
     }
     private mutating 
-    func add(member:Atom<Symbol>, to enclave:Atom<Module>, 
+    func add(member:Symbol, to enclave:Module, 
         culture:Culture,
         context:some PackageContext, 
         cache:inout ReferenceCache) throws
@@ -197,7 +197,7 @@ extension Organizer
             cache: &cache)
     }
     private mutating 
-    func add(feature:Atom<Symbol>, to diacritic:Diacritic, 
+    func add(feature:Symbol, to diacritic:Diacritic, 
         culture:Culture,
         context:some PackageContext, 
         cache:inout ReferenceCache) throws
@@ -208,12 +208,12 @@ extension Organizer
             cache: &cache)
     }
     private mutating 
-    func add(composite:Composite, to enclave:Atom<Module>, 
+    func add(composite:Composite, to enclave:Module, 
         culture:Culture,
         context:some PackageContext,
         cache:inout ReferenceCache) throws 
     {
-        guard   let declaration:Declaration<Atom<Symbol>> = 
+        guard   let declaration:Declaration<Symbol> = 
                     context[composite.base.nationality]?.declaration(for: composite.base)
         else 
         {
@@ -248,13 +248,13 @@ extension Organizer
         context:some AnisotropicContext, 
         cache:inout ReferenceCache) throws
     {
-        for role:Atom<Symbol> in roles 
+        for role:Symbol in roles 
         {
             try self.add(role: role, context: context, cache: &cache)
         }
     }
     private mutating 
-    func add(role:Atom<Symbol>, context:some AnisotropicContext, cache:inout ReferenceCache) 
+    func add(role:Symbol, context:some AnisotropicContext, cache:inout ReferenceCache) 
         throws
     {
         // protocol roles may originate from a different package
@@ -267,7 +267,7 @@ extension Organizer
             // this is always valid, because non-protocol roles are always 
             // requirements, and requirements always live in the same package as 
             // the protocol they are part of.
-            guard   let declaration:Declaration<Atom<Symbol>> = 
+            guard   let declaration:Declaration<Symbol> = 
                         context.local.declaration(for: role)
             else 
             {

@@ -39,7 +39,7 @@ struct DocumentationExtension<Extended>
         scope:LexicalScope?, 
         stems:Route.Stems)
     {
-        let imports:Set<Atom<Module>> = resolver.namespaces.import(_extension.metadata.imports)
+        let imports:Set<Module> = resolver.namespaces.import(_extension.metadata.imports)
 
         let (card, body):(DOM.Flattened<String>, DOM.Flattened<String>) = 
             _extension.rendered()
@@ -97,8 +97,8 @@ struct PackageDocumentation
     {
         enum Node 
         {
-            case inherits(Atom<Symbol>)
-            case extends(Atom<Symbol>?, with:String)
+            case inherits(Symbol)
+            case extends(Symbol?, with:String)
         }
 
         let node:Node 
@@ -114,7 +114,7 @@ struct PackageDocumentation
     // struct Comments 
     // {
     //     private 
-    //     var uptree:[Atom<Symbol>: Comment] = [:]
+    //     var uptree:[Symbol: Comment] = [:]
     //     private(set)
     //     var pruned:Int
 
@@ -127,10 +127,10 @@ struct PackageDocumentation
     //     mutating 
     //     func update(with graph:SymbolGraph, interface:ModuleInterface)
     //     {
-    //         for (position, vertex):(Atom<Symbol>.Position?, SymbolGraph.Vertex<Int>) in 
+    //         for (position, vertex):(AtomicPosition<Symbol>?, SymbolGraph.Vertex<Int>) in 
     //             zip(interface.citizenSymbols, graph.vertices)
     //         {
-    //             guard let position:Atom<Symbol>.Position = position
+    //             guard let position:AtomicPosition<Symbol> = position
     //             else 
     //             {
     //                 continue 
@@ -175,7 +175,7 @@ struct PackageDocumentation
     //         }
     //     }
 
-    //     func consolidated(nationality:Packages.Index) -> [Atom<Symbol>: Comment]
+    //     func consolidated(nationality:Package) -> [Symbol: Comment]
     //     {
     //         var skipped:Int = 0,
     //             dropped:Int = 0
@@ -196,7 +196,7 @@ struct PackageDocumentation
     //             {
     //                 // fast-forward until we either reach a package boundary, 
     //                 // or a local symbol that has documentation
-    //                 var visited:Set<Atom<Symbol>> = []
+    //                 var visited:Set<Symbol> = []
     //                 fastforwarding:
     //                 while origin.nationality == nationality
     //                 {
@@ -226,17 +226,17 @@ struct PackageDocumentation
     //     }
     // }
     private(set) 
-    var articles:[(Atom<Article>, DocumentationExtension<Never>)]
+    var articles:[(Article, DocumentationExtension<Never>)]
     private(set) 
-    var symbols:[(Atom<Symbol>, DocumentationExtension<Atom<Symbol>>)]
+    var symbols:[(Symbol, DocumentationExtension<Symbol>)]
     private(set) 
-    var modules:[(Atom<Module>, DocumentationExtension<Never>)]
+    var modules:[(Module, DocumentationExtension<Never>)]
     private(set) 
     var package:DocumentationExtension<Never>?
 
     init(interface:__shared PackageInterface,
         graph:__shared SymbolGraph,
-        local:__shared Package, 
+        local:__shared Package.Tree, 
         stems:__shared Route.Stems)
     {
         self.articles = []
@@ -244,14 +244,14 @@ struct PackageDocumentation
         self.modules = []
         self.package = nil
 
-        var comments:[Atom<Symbol>: Comment] = [:]
+        var comments:[Symbol: Comment] = [:]
         for (culture, interface):(SymbolGraph.Culture, ModuleInterface) in 
             zip(graph.cultures, interface)
         {
-            for (position, comment):(Atom<Symbol>.Position?, SymbolGraph.Comment<Int>) in 
+            for (position, comment):(AtomicPosition<Symbol>?, SymbolGraph.Comment<Int>) in 
                 zip(interface.citizens, culture.comments)
             {
-                guard let position:Atom<Symbol>.Position = position
+                guard let position:AtomicPosition<Symbol> = position
                 else
                 {
                     continue 
@@ -288,13 +288,13 @@ struct PackageDocumentation
             stems: stems)
     }
     private mutating 
-    func compile(comments:__owned [Atom<Symbol>: Comment], 
+    func compile(comments:__owned [Symbol: Comment], 
         interface:PackageInterface, 
         graph:SymbolGraph,
         local:Package.Pinned, 
         stems:Route.Stems)
     {
-        var resolvers:[Atom<Module>: Resolver] = .init(minimumCapacity: graph.cultures.count)
+        var resolvers:[Module: Resolver] = .init(minimumCapacity: graph.cultures.count)
         for (_, interface):(SymbolGraph.Culture, ModuleInterface) in 
             zip(graph.cultures, interface)
         {
@@ -302,11 +302,11 @@ struct PackageDocumentation
             // to reduce the size of the search context
             let resolver:Resolver = .init(local: local, context: interface.context)
 
-            for (position, _extension):(Atom<Article>.Position?, Extension) in 
+            for (position, _extension):(AtomicPosition<Article>?, Extension) in 
                 zip(interface.articles, interface._cachedMarkdown)
             {
                 // TODO: handle merge behavior block directive 
-                if let position:Atom<Article>.Position 
+                if let position:AtomicPosition<Article> 
                 {
                     self.articles.append((position.atom, .init(
                         compiling: _move _extension, 
@@ -344,7 +344,7 @@ struct PackageDocumentation
                             stems: stems)))
                     
                     case .composite(let composite):
-                        guard   let symbol:Atom<Symbol> = composite.atom 
+                        guard   let symbol:Symbol = composite.atom 
                         else 
                         {
                             print("warning: documentation extensions for composite APIs are unsupported, skipping")
@@ -355,7 +355,7 @@ struct PackageDocumentation
                             print("warning: documentation extension would overwrite existing documentation, skipping")
                             continue 
                         }
-                        guard   let plural:Atom<Symbol>.Position = 
+                        guard   let plural:AtomicPosition<Symbol> = 
                                     symbol.positioned(bisecting: local.symbols)
                         else 
                         {
@@ -363,7 +363,7 @@ struct PackageDocumentation
                         }
                         self.symbols.append((symbol, .init(compiling: _move _extension, 
                             resolver: resolver,
-                            scope: .init(local.package.tree[local: plural]), 
+                            scope: .init(local.tree[local: plural]), 
                             stems: stems)))
                     
                     case .composites(_):
@@ -378,11 +378,11 @@ struct PackageDocumentation
         self.compile(comments: _move comments, resolvers: _move resolvers, stems: stems)
     }
     private mutating 
-    func compile(comments:__owned [Atom<Symbol>: Comment],
-        resolvers:__owned [Atom<Module>: Resolver], 
+    func compile(comments:__owned [Symbol: Comment],
+        resolvers:__owned [Module: Resolver], 
         stems:Route.Stems)
     {
-        for (element, comment):(Atom<Symbol>, Comment) in comments 
+        for (element, comment):(Symbol, Comment) in comments 
         {
             guard let resolver:Resolver = resolvers[element.culture] 
             else 
@@ -390,7 +390,7 @@ struct PackageDocumentation
                 fatalError("unreachable")
             }
 
-            let documentation:DocumentationExtension<Atom<Symbol>>
+            let documentation:DocumentationExtension<Symbol>
             switch comment.node 
             {
             case .inherits(let origin):
@@ -398,8 +398,8 @@ struct PackageDocumentation
             
             case .extends(let origin, with: let markdown):
                 let _extension:Extension = .init(markdown: markdown)
-                let symbol:Symbol = 
-                    resolver.local.package.tree[local: element.positioned(comment.branch)]
+                let symbol:Symbol.Intrinsic = 
+                    resolver.local.tree[local: element.positioned(comment.branch)]
                 documentation = .init(compiling: _extension, extending: origin, 
                     resolver: resolver,
                     scope: .init(symbol), 

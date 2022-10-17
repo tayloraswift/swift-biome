@@ -59,12 +59,12 @@ extension History
 {
     struct Data
     {
-        var topLevelArticles:Sediment<Version.Revision, Set<Atom<Article>>>
-        var topLevelSymbols:Sediment<Version.Revision, Set<Atom<Symbol>>>
-        var declarations:Sediment<Version.Revision, Declaration<Atom<Symbol>>>
+        var topLevelArticles:Sediment<Version.Revision, Set<Article>>
+        var topLevelSymbols:Sediment<Version.Revision, Set<Symbol>>
+        var declarations:Sediment<Version.Revision, Declaration<Symbol>>
 
         var standaloneDocumentation:Sediment<Version.Revision, DocumentationExtension<Never>>
-        var cascadingDocumentation:Sediment<Version.Revision, DocumentationExtension<Atom<Symbol>>>
+        var cascadingDocumentation:Sediment<Version.Revision, DocumentationExtension<Symbol>>
 
         init()
         {
@@ -78,12 +78,12 @@ extension History
     }
     struct DataRollbacks
     {
-        var topLevelArticles:Sediment<Version.Revision, Set<Atom<Article>>>.Rollbacks
-        var topLevelSymbols:Sediment<Version.Revision, Set<Atom<Symbol>>>.Rollbacks
-        var declarations:Sediment<Version.Revision, Declaration<Atom<Symbol>>>.Rollbacks
+        var topLevelArticles:Sediment<Version.Revision, Set<Article>>.Rollbacks
+        var topLevelSymbols:Sediment<Version.Revision, Set<Symbol>>.Rollbacks
+        var declarations:Sediment<Version.Revision, Declaration<Symbol>>.Rollbacks
 
         var standaloneDocumentation:Sediment<Version.Revision, DocumentationExtension<Never>>.Rollbacks
-        var cascadingDocumentation:Sediment<Version.Revision, DocumentationExtension<Atom<Symbol>>>.Rollbacks
+        var cascadingDocumentation:Sediment<Version.Revision, DocumentationExtension<Symbol>>.Rollbacks
     }
 }
 extension History.Data

@@ -3,10 +3,10 @@ extension ModuleInterface
     struct SymbolCitizens
     {
         private 
-        let positions:ArraySlice<Atom<Symbol>.Position?>
-        let culture:Atom<Module>
+        let positions:ArraySlice<AtomicPosition<Symbol>?>
+        let culture:Module
 
-        init(positions:ArraySlice<Atom<Symbol>.Position?>, culture:Atom<Module>)
+        init(positions:ArraySlice<AtomicPosition<Symbol>?>, culture:Module)
         {
             self.positions = positions 
             self.culture = culture 
@@ -28,7 +28,7 @@ extension ModuleInterface.SymbolCitizens:RandomAccessCollection
     // current package.
     // the `flatMap` excludes symbols that are not native to the current 
     // module. this happens sometimes due to member inference.
-    subscript(index:Int) -> Atom<Symbol>.Position? 
+    subscript(index:Int) -> AtomicPosition<Symbol>? 
     {
         self.positions[index].flatMap { self.culture == $0.culture ? $0 : nil }
     }

@@ -32,8 +32,8 @@ extension _SymbolLink
 
     enum Resolution 
     {
-        //case package(Packages.Index)
-        case module(Atom<Module>)
+        //case package(Package)
+        case module(Module)
         case composite(Composite) 
         case composites([Composite]) 
 

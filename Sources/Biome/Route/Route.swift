@@ -1,6 +1,6 @@
 struct Route:Hashable, Sendable, CustomStringConvertible 
 {
-    let namespace:Atom<Module>
+    let namespace:Module
     let stem:Stem 
     let leaf:Leaf 
     
@@ -19,11 +19,11 @@ struct Route:Hashable, Sendable, CustomStringConvertible
         """
     }
     
-    init(_ namespace:Atom<Module>, _ stem:Stem, _ leaf:Stem, orientation:_SymbolLink.Orientation)
+    init(_ namespace:Module, _ stem:Stem, _ leaf:Stem, orientation:_SymbolLink.Orientation)
     {
         self.init(namespace, stem, .init(leaf, orientation: orientation))
     }
-    init(_ namespace:Atom<Module>, _ stem:Stem, _ leaf:Leaf)
+    init(_ namespace:Module, _ stem:Stem, _ leaf:Leaf)
     {
         self.namespace = namespace
         self.stem = stem

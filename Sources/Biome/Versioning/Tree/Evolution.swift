@@ -27,7 +27,7 @@ struct Evolution
         self.newer = nil
 
         let current:Version = local.version 
-        for branch:Branch in local.package.tree 
+        for branch:Branch in local.tree 
         {
             let detail:Int = branch.index == local.version.branch ? 8 : 1
             try local.repinned(to: branch.revisions.indices.suffix(detail), of: branch)
@@ -76,20 +76,20 @@ extension Evolution
         self.init(local: local, functions: functions, address: Address.init(residency:))
     }
     
-    init(for module:Atom<Module>.Position, 
+    init(for module:AtomicPosition<Module>, 
         local:__shared Package.Pinned, 
         functions:__shared Service.PublicFunctionNames)
     {
         assert(local.nationality == module.nationality)
 
-        let id:ModuleIdentifier = local.package.tree[local: module].id
+        let id:ModuleIdentifier = local.tree[local: module].id
         self.init(local: local, functions: functions)
         {
-            if  let module:Atom<Module>.Position = 
+            if  let module:AtomicPosition<Module> = 
                     $0.modules.find(id),
                     $0.exists(module.atom)
             {
-                return .init(residency: $0, namespace: $0.package.tree[local: module])
+                return .init(residency: $0, namespace: $0.tree[local: module])
             }
             else 
             {
@@ -97,7 +97,7 @@ extension Evolution
             }
         }
     }
-    init(for article:Atom<Article>.Position, 
+    init(for article:AtomicPosition<Article>, 
         local:__shared Package.Pinned, 
         functions:__shared Service.PublicFunctionNames)
     {
@@ -105,16 +105,16 @@ extension Evolution
 
         // the same article (by path name) may be assigned to different 
         // atoms in different branches
-        let id:Article.ID = local.package.tree[local: article].id
+        let id:Article.Intrinsic.ID = local.tree[local: article].id
         self.init(local: local, functions: functions)
         {
-            if  let article:Atom<Article>.Position = 
+            if  let article:AtomicPosition<Article> = 
                     $0.articles.find(id),
                     $0.exists(article.atom), 
-                let namespace:Module = $0.load(local: article.culture)
+                let namespace:Module.Intrinsic = $0.load(local: article.culture)
             {
                 return .init(residency: $0, namespace: namespace, 
-                    article: $0.package.tree[local: article])
+                    article: $0.tree[local: article])
             }
             else 
             {
@@ -122,17 +122,17 @@ extension Evolution
             }
         }
     }
-    init(for symbol:Atom<Symbol>.Position, 
+    init(for symbol:AtomicPosition<Symbol>, 
         local:__shared Package.Pinned, 
-        context:__shared Packages, 
+        context:__shared Package.Trees, 
         functions:__shared Service.PublicFunctionNames)
     {
         assert(local.nationality == symbol.nationality)
 
-        let id:SymbolIdentifier = local.package.tree[local: symbol].id
+        let id:SymbolIdentifier = local.tree[local: symbol].id
         self.init(local: local, functions: functions)
         {
-            if  let symbol:Atom<Symbol>.Position = 
+            if  let symbol:AtomicPosition<Symbol> = 
                     $0.symbols.find(id),
                     $0.exists(symbol.atom),
                 let metadata:Module.Metadata = 
@@ -142,7 +142,7 @@ extension Evolution
                     metadata: metadata, 
                     context: context)
                 return context.local.address(of: symbol.atom, 
-                    symbol: context.local.package.tree[local: symbol], 
+                    symbol: context.local.tree[local: symbol], 
                     context: context)
             }
             else 
@@ -152,22 +152,22 @@ extension Evolution
 
         }
     }
-    init(for compound:Compound.Position, 
+    init(for compound:CompoundPosition, 
         local:__shared Package.Pinned,
-        context:__shared Packages,
+        context:__shared Package.Trees,
         functions:__shared Service.PublicFunctionNames)
     {
         assert(local.nationality == compound.nationality)
         
-        let culture:ModuleIdentifier = local.package.tree[local: compound.culture].id
+        let culture:ModuleIdentifier = local.tree[local: compound.culture].id
         let host:SymbolIdentifier = 
-            context[compound.host.nationality].tree[local: compound.host].id
+            context[compound.host.nationality][local: compound.host].id
         let base:SymbolIdentifier = 
-            context[compound.base.nationality].tree[local: compound.base].id
+            context[compound.base.nationality][local: compound.base].id
 
         self.init(local: local, functions: functions)
         {
-            guard   let culture:Atom<Module>.Position = $0.modules.find(culture), 
+            guard   let culture:AtomicPosition<Module> = $0.modules.find(culture), 
                     let metadata:Module.Metadata = $0.metadata(local: culture.atom)
             else 
             {
@@ -178,9 +178,9 @@ extension Evolution
                 metadata: metadata, 
                 context: context)
             
-            if  let host:(position:Atom<Symbol>.Position, symbol:Symbol) = 
+            if  let host:(position:AtomicPosition<Symbol>, symbol:Symbol.Intrinsic) = 
                     context.find(host, linked: metadata.dependencies),
-                let base:(position:Atom<Symbol>.Position, symbol:Symbol) = 
+                let base:(position:AtomicPosition<Symbol>, symbol:Symbol.Intrinsic) = 
                     context.find(base, linked: metadata.dependencies),
                 // can’t think of why host would become equal to base, but hey, 
                 // anything can happen...

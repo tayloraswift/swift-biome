@@ -41,7 +41,7 @@ extension Branch
     mutating 
     func updateMetadata(interface:PackageInterface, builder:SurfaceBuilder)
     {
-        for missing:Atom<Module> in builder.previous.modules 
+        for missing:Module in builder.previous.modules 
         {
             self.history.metadata.modules.deposit(inserting: nil,
                 revision: interface.revision, 
@@ -49,7 +49,7 @@ extension Branch
                 trunk: interface.local.metadata.modules,
                 axis: &self.modules)
         }
-        for missing:Atom<Article> in builder.previous.articles 
+        for missing:Article in builder.previous.articles 
         {
             self.history.metadata.articles.deposit(inserting: nil,
                 revision: interface.revision, 
@@ -57,7 +57,7 @@ extension Branch
                 trunk: interface.local.metadata.articles,
                 axis: &self.articles)
         }
-        for missing:Atom<Symbol> in builder.previous.symbols
+        for missing:Symbol in builder.previous.symbols
         {
             self.history.metadata.symbols.deposit(inserting: nil, 
                 revision: interface.revision, 
@@ -83,8 +83,7 @@ extension Branch
                 trunk: interface.local.metadata.modules,
                 axis: &self.modules)
         }
-        for (article, metadata):(Atom<Article>, Article.Metadata) in 
-            builder.articles
+        for (article, metadata):(Article, Article.Metadata) in builder.articles
         {
             self.history.metadata.articles.deposit(
                 inserting: metadata,
@@ -93,8 +92,7 @@ extension Branch
                 trunk: interface.local.metadata.articles,
                 axis: &self.articles) 
         }
-        for (symbol, metadata):(Atom<Symbol>, Symbol.Metadata) in 
-            builder.symbols
+        for (symbol, metadata):(Symbol, Symbol.Metadata) in builder.symbols
         {
             self.history.metadata.symbols.deposit(
                 inserting: metadata,
@@ -103,8 +101,7 @@ extension Branch
                 trunk: interface.local.metadata.symbols,
                 axis: &self.symbols) 
         }
-        for (diacritic, metadata):(Diacritic, Overlay.Metadata) in 
-            builder.overlays
+        for (diacritic, metadata):(Diacritic, Overlay.Metadata) in builder.overlays
         {
             self.history.metadata.overlays.deposit(
                 inserting: metadata, 
@@ -116,7 +113,7 @@ extension Branch
     }
 
     mutating 
-    func updateTopLevelSymbols(_ topLevelSymbols:__owned Set<Atom<Symbol>>, 
+    func updateTopLevelSymbols(_ topLevelSymbols:__owned Set<Symbol>, 
         interface:ModuleInterface, 
         revision:Version.Revision)
     {
@@ -128,7 +125,7 @@ extension Branch
             axis: &self.modules)
     }
     mutating 
-    func updateTopLevelArticles(_ topLevelArticles:__owned Set<Atom<Article>>, 
+    func updateTopLevelArticles(_ topLevelArticles:__owned Set<Article>, 
         interface:ModuleInterface, 
         revision:Version.Revision)
     {
@@ -144,15 +141,15 @@ extension Branch
         interface:ModuleInterface,
         revision:Version.Revision)
     {
-        for (position, declaration):(Atom<Symbol>.Position?, Declaration<Int>) in 
+        for (position, declaration):(AtomicPosition<Symbol>?, Declaration<Int>) in 
             zip(interface.citizens, culture.declarations)
         {
-            guard let element:Atom<Symbol> = position?.atom
+            guard let element:Symbol = position?.atom
             else 
             {
                 continue 
             }
-            let declaration:Declaration<Atom<Symbol>> = declaration.flatMap 
+            let declaration:Declaration<Symbol> = declaration.flatMap 
             {
                 interface.symbols[$0]?.atom
             }
@@ -168,7 +165,7 @@ extension Branch
     func updateDocumentation(_ documentation:__owned PackageDocumentation, 
         interface:PackageInterface)
     {
-        for (key, documentation):(Atom<Module>, DocumentationExtension<Never>)
+        for (key, documentation):(Module, DocumentationExtension<Never>)
             in documentation.modules 
         {
             self.history.data.standaloneDocumentation.deposit(inserting: documentation, 
@@ -177,7 +174,7 @@ extension Branch
                 trunk: interface.local.data.moduleDocumentation,
                 axis: &self.modules)
         }
-        for (key, documentation):(Atom<Article>, DocumentationExtension<Never>)
+        for (key, documentation):(Article, DocumentationExtension<Never>)
             in documentation.articles 
         {
             self.history.data.standaloneDocumentation.deposit(inserting: documentation, 
@@ -186,7 +183,7 @@ extension Branch
                 trunk: interface.local.data.articleDocumentation,
                 axis: &self.articles)
         }
-        for (key, documentation):(Atom<Symbol>, DocumentationExtension<Atom<Symbol>>)
+        for (key, documentation):(Symbol, DocumentationExtension<Symbol>)
             in documentation.symbols 
         {
             self.history.data.cascadingDocumentation.deposit(inserting: documentation, 
@@ -262,7 +259,7 @@ extension Branch
 {
     mutating 
     func commit(_ commit:__owned Commit, token:UInt, 
-        pins:__owned [Packages.Index: Version]) -> Version
+        pins:__owned [Package: Version]) -> Version
     {
         let revision:Version.Revision = self.revisions.endIndex
         self.revisions.append(.init(commit: commit, token: token,
@@ -309,32 +306,33 @@ extension Branch
 extension Branch 
 {
     mutating 
-    func addModule(_ namespace:ModuleIdentifier, nationality:Packages.Index, local:Fasces) 
-        -> Atom<Module>.Position
+    func addModule(_ namespace:ModuleIdentifier, nationality:Package, local:Fasces) 
+        -> AtomicPosition<Module>
     {
-        if let existing:Atom<Module>.Position = local.modules.find(namespace)
+        if let existing:AtomicPosition<Module> = local.modules.find(namespace)
         {
             return existing 
         }
         else 
         {
             return self.modules
-                .insert(namespace, culture: nationality, creator: Module.init(id:culture:))
+                .insert(namespace, culture: nationality, 
+                    creator: Module.Intrinsic.init(id:culture:))
                 .positioned(self.index)
         }
     }
 
     mutating 
-    func addSymbols(from culture:SymbolGraph.Culture, visible:Set<Atom<Module>>,
+    func addSymbols(from culture:SymbolGraph.Culture, visible:Set<Module>,
         context:ModuleUpdateContext, 
-        stems:inout Route.Stems) -> [Atom<Symbol>.Position?]
+        stems:inout Route.Stems) -> [AtomicPosition<Symbol>?]
     {
-        var positions:[Atom<Symbol>.Position?] = []
+        var positions:[AtomicPosition<Symbol>?] = []
             positions.reserveCapacity(culture.count)
         for colony:SymbolGraph.Colony in culture.colonies
         {
             // will always succeed for the core subgraph
-            guard let namespace:Atom<Module> = context.linked[colony.namespace]?.atom
+            guard let namespace:Module = context.linked[colony.namespace]?.atom
             else 
             {
                 print("warning: ignored colonial symbolgraph '\(colony.culture)@\(colony.namespace)'")
@@ -372,14 +370,14 @@ extension Branch
         return positions
     }
     private mutating 
-    func addSymbol(_ id:SymbolIdentifier, culture:Atom<Module>, namespace:Atom<Module>, 
+    func addSymbol(_ id:SymbolIdentifier, culture:Module, namespace:Module, 
         intrinsic:SymbolGraph.Intrinsic,
-        visible:Set<Atom<Module>>,
+        visible:Set<Module>,
         context:ModuleUpdateContext,
         stems:inout Route.Stems)
-        -> Atom<Symbol>.Position
+        -> AtomicPosition<Symbol>
     {
-        if let existing:Atom<Symbol>.Position = context.local.symbols.find(id)
+        if let existing:AtomicPosition<Symbol> = context.local.symbols.find(id)
         {
             // swift encodes module names in symbol identifiers, so if a symbol changes culture, 
             // something really weird has happened.
@@ -394,15 +392,15 @@ extension Branch
         } 
         for upstream:Package.Pinned in context.upstream.values 
         {
-            if  let restated:Atom<Symbol>.Position = upstream.symbols.find(id), 
+            if  let restated:AtomicPosition<Symbol> = upstream.symbols.find(id), 
                     visible.contains(restated.culture)
             {
                 return restated 
             }
         }
-        let atom:Atom<Symbol> = self.symbols.insert(id, culture: culture)
+        let atom:Symbol = self.symbols.insert(id, culture: culture)
         {
-            (id:SymbolIdentifier, _:Atom<Symbol>) in 
+            (id:SymbolIdentifier, _:Symbol) in 
             let route:Route = .init(namespace, 
                       stems.register(components: intrinsic.path.prefix), 
                 .init(stems.register(component:  intrinsic.path.last), 
@@ -436,17 +434,17 @@ extension Branch
     // TODO: ideally we want to be rendering markdown AOT. so once that is implemented 
     // in the `SymbolGraphs` module, we can get rid of the ugly tuple return here.
     mutating 
-    func addExtensions(from culture:SymbolGraph.Culture, namespace:Atom<Module>.Position, 
+    func addExtensions(from culture:SymbolGraph.Culture, namespace:AtomicPosition<Module>, 
         trunk:Fasces.Articles, 
         stems:inout Route.Stems) 
-        -> ([Atom<Article>.Position?], [Extension])
+        -> ([AtomicPosition<Article>?], [Extension])
     {
         let _extensions:[Extension] = culture.markdown.map
         {
             .init(markdown: $0.source, name: $0.name)
         }
 
-        var positions:[Atom<Article>.Position?] = []
+        var positions:[AtomicPosition<Article>?] = []
             positions.reserveCapacity(culture.markdown.count)
         // let start:Article.Offset = self.articles.endIndex
         for article:Extension in _extensions
@@ -483,17 +481,17 @@ extension Branch
         return (positions, _extensions)
     }
     private mutating 
-    func addArticle(_ path:Path, culture:Atom<Module>, trunk:Fasces.Articles, 
+    func addArticle(_ path:Path, culture:Module, trunk:Fasces.Articles, 
         stems:inout Route.Stems)
-        -> Atom<Article>.Position
+        -> AtomicPosition<Article>
     {
         // article namespace is always its culture. 
         let stem:Route.Stem = stems.register(components: path.prefix) 
         let leaf:Route.Stem = stems.register(component: path.last)
 
-        let id:Article.ID = .init(culture, stem, leaf)
+        let id:Article.Intrinsic.ID = .init(culture, stem, leaf)
 
-        if let existing:Atom<Article>.Position = trunk.find(id)
+        if let existing:AtomicPosition<Article> = trunk.find(id)
         {
             guard existing.culture == culture 
             else 
@@ -502,9 +500,9 @@ extension Branch
             }
             return existing 
         }
-        let atom:Atom<Article> = self.articles.insert(id, culture: culture)
+        let atom:Article = self.articles.insert(id, culture: culture)
         {
-            (id:Article.ID, _:Atom<Article>) in 
+            (id:Article.Intrinsic.ID, _:Article) in 
             .init(id: id, path: path)
         }
         return atom.positioned(self.index)

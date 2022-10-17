@@ -10,7 +10,7 @@ struct Cache
 
 extension Service 
 {
-    func generateSearchIndex(for package:Packages.Index) -> WebResponse.Payload
+    func generateSearchIndex(for package:Package) -> WebResponse.Payload
     {
         fatalError("unimplemented")
         // let current:Package.Pinned = self[package].pinned()
@@ -65,7 +65,7 @@ extension Service
         // return .init(hashing: bytes, type: .utf8(encoded: .json))
     }
     
-    func generateSiteMap(for package:Packages.Index) -> WebResponse.Payload
+    func generateSiteMap(for package:Package) -> WebResponse.Payload
     {
         fatalError("unimplemented")
         // let domain:String.UTF8View = "https://swiftinit.org".utf8

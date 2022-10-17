@@ -12,11 +12,11 @@ import SymbolSource
 struct ModuleUpdateContext
 {
     let namespaces:Namespaces
-    let upstream:[Packages.Index: Package.Pinned]
+    let upstream:[Package: Package.Pinned]
     let local:Fasces
 
     init(namespaces:Namespaces,
-        upstream:[Packages.Index: Package.Pinned],
+        upstream:[Package: Package.Pinned],
         local:Fasces)
     {
         self.namespaces = namespaces
@@ -24,11 +24,11 @@ struct ModuleUpdateContext
         self.local = local
     }
 
-    var nationality:Packages.Index
+    var nationality:Package
     {
         self.namespaces.nationality
     }
-    var culture:Atom<Module> 
+    var culture:Module 
     {
         self.namespaces.culture
     }
@@ -36,11 +36,11 @@ struct ModuleUpdateContext
     {
         self.namespaces.id
     }
-    var module:Atom<Module>.Position
+    var module:AtomicPosition<Module>
     {
         self.namespaces.module
     }
-    var linked:[ModuleIdentifier: Atom<Module>.Position]
+    var linked:[ModuleIdentifier: AtomicPosition<Module>]
     {
         self.namespaces.linked
     }

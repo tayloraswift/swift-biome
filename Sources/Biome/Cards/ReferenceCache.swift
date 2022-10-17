@@ -26,7 +26,7 @@ struct PackageReference
 
     init(_ pinned:__shared Package.Pinned, functions:__shared Service.PublicFunctionNames)
     {
-        self.name = pinned.package.id 
+        self.name = pinned.tree.id 
         self.uri = Address.init(residency: pinned).uri(functions: functions).description
     }
 }
@@ -43,8 +43,8 @@ struct ModuleReference
 struct SymbolReference 
 {
     let scope:Symbol.Scope?
-    let display:Symbol.Display
-    let namespace:Atom<Module>
+    let display:Symbol.Intrinsic.Display
+    let namespace:Module
     let uri:String 
 
     var name:String 
@@ -91,9 +91,9 @@ extension ArticleReference
 
 struct SymbolReferenceError:Error
 {
-    let key:Atom<Symbol>
+    let key:Symbol
 
-    init(_ key:Atom<Symbol>)
+    init(_ key:Symbol)
     {
         self.key = key
     }
@@ -102,11 +102,11 @@ struct SymbolReferenceError:Error
 struct ReferenceCache 
 {
     private 
-    var articles:[Atom<Article>: ArticleReference]
+    var articles:[Article: ArticleReference]
     private 
-    var symbols:[Atom<Symbol>: SymbolReference]
+    var symbols:[Symbol: SymbolReference]
     private 
-    var modules:[Atom<Module>: ModuleReference]
+    var modules:[Module: ModuleReference]
     private 
     var uris:[Compound: String]
     let functions:Service.PublicFunctionNames
@@ -121,7 +121,7 @@ struct ReferenceCache
     }
 
     private mutating
-    func miss(_ key:Atom<Module>, module:Module, address:Address) -> ModuleReference
+    func miss(_ key:Module, module:Module.Intrinsic, address:Address) -> ModuleReference
     {
         let reference:ModuleReference = .init(name: module.id, 
             uri: address.uri(functions: self.functions).description)
@@ -129,7 +129,7 @@ struct ReferenceCache
         return reference
     }
     private mutating
-    func miss(_ key:Atom<Symbol>, symbol:Symbol, address:Address) -> SymbolReference
+    func miss(_ key:Symbol, symbol:Symbol.Intrinsic, address:Address) -> SymbolReference
     {
         let reference:SymbolReference = .init(scope: symbol.scope, display: symbol.display, 
             namespace: symbol.namespace, 
@@ -138,7 +138,7 @@ struct ReferenceCache
         return reference
     }
     private mutating
-    func miss(_ key:Atom<Article>, article:Article, address:Address, 
+    func miss(_ key:Article, article:Article.Intrinsic, address:Address, 
         metadata:Article.Metadata) -> ArticleReference
     {
         let reference:ArticleReference = .init(metadata: metadata, path: article.path,
@@ -169,7 +169,7 @@ extension ReferenceCache
 extension ReferenceCache 
 {
     mutating 
-    func load(_ key:Atom<Symbol>.Position, context:some PackageContext) throws -> SymbolReference
+    func load(_ key:AtomicPosition<Symbol>, context:some PackageContext) throws -> SymbolReference
     {
         if  let cached:SymbolReference = self.symbols[key.atom]
         {
@@ -177,7 +177,7 @@ extension ReferenceCache
         }
         if  let pinned:Package.Pinned = context[key.nationality]
         {
-            let symbol:Symbol = pinned.package.tree[local: key]
+            let symbol:Symbol.Intrinsic = pinned.tree[local: key]
             if  let address:Address = pinned.address(of: key.atom, symbol: symbol, 
                     context: context)
             {
@@ -187,14 +187,14 @@ extension ReferenceCache
         fatalError("unimplemented")
     }
     mutating 
-    func load(_ key:Atom<Symbol>, context:some PackageContext) throws -> SymbolReference
+    func load(_ key:Symbol, context:some PackageContext) throws -> SymbolReference
     {
         if  let cached:SymbolReference = self.symbols[key]
         {
             return cached
         }
         if  let pinned:Package.Pinned = context[key.nationality],
-            let symbol:Symbol = pinned.load(local: key), 
+            let symbol:Symbol.Intrinsic = pinned.load(local: key), 
             let address:Address = pinned.address(of: key, symbol: symbol, 
                     context: context)
         {
@@ -209,7 +209,7 @@ extension ReferenceCache
 extension ReferenceCache 
 {
     mutating 
-    func load(_ key:Atom<Module>.Position, context:some PackageContext) throws -> ModuleReference
+    func load(_ key:AtomicPosition<Module>, context:some PackageContext) throws -> ModuleReference
     {
         if  let cached:ModuleReference = self.modules[key.atom]
         {
@@ -217,8 +217,8 @@ extension ReferenceCache
         }
         if  let pinned:Package.Pinned = context[key.nationality]
         {
-            let module:Module = pinned.package.tree[local: key]
-            return self.miss(key.atom, module: module, address: .init(residency: pinned, 
+            let module:Module.Intrinsic = pinned.tree[local: key]
+            return self.miss(key.atom, module: module, address: .init(residency: pinned,
                 namespace: module))
         }
         else 
@@ -227,16 +227,16 @@ extension ReferenceCache
         }
     }
     mutating 
-    func load(_ key:Atom<Module>, context:some PackageContext) throws -> ModuleReference
+    func load(_ key:Module, context:some PackageContext) throws -> ModuleReference
     {
         if  let cached:ModuleReference = self.modules[key]
         {
             return cached
         }
         if  let pinned:Package.Pinned = context[key.nationality],
-            let module:Module = pinned.load(local: key)
+            let module:Module.Intrinsic = pinned.load(local: key)
         {
-            return self.miss(key, module: module, address: .init(residency: pinned, 
+            return self.miss(key, module: module, address: .init(residency: pinned,
                 namespace: module))
         }
         else 
@@ -248,15 +248,15 @@ extension ReferenceCache
 extension ReferenceCache 
 {
     mutating 
-    func load(_ key:Atom<Article>, context:some PackageContext) throws -> ArticleReference
+    func load(_ key:Article, context:some PackageContext) throws -> ArticleReference
     {
         if  let cached:ArticleReference = self.articles[key]
         {
             return cached
         }
         if  let pinned:Package.Pinned = context[key.nationality],
-            let namespace:Module = pinned.load(local: key.culture),
-            let article:Article = pinned.load(local: key), 
+            let namespace:Module.Intrinsic = pinned.load(local: key.culture),
+            let article:Article.Intrinsic = pinned.load(local: key), 
             let metadata:Article.Metadata = pinned.metadata(local: key)
         {
             return self.miss(key, article: article, address: .init(residency: pinned, 
@@ -272,7 +272,7 @@ extension ReferenceCache
 }
 extension ReferenceCache
 {
-    func load(_ package:Packages.Index, context:some PackageContext) throws -> PackageReference
+    func load(_ package:Package, context:some PackageContext) throws -> PackageReference
     {
         if let pinned:Package.Pinned = context[package]
         {
@@ -376,7 +376,7 @@ extension ReferenceCache
 
             crumbs.append(.a(current.name, attributes: [.href(current.uri)]))
 
-            if let next:Atom<Symbol>.Position = current.scope?.target 
+            if let next:AtomicPosition<Symbol> = current.scope?.target 
             {
                 current = try self.load(next, context: context)
             }

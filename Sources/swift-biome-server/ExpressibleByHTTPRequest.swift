@@ -1,5 +1,5 @@
 import Biome
-import Multipart
+import Multiparts
 import NIO
 import NIOHTTP1
 import URI
@@ -64,11 +64,7 @@ extension Service.Request:ExpressibleByHTTPRequest
                 return nil
             }
 
-            for part:Multipart.FormItem in form
-            {
-                print(part)
-            }
-            self.init(.post(message), uri: uri)
+            self.init(.post(form), uri: uri)
 
         default:
             return nil

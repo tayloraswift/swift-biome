@@ -1,6 +1,33 @@
 {
   "pins" : [
     {
+      "identity" : "bson",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/orlandos-nl/BSON.git",
+      "state" : {
+        "revision" : "1094df4a4dd5daf15e4192958e2ae2575b862314",
+        "version" : "8.0.2"
+      }
+    },
+    {
+      "identity" : "mongokitten",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/orlandos-nl/MongoKitten.git",
+      "state" : {
+        "revision" : "5e889df5b653613f6241b4603fb867010ab94657",
+        "version" : "7.2.10"
+      }
+    },
+    {
+      "identity" : "niodns",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/orlandos-nl/NioDNS.git",
+      "state" : {
+        "revision" : "5d1c701127f1d399cfb27c38aeb40bfde40df004",
+        "version" : "2.1.1"
+      }
+    },
+    {
       "identity" : "swift-argument-parser",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser.git",
@@ -91,12 +118,30 @@
       }
     },
     {
+      "identity" : "swift-log",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-log.git",
+      "state" : {
+        "revision" : "6fe203dc33195667ce1759bf0182975e4653ba1c",
+        "version" : "1.4.4"
+      }
+    },
+    {
       "identity" : "swift-markdown",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-markdown.git",
       "state" : {
         "branch" : "swift-DEVELOPMENT-SNAPSHOT-2022-10-11-a",
         "revision" : "d491147940587dbadfb3472354f4d0c6e063e061"
+      }
+    },
+    {
+      "identity" : "swift-metrics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-metrics.git",
+      "state" : {
+        "revision" : "53be78637ecd165d1ddedc4e20de69b8f43ec3b7",
+        "version" : "2.3.2"
       }
     },
     {

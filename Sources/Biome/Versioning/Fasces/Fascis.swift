@@ -128,15 +128,15 @@ extension Fascis
 
 extension Fascis.Data
 {
-    var topLevelArticles:Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Article>>>
+    var topLevelArticles:Period<IntrinsicSlice<Module>>.FieldView<Set<Article>>
     {
         .init(self.base.modules, sediment: self.base.history.data.topLevelArticles)
     }
-    var topLevelSymbols:Period<IntrinsicSlice<Module>>.FieldView<Set<Atom<Symbol>>>
+    var topLevelSymbols:Period<IntrinsicSlice<Module>>.FieldView<Set<Symbol>>
     {
         .init(self.base.modules, sediment: self.base.history.data.topLevelSymbols)
     }
-    var declarations:Period<IntrinsicSlice<Symbol>>.FieldView<Declaration<Atom<Symbol>>>
+    var declarations:Period<IntrinsicSlice<Symbol>>.FieldView<Declaration<Symbol>>
     {
         .init(self.base.symbols, sediment: self.base.history.data.declarations)
     }
@@ -151,7 +151,7 @@ extension Fascis.Data
     {
         .init(self.base.articles, sediment: self.base.history.data.standaloneDocumentation)
     }
-    var symbolDocumentation:Period<IntrinsicSlice<Symbol>>.FieldView<DocumentationExtension<Atom<Symbol>>>
+    var symbolDocumentation:Period<IntrinsicSlice<Symbol>>.FieldView<DocumentationExtension<Symbol>>
     {
         .init(self.base.symbols, sediment: self.base.history.data.cascadingDocumentation)
     }

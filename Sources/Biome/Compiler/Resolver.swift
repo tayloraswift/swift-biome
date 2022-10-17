@@ -20,10 +20,10 @@ struct Resolver
         var linked:[PackageIdentifier: Package.Pinned] = [:]
 
         linked.reserveCapacity(context.upstream.count + 1)
-        linked[local.package.id] = local 
+        linked[local.tree.id] = local 
         for upstream:Package.Pinned in context.upstream.values 
         {
-            linked[upstream.package.id] = upstream
+            linked[upstream.tree.id] = upstream
         }
 
         self.namespaces = context.namespaces
@@ -40,7 +40,7 @@ extension Resolver
 {
     private
     func select(_ key:Route, disambiguator:_SymbolLink.Disambiguator, 
-        imports:Set<Atom<Module>>) -> Selection<Composite>?
+        imports:Set<Module>) -> Selection<Composite>?
     {
         var selection:Selection<Composite>? = nil 
 
@@ -69,7 +69,7 @@ extension Resolver
 extension Resolver
 {
     func resolve(expression:String, 
-        imports:Set<Atom<Module>>, 
+        imports:Set<Module>, 
         scope:LexicalScope?, 
         stems:Route.Stems) throws -> GlobalLink.Presentation
     {
@@ -153,12 +153,12 @@ extension Resolver
     }
     private 
     func resolve(scheme:Scheme, symbolLink link:_SymbolLink, 
-        imports:Set<Atom<Module>>, 
+        imports:Set<Module>, 
         scope:LexicalScope?, 
         stems:Route.Stems) throws -> GlobalLink.Presentation
     {
         if  case .doc = scheme, 
-            let article:Atom<Article> = self.resolve(docLink: link, 
+            let article:Article = self.resolve(docLink: link, 
                 imports: imports, 
                 scope: scope, 
                 stems: stems)
@@ -178,7 +178,7 @@ extension Resolver
             // is an ancestor of the current (branch, revision) tuple. 
             // but currently, we do not.
             if  let version:Version.Selector = nationality.version, 
-                let version:Version = local.package.tree.find(version), 
+                let version:Version = local.tree.find(version), 
                     version != local.version
             {
                 throw _SymbolLink.ResolutionProblem.nationalVersion
@@ -202,12 +202,12 @@ extension Resolver
     }
     private 
     func resolve(docLink link:_SymbolLink, 
-        imports:Set<Atom<Module>>, 
+        imports:Set<Module>, 
         scope:LexicalScope?, 
-        stems:Route.Stems) -> Atom<Article>?
+        stems:Route.Stems) -> Article?
     {
         if  let scope:LexicalScope, 
-            let article:Atom<Article>.Position = scope.scan(concatenating: link, 
+            let article:AtomicPosition<Article> = scope.scan(concatenating: link, 
                 stems: stems, 
                 until: { self.context[$0.namespace.nationality]?.articles.find(.init($0)) })
         {
@@ -215,11 +215,11 @@ extension Resolver
         }
         // can’t use a namespace as a key field if that namespace was not imported
         if  let path:_SymbolLink = link.suffix,
-            let namespace:Atom<Module>.Position = self.namespaces.linked[.init(link.first)], 
+            let namespace:AtomicPosition<Module> = self.namespaces.linked[.init(link.first)], 
                 imports.contains(namespace.atom), 
             let pinned:Package.Pinned = self.context[namespace.nationality],
             let article:Route = stems[namespace.atom, straight: path], 
-            let article:Atom<Article>.Position = pinned.articles.find(.init(article))
+            let article:AtomicPosition<Article> = pinned.articles.find(.init(article))
         {
             return article.atom
         }
@@ -230,7 +230,7 @@ extension Resolver
     }
     private 
     func resolve(symbolLink link:_SymbolLink, 
-        imports:Set<Atom<Module>>, 
+        imports:Set<Module>, 
         scope:LexicalScope?, 
         stems:Route.Stems) -> _SymbolLink.Resolution?
     {
@@ -245,7 +245,7 @@ extension Resolver
             return .init(selection)
         }
         // can’t use a namespace as a key field if that namespace was not imported
-        guard   let namespace:Atom<Module>.Position = self.namespaces.linked[.init(link.first)], 
+        guard   let namespace:AtomicPosition<Module> = self.namespaces.linked[.init(link.first)], 
                     imports.contains(namespace.atom)
         else 
         {

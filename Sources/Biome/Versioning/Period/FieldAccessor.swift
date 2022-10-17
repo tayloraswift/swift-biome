@@ -27,7 +27,7 @@ extension FieldAccessor<Overlay, Overlay.Metadata?>
 extension FieldAccessor<Article.Divergence, Article.Metadata?>
 {
     static 
-    func metadata(of key:Atom<Article>) -> Self
+    func metadata(of key:Article) -> Self
     {
         .init(key, \.metadata, \.metadata)
     }
@@ -35,7 +35,7 @@ extension FieldAccessor<Article.Divergence, Article.Metadata?>
 extension FieldAccessor<Article.Divergence, DocumentationExtension<Never>>
 {
     static 
-    func documentation(of key:Atom<Article>) -> Self
+    func documentation(of key:Article) -> Self
     {
         .init(key, \.documentation, \.documentation)
     }
@@ -45,23 +45,23 @@ extension FieldAccessor<Article.Divergence, DocumentationExtension<Never>>
 extension FieldAccessor<Symbol.Divergence, Symbol.Metadata?>
 {
     static 
-    func metadata(of key:Atom<Symbol>) -> Self
+    func metadata(of key:Symbol) -> Self
     {
         .init(key, \.metadata, \.metadata)
     }
 }
-extension FieldAccessor<Symbol.Divergence, Declaration<Atom<Symbol>>>
+extension FieldAccessor<Symbol.Divergence, Declaration<Symbol>>
 {
     static 
-    func declaration(of key:Atom<Symbol>) -> Self
+    func declaration(of key:Symbol) -> Self
     {
         .init(key, \.declaration, \.declaration)
     }
 }
-extension FieldAccessor<Symbol.Divergence, DocumentationExtension<Atom<Symbol>>>
+extension FieldAccessor<Symbol.Divergence, DocumentationExtension<Symbol>>
 {
     static 
-    func documentation(of key:Atom<Symbol>) -> Self
+    func documentation(of key:Symbol) -> Self
     {
         .init(key, \.documentation, \.documentation)
     }
@@ -71,23 +71,23 @@ extension FieldAccessor<Symbol.Divergence, DocumentationExtension<Atom<Symbol>>>
 extension FieldAccessor<Module.Divergence, Module.Metadata?>
 {
     static 
-    func metadata(of key:Atom<Module>) -> Self
+    func metadata(of key:Module) -> Self
     {
         .init(key, \.metadata, \.metadata)
     }
 }
-extension FieldAccessor<Module.Divergence, Set<Atom<Article>>>
+extension FieldAccessor<Module.Divergence, Set<Article>>
 {
     static 
-    func topLevelArticles(of key:Atom<Module>) -> Self
+    func topLevelArticles(of key:Module) -> Self
     {
         .init(key, \.topLevelArticles, \.topLevelArticles)
     }
 }
-extension FieldAccessor<Module.Divergence, Set<Atom<Symbol>>>
+extension FieldAccessor<Module.Divergence, Set<Symbol>>
 {
     static 
-    func topLevelSymbols(of key:Atom<Module>) -> Self
+    func topLevelSymbols(of key:Module) -> Self
     {
         .init(key, \.topLevelSymbols, \.topLevelSymbols)
     }
@@ -95,7 +95,7 @@ extension FieldAccessor<Module.Divergence, Set<Atom<Symbol>>>
 extension FieldAccessor<Module.Divergence, DocumentationExtension<Never>>
 {
     static 
-    func documentation(of key:Atom<Module>) -> Self
+    func documentation(of key:Module) -> Self
     {
         .init(key, \.documentation, \.documentation)
     }

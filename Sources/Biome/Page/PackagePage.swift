@@ -60,9 +60,9 @@ struct PackagePage
         self.modules = []
         for period:Period<IntrinsicSlice<Module>> in context.local.modules
         {
-            for module:Module in period.axis where context.local.exists(module.culture)
+            for module:Module.Intrinsic in period.axis where context.local.exists(module.culture)
             {
-                let position:Atom<Module>.Position = module.culture.positioned(period.branch)
+                let position:AtomicPosition<Module> = module.culture.positioned(period.branch)
 
                 let module:ModuleReference = try cache.load(position, context: context)
                 let overview:DOM.Flattened<GlobalLink.Presentation>? = 

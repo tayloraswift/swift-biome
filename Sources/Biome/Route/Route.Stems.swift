@@ -94,7 +94,7 @@ extension Route.Stems
         }
     }
 
-    subscript<Component>(namespace:Atom<Module>, 
+    subscript<Component>(namespace:Module, 
         straight infix:some BidirectionalCollection<Component>) -> Route? 
         where Component:StringProtocol
     {
@@ -109,7 +109,7 @@ extension Route.Stems
             return nil
         }
     }
-    subscript<Component>(namespace:Atom<Module>, 
+    subscript<Component>(namespace:Module, 
         infix:some BidirectionalCollection<Component>, 
         suffix:_SymbolLink) -> Route? 
         where Component:StringProtocol
@@ -138,7 +138,7 @@ extension Route.Stems
             .init(namespace, $0, leaf, orientation: suffix.path.orientation)
         }
     }
-    subscript(namespace:Atom<Module>, suffix:_SymbolLink) -> Route? 
+    subscript(namespace:Module, suffix:_SymbolLink) -> Route? 
     {
         self[namespace, EmptyCollection<String>.init(), suffix]
     }

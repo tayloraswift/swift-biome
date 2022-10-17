@@ -9,7 +9,7 @@ extension Branch
         /// if a protocol, the members in extensions of this protocol. 
         /// 
         /// requirements and witnesses must not access this property.
-        var members:Set<Atom<Symbol>>
+        var members:Set<Symbol>
         
         /// if a protocol, protocols that inherit from this protocol.
         /// if a class, classes that subclass this class.
@@ -17,10 +17,10 @@ extension Branch
         /// interface that also restate this requirement.
         /// if a witness, any subclass members that override this witness, if 
         /// it is a class member.
-        var downstream:Set<Atom<Symbol>>
+        var downstream:Set<Symbol>
         
         //private 
-        var unconditional:Set<Atom<Symbol>>
+        var unconditional:Set<Symbol>
         /// if a concrete type, members of this type inherited through 
         /// protocol conformances.
         /// 
@@ -31,7 +31,7 @@ extension Branch
         /// > note: for concrete types, the module that an inherited member 
         /// originates from is not necessarily the perpetrator of the conformance 
         /// that trafficked it into its scope.
-        var features:Set<Atom<Symbol>>
+        var features:Set<Symbol>
         {
             _read 
             {
@@ -48,7 +48,7 @@ extension Branch
         /// 
         /// this shares backing storage with ``features``. types and witnesses 
         /// must not access this property.
-        var implementations:Set<Atom<Symbol>>
+        var implementations:Set<Symbol>
         {
             _read 
             {
@@ -61,13 +61,13 @@ extension Branch
         }
 
         //private 
-        var conditional:[Atom<Symbol>: [Generic.Constraint<Atom<Symbol>>]]
+        var conditional:[Symbol: [Generic.Constraint<Symbol>]]
         /// if a protocol, concrete types that implement this protocol.
         /// 
         /// this shares backing storage with ``conformances``. concrete types 
         /// should access ``conformances`` instead. requirements and witnesses 
         /// must not access this property.
-        var conformers:[Atom<Symbol>: [Generic.Constraint<Atom<Symbol>>]]
+        var conformers:[Symbol: [Generic.Constraint<Symbol>]]
         {
             _read 
             {
@@ -83,7 +83,7 @@ extension Branch
         /// this shares backing storage with ``conformers``. protocols 
         /// should access ``conformers`` instead. requirements and witnesses 
         /// must not access this property.
-        var conformances:[Atom<Symbol>: [Generic.Constraint<Atom<Symbol>>]]
+        var conformances:[Symbol: [Generic.Constraint<Symbol>]]
         {
             _read 
             {
@@ -95,10 +95,10 @@ extension Branch
             }
         }
         
-        init(members:Set<Atom<Symbol>> = [],
-            downstream:Set<Atom<Symbol>> = [],
-            unconditional:Set<Atom<Symbol>> = [],
-            conditional:[Atom<Symbol>: [Generic.Constraint<Atom<Symbol>>]] = [:]) 
+        init(members:Set<Symbol> = [],
+            downstream:Set<Symbol> = [],
+            unconditional:Set<Symbol> = [],
+            conditional:[Symbol: [Generic.Constraint<Symbol>]] = [:]) 
         {
             self.members = members
             self.downstream = downstream

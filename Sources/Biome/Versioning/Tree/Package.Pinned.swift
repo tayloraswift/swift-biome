@@ -6,39 +6,45 @@ extension Package
 {
     struct Pinned:Sendable 
     {
-        let package:Package 
+        @available(*, deprecated, renamed: "tree")
+        var package:Package.Tree
+        {
+            self.tree
+        }
+
+        let tree:Package.Tree
         let version:Version
         private 
         let fasces:Fasces 
         
         private 
-        init(_ package:Package, version:Version, fasces:Fasces)
+        init(_ tree:Package.Tree, version:Version, fasces:Fasces)
         {
-            self.package = package
+            self.tree = tree
             self.version = version
             self.fasces = fasces
         }
-        init(_ package:Package, version:Version)
+        init(_ tree:Package.Tree, version:Version)
         {
-            self.init(package, version: version, fasces: package.tree.fasces(through: version))
+            self.init(tree, version: version, fasces: tree.fasces(through: version))
         }
 
         var branch:Branch 
         {
-            self.package.tree[self.version.branch]
+            self.tree[self.version.branch]
         }
         var revision:Branch.Revision 
         {
-            self.package.tree[self.version]
+            self.tree[self.version]
         }
         var selector:Version.Selector?
         {
-            self.package.tree.abbreviate(self.version)
+            self.tree.abbreviate(self.version)
         }
 
-        var nationality:Packages.Index 
+        var nationality:Package 
         {
-            self.package.nationality
+            self.tree.nationality
         }
 
         var articles:Fasces.Articles
@@ -69,7 +75,7 @@ extension Package
         {
             if version != self.version
             {
-                self = .init(self.package, version: version)       
+                self = .init(self.tree, version: version)       
             }
         }
     }
@@ -86,7 +92,7 @@ extension Package.Pinned
     func repinned(to revisions:[Version.Revision], of branch:Branch, 
         _ body:(Self) throws -> ()) rethrows 
     {
-        let trunk:Fasces? = branch.fork.map(self.package.tree.fasces(through:))
+        let trunk:Fasces? = branch.fork.map(self.tree.fasces(through:))
         for revision:Version.Revision in revisions 
         {
             let version:Version = .init(branch.index, revision)
@@ -99,42 +105,42 @@ extension Package.Pinned
             {
                 fasces =       [branch[...revision]]
             }
-            try body(.init(self.package, version: version, fasces: _move fasces))
+            try body(.init(self.tree, version: version, fasces: _move fasces))
         }
     }
 }
 extension Package.Pinned 
 {
-    func load(local article:Atom<Article>) -> Article?
+    func load(local article:Article) -> Article.Intrinsic?
     {
         assert(self.nationality == article.nationality)
-        if let position:Atom<Article>.Position = article.positioned(bisecting: self.articles)
+        if let position:AtomicPosition<Article> = article.positioned(bisecting: self.articles)
         {
-            return self.package.tree[local: position]
+            return self.tree[local: position]
         }
         else 
         {
             return nil
         }
     }
-    func load(local symbol:Atom<Symbol>) -> Symbol?
+    func load(local symbol:Symbol) -> Symbol.Intrinsic?
     {
         assert(self.nationality == symbol.nationality)
-        if let position:Atom<Symbol>.Position = symbol.positioned(bisecting: self.symbols)
+        if let position:AtomicPosition<Symbol> = symbol.positioned(bisecting: self.symbols)
         {
-            return self.package.tree[local: position]
+            return self.tree[local: position]
         }
         else 
         {
             return nil
         }
     }
-    func load(local module:Atom<Module>) -> Module?
+    func load(local module:Module) -> Module.Intrinsic?
     {
         assert(self.nationality == module.nationality)
-        if let position:Atom<Module>.Position = module.positioned(bisecting: self.modules)
+        if let position:AtomicPosition<Module> = module.positioned(bisecting: self.modules)
         {
-            return self.package.tree[local: position]
+            return self.tree[local: position]
         }
         else 
         {
@@ -144,15 +150,15 @@ extension Package.Pinned
 }
 extension Package.Pinned 
 {
-    func metadata(local article:Atom<Article>) -> Article.Metadata?
+    func metadata(local article:Article) -> Article.Metadata?
     {
         self.fasces.metadata.articles.value(of: .metadata(of: article)) ?? nil
     }
-    func metadata(local symbol:Atom<Symbol>) -> Symbol.Metadata?
+    func metadata(local symbol:Symbol) -> Symbol.Metadata?
     {
         self.fasces.metadata.symbols.value(of: .metadata(of: symbol)) ?? nil
     }
-    func metadata(local module:Atom<Module>) -> Module.Metadata?
+    func metadata(local module:Module) -> Module.Metadata?
     {
         self.fasces.metadata.modules.value(of: .metadata(of: module)) ?? nil
     }
@@ -163,15 +169,15 @@ extension Package.Pinned
 }
 extension Package.Pinned 
 {
-    func exists(_ module:Atom<Module>) -> Bool
+    func exists(_ module:Module) -> Bool
     {
         self.metadata(local: module) != nil
     }
-    func exists(_ article:Atom<Article>) -> Bool
+    func exists(_ article:Article) -> Bool
     {
         self.metadata(local: article) != nil 
     }
-    func exists(_ symbol:Atom<Symbol>) -> Bool
+    func exists(_ symbol:Symbol) -> Bool
     {
         self.metadata(local: symbol) != nil 
     }
@@ -194,21 +200,21 @@ extension Package.Pinned
 }
 extension Package.Pinned 
 {
-    func excavate(_ module:Atom<Module>) -> Version? 
+    func excavate(_ module:Module) -> Version? 
     {
         self.fasces.metadata.modules.latestVersion(of: .metadata(of: module))
         {
             $0 != nil 
         }
     }
-    func excavate(_ article:Atom<Article>) -> Version? 
+    func excavate(_ article:Article) -> Version? 
     {
         self.fasces.metadata.articles.latestVersion(of: .metadata(of: article))
         {
             $0 != nil 
         }
     }
-    func excavate(_ symbol:Atom<Symbol>) -> Version? 
+    func excavate(_ symbol:Symbol) -> Version? 
     {
         self.fasces.metadata.symbols.latestVersion(of: .metadata(of: symbol))
         {
@@ -272,7 +278,7 @@ extension Package.Pinned
         {
             return .init(selection)
         }
-        guard let namespace:Atom<Module>.Position = self.fasces.modules.find(.init(link.first))
+        guard let namespace:AtomicPosition<Module> = self.fasces.modules.find(.init(link.first))
         else 
         {
             return nil
@@ -302,29 +308,29 @@ extension Package.Pinned
         fatalError("unimplemented")
     }
 
-    func documentation(for symbol:Atom<Symbol>) -> DocumentationExtension<Atom<Symbol>>?
+    func documentation(for symbol:Symbol) -> DocumentationExtension<Symbol>?
     {
         self.fasces.data.symbolDocumentation.value(of: .documentation(of: symbol))
     }
-    func documentation(for article:Atom<Article>) -> DocumentationExtension<Never>?
+    func documentation(for article:Article) -> DocumentationExtension<Never>?
     {
         self.fasces.data.articleDocumentation.value(of: .documentation(of: article))
     }
-    func documentation(for module:Atom<Module>) -> DocumentationExtension<Never>?
+    func documentation(for module:Module) -> DocumentationExtension<Never>?
     {
         self.fasces.data.moduleDocumentation.value(of: .documentation(of: module))
     }
     
-    func topLevelSymbols(of module:Atom<Module>) -> Set<Atom<Symbol>>?
+    func topLevelSymbols(of module:Module) -> Set<Symbol>?
     {
         self.fasces.data.topLevelSymbols.value(of: .topLevelSymbols(of: module))
     }
-    func topLevelArticles(of module:Atom<Module>) -> Set<Atom<Article>>?
+    func topLevelArticles(of module:Module) -> Set<Article>?
     {
         self.fasces.data.topLevelArticles.value(of: .topLevelArticles(of: module))
     }
 
-    func declaration(for symbol:Atom<Symbol>) -> Declaration<Atom<Symbol>>?
+    func declaration(for symbol:Symbol) -> Declaration<Symbol>?
     {
         self.fasces.data.declarations.value(of: .declaration(of: symbol))
     }
@@ -357,11 +363,11 @@ extension Package.Pinned
                 context: context)
         }
     }
-    func address(of atomic:Atom<Symbol>,
+    func address(of atomic:Symbol,
         disambiguate:Address.DisambiguationLevel = .minimally, 
         context:some PackageContext) -> Address?
     {
-        if let symbol:Symbol = self.load(local: atomic)
+        if let symbol:Symbol.Intrinsic = self.load(local: atomic)
         {
             return self.address(of: atomic, symbol: symbol, 
                 disambiguate: disambiguate, 
@@ -376,8 +382,8 @@ extension Package.Pinned
         disambiguate:Address.DisambiguationLevel = .minimally, 
         context:some PackageContext) -> Address?
     {
-        if  let host:Symbol = context.load(compound.host), 
-            let base:Symbol = context.load(compound.base)
+        if  let host:Symbol.Intrinsic = context.load(compound.host), 
+            let base:Symbol.Intrinsic = context.load(compound.base)
         {
             return self.address(of: compound, host: host, base: base, 
                 disambiguate: disambiguate, 
@@ -391,7 +397,7 @@ extension Package.Pinned
 
     /// atomic addresses still require a full context, because they can still 
     /// migrate across namespaces.
-    func address(of atomic:Atom<Symbol>, symbol:Symbol,
+    func address(of atomic:Symbol, symbol:Symbol.Intrinsic,
         disambiguate:Address.DisambiguationLevel = .minimally, 
         context:some PackageContext) -> Address?
     {
@@ -418,12 +424,12 @@ extension Package.Pinned
         
         if  symbol.namespace.nationality != atomic.nationality 
         {
-            address.nationality = .init(id: self.package.id, version: self.selector)
+            address.nationality = .init(id: self.tree.id, version: self.selector)
         }
 
         return .init(address, namespace: symbol.namespace, context: context)
     }
-    func address(of compound:Compound, host:Symbol, base:Symbol,
+    func address(of compound:Compound, host:Symbol.Intrinsic, base:Symbol.Intrinsic,
         disambiguate:Address.DisambiguationLevel = .minimally, 
         context:some PackageContext) -> Address?
     {
@@ -464,7 +470,7 @@ extension Package.Pinned
         
         if  host.namespace.nationality != compound.nationality 
         {
-            address.nationality = .init(id: self.package.id, version: self.selector)
+            address.nationality = .init(id: self.tree.id, version: self.selector)
         }
 
         return .init(address, namespace: host.namespace, context: context)
@@ -486,7 +492,7 @@ extension Branch
 extension Package.Pinned 
 {
     private 
-    func depth(of route:Route, atomic:Atom<Symbol>) -> Branch.AtomicDepth?
+    func depth(of route:Route, atomic:Symbol) -> Branch.AtomicDepth?
     {
         do 
         {

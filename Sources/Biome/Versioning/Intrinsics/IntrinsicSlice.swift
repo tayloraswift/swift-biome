@@ -1,10 +1,10 @@
-struct IntrinsicSlice<Element> where Element:BranchIntrinsic
+struct IntrinsicSlice<Atom> where Atom:IntrinsicReference
 {
     private 
-    let base:IntrinsicBuffer<Element>
-    let endIndex:Element.Offset
+    let base:IntrinsicBuffer<Atom>
+    let endIndex:Atom.Offset
 
-    init(_ base:IntrinsicBuffer<Element>, upTo endIndex:Element.Offset)
+    init(_ base:IntrinsicBuffer<Atom>, upTo endIndex:Atom.Offset)
     {
         self.base = base 
         self.endIndex = endIndex
@@ -12,7 +12,7 @@ struct IntrinsicSlice<Element> where Element:BranchIntrinsic
 }
 extension IntrinsicSlice:PeriodAxis
 {
-    subscript<Value>(field:FieldAccessor<Element.Divergence, Value>) -> PeriodHead<Value>
+    subscript<Value>(field:FieldAccessor<Atom.Divergence, Value>) -> PeriodHead<Value>
     {
         assert(field.key.offset < self.endIndex)
 
@@ -23,14 +23,14 @@ extension IntrinsicSlice:PeriodAxis
 }
 extension IntrinsicSlice:RandomAccessCollection
 {
-    typealias Index = Element.Offset 
+    typealias Index = Atom.Offset 
     typealias SubSequence = Self 
     
-    var startIndex:Element.Offset
+    var startIndex:Atom.Offset
     {
         self.base.startIndex
     }
-    subscript(offset:Element.Offset) -> Element 
+    subscript(offset:Atom.Offset) -> Atom.Intrinsic
     {
         _read 
         {
@@ -38,7 +38,7 @@ extension IntrinsicSlice:RandomAccessCollection
             yield  self.base[offset]
         }
     }
-    subscript(range:Range<Element.Offset>) -> Self
+    subscript(range:Range<Atom.Offset>) -> Self
     {
         self.base[range]
     }
@@ -48,20 +48,20 @@ extension IntrinsicSlice
     struct Atoms
     {
         private 
-        let base:IntrinsicBuffer<Element>.Atoms
+        let base:IntrinsicBuffer<Atom>.Atoms
         private 
         let indices:Range<Index>
 
         fileprivate
-        init(base:IntrinsicBuffer<Element>.Atoms, indices:Range<Index>)
+        init(base:IntrinsicBuffer<Atom>.Atoms, indices:Range<Index>)
         {
             self.base = base
             self.indices = indices
         }
 
-        subscript(id:Element.ID) -> Atom<Element>?
+        subscript(id:Element.ID) -> Atom?
         {
-            if  let atom:Atom<Element> = self.base[id], 
+            if  let atom:Atom = self.base[id], 
                 self.indices ~= atom.offset
             {
                 return atom
@@ -73,14 +73,14 @@ extension IntrinsicSlice
         }
     }
 
-    subscript(contemporary atom:Atom<Element>) -> Element
+    subscript(contemporary atom:Atom) -> Atom.Intrinsic
     {
         _read
         {
             yield self.base[contemporary: atom]
         }
     }
-    var divergences:[Atom<Element>: Element.Divergence]
+    var divergences:[Atom: Atom.Divergence]
     {
         self.base.divergences
     }

@@ -2,9 +2,9 @@ extension GlobalLink
 {
     enum Presentation:Hashable, Sendable
     {
-        case article(Atom<Article>)
-        case module(Atom<Module>)
-        case package(Packages.Index)
+        case article(Article)
+        case module(Module)
+        case package(Package)
         case composite(Composite, visible:Int)
 
         init(_ target:Target, visible:Int)

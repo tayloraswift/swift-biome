@@ -68,8 +68,7 @@ extension Address.Global
     init(_ local:Address.Local?, residency:__shared Package.Pinned)
     {
         self.init(_move local, 
-            residency: residency.nationality.isCommunityPackage ? 
-                residency.package.id : nil, 
+            residency: residency.nationality.isCommunityPackage ? residency.tree.id : nil, 
             version: residency.selector)
     }
 } 
@@ -81,15 +80,18 @@ extension Address
     /// standard library or one of the core libraries.
     init(residency:__shared Package.Pinned)
     {
-        self.init(.init(nil, residency: residency.package.id, version: residency.selector), 
+        self.init(.init(nil, residency: residency.tree.id, version: residency.selector), 
             function: .documentation(.symbol))
     }
-    init(residency:__shared Package.Pinned, namespace:__shared Module)
+    init(residency:__shared Package.Pinned, 
+        namespace:__shared Module.Intrinsic)
     {
         self.init(.init(.init(nil, namespace: namespace.id), residency: residency), 
             function: namespace.isFunction ? nil : .documentation(.symbol))
     }
-    init(residency:__shared Package.Pinned, namespace:__shared Module, article:__shared Article)
+    init(residency:__shared Package.Pinned, 
+        namespace:__shared Module.Intrinsic, 
+        article:__shared Article.Intrinsic)
     {
         self.init(.init(.init(.init(path: article.path, orientation: .straight), 
                 namespace: namespace.id), 
@@ -99,16 +101,16 @@ extension Address
 }
 extension Address 
 {
-    init?(_ symbolic:Symbolic, namespace:Atom<Module>, context:__shared some PackageContext)
+    init?(_ symbolic:Symbolic, namespace:Module, context:__shared some PackageContext)
     {
         if  let residency:Package.Pinned = context[namespace.nationality],
-            let namespace:Module = residency.load(local: namespace)
+            let namespace:Module.Intrinsic = residency.load(local: namespace)
         {
             self.init(.init(.init(_move symbolic, namespace: namespace.id), 
                 residency: residency), 
                 function: .documentation(.symbol))
         }
-        else 
+        else
         {
             return nil
         }

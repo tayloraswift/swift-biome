@@ -6,7 +6,7 @@ extension RoutingTable
     {
         // if there is no feature index, the natural index is duplicated. 
         case one ((Composite, Version.Revision))
-        case many([Atom<Symbol>: Substack])
+        case many([Symbol: Substack])
         
         func forEach(_ body:(Composite, Version.Revision) throws -> ()) rethrows 
         {
@@ -16,7 +16,7 @@ extension RoutingTable
                 try body(composite, revision)
             
             case .many(let composites):
-                for (base, diacritics):(Atom<Symbol>, Substack) in composites 
+                for (base, diacritics):(Symbol, Substack) in composites 
                 {
                     switch diacritics
                     {
@@ -61,7 +61,7 @@ extension RoutingTable.Stack?
         case .one((element, let revision))?: 
             self = .one((element, revision)) 
         case .one(let other)?: 
-            let two:[Atom<Symbol>: RoutingTable.Substack]
+            let two:[Symbol: RoutingTable.Substack]
             // overloading on host id is extremely rare; the column 
             // array layout is inefficient, but allows us to represent the 
             // more-common row layout efficiently

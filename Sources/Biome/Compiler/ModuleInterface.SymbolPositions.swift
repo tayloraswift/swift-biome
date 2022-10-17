@@ -15,11 +15,11 @@ extension ModuleInterface
     struct SymbolPositions
     {
         private
-        let positions:[Atom<Symbol>.Position?]
+        let positions:[AtomicPosition<Symbol>?]
         private
         let citizens:Range<Int>
 
-        init(_ positions:[Atom<Symbol>.Position?], citizens:Range<Int>)
+        init(_ positions:[AtomicPosition<Symbol>?], citizens:Range<Int>)
         {
             self.positions = positions
             self.citizens = citizens
@@ -28,12 +28,12 @@ extension ModuleInterface
 }
 extension ModuleInterface.SymbolPositions
 {
-    subscript(index:Int) -> Atom<Symbol>.Position? 
+    subscript(index:Int) -> AtomicPosition<Symbol>? 
     {
         self.positions[index]
     }
 
-    func citizens(culture:Atom<Module>) -> ModuleInterface.SymbolCitizens
+    func citizens(culture:Module) -> ModuleInterface.SymbolCitizens
     {
         .init(positions: self.positions[self.citizens], culture: culture)
     }

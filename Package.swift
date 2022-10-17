@@ -5,11 +5,13 @@ let package = Package(
     name: "swift-biome",
     products: 
     [
+        .library(name: "Multiparts",            targets: ["Multiparts"]),
         .library(name: "URI",                   targets: ["URI"]),
         .library(name: "Versions",              targets: ["Versions"]),
         .library(name: "SymbolAvailability",    targets: ["SymbolAvailability"]),
         .library(name: "SymbolGraphs",          targets: ["SymbolGraphs"]),
         .library(name: "SymbolSource",          targets: ["SymbolSource"]),
+        .library(name: "BiomeABI",              targets: ["BiomeABI"]),
         .library(name: "Biome",                 targets: ["Biome"]),
         .library(name: "PackageResolution",     targets: ["PackageResolution"]),
         .library(name: "SymbolGraphCompiler",   targets: ["SymbolGraphCompiler"]),
@@ -40,10 +42,12 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-ssl.git", .upToNextMinor(from: "2.22.1")),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),
         .package(url: "https://github.com/swift-server/swift-backtrace.git", .upToNextMinor(from: "1.3.2")),
+
+        .package(url: "https://github.com/orlandos-nl/MongoKitten.git", from: "7.2.10")
     ],
     targets: 
     [
-        .target(name: "Multipart", 
+        .target(name: "Multiparts", 
             dependencies: 
             [
                 .product(name: "Grammar",           package: "swift-grammar"),
@@ -119,19 +123,31 @@ let package = Package(
                 .target(name: "swift-symbolgraphc")
             ]),
         
-        .target(name: "Biome", 
+        .target(name: "BiomeABI"),
+        
+        .target(name: "BiomeDatabase",
             dependencies: 
             [
+                .target(name: "BiomeABI"),
+
+                .product(name: "MongoKitten",       package: "MongoKitten"),
+                .product(name: "WebSemantics",      package: "swift-web-semantics"),
+            ]),
+        
+        .target(name: "Biome",
+            dependencies: 
+            [
+                .target(name: "BiomeDatabase"),
+                .target(name: "Multiparts"),
                 .target(name: "PieCharts"),
                 .target(name: "PackageResolution"),
+                .target(name: "Sediment"),
                 .target(name: "SymbolGraphs"),
                 .target(name: "URI"),
-                .target(name: "Sediment"),
 
                 .product(name: "HTML",              package: "swift-dom"),
                 .product(name: "RSS",               package: "swift-dom"),
                 .product(name: "JSON",              package: "swift-json"),
-                .product(name: "WebSemantics",      package: "swift-web-semantics"),
                 .product(name: "Notebook",          package: "swift-highlight"),
                 .product(name: "SwiftSyntaxParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntax",       package: "swift-syntax"),
@@ -161,7 +177,6 @@ let package = Package(
         .executableTarget(name: "swift-biome-server", 
             dependencies: 
             [
-                .target(name: "Multipart"),
                 .target(name: "Biome"),
                 
                 .product(name: "NIO",               package: "swift-nio"),

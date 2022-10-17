@@ -2,9 +2,9 @@ extension GlobalLink
 {
     enum Target:Hashable, Sendable 
     {
-        case article(Atom<Article>)
-        case module(Atom<Module>)
-        case package(Packages.Index)
+        case article(Article)
+        case module(Module)
+        case package(Package)
         case composite(Composite)
 
         init(_ resolution:_SymbolLink.Resolution?) throws 

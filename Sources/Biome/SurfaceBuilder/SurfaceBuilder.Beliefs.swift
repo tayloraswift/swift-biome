@@ -11,14 +11,14 @@ extension SurfaceBuilder
     {
         enum Predicate 
         {
-            case `is`(Symbol.Role<Atom<Symbol>.Position>)
-            case has(Symbol.Trait<Atom<Symbol>.Position>)
+            case `is`(Role<AtomicPosition<Symbol>>)
+            case has(Trait)
         }
 
-        let subject:Atom<Symbol>.Position
+        let subject:AtomicPosition<Symbol>
         let predicate:Predicate
 
-        init(_ subject:Atom<Symbol>.Position, _ predicate:Predicate)
+        init(_ subject:AtomicPosition<Symbol>, _ predicate:Predicate)
         {
             self.subject = subject 
             self.predicate = predicate
@@ -50,7 +50,7 @@ extension RangeReplaceableCollection<SurfaceBuilder.Belief>
 }
 extension SurfaceBuilder.Beliefs
 {
-    init(edge:SymbolGraph.Edge<Atom<Symbol>.Position>, source:Shape, target:Shape) throws
+    init(edge:SymbolGraph.Edge<AtomicPosition<Symbol>>, source:Shape, target:Shape) throws
     {
         switch (source, edge.source, is: edge.relation, of: target, edge.target) 
         {

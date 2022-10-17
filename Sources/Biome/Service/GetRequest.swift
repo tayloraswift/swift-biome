@@ -47,7 +47,7 @@ extension GetRequest
     }
 
     init?(_ request:URI, residency pinned:Package.Pinned, 
-        namespace:Atom<Module>.Position,
+        namespace:AtomicPosition<Module>,
         functions:__shared Service.PublicFunctionNames)
     {
         guard   let pinned:Package.Pinned = 
@@ -57,7 +57,7 @@ extension GetRequest
             return nil 
         }
         let address:Address = .init(residency: pinned, 
-            namespace: pinned.package.tree[local: namespace])
+            namespace: pinned.tree[local: namespace])
         self.init(request, uri: address.uri(functions: functions), 
             query: .documentation(.init(.module(namespace), 
                 _objects: pinned.documentation(for: namespace.atom) ?? .init(), 
@@ -65,8 +65,8 @@ extension GetRequest
     }
 
     init?(_ request:URI, residency pinned:Package.Pinned,
-        namespace:Atom<Module>.Position, 
-        article:Atom<Article>.Position, 
+        namespace:AtomicPosition<Module>, 
+        article:AtomicPosition<Article>, 
         functions:__shared Service.PublicFunctionNames)
     {
         guard   let pinned:Package.Pinned = 
@@ -76,8 +76,8 @@ extension GetRequest
             return nil 
         }
         let address:Address = .init(residency: pinned, 
-            namespace: pinned.package.tree[local: namespace],
-            article: pinned.package.tree[local: article])
+            namespace: pinned.tree[local: namespace],
+            article: pinned.tree[local: article])
         self.init(request, uri: address.uri(functions: functions), 
             query: .documentation(.init(.article(article), 
                 _objects: pinned.documentation(for: article.atom) ?? .init(), 
@@ -89,7 +89,7 @@ extension GetRequest
     init?(_ request:URI, extant composite:Composite, context:__shared DirectionalContext, 
         functions:__shared Service.PublicFunctionNames)
     {
-        var origin:Atom<Symbol> = composite.base 
+        var origin:Symbol = composite.base 
         let documentation:DocumentationExtension<Never>? = context.documentation(for: &origin)
         var canonical:URI? = origin == composite.base || (documentation?.isEmpty ?? true) ? 
             nil : context.address(of: origin)?.uri(functions: functions) 
@@ -99,13 +99,13 @@ extension GetRequest
         {
             guard   let base:Package.Pinned = context[compound.base.nationality],
                     let host:Package.Pinned = context[compound.host.nationality],
-                    let compound:Compound.Position = 
+                    let compound:CompoundPosition = 
                         compound.positioned(bisecting: context.local.modules, 
                             host: host.symbols, 
                             base: base.symbols),
                     let address:Address = context.local.address(of: compound.atoms, 
-                        host: host.package.tree[local: compound.host], 
-                        base: base.package.tree[local: compound.base], 
+                        host: host.tree[local: compound.host], 
+                        base: base.tree[local: compound.base], 
                         context: context)
             else 
             {
@@ -113,17 +113,17 @@ extension GetRequest
             }
 
             canonical = canonical ?? context.local.address(of: compound.base.atom, 
-                symbol: base.package.tree[local: compound.base], 
+                symbol: base.tree[local: compound.base], 
                 context: context)?.uri(functions: functions)
             target = .compound(compound)
             uri = address.uri(functions: functions)
         }
         else 
         {
-            guard   let symbol:Atom<Symbol>.Position = 
+            guard   let symbol:AtomicPosition<Symbol> = 
                         composite.base.positioned(bisecting: context.local.symbols), 
                     let address:Address = context.local.address(of: symbol.atom, 
-                        symbol: context.local.package.tree[local: symbol], 
+                        symbol: context.local.tree[local: symbol], 
                         context: context)
             else 
             {
@@ -165,11 +165,11 @@ struct DocumentationQuery
 
     enum Target 
     {
-        case package(Packages.Index)
-        case module(Atom<Module>.Position)
-        case article(Atom<Article>.Position)
-        case symbol(Atom<Symbol>.Position)
-        case compound(Compound.Position)
+        case package(Package)
+        case module(AtomicPosition<Module>)
+        case article(AtomicPosition<Article>)
+        case symbol(AtomicPosition<Symbol>)
+        case compound(CompoundPosition)
     }
 
     let target:Target 
@@ -178,7 +178,7 @@ struct DocumentationQuery
     let version:Version 
     let token:UInt 
 
-    // var nationality:Packages.Index 
+    // var nationality:Package 
     // {
     //     switch self.target 
     //     {
@@ -207,13 +207,13 @@ struct DocumentationQuery
 }
 struct DisambiguationQuery
 {
-    let nationality:Packages.Index
+    let nationality:Package
     let version:Version 
-    let choices:[Atom<Module>: [Composite]]
+    let choices:[Module: [Composite]]
 }
 // struct MigrationQuery 
 // {
-//     let nationality:Packages.Index
+//     let nationality:Package
 //     /// The requested version. None of the symbols in this query 
 //     /// exist in this version.
 //     let requested:Version

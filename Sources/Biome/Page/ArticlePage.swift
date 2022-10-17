@@ -12,7 +12,7 @@ struct ArticlePage
     let discussion:[UInt8]?
     let logo:[UInt8]
 
-    init(_ article:Atom<Article>.Position, logo:[UInt8],
+    init(_ article:AtomicPosition<Article>, logo:[UInt8],
         documentation:__shared DocumentationExtension<Never>, 
         searchable:[String],
         evolution:Evolution,

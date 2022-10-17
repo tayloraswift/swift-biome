@@ -1,7 +1,7 @@
-extension Symbol.Role:Equatable where Position:Equatable {}
-extension Symbol.Role:Hashable where Position:Hashable {}
-extension Symbol.Role:Sendable where Position:Sendable {}
-extension Symbol 
+extension SurfaceBuilder.Role:Equatable where Position:Equatable {}
+extension SurfaceBuilder.Role:Hashable where Position:Hashable {}
+extension SurfaceBuilder.Role:Sendable where Position:Sendable {}
+extension SurfaceBuilder 
 {
     @frozen public
     enum Role<Position>:CustomStringConvertible

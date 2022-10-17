@@ -3,84 +3,83 @@ import SymbolGraphs
 import SymbolSource
 import Versions
 
-public 
-struct Packages
+extension Package
 {
-    private 
-    var packages:[Package]
-    private(set)
-    var index:[PackageIdentifier: Index]
-    
-    init()
+    struct Trees
     {
-        self.packages = []
-        self.index = [:]
+        private 
+        var trees:[Tree]
+        private(set)
+        var packages:[PackageIdentifier: Package]
+        
+        init()
+        {
+            self.trees = []
+            self.packages = [:]
 
-        // swift-standard-library is always index = 0
-        // swift-core-libraries is always index = 1
-        let swift:Index = self.addPackage(.swift)
-        let core:Index = self.addPackage(.core)
+            // swift-standard-library is always index = 0
+            // swift-core-libraries is always index = 1
+            let swift:Package = self.addPackage(.swift)
+            let core:Package = self.addPackage(.core)
 
-        precondition(swift == .swift) 
-        precondition(core == .core) 
+            precondition(swift == .swift) 
+            precondition(core == .core) 
+        }
     }
 }
-extension Packages
+extension Package.Trees
 {
     /// Creates a package entry for the given package graph, if it does not already exist.
     /// 
     /// -   Returns: The index of the package, identified by its ``PackageIdentifier``.
     mutating 
-    func addPackage(_ package:PackageIdentifier) -> Index
+    func addPackage(_ package:PackageIdentifier) -> Package
     {
-        if let index:Index = self.index[package]
+        if let packages:Package = self.packages[package]
         {
-            return index 
+            return packages 
         }
         else 
         {
-            let index:Index = self.endIndex
-            self.packages.append(.init(id: package, nationality: index))
-            self.index[package] = index
-            return index
+            let packages:Package = self.endIndex
+            self.trees.append(.init(id: package, nationality: packages))
+            self.packages[package] = packages
+            return packages
         }
     }
 }
-extension Packages:RandomAccessCollection
+extension Package.Trees:RandomAccessCollection
 {
-    public 
-    var startIndex:Index
+    var startIndex:Package
     {
-        .init(offset: .init(self.packages.startIndex))
+        .init(offset: .init(self.trees.startIndex))
     }
-    public 
-    var endIndex:Index
+    var endIndex:Package
     {
-        .init(offset: .init(self.packages.endIndex))
+        .init(offset: .init(self.trees.endIndex))
     }
-    public 
-    subscript(package:Index) -> Package
+    subscript(package:Package) -> Package.Tree
     {
         _read 
         {
-            yield  self.packages[.init(package.offset)]
+            yield  self.trees[.init(package.offset)]
         }
         _modify 
         {
-            yield &self.packages[.init(package.offset)]
+            yield &self.trees[.init(package.offset)]
         }
     } 
 }
-extension Packages 
+extension Package.Trees 
 {
-    var swift:Package 
+    var swift:Package.Tree 
     {
         _read 
         {
             yield self[.swift]
         }
     }
-    var core:Package 
+    var core:Package.Tree 
     {
         _read 
         {
@@ -88,35 +87,35 @@ extension Packages
         }
     }
     
-    subscript(package:PackageIdentifier) -> Package?
+    subscript(package:PackageIdentifier) -> Package.Tree?
     {
-        self.index[package].map { self[$0] }
+        self.packages[package].map { self[$0] }
     }
     
 
-    subscript(global module:Atom<Module>.Position) -> Module
+    subscript(global module:AtomicPosition<Module>) -> Module.Intrinsic
     {
         _read 
         {
-            yield self[module.nationality].tree[local: module]
+            yield self[module.nationality][local: module]
         }
     } 
-    subscript(global article:Atom<Article>.Position) -> Article
+    subscript(global article:AtomicPosition<Article>) -> Article.Intrinsic
     {
         _read 
         {
-            yield self[article.nationality].tree[local: article]
+            yield self[article.nationality][local: article]
         }
     } 
-    subscript(global symbol:Atom<Symbol>.Position) -> Symbol
+    subscript(global symbol:AtomicPosition<Symbol>) -> Symbol.Intrinsic
     {
         _read 
         {
-            yield self[symbol.nationality].tree[local: symbol]
+            yield self[symbol.nationality][local: symbol]
         }
     } 
 }
-extension Packages
+extension Package.Trees
 {
     func find(pins:some Sequence<PackageResolution.Pin>) 
         -> [Index: PackageUpdateContext.Dependency]
@@ -124,26 +123,26 @@ extension Packages
         var linkable:[Index: PackageUpdateContext.Dependency] = [:]
         for pin:PackageResolution.Pin in pins 
         {
-            guard   let package:Package = self[pin.id],
+            guard   let tree:Package.Tree = self[pin.id],
                     let tag:Tag = .init(pin.requirement)
             else 
             {
                 continue 
             }
-            if  let version:Version = package.tree.find(tag),
-                    package.tree[version].commit.hash == pin.revision
+            if  let version:Version = tree.find(tag),
+                    tree[version].commit.hash == pin.revision
             {
-                linkable[package.nationality] = .available(version)
+                linkable[tree.nationality] = .available(version)
             }
             else 
             {
-                linkable[package.nationality] = .unavailable(tag, pin.revision)
+                linkable[tree.nationality] = .unavailable(tag, pin.revision)
             }
         }
         return linkable
     }
 }
-extension Packages 
+extension Package.Trees 
 {
     /// Returns the index of the package referenced by the given identifier, and 
     /// the fork location within it, if a fork selector is provided.
@@ -184,7 +183,7 @@ extension Packages
     //     date:Date, 
     //     tag:Tag?) -> Version
     // {
-    //     var pins:[Index: (version:Version, consumers:Set<Atom<Module>>)] = [:]
+    //     var pins:[Index: (version:Version, consumers:Set<Module>)] = [:]
     //     for interface:ModuleInterface in interfaces 
     //     {
     //         for (package, pin):(Index, Version) in interface.pins 
@@ -196,7 +195,7 @@ extension Packages
     //         pins: pins.mapValues(\.version), 
     //         date: date, 
     //         tag: tag)
-    //     for (package, (pin, consumers)):(Index, (Version, Set<Atom<Module>>)) in pins
+    //     for (package, (pin, consumers)):(Index, (Version, Set<Module>)) in pins
     //     {
     //         assert(package != nationality)
     //         self[package].tree[pin].consumers[nationality, default: [:]][version] = consumers
@@ -205,10 +204,10 @@ extension Packages
     // }
 }
 
-extension Packages 
+extension Package.Trees 
 {
     // mutating 
-    // func spread(from index:Packages.Index, beliefs:Beliefs)
+    // func spread(from index:Package, beliefs:Beliefs)
     // {
     //     let current:Version = self[index].versions.latest
     //     for diacritic:Symbol.Diacritic in beliefs.opinions.keys 

@@ -12,7 +12,7 @@ struct DisambiguationPage
     var choices:[Organizer.Enclave<Organizer.H4, Organizer.Culture, SymbolCard>]
     let logo:[UInt8]
 
-    init(_ choices:[Atom<Module>: [Composite]], logo:[UInt8], uri:URI,
+    init(_ choices:[Module: [Composite]], logo:[UInt8], uri:URI,
         searchable:[String],
         context:__shared some AnisotropicContext, 
         cache:inout ReferenceCache) throws 
@@ -38,7 +38,7 @@ struct DisambiguationPage
             let cards:[(SymbolCard, Organizer.SortingKey)] = try $0.value.map 
             {
                 guard   let base:Package.Pinned = context[$0.base.nationality],
-                        let declaration:Declaration<Atom<Symbol>> = 
+                        let declaration:Declaration<Symbol> = 
                             base.declaration(for: $0.base)
                 else 
                 {

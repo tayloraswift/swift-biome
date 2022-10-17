@@ -3,20 +3,20 @@ import SymbolSource
 protocol AnisotropicContext:PackageContext
 {
     var local:Package.Pinned { get }
-    var foreign:[Packages.Index: Package.Pinned] { get }
+    var foreign:[Package: Package.Pinned] { get }
 
-    init(local:Package.Pinned, context:__shared Packages) 
+    init(local:Package.Pinned, context:__shared Package.Trees) 
 }
 extension AnisotropicContext 
 {
-    init(local:Packages.Index, version:Version, context:__shared Packages) 
+    init(local:Package, version:Version, context:__shared Package.Trees) 
     {
         self.init(local: .init(context[local], version: version), context: context)
     }
 }
 extension AnisotropicContext 
 {
-    subscript(nationality:Packages.Index) -> Package.Pinned?
+    subscript(nationality:Package) -> Package.Pinned?
     {
         _read 
         {
@@ -27,19 +27,20 @@ extension AnisotropicContext
 }
 extension AnisotropicContext
 {
-    func find(_ id:SymbolIdentifier, linked:Set<Atom<Module>>) -> (Atom<Symbol>.Position, Symbol)?
+    func find(_ id:SymbolIdentifier, linked:Set<Module>) 
+        -> (AtomicPosition<Symbol>, Symbol.Intrinsic)?
     {
-        if  let position:Atom<Symbol>.Position = self.local.symbols.find(id), 
+        if  let position:AtomicPosition<Symbol> = self.local.symbols.find(id), 
                 linked.contains(position.culture)
         {
-            return (position, self.local.package.tree[local: position]) 
+            return (position, self.local.tree[local: position]) 
         }
         for upstream:Package.Pinned in self.foreign.values 
         {
-            if  let position:Atom<Symbol>.Position = upstream.symbols.find(id), 
+            if  let position:AtomicPosition<Symbol> = upstream.symbols.find(id), 
                     linked.contains(position.culture)
             {
-                return (position, upstream.package.tree[local: position])
+                return (position, upstream.tree[local: position])
             }
         }
         return nil

@@ -9,7 +9,7 @@ extension Overlay
             self.traits = traits 
         }
 
-        func contains(feature:Atom<Symbol>) -> Bool 
+        func contains(feature:Symbol) -> Bool 
         {
             self.traits.features.contains(feature)
         }

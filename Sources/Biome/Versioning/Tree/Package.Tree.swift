@@ -1,3 +1,5 @@
+import SymbolGraphs
+import SymbolSource
 import Versions
 
 struct VersionNotFoundError:Error 
@@ -9,34 +11,60 @@ struct VersionNotFoundError:Error
         self.selector = selector
     }
 }
-struct Tree 
+extension Package
 {
-    let nationality:Packages.Index
-    private 
-    var storage:[Branch]
-    private(set)
-    var branches:[Branch.ID: Version.Branch]
-    private
-    var tags:[Tag: Version]
-    private 
-    var counter:UInt
-
-    init(nationality:Packages.Index)
+    struct Tree:Sendable
     {
-        self.nationality = nationality 
-        self.storage = []
-        self.branches = [:]
-        self.tags = [:]
+        let id:PackageIdentifier
+        let nationality:Package
+        private 
+        var storage:[Branch]
+        private(set)
+        var branches:[Branch.ID: Version.Branch]
+        private
+        var tags:[Tag: Version]
+        private 
+        var counter:UInt
+        var settings:Settings 
 
-        self.counter = 0
-    }
+        init(id:PackageIdentifier, nationality:Package)
+        {
+            self.id = id 
 
-    var `default`:Version? 
-    {
-        nil
+            self.nationality = nationality 
+            self.storage = []
+            self.branches = [:]
+            self.tags = [:]
+            self.counter = 0
+
+            switch id 
+            {
+            case .swift, .core: 
+                self.settings = .init(brand: "Swift")
+            case .community(_):
+                self.settings = .init()
+            }
+        }
+
+        var `default`:Version? 
+        {
+            nil
+        }
     }
 }
-extension Tree:RandomAccessCollection
+extension Package.Tree
+{
+    var name:String 
+    {
+        self.id.string
+    }
+
+    func latest() -> Package.Pinned?
+    {
+        self.default.map { .init(self, version: $0) }
+    }
+}
+extension Package.Tree:RandomAccessCollection
 {
     var startIndex:Version.Branch 
     {
@@ -62,7 +90,7 @@ extension Tree:RandomAccessCollection
         }
     }
 }
-extension Tree 
+extension Package.Tree 
 {
     subscript(version:Version) -> Branch.Revision
     {
@@ -76,7 +104,7 @@ extension Tree
         }
     }
 }
-extension Tree 
+extension Package.Tree 
 {
     func root(of branch:Version.Branch) -> Branch 
     {
@@ -111,7 +139,7 @@ extension Tree
         return .init(fasces)
     }
 }
-extension Tree 
+extension Package.Tree 
 {
     /// Returns the version pointed to by the given version selector, if it exists. 
     /// 
@@ -195,7 +223,7 @@ extension Tree
         }
     }
 }
-extension Tree 
+extension Package.Tree 
 {
     mutating 
     func branch(_ name:Branch.ID, from fork:Version.Selector?) 
@@ -231,7 +259,7 @@ extension Tree
     
     mutating 
     func commit(_ commit:__owned Commit, to branch:Version.Branch, 
-        pins:__owned [Packages.Index: Version]) -> Version
+        pins:__owned [Package: Version]) -> Version
     {
         defer 
         {
@@ -256,9 +284,9 @@ extension Tree
     }
 }
 
-extension Tree 
+extension Package.Tree 
 {
-    subscript(local article:Atom<Article>.Position) -> Article 
+    subscript(local article:AtomicPosition<Article>) -> Article.Intrinsic
     {
         _read 
         {
@@ -269,7 +297,7 @@ extension Tree
             yield &self[article.branch].articles[contemporary: article.atom]
         }
     }
-    subscript(local symbol:Atom<Symbol>.Position) -> Symbol 
+    subscript(local symbol:AtomicPosition<Symbol>) -> Symbol.Intrinsic
     {
         _read 
         {
@@ -280,7 +308,7 @@ extension Tree
             yield &self[symbol.branch].symbols[contemporary: symbol.atom]
         }
     }
-    subscript(local module:Atom<Module>.Position) -> Module 
+    subscript(local module:AtomicPosition<Module>) -> Module.Intrinsic
     {
         _read 
         {
@@ -292,16 +320,85 @@ extension Tree
         }
     }
 
-    subscript(article:Atom<Article>.Position) -> Article? 
+    subscript(article:AtomicPosition<Article>) -> Article.Intrinsic? 
     {
         self.nationality == article.nationality ? self[local: article] : nil
     }
-    subscript(symbol:Atom<Symbol>.Position) -> Symbol? 
+    subscript(symbol:AtomicPosition<Symbol>) -> Symbol.Intrinsic? 
     {
         self.nationality == symbol.nationality ? self[local: symbol] : nil
     }
-    subscript(module:Atom<Module>.Position) -> Module? 
+    subscript(module:AtomicPosition<Module>) -> Module.Intrinsic? 
     {
         self.nationality == module.nationality ? self[local: module] : nil
+    }
+}
+
+extension Package.Tree
+{
+    mutating 
+    func updateMetadata(interface:PackageInterface, 
+        branch:Version.Branch, 
+        graph:SymbolGraph,
+        stems:Route.Stems, 
+        api:inout SurfaceBuilder)
+    {
+        for (culture, interface):(SymbolGraph.Culture, ModuleInterface) in 
+            zip(graph.cultures, interface)
+        {
+            api.update(with: culture.edges, interface: interface, local: self)
+        }
+
+        self[branch].routes.stack(routes: api.routes.atomic, 
+            revision: interface.revision)
+        self[branch].routes.stack(routes: api.routes.compound.joined(),
+            revision: interface.revision)
+
+        api.inferScopes(for: &self[branch], fasces: interface.local, stems: stems)
+
+        self[interface.branch].updateMetadata(interface: interface, builder: api)
+    }
+
+    mutating 
+    func updateData(_ graph:__owned SymbolGraph, 
+        interface:PackageInterface)
+    {
+        let version:Version = interface.version
+        for (culture, interface):(SymbolGraph.Culture, ModuleInterface) in 
+            zip((_move graph).cultures, interface)
+        {
+            self[version.branch].updateDeclarations(culture, 
+                interface: interface, 
+                revision: version.revision)
+
+            var topLevelSymbols:Set<Symbol> = [] 
+            for position:AtomicPosition<Symbol>? in interface.citizens
+            {
+                if  let position:AtomicPosition<Symbol>, 
+                    self[local: position].path.prefix.isEmpty
+                {
+                    // a symbol is toplevel if it has a single path component. this 
+                    // is not the same thing as having a `nil` shape.
+                    topLevelSymbols.insert(position.atom)
+                }
+            }
+            self[version.branch].updateTopLevelSymbols(topLevelSymbols, 
+                interface: interface,
+                revision: version.revision)
+            
+
+            let topLevelArticles:Set<Article> = 
+                .init(interface.articles.lazy.compactMap { $0?.atom })
+            self[version.branch].updateTopLevelArticles(topLevelArticles, 
+                interface: interface,
+                revision: version.revision)
+        }
+    }
+    mutating 
+    func updateDocumentation(_ documentation:__owned PackageDocumentation,
+        interface:PackageInterface)
+    {
+        self[interface.branch].updateDocumentation(_move documentation, 
+            interface: interface)
     }
 }

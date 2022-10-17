@@ -3,21 +3,21 @@ import SymbolSource
 struct Namespaces
 {
     let id:ModuleIdentifier
-    let module:Atom<Module>.Position
-    var linked:[ModuleIdentifier: Atom<Module>.Position]
+    let module:AtomicPosition<Module>
+    var linked:[ModuleIdentifier: AtomicPosition<Module>]
 
-    init(_ module:Atom<Module>.Position, id:ModuleIdentifier)
+    init(_ module:AtomicPosition<Module>, id:ModuleIdentifier)
     {
         self.linked = [id: module]
         self.module = module
         self.id = id 
     }
 
-    var nationality:Packages.Index
+    var nationality:Package
     {
         self.culture.nationality
     }
-    var culture:Atom<Module> 
+    var culture:Module 
     {
         self.module.atom
     }
@@ -25,7 +25,7 @@ struct Namespaces
     /// Returns a set containing all modules the current module depends on. 
     /// 
     /// This is similar to ``import``, except it excludes the current module.
-    func dependencies() -> Set<Atom<Module>>
+    func dependencies() -> Set<Module>
     {
         .init(self.linked.values.lazy.compactMap 
         { 
@@ -34,7 +34,7 @@ struct Namespaces
     }
     /// Returns a set containing all modules that can be imported, including the 
     /// current module.
-    func `import`() -> Set<Atom<Module>>
+    func `import`() -> Set<Module>
     {
         .init(self.linked.values.lazy.map(\.atom))
     }
@@ -42,13 +42,13 @@ struct Namespaces
     /// Returns a set containing all modules that can be imported, among the requested 
     /// list of module names. The current module is always included in the set, 
     /// even if not explicitly requested.
-    func `import`(_ modules:some Sequence<ModuleIdentifier>) -> Set<Atom<Module>>
+    func `import`(_ modules:some Sequence<ModuleIdentifier>) -> Set<Module>
     {
-        var imported:Set<Atom<Module>> = []
+        var imported:Set<Module> = []
             imported.reserveCapacity(modules.underestimatedCount + 1)
         for module:ModuleIdentifier in modules 
         {
-            if let element:Atom<Module> = self.linked[module]?.atom
+            if let element:Module = self.linked[module]?.atom
             {
                 imported.insert(element)
             }

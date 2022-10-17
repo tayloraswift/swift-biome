@@ -7,7 +7,7 @@ extension SurfaceBuilder
     struct Node 
     {
         var metadata:Symbol.Metadata
-        let element:Atom<Symbol> 
+        let element:Symbol 
         var scope:Symbol.Scope?
     }
     fileprivate 
@@ -16,7 +16,7 @@ extension SurfaceBuilder
         private 
         var storage:[Node]
         private(set) 
-        var indices:[Atom<Symbol>: Symbols.Index]
+        var indices:[Symbol: Symbols.Index]
 
         init()
         {
@@ -91,7 +91,7 @@ extension SurfaceBuilder
         {
             .init(offset: self.nodes.endIndex)
         }
-        subscript(index:Symbols.Index) -> (Atom<Symbol>, Symbol.Metadata) 
+        subscript(index:Symbols.Index) -> (Symbol, Symbol.Metadata) 
         {
             let node:Node = self.nodes[index.offset]
             return (node.element, node.metadata)
@@ -103,13 +103,13 @@ extension SurfaceBuilder
 {
     struct Context:Sendable 
     {
-        let upstream:[Packages.Index: Package.Pinned]
-        let local:Package 
+        let upstream:[Package: Package.Pinned]
+        let local:Package.Tree
 
-        subscript(global position:Atom<Symbol>.Position) -> Symbol 
+        subscript(global position:AtomicPosition<Symbol>) -> Symbol.Intrinsic
         {
-            if  let symbol:Symbol = self.local.tree[position] ?? 
-                    self.upstream[position.nationality]?.package.tree[local: position]
+            if  let symbol:Symbol.Intrinsic = self.local[position] ?? 
+                    self.upstream[position.nationality]?.tree[local: position]
             {
                 return symbol
             }
@@ -134,9 +134,9 @@ extension SurfaceBuilder.Context
         {
             do 
             {
-                let edge:SymbolGraph.Edge<Atom<Symbol>.Position> = try edge.map 
+                let edge:SymbolGraph.Edge<AtomicPosition<Symbol>> = try edge.map 
                 {
-                    if let position:Atom<Symbol>.Position = positions[$0]
+                    if let position:AtomicPosition<Symbol> = positions[$0]
                     {
                         return position
                     }
@@ -159,7 +159,6 @@ extension SurfaceBuilder.Context
     }
 }
 
-
 struct SurfaceBuilder 
 {
     private(set)
@@ -168,9 +167,9 @@ struct SurfaceBuilder
     var routes:Routes
 
     private(set)
-    var articles:[(Atom<Article>, Article.Metadata)], 
+    var articles:[(Article, Article.Metadata)], 
         overlays:[(Diacritic, Overlay.Metadata)], 
-        modules:[Atom<Module>]
+        modules:[Module]
     private 
     var nodes:Nodes
 
@@ -192,17 +191,19 @@ struct SurfaceBuilder
     }
 
     mutating 
-    func update(with edges:[SymbolGraph.Edge<Int>], interface:ModuleInterface, local:Package) 
+    func update(with edges:[SymbolGraph.Edge<Int>], 
+        interface:ModuleInterface, 
+        local:Package.Tree) 
     {
         assert(interface.nationality == local.nationality)
 
         self.previous.modules.remove(interface.culture)
         self.modules.append(interface.culture)
 
-        for (article, _cached):(Atom<Article>.Position?, Extension) in 
+        for (article, _cached):(AtomicPosition<Article>?, Extension) in 
             zip(interface.articles, interface._cachedMarkdown)
         {
-            if let article:Atom<Article>.Position
+            if let article:AtomicPosition<Article>
             {
                 self.previous.articles.remove(article.atom)
                 self.articles.append((article.atom, .init(_extension: _cached)))
@@ -226,9 +227,9 @@ struct SurfaceBuilder
     func insert(_ beliefs:__owned [Belief], symbols:ModuleInterface.SymbolCitizens,
         context:Context) 
     {
-        var external:[Atom<Symbol>.Position: [Symbol.Trait<Atom<Symbol>.Position>]] = [:]
-        var traits:[Atom<Symbol>.Position: [Symbol.Trait<Atom<Symbol>.Position>]] = [:]
-        var roles:[Atom<Symbol>.Position: [Symbol.Role<Atom<Symbol>.Position>]] = [:]
+        var external:[AtomicPosition<Symbol>: [Trait]] = [:]
+        var traits:[AtomicPosition<Symbol>: [Trait]] = [:]
+        var roles:[AtomicPosition<Symbol>: [Role<AtomicPosition<Symbol>>]] = [:]
         for belief:Belief in beliefs 
         {
             switch (symbols.culture == belief.subject.culture, belief.predicate)
@@ -244,9 +245,9 @@ struct SurfaceBuilder
             }
         }
 
-        for position:Atom<Symbol>.Position? in symbols 
+        for position:AtomicPosition<Symbol>? in symbols 
         {
-            if let position:Atom<Symbol>.Position
+            if let position:AtomicPosition<Symbol>
             {
                 assert(symbols.culture == position.culture)
 
@@ -262,10 +263,9 @@ struct SurfaceBuilder
         {
             fatalError("unimplemented")
         }
-        for (position, traits):(Atom<Symbol>.Position, [Symbol.Trait<Atom<Symbol>.Position>]) in 
-            external
+        for (position, traits):(AtomicPosition<Symbol>, [Trait]) in external
         {
-            if  let subject:Symbol = context.local.tree[position], 
+            if  let subject:Symbol.Intrinsic = context.local[position], 
                 let index:Symbols.Index = self.nodes.indices[position.atom]
             {
                 let diacritic:Diacritic = .init(host: position.atom, 
@@ -280,7 +280,7 @@ struct SurfaceBuilder
             else if let pinned:Package.Pinned = context.upstream[position.nationality],
                     let metadata:Symbol.Metadata = pinned.metadata(local: position.atom)
             {
-                let subject:Symbol = pinned.package.tree[local: position]
+                let subject:Symbol.Intrinsic = pinned.tree[local: position]
                 let diacritic:Diacritic = .init(host: position.atom, 
                     culture: symbols.culture)
                 
@@ -301,19 +301,18 @@ struct SurfaceBuilder
     }
 
     private mutating 
-    func createLocalSurface(for position:Atom<Symbol>.Position,
-        traits:__owned [Symbol.Trait<Atom<Symbol>.Position>], 
-        roles:__owned [Symbol.Role<Atom<Symbol>.Position>], 
+    func createLocalSurface(for position:AtomicPosition<Symbol>,
+        traits:__owned [Trait], 
+        roles:__owned [Role<AtomicPosition<Symbol>>], 
         context:Context)
         -> Node 
     {
-        let symbol:Symbol = context.local.tree[local: position] 
-
+        let symbol:Symbol.Intrinsic = context.local[local: position]
         var scope:Symbol.Scope? = nil
         // partition relationships buffer 
-        var superclass:Atom<Symbol>? = nil 
-        var residuals:[Symbol.Role<Atom<Symbol>>] = []
-        for role:Symbol.Role<Atom<Symbol>.Position> in roles
+        var superclass:Symbol? = nil 
+        var residuals:[Role<Symbol>] = []
+        for role:Role<AtomicPosition<Symbol>> in roles
         {
             switch (scope, role) 
             {
@@ -351,9 +350,9 @@ struct SurfaceBuilder
             
         let roles:Branch.SymbolRoles? = .init(residuals,
             superclass: superclass, 
-            scope: scope, 
+            scope: scope,
             as: symbol.shape)
-        let traits:Tree.SymbolTraits = .init(traits, as: symbol.shape)
+        let traits:Traits = .init(traits, as: symbol.shape)
         
         self.routes.atomic.append(symbol.route, element: position.atom)
         if  let routes:CompoundRoutes = .init(host: symbol, 
@@ -369,14 +368,14 @@ struct SurfaceBuilder
             scope: scope)
     }
     private mutating 
-    func createForeignSurface(for subject:Symbol, metadata:Symbol.Metadata, diacritic:Diacritic, 
-        traits:__owned [Symbol.Trait<Atom<Symbol>.Position>], 
+    func createForeignSurface(for subject:Symbol.Intrinsic, 
+        metadata:Symbol.Metadata, 
+        diacritic:Diacritic, 
+        traits:__owned [Trait], 
         context:Context)
         -> Branch.SymbolTraits
     {
-        let traits:Tree.SymbolTraits = 
-            .init(traits, as: subject.shape)
-            .subtracting(metadata.primary)
+        let traits:Traits = .init(traits, as: subject.shape).subtracting(metadata.primary)
 
         if  let routes:CompoundRoutes = .init(host: subject, diacritic: diacritic, 
                 features: traits.features, 
@@ -388,7 +387,7 @@ struct SurfaceBuilder
     }
 
     private mutating 
-    func add(member:Atom<Symbol>, to scope:Atom<Symbol>)
+    func add(member:Symbol, to scope:Symbol)
     {
         guard let index:Symbols.Index = self.nodes.indices[scope]
         else 
@@ -437,7 +436,7 @@ extension SurfaceBuilder
                 continue 
             }
 
-            let symbol:Symbol = symbols[_contemporary: node.element]
+            let symbol:Symbol.Intrinsic = symbols[_contemporary: node.element]
             guard   case nil = symbol.scope, 
                     let scope:Path = .init(symbol.path.prefix)
             else 
@@ -448,7 +447,7 @@ extension SurfaceBuilder
             //  this is a *very* heuristical process.
             if  let scope:Route = stems[symbol.route.namespace, straight: scope]
             {
-                let selection:Selection<Atom<Symbol>.Position>? = routes.select(scope)
+                let selection:Selection<AtomicPosition<Symbol>>? = routes.select(scope)
                 {
                     (composite:Composite, branch:Version.Branch) in 
                     composite.atom.map { $0.positioned(branch) }

@@ -19,7 +19,7 @@ extension Organizer
             self.constraints = constraints
         }
 
-        init(_ constraints:[Generic.Constraint<Atom<Symbol>>], 
+        init(_ constraints:[Generic.Constraint<Symbol>], 
             context:__shared some PackageContext, 
             cache:inout ReferenceCache) throws
         {
@@ -39,11 +39,11 @@ extension Organizer
     {
         // the displayed symbol and uri are not necessarily the same symbol
         let conditions:Conditions
-        let display:Symbol.Display
+        let display:Symbol.Intrinsic.Display
         let uri:String 
 
         private 
-        init(where conditions:Conditions, display:Symbol.Display, uri:String)
+        init(where conditions:Conditions, display:Symbol.Intrinsic.Display, uri:String)
         {
             self.conditions = conditions
             self.display = display
@@ -59,11 +59,11 @@ extension Organizer.Item
         context:__shared some PackageContext, 
         cache:inout ReferenceCache) throws
     {
-        let display:Symbol.Display 
+        let display:Symbol.Intrinsic.Display 
         switch symbol.shape 
         {
         case .associatedtype, .callable(_):
-            guard let scope:Atom<Symbol>.Position = symbol.scope?.target 
+            guard let scope:AtomicPosition<Symbol> = symbol.scope?.target 
             else 
             {
                 fallthrough
@@ -83,7 +83,7 @@ extension Organizer.Item<Organizer.Unconditional>
     {
         try self.init(symbol, where: .init(), context: context, cache: &cache)
     }
-    init(_ symbol:Atom<Symbol>, 
+    init(_ symbol:Symbol, 
         context:__shared some PackageContext, 
         cache:inout ReferenceCache) throws
     {
@@ -94,8 +94,8 @@ extension Organizer.Item<Organizer.Unconditional>
 }
 extension Organizer.Item<Organizer.Conditional>
 {
-    init(_ symbol:Atom<Symbol>, 
-        where constraints:[Generic.Constraint<Atom<Symbol>>], 
+    init(_ symbol:Symbol, 
+        where constraints:[Generic.Constraint<Symbol>], 
         context:__shared some PackageContext, 
         cache:inout ReferenceCache) throws
     {

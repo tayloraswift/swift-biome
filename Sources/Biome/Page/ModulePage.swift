@@ -13,7 +13,7 @@ struct ModulePage
     let discussion:[UInt8]?
     let logo:[UInt8]
 
-    init(_ module:Atom<Module>.Position, logo:[UInt8],
+    init(_ module:AtomicPosition<Module>, logo:[UInt8],
         documentation:__shared DocumentationExtension<Never>,
         searchable:[String],
         evolution:Evolution,

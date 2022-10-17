@@ -25,7 +25,7 @@
 
 //     var rows:[Row]
 
-//     init(atomic symbol:Atom<Symbol>.Position, 
+//     init(atomic symbol:AtomicPosition<Symbol>, 
 //         in tree:__shared Tree, 
 //         history:__shared History<Symbol.Metadata?>)
 //     {

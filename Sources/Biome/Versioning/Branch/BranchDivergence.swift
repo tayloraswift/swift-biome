@@ -3,7 +3,7 @@ protocol BranchDivergenceBase
     mutating
     func revert(to rollbacks:History.Rollbacks)
 }
-protocol BranchDivergence:BranchDivergenceBase
+protocol BranchDivergence<Key>:BranchDivergenceBase
 {
     associatedtype Base:BranchDivergenceBase
     associatedtype Key

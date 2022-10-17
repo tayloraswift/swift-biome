@@ -1,6 +1,6 @@
 protocol PackageContext 
 {
-    subscript(nationality:Packages.Index) -> Package.Pinned?
+    subscript(nationality:Package) -> Package.Pinned?
     {
         get 
     }
@@ -8,14 +8,14 @@ protocol PackageContext
 
 extension PackageContext 
 {
-    func load(_ symbol:Atom<Symbol>) -> Symbol?
+    func load(_ symbol:Symbol) -> Symbol.Intrinsic?
     {
         self[symbol.nationality]?.load(local: symbol) 
     }
 }
 extension PackageContext 
 {
-    func address(of atomic:Atom<Symbol>, 
+    func address(of atomic:Symbol, 
         disambiguate:Address.DisambiguationLevel = .minimally) -> Address?
     {
         self[atomic.nationality]?.address(of: atomic, 
@@ -25,9 +25,9 @@ extension PackageContext
 }
 extension PackageContext 
 {
-    func documentation(for symbol:inout Atom<Symbol>) -> DocumentationExtension<Never>?
+    func documentation(for symbol:inout Symbol) -> DocumentationExtension<Never>?
     {
-        while   let documentation:DocumentationExtension<Atom<Symbol>> = 
+        while   let documentation:DocumentationExtension<Symbol> = 
                     self[symbol.nationality]?.documentation(for: symbol)
         {
             guard   documentation.card.isEmpty, 
@@ -40,7 +40,7 @@ extension PackageContext
                     body: documentation.body)
                 return documentation
             }
-            guard   let next:Atom<Symbol> = documentation.extends, 
+            guard   let next:Symbol = documentation.extends, 
                         next != symbol // sanity check
             else 
             {
@@ -50,9 +50,9 @@ extension PackageContext
         }
         return nil
     }
-    func documentation(for symbol:Atom<Symbol>) -> DocumentationExtension<Never>?
+    func documentation(for symbol:Symbol) -> DocumentationExtension<Never>?
     {
-        var ignored:Atom<Symbol> = symbol 
+        var ignored:Symbol = symbol 
         return self.documentation(for: &ignored)
     }
 }

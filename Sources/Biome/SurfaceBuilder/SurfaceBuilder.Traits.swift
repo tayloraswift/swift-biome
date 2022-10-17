@@ -1,24 +1,24 @@
 import SymbolSource
 
-extension Tree.SymbolTraits.Unconditional 
+extension SurfaceBuilder.Traits.Unconditional 
 {
     fileprivate mutating 
-    func insert(_ element:Atom<Symbol>.Position) 
+    func insert(_ element:AtomicPosition<Symbol>) 
     {
         self.updateValue(element.branch, forKey: element.atom)
     }
 }
-extension Tree 
+extension SurfaceBuilder 
 {
-    struct SymbolTraits 
+    struct Traits
     {
         typealias Unconditional = 
         [
-            Atom<Symbol>: Version.Branch
+            Symbol: Version.Branch
         ]
         typealias Conditional = 
         [
-            Atom<Symbol>: (Version.Branch, [Generic.Constraint<Atom<Symbol>.Position>])
+            Symbol: (Version.Branch, [Generic.Constraint<AtomicPosition<Symbol>>])
         ]
 
         var members:Unconditional
@@ -39,14 +39,14 @@ extension Tree
             self.conditional = conditional
         }
         
-        init(_ traits:some Sequence<Symbol.Trait<Atom<Symbol>.Position>>, as shape:Shape)
+        init(_ traits:some Sequence<Trait>, as shape:Shape)
         {
             self.init()
             self.update(with: traits, as: shape)
         }
     }
 }
-extension Tree.SymbolTraits 
+extension SurfaceBuilder.Traits 
 {
     var features:Unconditional
     {
@@ -94,12 +94,12 @@ extension Tree.SymbolTraits
     }
 
     mutating 
-    func update(with traits:some Sequence<Symbol.Trait<Atom<Symbol>.Position>>, as shape:Shape) 
+    func update(with traits:some Sequence<SurfaceBuilder.Trait>, as shape:Shape) 
     {
         switch shape 
         {
         case .associatedtype:
-            for trait:Symbol.Trait<Atom<Symbol>.Position> in traits 
+            for trait:SurfaceBuilder.Trait in traits 
             {
                 switch trait 
                 {
@@ -117,7 +117,7 @@ extension Tree.SymbolTraits
             }
         
         case .protocol:
-            for trait:Symbol.Trait<Atom<Symbol>.Position> in traits 
+            for trait:SurfaceBuilder.Trait in traits 
             {
                 switch trait 
                 {
@@ -137,13 +137,13 @@ extension Tree.SymbolTraits
             }
         
         case .typealias, .global(_): 
-            for _:Symbol.Trait<Atom<Symbol>.Position> in traits 
+            for _:SurfaceBuilder.Trait in traits 
             {
                 fatalError("unreachable")
             }
         
         case .concretetype(_):
-            for trait:Symbol.Trait<Atom<Symbol>.Position> in traits 
+            for trait:SurfaceBuilder.Trait in traits 
             {
                 switch trait 
                 {
@@ -165,7 +165,7 @@ extension Tree.SymbolTraits
             }
         
         case .callable(_):
-            for trait:Symbol.Trait<Atom<Symbol>.Position> in traits 
+            for trait:SurfaceBuilder.Trait in traits 
             {
                 switch trait 
                 {
@@ -186,7 +186,7 @@ extension Tree.SymbolTraits
     
 
 }
-extension Tree.SymbolTraits 
+extension SurfaceBuilder.Traits 
 {
     func idealized() -> Branch.SymbolTraits
     {
@@ -215,7 +215,7 @@ extension Tree.SymbolTraits
             },
             conditional: self.conditional.filter 
             {
-                if  let counterpart:[Generic.Constraint<Atom<Symbol>>] = 
+                if  let counterpart:[Generic.Constraint<Symbol>] = 
                         other.conditional[$0.key]
                 {
                     return counterpart.elementsEqual($0.value.1.lazy.map 

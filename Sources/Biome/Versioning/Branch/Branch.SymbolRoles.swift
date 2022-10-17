@@ -47,11 +47,11 @@ extension Branch
     /// -   other kinds of symbols never have roles.
     enum SymbolRoles:Equatable, Sendable
     {
-        case one        (Atom<Symbol>)
-        case many   (Set<Atom<Symbol>>)
+        case one        (Symbol)
+        case many   (Set<Symbol>)
         
         private 
-        init?(_ symbols:[Atom<Symbol>]) 
+        init?(_ symbols:[Symbol]) 
         {
             if symbols.isEmpty 
             {
@@ -66,12 +66,12 @@ extension Branch
                 self = .many(.init(symbols))
             }
         }
-        init?(_ roles:some Sequence<Symbol.Role<Atom<Symbol>>>, 
-            superclass:Atom<Symbol>?, 
+        init?(_ roles:some Sequence<SurfaceBuilder.Role<Symbol>>, 
+            superclass:Symbol?, 
             scope:Symbol.Scope?, 
             as shape:Shape) 
         {
-            if  let superclass:Atom<Symbol> = superclass 
+            if  let superclass:Symbol = superclass 
             {
                 switch  (shape, scope)
                 {
@@ -83,7 +83,7 @@ extension Branch
                     // should have thrown a ``ColorError`` earlier
                     fatalError("unreachable")
                 }
-                for _:Symbol.Role<Atom<Symbol>> in roles 
+                for _:SurfaceBuilder.Role<Symbol> in roles 
                 {
                     fatalError("unreachable")
                 }
@@ -114,7 +114,7 @@ extension Branch
                 case    (.concretetype(_),  nil), 
                         (.typealias,          _), 
                         (.global(_),        nil):
-                    for _:Symbol.Role<Atom<Symbol>> in roles
+                    for _:SurfaceBuilder.Role<Symbol> in roles
                     {
                         fatalError("unreachable") 
                     }
@@ -167,7 +167,7 @@ extension Branch
 
 extension Branch.SymbolRoles:Sequence  
 {
-    func map<T>(_ transform:(Atom<Symbol>) throws -> T) rethrows -> [T]
+    func map<T>(_ transform:(Symbol) throws -> T) rethrows -> [T]
     {
         switch self 
         {
@@ -177,12 +177,12 @@ extension Branch.SymbolRoles:Sequence
             return try symbols.map(transform)
         }
     }
-    func makeIterator() -> Set<Atom<Symbol>>.Iterator 
+    func makeIterator() -> Set<Symbol>.Iterator 
     {
         switch self 
         {
         case .one(let symbol): 
-            return ([symbol] as Set<Atom<Symbol>>).makeIterator()
+            return ([symbol] as Set<Symbol>).makeIterator()
         case .many(let symbols): 
             return symbols.makeIterator()
         }

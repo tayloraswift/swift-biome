@@ -7,7 +7,7 @@ extension Service
 {
     struct State 
     {
-        let packages:Packages, 
+        let trees:Package.Trees, 
             stems:Route.Stems
         
         let functions:Functions,
@@ -50,7 +50,7 @@ extension Service.State
 
         let context:DirectionalContext = .init(local: query.nationality,
             version: query.version,
-            context: self.packages)
+            context: self.trees)
         let page:DisambiguationPage = try .init(query.choices, logo: self.logo, uri: uri, 
             searchable: _move searchable, 
             context: context, 
@@ -70,7 +70,7 @@ extension Service.State
         case .package(let nationality): 
             let context:BidirectionalContext = .init(local: nationality,
                 version: query.version,
-                context: self.packages)
+                context: self.trees)
             let page:PackagePage = try .init(logo: logo, 
                 //documentation: query._objects,
                 searchable: _move searchable,
@@ -82,7 +82,7 @@ extension Service.State
         case .module(let module): 
             let context:BidirectionalContext = .init(local: module.nationality,
                 version: query.version,
-                context: self.packages)
+                context: self.trees)
             let page:ModulePage = try .init(module, logo: logo, 
                 documentation: query._objects,
                 searchable: _move searchable,
@@ -95,7 +95,7 @@ extension Service.State
         case .article(let article): 
             let context:BidirectionalContext = .init(local: article.nationality,
                 version: query.version,
-                context: self.packages)
+                context: self.trees)
             let page:ArticlePage = try .init(article, logo: logo, 
                 documentation: query._objects,
                 searchable: _move searchable,
@@ -108,12 +108,11 @@ extension Service.State
         case .symbol(let atomic):
             let context:BidirectionalContext = .init(local: atomic.nationality,
                 version: query.version,
-                context: self.packages)
+                context: self.trees)
             let page:SymbolPage = try .init(atomic, 
                 documentation: query._objects, 
                 searchable: _move searchable,
-                evolution: .init(for: atomic, local: context.local,
-                    context: self.packages, 
+                evolution: .init(for: atomic, local: context.local, context: self.trees, 
                     functions: cache.functions), 
                 context: context,
                 cache: &cache)
@@ -122,12 +121,11 @@ extension Service.State
         case .compound(let compound):
             let context:BidirectionalContext = .init(local: compound.nationality,
                 version: query.version,  
-                context: self.packages)
+                context: self.trees)
             let page:SymbolPage = try .init(compound, 
                 documentation: query._objects, 
                 searchable: _move searchable,
-                evolution: .init(for: compound, local: context.local,
-                    context: self.packages, 
+                evolution: .init(for: compound, local: context.local, context: self.trees, 
                     functions: cache.functions), 
                 context: context,
                 cache: &cache)
@@ -138,7 +136,7 @@ extension Service.State
     private 
     func _searchable() -> [String] 
     {
-        self.packages.map 
+        self.trees.map 
         {
             Address.init(.init(nil, residency: $0.id, version: nil), function: .lunr)
                 .uri(functions: self.functions.names)
@@ -182,20 +180,39 @@ extension Service.State
                         """
                         <!DOCTYPE html>
                         <html lang="en">
-                        <head>
-                        <meta charset="utf-8"/>
-                        <title>upload</title>
-                        </head>
-                        <body>
-                        <form action="/test" method="post" enctype="multipart/form-data">
-                        <p><input type="text" name="text1" value="text default">
-                        <p><input type="text" name="text2" value="a&#x03C9;b">
-                        <p><input type="file" name="file1">
-                        <p><input type="file" name="file2">
-                        <p><input type="file" name="file3">
-                        <p><button type="submit">Submit</button>
-                        </form>
-                        </body>
+                            <head>
+                                <meta charset="utf-8"/>
+                                <title>upload</title>
+                            </head>
+                            <body>
+                                <form action="/test" method="post" enctype="multipart/form-data">
+                                    <div>
+                                        <label for="branch">Branch</label>
+                                        <input type="text" name="branch" value="master">
+                                    </div>
+                                    <div>
+                                        <label for="fork">Fork (optional)</label>
+                                        <input type="text" name="fork">
+                                    </div>
+                                    <div>
+                                        <label for="date">Date</label>
+                                        <input type="text" name="date">
+                                    </div>
+                                    <div>
+                                        <label for="tag">Tag (optional)</label>
+                                        <input type="text" name="tag">
+                                    </div>
+                                    <div>
+                                        <label for="package-resolution">Package.resolved</label>
+                                        <input type="file" name="package-resolution">
+                                    </div>
+                                    <div>
+                                        <label for="symbolgraph">Symbolgraph</label>
+                                        <input type="file" name="symbolgraph">
+                                    </div>
+                                    <div><button type="submit">Upload</button></div>
+                                </form>
+                            </body>
                         </html>
                         """,
                         type: .html))
@@ -218,19 +235,19 @@ extension Service.State
         function:Service.CustomFunction, 
         link:__owned GlobalLink) -> GetRequest? 
     {
-        guard let residency:Package.Pinned = self.packages[function.nationality].latest()
+        guard let residency:Package.Pinned = self.trees[function.nationality].latest()
         else 
         {
             return nil 
         }
-        guard let namespace:Atom<Module>.Position = residency.modules.find(function.namespace)
+        guard let namespace:AtomicPosition<Module> = residency.modules.find(function.namespace)
         else 
         {
             return nil 
         }
         if  let key:_SymbolLink = try? .init(_move link), 
             let key:Route = self.stems[namespace.atom, straight: key], 
-            let article:Atom<Article>.Position = residency.articles.find(.init(key))
+            let article:AtomicPosition<Article> = residency.articles.find(.init(key))
         {
             return .init(request, residency: residency, namespace: namespace, article: article, 
                 functions: self.functions.names)
@@ -247,24 +264,24 @@ extension Service.State
     func get(_ request:URI, scheme:Scheme, link:__owned GlobalLink) -> GetRequest?
     {
         var link:GlobalLink = _move link
-        if  let residency:Package = link.descend(where: { self.packages[.init($0)] }) 
+        if  let residency:Package.Tree = link.descend(where: { self.trees[.init($0)] }) 
         {
             return self.get(request, scheme: scheme, explicit: _move residency, 
                 link: _move link)
         }
         return  
-            self.get(request, scheme: scheme, implicit: self.packages.swift, link: link) ?? 
-            self.get(request, scheme: scheme, implicit: self.packages.core,  link: link)
+            self.get(request, scheme: scheme, implicit: self.trees.swift, link: link) ?? 
+            self.get(request, scheme: scheme, implicit: self.trees.core,  link: link)
     }
     private 
-    func get(_ request:URI, scheme:Scheme, explicit:__owned Package, link:__owned GlobalLink) 
-        -> GetRequest?
+    func get(_ request:URI, scheme:Scheme, explicit:__owned Package.Tree, 
+        link:__owned GlobalLink) -> GetRequest?
     {
         try? self.get(request, scheme: scheme, residency: _move explicit, link: link)
     }
     private 
-    func get(_ request:URI, scheme:Scheme, implicit:__owned Package, link:__owned GlobalLink) 
-        -> GetRequest?
+    func get(_ request:URI, scheme:Scheme, implicit:__owned Package.Tree, 
+        link:__owned GlobalLink) -> GetRequest?
     {
         guard   let request:GetRequest = try? self.get(request, scheme: scheme, 
                     residency: _move implicit, 
@@ -284,15 +301,15 @@ extension Service.State
         }
     }
     private 
-    func get(_ request:URI, scheme:Scheme, residency:__owned Package, link:__owned GlobalLink) 
-        throws -> GetRequest?
+    func get(_ request:URI, scheme:Scheme, residency:__owned Package.Tree, 
+        link:__owned GlobalLink) throws -> GetRequest?
     {
         var link:GlobalLink = link
         let arrival:Version? = link.descend 
         {
-            Version.Selector.init(parsing: $0).flatMap(residency.tree.find(_:))
+            Version.Selector.init(parsing: $0).flatMap(residency.find(_:))
         } 
-        guard let arrival:Version = arrival ?? residency.tree.default 
+        guard let arrival:Version = arrival ?? residency.default 
         else 
         {
             return nil 
@@ -308,7 +325,7 @@ extension Service.State
         }
         //  we can store a module id in a ``Symbol/Link``, because every 
         //  ``Module/ID`` is a valid ``Symbol/Link/Component``.
-        guard let namespace:Atom<Module>.Position = residency.modules.find(.init(link.first))
+        guard let namespace:AtomicPosition<Module> = residency.modules.find(.init(link.first))
         else 
         {
             return nil
@@ -322,17 +339,17 @@ extension Service.State
         // doc scheme never uses nationality query parameter 
         if      case .doc = scheme, 
                 let key:Route = self.stems[namespace.atom, straight: link], 
-                let article:Atom<Article>.Position = residency.articles.find(.init(key))
+                let article:AtomicPosition<Article> = residency.articles.find(.init(key))
         {
             return .init(request, residency: residency, namespace: namespace, article: article, 
                 functions: self.functions.names)
         }
         else if let nationality:_SymbolLink.Nationality = link.nationality,
-                let package:Package = self.packages[nationality.id],
+                let tree:Package.Tree = self.trees[nationality.id],
                 let version:Version = 
-                    nationality.version.map(package.tree.find(_:)) ?? package.tree.default,
+                    nationality.version.map(tree.find(_:)) ?? tree.default,
                 let endpoint:GetRequest = self.get(request, scheme: scheme, 
-                    nationality: .init(_move package, version: version), 
+                    nationality: .init(_move tree, version: version), 
                     namespace: namespace.atom, 
                     link: link.disambiguated()) 
         {
@@ -349,7 +366,7 @@ extension Service.State
     private 
     func get(_ request:URI, scheme:Scheme, 
         nationality:__owned Package.Pinned, 
-        namespace:Atom<Module>,
+        namespace:Module,
         link:__owned _SymbolLink) -> GetRequest?
     {
         guard let key:Route = self.stems[namespace, link]
@@ -359,7 +376,7 @@ extension Service.State
         }
 
         // first class: select symbols that exist in the requested version of `nationality`
-        let context:DirectionalContext = .init(local: _move nationality, context: self.packages)
+        let context:DirectionalContext = .init(local: _move nationality, context: self.trees)
         if      let selection:Selection<Composite> = context.local.routes.select(key, 
                     where: context.local.exists(_:))
         {
@@ -388,7 +405,7 @@ extension Service.State
             case .one(let composite):
                 if  let version:Version = context.local.excavate(composite), 
                     let request:GetRequest = .init(request, extant: composite, 
-                        context: context.repinned(to: version, context: self.packages), 
+                        context: context.repinned(to: version, context: self.trees), 
                         functions: self.functions.names)
                 {
                     return request

@@ -1,26 +1,14 @@
+//import BiomeDatabase
 import DOM
 import PackageResolution
 import SymbolSource
 import SymbolGraphs
-import URI
 import Versions
-import WebSemantics
-
-protocol _Database:Sendable
-{
-    func loadSurface(for nationality:Packages.Index, version:Version) async throws -> Surface 
-
-    func storeSurface(_ surface:Surface, 
-        for nationality:Packages.Index, 
-        version:Version) async throws
-
-    func storeDocumentation(_ literature:PackageDocumentation) async throws
-}
 
 public 
 actor Service 
 {
-    var packages:Packages, 
+    var trees:Package.Trees, 
         stems:Route.Stems
 
     private
@@ -33,7 +21,7 @@ actor Service
     public
     init(logo:[UInt8])
     {
-        self.packages = .init()
+        self.trees = .init()
         self.stems = .init()
 
         self.functions = .init([:])
@@ -43,67 +31,27 @@ actor Service
 }
 extension Service
 {
-    private
     var state:State
     {
-        .init(packages: self.packages, stems: self.stems, 
+        .init(trees: self.trees, stems: self.stems, 
             functions: self.functions, 
             template: self.template, 
             logo: self.logo)
     }
 }
-extension Service:WebService
-{
-    @frozen public
-    struct Request:Sendable 
-    {
-        @frozen public
-        enum Method:Sendable
-        {
-            case get
-            case post([UInt8])
-        }
 
-        public
-        let uri:URI 
-        public
-        let method:Method
-
-        @inlinable public
-        init(_ method:Method, uri:URI)
-        {
-            self.method = method
-            self.uri = uri
-        }
-    }
-
-    public
-    func serve(_ request:Request) async throws -> WebResponse
-    {
-        switch request.method
-        {
-        case .get:
-            return self.state.get(request.uri)
-        
-        case .post(let bytes):
-            return .init(uri: request.uri.description, location: .none,
-                payload: .init("unimplemented."))
-        }
-    }
-}
 extension Service
 {
-    func enable(function namespace:ModuleIdentifier, 
-        nationality:Packages.Index, 
+    func enable(function namespace:ModuleIdentifier, nationality:Package, 
         template:DOM.Flattened<PageElement>? = nil) -> Bool 
     {
-        if  let position:Atom<Module>.Position = 
-                self.packages[nationality].latest()?.modules.find(namespace),
+        if  let position:AtomicPosition<Module> = 
+                self.trees[nationality].latest()?.modules.find(namespace),
                 self.functions.create(namespace, 
                     nationality: nationality, 
                     template: template ?? self.template)
         {
-            self.packages[nationality].tree[local: position].isFunction = true
+            self.trees[nationality][local: position].isFunction = true
             return true 
         }
         else 
@@ -118,7 +66,7 @@ extension Service
         date:Date, 
         tag:String? = nil,
         graph:__owned SymbolGraph, 
-        database:some _Database) async throws -> Packages.Index
+        database:Database) async throws -> Package
     {
         try Task.checkCancellation()
 
@@ -135,7 +83,7 @@ extension Service
 
         let fork:Version.Selector? = fork.flatMap(Version.Selector.init(parsing:))
 
-        let nationality:Packages.Index = self.packages.addPackage(graph.id)
+        let nationality:Package = self.trees.addPackage(graph.id)
 
         let impact:PackageImpact = try await self.updatePackage(nationality, 
             resolution: resolution, 
@@ -145,20 +93,20 @@ extension Service
             graph: _move graph, 
             database: database)
         
-        for (dependency, (pin, consumers)):(Packages.Index, (Version, Set<Atom<Module>>)) in 
+        for (dependency, (pin, consumers)):(Package, (Version, Set<Module>)) in 
             impact.dependencies
         {
             assert(dependency != nationality)
 
-            self.packages[dependency].tree[pin]
-                .consumers[nationality, default: [:]][impact.version] = consumers
+            self.trees[dependency][pin].consumers[nationality, default: [:]][impact.version] = 
+                consumers
         }
 
         return nationality
     }
 
     private  
-    func updatePackage<Database:_Database>(_ nationality:Packages.Index,
+    func updatePackage(_ nationality:Package,
         resolution:__owned PackageResolution, 
         commit:__owned Commit,
         branch:Tag, 
@@ -167,7 +115,7 @@ extension Service
         database:Database) async throws -> PackageImpact
     {
         let (branch, previous):(Version.Branch, Version?) = 
-            try self.packages[nationality].tree.branch(branch, from: fork)
+            try self.trees[nationality].branch(branch, from: fork)
 
         // we are going to mutate `self[package].tree[branch]`, so we must not 
         // capture that buffer or any slice of it!
@@ -188,15 +136,15 @@ extension Service
                 nationality: nationality,
                 branch: branch,
                 graph: graph,
-                packages: &self.packages)
+                trees: &self.trees)
             
             let interface:PackageInterface = .init(context: _move context, commit: _move commit, 
                 branch: branch,
                 graph: graph,
                 stems: &self.stems,
-                tree: &self.packages[nationality].tree)
+                tree: &self.trees[nationality])
             
-            self.packages[nationality].updateMetadata(interface: interface,
+            self.trees[nationality].updateMetadata(interface: interface,
                 branch: branch,
                 graph: graph,
                 stems: self.stems,
@@ -204,23 +152,23 @@ extension Service
             
             let documentation:PackageDocumentation = .init(interface: interface, 
                 graph: graph,
-                local: self.packages[nationality], 
+                local: self.trees[nationality], 
                 stems: stems)
             
             let surface:Surface = (_move api).surface()
             try await database.storeSurface(_move surface, for: nationality, version: interface.version)
             try await database.storeDocumentation(documentation)
 
-            self.packages[nationality].updateDocumentation(_move documentation, 
+            self.trees[nationality].updateDocumentation(_move documentation, 
                 interface: interface)
-            self.packages[nationality].updateData(_move graph,
+            self.trees[nationality].updateData(_move graph,
                 interface: interface)
             
             return .init(interface: _move interface)
         }
         catch let error
         {
-            self.packages[nationality].tree.revert(branch, to: previous)
+            self.trees[nationality].revert(branch, to: previous)
             throw error
         }
     }

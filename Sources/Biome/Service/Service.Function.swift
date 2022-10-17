@@ -29,7 +29,7 @@ extension Service
     }
     struct CustomFunction 
     {
-        let nationality:Packages.Index
+        let nationality:Package
         // store a module identifier instead of a position or atom, 
         // to make this more resilient against version editing
         let namespace:ModuleIdentifier
@@ -92,7 +92,7 @@ extension Service
 
         mutating 
         func create(_ namespace:ModuleIdentifier, 
-            nationality:Packages.Index, 
+            nationality:Package, 
             template:DOM.Flattened<PageElement>) -> Bool 
         {
             let key:CaselessString = .init(namespace) 

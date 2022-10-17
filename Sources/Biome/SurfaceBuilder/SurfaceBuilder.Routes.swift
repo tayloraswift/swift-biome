@@ -3,7 +3,7 @@ extension SurfaceBuilder
     struct AtomicRoutes:ExpressibleByArrayLiteral, RandomAccessCollection
     {
         private 
-        var elements:[(Route, Atom<Symbol>)]
+        var elements:[(Route, Symbol)]
 
         var startIndex:Int 
         {
@@ -15,17 +15,17 @@ extension SurfaceBuilder
         }
         subscript(index:Int) -> (Route, Composite)
         {
-            let (key, element):(Route, Atom<Symbol>) = self.elements[index]
+            let (key, element):(Route, Symbol) = self.elements[index]
             return (key, .init(atomic: element))
         }
 
-        init(arrayLiteral:(Route, Atom<Symbol>)...)
+        init(arrayLiteral:(Route, Symbol)...)
         {
             self.elements = arrayLiteral
         }
 
         mutating 
-        func append(_ route:Route, element:Atom<Symbol>)
+        func append(_ route:Route, element:Symbol)
         {
             self.elements.append((route, element))
         }
@@ -34,14 +34,14 @@ extension SurfaceBuilder
     {
         private 
         let diacritic:Diacritic, 
-            matrix:[(base:Atom<Symbol>, leaf:Route.Leaf)]
+            matrix:[(base:Symbol, leaf:Route.Leaf)]
         private 
-        let namespace:Atom<Module>, 
+        let namespace:Module, 
             prefix:Route.Stem 
 
-        init?(host:__shared Symbol, 
+        init?(host:__shared Symbol.Intrinsic, 
             diacritic:Diacritic, 
-            features:__shared [Atom<Symbol>: Version.Branch], 
+            features:__shared [Symbol: Version.Branch], 
             context:__shared Context)
         {
             guard let stem:Route.Stem = host.kind.path 
@@ -54,9 +54,9 @@ extension SurfaceBuilder
                 features: features, 
                 context: context)
         }
-        init?(_ namespace:Atom<Module>, _ prefix:Route.Stem,
+        init?(_ namespace:Module, _ prefix:Route.Stem,
             diacritic:Diacritic, 
-            features:__shared [Atom<Symbol>: Version.Branch], 
+            features:__shared [Symbol: Version.Branch], 
             context:__shared Context)
         {
             if features.isEmpty 
@@ -82,7 +82,7 @@ extension SurfaceBuilder
         }
         subscript(index:Int) -> (Route, Composite)
         {
-            let (base, leaf):(Atom<Symbol>, Route.Leaf) = self.matrix[index]
+            let (base, leaf):(Symbol, Route.Leaf) = self.matrix[index]
             let composite:Composite = .init(base, self.diacritic)
             let key:Route = .init(self.namespace, self.prefix, leaf) 
             return (key, composite)

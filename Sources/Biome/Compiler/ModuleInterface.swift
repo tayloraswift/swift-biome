@@ -2,7 +2,7 @@ import SymbolSource
 
 struct ModuleInterface 
 {
-    let articles:[Atom<Article>.Position?]
+    let articles:[AtomicPosition<Article>?]
     let symbols:SymbolPositions
     let context:ModuleUpdateContext
 
@@ -12,7 +12,7 @@ struct ModuleInterface
 
     init(context:ModuleUpdateContext, 
         _extensions:[Extension],
-        articles:[Atom<Article>.Position?],
+        articles:[AtomicPosition<Article>?],
         symbols:SymbolPositions)
     {
         self.context = context
@@ -26,11 +26,11 @@ struct ModuleInterface
         self.symbols.citizens(culture: self.culture)
     }
     
-    var nationality:Packages.Index
+    var nationality:Package
     {
         self.context.nationality
     }
-    var culture:Atom<Module> 
+    var culture:Module 
     {
         self.context.culture 
     }

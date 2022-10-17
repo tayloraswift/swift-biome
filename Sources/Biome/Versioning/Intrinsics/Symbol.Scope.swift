@@ -3,10 +3,10 @@ extension Symbol
     // should have stride of 16 B, as well as `Scope?` and `Scope??`
     enum Scope:Sendable
     {
-        case member(of:Atom<Symbol>.Position)
-        case requirement(of:Atom<Symbol>.Position)
+        case member(of:AtomicPosition<Symbol>)
+        case requirement(of:AtomicPosition<Symbol>)
         
-        var role:Role<Atom<Symbol>.Position>
+        var role:SurfaceBuilder.Role<AtomicPosition<Symbol>>
         {
             switch self 
             {
@@ -14,7 +14,7 @@ extension Symbol
             case .requirement(of: let target):  return .requirement(of: target)
             }
         }
-        var target:Atom<Symbol>.Position 
+        var target:AtomicPosition<Symbol> 
         {
             switch self 
             {

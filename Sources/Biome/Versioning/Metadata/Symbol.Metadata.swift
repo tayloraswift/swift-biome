@@ -4,11 +4,11 @@ extension Symbol
     {
         let roles:Branch.SymbolRoles?
         var primary:Branch.SymbolTraits
-        var accepted:[Atom<Module>: Branch.SymbolTraits] 
+        var accepted:[Module: Branch.SymbolTraits] 
 
         init(roles:Branch.SymbolRoles?,
             primary:Branch.SymbolTraits,
-            accepted:[Atom<Module>: Branch.SymbolTraits] = [:])
+            accepted:[Module: Branch.SymbolTraits] = [:])
         {
             self.roles = roles
             self.primary = primary

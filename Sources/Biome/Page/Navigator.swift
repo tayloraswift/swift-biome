@@ -11,7 +11,7 @@ struct Navigator
     {
         self.nationality = .init(local, functions: functions)
         self.searchable = searchable
-        self.brand = local.package.settings.brand
+        self.brand = local.tree.settings.brand
     }
 }
 

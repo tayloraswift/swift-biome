@@ -79,7 +79,7 @@ extension SymbolPage
 }
 extension SymbolPage.Names 
 {
-    init(_ symbol:Atom<Symbol>.Position, base:SymbolReference, 
+    init(_ symbol:AtomicPosition<Symbol>, base:SymbolReference, 
         context:__shared some AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
@@ -94,7 +94,7 @@ extension SymbolPage.Names
             context: context, 
             cache: &cache)
     }
-    init(_ compound:Compound.Position, base:SymbolReference, 
+    init(_ compound:CompoundPosition, base:SymbolReference, 
         context:__shared some AnisotropicContext, 
         cache:inout ReferenceCache) throws 
     {
@@ -130,7 +130,7 @@ struct SymbolPage
     let overview:[UInt8]?
     let discussion:[UInt8]?
 
-    init(_ symbol:Atom<Symbol>.Position, 
+    init(_ symbol:AtomicPosition<Symbol>, 
         documentation:__shared DocumentationExtension<Never>, 
         searchable:[String],
         evolution:Evolution,
@@ -139,7 +139,7 @@ struct SymbolPage
     {
         assert(context.local.nationality == symbol.nationality)
 
-        guard   let declaration:Declaration<Atom<Symbol>> = 
+        guard   let declaration:Declaration<Symbol> = 
                     context.local.declaration(for: symbol.atom)
         else 
         {
@@ -160,7 +160,7 @@ struct SymbolPage
             context: context, 
             cache: &cache)
     }
-    init(_ compound:Compound.Position, 
+    init(_ compound:CompoundPosition, 
         documentation:__shared DocumentationExtension<Never>, 
         searchable:[String],
         evolution:Evolution,
@@ -169,7 +169,7 @@ struct SymbolPage
     {
         assert(context.local.nationality == compound.nationality)
 
-        guard   let declaration:Declaration<Atom<Symbol>> = 
+        guard   let declaration:Declaration<Symbol> = 
                     context[compound.base.nationality]?.declaration(for: compound.atoms.base)
         else 
         {
@@ -190,7 +190,7 @@ struct SymbolPage
             cache: &cache)
     }
     init(documentation:__shared DocumentationExtension<Never>, 
-        declaration:Declaration<Atom<Symbol>>,
+        declaration:Declaration<Symbol>,
         searchable:[String],
         evolution:Evolution, 
         topics:Organizer.Topics, 

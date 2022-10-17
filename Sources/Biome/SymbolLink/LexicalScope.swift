@@ -1,14 +1,14 @@
 struct LexicalScope 
 {
-    let namespace:Atom<Module>
+    let namespace:Module
     let path:[String]
 
-    init(_ namespace:Atom<Module>, _ path:[String] = [])
+    init(_ namespace:Module, _ path:[String] = [])
     {
         self.namespace = namespace 
         self.path = path
     }
-    init(_ symbol:__shared Symbol)
+    init(_ symbol:__shared Symbol.Intrinsic)
     {
         switch symbol.orientation 
         {

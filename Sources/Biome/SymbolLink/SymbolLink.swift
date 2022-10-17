@@ -178,10 +178,10 @@ struct _SymbolLink:RandomAccessCollection
         // components in a synthetic composite.
         func matches(_ composite:Composite, context:some PackageContext) -> Bool 
         {
-            if  let host:Atom<Symbol> = composite.host
+            if  let host:Symbol = composite.host
             {
                 if  let id:SymbolIdentifier = self.host, 
-                    let host:Symbol = context.load(host), 
+                    let host:Symbol.Intrinsic = context.load(host), 
                         host.id != id 
                 {
                     return false 
@@ -196,7 +196,7 @@ struct _SymbolLink:RandomAccessCollection
                 }
             }
             if  let id:SymbolIdentifier = self.base, 
-                let base:Symbol = context.load(composite.base)
+                let base:Symbol.Intrinsic = context.load(composite.base)
             {
                 return base.id == id 
             }

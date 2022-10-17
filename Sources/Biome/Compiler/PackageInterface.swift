@@ -8,13 +8,13 @@ struct PackageInterface
     private
     var cultures:[BasisElement]
     private
-    var symbols:[Atom<Symbol>.Position?]
+    var symbols:[AtomicPosition<Symbol>?]
 
     init(context:PackageUpdateContext, commit:Commit,
         branch:Version.Branch, 
         graph:__shared SymbolGraph,
         stems:inout Route.Stems,
-        tree:inout Tree)
+        tree:inout Package.Tree)
     {
         self.cultures = []
         self.cultures.reserveCapacity(graph.cultures.count)
@@ -27,12 +27,12 @@ struct PackageInterface
         for (culture, context):(SymbolGraph.Culture, ModuleUpdateContext) in 
             zip(graph.cultures, context)
         {
-            let visible:Set<Atom<Module>> = context.namespaces.import()
-            let (articles, _extensions):([Atom<Article>.Position?], [Extension]) = tree[branch].addExtensions(from: culture, 
+            let visible:Set<Module> = context.namespaces.import()
+            let (articles, _extensions):([AtomicPosition<Article>?], [Extension]) = tree[branch].addExtensions(from: culture, 
                 namespace: context.module, 
                 trunk: context.local.articles, 
                 stems: &stems)
-            let symbols:[Atom<Symbol>.Position?] = tree[branch].addSymbols(from: culture, 
+            let symbols:[AtomicPosition<Symbol>?] = tree[branch].addSymbols(from: culture, 
                 visible: visible,
                 context: context,
                 stems: &stems)
@@ -53,12 +53,12 @@ struct PackageInterface
             zip(graph.identifiers.external, context)
         {
             // not worth caching this
-            let visible:Set<Atom<Module>> = context.namespaces.import()
+            let visible:Set<Module> = context.namespaces.import()
             self.symbols.append(contentsOf: cohort.lazy.map
             {
                 for upstream:Package.Pinned in context.upstream.values 
                 {
-                    if  let upstream:Atom<Symbol>.Position = upstream.symbols.find($0), 
+                    if  let upstream:AtomicPosition<Symbol> = upstream.symbols.find($0), 
                             visible.contains(upstream.culture)
                     {
                         return upstream
@@ -111,16 +111,16 @@ extension PackageInterface
     struct BasisElement
     {
         let namespaces:Namespaces
-        let upstream:[Packages.Index: Package.Pinned]
+        let upstream:[Package: Package.Pinned]
 
-        let articles:[Atom<Article>.Position?]
+        let articles:[AtomicPosition<Article>?]
         let symbols:Range<Int>
 
         // this does not belong here! once AOT article rendering lands in the `SymbolGraphs` module, 
         // we can get rid of it
         let _cachedMarkdown:[Extension]
 
-        init(articles:[Atom<Article>.Position?], symbols:Range<Int>, 
+        init(articles:[AtomicPosition<Article>?], symbols:Range<Int>, 
             _cachedMarkdown:[Extension],
             context:__shared ModuleUpdateContext)
         {

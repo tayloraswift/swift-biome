@@ -13,12 +13,12 @@ extension Branch
         let token:UInt 
         
         var alternates:Set<Version.Branch>
-        var consumers:[Packages.Index: [Version: Set<Atom<Module>>]]
+        var consumers:[Package: [Version: Set<Module>]]
         let commit:Commit
         let ring:Ring
-        let pins:[Packages.Index: Version]
+        let pins:[Package: Version]
 
-        init(commit:Commit, token:UInt, ring:Ring, pins:[Packages.Index: Version])
+        init(commit:Commit, token:UInt, ring:Ring, pins:[Package: Version])
         {
 
             self.alternates = []

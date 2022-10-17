@@ -141,7 +141,7 @@ extension Dictionary where Key == Shape
 
 extension Organizer.Topics 
 {
-    init(for module:Atom<Module>, 
+    init(for module:Module, 
         context:__shared some AnisotropicContext,
         cache:inout ReferenceCache) throws
     {
@@ -150,12 +150,12 @@ extension Organizer.Topics
         {
             throw History.MetadataLoadingError.module
         }
-        guard let articles:Set<Atom<Article>> = context.local.topLevelArticles(of: module) 
+        guard let articles:Set<Article> = context.local.topLevelArticles(of: module) 
         else 
         {
             throw History.DataLoadingError.topLevelArticles
         }
-        guard let symbols:Set<Atom<Symbol>> = context.local.topLevelSymbols(of: module)
+        guard let symbols:Set<Symbol> = context.local.topLevelSymbols(of: module)
         else 
         {
             throw History.DataLoadingError.topLevelSymbols
@@ -175,7 +175,7 @@ extension Organizer.Topics
         self.init(_move organizer)
     }
     
-    init(for atomic:Atom<Symbol>, 
+    init(for atomic:Symbol, 
         base:__shared SymbolReference,
         context:__shared BidirectionalContext,
         cache:inout ReferenceCache) throws
@@ -193,7 +193,7 @@ extension Organizer.Topics
             context: context,
             cache: &cache)
         
-        for (culture, accepted):(Atom<Module>, Branch.SymbolTraits) in metadata.accepted 
+        for (culture, accepted):(Module, Branch.SymbolTraits) in metadata.accepted 
         {
             try organizer.organize(accepted, of: base, 
                 diacritic: .init(host: atomic, culture: culture), 
@@ -203,7 +203,7 @@ extension Organizer.Topics
         }
         for consumer:BidirectionalContext.Consumer in context.consumers
         {
-            for culture:Atom<Module> in consumer.modules 
+            for culture:Module in consumer.modules 
             {
                 assert(culture.nationality == consumer.nationality)
 
