@@ -177,7 +177,7 @@ extension Resolver
             // we *could* support re-slicing a pinned package to a version that 
             // is an ancestor of the current (branch, revision) tuple. 
             // but currently, we do not.
-            if  let version:Version.Selector = nationality.version, 
+            if  let version:VersionSelector = nationality.version, 
                 let version:Version = local.tree.find(version), 
                     version != local.version
             {

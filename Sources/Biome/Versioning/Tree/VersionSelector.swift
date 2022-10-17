@@ -1,14 +1,11 @@
 import Versions 
 
-extension Version 
+enum VersionSelector 
 {
-    enum Selector 
-    {
-        case tag(Tag)
-        case date(Tag?, Date)
-    }
+    case tag(Tag)
+    case date(Tag?, Date)
 }
-extension Version.Selector 
+extension VersionSelector 
 {
     init?(parsing string:some StringProtocol)
     {
@@ -38,7 +35,7 @@ extension Version.Selector
         }
     }
 }
-extension Version.Selector:CustomStringConvertible 
+extension VersionSelector:CustomStringConvertible 
 {
     var description:String
     {

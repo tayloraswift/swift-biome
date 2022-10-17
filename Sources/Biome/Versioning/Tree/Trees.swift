@@ -146,9 +146,9 @@ extension Trees
     /// 
     /// This method will only create package descriptors if `fork` is [`nil`]().
     // private mutating 
-    // func add(package id:PackageIdentifier, fork:Version.Selector?) -> (Index, Version?)
+    // func add(package id:PackageIdentifier, fork:VersionSelector?) -> (Index, Version?)
     // {
-    //     if  let fork:Version.Selector 
+    //     if  let fork:VersionSelector 
     //     {
     //         guard   let package:Index = self.index[id], 
     //                 let fork:Version = self[package].tree.find(fork)

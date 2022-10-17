@@ -5,7 +5,7 @@ struct Evolution
 {
     struct Item
     {
-        let label:Version.Selector 
+        let label:VersionSelector 
         let uri:String?
     }
 
@@ -44,7 +44,7 @@ struct Evolution
                 }
                 if  let address:Address = try address(local)
                 {
-                    let label:Version.Selector = local.selector ?? .tag(branch.id)
+                    let label:VersionSelector = local.selector ?? .tag(branch.id)
                     let uri:String = address.uri(functions: functions).description
                     self.items.append(.init(label: label, uri: uri))
                     

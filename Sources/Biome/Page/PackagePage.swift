@@ -5,7 +5,7 @@ struct PackagePage
 {
     struct Trade 
     {
-        let partners:[(package:PackageReference, version:Version.Selector)]
+        let partners:[(package:PackageReference, version:VersionSelector)]
 
         init(_ pinned:__shared some Sequence<Tree.Pinned>, 
             functions:__shared Service.PublicFunctionNames)

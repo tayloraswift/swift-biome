@@ -4,9 +4,9 @@ import Versions
 
 struct VersionNotFoundError:Error 
 {
-    let selector:Version.Selector
+    let selector:VersionSelector
 
-    init(_ selector:Version.Selector)
+    init(_ selector:VersionSelector)
     {
         self.selector = selector
     }
@@ -144,7 +144,7 @@ extension Tree
     /// If the selector specifies a date, the tag component (if present) is 
     /// assumed to point to a branch. If no tag component is specified, 
     /// the default branch is used.
-    func find(_ selector:Version.Selector) -> Version? 
+    func find(_ selector:VersionSelector) -> Version? 
     {
         switch selector 
         {
@@ -195,7 +195,7 @@ extension Tree
     ///         is the default branch; otherwise 
     /// 
     ///     -   The branch name and date of the revision pointed to by `version`.
-    func abbreviate(_ version:Version) -> Version.Selector?
+    func abbreviate(_ version:Version) -> VersionSelector?
     {
         let branch:Branch = self[version.branch]
         let revision:Branch.Revision = branch.revisions[version.revision]
@@ -224,7 +224,7 @@ extension Tree
 extension Tree 
 {
     mutating 
-    func branch(_ name:Branch.ID, from fork:Version.Selector?) 
+    func branch(_ name:Branch.ID, from fork:VersionSelector?) 
         throws -> (branch:Version.Branch, previous:Version?)
     {
         if  let branch:Version.Branch = self.branches[name]
@@ -235,7 +235,7 @@ extension Tree
 
         let branch:Version.Branch = self.endIndex
 
-        guard let fork:Version.Selector
+        guard let fork:VersionSelector
         else 
         {
             // creating a new branch

@@ -31,7 +31,7 @@ extension Tree
         {
             self.tree[self.version]
         }
-        var selector:Version.Selector?
+        var selector:VersionSelector?
         {
             self.tree.abbreviate(self.version)
         }

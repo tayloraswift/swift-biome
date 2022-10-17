@@ -81,7 +81,7 @@ extension Service
             fatalError("branch name cannot be empty")
         }
 
-        let fork:Version.Selector? = fork.flatMap(Version.Selector.init(parsing:))
+        let fork:VersionSelector? = fork.flatMap(VersionSelector.init(parsing:))
 
         let nationality:Package = self.trees.addPackage(graph.id)
 
@@ -110,7 +110,7 @@ extension Service
         resolution:__owned PackageResolution, 
         commit:__owned Commit,
         branch:Tag, 
-        fork:Version.Selector?,
+        fork:VersionSelector?,
         graph:__owned SymbolGraph,
         database:Database) async throws -> PackageImpact
     {

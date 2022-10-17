@@ -307,7 +307,7 @@ extension Service.State
         var link:GlobalLink = link
         let arrival:Version? = link.descend 
         {
-            Version.Selector.init(parsing: $0).flatMap(residency.find(_:))
+            VersionSelector.init(parsing: $0).flatMap(residency.find(_:))
         } 
         guard let arrival:Version = arrival ?? residency.default 
         else 

@@ -22,10 +22,10 @@ struct Address
     struct Global
     {
         var residency:PackageIdentifier?
-        var version:Version.Selector?
+        var version:VersionSelector?
         var local:Local?
 
-        init(_ local:Local?, residency:PackageIdentifier?, version:Version.Selector?)
+        init(_ local:Local?, residency:PackageIdentifier?, version:VersionSelector?)
         {
             self.residency = residency
             self.version = version
@@ -130,7 +130,7 @@ extension Address
             {
                 uri.path.append(component: residency.string)
             }
-            if let version:Version.Selector = self.global.version 
+            if let version:VersionSelector = self.global.version 
             {
                 uri.path.append(component: version.description)
             }
@@ -158,7 +158,7 @@ extension Address
                 if let nationality:_SymbolLink.Nationality = symbolic.nationality
                 {
                     let value:String 
-                    if let version:Version.Selector = nationality.version 
+                    if let version:VersionSelector = nationality.version 
                     {
                         value = "\(nationality.id.string)/\(version.description)"
                     }

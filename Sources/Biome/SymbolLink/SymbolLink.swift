@@ -209,7 +209,7 @@ struct _SymbolLink:RandomAccessCollection
     struct Nationality 
     {
         let id:PackageIdentifier 
-        let version:Version.Selector?
+        let version:VersionSelector?
     }
 
     enum Orientation:Unicode.Scalar
