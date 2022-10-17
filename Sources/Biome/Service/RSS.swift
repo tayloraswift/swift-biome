@@ -7,7 +7,7 @@ extension Service
     func generateRssFeed(for module:Module, domain:String) -> [RSS.Element<Never>] 
     {
         fatalError("unimplemented")
-        // let pinned:Package.Pinned = self[module.package].pinned()
+        // let pinned:Tree.Pinned = self[module.package].pinned()
         // return pinned.package[local: module].articles.joined().map
         // {
         //     let excerpt:Article.Excerpt = pinned.excerpt($0)

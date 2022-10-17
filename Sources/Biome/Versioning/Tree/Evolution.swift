@@ -19,9 +19,9 @@ struct Evolution
         newer:Newer?
 
     private 
-    init(local:__shared Package.Pinned,
+    init(local:__shared Tree.Pinned,
         functions:__shared Service.PublicFunctionNames, 
-        address:(Package.Pinned) throws -> Address?) rethrows 
+        address:(Tree.Pinned) throws -> Address?) rethrows 
     {
         self.items = []
         self.newer = nil
@@ -32,7 +32,7 @@ struct Evolution
             let detail:Int = branch.index == local.version.branch ? 8 : 1
             try local.repinned(to: branch.revisions.indices.suffix(detail), of: branch)
             {
-                (local:Package.Pinned) in 
+                (local:Tree.Pinned) in 
 
                 guard local.version != current 
                 else 
@@ -70,14 +70,14 @@ struct Evolution
 // vended.
 extension Evolution
 {
-    init(local:__shared Package.Pinned, 
+    init(local:__shared Tree.Pinned, 
         functions:__shared Service.PublicFunctionNames)
     {
         self.init(local: local, functions: functions, address: Address.init(residency:))
     }
     
     init(for module:AtomicPosition<Module>, 
-        local:__shared Package.Pinned, 
+        local:__shared Tree.Pinned, 
         functions:__shared Service.PublicFunctionNames)
     {
         assert(local.nationality == module.nationality)
@@ -98,7 +98,7 @@ extension Evolution
         }
     }
     init(for article:AtomicPosition<Article>, 
-        local:__shared Package.Pinned, 
+        local:__shared Tree.Pinned, 
         functions:__shared Service.PublicFunctionNames)
     {
         assert(local.nationality == article.nationality)
@@ -123,8 +123,8 @@ extension Evolution
         }
     }
     init(for symbol:AtomicPosition<Symbol>, 
-        local:__shared Package.Pinned, 
-        context:__shared Package.Trees, 
+        local:__shared Tree.Pinned, 
+        context:__shared Trees, 
         functions:__shared Service.PublicFunctionNames)
     {
         assert(local.nationality == symbol.nationality)
@@ -153,8 +153,8 @@ extension Evolution
         }
     }
     init(for compound:CompoundPosition, 
-        local:__shared Package.Pinned,
-        context:__shared Package.Trees,
+        local:__shared Tree.Pinned,
+        context:__shared Trees,
         functions:__shared Service.PublicFunctionNames)
     {
         assert(local.nationality == compound.nationality)

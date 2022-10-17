@@ -10,18 +10,18 @@ struct Resolver
 {
     // these exists to make lookups/iteration easier
     private 
-    let linked:[PackageIdentifier: Package.Pinned]
+    let linked:[PackageIdentifier: Tree.Pinned]
     let context:DirectionalContext
     let namespaces:Namespaces
 
-    init(local:Package.Pinned, context:__shared ModuleUpdateContext)
+    init(local:Tree.Pinned, context:__shared ModuleUpdateContext)
     {
         //let context:DirectionalContext = .init(local: _move local, upstream: context.upstream)
-        var linked:[PackageIdentifier: Package.Pinned] = [:]
+        var linked:[PackageIdentifier: Tree.Pinned] = [:]
 
         linked.reserveCapacity(context.upstream.count + 1)
         linked[local.tree.id] = local 
-        for upstream:Package.Pinned in context.upstream.values 
+        for upstream:Tree.Pinned in context.upstream.values 
         {
             linked[upstream.tree.id] = upstream
         }
@@ -31,7 +31,7 @@ struct Resolver
         self.linked = linked
     }
 
-    var local:Package.Pinned 
+    var local:Tree.Pinned 
     {
         self.context.local
     }
@@ -44,7 +44,7 @@ extension Resolver
     {
         var selection:Selection<Composite>? = nil 
 
-        func inspect(_ lens:Package.Pinned)
+        func inspect(_ lens:Tree.Pinned)
         {
             lens.routes.query(key)
             {
@@ -58,7 +58,7 @@ extension Resolver
         }
 
         inspect(self.local)
-        for lens:Package.Pinned in self.context.foreign.values
+        for lens:Tree.Pinned in self.context.foreign.values
         {
             inspect(lens)
         }
@@ -110,7 +110,7 @@ extension Resolver
                     // '//swift-foo/foomodule/footype.foomember(_:)'.
                     guard   let residency:PackageIdentifier = 
                                 link.descend().map(PackageIdentifier.init(_:)),
-                            let residency:Package.Pinned = self.linked[residency]
+                            let residency:Tree.Pinned = self.linked[residency]
                     else 
                     {
                         throw _SymbolLink.ResolutionProblem.residency
@@ -169,7 +169,7 @@ extension Resolver
         let resolution:_SymbolLink.Resolution?
         if  let nationality:_SymbolLink.Nationality = link.nationality
         {
-            guard let local:Package.Pinned = self.linked[nationality.id]
+            guard let local:Tree.Pinned = self.linked[nationality.id]
             else 
             {
                 throw _SymbolLink.ResolutionProblem.nationality
@@ -217,7 +217,7 @@ extension Resolver
         if  let path:_SymbolLink = link.suffix,
             let namespace:AtomicPosition<Module> = self.namespaces.linked[.init(link.first)], 
                 imports.contains(namespace.atom), 
-            let pinned:Package.Pinned = self.context[namespace.nationality],
+            let pinned:Tree.Pinned = self.context[namespace.nationality],
             let article:Route = stems[namespace.atom, straight: path], 
             let article:AtomicPosition<Article> = pinned.articles.find(.init(article))
         {

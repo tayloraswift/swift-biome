@@ -11,60 +11,58 @@ struct VersionNotFoundError:Error
         self.selector = selector
     }
 }
-extension Package
+
+struct Tree:Sendable
 {
-    struct Tree:Sendable
+    let id:PackageIdentifier
+    let nationality:Package
+    private 
+    var storage:[Branch]
+    private(set)
+    var branches:[Branch.ID: Version.Branch]
+    private
+    var tags:[Tag: Version]
+    private 
+    var counter:UInt
+    var settings:Settings 
+
+    init(id:PackageIdentifier, nationality:Package)
     {
-        let id:PackageIdentifier
-        let nationality:Package
-        private 
-        var storage:[Branch]
-        private(set)
-        var branches:[Branch.ID: Version.Branch]
-        private
-        var tags:[Tag: Version]
-        private 
-        var counter:UInt
-        var settings:Settings 
+        self.id = id 
 
-        init(id:PackageIdentifier, nationality:Package)
+        self.nationality = nationality 
+        self.storage = []
+        self.branches = [:]
+        self.tags = [:]
+        self.counter = 0
+
+        switch id 
         {
-            self.id = id 
-
-            self.nationality = nationality 
-            self.storage = []
-            self.branches = [:]
-            self.tags = [:]
-            self.counter = 0
-
-            switch id 
-            {
-            case .swift, .core: 
-                self.settings = .init(brand: "Swift")
-            case .community(_):
-                self.settings = .init()
-            }
-        }
-
-        var `default`:Version? 
-        {
-            nil
+        case .swift, .core: 
+            self.settings = .init(brand: "Swift")
+        case .community(_):
+            self.settings = .init()
         }
     }
+
+    var `default`:Version? 
+    {
+        nil
+    }
 }
-extension Package.Tree
+extension Tree
 {
     var name:String 
     {
         self.id.string
     }
 
-    func latest() -> Package.Pinned?
+    func latest() -> Pinned?
     {
         self.default.map { .init(self, version: $0) }
     }
 }
-extension Package.Tree:RandomAccessCollection
+extension Tree:RandomAccessCollection
 {
     var startIndex:Version.Branch 
     {
@@ -90,7 +88,7 @@ extension Package.Tree:RandomAccessCollection
         }
     }
 }
-extension Package.Tree 
+extension Tree 
 {
     subscript(version:Version) -> Branch.Revision
     {
@@ -104,7 +102,7 @@ extension Package.Tree
         }
     }
 }
-extension Package.Tree 
+extension Tree 
 {
     func root(of branch:Version.Branch) -> Branch 
     {
@@ -139,7 +137,7 @@ extension Package.Tree
         return .init(fasces)
     }
 }
-extension Package.Tree 
+extension Tree 
 {
     /// Returns the version pointed to by the given version selector, if it exists. 
     /// 
@@ -223,7 +221,7 @@ extension Package.Tree
         }
     }
 }
-extension Package.Tree 
+extension Tree 
 {
     mutating 
     func branch(_ name:Branch.ID, from fork:Version.Selector?) 
@@ -284,7 +282,7 @@ extension Package.Tree
     }
 }
 
-extension Package.Tree 
+extension Tree 
 {
     subscript(local article:AtomicPosition<Article>) -> Article.Intrinsic
     {
@@ -334,7 +332,7 @@ extension Package.Tree
     }
 }
 
-extension Package.Tree
+extension Tree
 {
     mutating 
     func updateMetadata(interface:PackageInterface, 

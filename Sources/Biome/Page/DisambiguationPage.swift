@@ -37,7 +37,7 @@ struct DisambiguationPage
             let id:Organizer.Culture = .accepted(try cache.load($0.key, context: context))
             let cards:[(SymbolCard, Organizer.SortingKey)] = try $0.value.map 
             {
-                guard   let base:Package.Pinned = context[$0.base.nationality],
+                guard   let base:Tree.Pinned = context[$0.base.nationality],
                         let declaration:Declaration<Symbol> = 
                             base.declaration(for: $0.base)
                 else 

@@ -13,7 +13,7 @@ extension Service
     func generateSearchIndex(for package:Package) -> WebResponse.Payload
     {
         fatalError("unimplemented")
-        // let current:Package.Pinned = self[package].pinned()
+        // let current:Tree.Pinned = self[package].pinned()
         // let modules:[JSON] = current.package.modules.all.map 
         // {
         //     var types:[JSON] = []
@@ -69,7 +69,7 @@ extension Service
     {
         fatalError("unimplemented")
         // let domain:String.UTF8View = "https://swiftinit.org".utf8
-        // let current:Package.Pinned = self[package].pinned()
+        // let current:Tree.Pinned = self[package].pinned()
         // // only include natural symbols in a sitemap, since google is likely to 
         // // consider the synthesized ones non-canonical
         // var sitemap:[UInt8] = []

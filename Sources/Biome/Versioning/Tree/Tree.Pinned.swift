@@ -2,29 +2,23 @@ import SymbolGraphs
 import SymbolSource
 import URI
 
-extension Package 
+extension Tree 
 {
     struct Pinned:Sendable 
     {
-        @available(*, deprecated, renamed: "tree")
-        var package:Package.Tree
-        {
-            self.tree
-        }
-
-        let tree:Package.Tree
+        let tree:Tree
         let version:Version
         private 
         let fasces:Fasces 
         
         private 
-        init(_ tree:Package.Tree, version:Version, fasces:Fasces)
+        init(_ tree:Tree, version:Version, fasces:Fasces)
         {
             self.tree = tree
             self.version = version
             self.fasces = fasces
         }
-        init(_ tree:Package.Tree, version:Version)
+        init(_ tree:Tree, version:Version)
         {
             self.init(tree, version: version, fasces: tree.fasces(through: version))
         }
@@ -81,7 +75,7 @@ extension Package
     }
 }
 
-extension Package.Pinned 
+extension Tree.Pinned 
 {
     func repinned(to version:Version) -> Self 
     {
@@ -109,7 +103,7 @@ extension Package.Pinned
         }
     }
 }
-extension Package.Pinned 
+extension Tree.Pinned 
 {
     func load(local article:Article) -> Article.Intrinsic?
     {
@@ -148,7 +142,7 @@ extension Package.Pinned
         }
     }
 }
-extension Package.Pinned 
+extension Tree.Pinned 
 {
     func metadata(local article:Article) -> Article.Metadata?
     {
@@ -167,7 +161,7 @@ extension Package.Pinned
         self.fasces.metadata.overlays.value(of: .metadata(of: diacritic)) ?? nil
     }
 }
-extension Package.Pinned 
+extension Tree.Pinned 
 {
     func exists(_ module:Module) -> Bool
     {
@@ -198,7 +192,7 @@ extension Package.Pinned
                 .contains(feature: compound.base) ?? false
     }
 }
-extension Package.Pinned 
+extension Tree.Pinned 
 {
     func excavate(_ module:Module) -> Version? 
     {
@@ -240,7 +234,7 @@ extension Package.Pinned
     }
 }
 
-extension Package.Pinned 
+extension Tree.Pinned 
 {
     func resolve(_ link:_SymbolLink, scope:LexicalScope?, stems:Route.Stems, 
         where predicate:(Composite) throws -> Bool) 
@@ -301,7 +295,7 @@ extension Package.Pinned
     }
 }
 
-extension Package.Pinned 
+extension Tree.Pinned 
 {
     func documentation() -> DocumentationExtension<Never>?
     {
@@ -342,7 +336,7 @@ extension Package.Pinned
     }
 }
 
-extension Package.Pinned 
+extension Tree.Pinned 
 {
     /// Returns the address of the specified composite, if all of its components 
     /// are defined in the provided context.
@@ -489,7 +483,7 @@ extension Branch
         case host 
     }
 }
-extension Package.Pinned 
+extension Tree.Pinned 
 {
     private 
     func depth(of route:Route, atomic:Symbol) -> Branch.AtomicDepth?

@@ -1,6 +1,6 @@
 import SymbolSource 
 
-extension Package 
+extension Tree 
 {
     struct Settings 
     {

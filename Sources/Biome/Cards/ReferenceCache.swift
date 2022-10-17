@@ -24,7 +24,7 @@ struct PackageReference
         self.uri = uri
     }
 
-    init(_ pinned:__shared Package.Pinned, functions:__shared Service.PublicFunctionNames)
+    init(_ pinned:__shared Tree.Pinned, functions:__shared Service.PublicFunctionNames)
     {
         self.name = pinned.tree.id 
         self.uri = Address.init(residency: pinned).uri(functions: functions).description
@@ -175,7 +175,7 @@ extension ReferenceCache
         {
             return cached
         }
-        if  let pinned:Package.Pinned = context[key.nationality]
+        if  let pinned:Tree.Pinned = context[key.nationality]
         {
             let symbol:Symbol.Intrinsic = pinned.tree[local: key]
             if  let address:Address = pinned.address(of: key.atom, symbol: symbol, 
@@ -193,7 +193,7 @@ extension ReferenceCache
         {
             return cached
         }
-        if  let pinned:Package.Pinned = context[key.nationality],
+        if  let pinned:Tree.Pinned = context[key.nationality],
             let symbol:Symbol.Intrinsic = pinned.load(local: key), 
             let address:Address = pinned.address(of: key, symbol: symbol, 
                     context: context)
@@ -215,7 +215,7 @@ extension ReferenceCache
         {
             return cached
         }
-        if  let pinned:Package.Pinned = context[key.nationality]
+        if  let pinned:Tree.Pinned = context[key.nationality]
         {
             let module:Module.Intrinsic = pinned.tree[local: key]
             return self.miss(key.atom, module: module, address: .init(residency: pinned,
@@ -233,7 +233,7 @@ extension ReferenceCache
         {
             return cached
         }
-        if  let pinned:Package.Pinned = context[key.nationality],
+        if  let pinned:Tree.Pinned = context[key.nationality],
             let module:Module.Intrinsic = pinned.load(local: key)
         {
             return self.miss(key, module: module, address: .init(residency: pinned,
@@ -254,7 +254,7 @@ extension ReferenceCache
         {
             return cached
         }
-        if  let pinned:Package.Pinned = context[key.nationality],
+        if  let pinned:Tree.Pinned = context[key.nationality],
             let namespace:Module.Intrinsic = pinned.load(local: key.culture),
             let article:Article.Intrinsic = pinned.load(local: key), 
             let metadata:Article.Metadata = pinned.metadata(local: key)
@@ -274,7 +274,7 @@ extension ReferenceCache
 {
     func load(_ package:Package, context:some PackageContext) throws -> PackageReference
     {
-        if let pinned:Package.Pinned = context[package]
+        if let pinned:Tree.Pinned = context[package]
         {
             return .init(pinned, functions: self.functions)
         }

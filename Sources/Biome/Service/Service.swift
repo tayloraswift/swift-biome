@@ -8,7 +8,7 @@ import Versions
 public 
 actor Service 
 {
-    var trees:Package.Trees, 
+    var trees:Trees, 
         stems:Route.Stems
 
     private

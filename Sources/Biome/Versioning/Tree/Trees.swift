@@ -3,31 +3,28 @@ import SymbolGraphs
 import SymbolSource
 import Versions
 
-extension Package
+struct Trees
 {
-    struct Trees
+    private 
+    var trees:[Tree]
+    private(set)
+    var packages:[PackageIdentifier: Package]
+    
+    init()
     {
-        private 
-        var trees:[Tree]
-        private(set)
-        var packages:[PackageIdentifier: Package]
-        
-        init()
-        {
-            self.trees = []
-            self.packages = [:]
+        self.trees = []
+        self.packages = [:]
 
-            // swift-standard-library is always index = 0
-            // swift-core-libraries is always index = 1
-            let swift:Package = self.addPackage(.swift)
-            let core:Package = self.addPackage(.core)
+        // swift-standard-library is always index = 0
+        // swift-core-libraries is always index = 1
+        let swift:Package = self.addPackage(.swift)
+        let core:Package = self.addPackage(.core)
 
-            precondition(swift == .swift) 
-            precondition(core == .core) 
-        }
+        precondition(swift == .swift) 
+        precondition(core == .core) 
     }
 }
-extension Package.Trees
+extension Trees
 {
     /// Creates a package entry for the given package graph, if it does not already exist.
     /// 
@@ -48,7 +45,7 @@ extension Package.Trees
         }
     }
 }
-extension Package.Trees:RandomAccessCollection
+extension Trees:RandomAccessCollection
 {
     var startIndex:Package
     {
@@ -58,7 +55,7 @@ extension Package.Trees:RandomAccessCollection
     {
         .init(offset: .init(self.trees.endIndex))
     }
-    subscript(package:Package) -> Package.Tree
+    subscript(package:Package) -> Tree
     {
         _read 
         {
@@ -70,16 +67,16 @@ extension Package.Trees:RandomAccessCollection
         }
     } 
 }
-extension Package.Trees 
+extension Trees 
 {
-    var swift:Package.Tree 
+    var swift:Tree 
     {
         _read 
         {
             yield self[.swift]
         }
     }
-    var core:Package.Tree 
+    var core:Tree 
     {
         _read 
         {
@@ -87,7 +84,7 @@ extension Package.Trees
         }
     }
     
-    subscript(package:PackageIdentifier) -> Package.Tree?
+    subscript(package:PackageIdentifier) -> Tree?
     {
         self.packages[package].map { self[$0] }
     }
@@ -115,7 +112,7 @@ extension Package.Trees
         }
     } 
 }
-extension Package.Trees
+extension Trees
 {
     func find(pins:some Sequence<PackageResolution.Pin>) 
         -> [Index: PackageUpdateContext.Dependency]
@@ -123,7 +120,7 @@ extension Package.Trees
         var linkable:[Index: PackageUpdateContext.Dependency] = [:]
         for pin:PackageResolution.Pin in pins 
         {
-            guard   let tree:Package.Tree = self[pin.id],
+            guard   let tree:Tree = self[pin.id],
                     let tag:Tag = .init(pin.requirement)
             else 
             {
@@ -142,7 +139,7 @@ extension Package.Trees
         return linkable
     }
 }
-extension Package.Trees 
+extension Trees 
 {
     /// Returns the index of the package referenced by the given identifier, and 
     /// the fork location within it, if a fork selector is provided.
@@ -201,19 +198,5 @@ extension Package.Trees
     //         self[package].tree[pin].consumers[nationality, default: [:]][version] = consumers
     //     }
     //     return version
-    // }
-}
-
-extension Package.Trees 
-{
-    // mutating 
-    // func spread(from index:Package, beliefs:Beliefs)
-    // {
-    //     let current:Version = self[index].versions.latest
-    //     for diacritic:Symbol.Diacritic in beliefs.opinions.keys 
-    //     {
-    //         self[diacritic.host.module.package].pollinate(local: diacritic.host, 
-    //             from: .init(culture: diacritic.culture, version: current))
-    //     }
     // }
 }

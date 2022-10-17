@@ -65,7 +65,7 @@ struct Address
 extension Address.Global 
 {
     fileprivate 
-    init(_ local:Address.Local?, residency:__shared Package.Pinned)
+    init(_ local:Address.Local?, residency:__shared Tree.Pinned)
     {
         self.init(_move local, 
             residency: residency.nationality.isCommunityPackage ? residency.tree.id : nil, 
@@ -78,18 +78,18 @@ extension Address
     /// 
     /// The returned address always includes the package name, even if it is the 
     /// standard library or one of the core libraries.
-    init(residency:__shared Package.Pinned)
+    init(residency:__shared Tree.Pinned)
     {
         self.init(.init(nil, residency: residency.tree.id, version: residency.selector), 
             function: .documentation(.symbol))
     }
-    init(residency:__shared Package.Pinned, 
+    init(residency:__shared Tree.Pinned, 
         namespace:__shared Module.Intrinsic)
     {
         self.init(.init(.init(nil, namespace: namespace.id), residency: residency), 
             function: namespace.isFunction ? nil : .documentation(.symbol))
     }
-    init(residency:__shared Package.Pinned, 
+    init(residency:__shared Tree.Pinned, 
         namespace:__shared Module.Intrinsic, 
         article:__shared Article.Intrinsic)
     {
@@ -103,7 +103,7 @@ extension Address
 {
     init?(_ symbolic:Symbolic, namespace:Module, context:__shared some PackageContext)
     {
-        if  let residency:Package.Pinned = context[namespace.nationality],
+        if  let residency:Tree.Pinned = context[namespace.nationality],
             let namespace:Module.Intrinsic = residency.load(local: namespace)
         {
             self.init(.init(.init(_move symbolic, namespace: namespace.id), 

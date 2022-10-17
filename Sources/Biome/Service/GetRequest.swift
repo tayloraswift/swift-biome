@@ -36,7 +36,7 @@ struct GetRequest
 }
 extension GetRequest 
 {
-    init(_ request:URI, residency pinned:__shared Package.Pinned, 
+    init(_ request:URI, residency pinned:__shared Tree.Pinned, 
         functions:__shared Service.PublicFunctionNames)
     {
         let address:Address = .init(residency: pinned)
@@ -46,11 +46,11 @@ extension GetRequest
                 pinned: pinned)))
     }
 
-    init?(_ request:URI, residency pinned:Package.Pinned, 
+    init?(_ request:URI, residency pinned:Tree.Pinned, 
         namespace:AtomicPosition<Module>,
         functions:__shared Service.PublicFunctionNames)
     {
-        guard   let pinned:Package.Pinned = 
+        guard   let pinned:Tree.Pinned = 
                     pinned.excavate(namespace.atom).map(pinned.repinned(to:))
         else 
         {
@@ -64,12 +64,12 @@ extension GetRequest
                 pinned: pinned)))
     }
 
-    init?(_ request:URI, residency pinned:Package.Pinned,
+    init?(_ request:URI, residency pinned:Tree.Pinned,
         namespace:AtomicPosition<Module>, 
         article:AtomicPosition<Article>, 
         functions:__shared Service.PublicFunctionNames)
     {
-        guard   let pinned:Package.Pinned = 
+        guard   let pinned:Tree.Pinned = 
                     pinned.excavate(article.atom).map(pinned.repinned(to:))
         else 
         {
@@ -97,8 +97,8 @@ extension GetRequest
         let uri:URI 
         if let compound:Compound = composite.compound 
         {
-            guard   let base:Package.Pinned = context[compound.base.nationality],
-                    let host:Package.Pinned = context[compound.host.nationality],
+            guard   let base:Tree.Pinned = context[compound.base.nationality],
+                    let host:Tree.Pinned = context[compound.host.nationality],
                     let compound:CompoundPosition = 
                         compound.positioned(bisecting: context.local.modules, 
                             host: host.symbols, 
@@ -196,7 +196,7 @@ struct DocumentationQuery
     init(_ target:Target, 
         canonical:URI? = nil,
         _objects:_Objects, 
-        pinned:__shared Package.Pinned)
+        pinned:__shared Tree.Pinned)
     {
         self.target = target 
         self.canonical = canonical

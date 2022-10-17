@@ -2,16 +2,16 @@
 struct DirectionalContext:AnisotropicContext, Sendable 
 {
     private(set) 
-    var foreign:[Package: Package.Pinned]
-    let local:Package.Pinned 
+    var foreign:[Package: Tree.Pinned]
+    let local:Tree.Pinned 
 
-    init(local:Package.Pinned, upstream:[Package: Package.Pinned])
+    init(local:Tree.Pinned, upstream:[Package: Tree.Pinned])
     {
         self.foreign = upstream 
         self.local = local
     }
-    init(local:Package.Pinned, pins:__shared [Package: Version], 
-        context:__shared Package.Trees)
+    init(local:Tree.Pinned, pins:__shared [Package: Version], 
+        context:__shared Trees)
     {
         self.local = local 
         self.foreign = .init(minimumCapacity: pins.count)
@@ -24,11 +24,11 @@ struct DirectionalContext:AnisotropicContext, Sendable
 
 extension DirectionalContext 
 {
-    init(local:Package.Pinned, context:__shared Package.Trees) 
+    init(local:Tree.Pinned, context:__shared Trees) 
     {
         self.init(local: local, pins: local.revision.pins, context: context)
     }
-    init(local:Package.Pinned, metadata:__shared Module.Metadata, context:__shared Package.Trees) 
+    init(local:Tree.Pinned, metadata:__shared Module.Metadata, context:__shared Trees) 
     {
         let filter:Set<Package> = .init(metadata.dependencies.lazy.map(\.nationality))
         self.init(local: local, 
@@ -38,7 +38,7 @@ extension DirectionalContext
 }
 extension DirectionalContext 
 {
-    func repinned(to version:Version, context:__shared Package.Trees) -> Self 
+    func repinned(to version:Version, context:__shared Trees) -> Self 
     {
         .init(local: self.local.repinned(to: version), context: context)
     }

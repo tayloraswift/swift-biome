@@ -236,7 +236,7 @@ struct PackageDocumentation
 
     init(interface:__shared PackageInterface,
         graph:__shared SymbolGraph,
-        local:__shared Package.Tree, 
+        local:__shared Tree, 
         stems:__shared Route.Stems)
     {
         self.articles = []
@@ -291,7 +291,7 @@ struct PackageDocumentation
     func compile(comments:__owned [Symbol: Comment], 
         interface:PackageInterface, 
         graph:SymbolGraph,
-        local:Package.Pinned, 
+        local:Tree.Pinned, 
         stems:Route.Stems)
     {
         var resolvers:[Module: Resolver] = .init(minimumCapacity: graph.cultures.count)

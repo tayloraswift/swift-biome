@@ -47,7 +47,7 @@
 //         self.rows = []
 //         // compounds don’t “exist”, so their founder branch is always 
 //         // the root branch (usually the default branch).
-//         guard let pinned:Package.Pinned = context[compound.nationality]
+//         guard let pinned:Tree.Pinned = context[compound.nationality]
 //         else 
 //         {
 //             return

@@ -390,7 +390,7 @@ extension Branch
                 fatalError("symbol with id '\(id)' has already been registered in a different module! symbolgraph may have been corrupted!")
             }
         } 
-        for upstream:Package.Pinned in context.upstream.values 
+        for upstream:Tree.Pinned in context.upstream.values 
         {
             if  let restated:AtomicPosition<Symbol> = upstream.symbols.find(id), 
                     visible.contains(restated.culture)

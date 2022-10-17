@@ -103,8 +103,8 @@ extension SurfaceBuilder
 {
     struct Context:Sendable 
     {
-        let upstream:[Package: Package.Pinned]
-        let local:Package.Tree
+        let upstream:[Package: Tree.Pinned]
+        let local:Tree
 
         subscript(global position:AtomicPosition<Symbol>) -> Symbol.Intrinsic
         {
@@ -193,7 +193,7 @@ struct SurfaceBuilder
     mutating 
     func update(with edges:[SymbolGraph.Edge<Int>], 
         interface:ModuleInterface, 
-        local:Package.Tree) 
+        local:Tree) 
     {
         assert(interface.nationality == local.nationality)
 
@@ -277,7 +277,7 @@ struct SurfaceBuilder
                         traits: traits, 
                         context: context)
             }
-            else if let pinned:Package.Pinned = context.upstream[position.nationality],
+            else if let pinned:Tree.Pinned = context.upstream[position.nationality],
                     let metadata:Symbol.Metadata = pinned.metadata(local: position.atom)
             {
                 let subject:Symbol.Intrinsic = pinned.tree[local: position]

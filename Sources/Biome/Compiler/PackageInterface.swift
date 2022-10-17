@@ -14,7 +14,7 @@ struct PackageInterface
         branch:Version.Branch, 
         graph:__shared SymbolGraph,
         stems:inout Route.Stems,
-        tree:inout Package.Tree)
+        tree:inout Tree)
     {
         self.cultures = []
         self.cultures.reserveCapacity(graph.cultures.count)
@@ -56,7 +56,7 @@ struct PackageInterface
             let visible:Set<Module> = context.namespaces.import()
             self.symbols.append(contentsOf: cohort.lazy.map
             {
-                for upstream:Package.Pinned in context.upstream.values 
+                for upstream:Tree.Pinned in context.upstream.values 
                 {
                     if  let upstream:AtomicPosition<Symbol> = upstream.symbols.find($0), 
                             visible.contains(upstream.culture)
@@ -111,7 +111,7 @@ extension PackageInterface
     struct BasisElement
     {
         let namespaces:Namespaces
-        let upstream:[Package: Package.Pinned]
+        let upstream:[Package: Tree.Pinned]
 
         let articles:[AtomicPosition<Article>?]
         let symbols:Range<Int>

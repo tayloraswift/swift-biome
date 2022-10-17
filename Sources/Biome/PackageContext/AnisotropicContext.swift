@@ -2,21 +2,21 @@ import SymbolSource
 
 protocol AnisotropicContext:PackageContext
 {
-    var local:Package.Pinned { get }
-    var foreign:[Package: Package.Pinned] { get }
+    var local:Tree.Pinned { get }
+    var foreign:[Package: Tree.Pinned] { get }
 
-    init(local:Package.Pinned, context:__shared Package.Trees) 
+    init(local:Tree.Pinned, context:__shared Trees) 
 }
 extension AnisotropicContext 
 {
-    init(local:Package, version:Version, context:__shared Package.Trees) 
+    init(local:Package, version:Version, context:__shared Trees) 
     {
         self.init(local: .init(context[local], version: version), context: context)
     }
 }
 extension AnisotropicContext 
 {
-    subscript(nationality:Package) -> Package.Pinned?
+    subscript(nationality:Package) -> Tree.Pinned?
     {
         _read 
         {
@@ -35,7 +35,7 @@ extension AnisotropicContext
         {
             return (position, self.local.tree[local: position]) 
         }
-        for upstream:Package.Pinned in self.foreign.values 
+        for upstream:Tree.Pinned in self.foreign.values 
         {
             if  let position:AtomicPosition<Symbol> = upstream.symbols.find(id), 
                     linked.contains(position.culture)

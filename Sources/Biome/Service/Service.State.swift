@@ -7,7 +7,7 @@ extension Service
 {
     struct State 
     {
-        let trees:Package.Trees, 
+        let trees:Trees, 
             stems:Route.Stems
         
         let functions:Functions,
@@ -235,7 +235,7 @@ extension Service.State
         function:Service.CustomFunction, 
         link:__owned GlobalLink) -> GetRequest? 
     {
-        guard let residency:Package.Pinned = self.trees[function.nationality].latest()
+        guard let residency:Tree.Pinned = self.trees[function.nationality].latest()
         else 
         {
             return nil 
@@ -264,7 +264,7 @@ extension Service.State
     func get(_ request:URI, scheme:Scheme, link:__owned GlobalLink) -> GetRequest?
     {
         var link:GlobalLink = _move link
-        if  let residency:Package.Tree = link.descend(where: { self.trees[.init($0)] }) 
+        if  let residency:Tree = link.descend(where: { self.trees[.init($0)] }) 
         {
             return self.get(request, scheme: scheme, explicit: _move residency, 
                 link: _move link)
@@ -274,14 +274,14 @@ extension Service.State
             self.get(request, scheme: scheme, implicit: self.trees.core,  link: link)
     }
     private 
-    func get(_ request:URI, scheme:Scheme, explicit:__owned Package.Tree, 
-        link:__owned GlobalLink) -> GetRequest?
+    func get(_ request:URI, scheme:Scheme, explicit:__owned Tree, link:__owned GlobalLink) 
+        -> GetRequest?
     {
         try? self.get(request, scheme: scheme, residency: _move explicit, link: link)
     }
     private 
-    func get(_ request:URI, scheme:Scheme, implicit:__owned Package.Tree, 
-        link:__owned GlobalLink) -> GetRequest?
+    func get(_ request:URI, scheme:Scheme, implicit:__owned Tree, link:__owned GlobalLink) 
+        -> GetRequest?
     {
         guard   let request:GetRequest = try? self.get(request, scheme: scheme, 
                     residency: _move implicit, 
@@ -301,7 +301,7 @@ extension Service.State
         }
     }
     private 
-    func get(_ request:URI, scheme:Scheme, residency:__owned Package.Tree, 
+    func get(_ request:URI, scheme:Scheme, residency:__owned Tree, 
         link:__owned GlobalLink) throws -> GetRequest?
     {
         var link:GlobalLink = link
@@ -315,7 +315,7 @@ extension Service.State
             return nil 
         }
 
-        let residency:Package.Pinned = .init(_move residency, version: _move arrival)
+        let residency:Tree.Pinned = .init(_move residency, version: _move arrival)
         // we must parse the symbol link *now*, otherwise references to things 
         // like global vars (`Swift.min(_:_:)`) won’t work
         guard let link:_SymbolLink = try .init(link)
@@ -345,7 +345,7 @@ extension Service.State
                 functions: self.functions.names)
         }
         else if let nationality:_SymbolLink.Nationality = link.nationality,
-                let tree:Package.Tree = self.trees[nationality.id],
+                let tree:Tree = self.trees[nationality.id],
                 let version:Version = 
                     nationality.version.map(tree.find(_:)) ?? tree.default,
                 let endpoint:GetRequest = self.get(request, scheme: scheme, 
@@ -365,7 +365,7 @@ extension Service.State
 {
     private 
     func get(_ request:URI, scheme:Scheme, 
-        nationality:__owned Package.Pinned, 
+        nationality:__owned Tree.Pinned, 
         namespace:Module,
         link:__owned _SymbolLink) -> GetRequest?
     {

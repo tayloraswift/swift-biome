@@ -2,7 +2,7 @@ struct BidirectionalContext:AnisotropicContext, Sendable
 {
     struct Consumer 
     {
-        let pinned:Package.Pinned 
+        let pinned:Tree.Pinned 
         let modules:Set<Module>
 
         var nationality:Package 
@@ -12,13 +12,13 @@ struct BidirectionalContext:AnisotropicContext, Sendable
     }
 
     private(set)
-    var dependencies:[Package.Pinned],
+    var dependencies:[Tree.Pinned],
         consumers:[Consumer]
     private(set)
-    var foreign:[Package: Package.Pinned]
-    let local:Package.Pinned 
+    var foreign:[Package: Tree.Pinned]
+    let local:Tree.Pinned 
     
-    init(local:Package.Pinned, context:__shared Package.Trees) 
+    init(local:Tree.Pinned, context:__shared Trees) 
     {
         let revision:Branch.Revision = local.revision
         self.local = local
@@ -26,7 +26,7 @@ struct BidirectionalContext:AnisotropicContext, Sendable
         self.dependencies = []
         for (index, version):(Package, Version) in revision.pins 
         {
-            let dependency:Package.Pinned = .init(context[index], version: version)
+            let dependency:Tree.Pinned = .init(context[index], version: version)
             self.dependencies.append(dependency)
             self.foreign[index] = dependency
         }
@@ -34,12 +34,12 @@ struct BidirectionalContext:AnisotropicContext, Sendable
         for (index, versions):(Package, [Version: Set<Module>]) in 
             revision.consumers
         {
-            let consumer:Package.Tree = context[index]
+            let consumer:Tree = context[index]
             if  let version:Version = consumer.default, 
                 let modules:Set<Module> = versions[version], 
                 self.local.tree.settings.whitelist?.contains(consumer.id) ?? true 
             {
-                let consumer:Package.Pinned = .init(consumer, version: version)
+                let consumer:Tree.Pinned = .init(consumer, version: version)
                 self.consumers.append(.init(pinned: consumer, modules: modules))
                 self.foreign[index] = consumer
             }

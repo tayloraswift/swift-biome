@@ -7,7 +7,7 @@ struct PackagePage
     {
         let partners:[(package:PackageReference, version:Version.Selector)]
 
-        init(_ pinned:__shared some Sequence<Package.Pinned>, 
+        init(_ pinned:__shared some Sequence<Tree.Pinned>, 
             functions:__shared Service.PublicFunctionNames)
         {
             self.partners = pinned.map 

@@ -12,11 +12,11 @@ import SymbolSource
 struct ModuleUpdateContext
 {
     let namespaces:Namespaces
-    let upstream:[Package: Package.Pinned]
+    let upstream:[Package: Tree.Pinned]
     let local:Fasces
 
     init(namespaces:Namespaces,
-        upstream:[Package: Package.Pinned],
+        upstream:[Package: Tree.Pinned],
         local:Fasces)
     {
         self.namespaces = namespaces

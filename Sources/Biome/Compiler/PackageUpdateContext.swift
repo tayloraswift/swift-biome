@@ -21,7 +21,7 @@ struct PackageUpdateContext
         nationality:Package,
         branch:Version.Branch,
         graph:__shared SymbolGraph,
-        trees:inout Package.Trees) throws
+        trees:inout Trees) throws
     {
         let linkable:[Package: PackageUpdateContext.Dependency] = 
             trees.find(pins: resolution.pins.values)
@@ -40,9 +40,9 @@ struct PackageUpdateContext
             var element:BasisElement = .init(module, id: trees[global: module].id)
             try element.link(dependencies: culture.dependencies,
                 linkable: linkable, 
-                trees: trees,
-                branch: branch, 
-                fasces: self.local)
+                fasces: self.local,
+                branch: branch,
+                trees: trees)
             self.storage.append(element)
         }
     }
@@ -59,7 +59,7 @@ extension PackageUpdateContext
     {
         self.reduce(into: [:]) 
         { 
-            for (nationality, pinned):(Package, Package.Pinned) in $1.upstream
+            for (nationality, pinned):(Package, Tree.Pinned) in $1.upstream
             {
                 $0[nationality] = pinned.version
             }
@@ -92,7 +92,7 @@ extension PackageUpdateContext
     {
         private(set)
         var namespaces:Namespaces, 
-            upstream:[Package: Package.Pinned]
+            upstream:[Package: Tree.Pinned]
 
         init(_ module:AtomicPosition<Module>, id:ModuleIdentifier)
         {
@@ -113,15 +113,15 @@ extension PackageUpdateContext
         mutating 
         func link(dependencies:[PackageDependency], 
             linkable:[Package: Dependency], 
-            trees:Package.Trees,
-            branch:Version.Branch, 
-            fasces:Fasces) throws
+            fasces:Fasces,
+            branch:Version.Branch,
+            trees:Trees) throws
         {
             self.upstream.reserveCapacity(dependencies.count + 2)
             // add explicit dependencies 
             for dependency:PackageDependency in dependencies
             {
-                guard let tree:Package.Tree = trees[dependency.nationality]
+                guard let tree:Tree = trees[dependency.nationality]
                 else 
                 {
                     throw DependencyNotFoundError.package(dependency.nationality)
@@ -152,9 +152,9 @@ extension PackageUpdateContext
         private mutating 
         func link(upstream package:PackageIdentifier, 
             linkable:[Package: Dependency], 
-            trees:Package.Trees) throws
+            trees:Trees) throws
         {
-            if let tree:Package.Tree = trees[package]
+            if let tree:Tree = trees[package]
             {
                 try self.link(upstream: _move tree, linkable: linkable)
             }
@@ -164,7 +164,7 @@ extension PackageUpdateContext
             }
         }
         private mutating 
-        func link(upstream tree:__owned Package.Tree, dependencies:[ModuleIdentifier]? = nil, 
+        func link(upstream tree:__owned Tree, dependencies:[ModuleIdentifier]? = nil, 
             linkable:[Package: Dependency]) throws 
         {
             switch linkable[tree.nationality] 
@@ -175,7 +175,7 @@ extension PackageUpdateContext
                 throw DependencyNotFoundError.version((requirement, revision), tree.id)
             case .available(let version):
                 // upstream dependency 
-                let pinned:Package.Pinned = .init(_move tree, version: version)
+                let pinned:Tree.Pinned = .init(_move tree, version: version)
                 if let dependencies:[ModuleIdentifier] 
                 {
                     for id:ModuleIdentifier in dependencies
@@ -210,7 +210,7 @@ extension PackageUpdateContext
             }
         }
         private mutating 
-        func link(local tree:Package.Tree, dependencies:[ModuleIdentifier], 
+        func link(local tree:Tree, dependencies:[ModuleIdentifier], 
             branch:Version.Branch, 
             fasces:Fasces) throws 
         {
