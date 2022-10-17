@@ -1,4 +1,4 @@
-//import BiomeDatabase
+import BiomeDatabase
 import DOM
 import PackageResolution
 import SymbolSource
@@ -156,8 +156,9 @@ extension Service
                 stems: stems)
             
             let surface:Surface = (_move api).surface()
-            try await database.storeSurface(_move surface, for: nationality, version: interface.version)
-            try await database.storeDocumentation(documentation)
+            try await database.storeSurface(_move surface, for: nationality, 
+                version: interface.version)
+            // try await database.storeDocumentation(documentation)
 
             self.trees[nationality].updateDocumentation(_move documentation, 
                 interface: interface)

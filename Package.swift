@@ -6,17 +6,20 @@ let package = Package(
     products: 
     [
         .library(name: "Multiparts",            targets: ["Multiparts"]),
+        .library(name: "Sediment",              targets: ["Sediment"]),
         .library(name: "URI",                   targets: ["URI"]),
         .library(name: "Versions",              targets: ["Versions"]),
+
         .library(name: "SymbolAvailability",    targets: ["SymbolAvailability"]),
-        .library(name: "SymbolGraphs",          targets: ["SymbolGraphs"]),
         .library(name: "SymbolSource",          targets: ["SymbolSource"]),
+        .library(name: "SymbolGraphs",          targets: ["SymbolGraphs"]),
+        .library(name: "SymbolGraphCompiler",   targets: ["SymbolGraphCompiler"]),
+        .library(name: "PackageResolution",     targets: ["PackageResolution"]),
+
+        .library(name: "BiomeDatabase",         targets: ["BiomeDatabase"]),
         .library(name: "BiomeABI",              targets: ["BiomeABI"]),
         .library(name: "Biome",                 targets: ["Biome"]),
-        .library(name: "PackageResolution",     targets: ["PackageResolution"]),
-        .library(name: "SymbolGraphCompiler",   targets: ["SymbolGraphCompiler"]),
-        //.library(name: "PackageLoader",         targets: ["PackageLoader"]),
-        
+
         .plugin(name: "SymbolGraphPlugin",      targets: ["SymbolGraphPlugin"]),
 
         .executable(name: "swift-biome-server", targets: ["swift-biome-server"]),
@@ -73,17 +76,17 @@ let package = Package(
                 .product(name: "Grammar",           package: "swift-grammar"),
             ]),
         
+        .target(name: "SymbolAvailability", 
+            dependencies: 
+            [
+                .target(name: "Versions"),
+            ]),
+        
         .target(name: "SymbolSource", 
             dependencies: 
             [
                 .product(name: "Grammar",           package: "swift-grammar"),
                 .product(name: "Notebook",          package: "swift-highlight"),
-            ]),
-        
-        .target(name: "SymbolAvailability", 
-            dependencies: 
-            [
-                .target(name: "Versions"),
             ]),
         
         .target(name: "SymbolGraphs", 
@@ -123,6 +126,14 @@ let package = Package(
                 .target(name: "swift-symbolgraphc")
             ]),
         
+        .target(name: "PackageResolution", 
+            dependencies: 
+            [
+                .target(name: "SymbolSource"),
+
+                .product(name: "JSON",              package: "swift-json"),
+            ]),
+        
         .target(name: "BiomeABI"),
         
         .target(name: "BiomeDatabase",
@@ -158,22 +169,6 @@ let package = Package(
                 .unsafeFlags(["-Xfrontend", "-enable-experimental-move-only"]),
             ]),
         
-        .target(name: "PackageResolution", 
-            dependencies: 
-            [
-                .target(name: "SymbolSource"),
-
-                .product(name: "JSON",              package: "swift-json"),
-            ]),
-        
-        // .target(name: "PackageLoader", 
-        //     dependencies: 
-        //     [
-        //         .target(name: "PackageResolution"),
-        //         .target(name: "PackageCatalogs"),
-        //         .target(name: "Biome"),
-        //     ]),
-        
         .executableTarget(name: "swift-biome-server", 
             dependencies: 
             [
@@ -192,7 +187,6 @@ let package = Package(
             [
                 .unsafeFlags(["-Xfrontend", "-enable-experimental-move-only"]),
             ]),
-        
 
         .executableTarget(name: "SedimentTests", 
             dependencies: 
