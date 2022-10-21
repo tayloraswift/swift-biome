@@ -4,12 +4,18 @@ struct Module:AtomicReference, Sendable
     public
     let offset:UInt16
     public
-    let culture:Package
+    let nationality:Package
 
     @inlinable public 
-    init(_ culture:Package, offset:UInt16)
+    init(_ nationality:Package, offset:UInt16)
     {
-        self.culture = culture
+        self.nationality = nationality
         self.offset = offset
+    }
+
+    @inlinable public 
+    var culture:Self
+    {
+        self
     }
 }

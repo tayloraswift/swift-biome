@@ -17,15 +17,19 @@ actor Service
     var template:DOM.Flattened<PageElement>
     private
     let logo:[UInt8]
+
+    let database:Database
     
     public
-    init(logo:[UInt8])
+    init(database:Database, logo:[UInt8])
     {
         self.trees = .init()
         self.stems = .init()
 
         self.functions = .init([:])
         self.template = .init(freezing: .defaultPageTemplate)
+
+        self.database = database
         self.logo = logo
     }
 }
@@ -65,8 +69,7 @@ extension Service
         fork:String? = nil,
         date:Date, 
         tag:String? = nil,
-        graph:__owned SymbolGraph, 
-        database:Database) async throws -> Package
+        graph:__owned SymbolGraph) async throws -> Package
     {
         try Task.checkCancellation()
 
@@ -90,8 +93,7 @@ extension Service
             commit: .init(hash: pin.revision, date: date, tag: tag.flatMap(Tag.init(parsing:))),
             branch: branch, 
             fork: fork,
-            graph: _move graph, 
-            database: database)
+            graph: _move graph)
         
         for (dependency, (pin, consumers)):(Package, (Version, Set<Module>)) in 
             impact.dependencies
@@ -111,8 +113,7 @@ extension Service
         commit:__owned Commit,
         branch:Tag, 
         fork:VersionSelector?,
-        graph:__owned SymbolGraph,
-        database:Database) async throws -> PackageImpact
+        graph:__owned SymbolGraph) async throws -> PackageImpact
     {
         let (branch, previous):(Version.Branch, Version?) = 
             try self.trees[nationality].branch(branch, from: fork)
@@ -122,7 +123,7 @@ extension Service
         var api:SurfaceBuilder 
         if let previous:Version 
         {
-            api = .init(previous: try await database.loadSurface(for: nationality, 
+            api = .init(previous: try await self.database.loadSurface(for: nationality, 
                 version: previous))
         }
         else 
@@ -156,9 +157,9 @@ extension Service
                 stems: stems)
             
             let surface:Surface = (_move api).surface()
-            try await database.storeSurface(_move surface, for: nationality, 
+            try await self.database.storeSurface(_move surface, for: nationality, 
                 version: interface.version)
-            // try await database.storeDocumentation(documentation)
+            // try await self.database.storeDocumentation(documentation)
 
             self.trees[nationality].updateDocumentation(_move documentation, 
                 interface: interface)

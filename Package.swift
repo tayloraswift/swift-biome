@@ -16,6 +16,8 @@ let package = Package(
         .library(name: "SymbolGraphCompiler",   targets: ["SymbolGraphCompiler"]),
         .library(name: "PackageResolution",     targets: ["PackageResolution"]),
 
+        .library(name: "MongoKittenMantle",     targets: ["MongoKittenMantle"]),
+
         .library(name: "BiomeDatabase",         targets: ["BiomeDatabase"]),
         .library(name: "BiomeABI",              targets: ["BiomeABI"]),
         .library(name: "Biome",                 targets: ["Biome"]),
@@ -46,7 +48,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),
         .package(url: "https://github.com/swift-server/swift-backtrace.git", .upToNextMinor(from: "1.3.2")),
 
-        .package(url: "https://github.com/orlandos-nl/MongoKitten.git", from: "7.2.10")
+        .package(url: "https://github.com/orlandos-nl/MongoKitten", .upToNextMajor(from: "7.2.10"))
     ],
     targets: 
     [
@@ -136,12 +138,18 @@ let package = Package(
         
         .target(name: "BiomeABI"),
         
+        .target(name: "MongoKittenMantle",
+            dependencies: 
+            [
+                .product(name: "MongoClient",       package: "MongoKitten"),
+            ]),
+        
         .target(name: "BiomeDatabase",
             dependencies: 
             [
                 .target(name: "BiomeABI"),
-
-                .product(name: "MongoKitten",       package: "MongoKitten"),
+                .target(name: "MongoKittenMantle"),
+                
                 .product(name: "WebSemantics",      package: "swift-web-semantics"),
             ]),
         

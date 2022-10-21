@@ -316,7 +316,7 @@ extension Branch
         else 
         {
             return self.modules
-                .insert(namespace, culture: nationality, 
+                .insert(namespace, group: nationality, 
                     creator: Module.Intrinsic.init(id:culture:))
                 .positioned(self.index)
         }
@@ -398,7 +398,7 @@ extension Branch
                 return restated 
             }
         }
-        let atom:Symbol = self.symbols.insert(id, culture: culture)
+        let atom:Symbol = self.symbols.insert(id, group: culture)
         {
             (id:SymbolIdentifier, _:Symbol) in 
             let route:Route = .init(namespace, 
@@ -500,7 +500,7 @@ extension Branch
             }
             return existing 
         }
-        let atom:Article = self.articles.insert(id, culture: culture)
+        let atom:Article = self.articles.insert(id, group: culture)
         {
             (id:Article.Intrinsic.ID, _:Article) in 
             .init(id: id, path: path)

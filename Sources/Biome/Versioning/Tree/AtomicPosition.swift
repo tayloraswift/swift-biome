@@ -8,20 +8,7 @@ struct AtomicPosition<Atom> where Atom:AtomicReference
         self.atom = atom
         self.branch = branch
     }
-}
-extension AtomicPosition:Sendable where Atom:Sendable {}
-extension AtomicPosition:Equatable where Atom:Equatable {}
-extension AtomicPosition:Hashable where Atom:Hashable {}
 
-extension AtomicPosition where Atom.Culture == Package
-{
-    var nationality:Package
-    {
-        self.atom.nationality
-    }
-}
-extension AtomicPosition where Atom.Culture == Module
-{
     var nationality:Package
     {
         self.atom.nationality
@@ -31,6 +18,9 @@ extension AtomicPosition where Atom.Culture == Module
         self.atom.culture
     }
 }
+extension AtomicPosition:Sendable where Atom:Sendable {}
+extension AtomicPosition:Equatable where Atom:Equatable {}
+extension AtomicPosition:Hashable where Atom:Hashable {}
 
 extension AtomicReference
 {

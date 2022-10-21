@@ -162,7 +162,13 @@ extension SurfaceBuilder.Context
 struct SurfaceBuilder 
 {
     private(set)
-    var previous:Surface 
+    var previous:
+    (
+        articles:Set<Article>,
+        symbols:Set<Symbol>,
+        modules:Set<Module>,
+        overlays:Set<Diacritic>
+    )
     private(set)
     var routes:Routes
 
@@ -180,7 +186,13 @@ struct SurfaceBuilder
     
     init(previous:Surface)
     {
-        self.previous = previous
+        self.previous = 
+        (
+            .init(previous.articles),
+            .init(previous.symbols),
+            .init(previous.modules),
+            .init(previous.overlays)
+        )
         self.routes = .init() 
 
         self.articles = []
@@ -469,10 +481,9 @@ extension SurfaceBuilder
 {
     func surface() -> Surface 
     {
-        .init(articles: .init(self.articles.lazy.map(\.0)), 
-            symbols: .init(self.nodes.indices.keys), 
-            modules: .init(self.modules), 
-            overlays: .init(self.overlays.lazy.map(\.0)))
+        .init(articles: self.articles.map(\.0),
+            symbols: self.nodes.indices.map(\.key),
+            modules: self.modules,
+            overlays: self.overlays.map(\.0))
     }
 }
-

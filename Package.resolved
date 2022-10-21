@@ -12,7 +12,7 @@
     {
       "identity" : "mongokitten",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/orlandos-nl/MongoKitten.git",
+      "location" : "https://github.com/orlandos-nl/MongoKitten",
       "state" : {
         "revision" : "5e889df5b653613f6241b4603fb867010ab94657",
         "version" : "7.2.10"

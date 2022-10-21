@@ -1,8 +1,11 @@
 import ArgumentParser
 import Backtrace
+import BiomeDatabase
 import Biome
 import HTML
 import NIO
+
+import MongoKittenMantle
 
 @main 
 struct Main:AsyncParsableCommand 
@@ -19,6 +22,10 @@ struct Main:AsyncParsableCommand
     @Option(name: [.customShort("d"), .customLong("domain")], 
         help: "public host name")
     var domain:String = "127.0.0.1" 
+
+    @Option(name: [.customShort("m"), .customLong("mongo")], 
+        help: "mongodb host name")
+    var mongo:String = "mongodb" 
 
     // @Option(name: [.customLong("swift")], 
     //     help: "swift standard library version")
@@ -59,7 +66,15 @@ struct Main:AsyncParsableCommand
                 .init(escaped: " (preview)")), 
             attributes: [.class("logo"), .href("/")])))
         
-        let service:Service = .init(logo: logo.node.rendered(as: [UInt8].self))
+        let admin:MongoDB = try await .connect(on: group, 
+            settings: .init(authentication: .unauthenticated, hosts: 
+            [
+                .init(hostname: self.mongo, port: 27017),
+            ]))
+        print(try await admin.run(command: MongoDB.ListDatabases.init()))
+
+        let service:Service = .init(database: .init(),
+            logo: logo.node.rendered(as: [UInt8].self))
 
         while true 
         {

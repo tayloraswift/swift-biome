@@ -1,26 +1,15 @@
 public
 protocol AtomicReference:Hashable
 {
-    associatedtype Culture
-    associatedtype Offset:UnsignedInteger where Offset.Stride == Int
-
-    var culture:Culture { get }
-    var offset:Offset { get }
+    // needs to be a requirement, to prevent infinite recursion on ``Module``.
+    var nationality:Package { get }
+    var culture:Module { get }
 }
-
-extension AtomicReference where Culture == Package
+extension AtomicReference
 {
     @inlinable public
     var nationality:Package
     {
-        self.culture 
-    }
-}
-extension AtomicReference where Culture == Module
-{
-    @inlinable public
-    var nationality:Package
-    {
-        self.culture.culture
+        self.culture.nationality
     }
 }

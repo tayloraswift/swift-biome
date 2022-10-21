@@ -1,20 +1,20 @@
 @frozen public
-struct Surface 
+struct Surface
 {
     public
-    var articles:Set<Article>
+    var articles:[Article]
     public
-    var symbols:Set<Symbol>
+    var symbols:[Symbol]
     public
-    var modules:Set<Module>
+    var modules:[Module]
     public
-    var overlays:Set<Diacritic>
+    var overlays:[Diacritic]
 
-    public
-    init(articles:Set<Article> = [],
-        symbols:Set<Symbol> = [],
-        modules:Set<Module> = [],
-        overlays:Set<Diacritic> = [])
+    @inlinable public
+    init(articles:[Article] = [],
+        symbols:[Symbol] = [],
+        modules:[Module] = [],
+        overlays:[Diacritic] = [])
     {
         self.articles = articles
         self.symbols = symbols

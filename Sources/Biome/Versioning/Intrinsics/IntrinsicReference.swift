@@ -3,13 +3,17 @@ protocol IntrinsicDivergenceBase:BranchDivergenceBase
     init()
 }
 
-protocol IntrinsicReference:AtomicReference where Offset.Stride == Int
+protocol IntrinsicReference:AtomicReference 
 {
+    associatedtype Group
+    associatedtype Offset:UnsignedInteger where Offset.Stride == Int
+
     associatedtype Intrinsic:Identifiable
     associatedtype Divergence:BranchDivergence<Self> 
         where Divergence.Base:IntrinsicDivergenceBase
     
-    init(_:Culture, offset:Offset)
+    init(_:Group, offset:Offset)
+    var offset:Offset { get }
 }
 
 extension IntrinsicReference

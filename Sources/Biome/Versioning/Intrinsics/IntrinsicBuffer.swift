@@ -30,10 +30,10 @@ extension IntrinsicBuffer
 extension IntrinsicBuffer.Intrinsics
 {
     mutating 
-    func append(id:Atom.Intrinsic.ID, culture:Atom.Culture, 
+    func append(id:Atom.Intrinsic.ID, group:Atom.Group,
         creator create:(Atom.Intrinsic.ID, Atom) throws -> Atom.Intrinsic) rethrows -> Atom
     {
-        let atom:Atom = .init(culture, offset: self.endIndex)
+        let atom:Atom = .init(group, offset: self.endIndex)
         self.storage.append((try create(id, atom), .init()))
         return atom 
     }
@@ -102,7 +102,7 @@ struct IntrinsicBuffer<Atom> where Atom:IntrinsicReference
 extension IntrinsicBuffer
 {
     mutating 
-    func insert(_ id:Atom.Intrinsic.ID, culture:Atom.Culture, 
+    func insert(_ id:Atom.Intrinsic.ID, group:Atom.Group, 
         creator create:(Atom.Intrinsic.ID, Atom) throws -> Atom.Intrinsic) rethrows -> Atom
     {
         if let atom:Atom = self.atoms[id]
@@ -112,7 +112,7 @@ extension IntrinsicBuffer
         else 
         {
             // create records for elements if they do not yet exist 
-            let atom:Atom = try self.intrinsics.append(id: id, culture: culture, 
+            let atom:Atom = try self.intrinsics.append(id: id, group: group,
                 creator: create)
             self.atoms[id] = atom
             return atom 
