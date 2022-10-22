@@ -9,7 +9,7 @@ extension Duration
     }
 }
 
-extension MongoDB
+extension Mongo
 {
     @frozen public
     struct WriteConcern
@@ -19,7 +19,7 @@ extension MongoDB
         let timeout:Duration
     }
 }
-extension MongoDB.WriteConcern
+extension Mongo.WriteConcern
 {
     var bson:Document
     {
@@ -38,7 +38,7 @@ extension MongoDB.WriteConcern
         case custom(String)
     }
 }
-extension MongoDB.WriteConcern.Acknowledgement
+extension Mongo.WriteConcern.Acknowledgement
 {
     var bson:any Primitive
     {

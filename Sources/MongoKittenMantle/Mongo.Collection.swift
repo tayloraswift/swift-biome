@@ -1,4 +1,4 @@
-extension MongoDB
+extension Mongo
 {
     @frozen public
     struct Collection
@@ -13,7 +13,7 @@ extension MongoDB
         }
     }
 }
-extension MongoDB.Collection:ExpressibleByStringLiteral
+extension Mongo.Collection:ExpressibleByStringLiteral
 {
     @inlinable public
     init(stringLiteral:String)

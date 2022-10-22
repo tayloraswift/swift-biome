@@ -1,0 +1,4 @@
+public
+protocol DatabaseCommand:MongoCommand
+{
+}

@@ -1,6 +1,6 @@
 import BSON
 
-extension MongoDB
+extension Mongo
 {
     /// Drops the current database, deleting its contents.
     ///
@@ -18,8 +18,11 @@ extension MongoDB
         }
     }
 }
-extension MongoDB.DropDatabase:MongoCommand
+extension Mongo.DropDatabase:DatabaseCommand
 {
+    public static
+    let color:MongoCommandColor = .mutating
+    
     public
     var bson:Document
     {
@@ -27,7 +30,7 @@ extension MongoDB.DropDatabase:MongoCommand
         [
             "dropDatabase": 1,
         ]
-        if let writeConcern:MongoDB.WriteConcern = self.writeConcern
+        if let writeConcern:Mongo.WriteConcern = self.writeConcern
         {
             bson.appendValue(writeConcern.bson, forKey: "writeConcern")
         }
