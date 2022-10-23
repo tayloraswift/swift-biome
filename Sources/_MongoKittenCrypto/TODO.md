@@ -1,0 +1,1 @@
+move the hashes in this module to `swift-hash`, which already has an implementation of SHA256

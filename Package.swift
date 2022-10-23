@@ -48,7 +48,13 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),
         .package(url: "https://github.com/swift-server/swift-backtrace.git", .upToNextMinor(from: "1.3.2")),
 
-        .package(url: "https://github.com/orlandos-nl/MongoKitten", .upToNextMajor(from: "7.2.10"))
+        // .package(url: "https://github.com/orlandos-nl/MongoKitten", .upToNextMajor(from: "7.2.10"))
+        // mongokitten’s dependencies:
+        .package(url: "https://github.com/orlandos-nl/NioDNS.git",  from: "2.0.0"),
+        .package(url: "https://github.com/apple/swift-log.git",     from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-metrics.git", "1.0.0" ..< "3.0.0"),
+        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.0.0"),
+        .package(url: "https://github.com/orlandos-nl/BSON.git",    from: "8.0.0"),
     ],
     targets: 
     [
@@ -138,10 +144,33 @@ let package = Package(
         
         .target(name: "BiomeABI"),
         
+        .target(name: "_MongoKittenCrypto"),
+        .target(name: "MongoCore",
+            dependencies: 
+            [
+                .product(name: "BSON",                  package: "BSON"),
+                .product(name: "NIO",                   package: "swift-nio"),
+                .product(name: "NIOSSL",                package: "swift-nio-ssl"),
+                .product(name: "NIOFoundationCompat",   package: "swift-nio"),
+                .product(name: "Logging",               package: "swift-log"),
+                .product(name: "Metrics",               package: "swift-metrics"),
+                .product(name: "Atomics",               package: "swift-atomics"),
+            ],
+            path: "Sources/_MongoKittenMongoCore"),
+        .target(name: "MongoClient",
+            dependencies: 
+            [
+                .target(name: "MongoCore"),
+                .target(name: "_MongoKittenCrypto"),
+
+                .product(name: "DNSClient", package: "NioDNS"),
+            ],
+            path: "Sources/_MongoKittenMongoClient"),
+        
         .target(name: "MongoKittenMantle",
             dependencies: 
             [
-                .product(name: "MongoClient",       package: "MongoKitten"),
+                .target(name: "MongoClient"),
             ]),
         
         .target(name: "BiomeDatabase",
