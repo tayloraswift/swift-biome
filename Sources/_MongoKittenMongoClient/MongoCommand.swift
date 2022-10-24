@@ -1,23 +1,23 @@
 import BSON
-import MongoCore
 
-extension MongoServerReply
-{
-    func decode<Command>(for _:Command.Type) throws -> Command.Success 
-        where Command:MongoCommand
-    {
-        if case .message(let reply) = self
-        {
-            return try Command.decode(reply: reply)
-        }
-        else
-        {
-            fatalError("unsupported mongodb version")
-        }
-    }
-}
+// extension MongoServerReply
+// {
+//     func decode<Command>(for _:Command.Type) throws -> Command.Success 
+//         where Command:MongoCommand
+//     {
+//         if case .message(let reply) = self
+//         {
+//             return try Command.decode(reply: reply)
+//         }
+//         else
+//         {
+//             fatalError("unsupported mongodb version")
+//         }
+//     }
+// }
 extension OpMessage
 {
+    public
     var first:Document?
     {
         for section:Section in self.sections
@@ -61,6 +61,7 @@ extension Document
             return false
         }
     }
+    public
     func status() throws
     {
         guard self.isOk
@@ -77,19 +78,12 @@ enum MongoCommandError:Error
     case emptyReply
     case server(message:String?)
 }
-public
-enum MongoCommandColor
-{
-    case nonmutating
-    case mutating
-}
-public
-protocol MongoCommand<Success>
-{
-    associatedtype Success = Void
 
-    static
-    var color:MongoCommandColor { get }
+public
+protocol MongoCommand<Success>:Sendable
+{
+    associatedtype Success:Sendable = Void
+
     var bson:Document { get }
 
     static
@@ -110,8 +104,22 @@ extension MongoCommand<Void>
     }
 }
 
+public
+protocol SessionCommand:MongoCommand
+{
+    static
+    var color:MongoCommandColor { get }
+}
 
 public
-protocol MongoTransactableCommand:MongoCommand
+protocol MongoTransactableCommand:SessionCommand
+{
+}
+public
+protocol DatabaseCommand:SessionCommand
+{
+}
+public
+protocol AdministrativeCommand:SessionCommand
 {
 }

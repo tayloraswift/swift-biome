@@ -1,6 +1,5 @@
 import BSON
 import Foundation
-import MongoCore
 import NIO
 
 extension MongoNamespace {

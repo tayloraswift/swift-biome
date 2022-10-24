@@ -1,5 +1,5 @@
 import BSON
-import MongoCore
+import MongoClient
 
 extension Mongo
 {

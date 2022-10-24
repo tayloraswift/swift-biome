@@ -66,12 +66,12 @@ struct Main:AsyncParsableCommand
                 .init(escaped: " (preview)")), 
             attributes: [.class("logo"), .href("/")])))
         
-        let cluster:MongoCluster = try await MongoCluster.init(
-            connectingTo: .init(authentication: .unauthenticated, hosts: 
+        let cluster:Mongo.Cluster = try await .init(
+            settings: .init(authentication: .unauthenticated, hosts: 
             [
-                .init(hostname: self.mongo, port: 27017),
+                .init(self.mongo, 27017),
             ]),
-            eventLoopGroup: group)
+            on: group)
 
 
         let biomeDB:Mongo.Database = "biome"
@@ -86,19 +86,20 @@ struct Main:AsyncParsableCommand
         
         print(try await cluster.run(command: Mongo.ListDatabases.init()).databases.map(\.name))
 
-        let service:Service = .init(database: .init(),
-            logo: logo.node.rendered(as: [UInt8].self))
+        try await Task.sleep(for: .seconds(10))
+        // let service:Service = .init(database: .init(),
+        //     logo: logo.node.rendered(as: [UInt8].self))
 
-        while true 
-        {
-            do 
-            {
-                try await service.run(on: group, scheme: scheme, host: host)
-            }
-            catch let error 
-            {
-                print(error)
-            }
-        }
+        // while true 
+        // {
+        //     do 
+        //     {
+        //         try await service.run(on: group, scheme: scheme, host: host)
+        //     }
+        //     catch let error 
+        //     {
+        //         print(error)
+        //     }
+        // }
     }
 }

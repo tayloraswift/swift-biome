@@ -145,7 +145,7 @@ let package = Package(
         .target(name: "BiomeABI"),
         
         .target(name: "_MongoKittenCrypto"),
-        .target(name: "MongoCore",
+        .target(name: "MongoClient",
             dependencies: 
             [
                 .product(name: "BSON",                  package: "BSON"),
@@ -155,12 +155,7 @@ let package = Package(
                 .product(name: "Logging",               package: "swift-log"),
                 .product(name: "Metrics",               package: "swift-metrics"),
                 .product(name: "Atomics",               package: "swift-atomics"),
-            ],
-            path: "Sources/_MongoKittenMongoCore"),
-        .target(name: "MongoClient",
-            dependencies: 
-            [
-                .target(name: "MongoCore"),
+
                 .target(name: "_MongoKittenCrypto"),
 
                 .product(name: "DNSClient", package: "NioDNS"),

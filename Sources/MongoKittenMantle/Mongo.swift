@@ -1,68 +1,14 @@
 import BSON
 
+@_exported
 import MongoClient
-@_exported
-import class MongoClient.MongoCluster
-@_exported
-import struct MongoClient.ConnectionSettings
-@_exported
-import protocol MongoClient.MongoConnectionPool
 
 import NIOCore
-
-public
-enum Mongo
-{
-}
 
 struct _BSONDecodingError:Error
 {
 }
 
-extension MongoConnectionPool
-{
-    @discardableResult
-    public 
-    func run<Command>(command:Command) async throws -> Command.Success
-        where Command:AdministrativeCommand
-    {    
-        let connection:MongoConnection
-        switch Command.color
-        {
-        case .nonmutating:
-            connection = try await self.next(for: .basic)
-        case .mutating:
-            connection = try await self.next(for: .writable)
-        }
-        
-        let reply:MongoServerReply = try await connection.execute(command.bson,
-            namespace: .administrativeCommand,
-            in: nil,
-            sessionId: connection.implicitSessionId)
-        return try reply.decode(for: Command.self)
-    }
-    @discardableResult
-    public 
-    func run<Command>(command:Command, 
-        against database:Mongo.Database) async throws -> Command.Success
-        where Command:DatabaseCommand
-    {    
-        let connection:MongoConnection
-        switch Command.color
-        {
-        case .nonmutating:
-            connection = try await self.next(for: .basic)
-        case .mutating:
-            connection = try await self.next(for: .writable)
-        }
-        
-        let reply:MongoServerReply = try await connection.execute(command.bson,
-            namespace: .init(to: "", inDatabase: database.name),
-            in: nil,
-            sessionId: connection.implicitSessionId)
-        return try reply.decode(for: Command.self)
-    }
-}
 
 // public
 // struct MongoDB 

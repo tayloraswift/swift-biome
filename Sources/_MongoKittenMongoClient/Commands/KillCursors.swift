@@ -1,5 +1,3 @@
-import MongoCore
-
 internal struct KillCursorsCommand: Codable {
     let killCursors: String
     var cursors: [Int64]
