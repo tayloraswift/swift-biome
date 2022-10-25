@@ -1,6 +1,6 @@
 import Atomics
 import BSON
-import NIO
+import NIOCore
 
 // struct MongoContextOption:ChannelOption 
 // {
@@ -14,22 +14,29 @@ class MongoRouter
     enum CommunicationError:Error
     {
         case unsolicitedResponse(to:Int32)
+        case timeout
     }
 
     private
     let counter:ManagedAtomic<Int32>
     private
+    let timeout:Duration
+    private
     var requests:[Int32: CheckedContinuation<OpMessage, Error>]
 
-    init()
+    init(timeout:Duration)
     {
         self.counter = .init(0)
+        self.timeout = timeout
         self.requests = [:]
     }
 
-    func channelInactive(context:ChannelHandlerContext) 
+    deinit
     {
-        // TODO: fail all outstanding continuations
+        for continuation:CheckedContinuation<OpMessage, Error> in self.requests.values
+        {
+            continuation.resume(throwing: CommunicationError.timeout)
+        }
     }
 }
 extension MongoRouter:ChannelInboundHandler
@@ -41,7 +48,8 @@ extension MongoRouter:ChannelInboundHandler
     {
         let message:OpMessage = self.unwrapInboundIn(data)
         let request:Int32 = message.header.responseTo
-        if let continuation:CheckedContinuation<OpMessage, Error> = self.requests[request]
+        if  let continuation:CheckedContinuation<OpMessage, Error> = 
+                self.requests.removeValue(forKey: request)
         {
             continuation.resume(returning: message)
         }
@@ -76,7 +84,19 @@ extension MongoRouter:ChannelOutboundHandler
         
         message.write(to: &buffer)
         context.write(self.wrapOutboundOut(buffer), promise: promise)
-        // TODO: timeout
+        
+        Task.init
+        {
+            [weak self, id, timeout] in
+
+            try? await Task.sleep(for: timeout)
+            if  let self:MongoRouter,
+                let continuation:CheckedContinuation<OpMessage, Error> = 
+                    self.requests.removeValue(forKey: id)
+            {
+                continuation.resume(throwing: CommunicationError.timeout)
+            }
+        }
     }
 }
 
@@ -139,12 +159,5 @@ struct MongoServerReplyDecoder:ByteToMessageDecoder
         seenEOF _:Bool) throws -> DecodingState 
     {
         return try decode(context: context, buffer: &buffer)
-    }
-
-    // TODO: this does not belong here but on the next handler
-    func errorCaught(context:ChannelHandlerContext, error _:any Error) 
-    {
-        // So that it can take the remaining queries and re-try them
-        context.close(promise: nil)
     }
 }

@@ -2,13 +2,14 @@ extension Mongo
 {
     // not sendable! not even a little bit!
     public
-    struct Session
+    struct Session:Identifiable
     {
         let connection:Connection
         private
         let manager:Manager
 
-        var id:SessionIdentifier
+        public
+        var id:ID
         {
             self.manager.id
         }
@@ -16,7 +17,7 @@ extension Mongo
 }
 extension Mongo.Session
 {
-    init(connection:Mongo.Connection, cluster:Mongo.Cluster, id:SessionIdentifier)
+    init(connection:Mongo.Connection, cluster:Mongo.Cluster, id:ID)
     {
         self.connection = connection
         self.manager = .init(cluster: cluster, id: id)
@@ -27,31 +28,27 @@ extension Mongo.Session
         // TODO: implement time gossip
         private
         let cluster:Mongo.Cluster
-        let id:SessionIdentifier
+        let id:ID
 
-        init(cluster:Mongo.Cluster, id:SessionIdentifier)
+        init(cluster:Mongo.Cluster, id:ID)
         {
             self.cluster = cluster
             self.id = id
         }
 
         fileprivate
-        func rejuvenate(timeout:ContinuousClock.Instant)
+        func reset(timeout:ContinuousClock.Instant)
         {
             Task.init
             {
-                print("UPDATING", self.id)
-                await self.cluster.update(session: self.id, timeout: timeout)
+                [id] in await self.cluster.update(session: id, timeout: timeout)
             }
         }
         deinit
         {
-            let id:SessionIdentifier = self.id
-            let cluster:Mongo.Cluster = self.cluster
             Task.init
             {
-                print("RELEASING", id)
-                await cluster.release(session: id)
+                [id, cluster] in await cluster.release(session: id)
             }
         }
     }
@@ -81,10 +78,10 @@ extension Mongo.Session
     {
         let timeout:ContinuousClock.Instant = self.timeout()
         let reply:OpMessage = try await self.connection.run(command: command.bson,
-            against: .administrativeCommand,
+            against: .admin,
             transaction: nil,
             session: self.id)
-        self.manager.rejuvenate(timeout: timeout)
+        self.manager.reset(timeout: timeout)
         return try Command.decode(reply: reply)
     }
     
@@ -95,10 +92,10 @@ extension Mongo.Session
     {
         let timeout:ContinuousClock.Instant = self.timeout()
         let reply:OpMessage = try await self.connection.run(command: command.bson,
-            against: .init(to: "", inDatabase: database.name),
+            against: database,
             transaction: nil,
             session: self.id)
-        self.manager.rejuvenate(timeout: timeout)
+        self.manager.reset(timeout: timeout)
         return try Command.decode(reply: reply)
     }
 }

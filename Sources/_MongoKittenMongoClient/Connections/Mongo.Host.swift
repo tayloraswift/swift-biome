@@ -26,24 +26,18 @@ extension Mongo
 }
 extension Mongo.Host
 {        
-    static
+    @inlinable public static
     func srv(_ name:String) -> Self
     {
         .init(name, 27017)
     }
-
-    public 
-    init(parsing string:some StringProtocol, srv: Bool) throws
+    @inlinable public static
+    func mongodb(parsing string:some StringProtocol) -> Self
     {
         let port:Int?
         let name:String
         if  let colon:String.Index = string.firstIndex(of: ":")
         {
-            if srv 
-            {
-                throw MongoInvalidUriError.init(reason: .srvCannotSpecifyPort)
-            }
-
             name = .init(string.prefix(upTo: colon))
             port = .init(string.suffix(from: string.index(after: colon)))
         }
@@ -52,6 +46,6 @@ extension Mongo.Host
             name = .init(string)
             port = nil
         }
-        self.init(name, port ?? 27017)
+        return .init(name, port ?? 27017)
     }
 }

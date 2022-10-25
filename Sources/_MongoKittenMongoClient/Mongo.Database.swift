@@ -1,7 +1,7 @@
 extension Mongo
 {
     @frozen public
-    struct Database
+    struct Database:Hashable, Sendable
     {
         public
         let name:String
@@ -15,6 +15,9 @@ extension Mongo
 }
 extension Mongo.Database:ExpressibleByStringLiteral
 {
+    public static
+    let admin:Self = "admin"
+    
     @inlinable public
     init(stringLiteral:String)
     {

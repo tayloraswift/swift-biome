@@ -3,42 +3,45 @@ import DNSClient
 import NIO
 import NIOSSL
 
-extension Mongo
+extension Mongo.ConnectionSettings
 {
-    struct UnconfirmedConnection:Sendable
-    {
-        let channel:any Channel
-    }
-}
-extension Mongo.UnconfirmedConnection
-{
-    private static 
+    fileprivate
     func addHandlers(to channel:any Channel) -> EventLoopFuture<Void> 
     {
         channel.pipeline.addHandler(ByteToMessageHandler<MongoServerReplyDecoder>(.init()))
             .flatMap
         {
-            channel.pipeline.addHandler(MongoRouter.init())
+            channel.pipeline.addHandler(MongoRouter.init(timeout: self.queryTimeout))
         }
     }
+}
+extension Mongo
+{
+    struct UnestablishedConnection:Sendable
+    {
+        let channel:any Channel
+    }
+}
+extension Mongo.UnestablishedConnection
+{
 
     static 
-    func connect(to host:Mongo.Host, tls:Mongo.ConnectionMetadata.TLS?, 
-        on group:any EventLoopGroup,
-        resolver:DNSClient? = nil) async throws -> Self 
+    func connect(to host:Mongo.Host, settings:Mongo.ConnectionSettings, 
+        group:any EventLoopGroup,
+        dns:DNSClient? = nil) async throws -> Self 
     {
         let bootstrap:ClientBootstrap = .init(group: group)
-            .resolver(resolver)
+            .resolver(dns)
             .channelOption(ChannelOptions.socket(SocketOptionLevel.init(SOL_SOCKET), SO_REUSEADDR), 
                 value: 1)
             .channelInitializer 
             { 
                 (channel:any Channel) in
 
-                guard let tls:Mongo.ConnectionMetadata.TLS
+                guard let tls:Mongo.ConnectionSettings.TLS = settings.tls
                 else
                 {
-                    return Self.addHandlers(to: channel)
+                    return settings.addHandlers(to: channel)
                 }
                 do 
                 {
@@ -50,7 +53,7 @@ extension Mongo.UnconfirmedConnection
                         serverHostname: host.name)
                     return channel.pipeline.addHandler(handler).flatMap 
                     {
-                        return Self.addHandlers(to: channel)
+                        return settings.addHandlers(to: channel)
                     }
                 } 
                 catch let error
@@ -63,27 +66,17 @@ extension Mongo.UnconfirmedConnection
             channel: try await bootstrap.connect(host: host.name, port: host.port).get())
     }
 }
-extension Mongo.UnconfirmedConnection
+extension Mongo.UnestablishedConnection
 {
     /// Executes a MongoDB `isMaster`
     ///
     /// - SeeAlso: https://github.com/mongodb/specifications/blob/master/source/mongodb-handshake/handshake.rst
-    func confirm(authenticationDatabase:String, 
-        credentials:Mongo.Authentication) async throws -> ServerHandshake 
+    func establish(authentication:Mongo.ConnectionSettings.Authentication?) 
+        async throws -> ServerHandshake 
     {
-        let userNamespace: String?
-        if case .auto(let user, _) = credentials 
-        {
-            userNamespace = "\(authenticationDatabase).\(user)"
-        } 
-        else 
-        {
-            userNamespace = nil
-        }
-        
         // NO session must be used here: 
         // https://github.com/mongodb/specifications/blob/master/source/sessions/driver-sessions.rst#when-opening-and-authenticating-a-connection
-        let isMaster:Mongo.IsMaster = .init(userNamespace: userNamespace)
+        let isMaster:Mongo.IsMaster = .init(user: authentication?.user)
         var command:Document = isMaster.bson
             command.appendValue("admin", forKey: "$db")
         

@@ -24,7 +24,7 @@ struct Main:AsyncParsableCommand
     var domain:String = "127.0.0.1" 
 
     @Option(name: [.customShort("m"), .customLong("mongo")], 
-        help: "mongodb host name")
+        help: "mongodb host")
     var mongo:String = "mongodb" 
 
     // @Option(name: [.customLong("swift")], 
@@ -66,27 +66,29 @@ struct Main:AsyncParsableCommand
                 .init(escaped: " (preview)")), 
             attributes: [.class("logo"), .href("/")])))
         
-        let cluster:Mongo.Cluster = try await .init(
-            settings: .init(authentication: .unauthenticated, hosts: 
-            [
-                .init(self.mongo, 27017),
-            ]),
-            on: group)
+        do
+        {
+            let cluster:Mongo.Cluster = try await .init(
+                settings: .init(queryTimeout: .seconds(10)),
+                hosts: .standard([.mongodb(parsing: self.mongo)]),
+                group: group)
 
+            let biomeDB:Mongo.Database = "biome"
 
-        let biomeDB:Mongo.Database = "biome"
+            try await cluster.run(command: Mongo.DropDatabase.init(), against: biomeDB)
+            try await cluster.run(command: Mongo.Create.init(binding: "test"), 
+                against: biomeDB)
 
-        try await cluster.run(command: Mongo.DropDatabase.init(), against: biomeDB)
-        try await cluster.run(command: Mongo.Create.init(binding: "test"), 
-            against: biomeDB)
+            print(try await cluster.run(command: Mongo.ListDatabases.init()).databases.map(\.name))
 
-        print(try await cluster.run(command: Mongo.ListDatabases.init()).databases.map(\.name))
+            try await cluster.run(command: Mongo.DropDatabase.init(), against: biomeDB)
+            
+            print(try await cluster.run(command: Mongo.ListDatabases.init()).databases.map(\.name))
 
-        try await cluster.run(command: Mongo.DropDatabase.init(), against: biomeDB)
+            try await Task.sleep(for: .seconds(5))
+        }
         
-        print(try await cluster.run(command: Mongo.ListDatabases.init()).databases.map(\.name))
-
-        try await Task.sleep(for: .seconds(10))
+        try await Task.sleep(for: .seconds(5))
         // let service:Service = .init(database: .init(),
         //     logo: logo.node.rendered(as: [UInt8].self))
 

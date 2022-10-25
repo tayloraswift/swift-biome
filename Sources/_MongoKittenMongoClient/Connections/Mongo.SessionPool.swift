@@ -3,9 +3,9 @@ extension Mongo
     struct SessionPool
     {
         private
-        var available:[SessionIdentifier: ContinuousClock.Instant]
+        var available:[Session.ID: ContinuousClock.Instant]
         private
-        var claimed:[SessionIdentifier: ContinuousClock.Instant]
+        var claimed:[Session.ID: ContinuousClock.Instant]
 
         init()
         {
@@ -19,7 +19,7 @@ extension Mongo.SessionPool
     private mutating
     func next(now:ContinuousClock.Instant) -> 
     (
-        session:SessionIdentifier, 
+        session:Mongo.Session.ID, 
         timeout:ContinuousClock.Instant
     )?
     {
@@ -33,10 +33,10 @@ extension Mongo.SessionPool
         return nil
     }
     mutating
-    func obtain() -> SessionIdentifier
+    func obtain() -> Mongo.Session.ID
     {
         let now:ContinuousClock.Instant = .now
-        let (session, timeout):(SessionIdentifier, ContinuousClock.Instant) = 
+        let (session, timeout):(Mongo.Session.ID, ContinuousClock.Instant) = 
             self.next(now: now) ?? (._random, now)
         
         guard case nil = self.claimed.updateValue(timeout, forKey: session)
@@ -44,13 +44,12 @@ extension Mongo.SessionPool
         {
             fatalError("unreachable: obtained a duplicate session!")
         }
-        print("obtained", session)
         return session
     }
     mutating
-    func update(_ session:SessionIdentifier, timeout:ContinuousClock.Instant)
+    func update(_ session:Mongo.Session.ID, timeout:ContinuousClock.Instant)
     {
-        if  let index:Dictionary<SessionIdentifier, ContinuousClock.Instant>.Index = 
+        if  let index:Dictionary<Mongo.Session.ID, ContinuousClock.Instant>.Index = 
                 self.claimed.index(forKey: session)
         {
             self.claimed.values[index] = timeout
@@ -61,7 +60,7 @@ extension Mongo.SessionPool
         }
     }
     mutating
-    func release(_ session:SessionIdentifier)
+    func release(_ session:Mongo.Session.ID)
     {
         guard let time:ContinuousClock.Instant = self.claimed.removeValue(forKey: session)
         else

@@ -53,40 +53,6 @@ public struct MongoProtocolSerializationError: Error, Codable, CustomStringConve
     }
 }
 
-public struct MongoInvalidUriError: Error, Codable, CustomStringConvertible {
-    public enum Reason: String, Codable, CustomStringConvertible, Equatable {
-        case srvCannotSpecifyPort
-        case missingMongoDBScheme
-        case uriIsMalformed
-        case malformedAuthenticationDetails
-        case unsupportedAuthenticationMechanism
-        case srvNeedsOneHost
-        case invalidPort
-
-        public var description: String {
-            switch self {
-            case .missingMongoDBScheme:
-                return "The connection URI does not start with the 'mongodb://' scheme"
-            case .uriIsMalformed:
-                return "The URI cannot be parsed because it is malformed"
-            case .malformedAuthenticationDetails:
-                return "The authentication details in the URI are malformed and cannot be parsed"
-            case .unsupportedAuthenticationMechanism:
-                return "The given authentication mechanism is not supported by MongoKitten"
-            case .invalidPort:
-                return "The given port number is invalid"
-            case .srvCannotSpecifyPort:
-                return "MongoDB+SRV URIs are not allowed to specify a port"
-            case .srvNeedsOneHost:
-                return "SRV URIs can only have one host, no more, no less"
-            }
-        }
-    }
-
-    public let reason: Reason
-    public private(set) var description = "The given MongoDB connection URI is invalid"
-}
-
 internal struct MongoOptionalUnwrapFailure: Error, CustomStringConvertible {
     let description = "An optional was unwrapped but `nil` was found"
 }

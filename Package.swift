@@ -50,6 +50,7 @@ let package = Package(
 
         // .package(url: "https://github.com/orlandos-nl/MongoKitten", .upToNextMajor(from: "7.2.10"))
         // mongokitten’s dependencies:
+        .package(url: "https://github.com/karwa/swift-url.git",     from: "0.4.1"),
         .package(url: "https://github.com/orlandos-nl/NioDNS.git",  from: "2.0.0"),
         .package(url: "https://github.com/apple/swift-log.git",     from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-metrics.git", "1.0.0" ..< "3.0.0"),
@@ -155,6 +156,8 @@ let package = Package(
                 .product(name: "Logging",               package: "swift-log"),
                 .product(name: "Metrics",               package: "swift-metrics"),
                 .product(name: "Atomics",               package: "swift-atomics"),
+
+                .product(name: "WebURL",                package: "swift-url"),
 
                 .target(name: "_MongoKittenCrypto"),
 

@@ -4,11 +4,11 @@ extension Mongo
 {
     struct IsMaster 
     {
-        let userNamespace:String?
+        let user:User?
 
-        init(userNamespace:String?) 
+        init(user:User?) 
         {
-            self.userNamespace = userNamespace
+            self.user = user
         }
     }
 }
@@ -21,9 +21,9 @@ extension Mongo.IsMaster:MongoCommand
             "isMaster": 1,
             "client": Self.client,
         ]
-        if let userNamespace:String = self.userNamespace
+        if let user:String = self.user?.description
         {
-            bson.appendValue(userNamespace, forKey: "saslSupportedMechs")
+            bson.appendValue(user, forKey: "saslSupportedMechs")
         }
         return bson
     }

@@ -1,41 +1,21 @@
 import BSON
 import Foundation
 import _MongoKittenCrypto
-import NIO
 import DNSClient
-import Atomics
-import Logging
-import Metrics
-
-#if canImport(NIOTransportServices) && os(iOS)
-import Network
-import NIOTransportServices
-#else
+import NIO
 import NIOSSL
-#endif
-
-public struct MongoHandshakeResult {
-    public let sent: Date
-    public let received: Date
-    public let handshake: ServerHandshake
-    public var interval: Double {
-        received.timeIntervalSince(sent)
-    }
-    
-    init(sentAt sent: Date, handshake: ServerHandshake) {
-        self.sent = sent
-        self.received = Date()
-        self.handshake = handshake
-    }
-}
 
 extension Mongo
 {
-    // not managed! someone else must be responsible for closing the NIO channel!
+    /// @import(NIOCore)
+    /// A connection to a mongo host that we have completed an initial handshake with.
+    ///
+    /// > Warning: This type is not managed! If you are storing instances of this type, 
+    /// there must be code elsewhere responsible for closing the wrapped NIO ``Channel``!
     @frozen public
     struct Connection:Sendable
     {
-        //private
+        private
         let channel:any Channel
         let handshake:ServerHandshake
 
@@ -45,149 +25,70 @@ extension Mongo
             self.channel = channel
             self.handshake = handshake
         }
-        // deinit 
-        // {
-        //     channel.close(mode: .all, promise: nil)
-        // }
+        func close()
+        {
+            self.channel.close(mode: .all, promise: nil)
+        }
     }
 }
 extension Mongo.Connection
 {
-    static 
-    func connect(to host:Mongo.Host, metadata:Mongo.ConnectionMetadata, 
-        on group:any EventLoopGroup,
-        resolver:DNSClient? = nil) async throws -> Self 
+    var closeFuture:EventLoopFuture<Void> 
     {
-        let unconfirmed:Mongo.UnconfirmedConnection = 
-            try await .connect(to: host, tls: metadata.tls, on: group, resolver: resolver)
+        self.channel.closeFuture
+    }
+
+    static 
+    func connect(to host:Mongo.Host, 
+        settings:Mongo.ConnectionSettings, 
+        group:any EventLoopGroup,
+        dns:DNSClient? = nil) async throws -> Self 
+    {
+        let unestablished:Mongo.UnestablishedConnection = 
+            try await .connect(to: host, settings: settings, group: group, dns: dns)
 
         do
         {
-            let authenticationDatabase:String = metadata.authenticationSource ?? "admin"
-
-            let handshake:ServerHandshake = try await unconfirmed.confirm(
-                authenticationDatabase: authenticationDatabase,
-                credentials: metadata.authentication)
+            let handshake:ServerHandshake = try await unestablished.establish(
+                authentication: settings.authentication)
             
-            let connection:Self = .init(unconfirmed.channel, handshake: handshake)
-            try await connection.authenticate(authenticationDatabase: authenticationDatabase,
-                credentials: metadata.authentication,
-                handshake: handshake)
+            let connection:Self = .init(unestablished.channel, handshake: handshake)
+            if  let authentication:Mongo.ConnectionSettings.Authentication = 
+                    settings.authentication,
+                let mechanism:Mongo.ConnectionSettings.Authentication.Mechanism =
+                    authentication.mechanism(handshake: handshake)
+            {
+                try await connection.authenticate(with: authentication, mechanism: mechanism)
+            }
             return connection
         }
         catch let error
         {
-            try await unconfirmed.channel.close()
+            try await unestablished.channel.close()
             throw error
         }
     }
-}
 
-extension Mongo.Connection 
-{
-    // public nonisolated var logger: Logger { context.logger }
-    // var queryTimer: Metrics.Timer?
-    // public internal(set) var lastHeartbeat: MongoHandshakeResult?
-    // public var queryTimeout: TimeAmount? = .seconds(30)
-    
-    // public var isMetricsEnabled = false {
-    //     didSet {
-    //         if isMetricsEnabled, !oldValue {
-    //             queryTimer = Metrics.Timer(label: "org.openkitten.mongokitten.core.queries")
-    //         } else {
-    //             queryTimer = nil
-    //         }
-    //     }
-    // }
-    
-    // /// A LIFO (Last In, First Out) holder for sessions
-    // public let sessionManager: MongoSessionManager
-    // public 
-    // var implicitSession:MongoClientSession 
-    // {
-    //     return sessionManager.implicitClientSession
-    // }
-    // public nonisolated var implicitSessionId: SessionIdentifier {
-    //     return implicitSession.sessionId
-    // }
-    
-    // /// The current request ID, used to generate unique identifiers for MongoDB commands
-    // internal let context: MongoClientContext
-    // public var serverHandshake: ServerHandshake? {
-    //     get async { await context.serverHandshake }
-    // }
-    
-    // public nonisolated var closeFuture: EventLoopFuture<Void> {
-    //     return channel.closeFuture
-    // }
-    
-    // public nonisolated var eventLoop: EventLoop { return channel.eventLoop }
-    // public var allocator: ByteBufferAllocator { return channel.allocator }
-    
-    // public let slaveOk = ManagedAtomic(false)
-    
-    
-    // /// Creates a connection that can communicate with MongoDB over a channel
-    // public init(channel: Channel, context: MongoClientContext, sessionManager: MongoSessionManager = .init()) {
-    //     self.sessionManager = sessionManager
-    //     self.channel = channel
-    //     self.context = context
-    // }
-    
-    
-    // func executeMessage<Request>(_ message:Request) async throws -> MongoServerReply 
-    //     where Request:MongoRequestMessage
-    // {
-        
-    //     if await self.context.didError {
-    //         channel.close(mode: .all, promise: nil)
-    //         throw MongoError(.queryFailure, reason: .connectionClosed)
-    //     }
-        
-    //     let promise = self.eventLoop.makePromise(of: MongoServerReply.self)
-    //     await self.context.setReplyCallback(forRequestId: message.header.requestId, completing: promise)
-        
-    //     var buffer = self.channel.allocator.buffer(capacity: Int(message.header.messageLength))
-    //     message.write(to: &buffer)
-    //     try await self.channel.writeAndFlush(buffer)
-        
-    //     if let queryTimeout = queryTimeout {
-    //         Task {
-    //             try await Task.sleep(nanoseconds: UInt64(queryTimeout.nanoseconds))
-    //             promise.fail(MongoError(.queryTimeout, reason: nil))
-    //         }
-    //     }
-        
-    //     return try await promise.futureResult.get()
-    // }
-
-
-    
-    public 
-    func close() async throws
+    func reestablish(
+        authentication:Mongo.ConnectionSettings.Authentication?) async throws -> Self
     {
-        try await self.channel.close()
+        let unestablished:Mongo.UnestablishedConnection = .init(channel: self.channel)
+        let handshake:ServerHandshake = try await unestablished.establish(
+                authentication: authentication)
+        return .init(unestablished.channel, handshake: handshake)
     }
 }
 
-// public 
-// struct MongoServerError:Error 
-// {
-//     public 
-//     let document:Document
-// }
-
 extension Mongo.Connection
 {
-    public 
     func run<T>(codable command:__owned some Encodable,
-        against namespace:MongoNamespace,
-        transaction:MongoTransaction? = nil,
-        session:SessionIdentifier?,
+        against database:Mongo.Database,
+        transaction:Never? = nil,
+        session:Mongo.Session.ID?,
         returning _:T.Type = T.self) async throws -> T
         where T:Decodable
     {
-        let reply:OpMessage = try await self.run(encodable: command, against: namespace, 
+        let reply:OpMessage = try await self.run(encodable: command, against: database, 
             transaction: transaction, 
             session: session)
         guard let document:Document = reply.first
@@ -200,183 +101,72 @@ extension Mongo.Connection
         return try BSONDecoder().decode(T.self, from: document)
     }
     
-    public 
-    func run(encodable command:__owned some Encodable, against namespace:MongoNamespace,
-        transaction:MongoTransaction? = nil,
-        session:SessionIdentifier?) async throws -> OpMessage 
+    func run(encodable command:__owned some Encodable, against database:Mongo.Database,
+        transaction:Never? = nil,
+        session:Mongo.Session.ID?) async throws -> OpMessage 
     {
-        try await self.run(command: try BSONEncoder().encode(command), against: namespace, 
+        try await self.run(command: try BSONEncoder().encode(command), against: database, 
             transaction: transaction, 
             session: session)
     }
 
-    public 
-    func run(command:__owned Document, against namespace:MongoNamespace,
-        transaction:MongoTransaction?,
-        session:SessionIdentifier?) async throws -> OpMessage 
+    func run(command:__owned Document, against database:Mongo.Database,
+        transaction:Never? = nil,
+        session:Mongo.Session.ID?) async throws -> OpMessage 
     {
-        //let startDate = Date()
         var command:Document = command
-            command.appendValue(namespace.databaseName, forKey: "$db")
+            command.appendValue(database.name, forKey: "$db")
         
         if let session
         {
             command.appendValue(session.bson, forKey: "lsid")
         }
         
-        // TODO: When retrying a write, don't resend transaction messages except commit & abort
-        if let transaction:MongoTransaction 
-        {
-            command.appendValue(transaction.number, forKey: "txnNumber")
-            command.appendValue(transaction.autocommit, forKey: "autocommit")
+        // if let transaction:Mongo.Transaction 
+        // {
+        //     command.appendValue(transaction.number, forKey: "txnNumber")
+        //     command.appendValue(transaction.autocommit, forKey: "autocommit")
 
-            if await transaction.startTransaction() 
-            {
-                command.appendValue(true, forKey: "startTransaction")
-            }
-        }
+        //     if await transaction.startTransaction() 
+        //     {
+        //         command.appendValue(true, forKey: "startTransaction")
+        //     }
+        // }
         
         return try await withCheckedThrowingContinuation
         {
             (continuation:CheckedContinuation<OpMessage, Error>) in
             self.channel.writeAndFlush((command, continuation), promise: nil)
         }
-
-        // if let queryTimer = queryTimer {
-        //     queryTimer.record(-startDate.timeIntervalSinceNow)
-        // }
     }
 }
 
 extension Mongo.Connection
 {
     private
-    func authenticate(authenticationDatabase source:String,
-        credentials:Mongo.Authentication,
-        handshake:ServerHandshake) async throws 
+    func authenticate(with authentication:Mongo.ConnectionSettings.Authentication,
+        mechanism:Mongo.ConnectionSettings.Authentication.Mechanism) async throws 
     {
-        let namespace = MongoNamespace(to: "$cmd", inDatabase: source)
-
-        var credentials = credentials
-
-        if case .auto(let user, let pass) = credentials {
-            credentials = try selectAuthenticationAlgorithm(forUser: user, password: pass, handshake: handshake)
-        }
-
-        switch credentials {
-        case .unauthenticated:
-            return
-        case .auto(let username, let password):
-            if let mechanisms = handshake.saslSupportedMechs {
-                nextMechanism: for mechanism in mechanisms {
-                    switch mechanism {
-                    case "SCRAM-SHA-1":
-                        return try await self.authenticateSASL(hasher: SHA1(), namespace: namespace, username: username, password: password)
-                    case "SCRAM-SHA-256":
-                        // TODO: Enforce minimum 4096 iterations
-                        return try await self.authenticateSASL(hasher: SHA256(), namespace: namespace, username: username, password: password)
-                    default:
-                        continue nextMechanism
-                    }
-                }
-
-                throw MongoAuthenticationError(reason: .unsupportedAuthenticationMechanism)
-            } else if handshake.maxWireVersion.supportsScramSha1 {
-                return try await self.authenticateSASL(hasher: SHA1(), namespace: namespace, username: username, password: password)
-            } else {
-                return try await self.authenticateCR(username, password: password, namespace: namespace)
-            }
-        case .scramSha1(let username, let password):
-            return try await self.authenticateSASL(hasher: SHA1(), namespace: namespace, username: username, password: password)
-        case .scramSha256(let username, let password):
-            return try await self.authenticateSASL(hasher: SHA256(), namespace: namespace, username: username, password: password)
-        case .mongoDBCR(let username, let password):
-            return try await self.authenticateCR(username, password: password, namespace: namespace)
-        }
-    }
-
-    private 
-    func selectAuthenticationAlgorithm(forUser user:String, password:String, 
-        handshake:ServerHandshake) throws -> Mongo.Authentication 
-    {
-        if let saslSupportedMechs = handshake.saslSupportedMechs {
-            nextMechanism: for mech in saslSupportedMechs {
-                switch mech {
-                case "SCRAM-SHA-256":
-                    return .scramSha256(username: user, password: password)
-                case "SCRAM-SHA-1":
-                    return .scramSha1(username: user, password: password)
-                default:
-                    // Unknown algorithm
-                    continue nextMechanism
-                }
-            }
-        }
-
-        if handshake.maxWireVersion.supportsScramSha1 {
-            return .scramSha1(username: user, password: password)
-        } else {
-            return .mongoDBCR(username: user, password: password)
-        }
-    }
-}
-
-fileprivate struct GetNonce: Encodable {
-    let getnonce: Int32 = 1
-}
-
-fileprivate struct GetNonceResult: Decodable {
-    let nonce: String
-}
-
-fileprivate struct AuthenticateCR: Encodable {
-    let authenticate: Int32 = 1
-    let nonce: String
-    let user: String
-    let key: String
-
-    public init(nonce: String, user: String, key: String) {
-        self.nonce = nonce
-        self.user = user
-        self.key = key
-    }
-}
-
-extension Mongo.Connection 
-{
-    func authenticateCR(_ username:String, password:String, namespace:MongoNamespace) async throws  
-    {
-        let nonceReply:GetNonceResult = try await self.run(codable: GetNonce.init(),
-            against: namespace,
-            session: nil)
-        
-        let nonce:String = nonceReply.nonce
-
-        var md5:MD5 = .init()
-
-        let credentials:String = "\(username):mongo:\(password)"
-        let digest:String = md5.hash(bytes: [UInt8].init(credentials.utf8)).hexString
-        let key:String = nonce + username + digest
-
-        let authenticate:AuthenticateCR = .init(nonce: nonce, user: username, 
-            key: md5.hash(bytes: [UInt8].init(key.utf8)).hexString)
-
-        let authenticationReply:OpMessage = try await self.run(encodable: authenticate,
-            against: namespace,
-            session: nil)
-        
-        if  let document:Document = authenticationReply.first
+        switch mechanism 
         {
-            try document.status()
-        }
-        else
-        {
-            throw MongoCommandError.emptyReply
+        case .sha1:
+            return try await self.authenticateSASL(hasher: SHA1.init(),
+                database: authentication.database, 
+                username: authentication.username,
+                password: authentication.password)
+        case .sha256:
+            return try await self.authenticateSASL(hasher: SHA256(),
+                database: authentication.database, 
+                username: authentication.username,
+                password: authentication.password)
+        default:
+            fatalError("authentication mechanism \(mechanism) has not been implemented yet")
         }
     }
 }
 
-
+// Johannis + Jaap wrote most of the code below, which we inherited from MongoKitten. 
+// i have not gotten around to integrating it into the rest of the driver.
 enum SASLMechanism: String, Codable {
     case scramSha1 = "SCRAM-SHA-1"
     case scramSha256 = "SCRAM-SHA-256"
@@ -449,33 +239,6 @@ struct SASLReply: Decodable {
     let conversationId: Int32
     let done: Bool
     let payload: BinaryOrString
-
-    init(reply: MongoServerReply) throws {
-        try reply.assertOK(or: MongoAuthenticationError(reason: .anyAuthenticationFailure))
-        let doc = try reply.getDocument()
-
-        if let conversationId = doc["conversationId"] as? Int {
-            self.conversationId = Int32(conversationId)
-        } else if let conversationId = doc["conversationId"] as? Int32 {
-            self.conversationId = conversationId
-        } else {
-            throw try MongoGenericErrorReply(reply: reply)
-        }
-
-        guard let done = doc["done"] as? Bool else {
-            throw try MongoGenericErrorReply(reply: reply)
-        }
-
-        self.done = done
-
-        if let payload = doc["payload"] as? String {
-            self.payload = .string(payload)
-        } else  if let payload = doc["payload"] as? Binary {
-            self.payload = .binary(payload)
-        } else {
-            throw try MongoGenericErrorReply(reply: reply)
-        }
-    }
 }
 
 /// A SASLContinue message contains the previous conversationId (from the SASLReply to SASLStart).
@@ -508,7 +271,11 @@ extension Mongo.Connection
     /// Handles a SCRAM authentication flow
     ///
     /// The Hasher `H` specifies the hashing algorithm used with SCRAM.
-    func authenticateSASL<H: SASLHash>(hasher: H, namespace: MongoNamespace, username: String, password: String) async throws {
+    func authenticateSASL<H:SASLHash>(hasher:H, 
+        database:Mongo.Database, 
+        username:String, 
+        password:String) async throws 
+    {
         let context = SCRAM<H>(hasher)
 
         let rawRequest = try context.authenticationString(forUser: username)
@@ -518,7 +285,7 @@ extension Mongo.Connection
         // NO session must be used here: https://github.com/mongodb/specifications/blob/master/source/sessions/driver-sessions.rst#when-opening-and-authenticating-a-connection
         // Forced on the current connection
         var reply:SASLReply = try await self.run(codable: command,
-            against: namespace,
+            against: database,
             session: nil)
         
         if  reply.done 
@@ -543,7 +310,7 @@ extension Mongo.Connection
         let next:SASLContinue = .init(conversation: reply.conversationId, payload: response)
 
         reply = try await self.run(codable: next,
-            against: namespace,
+            against: database,
             session: nil)
         
         let successReply = try reply.payload.base64Decoded()
@@ -557,7 +324,7 @@ extension Mongo.Connection
         let final:SASLContinue = .init(conversation: reply.conversationId, payload: "")
 
         reply = try await self.run(codable: final,
-            against: namespace,
+            against: database,
             session: nil)
         
         guard reply.done else {
