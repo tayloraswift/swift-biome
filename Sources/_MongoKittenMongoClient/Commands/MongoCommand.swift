@@ -107,8 +107,10 @@ extension MongoCommand<Void>
 public
 protocol SessionCommand:MongoCommand
 {
+    /// The kind of node this command must be sent to, in order for
+    /// it to succeed.
     static
-    var color:MongoCommandColor { get }
+    var node:Mongo.Cluster.Role { get }
 }
 
 public

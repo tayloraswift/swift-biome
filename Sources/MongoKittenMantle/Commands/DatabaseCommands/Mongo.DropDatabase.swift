@@ -21,7 +21,7 @@ extension Mongo
 extension Mongo.DropDatabase:DatabaseCommand
 {
     public static
-    let color:MongoCommandColor = .mutating
+    let node:Mongo.Cluster.Role = .master
     
     public
     var bson:Document

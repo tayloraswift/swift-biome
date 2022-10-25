@@ -8,10 +8,10 @@ extension Mongo.ConnectionSettings
     fileprivate
     func addHandlers(to channel:any Channel) -> EventLoopFuture<Void> 
     {
-        channel.pipeline.addHandler(ByteToMessageHandler<MongoServerReplyDecoder>(.init()))
+        channel.pipeline.addHandler(ByteToMessageHandler<Mongo.MessageDecoder>(.init()))
             .flatMap
         {
-            channel.pipeline.addHandler(MongoRouter.init(timeout: self.queryTimeout))
+            channel.pipeline.addHandler(Mongo.MessageRouter.init(timeout: self.queryTimeout))
         }
     }
 }

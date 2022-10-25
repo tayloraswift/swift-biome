@@ -138,14 +138,7 @@ extension Mongo.Cluster
     func start<Command>(for _:Command.Type) async throws -> Mongo.Session
         where Command:SessionCommand
     {
-        let role:Role
-        switch Command.color
-        {
-        case .nonmutating:  role = .any
-        case .mutating:     role = .master
-        }
-
-        let connection:Mongo.Connection = try await self.next(role)
+        let connection:Mongo.Connection = try await self.next(Command.node)
         let session:Mongo.Session.ID = self.sessions.obtain()
         return .init(connection: connection, cluster: self, id: session)
     }

@@ -35,7 +35,7 @@ extension Mongo
 extension Mongo.ListDatabases:AdministrativeCommand
 {
     public static
-    let color:MongoCommandColor = .nonmutating
+    let node:Mongo.Cluster.Role = .any
 
     public
     var bson:Document
