@@ -156,8 +156,7 @@ extension BSON.ParsingInput
             return .double(.init(bitPattern: try self.parse(as: UInt64.self)))
         
         case 0x02:
-            return .string(try self.parse(as: BSON.UTF8<Source.SubSequence>.self)
-                .description)
+            return .string(try self.parse(as: BSON.UTF8<Source.SubSequence>.self).description)
         
         case 0x03:
             return .document(try self.parse(as: BSON.Document<Source.SubSequence>.self))
@@ -188,7 +187,7 @@ extension BSON.ParsingInput
             }
         
         case 0x09:
-            return .datetime(try self.parse(as: Int64.self))
+            return .millisecond(try self.parse(as: Int64.self))
         
         case 0x0A:
             return .null
@@ -208,7 +207,7 @@ extension BSON.ParsingInput
             return .javascript(try self.parse(as: BSON.UTF8<Source.SubSequence>.self))
         
         case 0x0E:
-            return .symbol(try self.parse(as: BSON.UTF8<Source.SubSequence>.self))
+            return .string(try self.parse(as: BSON.UTF8<Source.SubSequence>.self).description)
         
         case 0x0F:
             let code:BSON.UTF8<Source.SubSequence> = 

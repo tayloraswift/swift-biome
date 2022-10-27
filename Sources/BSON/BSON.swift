@@ -5,27 +5,36 @@ enum BSON
     @frozen public
     enum Variant<Bytes> where Bytes:RandomAccessCollection<UInt8>
     {
+        /// A general embedded document.
         case document(Document<Bytes>)
+        /// An embedded array-document.
         case array(Array<Bytes>)
-
+        /// A binary array.
         case binary(Binary<Bytes>)
 
         case bool(Bool)
-        case datetime(Int64)
         case decimal128(Decimal128)
         case double(Double)
         case int32(Int32)
         case int64(Int64)
+        /// Javascript code. The `scope` field is maintained for 
+        /// backward-compatibility with older versions of BSON and 
+        /// should not be generated.
         case javascript(UTF8<Bytes>, scope:Document<Bytes>? = nil)
+        /// The MongoDB max-key.
         case max
+        /// UTC milliseconds since the Unix epoch.
         case millisecond(Int64)
-        case min 
+        /// The MongoDB min-key.
+        case min
         case null
         case object(Object)
+        /// A MongoDB database pointer. This variant is maintained for
+        /// backward-compatibility with older versions of BSON and
+        /// should not be generated. (Prefer ``object(_:)``.)
         case pointer(String, Object)
         case regex(Regex)
         case string(String)
-        case symbol(UTF8<Bytes>)
         case uint64(UInt64)
     }
 
