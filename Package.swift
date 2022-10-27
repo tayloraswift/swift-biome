@@ -145,6 +145,14 @@ let package = Package(
         
         .target(name: "BiomeABI"),
         
+        .target(name: "BSONTraversal"),
+        .target(name: "_BSON",
+            dependencies:
+            [
+                .target(name: "BSONTraversal")
+            ],
+            path: "Sources/BSON"),
+        
         .target(name: "_MongoKittenCrypto"),
         .target(name: "MongoClient",
             dependencies: 
