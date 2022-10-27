@@ -2,6 +2,14 @@ import BSONTraversal
 
 extension BSON
 {
+    /// A parser did not receive the expected amount of input.
+    public
+    enum ParsingError:Error
+    {
+        case trailed(bytes:Int)
+        case incomplete
+    }
+
     struct ParsingInput<Source> where Source:RandomAccessCollection<UInt8>
     {
         let source:Source
@@ -32,7 +40,13 @@ extension BSON.ParsingInput
         
         return self.source[self.index]
     }
-    
+    /// Advances the current index until encountering the specified `byte`.
+    /// After this method returns, ``index`` points to the byte after
+    /// the matched byte.
+    ///
+    /// -   Returns:
+    ///         A range covering the bytes skipped. The upper-bound of
+    ///         the range points to the matched byte.
     @discardableResult
     mutating
     func parse(through byte:UInt8) throws -> Range<Source.Index>
@@ -51,11 +65,13 @@ extension BSON.ParsingInput
         }
         throw BSON.ParsingError.incomplete
     }
+    /// Parses a null-terminated string.
     mutating
     func parse(as _:String.Type = String.self) throws -> String
     {
         .init(decoding: self.source[try self.parse(through: 0x00)], as: Unicode.UTF8.self)
     }
+    /// Parses a MongoDB object reference.
     mutating
     func parse(as _:BSON.Object.Type = BSON.Object.self) throws -> BSON.Object
     {
@@ -81,6 +97,7 @@ extension BSON.ParsingInput
             throw BSON.ParsingError.incomplete
         }
     }
+    /// Parses a little-endian integer.
     mutating
     func parse<LittleEndian>(as _:LittleEndian.Type = LittleEndian.self) throws -> LittleEndian
         where LittleEndian:FixedWidthInteger
@@ -104,6 +121,8 @@ extension BSON.ParsingInput
             throw BSON.ParsingError.incomplete
         }
     }
+    /// Parses a traversable BSON element. The output is typically opaque,
+    /// which allows decoders to skip over regions of a BSON document.
     mutating
     func parse<Traversable>(as _:Traversable.Type = Traversable.self) throws -> Traversable
         where Traversable:TraversableBSON<Source.SubSequence>
@@ -126,6 +145,8 @@ extension BSON.ParsingInput
 }
 extension BSON.ParsingInput
 {
+    /// Parses a variant BSON value, assuming it is of the variant type
+    /// encoded by the given tag byte.
     mutating
     func parse(variant:UInt8) throws -> BSON.Variant<Source.SubSequence>
     {

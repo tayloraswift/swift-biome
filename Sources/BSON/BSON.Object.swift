@@ -1,5 +1,9 @@
 extension BSON
 {
+    /// A MongoDB object reference. This type models a MongoDB `ObjectId`.
+    ///
+    /// This type has reference semantics, but (needless to say) it is
+    /// completely unmanaged, as it is nothing more than a 96-bit integer.
     @frozen public 
     struct Object
     {

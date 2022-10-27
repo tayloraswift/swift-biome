@@ -9,8 +9,10 @@ extension BSON
         case invalid(UInt8)
     }
 
+    /// A BSON binary subtype. This type’s public API performs canonicalization
+    /// and therefore instances of this type are safe to compare.
     @frozen public 
-    struct BinarySubtype:RawRepresentable
+    struct BinarySubtype:Hashable, RawRepresentable
     {
         public static let generic:Self     = .init(unchecked: 0x00)
         public static let function:Self    = .init(unchecked: 0x01)
@@ -28,6 +30,11 @@ extension BSON
         {
             self.rawValue = code
         }
+        /// Detects and normalizes a binary subtype from the given
+        /// raw subtype code. Deprecated encodings will be normalized
+        /// to their canonical encoding.
+        ///
+        /// This initializer fails if `rawValue`is a reserved bit pattern.
         @inlinable public 
         init?(rawValue:UInt8)
         {
@@ -48,11 +55,15 @@ extension BSON
 
 extension BSON
 {
+    /// A BSON binary array.
     @frozen public
     struct Binary<Bytes> where Bytes:RandomAccessCollection<UInt8>
     {
+        /// The contents of this binary array. This collection does *not*
+        /// include the leading subtype byte.
         public 
         let bytes:Bytes.SubSequence
+        /// The subtype of this binary array.
         public 
         let subtype:BinarySubtype
     }

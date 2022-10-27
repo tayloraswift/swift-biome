@@ -1,6 +1,7 @@
 public
 enum BSON 
 {
+    /// A BSON variant value.
     @frozen public
     enum Variant<Bytes> where Bytes:RandomAccessCollection<UInt8>
     {
@@ -33,16 +34,11 @@ enum BSON
     {
         case invalid(UInt8)
     }
+    /// A variant code did not encode a valid BSON type.
     public
     struct TypeError:Error
     {
         public
         let code:UInt8
-    }
-    public
-    enum ParsingError:Error
-    {
-        case trailed(bytes:Int)
-        case incomplete
     }
 }

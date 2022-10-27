@@ -1,5 +1,6 @@
 extension BSON
 {
+    /// A MongoDB regex.
     @frozen public 
     struct Regex:Sendable
     {
