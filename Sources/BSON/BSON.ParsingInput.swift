@@ -163,7 +163,7 @@ extension BSON.ParsingInput
             return .document(try self.parse(as: BSON.Document<Source.SubSequence>.self))
         
         case 0x04:
-            return .array(try self.parse(as: BSON.Document<Source.SubSequence>.self))
+            return .array(try self.parse(as: BSON.Array<Source.SubSequence>.self))
         
         case 0x05:
             return .binary(try self.parse(as: BSON.Binary<Source.SubSequence>.self))

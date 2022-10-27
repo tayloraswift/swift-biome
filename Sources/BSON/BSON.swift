@@ -6,7 +6,7 @@ enum BSON
     enum Variant<Bytes> where Bytes:RandomAccessCollection<UInt8>
     {
         case document(Document<Bytes>)
-        case array(Document<Bytes>)
+        case array(Array<Bytes>)
 
         case binary(Binary<Bytes>)
 
@@ -29,6 +29,7 @@ enum BSON
         case uint64(UInt64)
     }
 
+    /// A byte encoding a boolean value was not [`0`]() or [`1`]().
     public
     enum BooleanError:Error
     {
