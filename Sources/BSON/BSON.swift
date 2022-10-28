@@ -5,13 +5,13 @@ enum BSON:UInt8
 {
     /// A byte encoding a boolean value was not [`0`]() or [`1`]().
     public
-    enum BooleanError:Error
+    enum BooleanSubtypeError:Equatable, Error
     {
         case invalid(UInt8)
     }
     /// A variant code did not encode a valid BSON type.
     public
-    struct TypeError:Error
+    struct TypeError:Equatable, Error
     {
         public
         let code:UInt8
@@ -26,7 +26,7 @@ enum BSON:UInt8
     case double             = 0x01
     case string             = 0x02
     case document           = 0x03
-    case array              = 0x04
+    case tuple              = 0x04
     case binary             = 0x05
 
     case id                 = 0x07
@@ -70,7 +70,7 @@ enum BSON:UInt8
         case 0x01:  self = .double
         case 0x02:  self = .string
         case 0x03:  self = .document
-        case 0x04:  self = .array
+        case 0x04:  self = .tuple
         case 0x05:  self = .binary
         case 0x06:  self = .null
         case 0x07:  self = .id

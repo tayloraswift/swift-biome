@@ -1,6 +1,6 @@
 import BSONTraversal
 
-infix operator =~= : ComparisonPrecedence
+infix operator ~~ : ComparisonPrecedence
 
 extension BSON
 {
@@ -22,8 +22,15 @@ extension BSON
         }
     }
 }
-extension BSON.Document:Equatable where Bytes:Equatable
+extension BSON.Document:Equatable
 {
+    /// Performs an exact byte-wise comparison on two tuples.
+    /// Does not parse or validate the operands.
+    @inlinable public static
+    func == (lhs:Self, rhs:BSON.Document<some RandomAccessCollection<UInt8>>) -> Bool
+    {
+        lhs.bytes.elementsEqual(rhs.bytes)
+    }
 }
 extension BSON.Document:Sendable where Bytes:Sendable
 {
@@ -42,14 +49,6 @@ extension BSON.Document:TraversableBSON
     init(slicing bytes:Bytes)
     {
         self.init(bytes)
-    }
-    /// Upcasts a BSON array to a document.
-    ///
-    /// >   Complexity: O(1)
-    @inlinable public
-    init(_ array:BSON.Array<Bytes>)
-    {
-        self.init(array.bytes)
     }
 }
 
@@ -72,31 +71,11 @@ extension BSON.Document
             }
             else
             {
-                break
+                try input.finish()
+                return items
             }
         }
-        try input.finish()
-        return items
-    }
-}
-extension BSON.Document where Bytes:RangeReplaceableCollection<UInt8>
-{
-    @inlinable public
-    init<Other>(_ items:some Collection<(key:String, value:BSON.Variant<Other>)>)
-        where Other:RandomAccessCollection<UInt8>
-    {
-        let size:Int = items.reduce(1) { $0 + 2 + $1.key.utf8.count + $1.value.size }
-        var output:BSON.Output<Bytes> = .init(capacity: size)
-        // do *not* emit the length header!
-        for (key, value):(String, BSON.Variant<Other>) in items
-        {
-            output.append(value.type.rawValue)
-            output.serialize(cString: key)
-            output.serialize(variant: value)
-        }
-        output.append(0x00)
-        assert(output.destination.count == size)
-        self.init(output.destination)
+        throw BSON.EndOfInputError.unexpected
     }
 }
 extension BSON.Document
@@ -121,9 +100,34 @@ extension BSON.Document:ExpressibleByDictionaryLiteral
     where Bytes:RangeReplaceableCollection<UInt8>
 {
     @inlinable public
+    init<Other>(_ items:some Collection<(key:String, value:BSON.Variant<Other>)>)
+        where Other:RandomAccessCollection<UInt8>
+    {
+        let size:Int = items.reduce(1) { $0 + 2 + $1.key.utf8.count + $1.value.size }
+        var output:BSON.Output<Bytes> = .init(capacity: size)
+        // do *not* emit the length header!
+        for (key, value):(String, BSON.Variant<Other>) in items
+        {
+            output.append(value.type.rawValue)
+            output.serialize(cString: key)
+            output.serialize(variant: value)
+        }
+        output.append(0x00)
+        assert(output.destination.count == size)
+        self.init(output.destination)
+    }
+
+    @inlinable public
     init(dictionaryLiteral:(String, BSON.Variant<Bytes>)...)
     {
         self.init(dictionaryLiteral)
+    }
+    /// Recursively parses and re-encodes this document, and any embedded documents
+    /// (and tuple-documents) in its elements. The keys will not be changed or re-ordered.
+    @inlinable public
+    func canonicalized() throws -> Self
+    {
+        .init(try self.parse().map { ($0.key, try $0.value.canonicalized()) })
     }
 }
 
@@ -143,24 +147,31 @@ extension BSON.Document:CustomStringConvertible
         """
     }
 }
-extension BSON.Document where Bytes.SubSequence:Equatable
+extension BSON.Document
 {
+    /// Performs a “canonical” comparison by parsing each operand and recursively
+    /// comparing the elements. Returns [`false`]() if either operand fails to parse.
+    ///
+    /// Some documents that do not compare equal under byte-wise
+    /// `==` comparison may compare equal under this operator, due to normalization
+    /// of deprecated BSON variants. For example, a value of the deprecated `symbol` type
+    /// will compare equal to a `BSON//Variant.string(_:)` value with the same contents.
     @inlinable public static
-    func =~= (lhs:Self, rhs:Self) -> Bool
+    func ~~ <Other>(lhs:Self, rhs:BSON.Document<Other>) -> Bool
     {
         if  let lhs:[(key:String, value:BSON.Variant<Bytes.SubSequence>)] = try? lhs.parse(),
-            let rhs:[(key:String, value:BSON.Variant<Bytes.SubSequence>)] = try? rhs.parse(),
+            let rhs:[(key:String, value:BSON.Variant<Other.SubSequence>)] = try? rhs.parse(),
                 rhs.count == lhs.count
         {
             for (lhs, rhs):
             (
                 (key:String, value:BSON.Variant<Bytes.SubSequence>),
-                (key:String, value:BSON.Variant<Bytes.SubSequence>)
+                (key:String, value:BSON.Variant<Other.SubSequence>)
             )
             in zip(lhs, rhs)
             {
                 guard   lhs.key   ==  rhs.key,
-                        lhs.value =~= rhs.value
+                        lhs.value ~~ rhs.value
                 else
                 {
                     return false

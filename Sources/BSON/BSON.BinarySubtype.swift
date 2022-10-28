@@ -2,14 +2,30 @@ extension BSON
 {
     /// The subtype of a BSON binary array could not be determined.
     public
-    enum BinarySubtypeError:Error
+    enum BinarySubtypeError:Equatable, Error
     {
         /// The subtype byte was missing.
         case missing
         /// The subtype byte was invalid. (It matched a reserved bit pattern.)
         case invalid(UInt8)
     }
-
+}
+extension BSON.BinarySubtypeError:CustomStringConvertible
+{
+    public 
+    var description:String
+    {
+        switch self
+        {
+        case .missing:
+            return "missing binary subtype"
+        case .invalid(let code):
+            return "invalid binary subtype code (\(code))"
+        }
+    }
+}
+extension BSON
+{
     /// A BSON binary subtype. This type’s public API performs canonicalization
     /// and therefore instances of this type are safe to compare.
     @frozen public 
@@ -21,12 +37,11 @@ extension BSON
         public static let md5:Self         = .init(unchecked: 0x05)
         public static let encrypted:Self   = .init(unchecked: 0x06)
         public static let compressed:Self  = .init(unchecked: 0x07)
-        public static let custom:Self      = .init(unchecked: 0x80)
 
         public
         let rawValue:UInt8
 
-        private
+        @inlinable public
         init(unchecked code:UInt8)
         {
             self.rawValue = code
@@ -50,6 +65,16 @@ extension BSON
             case 0x80 ... 0xFF: self.rawValue = rawValue
             default:            return nil
             }
+        }
+
+        @inlinable public static
+        func custom(code:UInt8) -> Self
+        {
+            if code < 0x80
+            {
+                fatalError("custom code cannot be less than 0x80")
+            }
+            return .init(unchecked: code)
         }
     }
 }

@@ -6,8 +6,8 @@ extension BSON
     {
         /// A general embedded document.
         case document(Document<Bytes>)
-        /// An embedded array-document.
-        case array(Array<Bytes>)
+        /// An embedded tuple-document.
+        case tuple(Tuple<Bytes>)
         /// A binary array.
         case binary(Binary<Bytes>)
 
@@ -48,7 +48,7 @@ extension BSON.Variant
         switch self
         {
         case .document:         return .document
-        case .array:            return .array
+        case .tuple:            return .tuple
         case .binary:           return .binary
         case .bool:             return .bool
         case .decimal128:       return .decimal128
@@ -76,8 +76,8 @@ extension BSON.Variant
         {
         case .document(let document):
             return document.size
-        case .array(let array):
-            return array.size
+        case .tuple(let tuple):
+            return tuple.size
         case .binary(let binary):
             return binary.size
         case .bool:
@@ -128,17 +128,24 @@ extension BSON.Variant
         try input.finish()
     }
 }
-extension BSON.Variant where Bytes.SubSequence:Equatable
+extension BSON.Variant
 {
+    /// If both operands are a `document(_:)` (or `tuple(_:)`), performs a “canonical”
+    /// comparison by calling `BSON//Document.~~(_:_:)`. Performs normal binary comparison
+    /// otherwise.
+    ///
+    /// >   Note:
+    ///     The embedded document in the deprecated `javascriptScope(_:_:)` variant
+    ///     also receives “canonical” treatment.
     @inlinable public static
-    func =~= (lhs:Self, rhs:Self) -> Bool
+    func ~~ (lhs:Self, rhs:BSON.Variant<some RandomAccessCollection<UInt8>>) -> Bool
     {
         switch (lhs, rhs)
         {
         case (.document     (let lhs), .document    (let rhs)):
-            return lhs =~= rhs
-        case (.array        (let lhs), .array       (let rhs)):
-            return lhs =~= rhs
+            return lhs ~~ rhs
+        case (.tuple        (let lhs), .tuple       (let rhs)):
+            return lhs ~~ rhs
         case (.binary       (let lhs), .binary      (let rhs)):
             return lhs == rhs
         case (.bool         (let lhs), .bool        (let rhs)):
@@ -156,7 +163,7 @@ extension BSON.Variant where Bytes.SubSequence:Equatable
         case (.javascript   (let lhs), .javascript  (let rhs)):
             return lhs == rhs
         case (.javascriptScope(let lhs, let lhsCode), .javascriptScope(let rhs, let rhsCode)):
-            return lhsCode == rhsCode && lhs =~= rhs
+            return lhsCode == rhsCode && lhs ~~ rhs
         case (.max,                     .max):
             return true
         case (.millisecond  (let lhs), .millisecond (let rhs)):
@@ -179,24 +186,57 @@ extension BSON.Variant where Bytes.SubSequence:Equatable
         }
     }
 }
-extension BSON.Variant:Equatable where Bytes:Equatable, Bytes.SubSequence:Equatable
+extension BSON.Variant:Equatable
 {
 }
 extension BSON.Variant:Sendable where Bytes:Sendable, Bytes.SubSequence:Sendable
 {
 }
 extension BSON.Variant:ExpressibleByArrayLiteral, ExpressibleByDictionaryLiteral
-    where Bytes:RangeReplaceableCollection
+    where Bytes:RangeReplaceableCollection<UInt8>
 {
     @inlinable public
     init(arrayLiteral:Self...)
     {
-        self = .array(.init(arrayLiteral))
+        self = .tuple(.init(arrayLiteral))
     }
     @inlinable public
     init(dictionaryLiteral:(String, Self)...)
     {
         self = .document(.init(dictionaryLiteral))
+    }
+    /// Recursively parses and re-encodes any embedded documents (and tuple-documents)
+    /// in this variant value.
+    @inlinable public
+    func canonicalized() throws -> Self
+    {
+        switch self
+        {
+        case    .document(let document):
+            return .document(try document.canonicalized())
+        case    .tuple(let tuple):
+            return .tuple(try tuple.canonicalized())
+        case    .binary,
+                .bool,
+                .decimal128,
+                .double,
+                .id,
+                .int32,
+                .int64,
+                .javascript:
+            return self
+        case    .javascriptScope(let scope, let utf8):
+            return .javascriptScope(try scope.canonicalized(), utf8)
+        case    .max,
+                .millisecond,
+                .min,
+                .null,
+                .pointer,
+                .regex,
+                .string,
+                .uint64:
+            return self
+        }
     }
 }
 extension BSON.Variant:ExpressibleByStringLiteral

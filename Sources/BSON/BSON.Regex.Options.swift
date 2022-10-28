@@ -2,7 +2,7 @@ extension BSON.Regex
 {
     /// A MongoDB regex matching options string contained an invalid unicode scalar.
     public
-    enum OptionError:Error
+    enum OptionError:Equatable, Error
     {
         case invalid(Unicode.Scalar)
     }

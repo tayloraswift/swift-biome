@@ -2,6 +2,29 @@ import BSONTraversal
 
 extension BSON
 {
+    /// The payload of a binary array was malformed. This error is only generated
+    /// by legacy binary subtypes; it will not be thrown when slicing modern binary arrays.
+    public
+    enum EndOfBinaryError:Equatable, Error
+    {
+        /// The payload of a binary array (of legacy subtype `0x02`) was missing its header.
+        case unexpected
+    }
+}
+extension BSON.EndOfBinaryError:CustomStringConvertible
+{
+    public 
+    var description:String
+    {
+        switch self
+        {
+        case .unexpected:
+            return "missing length header for legacy binary subtype"
+        }
+    }
+}
+extension BSON
+{
     /// A BSON binary array.
     @frozen public
     struct Binary<Bytes> where Bytes:RandomAccessCollection<UInt8>
@@ -22,8 +45,16 @@ extension BSON
         }
     }
 }
-extension BSON.Binary:Equatable where Bytes.SubSequence:Equatable
+extension BSON.Binary:Equatable
 {
+    /// Performs an exact byte-wise comparison on two binary arrays.
+    /// The subtypes must match as well.
+    @inlinable public static
+    func == (lhs:Self, rhs:BSON.Binary<some RandomAccessCollection<UInt8>>) -> Bool
+    {
+        lhs.subtype == rhs.subtype &&
+        lhs.bytes.elementsEqual(rhs.bytes)
+    }
 }
 extension BSON.Binary:Sendable where Bytes.SubSequence:Sendable
 {
@@ -42,18 +73,30 @@ extension BSON.Binary:TraversableBSON
     @inlinable public
     init(slicing bytes:Bytes) throws
     {
-        guard let subtype:UInt8 = bytes.first
+        guard let code:UInt8 = bytes.first
         else
         {
             throw BSON.BinarySubtypeError.missing
         }
-        guard let subtype:BSON.BinarySubtype = .init(rawValue: subtype)
+        guard let subtype:BSON.BinarySubtype = .init(rawValue: code)
         else
         {
-            throw BSON.BinarySubtypeError.invalid(subtype)
+            throw BSON.BinarySubtypeError.invalid(code)
         }
-
-        self.init(subtype: subtype, bytes: bytes.dropFirst())
+        if code != 0x02
+        {
+            self.init(subtype: subtype, bytes: bytes.dropFirst())
+        }
+        // special handling for legacy binary format 0x02
+        else if let start:Bytes.Index = bytes.index(bytes.startIndex, offsetBy: 5, 
+            limitedBy: bytes.endIndex)
+        {
+            self.init(subtype: subtype, bytes: bytes.suffix(from: start))
+        }
+        else
+        {
+            throw BSON.EndOfBinaryError.unexpected
+        }
     }
 }
 extension BSON.Binary

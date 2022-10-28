@@ -1,68 +1,5 @@
-import Sediment 
-
-infix operator ==? :ComparisonPrecedence
-infix operator ..? :ComparisonPrecedence
-
-struct OptionalUnwrapFailure<Wrapped>:Error, CustomStringConvertible 
-{
-    var description:String
-    {
-        """
-        expected non-nil value of type \(Wrapped.self)
-        """
-    }
-}
-struct AssertionFailure:Error, CustomStringConvertible 
-{
-    var description:String
-    {
-        """
-        expected true
-        """
-    }
-}
-struct AssertEquivalenceFailure<T>:Error, CustomStringConvertible  
-{
-    let lhs:T
-    let rhs:T
-
-    var description:String
-    {
-        """
-        expected equal values: 
-        {
-            lhs: \(lhs),
-            rhs: \(rhs)
-        }
-        """
-    }
-}
-func ..? <LHS, RHS>(lhs:LHS, rhs:RHS) -> AssertEquivalenceFailure<[LHS.Element]>?
-    where LHS:Sequence, RHS:Sequence, LHS.Element == RHS.Element, LHS.Element:Equatable
-{
-    let rhs:[LHS.Element] = .init(rhs)
-    let lhs:[LHS.Element] = .init(lhs)
-    if  lhs.elementsEqual(rhs) 
-    {
-        return nil 
-    }
-    else 
-    {
-        return .init(lhs: lhs, rhs: rhs)
-    }
-}
-func ==? <T>(lhs:T, rhs:T) -> AssertEquivalenceFailure<T>?
-    where T:Equatable
-{
-    if  lhs == rhs
-    {
-        return nil 
-    }
-    else 
-    {
-        return .init(lhs: lhs, rhs: rhs)
-    }
-}
+import Sediment
+import Testing
 
 struct Validator
 {
@@ -107,59 +44,8 @@ struct Validator
 
 
 @main 
-struct Main 
+struct Main:UnitTests
 {
-    mutating 
-    func assert<T>(_ error:AssertEquivalenceFailure<T>?, 
-        file:String = #file, 
-        function:String = #function, 
-        line:Int = #line, 
-        column:Int = #column) 
-    {
-        if let error:AssertEquivalenceFailure<T>
-        {
-            print("\(file):\(line):\(column): \(error)")
-            self.failed.append(error)
-        }
-        else 
-        {
-            self.passed += 1
-        }
-    }
-    mutating 
-    func assert(_ test:Bool, 
-        file:String = #file, 
-        function:String = #function, 
-        line:Int = #line, 
-        column:Int = #column)  
-    {
-        if test 
-        {
-            self.passed += 1
-        }
-        else
-        {
-            print("\(file):\(line):\(column): test failed")
-            self.failed.append(AssertionFailure.init())
-        }
-    }
-    func unwrap<Wrapped>(_ optional:Wrapped?, 
-        file:String = #file, 
-        function:String = #function, 
-        line:Int = #line, 
-        column:Int = #column) -> Wrapped?
-    {
-        if let wrapped:Wrapped = optional
-        {
-            return wrapped 
-        }
-        else 
-        {
-            print("\(file):\(line):\(column): optional unwrap failed")
-            return nil
-        }
-    }
-
     var passed:Int 
     var failed:[any Error]
 
@@ -178,8 +64,7 @@ struct Main
             print("performing fuzzing iteration \(i)")
             tests.main()
         }
-        print("passed: \(tests.passed)")
-        print("failed: \(tests.failed.count)")
+        tests.summarize()
     }
     mutating 
     func main() 
@@ -201,9 +86,9 @@ struct Main
             time = span.upperBound
         }
         
-        self.check(a, sediment: sediment)
-        self.check(b, sediment: sediment)
-        self.check(c, sediment: sediment)
+        try? self.check(a, sediment: sediment)
+        try? self.check(b, sediment: sediment)
+        try? self.check(c, sediment: sediment)
 
         time = .random(in: 0 ..< time)
 
@@ -211,9 +96,9 @@ struct Main
         a.rollback(until: time, rollbacks: rollbacks)
         b.rollback(until: time, rollbacks: rollbacks)
         c.rollback(until: time, rollbacks: rollbacks)
-        self.check(a, sediment: sediment)
-        self.check(b, sediment: sediment)
-        self.check(c, sediment: sediment)
+        try? self.check(a, sediment: sediment)
+        try? self.check(b, sediment: sediment)
+        try? self.check(c, sediment: sediment)
 
         // cannot have duplicate timestamps
         time += 1
@@ -227,21 +112,19 @@ struct Main
 
             time = span.upperBound
         }
-        self.check(a, sediment: sediment)
-        self.check(b, sediment: sediment)
-        self.check(c, sediment: sediment)
+        try? self.check(a, sediment: sediment)
+        try? self.check(b, sediment: sediment)
+        try? self.check(c, sediment: sediment)
     }
     mutating 
-    func check(_ validator:Validator, sediment:Sediment<Int, String>) 
+    func check(_ validator:Validator, sediment:Sediment<Int, String>) throws
     {
         self.assert(sediment[validator.head].validate())
         for (time, token):(Int, String) in validator.history
         {
-            if  let index:Sediment<Int, String>.Index = 
-                    self.unwrap(sediment[validator.head].find(time))
-            {
-                self.assert(sediment[index].value ==? token)
-            }
+            let index:Sediment<Int, String>.Index = try self.unwrap(
+                sediment[validator.head].find(time))
+            self.assert(sediment[index].value ==? token)
         }
     }
 }

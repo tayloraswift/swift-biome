@@ -19,8 +19,15 @@ extension BSON
         }
     }
 }
-extension BSON.UTF8:Equatable where Bytes.SubSequence:Equatable
+extension BSON.UTF8:Equatable
 {
+    /// Performs an exact byte-wise comparison on two UTF-8 strings.
+    /// This operator does *not* take into account unicode canonical equivalence.
+    @inlinable public static
+    func == (lhs:Self, rhs:BSON.UTF8<some BidirectionalCollection<UInt8>>) -> Bool
+    {
+        lhs.bytes.elementsEqual(rhs.bytes)
+    }
 }
 extension BSON.UTF8:Sendable where Bytes.SubSequence:Sendable
 {

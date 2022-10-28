@@ -88,10 +88,10 @@ extension BSON.Output
         self.append(document.bytes)
     }
     @inlinable public mutating
-    func serialize(array:BSON.Array<some RandomAccessCollection<UInt8>>)
+    func serialize(tuple:BSON.Tuple<some RandomAccessCollection<UInt8>>)
     {
-        self.serialize(integer: array.header)
-        self.append(array.bytes)
+        self.serialize(integer: tuple.header)
+        self.append(tuple.bytes)
     }
 }
 extension BSON.Output
@@ -110,8 +110,8 @@ extension BSON.Output
         case .document(let document):
             self.serialize(document: document)
 
-        case .array(let array):
-            self.serialize(array: array)
+        case .tuple(let tuple):
+            self.serialize(tuple: tuple)
 
         case .binary(let binary):
             self.serialize(binary: binary)

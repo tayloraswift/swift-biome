@@ -33,6 +33,7 @@ let package = Package(
     [
         .package(url: "https://github.com/kelvin13/swift-json", branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-grammar", .upToNextMinor(from: "0.2.0")),
+        .package(url: "https://github.com/kelvin13/swift-hash", .upToNextMinor(from: "0.2.3")),
         .package(url: "https://github.com/kelvin13/swift-highlight", .upToNextMinor(from: "0.1.4")),
         .package(url: "https://github.com/kelvin13/swift-web-semantics", .upToNextMinor(from: "0.4.0")),
         .package(url: "https://github.com/kelvin13/swift-dom", .upToNextMinor(from: "0.5.2")),
@@ -231,9 +232,23 @@ let package = Package(
                 .unsafeFlags(["-Xfrontend", "-enable-experimental-move-only"]),
             ]),
 
-        .executableTarget(name: "SedimentTests", 
-            dependencies: 
+
+        .target(name: "Testing", path: "Tests/Testing"),
+
+        .executableTarget(name: "BSONTests",
+            dependencies:
             [
+                .product(name: "Base16", package: "swift-hash"),
+
+                .target(name: "Testing"),
+                .target(name: "_BSON"),
+            ], 
+            path: "Tests/BSONTests"),
+        
+        .executableTarget(name: "SedimentTests",
+            dependencies:
+            [
+                .target(name: "Testing"),
                 .target(name: "Sediment"),
             ], 
             path: "Tests/SedimentTests"),

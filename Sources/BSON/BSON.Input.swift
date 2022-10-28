@@ -4,11 +4,30 @@ extension BSON
 {
     /// A parser did not receive the expected amount of input.
     public
-    enum ParsingError:Error
+    enum EndOfInputError:Equatable, Error
     {
-        case trailed(bytes:Int)
-        case incomplete
+        /// Expected end-of-input, but encountered additional trailing bytes.
+        case expected(encountered:Int)
+        /// Unexpected end-of-input
+        case unexpected
     }
+}
+extension BSON.EndOfInputError:CustomStringConvertible
+{
+    public
+    var description:String
+    {
+        switch self
+        {
+        case .expected(encountered: let bytes):
+            return "expected end-of-input, encountered \(bytes) additional trailing byte(s)"
+        case .unexpected:
+            return "unexpected end-of-input"
+        }
+    }
+}
+extension BSON
+{
     /// A type for managing BSON parsing state. Most users of this module
     /// should not need to interact with it directly.
     @frozen public
@@ -70,7 +89,7 @@ extension BSON.Input
                 return start ..< self.index
             }
         }
-        throw BSON.ParsingError.incomplete
+        throw BSON.EndOfInputError.unexpected
     }
     /// Parses a null-terminated string.
     @inlinable public mutating
@@ -101,7 +120,7 @@ extension BSON.Input
         }
         else
         {
-            throw BSON.ParsingError.incomplete
+            throw BSON.EndOfInputError.unexpected
         }
     }
     /// Parses a little-endian integer.
@@ -125,7 +144,7 @@ extension BSON.Input
         }
         else
         {
-            throw BSON.ParsingError.incomplete
+            throw BSON.EndOfInputError.unexpected
         }
     }
     /// Parses a traversable BSON element. The output is typically opaque,
@@ -146,7 +165,7 @@ extension BSON.Input
         }
         else
         {
-            throw BSON.ParsingError.incomplete
+            throw BSON.EndOfInputError.unexpected
         }
     }
     /// Asserts that there is no input remaining.
@@ -155,8 +174,8 @@ extension BSON.Input
     {
         if self.index != self.source.endIndex
         {
-            throw BSON.ParsingError.trailed(
-                bytes: self.source.distance(from: self.index, to: self.source.endIndex))
+            throw BSON.EndOfInputError.expected(
+                encountered: self.source.distance(from: self.index, to: self.source.endIndex))
         }
     }
 }
@@ -177,8 +196,8 @@ extension BSON.Input
         case .document:
             return .document(try self.parse(as: BSON.Document<Source.SubSequence>.self))
         
-        case .array:
-            return .array(try self.parse(as: BSON.Array<Source.SubSequence>.self))
+        case .tuple:
+            return .tuple(try self.parse(as: BSON.Tuple<Source.SubSequence>.self))
         
         case .binary:
             return .binary(try self.parse(as: BSON.Binary<Source.SubSequence>.self))
@@ -197,9 +216,9 @@ extension BSON.Input
             case 1?:
                 return .bool(true)
             case let code?:
-                throw BSON.BooleanError.invalid(code)
+                throw BSON.BooleanSubtypeError.invalid(code)
             case nil:
-                throw BSON.ParsingError.incomplete
+                throw BSON.EndOfInputError.unexpected
             }
         
         case .millisecond:
