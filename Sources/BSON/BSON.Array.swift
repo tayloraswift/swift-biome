@@ -12,19 +12,52 @@ extension BSON
         /// elements list.
         public 
         let bytes:Bytes
+
+        @inlinable public
+        init(_ bytes:Bytes)
+        {
+            self.bytes = bytes
+        }
     }
+}
+extension BSON.Array:Equatable where Bytes:Equatable
+{
+}
+extension BSON.Array:Sendable where Bytes:Sendable
+{
 }
 extension BSON.Array:TraversableBSON
 {
     @inlinable public static
-    var headerBytes:Int
+    var headerSize:Int
     {
         4
     }
+    /// Stores the argument in ``bytes`` unchanged.
+    ///
+    /// >   Complexity: O(1)
     @inlinable public
-    init(_ bytes:Bytes)
+    init(slicing bytes:Bytes)
     {
-        self.bytes = bytes
+        self.init(bytes)
+    }
+}
+extension BSON.Array
+{
+    /// The length that would be encoded in this array-document’s prefixed header.
+    /// Equal to [`self.size`]().
+    @inlinable public
+    var header:Int32
+    {
+        .init(self.size)
+    }
+
+    /// The size of this array-document when encoded with its header.
+    /// This *is* the same as the length encoded in the header itself.
+    @inlinable public
+    var size:Int
+    {
+        Self.headerSize + self.bytes.count
     }
 }
 
@@ -39,28 +72,50 @@ extension BSON.Array
     /// >   Complexity: O(*n*), where *n* is the size of this array-document’s backing storage.
     func parse() throws -> [BSON.Variant<Bytes.SubSequence>]
     {
-        var input:BSON.ParsingInput<Bytes> = .init(self.bytes)
+        var input:BSON.Input<Bytes> = .init(self.bytes)
         var elements:[BSON.Variant<Bytes.SubSequence>] = []
-        while let variant:UInt8 = input.next()
+        while let code:UInt8 = input.next()
         {
-            if  variant != 0x00
+            if code != 0x00
             {
                 try input.parse(through: 0x00)
-                elements.append(try input.parse(variant: variant))
+                elements.append(try input.parse(variant: try .init(code: code)))
             }
             else
             {
                 break
             }
         }
-        if input.index == input.source.endIndex
+        try input.finish()
+        return elements
+    }
+}
+extension BSON.Array:ExpressibleByArrayLiteral 
+    where Bytes:RangeReplaceableCollection<UInt8>
+{
+    @inlinable public 
+    init(_ elements:some Sequence<BSON.Variant<some RandomAccessCollection<UInt8>>>)
+    {
+        // we do need to precompute the ordinal keys, so we know the total length
+        // of the document.
+        let document:BSON.Document<Bytes> = .init(elements.enumerated().map
         {
-            return elements
-        }
-        else
-        {
-            throw BSON.ParsingError.trailed(
-                bytes: input.source.distance(from: input.index, to: input.source.endIndex))
-        }
+            ($0.0.description, $0.1)
+        })
+        self.init(document.bytes)
+    }
+
+    @inlinable public 
+    init(arrayLiteral:BSON.Variant<Bytes>...)
+    {
+        self.init(arrayLiteral)
+    }
+}
+extension BSON.Array where Bytes.SubSequence:Equatable
+{
+    @inlinable public static
+    func =~= (lhs:Self, rhs:Self) -> Bool
+    {
+        BSON.Document<Bytes>.init(lhs) =~= BSON.Document<Bytes>.init(rhs)
     }
 }

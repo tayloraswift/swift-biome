@@ -13,7 +13,7 @@ extension BSON
     /// A BSON binary subtype. This type’s public API performs canonicalization
     /// and therefore instances of this type are safe to compare.
     @frozen public 
-    struct BinarySubtype:Hashable, RawRepresentable
+    struct BinarySubtype:Hashable, RawRepresentable, Sendable
     {
         public static let generic:Self     = .init(unchecked: 0x00)
         public static let function:Self    = .init(unchecked: 0x01)

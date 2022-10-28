@@ -13,17 +13,34 @@ extension BSON
         /// The subtype of this binary array.
         public 
         let subtype:BinarySubtype
+
+        @inlinable public
+        init(subtype:BinarySubtype, bytes:Bytes.SubSequence)
+        {
+            self.subtype = subtype
+            self.bytes = bytes
+        }
     }
+}
+extension BSON.Binary:Equatable where Bytes.SubSequence:Equatable
+{
+}
+extension BSON.Binary:Sendable where Bytes.SubSequence:Sendable
+{
 }
 extension BSON.Binary:TraversableBSON
 {
     @inlinable public static
-    var headerBytes:Int
+    var headerSize:Int
     {
         -1
     }
+    /// Removes the first element of the argument, attempts to cast it to a
+    /// ``BinarySubtype``, and stores the remainder in ``bytes``.
+    ///
+    /// >   Complexity: O(1)
     @inlinable public
-    init(_ bytes:Bytes) throws
+    init(slicing bytes:Bytes) throws
     {
         guard let subtype:UInt8 = bytes.first
         else
@@ -36,7 +53,23 @@ extension BSON.Binary:TraversableBSON
             throw BSON.BinarySubtypeError.invalid(subtype)
         }
 
-        self.bytes = bytes.dropFirst()
-        self.subtype = subtype
+        self.init(subtype: subtype, bytes: bytes.dropFirst())
+    }
+}
+extension BSON.Binary
+{
+    /// The length that would be encoded in this binary array’s prefixed header.
+    /// Equal to [`self.bytes.count`]().
+    @inlinable public
+    var header:Int32
+    {
+        .init(self.bytes.count)
+    }
+    /// The size of this binary array when encoded with its header.
+    /// This is *not* the length encoded in the header itself.
+    @inlinable public
+    var size:Int
+    {
+        5 + self.bytes.count
     }
 }

@@ -8,7 +8,7 @@ extension BSON.Regex
     }
     /// A MongoDB regex matching option.
     @frozen public 
-    enum Option:UInt8, Sendable
+    enum Option:UInt8, CaseIterable, Hashable, Sendable
     {
         /// Enables case-insensitive matching.
         case i = 0b000001
@@ -60,6 +60,24 @@ extension BSON.Regex.Option
         default:  return nil
         }
     }
+    @inlinable public
+    var scalar:Unicode.Scalar
+    {
+        switch self
+        {
+        case .i: return "i"
+        case .l: return "l"
+        case .m: return "m"
+        case .s: return "s"
+        case .u: return "u"
+        case .x: return "x"
+        }
+    }
+    @inlinable public
+    var character:Character
+    {
+        .init(self.scalar)
+    }
 }
 extension BSON.Regex.Options
 {
@@ -80,5 +98,33 @@ extension BSON.Regex.Options
             }
         }
         self.init(rawValue: rawValue)
+    }
+}
+
+extension BSON.Regex.Options
+{
+    /// The size of this option set, when encoded as a option string, including
+    /// its trailing null byte.
+    @inlinable public
+    var size:Int
+    {
+        self.rawValue.nonzeroBitCount + 1
+    }
+}
+extension BSON.Regex.Options:CustomStringConvertible
+{
+    @inlinable public
+    func contains(option:BSON.Regex.Option) -> Bool
+    {
+        self.rawValue & option.rawValue != 0
+    }
+    /// This option set, encoded in alphabetical order as a option string.
+    @inlinable public
+    var description:String
+    {
+        .init(BSON.Regex.Option.allCases.lazy.compactMap
+        {
+            self.contains(option: $0) ? $0.character : nil
+        })
     }
 }

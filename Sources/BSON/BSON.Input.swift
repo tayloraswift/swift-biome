@@ -9,13 +9,19 @@ extension BSON
         case trailed(bytes:Int)
         case incomplete
     }
-
-    struct ParsingInput<Source> where Source:RandomAccessCollection<UInt8>
+    /// A type for managing BSON parsing state. Most users of this module
+    /// should not need to interact with it directly.
+    @frozen public
+    struct Input<Source> where Source:RandomAccessCollection<UInt8>
     {
+        public
         let source:Source
-        private(set)
+        public
         var index:Source.Index
 
+        /// Creates a parsing input view over the given `source` data,
+        /// and initializes its ``index`` to the start index of the `source`.
+        @inlinable public
         init(_ source:Source)
         {
             self.source = source
@@ -23,9 +29,10 @@ extension BSON
         }
     }
 }
-extension BSON.ParsingInput
+extension BSON.Input
 {
-    mutating
+    /// Consumes and returns a single byte from this parsing input.
+    @inlinable public mutating
     func next() -> UInt8?
     {
         guard self.index < self.source.endIndex
@@ -48,7 +55,7 @@ extension BSON.ParsingInput
     ///         A range covering the bytes skipped. The upper-bound of
     ///         the range points to the matched byte.
     @discardableResult
-    mutating
+    @inlinable public mutating
     func parse(through byte:UInt8) throws -> Range<Source.Index>
     {
         let start:Source.Index = self.index
@@ -66,14 +73,14 @@ extension BSON.ParsingInput
         throw BSON.ParsingError.incomplete
     }
     /// Parses a null-terminated string.
-    mutating
+    @inlinable public mutating
     func parse(as _:String.Type = String.self) throws -> String
     {
         .init(decoding: self.source[try self.parse(through: 0x00)], as: Unicode.UTF8.self)
     }
     /// Parses a MongoDB object reference.
-    mutating
-    func parse(as _:BSON.Object.Type = BSON.Object.self) throws -> BSON.Object
+    @inlinable public mutating
+    func parse(as _:BSON.Identifier.Type = BSON.Identifier.self) throws -> BSON.Identifier
     {
         let start:Source.Index = self.index
         if  let end:Source.Index = self.source.index(self.index, offsetBy: 12, 
@@ -87,9 +94,9 @@ extension BSON.ParsingInput
                 //  timestamp is big-endian!
                 return .init(timestamp: .init(bigEndian: $0.load(as: UInt32.self)), 
                     $0.loadUnaligned(fromByteOffset: 4,
-                        as: BSON.Object.Seed.self), 
+                        as: BSON.Identifier.Seed.self), 
                     $0.loadUnaligned(fromByteOffset: 9, 
-                        as: BSON.Object.Ordinal.self))
+                        as: BSON.Identifier.Ordinal.self))
             }
         }
         else
@@ -98,7 +105,7 @@ extension BSON.ParsingInput
         }
     }
     /// Parses a little-endian integer.
-    mutating
+    @inlinable public mutating
     func parse<LittleEndian>(as _:LittleEndian.Type = LittleEndian.self) throws -> LittleEndian
         where LittleEndian:FixedWidthInteger
     {
@@ -123,7 +130,7 @@ extension BSON.ParsingInput
     }
     /// Parses a traversable BSON element. The output is typically opaque,
     /// which allows decoders to skip over regions of a BSON document.
-    mutating
+    @inlinable public mutating
     func parse<Traversable>(as _:Traversable.Type = Traversable.self) throws -> Traversable
         where Traversable:TraversableBSON<Source.SubSequence>
     {
@@ -131,49 +138,58 @@ extension BSON.ParsingInput
         let start:Source.Index = self.index
 
         if  let end:Source.Index = self.source.index(self.index, 
-                offsetBy: count - Traversable.headerBytes, 
+                offsetBy: count - Traversable.headerSize, 
                 limitedBy: self.source.endIndex)
         {
             self.index = end
-            return try .init(self.source[start ..< end])
+            return try .init(slicing: self.source[start ..< end])
         }
         else
         {
             throw BSON.ParsingError.incomplete
         }
     }
+    /// Asserts that there is no input remaining.
+    @inlinable public
+    func finish() throws
+    {
+        if self.index != self.source.endIndex
+        {
+            throw BSON.ParsingError.trailed(
+                bytes: self.source.distance(from: self.index, to: self.source.endIndex))
+        }
+    }
 }
-extension BSON.ParsingInput
+extension BSON.Input
 {
-    /// Parses a variant BSON value, assuming it is of the variant type
-    /// encoded by the given tag byte.
-    mutating
-    func parse(variant:UInt8) throws -> BSON.Variant<Source.SubSequence>
+    /// Parses a variant BSON value, assuming it is of the specified `variant` type.
+    @inlinable public mutating
+    func parse(variant:BSON) throws -> BSON.Variant<Source.SubSequence>
     {
         switch variant
         {
-        case 0x01:
+        case .double:
             return .double(.init(bitPattern: try self.parse(as: UInt64.self)))
         
-        case 0x02:
+        case .string:
             return .string(try self.parse(as: BSON.UTF8<Source.SubSequence>.self).description)
         
-        case 0x03:
+        case .document:
             return .document(try self.parse(as: BSON.Document<Source.SubSequence>.self))
         
-        case 0x04:
+        case .array:
             return .array(try self.parse(as: BSON.Array<Source.SubSequence>.self))
         
-        case 0x05:
+        case .binary:
             return .binary(try self.parse(as: BSON.Binary<Source.SubSequence>.self))
         
-        case 0x06:
+        case .null:
             return .null
         
-        case 0x07:
-            return .object(try self.parse(as: BSON.Object.self))
+        case .id:
+            return .id(try self.parse(as: BSON.Identifier.self))
         
-        case 0x08:
+        case .bool:
             switch self.next()
             {
             case 0?:
@@ -186,57 +202,50 @@ extension BSON.ParsingInput
                 throw BSON.ParsingError.incomplete
             }
         
-        case 0x09:
+        case .millisecond:
             return .millisecond(try self.parse(as: Int64.self))
         
-        case 0x0A:
-            return .null
-        
-        case 0x0B:
+        case .regex:
             let pattern:String = try self.parse(as: String.self)
             let options:String = try self.parse(as: String.self)
             return .regex(try .init(pattern: pattern, options: options))
         
-        case 0x0C:
+        case .pointer:
             let database:String = try self.parse(as: BSON.UTF8<Source.SubSequence>.self)
                 .description
-            let object:BSON.Object = try self.parse(as: BSON.Object.self)
+            let object:BSON.Identifier = try self.parse(as: BSON.Identifier.self)
             return .pointer(database, object)
         
-        case 0x0D:
+        case .javascript:
             return .javascript(try self.parse(as: BSON.UTF8<Source.SubSequence>.self))
         
-        case 0x0E:
-            return .string(try self.parse(as: BSON.UTF8<Source.SubSequence>.self).description)
-        
-        case 0x0F:
+        case .javascriptScope:
+            // possible micro-optimization here
+            let _:Int32 = try self.parse(as: Int32.self)
             let code:BSON.UTF8<Source.SubSequence> = 
                 try self.parse(as: BSON.UTF8<Source.SubSequence>.self)
             let scope:BSON.Document<Source.SubSequence> = 
                 try self.parse(as: BSON.Document<Source.SubSequence>.self)
-            return .javascript(code, scope: scope)
+            return .javascriptScope(scope, code)
         
-        case 0x10:
+        case .int32:
             return .int32(try self.parse(as: Int32.self))
         
-        case 0x11:
+        case .uint64:
             return .uint64(try self.parse(as: UInt64.self))
         
-        case 0x12:
+        case .int64:
             return .int64(try self.parse(as: Int64.self))
         
-        case 0x13:
+        case .decimal128:
             let low:UInt64 = try self.parse(as: UInt64.self)
             let high:UInt64 = try self.parse(as: UInt64.self)
             return .decimal128(.init(low: low, high: high))
         
-        case 0x7F:
+        case .max:
             return .max
-        case 0xFF:
+        case .min:
             return .min
-        
-        case let code:
-            throw BSON.TypeError.init(code: code)
         }
     }
 }
