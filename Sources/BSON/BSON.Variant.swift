@@ -105,7 +105,7 @@ extension BSON.Variant
         case .null:
             return 0
         case .pointer(let database, _):
-            return 5 + database.utf8.count
+            return 17 + database.utf8.count
         case .regex(let regex):
             return regex.size
         case .string(let string):

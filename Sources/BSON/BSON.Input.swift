@@ -286,7 +286,7 @@ extension BSON.Input
         case .decimal128:
             let low:UInt64 = try self.parse(as: UInt64.self)
             let high:UInt64 = try self.parse(as: UInt64.self)
-            return .decimal128(.init(low: low, high: high))
+            return .decimal128(.init(high: high, low: low))
         
         case .max:
             return .max

@@ -237,6 +237,156 @@ enum Main
                 invalid: "0C0000000961001234567800",
                 failure: BSON.EndOfInputError.unexpected)
         }
+
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/dbpointer.json
+        tests.group("pointer")
+        {
+            $0.test(name: "ascii",
+                canonical: "1A0000000C610002000000620056E1FC72E0C917E9C471416100",
+                expected: ["a": .pointer("b", .init(
+                    timestamp: 0x56e1fc72, (0xe0, 0xc9, 0x17, 0xe9, 0xc4), (0x71, 0x41, 0x61)))])
+            
+            $0.test(name: "unicode",
+                canonical: "1B0000000C610003000000C3A90056E1FC72E0C917E9C471416100",
+                expected: ["a": .pointer("é", .init(
+                    timestamp: 0x56e1fc72, (0xe0, 0xc9, 0x17, 0xe9, 0xc4), (0x71, 0x41, 0x61)))])
+            
+            $0.test(name: "invalid-length-negative",
+                invalid: "1A0000000C6100FFFFFFFF620056E1FC72E0C917E9C471416100",
+                failure: BSON.HeaderError<BSON.UTF8<ArraySlice<UInt8>>>.init(length: -1))
+            
+            $0.test(name: "invalid-length-zero",
+                invalid: "1A0000000C610000000000620056E1FC72E0C917E9C471416100",
+                failure: BSON.EndOfUTF8Error.unexpected)
+            
+            $0.test(name: "truncated",
+                invalid: "160000000C61000300000061620056E1FC72E0C91700",
+                failure: BSON.EndOfInputError.unexpected)
+            
+            $0.test(name: "truncated-identifier",
+                invalid: "1A0000000C61000300000061620056E1FC72E0C917E9C4716100",
+                failure: BSON.EndOfInputError.unexpected)
+        }
+
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/decimal128-1.json
+        tests.group("decimal128")
+        {
+            $0.test(name: "positive-quiet-nan",
+                canonical: "180000001364000000000000000000000000000000007C00",
+                expected: ["d": .decimal128(.init(
+                    high: 0x7C00_0000_0000_0000, 
+                    low:  0x0000_0000_0000_0000))])
+            
+            $0.test(name: "negative-quiet-nan",
+                canonical: "18000000136400000000000000000000000000000000FC00",
+                expected: ["d": .decimal128(.init(
+                    high: 0xFC00_0000_0000_0000, 
+                    low:  0x0000_0000_0000_0000))])
+            
+            $0.test(name: "positive-signaling-nan",
+                canonical: "180000001364000000000000000000000000000000007E00",
+                expected: ["d": .decimal128(.init(
+                    high: 0x7E00_0000_0000_0000, 
+                    low:  0x0000_0000_0000_0000))])
+            
+            $0.test(name: "negative-signaling-nan",
+                canonical: "18000000136400000000000000000000000000000000FE00",
+                expected: ["d": .decimal128(.init(
+                    high: 0xFE00_0000_0000_0000, 
+                    low:  0x0000_0000_0000_0000))])
+            
+            // this only serves to verify we are handling byte-order correctly;
+            // there is very little point in elaborating decimal128 tests further
+            $0.test(name: "largest",
+                canonical: "18000000136400F2AF967ED05C82DE3297FF6FDE3C403000",
+                expected: ["d": .decimal128(.init(
+                    high: 0x3040_3CDE_6FFF_9732, 
+                    low:  0xDE82_5CD0_7E96_AFF2))])
+        }
+
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/document.json
+        tests.group("document")
+        {
+            $0.test(name: "empty",
+                canonical: "0D000000037800050000000000",
+                expected: ["x": [:]])
+            
+            $0.test(name: "empty-key",
+                canonical: "150000000378000D00000002000200000062000000",
+                expected: ["x": ["": "b"]])
+            
+            $0.test(name: "single-character-key",
+                canonical: "160000000378000E0000000261000200000062000000",
+                expected: ["x": ["a": "b"]])
+            
+            $0.test(name: "dollar-prefixed-key",
+                canonical: "170000000378000F000000022461000200000062000000",
+                expected: ["x": ["$a": "b"]])
+            
+            $0.test(name: "dollar-key",
+                canonical: "160000000378000E0000000224000200000061000000",
+                expected: ["x": ["$": "a"]])
+            
+            $0.test(name: "dotted-key",
+                canonical: "180000000378001000000002612E62000200000063000000",
+                expected: ["x": ["a.b": "c"]])
+            
+            $0.test(name: "dot-key",
+                canonical: "160000000378000E000000022E000200000061000000",
+                expected: ["x": [".": "a"]])
+            
+            $0.test(name: "invalid-length-over",
+                invalid: "1800000003666F6F000F0000001062617200FFFFFF7F0000",
+                failure: BSON.EndOfInputError.unexpected)
+            
+            $0.test(name: "invalid-length-under",
+                invalid: "1500000003666F6F000A0000000862617200010000",
+                failure: BSON.EndOfInputError.expected(encountered: 1))
+            
+            $0.test(name: "invalid-value",
+                invalid: "1C00000003666F6F001200000002626172000500000062617A000000",
+                failure: BSON.EndOfInputError.unexpected)
+            
+            $0.test(name: "invalid-key",
+                invalid: "150000000378000D00000010610000010000000000",
+                failure: BSON.EndOfInputError.expected(encountered: 1))
+        }
+
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/double.json
+        tests.group("double")
+        {
+            $0.test(name: "+1.0",
+                canonical: "10000000016400000000000000F03F00",
+                expected: ["d": .double(1.0)])
+            
+            $0.test(name: "-1.0",
+                canonical: "10000000016400000000000000F0BF00",
+                expected: ["d": .double(-1.0)])
+            
+            $0.test(name: "+1.0001220703125",
+                canonical: "10000000016400000000008000F03F00",
+                expected: ["d": .double(1.0001220703125)])
+            
+            $0.test(name: "-1.0001220703125",
+                canonical: "10000000016400000000008000F0BF00",
+                expected: ["d": .double(-1.0001220703125)])
+            
+            $0.test(name: "1.2345678921232E+18",
+                canonical: "100000000164002a1bf5f41022b14300",
+                expected: ["d": .double(1.2345678921232e18)])
+            
+            $0.test(name: "-1.2345678921232E+18",
+                canonical: "100000000164002a1bf5f41022b1c300",
+                expected: ["d": .double(-1.2345678921232e18)])
+            
+            // remaining corpus test cases are pointless because swift cannot distinguish
+            // between -0.0 and +0.0
+
+            // note: frameshift
+            $0.test(name: "truncated",
+                invalid: "0B0000000164000000F03F00",
+                failure: BSON.EndOfInputError.unexpected)
+        }
         
         try tests.summarize()
     }

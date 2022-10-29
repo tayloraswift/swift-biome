@@ -12,10 +12,10 @@ extension BSON
         var high:UInt64
 
         @inlinable public
-        init(low:UInt64, high:UInt64)
+        init(high:UInt64, low:UInt64)
         {
-            self.low = low
             self.high = high
+            self.low = low
         }
     }
 }
