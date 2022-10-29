@@ -42,32 +42,25 @@ struct Validator
     }
 }
 
-
 @main 
-struct Main:UnitTests
+enum Main
 {
-    var passed:Int 
-    var failed:[any Error]
-
-    init() 
-    {
-        self.passed = 0
-        self.failed = []
-    }
-
     static 
-    func main() 
+    func main() throws
     {
-        var tests:Self = .init()
+        var tests:UnitTests = .init()
         for i:Int in 0 ..< 500
         {
             print("performing fuzzing iteration \(i)")
-            tests.main()
+            tests.run()
         }
-        tests.summarize()
+        try tests.summarize()
     }
+}
+extension UnitTests
+{
     mutating 
-    func main() 
+    func run() 
     {
         var sediment:Sediment<Int, String> = .init()
         var a:Validator = .init(name: "a"),
@@ -86,9 +79,9 @@ struct Main:UnitTests
             time = span.upperBound
         }
         
-        try? self.check(a, sediment: sediment)
-        try? self.check(b, sediment: sediment)
-        try? self.check(c, sediment: sediment)
+        self.check(a, sediment: sediment)
+        self.check(b, sediment: sediment)
+        self.check(c, sediment: sediment)
 
         time = .random(in: 0 ..< time)
 
@@ -96,9 +89,9 @@ struct Main:UnitTests
         a.rollback(until: time, rollbacks: rollbacks)
         b.rollback(until: time, rollbacks: rollbacks)
         c.rollback(until: time, rollbacks: rollbacks)
-        try? self.check(a, sediment: sediment)
-        try? self.check(b, sediment: sediment)
-        try? self.check(c, sediment: sediment)
+        self.check(a, sediment: sediment)
+        self.check(b, sediment: sediment)
+        self.check(c, sediment: sediment)
 
         // cannot have duplicate timestamps
         time += 1
@@ -112,19 +105,21 @@ struct Main:UnitTests
 
             time = span.upperBound
         }
-        try? self.check(a, sediment: sediment)
-        try? self.check(b, sediment: sediment)
-        try? self.check(c, sediment: sediment)
+        self.check(a, sediment: sediment)
+        self.check(b, sediment: sediment)
+        self.check(c, sediment: sediment)
     }
     mutating 
-    func check(_ validator:Validator, sediment:Sediment<Int, String>) throws
+    func check(_ validator:Validator, sediment:Sediment<Int, String>)
     {
         self.assert(sediment[validator.head].validate())
         for (time, token):(Int, String) in validator.history
         {
-            let index:Sediment<Int, String>.Index = try self.unwrap(
-                sediment[validator.head].find(time))
-            self.assert(sediment[index].value ==? token)
+            if  let index:Sediment<Int, String>.Index = self.unwrap(
+                    sediment[validator.head].find(time))
+            {
+                self.assert(sediment[index].value ==? token)
+            }
         }
     }
 }

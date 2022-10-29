@@ -41,16 +41,23 @@ extension BSON
         public
         let rawValue:UInt8
 
+        /// Initializes a binary subtype from an unchecked subtype code.
+        /// Performs no normalization.
+        ///
+        /// Most users should not need to call this initializer; prefer
+        /// one of ``init(rawValue:)``, `custom(code:)`, or one of the
+        /// known types: ``generic``, ``function``, ``uuid``, ``md5``,
+        /// ``encrypted``, or ``compressed``.
         @inlinable public
         init(unchecked code:UInt8)
         {
             self.rawValue = code
         }
         /// Detects and normalizes a binary subtype from the given
-        /// raw subtype code. Deprecated encodings will be normalized
-        /// to their canonical encoding.
+        /// raw subtype code. Deprecated encodings ([`0x02`]() and [`0x03`]())
+        /// will be normalized to their canonical encoding.
         ///
-        /// This initializer fails if `rawValue`is a reserved bit pattern.
+        /// This initializer fails if `rawValue` is a reserved bit pattern.
         @inlinable public 
         init?(rawValue:UInt8)
         {
@@ -66,7 +73,7 @@ extension BSON
             default:            return nil
             }
         }
-
+        /// Returns a custom binary subtype. Traps if `code` is less than [`0x80`]().
         @inlinable public static
         func custom(code:UInt8) -> Self
         {

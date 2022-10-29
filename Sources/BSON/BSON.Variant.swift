@@ -238,6 +238,17 @@ extension BSON.Variant:ExpressibleByArrayLiteral, ExpressibleByDictionaryLiteral
             return self
         }
     }
+
+    @inlinable public static
+    func javascript(_ string:some StringProtocol) -> Self
+    {
+        .javascript(.init(.init(string.utf8)))
+    }
+    @inlinable public static
+    func javascriptScope(_ scope:BSON.Document<Bytes>, _ string:some StringProtocol) -> Self
+    {
+        .javascriptScope(scope, .init(.init(string.utf8)))
+    }
 }
 extension BSON.Variant:ExpressibleByStringLiteral
 {

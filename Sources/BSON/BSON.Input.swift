@@ -28,6 +28,29 @@ extension BSON.EndOfInputError:CustomStringConvertible
 }
 extension BSON
 {
+    public
+    struct HeaderError<Traversable>:Equatable, Error where Traversable:TraversableBSON
+    {
+        public
+        let length:Int
+
+        public
+        init(length:Int)
+        {
+            self.length = length
+        }
+    }
+}
+extension BSON.HeaderError:CustomStringConvertible
+{
+    public
+    var description:String
+    {
+        "length declared in header (\(self.length)) is less than the minimum for type '\(Traversable.self)' (\(Traversable.headerSize))"
+    }
+}
+extension BSON
+{
     /// A type for managing BSON parsing state. Most users of this module
     /// should not need to interact with it directly.
     @frozen public
@@ -154,6 +177,10 @@ extension BSON.Input
         where Traversable:TraversableBSON<Source.SubSequence>
     {
         let count:Int = .init(try self.parse(as: Int32.self))
+        if  count < Traversable.headerSize
+        {
+            throw BSON.HeaderError<Traversable>.init(length: count)
+        }
         let start:Source.Index = self.index
 
         if  let end:Source.Index = self.source.index(self.index, 

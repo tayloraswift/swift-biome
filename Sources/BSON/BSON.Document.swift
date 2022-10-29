@@ -113,7 +113,8 @@ extension BSON.Document:ExpressibleByDictionaryLiteral
             output.serialize(variant: value)
         }
         output.append(0x00)
-        assert(output.destination.count == size)
+        assert(output.destination.count == size,
+            "precomputed size (\(size)) does not match output size (\(output.destination.count))")
         self.init(output.destination)
     }
 

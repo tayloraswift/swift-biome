@@ -2,6 +2,28 @@ import BSONTraversal
 
 extension BSON
 {
+    /// The payload of a UTF-8 string did not contain the expected amount of data.
+    public
+    enum EndOfUTF8Error:Equatable, Error
+    {
+        /// The payload of a UTF-8 string was missing its trailing null byte.
+        case unexpected
+    }
+}
+extension BSON.EndOfUTF8Error:CustomStringConvertible
+{
+    public 
+    var description:String
+    {
+        switch self
+        {
+        case .unexpected:
+            return "missing trailing null byte after utf-8 string"
+        }
+    }
+}
+extension BSON
+{
     /// A BSON UTF-8 string. This string is allowed to contain null bytes.
     @frozen public
     struct UTF8<Bytes> where Bytes:BidirectionalCollection<UInt8>
@@ -77,9 +99,16 @@ extension BSON.UTF8:TraversableBSON where Bytes:RandomAccessCollection<UInt8>
     ///
     /// >   Complexity: O(1)
     @inlinable public
-    init(slicing bytes:Bytes)
+    init(slicing bytes:Bytes) throws
     {
-        self.init(bytes.dropLast())
+        if bytes.startIndex < bytes.endIndex
+        {
+            self.init(bytes.prefix(upTo: bytes.index(before: bytes.endIndex)))
+        }
+        else
+        {
+            throw BSON.EndOfUTF8Error.unexpected
+        }
     }
 }
 
@@ -97,6 +126,6 @@ extension BSON.UTF8
     @inlinable public
     var size:Int
     {
-        4 + self.bytes.count
+        5 + self.bytes.count
     }
 }
