@@ -6,6 +6,21 @@ extension BSON.Regex
     {
         case invalid(Unicode.Scalar)
     }
+}
+extension BSON.Regex.OptionError:CustomStringConvertible
+{
+    public
+    var description:String
+    {
+        switch self
+        {
+        case .invalid(let codepoint):
+            return "invalid regex option '\(codepoint)'"
+        }
+    }
+}
+extension BSON.Regex
+{
     /// A MongoDB regex matching option.
     @frozen public 
     enum Option:UInt8, CaseIterable, Hashable, Sendable

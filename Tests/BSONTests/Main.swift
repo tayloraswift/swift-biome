@@ -387,6 +387,150 @@ enum Main
                 invalid: "0B0000000164000000F03F00",
                 failure: BSON.EndOfInputError.unexpected)
         }
+
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/int32.json
+        tests.group("int32")
+        {
+            $0.test(name: "min",
+                canonical: "0C0000001069000000008000",
+                expected: ["i": .int32(-2147483648)])
+            
+            $0.test(name: "max",
+                canonical: "0C000000106900FFFFFF7F00",
+                expected: ["i": .int32(2147483647)])
+            
+            $0.test(name: "-1",
+                canonical: "0C000000106900FFFFFFFF00",
+                expected: ["i": .int32(-1)])
+            
+            $0.test(name: "0",
+                canonical: "0C0000001069000000000000",
+                expected: ["i": .int32(0)])
+            
+            $0.test(name: "+1",
+                canonical: "0C0000001069000100000000",
+                expected: ["i": .int32(1)])
+
+            $0.test(name: "truncated",
+                invalid: "090000001061000500",
+                failure: BSON.EndOfInputError.unexpected)
+        }
+
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/int32.json
+        tests.group("int64")
+        {
+            $0.test(name: "min",
+                canonical: "10000000126100000000000000008000",
+                expected: ["a": .int64(-9223372036854775808)])
+            
+            $0.test(name: "max",
+                canonical: "10000000126100FFFFFFFFFFFFFF7F00",
+                expected: ["a": .int64(9223372036854775807)])
+            
+            $0.test(name: "-1",
+                canonical: "10000000126100FFFFFFFFFFFFFFFF00",
+                expected: ["a": .int64(-1)])
+            
+            $0.test(name: "0",
+                canonical: "10000000126100000000000000000000",
+                expected: ["a": .int64(0)])
+            
+            $0.test(name: "+1",
+                canonical: "10000000126100010000000000000000",
+                expected: ["a": .int64(1)])
+
+            $0.test(name: "truncated",
+                invalid: "0C0000001261001234567800",
+                failure: BSON.EndOfInputError.unexpected)
+        }
+
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/maxkey.json
+        tests.group("max")
+        {
+            $0.test(name: "max",
+                canonical: "080000007F610000",
+                expected: ["a": .max])
+        }
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/minkey.json
+        tests.group("min")
+        {
+            $0.test(name: "min",
+                canonical: "08000000FF610000",
+                expected: ["a": .min])
+        }
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/minkey.json
+
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/multi-type.json
+        // cannot use this test, because it encodes a deprecated binary subtype, which is
+        // (intentionally) impossible to construct with swift-bson.
+
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/null.json
+        tests.group("null")
+        {
+            $0.test(name: "null",
+                canonical: "080000000A610000",
+                expected: ["a": .null])
+        }
+
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/oid.json
+        tests.group("id")
+        {
+            $0.test(name: "zeroes",
+                canonical: "1400000007610000000000000000000000000000",
+                expected: ["a": .id(.init(timestamp: 0x0000_0000, 
+                    (0x00, 0x00, 0x00, 0x00, 0x00), (0x00, 0x00, 0x00)))])
+            
+            $0.test(name: "ones",
+                canonical: "14000000076100FFFFFFFFFFFFFFFFFFFFFFFF00",
+                expected: ["a": .id(.init(timestamp: 0xffff_ffff, 
+                    (0xff, 0xff, 0xff, 0xff, 0xff), (0xff, 0xff, 0xff)))])
+            
+            $0.test(name: "random",
+                canonical: "1400000007610056E1FC72E0C917E9C471416100",
+                expected: ["a": .id(.init(timestamp: 0x56e1_fc72, 
+                    (0xe0, 0xc9, 0x17, 0xe9, 0xc4), (0x71, 0x41, 0x61)))])
+            
+            $0.test(name: "truncated",
+                invalid: "1200000007610056E1FC72E0C917E9C471",
+                failure: BSON.EndOfInputError.unexpected)
+        }
+        // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/regex.json
+        tests.group("regex")
+        {
+            $0.test(name: "empty",
+                canonical: "0A0000000B6100000000",
+                expected: ["a": .regex(.init(pattern: "", options: []))])
+            
+            $0.test(name: "empty-options",
+                canonical: "0D0000000B6100616263000000",
+                expected: ["a": .regex(.init(pattern: "abc", options: []))])
+            
+            $0.test(name: "I-HAVE-OPTIONS",
+                canonical: "0F0000000B610061626300696D0000",
+                expected: ["a": .regex(.init(pattern: "abc", options: [.i, .m]))])
+            
+            $0.test(name: "slash",
+                canonical: "110000000B610061622F636400696D0000",
+                expected: ["a": .regex(.init(pattern: "ab/cd", options: [.i, .m]))])
+            
+            $0.test(name: "non-alphabetized",
+                degenerate: "100000000B6100616263006D69780000",
+                canonical: "100000000B610061626300696D780000",
+                expected: ["a": .regex(.init(pattern: "abc", options: [.i, .m, .x]))])
+            
+            $0.test(name: "escaped",
+                canonical: "100000000B610061625C226162000000",
+                expected: ["a": .regex(.init(pattern: #"ab\"ab"#, options: []))])
+            
+            // note: frameshift
+            $0.test(name: "invalid-pattern",
+                invalid: "0F0000000B610061006300696D0000",
+                failure: BSON.Regex.OptionError.invalid("c"))
+            // note: frameshift
+            $0.test(name: "invalid-options",
+                invalid: "100000000B61006162630069006D0000",
+                failure: BSON.TypeError.init(code: 109))
+        }
         
         try tests.summarize()
     }
