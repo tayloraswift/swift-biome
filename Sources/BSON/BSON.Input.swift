@@ -218,7 +218,7 @@ extension BSON.Input
             return .double(.init(bitPattern: try self.parse(as: UInt64.self)))
         
         case .string:
-            return .string(try self.parse(as: BSON.UTF8<Source.SubSequence>.self).description)
+            return .string(try self.parse(as: BSON.UTF8<Source.SubSequence>.self))
         
         case .document:
             return .document(try self.parse(as: BSON.Document<Source.SubSequence>.self))
@@ -257,9 +257,10 @@ extension BSON.Input
             return .regex(try .init(pattern: pattern, options: options))
         
         case .pointer:
-            let database:String = try self.parse(as: BSON.UTF8<Source.SubSequence>.self)
-                .description
-            let object:BSON.Identifier = try self.parse(as: BSON.Identifier.self)
+            let database:BSON.UTF8<Source.SubSequence> = try self.parse(
+                as: BSON.UTF8<Source.SubSequence>.self)
+            let object:BSON.Identifier = try self.parse(
+                as: BSON.Identifier.self)
             return .pointer(database, object)
         
         case .javascript:

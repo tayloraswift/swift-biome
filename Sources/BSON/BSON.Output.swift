@@ -105,7 +105,7 @@ extension BSON.Output
             self.serialize(integer: double.bitPattern)
         
         case .string(let string):
-            self.serialize(utf8: .init(string))
+            self.serialize(utf8: string)
         
         case .document(let document):
             self.serialize(document: document)
@@ -133,7 +133,7 @@ extension BSON.Output
             self.serialize(cString: regex.options.description)
         
         case .pointer(let database, let id):
-            self.serialize(utf8: .init(database))
+            self.serialize(utf8: database)
             self.serialize(id: id)
         
         case .javascript(let code):

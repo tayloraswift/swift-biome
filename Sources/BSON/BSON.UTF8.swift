@@ -25,8 +25,16 @@ extension BSON.EndOfUTF8Error:CustomStringConvertible
 extension BSON
 {
     /// A BSON UTF-8 string. This string is allowed to contain null bytes.
+    ///
+    /// This type can wrap potentially-invalid UTF-8 data, therefore it
+    /// is not backed by an instance of ``String``. Moreover, it (and not ``String``)
+    /// is the payload of ``BSON/Variant.string(_:)`` to ensure that long string
+    /// fields can be traversed in constant time.
+    ///
+    /// To convert a UTF-8 string to a native Swift ``String`` (repairing invalid UTF-8),
+    /// use the ``description`` property.
     @frozen public
-    struct UTF8<Bytes> where Bytes:BidirectionalCollection<UInt8>
+    struct UTF8<Bytes> where Bytes:RandomAccessCollection<UInt8>
     {
         /// The UTF-8 code units backing this string. This collection does *not*
         /// include the trailing null byte that typically appears when this value
@@ -43,29 +51,26 @@ extension BSON
 }
 extension BSON.UTF8:Equatable
 {
-    /// Performs an exact byte-wise comparison on two UTF-8 strings.
-    /// This operator does *not* take into account unicode canonical equivalence.
+    /// Performs a unicode-aware string comparison on two UTF-8 strings.
     @inlinable public static
-    func == (lhs:Self, rhs:BSON.UTF8<some BidirectionalCollection<UInt8>>) -> Bool
+    func == (lhs:Self, rhs:BSON.UTF8<some RandomAccessCollection<UInt8>>) -> Bool
     {
-        lhs.bytes.elementsEqual(rhs.bytes)
+        lhs.description == rhs.description
     }
 }
 extension BSON.UTF8:Sendable where Bytes.SubSequence:Sendable
 {
 }
-extension BSON.UTF8<String.UTF8View>
-{
-    @inlinable public
-    init<String>(_ string:String) where String:StringProtocol, String.SubSequence == Substring
-    {
-        self.init(string[...].utf8)
-    }
-}
-extension BSON.UTF8<String.UTF8View>:ExpressibleByStringLiteral, 
+extension BSON.UTF8:ExpressibleByStringLiteral,
     ExpressibleByExtendedGraphemeClusterLiteral, 
     ExpressibleByUnicodeScalarLiteral
+    where Bytes:RangeReplaceableCollection<UInt8>
 {
+    @inlinable public
+    init(_ string:some StringProtocol)
+    {
+        self.init(.init(string.utf8))
+    }
     @inlinable public
     init(stringLiteral:String)
     {
@@ -85,7 +90,7 @@ extension BSON.UTF8:CustomStringConvertible
         .init(decoding: self.bytes, as: Unicode.UTF8.self)
     }
 }
-extension BSON.UTF8:TraversableBSON where Bytes:RandomAccessCollection<UInt8>
+extension BSON.UTF8:TraversableBSON
 {
     @inlinable public static
     var headerSize:Int

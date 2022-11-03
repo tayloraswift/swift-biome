@@ -134,7 +134,7 @@ extension BSON.Tuple:ExpressibleByArrayLiteral
 }
 extension BSON.Tuple
 {
-    /// Performs a “canonical” comparison by parsing each operand and recursively
+    /// Performs a type-aware equivalence  comparison by parsing each operand and recursively
     /// comparing the elements, ignoring tuple key names. Returns [`false`]() if either
     /// operand fails to parse.
     ///

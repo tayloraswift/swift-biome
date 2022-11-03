@@ -150,7 +150,7 @@ extension BSON.Document:CustomStringConvertible
 }
 extension BSON.Document
 {
-    /// Performs a “canonical” comparison by parsing each operand and recursively
+    /// Performs a type-aware equivalence comparison by parsing each operand and recursively
     /// comparing the elements. Returns [`false`]() if either operand fails to parse.
     ///
     /// Some documents that do not compare equal under byte-wise

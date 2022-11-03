@@ -538,27 +538,27 @@ enum Main
         {
             $0.test(name: "empty",
                 canonical: "0D000000026100010000000000",
-                expected: ["a": .string("")])
+                expected: ["a": ""])
             
             $0.test(name: "single-character",
                 canonical: "0E00000002610002000000620000",
-                expected: ["a": .string("b")])
+                expected: ["a": "b"])
             
             $0.test(name: "multiple-character",
                 canonical: "190000000261000D0000006162616261626162616261620000",
-                expected: ["a": .string("abababababab")])
+                expected: ["a": "abababababab"])
             
             $0.test(name: "utf-8-double-code-unit",
                 canonical: "190000000261000D000000C3A9C3A9C3A9C3A9C3A9C3A90000",
-                expected: ["a": .string("\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}")])
+                expected: ["a": "\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}"])
             
             $0.test(name: "utf-8-triple-code-unit",
                 canonical: "190000000261000D000000E29886E29886E29886E298860000",
-                expected: ["a": .string("\u{2606}\u{2606}\u{2606}\u{2606}")])
+                expected: ["a": "\u{2606}\u{2606}\u{2606}\u{2606}"])
             
             $0.test(name: "utf-8-null-bytes",
                 canonical: "190000000261000D0000006162006261620062616261620000",
-                expected: ["a": .string("ab\u{00}bab\u{00}babab")])
+                expected: ["a": "ab\u{00}bab\u{00}babab"])
             
             $0.test(name: "escaped",
                 canonical:
@@ -567,13 +567,16 @@ enum Main
                     61625C220102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F6162\
                     0000
                     """,
-                expected: ["a": .string(
+                expected: 
+                [
+                    "a":
                     """
                     ab\\\"\u{01}\u{02}\u{03}\u{04}\u{05}\u{06}\u{07}\u{08}\
                     \t\n\u{0b}\u{0c}\r\u{0e}\u{0f}\u{10}\
                     \u{11}\u{12}\u{13}\u{14}\u{15}\u{16}\u{17}\u{18}\u{19}\
                     \u{1a}\u{1b}\u{1c}\u{1d}\u{1e}\u{1f}ab
-                    """)])
+                    """
+                ])
                         
             $0.test(name: "missing-trailing-null-byte",
                 invalid: "0C0000000261000000000000",
@@ -594,6 +597,10 @@ enum Main
             $0.test(name: "invalid-length-under",
                 invalid: "0E00000002610001000000000000",
                 failure: BSON.EndOfInputError.expected(encountered: 1))
+            
+            $0.test(name: "invalid-utf-8",
+                canonical: "0E00000002610002000000E90000",
+                expected: ["a": .string(.init([0xe9]))])
         }
         
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/symbol.json
@@ -602,32 +609,32 @@ enum Main
             $0.test(name: "empty",
                 degenerate: "0D0000000E6100010000000000",
                 canonical: "0D000000026100010000000000",
-                expected: ["a": .string("")])
+                expected: ["a": ""])
             
             $0.test(name: "single-character",
                 degenerate: "0E0000000E610002000000620000",
                 canonical: "0E00000002610002000000620000",
-                expected: ["a": .string("b")])
+                expected: ["a": "b"])
             
             $0.test(name: "multiple-character",
                 degenerate: "190000000E61000D0000006162616261626162616261620000",
                 canonical: "190000000261000D0000006162616261626162616261620000",
-                expected: ["a": .string("abababababab")])
+                expected: ["a": "abababababab"])
             
             $0.test(name: "utf-8-double-code-unit",
                 degenerate: "190000000E61000D000000C3A9C3A9C3A9C3A9C3A9C3A90000",
                 canonical: "190000000261000D000000C3A9C3A9C3A9C3A9C3A9C3A90000",
-                expected: ["a": .string("\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}")])
+                expected: ["a": "\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}\u{e9}"])
             
             $0.test(name: "utf-8-triple-code-unit",
                 degenerate: "190000000E61000D000000E29886E29886E29886E298860000",
                 canonical: "190000000261000D000000E29886E29886E29886E298860000",
-                expected: ["a": .string("\u{2606}\u{2606}\u{2606}\u{2606}")])
+                expected: ["a": "\u{2606}\u{2606}\u{2606}\u{2606}"])
             
             $0.test(name: "utf-8-null-bytes",
                 degenerate: "190000000E61000D0000006162006261620062616261620000",
                 canonical: "190000000261000D0000006162006261620062616261620000",
-                expected: ["a": .string("ab\u{00}bab\u{00}babab")])
+                expected: ["a": "ab\u{00}bab\u{00}babab"])
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/code.json

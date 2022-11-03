@@ -10,14 +10,20 @@ extension BSON
         case tuple(Tuple<Bytes>)
         /// A binary array.
         case binary(Binary<Bytes>)
-
+        /// A boolean.
         case bool(Bool)
+        /// An [IEEE 754-2008 128-bit decimal](https://en.wikipedia.org/wiki/Decimal128_floating-point_format).
         case decimal128(Decimal128)
+        /// A double-precision float.
         case double(Double)
+        /// A MongoDB object reference.
         case id(Identifier)
+        /// A 32-bit signed integer.
         case int32(Int32)
+        /// A 64-bit signed integer.
         case int64(Int64)
         /// Javascript code.
+        /// The payload is a library type to permit efficient document traversal.
         case javascript(UTF8<Bytes>)
         /// A javascript scope containing code. This variant is maintained for 
         /// backward-compatibility with older versions of BSON and 
@@ -29,13 +35,20 @@ extension BSON
         case millisecond(Int64)
         /// The MongoDB min-key.
         case min
+        /// An explicit null.
         case null
         /// A MongoDB database pointer. This variant is maintained for
         /// backward-compatibility with older versions of BSON and
         /// should not be generated. (Prefer ``id(_:)``.)
-        case pointer(String, Identifier)
+        case pointer(UTF8<Bytes>, Identifier)
+        /// A regex.
         case regex(Regex)
-        case string(String)
+        /// A UTF-8 string, possibly containing invalid code units.
+        /// The payload is a library type to permit efficient document traversal.
+        case string(UTF8<Bytes>)
+        /// A 64-bit unsigned integer.
+        ///
+        /// MongoDB also uses this type internally to represent timestamps.
         case uint64(UInt64)
     }
 }
@@ -105,11 +118,11 @@ extension BSON.Variant
         case .null:
             return 0
         case .pointer(let database, _):
-            return 17 + database.utf8.count
+            return 12 + database.size
         case .regex(let regex):
             return regex.size
         case .string(let string):
-            return 5 + string.utf8.count
+            return string.size
         case .uint64:
             return 8
         }
@@ -130,13 +143,20 @@ extension BSON.Variant
 }
 extension BSON.Variant
 {
-    /// If both operands are a `document(_:)` (or `tuple(_:)`), performs a “canonical”
-    /// comparison by calling `BSON//Document.~~(_:_:)`. Performs normal binary comparison
-    /// otherwise.
-    ///
+    /// Performs a type-aware equivalence comparison.
+    /// If both operands are a ``document(_:)`` (or ``tuple(_:)``), performs a recursive
+    /// type-aware comparison by calling `BSON//Document.~~(_:_:)`.
+    /// If both operands are a ``string(_:)``, performs unicode-aware string comparison.
+    /// If both operands are a ``double(_:)``, performs floating-point-aware
+    /// numerical comparison.
+    /// 
     /// >   Note:
     ///     The embedded document in the deprecated `javascriptScope(_:_:)` variant
-    ///     also receives “canonical” treatment.
+    ///     also receives type-aware treatment.
+    /// 
+    /// >   Note:
+    ///     The embedded UTF-8 string in the deprecated `pointer(_:_:)` variant
+    ///     also receives type-aware treatment.
     @inlinable public static
     func ~~ (lhs:Self, rhs:BSON.Variant<some RandomAccessCollection<UInt8>>) -> Bool
     {
@@ -173,7 +193,7 @@ extension BSON.Variant
         case (.null,                    .null):
             return true
         case (.pointer(let lhs, let lhsID), .pointer(let rhs, let rhsID)):
-            return (lhs, lhsID) == (rhs, rhsID)
+            return lhsID == rhsID && lhs == rhs
         case (.regex        (let lhs), .regex       (let rhs)):
             return lhs == rhs
         case (.string       (let lhs), .string      (let rhs)):
@@ -192,9 +212,18 @@ extension BSON.Variant:Equatable
 extension BSON.Variant:Sendable where Bytes:Sendable, Bytes.SubSequence:Sendable
 {
 }
-extension BSON.Variant:ExpressibleByArrayLiteral, ExpressibleByDictionaryLiteral
+extension BSON.Variant:ExpressibleByStringLiteral,
+    ExpressibleByArrayLiteral,
+    ExpressibleByExtendedGraphemeClusterLiteral, 
+    ExpressibleByUnicodeScalarLiteral,
+    ExpressibleByDictionaryLiteral
     where Bytes:RangeReplaceableCollection<UInt8>
 {
+    @inlinable public
+    init(stringLiteral:String)
+    {
+        self = .string(stringLiteral)
+    }
     @inlinable public
     init(arrayLiteral:Self...)
     {
@@ -240,6 +269,11 @@ extension BSON.Variant:ExpressibleByArrayLiteral, ExpressibleByDictionaryLiteral
     }
 
     @inlinable public static
+    func string(_ string:some StringProtocol) -> Self
+    {
+        .string(.init(.init(string.utf8)))
+    }
+    @inlinable public static
     func javascript(_ string:some StringProtocol) -> Self
     {
         .javascript(.init(.init(string.utf8)))
@@ -248,14 +282,6 @@ extension BSON.Variant:ExpressibleByArrayLiteral, ExpressibleByDictionaryLiteral
     func javascriptScope(_ scope:BSON.Document<Bytes>, _ string:some StringProtocol) -> Self
     {
         .javascriptScope(scope, .init(.init(string.utf8)))
-    }
-}
-extension BSON.Variant:ExpressibleByStringLiteral
-{
-    @inlinable public
-    init(stringLiteral:String)
-    {
-        self = .string(stringLiteral)
     }
 }
 extension BSON.Variant:ExpressibleByFloatLiteral
