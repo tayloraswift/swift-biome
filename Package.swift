@@ -38,8 +38,14 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-web-semantics", .upToNextMinor(from: "0.4.0")),
         .package(url: "https://github.com/kelvin13/swift-dom", .upToNextMinor(from: "0.5.2")),
         
-        .package(url: "https://github.com/apple/swift-markdown.git",    revision: "swift-DEVELOPMENT-SNAPSHOT-2022-10-11-a"),
-        .package(url: "https://github.com/apple/swift-syntax.git",      revision: "swift-DEVELOPMENT-SNAPSHOT-2022-10-11-a"),
+        // used by the _BSON module
+        .package(url: "https://github.com/kelvin13/swift-package-factory.git",
+            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-11-01-a"),
+
+        .package(url: "https://github.com/apple/swift-markdown.git",
+            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-11-01-a"),
+        .package(url: "https://github.com/apple/swift-syntax.git",
+            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-11-01-a"),
         
         // only used by the SymbolGraphCompiler target
         .package(url: "https://github.com/kelvin13/swift-system-extras.git", .upToNextMinor(from: "0.2.0")),

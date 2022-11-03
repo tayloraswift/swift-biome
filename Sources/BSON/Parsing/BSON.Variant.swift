@@ -149,6 +149,10 @@ extension BSON.Variant
     /// If both operands are a ``string(_:)``, performs unicode-aware string comparison.
     /// If both operands are a ``double(_:)``, performs floating-point-aware
     /// numerical comparison.
+    ///
+    /// >   Warning:
+    ///     Comparison of ``decimal128(_:)`` values uses bitwise equality. This library does
+    ///     not support decimal equivalence.
     /// 
     /// >   Note:
     ///     The embedded document in the deprecated `javascriptScope(_:_:)` variant
