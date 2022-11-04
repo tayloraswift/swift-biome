@@ -158,7 +158,13 @@ let package = Package(
             [
                 .target(name: "BSONTraversal")
             ],
-            path: "Sources/BSON"),
+            path: "Sources/BSON",
+            exclude:
+            [
+                "Concrete.spf",
+                "Generic.spf",
+                "Primitive.spf",
+            ]),
         
         .target(name: "_MongoKittenCrypto"),
         .target(name: "MongoClient",

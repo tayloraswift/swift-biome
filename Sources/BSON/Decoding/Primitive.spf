@@ -1,0 +1,61 @@
+@basis
+let primitive:[Never] =
+[
+    Bool,
+    String,
+    BSON.Tuple<Bytes>,
+    BSON.Document<Bytes>,
+]
+
+@matrix(__Primitive__: primitive)
+extension BSON.Variant
+{
+    @inlinable public 
+    func `as`(_:__Primitive__.Type) throws -> __Primitive__
+    {
+        try self.match(Self.as(_:))
+    }
+    @inlinable public 
+    func `as`(_:__Primitive__?.Type) throws -> __Primitive__?
+    {
+        try self.flatMatch(Self.as(_:))
+    }
+}
+
+@matrix(
+    __Decoder__: [Array, Dictionary],
+    __Key__: [Int, String], 
+    __key__: [index, key])
+@matrix(__Primitive__: primitive)
+extension BSON.__Decoder__
+{
+    @inlinable public
+    func decode(_ __key__:__Key__,
+        as _:__Primitive__.Type = __Primitive__.self) throws -> __Primitive__
+    {
+        try self.decode(__key__) { try $0.as(__Primitive__.self) }
+    }
+    @inlinable public
+    func decode(_ __key__:__Key__,
+        as _:__Primitive__?.Type = __Primitive__?.self) throws -> __Primitive__?
+    {
+        try self.decode(__key__) { try $0.as(__Primitive__?.self) }
+    }
+}
+
+@matrix(__Primitive__: primitive)
+extension BSON.Dictionary
+{
+    @inlinable public
+    func decode(mapping key:String,
+        as _:__Primitive__.Type = __Primitive__.self) throws -> __Primitive__?
+    {
+        try self.decode(mapping: key) { try $0.as(__Primitive__.self) }
+    }
+    @inlinable public
+    func decode(mapping key:String,
+        as _:__Primitive__?.Type = __Primitive__?.self) throws -> __Primitive__?
+    {
+        try self.decode(mapping: key) { try $0.as(__Primitive__?.self) } ?? nil
+    }
+}
