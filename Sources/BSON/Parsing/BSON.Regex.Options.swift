@@ -1,26 +1,5 @@
 extension BSON.Regex
 {
-    /// A MongoDB regex matching options string contained an invalid unicode scalar.
-    public
-    enum OptionError:Equatable, Error
-    {
-        case invalid(Unicode.Scalar)
-    }
-}
-extension BSON.Regex.OptionError:CustomStringConvertible
-{
-    public
-    var description:String
-    {
-        switch self
-        {
-        case .invalid(let codepoint):
-            return "invalid regex option '\(codepoint)'"
-        }
-    }
-}
-extension BSON.Regex
-{
     /// A MongoDB regex matching option.
     @frozen public 
     enum Option:UInt8, CaseIterable, Hashable, Sendable
@@ -101,15 +80,15 @@ extension BSON.Regex.Options
     init(parsing string:some StringProtocol) throws
     {
         var rawValue:UInt8 = 0
-        for scalar:Unicode.Scalar in string.unicodeScalars
+        for codepoint:Unicode.Scalar in string.unicodeScalars
         {
-            if  let option:BSON.Regex.Option = .init(scalar)
+            if  let option:BSON.Regex.Option = .init(codepoint)
             {
                 rawValue |= option.rawValue
             }
             else
             {
-                throw BSON.Regex.OptionError.invalid(scalar)
+                throw BSON.Regex.OptionError.init(invalid: codepoint)
             }
         }
         self.init(rawValue: rawValue)

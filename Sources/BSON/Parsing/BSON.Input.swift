@@ -2,55 +2,6 @@ import BSONTraversal
 
 extension BSON
 {
-    /// A parser did not receive the expected amount of input.
-    public
-    enum InputError:Equatable, Error
-    {
-        /// Expected end-of-input, but encountered additional trailing bytes.
-        case expectedEnd(encountered:Int)
-        /// Unexpected end-of-input
-        case unexpectedEnd
-    }
-}
-extension BSON.InputError:CustomStringConvertible
-{
-    public
-    var description:String
-    {
-        switch self
-        {
-        case .expectedEnd(encountered: let bytes):
-            return "expected end-of-input, encountered \(bytes) additional trailing byte(s)"
-        case .unexpectedEnd:
-            return "unexpected end-of-input"
-        }
-    }
-}
-extension BSON
-{
-    public
-    struct HeaderError<Traversable>:Equatable, Error where Traversable:TraversableBSON
-    {
-        public
-        let length:Int
-
-        public
-        init(length:Int)
-        {
-            self.length = length
-        }
-    }
-}
-extension BSON.HeaderError:CustomStringConvertible
-{
-    public
-    var description:String
-    {
-        "length declared in header (\(self.length)) is less than the minimum for type '\(Traversable.self)' (\(Traversable.headerSize))"
-    }
-}
-extension BSON
-{
     /// A type for managing BSON parsing state. Most users of this module
     /// should not need to interact with it directly.
     @frozen public
@@ -112,7 +63,7 @@ extension BSON.Input
                 return start ..< self.index
             }
         }
-        throw BSON.InputError.unexpectedEnd
+        throw BSON.InputError.init(expected: .byte(byte))
     }
     /// Parses a null-terminated string.
     @inlinable public mutating
@@ -143,7 +94,7 @@ extension BSON.Input
         }
         else
         {
-            throw BSON.InputError.unexpectedEnd
+            throw self.expected(.bytes(12))
         }
     }
     /// Parses a little-endian integer.
@@ -167,7 +118,7 @@ extension BSON.Input
         }
         else
         {
-            throw BSON.InputError.unexpectedEnd
+            throw self.expected(.bytes(MemoryLayout<LittleEndian>.size))
         }
     }
     /// Parses a traversable BSON element. The output is typically opaque,
@@ -176,15 +127,14 @@ extension BSON.Input
     func parse<Traversable>(as _:Traversable.Type = Traversable.self) throws -> Traversable
         where Traversable:TraversableBSON<Source.SubSequence>
     {
-        let count:Int = .init(try self.parse(as: Int32.self))
-        if  count < Traversable.headerSize
+        let header:Int = .init(try self.parse(as: Int32.self))
+        if  header < Traversable.Header.size
         {
-            throw BSON.HeaderError<Traversable>.init(length: count)
+            throw BSON.HeaderError<Traversable.Header>.init(length: header)
         }
         let start:Source.Index = self.index
-
-        if  let end:Source.Index = self.source.index(self.index, 
-                offsetBy: count - Traversable.headerSize, 
+        let count:Int = header - Traversable.Header.size
+        if  let end:Source.Index = self.source.index(self.index, offsetBy: count, 
                 limitedBy: self.source.endIndex)
         {
             self.index = end
@@ -192,7 +142,7 @@ extension BSON.Input
         }
         else
         {
-            throw BSON.InputError.unexpectedEnd
+            throw self.expected(.bytes(count))
         }
     }
     /// Asserts that there is no input remaining.
@@ -201,9 +151,16 @@ extension BSON.Input
     {
         if self.index != self.source.endIndex
         {
-            throw BSON.InputError.expectedEnd(
-                encountered: self.source.distance(from: self.index, to: self.source.endIndex))
+            throw self.expected(.end)
         }
+    }
+
+    /// Creates an ``InputError`` with appropriate context for the specified expectation.
+    @inlinable public
+    func expected(_ expectation:BSON.InputError.Expectation) -> BSON.InputError
+    {
+        .init(expected: expectation,
+            encountered: self.source.distance(from: self.index, to: self.source.endIndex))
     }
 }
 extension BSON.Input
@@ -243,9 +200,9 @@ extension BSON.Input
             case 1?:
                 return .bool(true)
             case let code?:
-                throw BSON.BooleanSubtypeError.invalid(code)
+                throw BSON.BooleanSubtypeError.init(invalid: code)
             case nil:
-                throw BSON.InputError.unexpectedEnd
+                throw BSON.InputError.init(expected: .bytes(1))
             }
         
         case .millisecond:

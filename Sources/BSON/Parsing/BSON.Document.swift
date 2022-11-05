@@ -4,6 +4,12 @@ infix operator ~~ : ComparisonPrecedence
 
 extension BSON
 {
+    @frozen public
+    enum DocumentHeader:TraversableBSONHeader
+    {
+        public static
+        let size:Int = 4
+    }
     /// A BSON document. The backing storage of this type is opaque,
     /// permitting lazy parsing of its inline content.
     @frozen public
@@ -37,11 +43,8 @@ extension BSON.Document:Sendable where Bytes:Sendable
 }
 extension BSON.Document:TraversableBSON
 {
-    @inlinable public static
-    var headerSize:Int
-    {
-        4
-    }
+    public
+    typealias Header = BSON.DocumentHeader
     /// Stores the argument in ``bytes`` unchanged.
     ///
     /// >   Complexity: O(1)
@@ -75,7 +78,7 @@ extension BSON.Document
                 return items
             }
         }
-        throw BSON.InputError.unexpectedEnd
+        throw BSON.InputError.init(expected: .bytes(1))
     }
 }
 extension BSON.Document
@@ -93,7 +96,7 @@ extension BSON.Document
     @inlinable public
     var size:Int
     {
-        Self.headerSize + self.bytes.count
+        Header.size + self.bytes.count
     }
 }
 extension BSON.Document:ExpressibleByDictionaryLiteral 

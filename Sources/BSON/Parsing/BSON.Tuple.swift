@@ -32,11 +32,9 @@ extension BSON.Tuple:Sendable where Bytes:Sendable
 }
 extension BSON.Tuple:TraversableBSON
 {
-    @inlinable public static
-    var headerSize:Int
-    {
-        4
-    }
+    public
+    typealias Header = BSON.DocumentHeader
+
     /// Stores the argument in ``bytes`` unchanged.
     ///
     /// >   Complexity: O(1)
@@ -69,7 +67,7 @@ extension BSON.Tuple
     @inlinable public
     var size:Int
     {
-        Self.headerSize + self.bytes.count
+        Header.size + self.bytes.count
     }
 }
 
@@ -100,7 +98,7 @@ extension BSON.Tuple
                 return elements
             }
         }
-        throw BSON.InputError.unexpectedEnd
+        throw BSON.InputError.init(expected: .bytes(1))
     }
 }
 extension BSON.Tuple:ExpressibleByArrayLiteral

@@ -3,26 +3,6 @@
 @frozen public
 enum BSON:UInt8
 {
-    /// A byte encoding a boolean value was not [`0`]() or [`1`]().
-    public
-    enum BooleanSubtypeError:Equatable, Error
-    {
-        case invalid(UInt8)
-    }
-    /// A variant code did not encode a valid BSON type.
-    public
-    struct TypeError:Equatable, Error
-    {
-        public
-        let code:UInt8
-
-        public
-        init(code:UInt8)
-        {
-            self.code = code
-        }
-    }
-
     case double             = 0x01
     case string             = 0x02
     case document           = 0x03
@@ -56,7 +36,7 @@ enum BSON:UInt8
         }
         else
         {
-            throw TypeError.init(code: code)
+            throw TypeError.init(invalid: code)
         }
     }
     /// Converts the given raw type code to a variant type. Deprecated type codes with an
