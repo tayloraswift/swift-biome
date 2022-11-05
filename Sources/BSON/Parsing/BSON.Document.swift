@@ -75,7 +75,7 @@ extension BSON.Document
                 return items
             }
         }
-        throw BSON.EndOfInputError.unexpected
+        throw BSON.InputError.unexpectedEnd
     }
 }
 extension BSON.Document

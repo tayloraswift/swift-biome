@@ -1,6 +1,6 @@
 import Testing
 import Base16
-import _BSON
+import BSON
 
 @main 
 enum Main
@@ -86,7 +86,7 @@ enum Main
 
             $0.test(name: "truncated",
                 invalid: "090000001061000500",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/int32.json
@@ -114,7 +114,7 @@ enum Main
 
             $0.test(name: "truncated",
                 invalid: "0C0000001261001234567800",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/timestamp.json
@@ -134,7 +134,7 @@ enum Main
             
             $0.test(name: "truncated",
                 invalid: "0f0000001161002A00000015CD5B00",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/top.json
             $0.group("top")
@@ -166,32 +166,32 @@ enum Main
                 
                 $0.test(name: "invalid-end-of-object-0x01",
                     invalid: "0500000001",
-                    failure: BSON.EndOfInputError.unexpected)
+                    failure: BSON.InputError.unexpectedEnd)
                 
                 $0.test(name: "invalid-end-of-object-0xff",
                     invalid: "05000000FF",
-                    failure: BSON.EndOfInputError.unexpected)
+                    failure: BSON.InputError.unexpectedEnd)
                 
                 $0.test(name: "invalid-end-of-object-0x70",
                     invalid: "0500000070",
-                    failure: BSON.EndOfInputError.unexpected)
+                    failure: BSON.InputError.unexpectedEnd)
                 
                 $0.test(name: "zeroes",
                     invalid: "00000000000000000000",
-                    failure: BSON.EndOfInputError.expected(encountered: 5))
+                    failure: BSON.InputError.expectedEnd(encountered: 5))
                 
                 $0.test(name: "invalid-length-over",
                     invalid: "1200000002666F6F0004000000626172",
-                    failure: BSON.EndOfInputError.unexpected)
+                    failure: BSON.InputError.unexpectedEnd)
                 
                 $0.test(name: "invalid-length-under",
                     invalid: "1200000002666F6F00040000006261720000DEADBEEF",
-                    failure: BSON.EndOfInputError.expected(encountered: 4))
+                    failure: BSON.InputError.expectedEnd(encountered: 4))
                 
                 // note: type code 0x00 is interpreted as end-of-object
                 $0.test(name: "invalid-type-0x00",
                     invalid: "07000000000000",
-                    failure: BSON.EndOfInputError.expected(encountered: 2))
+                    failure: BSON.InputError.expectedEnd(encountered: 2))
                 
                 $0.test(name: "invalid-type-0x80",
                     invalid: "07000000800000",
@@ -199,11 +199,11 @@ enum Main
                 
                 $0.test(name: "truncated",
                     invalid: "1200000002666F",
-                    failure: BSON.EndOfInputError.unexpected)
+                    failure: BSON.InputError.unexpectedEnd)
                 
                 $0.test(name: "invalid-key",
                     invalid: "0D000000107800000100000000",
-                    failure: BSON.EndOfInputError.expected(encountered: 1))
+                    failure: BSON.InputError.expectedEnd(encountered: 1))
                 
             }
         }
@@ -269,7 +269,7 @@ enum Main
             
             $0.test(name: "truncated",
                 invalid: "0C0000000961001234567800",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/double.json
@@ -305,7 +305,7 @@ enum Main
             // note: frameshift
             $0.test(name: "truncated",
                 invalid: "0B0000000164000000F03F00",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/oid.json
@@ -328,7 +328,7 @@ enum Main
             
             $0.test(name: "truncated",
                 invalid: "1200000007610056E1FC72E0C917E9C471",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/dbpointer.json
@@ -354,11 +354,11 @@ enum Main
             
             $0.test(name: "truncated",
                 invalid: "160000000C61000300000061620056E1FC72E0C91700",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             $0.test(name: "truncated-identifier",
                 invalid: "1A0000000C61000300000061620056E1FC72E0C917E9C4716100",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
         }
         
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/binary.json
@@ -400,7 +400,7 @@ enum Main
             
             $0.test(name: "invalid-length-over",
                 invalid: "1D000000057800FF0000000573FFD26444B34C6990E8E7D1DFC035D400",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             $0.test(name: "invalid-length-negative",
                 invalid: "0D000000057800FFFFFFFF0000",
@@ -442,19 +442,19 @@ enum Main
             
             $0.test(name: "invalid-length-over",
                 invalid: "1800000003666F6F000F0000001062617200FFFFFF7F0000",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             $0.test(name: "invalid-length-under",
                 invalid: "1500000003666F6F000A0000000862617200010000",
-                failure: BSON.EndOfInputError.expected(encountered: 1))
+                failure: BSON.InputError.expectedEnd(encountered: 1))
             
             $0.test(name: "invalid-value",
                 invalid: "1C00000003666F6F001200000002626172000500000062617A000000",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             $0.test(name: "invalid-key",
                 invalid: "150000000378000D00000010610000010000000000",
-                failure: BSON.EndOfInputError.expected(encountered: 1))
+                failure: BSON.InputError.expectedEnd(encountered: 1))
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/array.json
@@ -484,15 +484,15 @@ enum Main
             
             $0.test(name: "invalid-length-over",
                 invalid: "140000000461000D0000001030000A0000000000",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             $0.test(name: "invalid-length-under",
                 invalid: "140000000461000B0000001030000A0000000000",
-                failure: BSON.EndOfInputError.expected(encountered: 1))
+                failure: BSON.InputError.expectedEnd(encountered: 1))
             
             $0.test(name: "invalid-element",
                 invalid: "1A00000004666F6F00100000000230000500000062617A000000",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/regex.json
@@ -588,15 +588,15 @@ enum Main
             
             $0.test(name: "invalid-length-over",
                 invalid: "10000000026100050000006200620000",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             $0.test(name: "invalid-length-over-document",
                 invalid: "120000000200FFFFFF00666F6F6261720000",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             $0.test(name: "invalid-length-under",
                 invalid: "0E00000002610001000000000000",
-                failure: BSON.EndOfInputError.expected(encountered: 1))
+                failure: BSON.InputError.expectedEnd(encountered: 1))
             
             $0.test(name: "invalid-utf-8",
                 canonical: "0E00000002610002000000E90000",
@@ -674,15 +674,15 @@ enum Main
             
             $0.test(name: "invalid-length-over",
                 invalid: "100000000D6100050000006200620000",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             $0.test(name: "invalid-length-over-document",
                 invalid: "120000000D00FFFFFF00666F6F6261720000",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             $0.test(name: "invalid-length-under",
                 invalid: "0E0000000D610001000000000000",
-                failure: BSON.EndOfInputError.expected(encountered: 1))
+                failure: BSON.InputError.expectedEnd(encountered: 1))
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/code_w_scope.json
@@ -716,15 +716,15 @@ enum Main
             // frameshift error.
             $0.test(name: "invalid-length-frameshift-clips-scope",
                 invalid: "280000000F6100200000000400000061626364001300000010780001000000107900010000000000",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             $0.test(name: "invalid-length-over",
                 invalid: "280000000F6100200000000600000061626364001300000010780001000000107900010000000000",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             // note: frameshift
             $0.test(name: "invalid-length-frameshift",
                 invalid: "280000000F610020000000FF00000061626364001300000010780001000000107900010000000000",
-                failure: BSON.EndOfInputError.unexpected)
+                failure: BSON.InputError.unexpectedEnd)
             
             $0.test(name: "invalid-scope",
                 invalid: "1C0000000F001500000001000000000C000000020000000000000000",

@@ -4,24 +4,24 @@ extension BSON
 {
     /// A parser did not receive the expected amount of input.
     public
-    enum EndOfInputError:Equatable, Error
+    enum InputError:Equatable, Error
     {
         /// Expected end-of-input, but encountered additional trailing bytes.
-        case expected(encountered:Int)
+        case expectedEnd(encountered:Int)
         /// Unexpected end-of-input
-        case unexpected
+        case unexpectedEnd
     }
 }
-extension BSON.EndOfInputError:CustomStringConvertible
+extension BSON.InputError:CustomStringConvertible
 {
     public
     var description:String
     {
         switch self
         {
-        case .expected(encountered: let bytes):
+        case .expectedEnd(encountered: let bytes):
             return "expected end-of-input, encountered \(bytes) additional trailing byte(s)"
-        case .unexpected:
+        case .unexpectedEnd:
             return "unexpected end-of-input"
         }
     }
@@ -112,7 +112,7 @@ extension BSON.Input
                 return start ..< self.index
             }
         }
-        throw BSON.EndOfInputError.unexpected
+        throw BSON.InputError.unexpectedEnd
     }
     /// Parses a null-terminated string.
     @inlinable public mutating
@@ -143,7 +143,7 @@ extension BSON.Input
         }
         else
         {
-            throw BSON.EndOfInputError.unexpected
+            throw BSON.InputError.unexpectedEnd
         }
     }
     /// Parses a little-endian integer.
@@ -167,7 +167,7 @@ extension BSON.Input
         }
         else
         {
-            throw BSON.EndOfInputError.unexpected
+            throw BSON.InputError.unexpectedEnd
         }
     }
     /// Parses a traversable BSON element. The output is typically opaque,
@@ -192,7 +192,7 @@ extension BSON.Input
         }
         else
         {
-            throw BSON.EndOfInputError.unexpected
+            throw BSON.InputError.unexpectedEnd
         }
     }
     /// Asserts that there is no input remaining.
@@ -201,7 +201,7 @@ extension BSON.Input
     {
         if self.index != self.source.endIndex
         {
-            throw BSON.EndOfInputError.expected(
+            throw BSON.InputError.expectedEnd(
                 encountered: self.source.distance(from: self.index, to: self.source.endIndex))
         }
     }
@@ -245,7 +245,7 @@ extension BSON.Input
             case let code?:
                 throw BSON.BooleanSubtypeError.invalid(code)
             case nil:
-                throw BSON.EndOfInputError.unexpected
+                throw BSON.InputError.unexpectedEnd
             }
         
         case .millisecond:
