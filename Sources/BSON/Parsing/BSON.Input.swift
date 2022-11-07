@@ -207,7 +207,7 @@ extension BSON.Input
             }
         
         case .millisecond:
-            return .millisecond(try self.parse(as: Int64.self))
+            return .millisecond(.init(try self.parse(as: Int64.self)))
         
         case .regex:
             let pattern:String = try self.parse(as: String.self)

@@ -32,7 +32,7 @@ extension BSON
         /// The MongoDB max-key.
         case max
         /// UTC milliseconds since the Unix epoch.
-        case millisecond(Int64)
+        case millisecond(Millisecond)
         /// The MongoDB min-key.
         case min
         /// An explicit null.
@@ -153,6 +153,10 @@ extension BSON.Value
     /// >   Warning:
     ///     Comparison of ``decimal128(_:)`` values uses bitwise equality. This library does
     ///     not support decimal equivalence.
+    ///
+    /// >   Warning:
+    ///     Comparison of ``millisecond(_:)`` values uses integer equality. This library does
+    ///     not support calendrical equivalence.
     /// 
     /// >   Note:
     ///     The embedded document in the deprecated `javascriptScope(_:_:)` variant
@@ -191,7 +195,7 @@ extension BSON.Value
         case (.max,                     .max):
             return true
         case (.millisecond  (let lhs), .millisecond (let rhs)):
-            return lhs == rhs
+            return lhs.value == rhs.value
         case (.min,                     .min):
             return true
         case (.null,                    .null):

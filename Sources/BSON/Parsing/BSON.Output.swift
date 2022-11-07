@@ -139,7 +139,7 @@ extension BSON.Output
             self.append(bool ? 1 : 0)
 
         case .millisecond(let millisecond):
-            self.serialize(integer: millisecond)
+            self.serialize(integer: millisecond.value)
         
         case .regex(let regex):
             self.serialize(cString: regex.pattern)

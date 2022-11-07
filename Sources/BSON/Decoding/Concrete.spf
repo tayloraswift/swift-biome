@@ -2,7 +2,11 @@
 let concrete:[Never] =
 [
     Bool,
+    BSON.Decimal128,
     String,
+    BSON.Regex,
+    BSON.Identifier,
+    BSON.Millisecond,
     BSON.Tuple<Bytes>,
     BSON.Array<Bytes.SubSequence>,
     BSON.Document<Bytes>,

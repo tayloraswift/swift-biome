@@ -104,7 +104,8 @@ extension BSON.Tuple
 extension BSON.Tuple:ExpressibleByArrayLiteral
     where Bytes:RangeReplaceableCollection<UInt8>
 {
-    @inlinable public 
+    /// Creates a tuple-document containing the given elements.
+    @inlinable public
     init(_ elements:some Sequence<BSON.Value<some RandomAccessCollection<UInt8>>>)
     {
         // we do need to precompute the ordinal keys, so we know the total length

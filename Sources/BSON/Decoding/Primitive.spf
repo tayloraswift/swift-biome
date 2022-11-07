@@ -2,7 +2,11 @@
 let primitive:[Never] =
 [
     Bool,
+    BSON.Decimal128,
     String,
+    BSON.Regex,
+    BSON.Identifier,
+    BSON.Millisecond,
     BSON.Tuple<Bytes>,
     BSON.Document<Bytes>,
 ]

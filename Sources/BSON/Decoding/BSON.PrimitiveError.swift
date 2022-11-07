@@ -138,7 +138,7 @@ extension BSON.Value
     {
         switch self 
         {
-        case .bool(let value):  return value
+        case .bool(let bool):   return bool
         default:                return nil 
         }
     }
@@ -148,6 +148,9 @@ extension BSON.Value
     ///     An integer derived from the payload of this variant
     ///     if it matches one of ``int32(_:)``, ``int64(_:)``, or ``uint64(_:)``, 
     ///     and it can be represented exactly by [`T`](); [`nil`]() otherwise.
+    ///
+    /// The ``decimal128(_:)``, ``double(_:)``, and ``millisecond(_:)`` variants will
+    /// *not* match.
     ///
     /// This method reports failure in two ways — it returns [`nil`]() on a type 
     /// mismatch, and it [`throws`]() a ``BSON/IntegerOverflowError`` if this variant 
@@ -204,6 +207,20 @@ extension BSON.Value
         default:                    return nil 
         }
     }
+    /// Attempts to unwrap an instance of ``Decimal128`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant if it matches ``decimal128(_:)``, 
+    ///     [`nil`]() otherwise.
+    @inlinable public 
+    func `as`(_:BSON.Decimal128.Type) -> BSON.Decimal128?
+    {
+        switch self 
+        {
+        case .decimal128(let decimal):  return decimal
+        default:                        return nil 
+        }
+    }
     /// Attempts to unwrap an instance of ``String`` from this variant. Its UTF-8 code
     /// units will be validated (and repaired if needed).
     /// 
@@ -222,7 +239,22 @@ extension BSON.Value
         default:                    return nil
         }
     }
-
+    /// Attempts to unwrap an instance of ``Regex`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant if it matches ``regex(_:)``,
+    ///     [`nil`]() otherwise.
+    @inlinable public 
+    func `as`(_:BSON.Regex.Type) -> BSON.Regex?
+    {
+        switch self 
+        {
+        case .regex(let regex):
+            return regex
+        default:
+            return nil 
+        }
+    }
     /// Attempts to unwrap a tuple from this variant.
     /// 
     /// -   Returns:
@@ -239,7 +271,6 @@ extension BSON.Value
         default:                return nil
         }
     }
-    
     /// Attempts to unwrap a document from this variant.
     /// 
     /// -   Returns: The payload of this variant if it matches ``document(_:)``
@@ -259,6 +290,40 @@ extension BSON.Value
             return document
         case .tuple(let tuple):
             return tuple.document
+        default:
+            return nil 
+        }
+    }
+    /// Attempts to unwrap an instance of ``Identifier`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant if it matches ``id(_:)`` or ``pointer(_:_:)``,
+    ///     [`nil`]() otherwise.
+    @inlinable public 
+    func `as`(_:BSON.Identifier.Type) -> BSON.Identifier?
+    {
+        switch self 
+        {
+        case .id(let id):
+            return id
+        case .pointer(_, let id):
+            return id
+        default:
+            return nil 
+        }
+    }
+    /// Attempts to unwrap an instance of ``Millisecond`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant if it matches ``millisecond(_:)``,
+    ///     [`nil`]() otherwise.
+    @inlinable public 
+    func `as`(_:BSON.Millisecond.Type) -> BSON.Millisecond?
+    {
+        switch self 
+        {
+        case .millisecond(let millisecond):
+            return millisecond
         default:
             return nil 
         }

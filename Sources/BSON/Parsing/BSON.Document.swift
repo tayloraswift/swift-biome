@@ -106,6 +106,8 @@ extension BSON.Document
 extension BSON.Document:ExpressibleByDictionaryLiteral 
     where Bytes:RangeReplaceableCollection<UInt8>
 {
+    /// Creates a document containing the given fields.
+    /// The order of the fields will be preserved.
     @inlinable public
     init<Other>(_ items:some Collection<(key:String, value:BSON.Value<Other>)>)
         where Other:RandomAccessCollection<UInt8>
@@ -123,6 +125,14 @@ extension BSON.Document:ExpressibleByDictionaryLiteral
         assert(output.destination.count == size,
             "precomputed size (\(size)) does not match output size (\(output.destination.count))")
         self.init(output.destination)
+    }
+
+    /// Creates a document containing a single key-value pair.
+    @inlinable public
+    init<Other>(key:String, value:BSON.Value<Other>)
+        where Other:RandomAccessCollection<UInt8>
+    {
+        self.init(CollectionOfOne<(key:String, value:BSON.Value<Other>)>.init((key, value)))
     }
 
     @inlinable public
