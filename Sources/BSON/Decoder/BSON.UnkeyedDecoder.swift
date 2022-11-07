@@ -6,7 +6,7 @@ extension BSON
         let codingPath:[any CodingKey]
         public 
         var currentIndex:Int 
-        let elements:[BSON.Variant<Bytes>]
+        let elements:[BSON.Value<Bytes>]
         
         public 
         init(_ array:BSON.Array<Bytes>, path:[any CodingKey])
@@ -31,7 +31,7 @@ extension BSON.UnkeyedDecoder
     }
     
     mutating 
-    func diagnose<T>(_ decode:(BSON.Variant<Bytes>) -> (T.Type) throws -> T) throws -> T
+    func diagnose<T>(_ decode:(BSON.Value<Bytes>) -> (T.Type) throws -> T) throws -> T
     {
         let key:BSON.TupleKey = .init(intValue: self.currentIndex) 
         var path:[any CodingKey] 
@@ -46,7 +46,7 @@ extension BSON.UnkeyedDecoder
             throw DecodingError.keyNotFound(key, context)
         }
         
-        let value:BSON.Variant<Bytes> = self.elements[self.currentIndex]
+        let value:BSON.Value<Bytes> = self.elements[self.currentIndex]
         self.currentIndex += 1
         do 
         {

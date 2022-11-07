@@ -21,6 +21,9 @@ extension BSON
         public 
         let bytes:Bytes
 
+        /// Stores the argument in ``bytes`` unchanged.
+        ///
+        /// >   Complexity: O(1)
         @inlinable public
         init(_ bytes:Bytes)
         {
@@ -45,7 +48,8 @@ extension BSON.Document:TraversableBSON
 {
     public
     typealias Header = BSON.DocumentHeader
-    /// Stores the argument in ``bytes`` unchanged.
+    
+    /// Stores the argument in ``bytes`` unchanged. Equivalent to ``init(_:)``.
     ///
     /// >   Complexity: O(1)
     @inlinable public
@@ -61,10 +65,10 @@ extension BSON.Document
     ///
     /// >   Complexity: O(*n*), where *n* is the size of this document’s backing storage.
     @inlinable public
-    func parse() throws -> [(key:String, value:BSON.Variant<Bytes.SubSequence>)]
+    func parse() throws -> [(key:String, value:BSON.Value<Bytes.SubSequence>)]
     {
         var input:BSON.Input<Bytes> = .init(self.bytes)
-        var items:[(key:String, value:BSON.Variant<Bytes.SubSequence>)] = []
+        var items:[(key:String, value:BSON.Value<Bytes.SubSequence>)] = []
         while let code:UInt8 = input.next()
         {
             if code != 0x00
@@ -103,13 +107,13 @@ extension BSON.Document:ExpressibleByDictionaryLiteral
     where Bytes:RangeReplaceableCollection<UInt8>
 {
     @inlinable public
-    init<Other>(_ items:some Collection<(key:String, value:BSON.Variant<Other>)>)
+    init<Other>(_ items:some Collection<(key:String, value:BSON.Value<Other>)>)
         where Other:RandomAccessCollection<UInt8>
     {
         let size:Int = items.reduce(1) { $0 + 2 + $1.key.utf8.count + $1.value.size }
         var output:BSON.Output<Bytes> = .init(capacity: size)
         // do *not* emit the length header!
-        for (key, value):(String, BSON.Variant<Other>) in items
+        for (key, value):(String, BSON.Value<Other>) in items
         {
             output.append(value.type.rawValue)
             output.serialize(cString: key)
@@ -122,7 +126,7 @@ extension BSON.Document:ExpressibleByDictionaryLiteral
     }
 
     @inlinable public
-    init(dictionaryLiteral:(String, BSON.Variant<Bytes>)...)
+    init(dictionaryLiteral:(String, BSON.Value<Bytes>)...)
     {
         self.init(dictionaryLiteral)
     }
@@ -159,18 +163,18 @@ extension BSON.Document
     /// Some documents that do not compare equal under byte-wise
     /// `==` comparison may compare equal under this operator, due to normalization
     /// of deprecated BSON variants. For example, a value of the deprecated `symbol` type
-    /// will compare equal to a `BSON//Variant.string(_:)` value with the same contents.
+    /// will compare equal to a `BSON//Value.string(_:)` value with the same contents.
     @inlinable public static
     func ~~ <Other>(lhs:Self, rhs:BSON.Document<Other>) -> Bool
     {
-        if  let lhs:[(key:String, value:BSON.Variant<Bytes.SubSequence>)] = try? lhs.parse(),
-            let rhs:[(key:String, value:BSON.Variant<Other.SubSequence>)] = try? rhs.parse(),
+        if  let lhs:[(key:String, value:BSON.Value<Bytes.SubSequence>)] = try? lhs.parse(),
+            let rhs:[(key:String, value:BSON.Value<Other.SubSequence>)] = try? rhs.parse(),
                 rhs.count == lhs.count
         {
             for (lhs, rhs):
             (
-                (key:String, value:BSON.Variant<Bytes.SubSequence>),
-                (key:String, value:BSON.Variant<Other.SubSequence>)
+                (key:String, value:BSON.Value<Bytes.SubSequence>),
+                (key:String, value:BSON.Value<Other.SubSequence>)
             )
             in zip(lhs, rhs)
             {

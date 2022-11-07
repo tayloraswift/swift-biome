@@ -12,7 +12,7 @@ let conformance:[Never] =
 ]
 
 @matrix(__Generic__: generic, __Conformance__: conformance)
-extension BSON.Variant
+extension BSON.Value
 {
     @inlinable public 
     func `as`<__Generic__>(_:__Generic__.Type) throws -> __Generic__

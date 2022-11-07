@@ -15,7 +15,7 @@ extension BSON
     ///
     /// This type can wrap potentially-invalid UTF-8 data, therefore it
     /// is not backed by an instance of ``String``. Moreover, it (and not ``String``)
-    /// is the payload of ``BSON/Variant.string(_:)`` to ensure that long string
+    /// is the payload of ``BSON/Value.string(_:)`` to ensure that long string
     /// fields can be traversed in constant time.
     ///
     /// To convert a UTF-8 string to a native Swift ``String`` (repairing invalid UTF-8),

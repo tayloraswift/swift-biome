@@ -24,7 +24,7 @@ extension BSON.Output
     {
         self.destination.append(byte)
     }
-    /// Appends a single byte to the output destination.
+    /// Appends a sequence of bytes to the output destination.
     @inlinable public mutating
     func append(_ bytes:some Sequence<UInt8>)
     {
@@ -97,7 +97,7 @@ extension BSON.Output
 extension BSON.Output
 {
     @inlinable public mutating
-    func serialize<Bytes>(variant:BSON.Variant<Bytes>)
+    func serialize(variant:BSON.Value<some RandomAccessCollection<UInt8>>)
     {
         switch variant
         {

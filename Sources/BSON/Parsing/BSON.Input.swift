@@ -145,6 +145,7 @@ extension BSON.Input
             throw self.expected(.bytes(count))
         }
     }
+    
     /// Asserts that there is no input remaining.
     @inlinable public
     func finish() throws
@@ -167,7 +168,7 @@ extension BSON.Input
 {
     /// Parses a variant BSON value, assuming it is of the specified `variant` type.
     @inlinable public mutating
-    func parse(variant:BSON) throws -> BSON.Variant<Source.SubSequence>
+    func parse(variant:BSON) throws -> BSON.Value<Source.SubSequence>
     {
         switch variant
         {

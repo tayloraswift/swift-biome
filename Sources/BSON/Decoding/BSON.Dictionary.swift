@@ -39,10 +39,10 @@ extension BSON
     struct Dictionary<Bytes> where Bytes:RandomAccessCollection<UInt8>
     {
         public
-        var items:[String: BSON.Variant<Bytes>]
+        var items:[String: BSON.Value<Bytes>]
         
         @inlinable public
-        init(_ items:[String: BSON.Variant<Bytes>])
+        init(_ items:[String: BSON.Value<Bytes>])
         {
             self.items = items
         }
@@ -54,10 +54,10 @@ extension BSON.Dictionary
     /// ``DictionaryKeyError`` if more than one document field contains a key with
     /// the same name.
     @inlinable public
-    init(fields:[(key:String, value:BSON.Variant<Bytes>)]) throws
+    init(fields:[(key:String, value:BSON.Value<Bytes>)]) throws
     {
         self.items = .init(minimumCapacity: fields.count)
-        for (key, value):(String, BSON.Variant<Bytes>) in fields
+        for (key, value):(String, BSON.Value<Bytes>) in fields
         {
             if case _? = self.items.updateValue(value, forKey: key)
             {
@@ -71,9 +71,9 @@ extension BSON.Dictionary
     /// Gets the field value for the specified key, throwing a ``BSON/DictionaryKeyError``
     /// if it does not exist.
     @inlinable public
-    func decode(_ key:String) throws -> BSON.Variant<Bytes>
+    func decode(_ key:String) throws -> BSON.Value<Bytes>
     {
-        if let value:BSON.Variant<Bytes> = self.items[key]
+        if let value:BSON.Value<Bytes> = self.items[key]
         {
             return value 
         }
@@ -88,12 +88,12 @@ extension BSON.Dictionary
     /// fails.
     @inlinable public
     func decode<T>(_ key:String,
-        with decode:(BSON.Variant<Bytes>) throws -> T) throws -> T
+        with decode:(BSON.Value<Bytes>) throws -> T) throws -> T
     {
         // we cannot *quite* shove this into the `do` block, because we 
         // do not want to throw a ``RecursiveError`` just because the key 
         // was not found.
-        let value:BSON.Variant<Bytes> = try self.decode(key)
+        let value:BSON.Value<Bytes> = try self.decode(key)
         do 
         {
             return try decode(value)
@@ -111,7 +111,7 @@ extension BSON.Dictionary
     ///     if `key` is not present in this dictionary.
     @inlinable public
     func decode<T>(mapping key:String,
-        with decode:(BSON.Variant<Bytes>) throws -> T) rethrows -> T?
+        with decode:(BSON.Value<Bytes>) throws -> T) rethrows -> T?
     {
         do 
         {

@@ -8,7 +8,7 @@ let primitive:[Never] =
 ]
 
 @matrix(__Primitive__: primitive)
-extension BSON.Variant
+extension BSON.Value
 {
     @inlinable public 
     func `as`(_:__Primitive__.Type) throws -> __Primitive__

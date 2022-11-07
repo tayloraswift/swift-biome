@@ -1,6 +1,6 @@
 
 
-extension BSON.Variant
+extension BSON.Value
 {
     @inlinable public 
     func `as`<Integer>(_:Integer.Type) throws -> Integer
@@ -16,7 +16,7 @@ extension BSON.Variant
     }
 }
 
-extension BSON.Variant
+extension BSON.Value
 {
     @inlinable public 
     func `as`<Binary>(_:Binary.Type) throws -> Binary

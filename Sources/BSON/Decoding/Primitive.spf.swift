@@ -1,6 +1,6 @@
 
 
-extension BSON.Variant
+extension BSON.Value
 {
     @inlinable public 
     func `as`(_:Bool.Type) throws -> Bool
@@ -14,7 +14,7 @@ extension BSON.Variant
     }
 }
 
-extension BSON.Variant
+extension BSON.Value
 {
     @inlinable public 
     func `as`(_:String.Type) throws -> String
@@ -28,7 +28,7 @@ extension BSON.Variant
     }
 }
 
-extension BSON.Variant
+extension BSON.Value
 {
     @inlinable public 
     func `as`(_:BSON.Tuple<Bytes>.Type) throws -> BSON.Tuple<Bytes>
@@ -42,7 +42,7 @@ extension BSON.Variant
     }
 }
 
-extension BSON.Variant
+extension BSON.Value
 {
     @inlinable public 
     func `as`(_:BSON.Document<Bytes>.Type) throws -> BSON.Document<Bytes>

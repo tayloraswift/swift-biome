@@ -2,7 +2,7 @@ extension BSON
 {
     /// A BSON variant value.
     @frozen public
-    enum Variant<Bytes> where Bytes:RandomAccessCollection<UInt8>
+    enum Value<Bytes> where Bytes:RandomAccessCollection<UInt8>
     {
         /// A general embedded document.
         case document(Document<Bytes>)
@@ -52,7 +52,7 @@ extension BSON
         case uint64(UInt64)
     }
 }
-extension BSON.Variant
+extension BSON.Value
 {
     /// The type of this variant value.
     @inlinable public
@@ -128,7 +128,7 @@ extension BSON.Variant
         }
     }
 }
-extension BSON.Variant
+extension BSON.Value
 {
     /// Parses a variant BSON value from a collection of bytes, 
     /// assuming it is of the specified `variant` type.
@@ -141,7 +141,7 @@ extension BSON.Variant
         try input.finish()
     }
 }
-extension BSON.Variant
+extension BSON.Value
 {
     /// Performs a type-aware equivalence comparison.
     /// If both operands are a ``document(_:)`` (or ``tuple(_:)``), performs a recursive
@@ -162,7 +162,7 @@ extension BSON.Variant
     ///     The embedded UTF-8 string in the deprecated `pointer(_:_:)` variant
     ///     also receives type-aware treatment.
     @inlinable public static
-    func ~~ (lhs:Self, rhs:BSON.Variant<some RandomAccessCollection<UInt8>>) -> Bool
+    func ~~ (lhs:Self, rhs:BSON.Value<some RandomAccessCollection<UInt8>>) -> Bool
     {
         switch (lhs, rhs)
         {
@@ -210,13 +210,13 @@ extension BSON.Variant
         }
     }
 }
-extension BSON.Variant:Equatable
+extension BSON.Value:Equatable
 {
 }
-extension BSON.Variant:Sendable where Bytes:Sendable, Bytes.SubSequence:Sendable
+extension BSON.Value:Sendable where Bytes:Sendable, Bytes.SubSequence:Sendable
 {
 }
-extension BSON.Variant:ExpressibleByStringLiteral,
+extension BSON.Value:ExpressibleByStringLiteral,
     ExpressibleByArrayLiteral,
     ExpressibleByExtendedGraphemeClusterLiteral, 
     ExpressibleByUnicodeScalarLiteral,
@@ -288,7 +288,7 @@ extension BSON.Variant:ExpressibleByStringLiteral,
         .javascriptScope(scope, .init(.init(string.utf8)))
     }
 }
-extension BSON.Variant:ExpressibleByFloatLiteral
+extension BSON.Value:ExpressibleByFloatLiteral
 {
     @inlinable public
     init(floatLiteral:Double)
@@ -296,7 +296,7 @@ extension BSON.Variant:ExpressibleByFloatLiteral
         self = .double(floatLiteral)
     }
 }
-extension BSON.Variant:ExpressibleByIntegerLiteral
+extension BSON.Value:ExpressibleByIntegerLiteral
 {
     @inlinable public
     init(integerLiteral:Int64)
@@ -304,7 +304,7 @@ extension BSON.Variant:ExpressibleByIntegerLiteral
         self = .int64(integerLiteral)
     }
 }
-extension BSON.Variant:ExpressibleByBooleanLiteral
+extension BSON.Value:ExpressibleByBooleanLiteral
 {
     @inlinable public
     init(booleanLiteral:Bool)

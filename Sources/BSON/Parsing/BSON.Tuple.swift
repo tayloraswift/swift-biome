@@ -81,10 +81,10 @@ extension BSON.Tuple
     ///
     /// >   Complexity: O(*n*), where *n* is the size of this tuple’s backing storage.
     @inlinable public
-    func parse() throws -> [BSON.Variant<Bytes.SubSequence>]
+    func parse() throws -> [BSON.Value<Bytes.SubSequence>]
     {
         var input:BSON.Input<Bytes> = .init(self.bytes)
-        var elements:[BSON.Variant<Bytes.SubSequence>] = []
+        var elements:[BSON.Value<Bytes.SubSequence>] = []
         while let code:UInt8 = input.next()
         {
             if code != 0x00
@@ -105,7 +105,7 @@ extension BSON.Tuple:ExpressibleByArrayLiteral
     where Bytes:RangeReplaceableCollection<UInt8>
 {
     @inlinable public 
-    init(_ elements:some Sequence<BSON.Variant<some RandomAccessCollection<UInt8>>>)
+    init(_ elements:some Sequence<BSON.Value<some RandomAccessCollection<UInt8>>>)
     {
         // we do need to precompute the ordinal keys, so we know the total length
         // of the document.
@@ -117,7 +117,7 @@ extension BSON.Tuple:ExpressibleByArrayLiteral
     }
 
     @inlinable public 
-    init(arrayLiteral:BSON.Variant<Bytes>...)
+    init(arrayLiteral:BSON.Value<Bytes>...)
     {
         self.init(arrayLiteral)
     }
@@ -139,15 +139,15 @@ extension BSON.Tuple
     /// Some embedded documents that do not compare equal under byte-wise
     /// `==` comparison may also compare equal under this operator, due to normalization
     /// of deprecated BSON variants. For example, a value of the deprecated `symbol` type
-    /// will compare equal to a `BSON//Variant.string(_:)` value with the same contents.
+    /// will compare equal to a `BSON//Value.string(_:)` value with the same contents.
     @inlinable public static
     func ~~ <Other>(lhs:Self, rhs:BSON.Tuple<Other>) -> Bool
     {
-        if  let lhs:[BSON.Variant<Bytes.SubSequence>] = try? lhs.parse(),
-            let rhs:[BSON.Variant<Other.SubSequence>] = try? rhs.parse(),
+        if  let lhs:[BSON.Value<Bytes.SubSequence>] = try? lhs.parse(),
+            let rhs:[BSON.Value<Other.SubSequence>] = try? rhs.parse(),
                 rhs.count == lhs.count
         {
-            for (lhs, rhs):(BSON.Variant<Bytes.SubSequence>, BSON.Variant<Other.SubSequence>) in
+            for (lhs, rhs):(BSON.Value<Bytes.SubSequence>, BSON.Value<Other.SubSequence>) in
                 zip(lhs, rhs)
             {
                 guard lhs ~~ rhs

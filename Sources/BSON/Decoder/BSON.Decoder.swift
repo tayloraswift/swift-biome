@@ -54,14 +54,14 @@ extension BSON
     public 
     struct Decoder<Bytes> where Bytes:RandomAccessCollection<UInt8>
     {
-        let value:Variant<Bytes>
+        let value:Value<Bytes>
         public 
         let codingPath:[any CodingKey]
         public 
         let userInfo:[CodingUserInfoKey: Any]
         
         public 
-        init(_ value:Variant<Bytes>, path:[any CodingKey],
+        init(_ value:Value<Bytes>, path:[any CodingKey],
             userInfo:[CodingUserInfoKey: Any] = [:])
         {
             self.value = value 
@@ -108,7 +108,7 @@ extension BSON.Decoder:Decoder
     }
 }
 
-extension BSON.Variant:Decoder 
+extension BSON.Value:Decoder 
 {
     @inlinable public 
     var codingPath:[any CodingKey] 

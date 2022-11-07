@@ -57,7 +57,7 @@ extension BSON.IntegerOverflowError:CustomStringConvertible
     }
 }
 
-extension BSON.Variant
+extension BSON.Value
 {
     /// Promotes a [`nil`]() result to a thrown ``PrimitiveError``.
     /// 
@@ -103,7 +103,7 @@ extension BSON.Variant
         }
     }
 }
-extension BSON.Variant
+extension BSON.Value
 {
     /// Indicates if this variant is ``null``.
     @inlinable public 
@@ -265,7 +265,7 @@ extension BSON.Variant
     }
 }
 
-extension BSON.Variant
+extension BSON.Value
 {
     /// Attempts to unwrap and parse an array-decoder from this variant.
     ///
@@ -310,7 +310,7 @@ extension BSON.Variant
     func `as`(_:BSON.Array<Bytes.SubSequence>.Type,
         count:Int) throws -> BSON.Array<Bytes.SubSequence>
     {
-        let aggregate:[BSON.Variant<Bytes.SubSequence>] =
+        let aggregate:[BSON.Value<Bytes.SubSequence>] =
             try self.as(BSON.Tuple<Bytes>.self).parse()
         if  aggregate.count == count 
         {
@@ -328,7 +328,7 @@ extension BSON.Variant
     func `as`(_:BSON.Array<Bytes.SubSequence>?.Type,
         count:Int) throws -> BSON.Array<Bytes.SubSequence>?
     {
-        guard   let aggregate:[BSON.Variant<Bytes.SubSequence>] =
+        guard   let aggregate:[BSON.Value<Bytes.SubSequence>] =
                     try self.as(BSON.Tuple<Bytes>?.self)?.parse()
         else
         {
@@ -358,7 +358,7 @@ extension BSON.Variant
     func `as`(_:BSON.Array<Bytes.SubSequence>.Type, 
         where predicate:(_ count:Int) throws -> Bool) throws -> BSON.Array<Bytes.SubSequence>
     {
-        let aggregate:[BSON.Variant<Bytes.SubSequence>] =
+        let aggregate:[BSON.Value<Bytes.SubSequence>] =
             try self.as(BSON.Tuple<Bytes>.self).parse()
         if try predicate(aggregate.count)
         {
@@ -377,7 +377,7 @@ extension BSON.Variant
     func `as`(_:BSON.Array<Bytes.SubSequence>?.Type, 
         where predicate:(_ count:Int) throws -> Bool) throws -> BSON.Array<Bytes.SubSequence>?
     {
-        guard   let aggregate:[BSON.Variant<Bytes.SubSequence>] =
+        guard   let aggregate:[BSON.Value<Bytes.SubSequence>] =
                     try self.as(BSON.Tuple<Bytes>?.self)?.parse()
         else
         {
@@ -393,7 +393,7 @@ extension BSON.Variant
         }
     }
 }
-extension BSON.Variant
+extension BSON.Value
 {
     /// Attempts to load a dictionary-decoder from this variant.
     /// 
@@ -441,7 +441,7 @@ extension BSON.Variant
     }
 }
 
-extension BSON.Variant
+extension BSON.Value
 {
     /// Attempts to unwrap an explicit ``null`` from this variant.
     /// 
@@ -476,7 +476,7 @@ extension BSON.Dictionary
 
 
 // ``RawRepresentable`` helpers
-extension BSON.Variant
+extension BSON.Value
 {
     /// Attempts to load an instance of some ``String``-backed type from this variant.
     @inlinable public

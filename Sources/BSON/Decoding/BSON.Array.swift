@@ -47,10 +47,10 @@ extension BSON
     struct Array<Bytes> where Bytes:RandomAccessCollection<UInt8>
     {
         public
-        var elements:[BSON.Variant<Bytes>]
+        var elements:[BSON.Value<Bytes>]
 
         @inlinable public
-        init(_ elements:[BSON.Variant<Bytes>])
+        init(_ elements:[BSON.Value<Bytes>])
         {
             self.elements = elements
         }
@@ -70,7 +70,7 @@ extension BSON.Array:RandomAccessCollection
         self.elements.endIndex
     }
     @inlinable public
-    subscript(index:Int) -> BSON.Variant<Bytes>
+    subscript(index:Int) -> BSON.Value<Bytes>
     {
         _read
         {
@@ -88,7 +88,7 @@ extension BSON.Array
     /// ``BSON/RecursiveError.tuple(_:at:)`` wrapping the underlying error if decoding
     /// fails.
     @inlinable public
-    func decode<T>(_ index:Int, with decode:(BSON.Variant<Bytes>) throws -> T) throws -> T
+    func decode<T>(_ index:Int, with decode:(BSON.Value<Bytes>) throws -> T) throws -> T
     {
         do
         {
