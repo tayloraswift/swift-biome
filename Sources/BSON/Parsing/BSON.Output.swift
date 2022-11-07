@@ -8,6 +8,19 @@ extension BSON
         public
         var destination:Destination
 
+        /// Create an output with a pre-allocated destination buffer. The buffer
+        /// does *not* need to be empty, and existing data will not be cleared.
+        @inlinable public
+        init(preallocated destination:Destination)
+        {
+            self.destination = destination
+        }
+
+        /// Create an empty output, reserving enough space for the specified
+        /// number of bytes in the destination buffer.
+        ///
+        /// The size hint is only effective if `Destination` provides a real,
+        /// non-defaulted witness for ``RangeReplaceableCollection.reserveCapacity(_:)``.
         @inlinable public
         init(capacity:Int)
         {
