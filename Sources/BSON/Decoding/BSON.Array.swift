@@ -84,6 +84,25 @@ extension BSON.Array:RandomAccessCollection
 }
 extension BSON.Array
 {
+    /// Applies the given decoder over every element in this array-decoder.
+    /// This is similar to calling ``Sequence\.map(_:)`` on ``elements``, except
+    /// it records the index in a ``BSON/RecursiveError.tuple(_:at:)`` if one of
+    /// the decoding operations fails.
+    @inlinable public
+    func decodeAll<T>(with decode:(BSON.Value<Bytes>) throws -> T) throws -> [T]
+    {
+        try self.elements.enumerated().map
+        {
+            do
+            {
+                return try decode($0.1)
+            }
+            catch let error 
+            {
+                throw BSON.RecursiveError.tuple(error, at: $0.0)
+            }
+        }
+    }
     /// Decodes the element at the specified index with the given decoder. Throws a
     /// ``BSON/RecursiveError.tuple(_:at:)`` wrapping the underlying error if decoding
     /// fails.
