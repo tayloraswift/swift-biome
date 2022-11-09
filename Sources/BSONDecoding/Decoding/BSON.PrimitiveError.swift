@@ -2,7 +2,7 @@ extension BSON
 {
     /// A decoder failed to cast a variant to an expected type.
     @frozen public 
-    struct PrimitiveError<T>:Error
+    struct PrimitiveError<T>:Equatable, Error
     {
         public
         let variant:BSON
@@ -33,11 +33,11 @@ extension BSON
 {
     /// An overflow occurred while converting an integer value to a desired type.
     @frozen public
-    enum IntegerOverflowError:Error 
+    enum IntegerOverflowError<Overflowed>:Equatable, Error where Overflowed:FixedWidthInteger
     {
-        case int32  (Int32,  overflows:any FixedWidthInteger.Type)
-        case int64  (Int64,  overflows:any FixedWidthInteger.Type)
-        case uint64 (UInt64, overflows:any FixedWidthInteger.Type)
+        case int32(Int32)
+        case int64(Int64)
+        case uint64(UInt64)
     }
 }
 extension BSON.IntegerOverflowError:CustomStringConvertible
@@ -47,12 +47,12 @@ extension BSON.IntegerOverflowError:CustomStringConvertible
     {
         switch self
         {
-        case .int32 (let value, overflows: let type):
-            return "value '\(value)' of type 'int32' overflows decoded type '\(type)'"
-        case .int64 (let value, overflows: let type):
-            return "value '\(value)' of type 'int64' overflows decoded type '\(type)'"
-        case .uint64(let value, overflows: let type):
-            return "value '\(value)' of type 'uint64' overflows decoded type '\(type)'"
+        case .int32 (let value):
+            return "value '\(value)' of type 'int32' overflows decoded type '\(Overflowed.self)'"
+        case .int64 (let value):
+            return "value '\(value)' of type 'int64' overflows decoded type '\(Overflowed.self)'"
+        case .uint64(let value):
+            return "value '\(value)' of type 'uint64' overflows decoded type '\(Overflowed.self)'"
         }
     }
 }
@@ -168,7 +168,7 @@ extension BSON.Value
             }
             else
             {
-                throw BSON.IntegerOverflowError.int32(int32, overflows: Integer.self)
+                throw BSON.IntegerOverflowError<Integer>.int32(int32)
             }
         case .int64(let int64):
             if let integer:Integer = .init(exactly: int64)
@@ -177,7 +177,7 @@ extension BSON.Value
             }
             else
             {
-                throw BSON.IntegerOverflowError.int64(int64, overflows: Integer.self)
+                throw BSON.IntegerOverflowError<Integer>.int64(int64)
             }
         case .uint64(let uint64):
             if let integer:Integer = .init(exactly: uint64)
@@ -186,7 +186,7 @@ extension BSON.Value
             }
             else
             {
-                throw BSON.IntegerOverflowError.uint64(uint64, overflows: Integer.self)
+                throw BSON.IntegerOverflowError<Integer>.uint64(uint64)
             }
         default:
             return nil
@@ -517,28 +517,14 @@ extension BSON.Value
         try self.match(Self.as(_:)) as Void
     }
 }
-extension BSON.Array
+extension BSONDecoderField
 {
     @inlinable public
-    func decode(_ index:Int, as _:Void.Type) throws
+    func decode(to _:Void.Type = Void.self) throws
     {
-        try self.decode(index) { try $0.as(Void.self) }
+        try self.decode { try $0.as(Void.self) }
     }
 }
-extension BSON.Dictionary
-{
-    @inlinable public
-    func decode(_ key:String, as _:Void.Type) throws
-    {
-        try self.decode(key) { try $0.as(Void.self) }
-    }
-    @inlinable public
-    func decode(mapping key:String, as _:Void.Type) throws
-    {
-        try self.decode(mapping: key) { try $0.as(Void.self) }
-    }
-}
-
 
 // ``RawRepresentable`` helpers
 extension BSON.Value

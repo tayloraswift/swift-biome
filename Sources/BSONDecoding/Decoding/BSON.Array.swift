@@ -2,7 +2,7 @@ extension BSON
 {
     /// A document had an invalid key schema.
     @frozen public
-    struct ArrayShapeError:Error
+    struct ArrayShapeError:Equatable, Error
     {
         public
         let count:Int
@@ -70,52 +70,8 @@ extension BSON.Array:RandomAccessCollection
         self.elements.endIndex
     }
     @inlinable public
-    subscript(index:Int) -> BSON.Value<Bytes>
+    subscript(index:Int) -> BSON.ExplicitField<Int, Bytes>
     {
-        _read
-        {
-            yield  self.elements[index]
-        }
-        _modify
-        {
-            yield &self.elements[index]
-        }
-    }
-}
-extension BSON.Array
-{
-    /// Applies the given decoder over every element in this array-decoder.
-    /// This is similar to calling ``Sequence\.map(_:)`` on ``elements``, except
-    /// it records the index in a ``BSON/RecursiveError.tuple(_:at:)`` if one of
-    /// the decoding operations fails.
-    @inlinable public
-    func decodeAll<T>(with decode:(BSON.Value<Bytes>) throws -> T) throws -> [T]
-    {
-        try self.elements.enumerated().map
-        {
-            do
-            {
-                return try decode($0.1)
-            }
-            catch let error 
-            {
-                throw BSON.RecursiveError.tuple(error, at: $0.0)
-            }
-        }
-    }
-    /// Decodes the element at the specified index with the given decoder. Throws a
-    /// ``BSON/RecursiveError.tuple(_:at:)`` wrapping the underlying error if decoding
-    /// fails.
-    @inlinable public
-    func decode<T>(_ index:Int, with decode:(BSON.Value<Bytes>) throws -> T) throws -> T
-    {
-        do
-        {
-            return try decode(self[index])
-        }
-        catch let error 
-        {
-            throw BSON.RecursiveError.tuple(error, at: index)
-        }
+        .init(key: index, value: self.elements[index])
     }
 }

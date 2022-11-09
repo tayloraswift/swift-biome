@@ -303,9 +303,9 @@ extension BSON.Value:ExpressibleByFloatLiteral
 extension BSON.Value:ExpressibleByIntegerLiteral
 {
     @inlinable public
-    init(integerLiteral:Int64)
+    init(integerLiteral:Int32)
     {
-        self = .int64(integerLiteral)
+        self = .int32(integerLiteral)
     }
 }
 extension BSON.Value:ExpressibleByBooleanLiteral

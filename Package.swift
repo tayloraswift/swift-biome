@@ -157,13 +157,16 @@ let package = Package(
             dependencies:
             [
                 .target(name: "BSONTraversal")
-            ],
-            exclude:
+            ]),
+        .target(name: "BSONDecoding",
+            dependencies:
             [
-                //"Decoder/Decoder.spf",
-                //"Decoding/Concrete.spf",
-                //"Decoding/Generic.spf",
-                //"Decoding/Primitive.spf",
+                .target(name: "BSON")
+            ]),
+        .target(name: "BSONEncoding",
+            dependencies:
+            [
+                .target(name: "BSON")
             ]),
         
         .target(name: "_MongoKittenCrypto"),
@@ -267,6 +270,14 @@ let package = Package(
                 .target(name: "BSON"),
             ], 
             path: "Tests/BSONTests"),
+        
+        .executableTarget(name: "BSONDecodingTests",
+            dependencies:
+            [
+                .target(name: "Testing"),
+                .target(name: "BSONDecoding"),
+            ], 
+            path: "Tests/BSONDecodingTests"),
         
         .executableTarget(name: "SedimentTests",
             dependencies:
