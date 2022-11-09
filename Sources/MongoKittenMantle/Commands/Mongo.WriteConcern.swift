@@ -21,12 +21,12 @@ extension Mongo
 }
 extension Mongo.WriteConcern
 {
-    var bson:Document
+    var bson:BSON.Document<[UInt8]>
     {
         [
             "w": self.acknowledgement.bson,
-            "j": self.journaled,
-            "wtimeout": Int.init(self.timeout.milliseconds),
+            "j": .bool(self.journaled),
+            "wtimeout": .int64(self.timeout.milliseconds),
         ]
     }
 
@@ -40,16 +40,16 @@ extension Mongo.WriteConcern
 }
 extension Mongo.WriteConcern.Acknowledgement
 {
-    var bson:any Primitive
+    var bson:BSON.Value<[UInt8]>
     {
         switch self
         {
         case .majority:
             return "majority"
         case .count(let instances):
-            return instances
+            return .int64(Int64.init(instances))
         case .custom(let concern):
-            return concern
+            return .string(concern)
         }
     }
 }

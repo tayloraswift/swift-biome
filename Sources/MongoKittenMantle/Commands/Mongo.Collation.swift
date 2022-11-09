@@ -46,46 +46,29 @@ extension Mongo
 extension Mongo.Collation
 {
     public
-    var bson:Document
+    var bson:BSON.Document<[UInt8]>
     {
-        var bson:Document = 
+        var fields:BSON.Fields<[UInt8]> =
         [
-            "locale": self.locale,
+            "locale": .string(self.locale),
+            "strength": self.strength != .tertiary ? .int32(self.strength.rawValue) : nil,
+            "caseLevel": self.caseLevel ? true : nil,
+            "caseFirst": (self.caseFirst?.rawValue)
+                .map(BSON.Value<[UInt8]>.string(_:)),
+            "numericOrdering": self.numericOrdering ? true : nil,
+            "normalization": self.normalization ? true : nil,
+            "backwards": self.backwards ? true : nil,
         ]
-        if self.strength != .tertiary
-        {
-            bson.appendValue(self.strength.rawValue, forKey: "strength")
-        }
-        if self.caseLevel
-        {
-            bson.appendValue(true, forKey: "caseLevel")
-        }
-        if let caseFirst:CaseFirst = self.caseFirst
-        {
-            bson.appendValue(caseFirst.rawValue, forKey: "caseFirst")
-        }
-        if self.numericOrdering
-        {
-            bson.appendValue(true, forKey: "numericOrdering")
-        }
         if case .shifted(let maxVariable) = self.alternate
         {
-            bson.appendValue("shifted", forKey: "alternate")
+            fields.add(key: "alternate", value: .string("shifted"))
 
             if let maxVariable:Alternate.MaxVariable
             {
-                bson.appendValue(maxVariable.rawValue, forKey: "maxVariable")
+                fields.add(key: "maxVariable", value: .string(maxVariable.rawValue))
             }
         }
-        if self.backwards
-        {
-            bson.appendValue(true, forKey: "backwards")
-        }
-        if self.normalization
-        {
-            bson.appendValue(true, forKey: "normalization")
-        }
-        return bson
+        return .init(fields)
     }
 
     @frozen public 
@@ -108,7 +91,7 @@ extension Mongo.Collation
         case upper
     }
     @frozen public 
-    enum Strength:Int, Sendable 
+    enum Strength:Int32, Sendable 
     {
         /// Primary level of comparison. Collation performs comparisons of the base 
         /// characters only, ignoring other differences such as diacritics and case.

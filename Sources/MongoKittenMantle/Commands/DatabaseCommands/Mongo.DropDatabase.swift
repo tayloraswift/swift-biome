@@ -22,18 +22,13 @@ extension Mongo.DropDatabase:DatabaseCommand
 {
     public static
     let node:Mongo.Cluster.Role = .master
-    
+
     public
-    var bson:Document
+    var fields:BSON.Fields<[UInt8]>
     {
-        var bson:Document = 
         [
-            "dropDatabase": 1,
+            "dropDatabase": true,
+            "writeConcern": (self.writeConcern?.bson).map(BSON.Value<[UInt8]>.document(_:)),
         ]
-        if let writeConcern:Mongo.WriteConcern = self.writeConcern
-        {
-            bson.appendValue(writeConcern.bson, forKey: "writeConcern")
-        }
-        return bson
     }
 }

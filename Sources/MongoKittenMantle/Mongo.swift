@@ -3,13 +3,6 @@ import BSON
 @_exported
 import MongoClient
 
-import NIOCore
-
-struct _BSONDecodingError:Error
-{
-}
-
-
 // public
 // struct MongoDB 
 // {

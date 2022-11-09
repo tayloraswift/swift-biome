@@ -80,35 +80,6 @@ extension Mongo.Connection
 
 extension Mongo.Connection
 {
-    // func run<T>(codable command:__owned some Encodable,
-    //     against database:Mongo.Database,
-    //     transaction:Never? = nil,
-    //     session:Mongo.Session.ID?,
-    //     returning _:T.Type = T.self) async throws -> T
-    //     where T:Decodable
-    // {
-    //     let reply:Mongo.Message<ByteBufferView> = try await self.run(encodable: command, against: database, 
-    //         transaction: transaction, 
-    //         session: session)
-    //     guard let document:Document = reply.first
-    //     else
-    //     {
-    //         throw MongoCommandError.emptyReply
-    //     }
-
-    //     try document.status()
-    //     return try BSONDecoder().decode(T.self, from: document)
-    // }
-    
-    // func run(encodable command:__owned some Encodable, against database:Mongo.Database,
-    //     transaction:Never? = nil,
-    //     session:Mongo.Session.ID?) async throws -> Mongo.Message<ByteBufferView> 
-    // {
-    //     try await self.run(command: try BSONEncoder().encode(command), against: database, 
-    //         transaction: transaction, 
-    //         session: session)
-    // }
-
     /// Runs an authentication command against the specified `database`.
     func run<Command>(command:__owned Command,
         against database:Mongo.Database) async throws -> Mongo.SASL.Response

@@ -34,14 +34,14 @@ extension Mongo
         }
 
         public
-        let validator:Document
+        let validator:BSON.Document<[UInt8]>
         public
         let action:Action
         public
         let level:Level
 
         @inlinable public
-        init(validator:Document, action:Action = .error, level:Level = .strict)
+        init(validator:BSON.Document<[UInt8]>, action:Action = .error, level:Level = .strict)
         {
             self.validator = validator
             self.action = action
@@ -61,7 +61,7 @@ extension Mongo
         public
         let collation:Collation?
         public
-        let pipeline:[Document]
+        let pipeline:[BSON.Document<[UInt8]>]
         public
         let validation:Validation?
         public
@@ -73,7 +73,7 @@ extension Mongo
         init(binding:Collection,
             cap:Cap? = nil,
             collation:Collation? = nil,
-            pipeline:[Document] = [],
+            pipeline:[BSON.Document<[UInt8]>] = [],
             validation:Validation? = nil,
             viewOn:Collection? = nil,
             writeConcern:WriteConcern? = nil)
@@ -94,49 +94,38 @@ extension Mongo.Create:DatabaseCommand
     let node:Mongo.Cluster.Role = .master
     
     public
-    var bson:Document
+    var fields:BSON.Fields<[UInt8]>
     {
-        var bson:Document = 
+        var fields:BSON.Fields<[UInt8]> = 
         [
-            "create": self.binding.name,
+            "create": .string(self.binding.name),
+            "collation": (self.collation?.bson).map(BSON.Value<[UInt8]>.document(_:)),
+            "pipeline": self.pipeline.isEmpty ? nil : 
+                .tuple(.init(self.pipeline.lazy.map(BSON.Value<[UInt8]>.document(_:)))),
+            "viewOn": (self.viewOn?.name).map(BSON.Value<[UInt8]>.string(_:)),
+            "writeConcern": (self.writeConcern?.bson).map(BSON.Value<[UInt8]>.document(_:)),
         ]
         if let cap:Mongo.Cap = self.cap
         {
-            bson.appendValue(true, forKey: "capped")
-            bson.appendValue(cap.size, forKey: "size")
+            fields.add(key: "capped", value: .bool(true))
+            fields.add(key: "size", value: .int64(Int64.init(cap.size)))
             if let max:Int = cap.max
             {
-                bson.appendValue(max, forKey: "max")
+                fields.add(key: "max", value: .int64(Int64.init(max)))
             }
-        }
-        if let collation:Mongo.Collation = self.collation
-        {
-            bson.appendValue(collation.bson, forKey: "collation")
-        }
-        if !self.pipeline.isEmpty
-        {
-            bson.appendValue(self.pipeline, forKey: "pipeline")
         }
         if let validation:Mongo.Validation = self.validation
         {
-            bson.appendValue(validation.validator, forKey: "validator")
+            fields.add(key: "validator", value: .document(validation.validator))
             if validation.action != .error
             {
-                bson.appendValue(validation.action.rawValue, forKey: "validationAction")
+                fields.add(key: "validationAction", value: .string(validation.action.rawValue))
             }
             if validation.level != .strict
             {
-                bson.appendValue(validation.level.rawValue, forKey: "validationLevel")
+                fields.add(key: "validationLevel", value: .string(validation.level.rawValue))
             }
         }
-        if let viewOn:Mongo.Collection = self.viewOn
-        {
-            bson.appendValue(viewOn.name, forKey: "viewOn")
-        }
-        if let writeConcern:Mongo.WriteConcern = self.writeConcern
-        {
-            bson.appendValue(writeConcern.bson, forKey: "writeConcern")
-        }
-        return bson
+        return fields
     }
 }

@@ -1,5 +1,6 @@
 import BSON
 import MongoClient
+import NIOCore
 
 extension Mongo
 {
@@ -17,13 +18,13 @@ extension Mongo
         public
         let nameOnly:Bool
         public
-        let filter:Document?
+        let filter:BSON.Document<[UInt8]>?
 
         @inlinable public
         init(writeConcern:WriteConcern? = nil,
             authorizedDatabases:Bool? = nil,
             nameOnly:Bool = false,
-            filter:Document? = nil)
+            filter:BSON.Document<[UInt8]>? = nil)
         {
             self.writeConcern = writeConcern
             self.authorizedDatabases = authorizedDatabases
@@ -38,31 +39,43 @@ extension Mongo.ListDatabases:AdministrativeCommand
     let node:Mongo.Cluster.Role = .any
 
     public
-    var bson:Document
+    var fields:BSON.Fields<[UInt8]>
     {
-        var bson:Document = 
         [
             "listDatabases": 1,
+            "writeConcern": (self.writeConcern?.bson)
+                .map(BSON.Value<[UInt8]>.document(_:)),
+            "authorizedDatabases": self.authorizedDatabases
+                .map(BSON.Value<[UInt8]>.bool(_:)),
+            "nameOnly": self.nameOnly ? true : nil,
+            "filter": self.filter
+                .map(BSON.Value<[UInt8]>.document(_:)),
         ]
-        if let writeConcern:Mongo.WriteConcern = self.writeConcern
-        {
-            bson.appendValue(writeConcern.bson, forKey: "writeConcern")
-        }
-        if let authorizedDatabases:Bool = self.authorizedDatabases
-        {
-            bson.appendValue(authorizedDatabases, forKey: "authorizedDatabases")
-        }
-        if self.nameOnly
-        {
-            bson.appendValue(true, forKey: "nameOnly")
-        }
-        if let filter:Document = self.filter
-        {
-            bson.appendValue(filter, forKey: "filter")
-        }
-        return bson
     }
 
+    @frozen public
+    struct Response
+    {
+        public
+        let totalSize:Int?
+        public
+        let databases:[Item]
+    }
+}
+extension Mongo.ListDatabases.Response:MongoResponse
+{
+    public
+    init(from bson:BSON.Dictionary<ByteBufferView>) throws
+    {
+        self.totalSize = try bson.decode(mapping: "totalSize", as: Int.self)
+        self.databases = try bson.decode("databases", as: BSON.Array<ByteBufferView>.self)
+        {
+            try $0.decodeAll(with: Item.init(from:))
+        }
+    }
+}
+extension Mongo.ListDatabases.Response
+{
     @frozen public
     struct Item
     {
@@ -76,59 +89,16 @@ extension Mongo.ListDatabases:AdministrativeCommand
         {
             self.database.name
         }
-
-        init(from bson:any Primitive) throws
-        {
-            guard let bson:Document = bson as? Document
-            else
-            {
-                throw _BSONDecodingError.init()
-            }
-
-            self.sizeOnDisk = bson["sizeOnDisk"] as? Int
-            
-            guard let name:String = bson["name"] as? String
-            else
-            {
-                throw _BSONDecodingError.init()
-            }
-            self.database = .init(name: name)
-        }
     }
-    @frozen public
-    struct Items
+}
+extension Mongo.ListDatabases.Response.Item
+{
+    init(from bson:BSON.Value<ByteBufferView>) throws
     {
-        public
-        let totalSize:Int?
-        public
-        let databases:[Item]
+        let bson:BSON.Dictionary<ByteBufferView> = 
+            try bson.as(BSON.Dictionary<ByteBufferView>.self)
 
-        init(from bson:Document) throws
-        {
-            self.totalSize = bson["totalSize"] as? Int
-            
-            if let databases:Document = bson["databases"] as? Document
-            {
-                self.databases = try databases.values.map(Item.init(from:))
-            }
-            else
-            {
-                throw _BSONDecodingError.init()
-            }
-        }
-    }
-
-    public static
-    func decode(reply:OpMessage) throws -> Items
-    {
-        guard let document:Document = reply.first
-        else
-        {
-            throw MongoCommandError.emptyReply
-        }
-
-        try document.status()
-
-        return try .init(from: document)
+        self.sizeOnDisk = try bson.decode(mapping: "sizeOnDisk", as: Int.self)
+        self.database = .init(name: try bson.decode("name", as: String.self))
     }
 }
