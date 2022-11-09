@@ -226,6 +226,7 @@ let package = Package(
                 .product(name: "RSS",               package: "swift-dom"),
                 .product(name: "JSON",              package: "swift-json"),
                 .product(name: "Notebook",          package: "swift-highlight"),
+                .product(name: "IDEUtils",          package: "swift-syntax"),
                 .product(name: "SwiftSyntaxParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntax",       package: "swift-syntax"),
                 .product(name: "Markdown",          package: "swift-markdown"),
