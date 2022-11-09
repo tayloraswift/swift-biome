@@ -138,7 +138,7 @@ extension BSON.Output
             
             case .sequence(let documents, id: let id):
                 self.append(Mongo.MessageSection.sequence.rawValue)
-
+                // TODO: get rid of this intermediate buffer
                 let sequence:Mongo.Message<[UInt8]>.Sequence = .init(id: id,
                     documents: documents)
                 self.serialize(integer: sequence.header as Int32)

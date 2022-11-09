@@ -1,15 +1,6 @@
 {
   "pins" : [
     {
-      "identity" : "bson",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/orlandos-nl/BSON.git",
-      "state" : {
-        "revision" : "1094df4a4dd5daf15e4192958e2ae2575b862314",
-        "version" : "8.0.2"
-      }
-    },
-    {
       "identity" : "niodns",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/orlandos-nl/NioDNS.git",

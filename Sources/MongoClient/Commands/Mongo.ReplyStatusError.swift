@@ -1,0 +1,24 @@
+extension Mongo
+{
+    public
+    struct ReplyStatusError:Error
+    {
+        public
+        let message:String
+
+        init(message:String)
+        {
+            self.message = message
+        }
+    }
+}
+extension Mongo.ReplyStatusError:CustomStringConvertible
+{
+    public
+    var description:String
+    {
+        self.message.isEmpty ?
+            "MongoDB server responded with error status" :
+            "MongoDB server responded with error: '\(self.message)'"
+    }
+}

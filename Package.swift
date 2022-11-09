@@ -62,7 +62,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-log.git",     from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-metrics.git", "1.0.0" ..< "3.0.0"),
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.0.0"),
-        .package(url: "https://github.com/orlandos-nl/BSON.git",    from: "8.0.0"),
+        //.package(url: "https://github.com/orlandos-nl/BSON.git",    from: "8.0.0"),
     ],
     targets: 
     [
@@ -153,24 +153,34 @@ let package = Package(
         .target(name: "BiomeABI"),
         
         .target(name: "BSONTraversal"),
-        .target(name: "_BSON",
+        .target(name: "BSON",
             dependencies:
             [
                 .target(name: "BSONTraversal")
             ],
-            path: "Sources/BSON",
             exclude:
             [
-                "Concrete.spf",
-                "Generic.spf",
-                "Primitive.spf",
+                //"Decoder/Decoder.spf",
+                //"Decoding/Concrete.spf",
+                //"Decoding/Generic.spf",
+                //"Decoding/Primitive.spf",
             ]),
         
         .target(name: "_MongoKittenCrypto"),
+
+        .target(name: "MongoWire",
+            dependencies: 
+            [
+                .target(name: "BSON"),
+                
+                .product(name: "CRC", package: "swift-hash"),
+            ]),
+        
         .target(name: "MongoClient",
             dependencies: 
             [
-                .product(name: "BSON",                  package: "BSON"),
+                .target(name: "BSON"),
+                
                 .product(name: "NIO",                   package: "swift-nio"),
                 .product(name: "NIOSSL",                package: "swift-nio-ssl"),
                 .product(name: "NIOFoundationCompat",   package: "swift-nio"),
@@ -180,11 +190,11 @@ let package = Package(
 
                 .product(name: "WebURL",                package: "swift-url"),
 
+                .target(name: "MongoWire"),
                 .target(name: "_MongoKittenCrypto"),
 
                 .product(name: "DNSClient", package: "NioDNS"),
-            ],
-            path: "Sources/_MongoKittenMongoClient"),
+            ]),
         
         .target(name: "MongoKittenMantle",
             dependencies: 
@@ -253,7 +263,7 @@ let package = Package(
                 .product(name: "Base16", package: "swift-hash"),
 
                 .target(name: "Testing"),
-                .target(name: "_BSON"),
+                .target(name: "BSON"),
             ], 
             path: "Tests/BSONTests"),
         
