@@ -1,6 +1,4 @@
-import BSON
 import Foundation
-import NIO
 
 extension String {
     /// Decodes a base64 string into another String

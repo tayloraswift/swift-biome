@@ -1,5 +1,6 @@
 import NIOCore
-import BSON
+import BSONDecoding
+import BSONEncoding
 
 extension Mongo.Instance
 {
@@ -95,58 +96,55 @@ extension Mongo.Instance.ReplicaSet
     public
     init?(from bson:BSON.Dictionary<ByteBufferView>) throws
     {
-        guard let name:String = try bson.decode(mapping: "setName", as: String.self)
+        guard let name:String = try bson["setName"]?.decode(to: String.self)
         else
         {
             return nil
         }
 
         self.name = name
-        self.version = try bson.decode("setVersion", as: String.self)
+        self.version = try bson["setVersion"].decode(to: String.self)
 
-        self.me = try bson.decode("setVersion", as: String.self,
+        self.me = try bson["me"].decode(as: String.self,
             with: Mongo.Host.mongodb(parsing:))
         
-        self.primary = try bson.decode("primary", as: String.self,
+        self.primary = try bson["primary"].decode(as: String.self,
             with: Mongo.Host.mongodb(parsing:))
         
-        self.arbiters = try bson.decode(mapping: "arbiters",
-            as: BSON.Array<ByteBufferView>.self)
+        self.arbiters = try bson["arbiters"]?.decode(as: BSON.Array<ByteBufferView>.self)
         {
-            try $0.decodeAll
+            try $0.map
             {
-                .mongodb(parsing: try $0.as(String.self))
+                try $0.decode(as: String.self, with: Mongo.Host.mongodb(parsing:))
             }
         } ?? []
 
-        self.passives = try bson.decode(mapping: "passives",
-            as: BSON.Array<ByteBufferView>.self)
+        self.passives = try bson["passives"]?.decode(as: BSON.Array<ByteBufferView>.self)
         {
-            try $0.decodeAll
+            try $0.map
             {
-                .mongodb(parsing: try $0.as(String.self))
+                try $0.decode(as: String.self, with: Mongo.Host.mongodb(parsing:))
             }
         } ?? []
 
-        self.hosts = try bson.decode("hosts",
-            as: BSON.Array<ByteBufferView>.self)
+        self.hosts = try bson["hosts"].decode(as: BSON.Array<ByteBufferView>.self)
         {
-            try $0.decodeAll
+            try $0.map
             {
-                .mongodb(parsing: try $0.as(String.self))
+                try $0.decode(as: String.self, with: Mongo.Host.mongodb(parsing:))
             }
         }
 
-        self.isSecondary = try bson.decode(mapping: "secondary", as: Bool.self) ?? false
-        self.isArbiter = try bson.decode(mapping: "arbiterOnly", as: Bool.self) ?? false
-        self.isPassive = try bson.decode(mapping: "passive", as: Bool.self) ?? false
-        self.isHidden = try bson.decode(mapping: "hidden", as: Bool.self) ?? false
+        self.isSecondary = try bson["secondary"]?.decode(to: Bool.self) ?? false
+        self.isArbiter = try bson["arbiterOnly"]?.decode(to: Bool.self) ?? false
+        self.isPassive = try bson["passive"]?.decode(to: Bool.self) ?? false
+        self.isHidden = try bson["hidden"]?.decode(to: Bool.self) ?? false
 
-        self.election = try bson.decode(mapping: "electionId", as: BSON.Identifier.self)
+        self.election = try bson["electionId"]?.decode(to: BSON.Identifier.self)
 
         // copy to dedicated storage.
-        let tags:BSON.Document<ByteBufferView> = try bson.decode("tags",
-            as: BSON.Document<ByteBufferView>.self)
+        let tags:BSON.Document<ByteBufferView> = try bson["tags"].decode(
+            to: BSON.Document<ByteBufferView>.self)
         self.tags = .init([UInt8].init(tags.bytes))
     }
 }
@@ -190,7 +188,7 @@ extension Mongo
         /// Returns the local server time in UTC. This value is an
         /// [ISO date](https://www.mongodb.com/docs/manual/reference/glossary/#std-term-ISODate).
         public
-        let localTime:String
+        let localTime:BSON.Millisecond
 
         /// The time in minutes that a
         /// [session](https://www.mongodb.com/docs/manual/core/read-isolation-consistency-recency/#std-label-sessions)
@@ -206,7 +204,7 @@ extension Mongo
         /// to the client.
         /// This is called `connectionId` in the server reply.
         public
-        let connection:BSON.Identifier
+        let connection:Mongo.ConnectionIdentifier
 
         /// The range of versions of the wire protocol that this `mongod` or `mongos`
         /// instance is capable of using to communicate with clients.
@@ -240,24 +238,25 @@ extension Mongo.Instance:MongoResponse
     public
     init(from bson:BSON.Dictionary<ByteBufferView>) throws
     {
-        self.isWritablePrimary = try bson.decode("isWritablePrimary", as: Bool.self)
+        self.isWritablePrimary = try bson["isWritablePrimary"].decode(to: Bool.self)
 
-        self.maxBsonObjectSize = try bson.decode(mapping: "maxBsonObjectSize",
-            as: Int.self) ?? 16 * 1024 * 1024
-        self.maxMessageSizeBytes = try bson.decode(mapping: "maxMessageSizeBytes",
-            as: Int.self) ?? 48_000_000
-        self.maxWriteBatchSize = try bson.decode(mapping: "maxWriteBatchSize",
-            as: Int.self) ?? 100_000
+        self.maxBsonObjectSize = try bson["maxBsonObjectSize"]?.decode(
+            to: Int.self) ?? 16 * 1024 * 1024
+        self.maxMessageSizeBytes = try bson["maxMessageSizeBytes"]?.decode(
+            to: Int.self) ?? 48_000_000
+        self.maxWriteBatchSize = try bson["maxWriteBatchSize"]?.decode(
+            to: Int.self) ?? 100_000
         
-        self.localTime = try bson.decode("localTime", as: String.self)
-        self.logicalSessionTimeoutMinutes = try bson.decode("logicalSessionTimeoutMinutes",
-            as: Int.self)
+        self.localTime = try bson["localTime"].decode(to: BSON.Millisecond.self)
+        self.logicalSessionTimeoutMinutes = try bson["logicalSessionTimeoutMinutes"].decode(
+            to: Int.self)
         
-        self.connection = try bson.decode("connectionId", as: BSON.Identifier.self)
+        self.connection = try bson["connectionId"].decode(as: Int32.self,
+            with: Mongo.ConnectionIdentifier.init(_:))
         
-        let minWireVersion:Mongo.WireVersion = try bson.decode("minWireVersion", as: Int32.self,
+        let minWireVersion:Mongo.WireVersion = try bson["minWireVersion"].decode(as: Int32.self,
             with: Mongo.WireVersion.init(rawValue:))
-        let maxWireVersion:Mongo.WireVersion = try bson.decode("maxWireVersion", as: Int32.self,
+        let maxWireVersion:Mongo.WireVersion = try bson["maxWireVersion"].decode(as: Int32.self,
             with: Mongo.WireVersion.init(rawValue:))
         
         guard minWireVersion <= maxWireVersion
@@ -267,12 +266,12 @@ extension Mongo.Instance:MongoResponse
         }
         self.wireVersions = minWireVersion ... maxWireVersion
 
-        self.isReadOnly = try bson.decode("readOnly", as: Bool.self)
+        self.isReadOnly = try bson["readOnly"].decode(to: Bool.self)
 
         // TODO
         self.saslSupportedMechs = nil
 
-        self.sharded = try bson.decode(mapping: "msg", as: String.self)
+        self.sharded = try bson["msg"]?.decode(as: String.self)
         {
             if $0 == "isdbgrid"
             {

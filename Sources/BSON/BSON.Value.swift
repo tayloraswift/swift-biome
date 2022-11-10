@@ -316,3 +316,52 @@ extension BSON.Value:ExpressibleByBooleanLiteral
         self = .bool(booleanLiteral)
     }
 }
+
+extension BSON.Value:CustomStringConvertible
+{
+    public
+    var description:String
+    {
+        switch self
+        {
+        case .document(let document):
+            return ".document(\(document))"
+        case .tuple(let tuple):
+            return ".tuple(\(tuple))"
+        case .binary(let binary):
+            return ".binary(\(binary))"
+        case .bool(let bool):
+            return ".bool(\(bool))"
+        case .decimal128(let decimal128):
+            return ".decimal128(\(decimal128))"
+        case .double(let double):
+            return ".double(\(double))"
+        case .id(let id):
+            return ".id(\(id))"
+        case .int32(let int32):
+            return ".int32(\(int32))"
+        case .int64(let int64):
+            return ".int64(\(int64))"
+        case .javascript(let javascript):
+            return ".javascript(\(javascript))"
+        case .javascriptScope(let scope, let javascript):
+            return ".javascriptScope(\(scope), \(javascript))"
+        case .max:
+            return ".max"
+        case .millisecond(let millisecond):
+            return ".millisecond(\(millisecond))"
+        case .min:
+            return ".min"
+        case .null:
+            return ".null"
+        case .pointer(let database, let id):
+            return ".pointer(\(database), \(id))"
+        case .regex(let regex):
+            return ".regex(\(regex))"
+        case .string(let string):
+            return ".string(\(string))"
+        case .uint64(let uint64):
+            return ".uint64(\(uint64))"
+        }
+    }
+}

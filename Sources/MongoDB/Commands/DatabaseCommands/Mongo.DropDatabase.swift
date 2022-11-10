@@ -1,4 +1,4 @@
-import BSON
+import BSONEncoding
 
 extension Mongo
 {
@@ -27,8 +27,8 @@ extension Mongo.DropDatabase:DatabaseCommand
     var fields:BSON.Fields<[UInt8]>
     {
         [
-            "dropDatabase": true,
-            "writeConcern": (self.writeConcern?.bson).map(BSON.Value<[UInt8]>.document(_:)),
+            "dropDatabase": 1,
+            "writeConcern": self.writeConcern?.bson,
         ]
     }
 }

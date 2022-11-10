@@ -1,3 +1,5 @@
+import TraceableErrors
+
 extension BSON
 {
     /// A document had an invalid key schema.
@@ -17,7 +19,7 @@ extension BSON
         }
     }
 }
-extension BSON.ArrayShapeError
+extension BSON.ArrayShapeError:TraceableErrorRoot
 {
     /// Returns the string [`"shape error"`]().
     public static 

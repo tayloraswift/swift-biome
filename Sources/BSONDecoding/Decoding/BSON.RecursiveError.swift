@@ -1,3 +1,5 @@
+import TraceableErrors
+
 extension Error where Self:Equatable
 {
     fileprivate
@@ -43,7 +45,8 @@ extension BSON.RecursiveError:Equatable where Location:Equatable
         }
     }
 }
-extension BSON.RecursiveError where Location:CustomStringConvertible
+extension BSON.RecursiveError:TraceableError, CustomStringConvertible
+    where Location:CustomStringConvertible
 {
     /// Returns the string [`"nested decoding error"`]().
     public static 

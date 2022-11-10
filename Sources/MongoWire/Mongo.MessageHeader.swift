@@ -83,3 +83,19 @@ extension BSON.Output
         self.serialize(integer: header.type.rawValue as Int32)
     }
 }
+
+extension Mongo.MessageHeader:CustomStringConvertible
+{
+    public
+    var description:String
+    {
+        """
+        {
+            size: \(self.size)
+            message id: \(self.id.value)
+            response to: \(self.request.value)
+            type: \(self.type)
+        }
+        """
+    }
+}

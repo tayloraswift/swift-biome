@@ -1,4 +1,5 @@
-import BSON
+import BSONDecoding
+import BSONEncoding
 import MongoWire
 import NIOCore
 
@@ -59,12 +60,14 @@ extension MongoCommand
         }
 
         let dictionary:BSON.Dictionary<ByteBufferView> = try .init(fields: try document.parse())
-        let ok:Bool = try dictionary.decode("ok")
+        let ok:Bool = try dictionary["ok"].decode
         {
             switch $0
             {
-            case .bool(true), .int32(1), .int64(1):
+            case .bool(true), .int32(1), .int64(1), .double(1.0):
                 return true
+            case .decimal128(_):
+                fatalError("unimplemented: cannot understand 'decimal128' status code")
             default:
                 return false
             }
@@ -76,7 +79,7 @@ extension MongoCommand
         else
         {
             throw Mongo.ReplyStatusError.init(
-                message: (try? dictionary.decode("errmsg", as: String.self)) ?? "")
+                message: dictionary.items["errmsg"]?.as(String.self) ?? "")
         }
     }
 }

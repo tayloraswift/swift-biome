@@ -1,4 +1,4 @@
-import BSON
+import BSONDecoding
 import NIOCore
 
 extension Mongo.SASL
@@ -22,8 +22,8 @@ extension Mongo.SASL.Response:MongoResponse
 {
     init(from bson:BSON.Dictionary<ByteBufferView>) throws
     {
-        self.conversation = try bson.decode("conversationId", as: Int32.self)
-        self.payload = try bson.decode("payload")
+        self.conversation = try bson["conversationId"].decode(to: Int32.self)
+        self.payload = try bson["payload"].decode
         {
             switch $0
             {
@@ -35,6 +35,6 @@ extension Mongo.SASL.Response:MongoResponse
                 throw BSON.PrimitiveError<String>.init(variant: $0.type)
             }
         }
-        self.done = try bson.decode("done", as: Bool.self)
+        self.done = try bson["done"].decode(to: Bool.self)
     }
 }

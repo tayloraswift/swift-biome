@@ -1,4 +1,4 @@
-import BSON
+import BSONEncoding
 
 extension Mongo.Session
 {

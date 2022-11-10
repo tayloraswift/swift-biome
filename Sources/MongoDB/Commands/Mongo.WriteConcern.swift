@@ -21,13 +21,17 @@ extension Mongo
 }
 extension Mongo.WriteConcern
 {
-    var bson:BSON.Document<[UInt8]>
+    var document:BSON.Document<[UInt8]>
     {
         [
             "w": self.acknowledgement.bson,
             "j": .bool(self.journaled),
             "wtimeout": .int64(self.timeout.milliseconds),
         ]
+    }
+    var bson:BSON.Value<[UInt8]>
+    {
+        .document(self.document)
     }
 
     @frozen public

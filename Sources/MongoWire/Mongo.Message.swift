@@ -69,8 +69,8 @@ extension Mongo.Message
     @inlinable public
     init(sections:Sections, checksum:Bool = false, id:Mongo.MessageIdentifier)
     {
-        // 4 for size, 4 for flags
-        var count:Int = 8
+        // 4 bytes of flags
+        var count:Int = 4
         for section:Sections.Element in sections
         {
             // section type

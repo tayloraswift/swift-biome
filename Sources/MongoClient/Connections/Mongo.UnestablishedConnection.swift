@@ -1,4 +1,4 @@
-import BSON
+import BSONEncoding
 import DNSClient
 import NIO
 import NIOSSL
@@ -79,7 +79,6 @@ extension Mongo.UnestablishedConnection
         let hello:Mongo.Hello = .init(user: authentication?.user)
         var command:BSON.Fields<[UInt8]> = hello.fields
             command.add(database: .admin)
-        
         let message:Mongo.Message<ByteBufferView> = try await withCheckedThrowingContinuation
         {
             (continuation:CheckedContinuation<Mongo.Message<ByteBufferView>, any Error>) in

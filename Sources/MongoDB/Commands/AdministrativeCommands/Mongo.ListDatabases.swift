@@ -1,4 +1,5 @@
-import BSON
+import BSONDecoding
+import BSONEncoding
 import MongoClient
 import NIOCore
 
@@ -43,8 +44,7 @@ extension Mongo.ListDatabases:AdministrativeCommand
     {
         [
             "listDatabases": 1,
-            "writeConcern": (self.writeConcern?.bson)
-                .map(BSON.Value<[UInt8]>.document(_:)),
+            "writeConcern": self.writeConcern?.bson,
             "authorizedDatabases": self.authorizedDatabases
                 .map(BSON.Value<[UInt8]>.bool(_:)),
             "nameOnly": self.nameOnly ? true : nil,
@@ -67,10 +67,13 @@ extension Mongo.ListDatabases.Response:MongoResponse
     public
     init(from bson:BSON.Dictionary<ByteBufferView>) throws
     {
-        self.totalSize = try bson.decode(mapping: "totalSize", as: Int.self)
-        self.databases = try bson.decode("databases", as: BSON.Array<ByteBufferView>.self)
+        self.totalSize = try bson["totalSize"]?.decode(to: Int.self)
+        self.databases = try bson["databases"].decode(as: BSON.Array<ByteBufferView>.self)
         {
-            try $0.decodeAll(with: Item.init(from:))
+            try $0.map
+            {
+                try $0.decode(as: BSON.Dictionary<ByteBufferView>.self, with: Item.init(from:))
+            }
         }
     }
 }
@@ -93,12 +96,10 @@ extension Mongo.ListDatabases.Response
 }
 extension Mongo.ListDatabases.Response.Item
 {
-    init(from bson:BSON.Value<ByteBufferView>) throws
+    init(from bson:BSON.Dictionary<ByteBufferView>) throws
     {
-        let bson:BSON.Dictionary<ByteBufferView> = 
-            try bson.as(BSON.Dictionary<ByteBufferView>.self)
-
-        self.sizeOnDisk = try bson.decode(mapping: "sizeOnDisk", as: Int.self)
-        self.database = .init(name: try bson.decode("name", as: String.self))
+        self.sizeOnDisk = try bson["sizeOnDisk"]?.decode(to: Int.self)
+        self.database = try bson["name"].decode(as: String.self,
+            with: Mongo.Database.init(name:))
     }
 }

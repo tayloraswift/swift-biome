@@ -1,4 +1,4 @@
-import BSON
+import BSONEncoding
 
 extension Mongo
 {
@@ -99,11 +99,11 @@ extension Mongo.Create:DatabaseCommand
         var fields:BSON.Fields<[UInt8]> = 
         [
             "create": .string(self.binding.name),
-            "collation": (self.collation?.bson).map(BSON.Value<[UInt8]>.document(_:)),
+            "collation": self.collation?.bson,
             "pipeline": self.pipeline.isEmpty ? nil : 
                 .tuple(.init(self.pipeline.lazy.map(BSON.Value<[UInt8]>.document(_:)))),
             "viewOn": (self.viewOn?.name).map(BSON.Value<[UInt8]>.string(_:)),
-            "writeConcern": (self.writeConcern?.bson).map(BSON.Value<[UInt8]>.document(_:)),
+            "writeConcern": self.writeConcern?.bson,
         ]
         if let cap:Mongo.Cap = self.cap
         {

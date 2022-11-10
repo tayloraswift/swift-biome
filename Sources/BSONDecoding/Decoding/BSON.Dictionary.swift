@@ -1,3 +1,5 @@
+import TraceableErrors
+
 extension BSON
 {
     /// A document had an invalid key schema.
@@ -10,7 +12,7 @@ extension BSON
         case undefined(String)
     }
 }
-extension BSON.DictionaryKeyError
+extension BSON.DictionaryKeyError:TraceableErrorRoot
 {
     /// Returns the string [`"key error"`]().
     public static 

@@ -1,5 +1,5 @@
 import Atomics
-import BSON
+import BSONEncoding
 import MongoWire
 import NIOCore
 
@@ -93,8 +93,7 @@ extension Mongo.MessageRouter:ChannelOutboundHandler
                 capacity: .init(message.header.size))))
         
         output.serialize(message: message)
-        
-        context.write(self.wrapOutboundOut(ByteBuffer.init(output.destination)),
+        context.writeAndFlush(self.wrapOutboundOut(ByteBuffer.init(output.destination)),
             promise: promise)
         
         Task.init

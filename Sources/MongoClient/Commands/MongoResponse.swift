@@ -1,4 +1,4 @@
-import BSON
+import BSONDecoding
 import NIOCore
 
 public

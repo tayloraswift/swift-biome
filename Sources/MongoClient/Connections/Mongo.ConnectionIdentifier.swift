@@ -1,7 +1,7 @@
 extension Mongo
 {
     @frozen public
-    struct MessageIdentifier:Hashable, Sendable
+    struct ConnectionIdentifier:Hashable, Sendable
     {
         public
         let value:Int32
@@ -13,12 +13,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.MessageIdentifier
-{
-    public static
-    let none:Self = .init(0)
-}
-extension Mongo.MessageIdentifier:CustomStringConvertible
+extension Mongo.ConnectionIdentifier:CustomStringConvertible
 {
     public
     var description:String

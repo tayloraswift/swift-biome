@@ -1,3 +1,5 @@
+import TraceableErrors
+
 extension BSON
 {
     /// A decoder failed to cast a variant to an expected type.
@@ -14,7 +16,7 @@ extension BSON
         }
     }
 }
-extension BSON.PrimitiveError
+extension BSON.PrimitiveError:TraceableErrorRoot
 {
     /// Returns the string [`"primitive error"`]().
     public static 
@@ -40,10 +42,17 @@ extension BSON
         case uint64(UInt64)
     }
 }
-extension BSON.IntegerOverflowError:CustomStringConvertible
+extension BSON.IntegerOverflowError:TraceableErrorRoot
 {
+    /// Returns the string [`"integer overflow error"`]().
+    public static 
+    var namespace:String 
+    {
+        "integer overflow error"
+    }
+    
     public
-    var description:String 
+    var message:String 
     {
         switch self
         {
@@ -56,6 +65,7 @@ extension BSON.IntegerOverflowError:CustomStringConvertible
         }
     }
 }
+
 
 extension BSON.Value
 {

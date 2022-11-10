@@ -5,7 +5,7 @@ import Biome
 import HTML
 import NIO
 
-import MongoKittenMantle
+import MongoDB
 
 @main 
 struct Main:AsyncParsableCommand 

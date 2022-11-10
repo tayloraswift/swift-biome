@@ -16,7 +16,7 @@ let package = Package(
         .library(name: "SymbolGraphCompiler",   targets: ["SymbolGraphCompiler"]),
         .library(name: "PackageResolution",     targets: ["PackageResolution"]),
 
-        .library(name: "MongoKittenMantle",     targets: ["MongoKittenMantle"]),
+        .library(name: "MongoDB",               targets: ["MongoDB"]),
 
         .library(name: "BiomeDatabase",         targets: ["BiomeDatabase"]),
         .library(name: "BiomeABI",              targets: ["BiomeABI"]),
@@ -152,6 +152,8 @@ let package = Package(
         
         .target(name: "BiomeABI"),
         
+        .target(name: "TraceableErrors"),
+
         .target(name: "BSONTraversal"),
         .target(name: "BSON",
             dependencies:
@@ -161,6 +163,7 @@ let package = Package(
         .target(name: "BSONDecoding",
             dependencies:
             [
+                .target(name: "TraceableErrors"),
                 .target(name: "BSON")
             ]),
         .target(name: "BSONEncoding",
@@ -182,7 +185,8 @@ let package = Package(
         .target(name: "MongoClient",
             dependencies: 
             [
-                .target(name: "BSON"),
+                .target(name: "BSONDecoding"),
+                .target(name: "BSONEncoding"),
                 
                 .product(name: "NIO",                   package: "swift-nio"),
                 .product(name: "NIOSSL",                package: "swift-nio-ssl"),
@@ -199,7 +203,7 @@ let package = Package(
                 .product(name: "DNSClient", package: "NioDNS"),
             ]),
         
-        .target(name: "MongoKittenMantle",
+        .target(name: "MongoDB",
             dependencies: 
             [
                 .target(name: "MongoClient"),
@@ -209,7 +213,7 @@ let package = Package(
             dependencies: 
             [
                 .target(name: "BiomeABI"),
-                .target(name: "MongoKittenMantle"),
+                .target(name: "MongoDB"),
                 
                 .product(name: "WebSemantics",      package: "swift-web-semantics"),
             ]),

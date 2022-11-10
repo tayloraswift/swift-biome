@@ -1,4 +1,4 @@
-import BSON
+import BSONEncoding
 import Foundation
 import _MongoKittenCrypto
 import DNSClient
@@ -29,6 +29,14 @@ extension Mongo
         {
             self.channel.close(mode: .all, promise: nil)
         }
+    }
+}
+extension Mongo.Connection:Identifiable
+{
+    public
+    var id:Mongo.ConnectionIdentifier
+    {
+        self.instance.connection
     }
 }
 extension Mongo.Connection

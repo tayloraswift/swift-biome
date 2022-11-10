@@ -45,8 +45,7 @@ extension Mongo
 }
 extension Mongo.Collation
 {
-    public
-    var bson:BSON.Document<[UInt8]>
+    var document:BSON.Document<[UInt8]>
     {
         var fields:BSON.Fields<[UInt8]> =
         [
@@ -69,6 +68,10 @@ extension Mongo.Collation
             }
         }
         return .init(fields)
+    }
+    var bson:BSON.Value<[UInt8]>
+    {
+        .document(self.document)
     }
 
     @frozen public 

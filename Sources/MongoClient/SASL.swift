@@ -1,4 +1,3 @@
-import BSON
 import _MongoKittenCrypto
 import Foundation
 

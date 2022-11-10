@@ -18,7 +18,7 @@ extension Mongo.ReplyStatusError:CustomStringConvertible
     var description:String
     {
         self.message.isEmpty ?
-            "MongoDB server responded with error status" :
-            "MongoDB server responded with error: '\(self.message)'"
+            "server responded with error status" :
+            "server responded with error: '\(self.message)'"
     }
 }
