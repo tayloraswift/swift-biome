@@ -15,46 +15,6 @@ extension DNSClient
     }
 }
 
-extension Mongo.Cluster
-{
-    public
-    struct ConnectivityError:Error, Sendable
-    {
-        public
-        let role:Role
-        public
-        let errors:[any Error]
-    }
-}
-extension Mongo.Cluster.ConnectivityError:CustomStringConvertible
-{
-    public
-    var description:String
-    {
-        var description:String =
-        """
-        Could not connect to any hosts matching role '\(self.role)'!
-        """
-        if !self.errors.isEmpty
-        {
-            description +=
-            """
-
-            Note: Some hosts could not be reached because:
-            """
-            for (ordinal, error):(Int, any Error) in self.errors.enumerated()
-            {
-                description +=
-                """
-
-                \(ordinal). \(error)
-                """
-            }
-        }
-        return description
-    }
-}
-
 extension Mongo
 {
     public 
@@ -155,11 +115,11 @@ extension Mongo.Cluster
 extension Mongo.Cluster
 {
     private
-    func next(_ role:Role) async throws -> Mongo.Connection
+    func next(_ selector:Mongo.InstanceSelector) async throws -> Mongo.Connection
     {
         // look for existing connections
         for (_, connection):(Mongo.Host, Mongo.Connection) in self.pool.connections
-            where role.matches(connection)
+            where selector ~= connection.instance
         {
             return connection
         }
@@ -178,12 +138,12 @@ extension Mongo.Cluster
                 self.hosts.blacklist(host)
                 continue
             }
-            if role.matches(connection)
+            if selector ~= connection.instance
             {
                 return connection
             }
         }
-        throw ConnectivityError.init(role: role, errors: errors)
+        throw Mongo.ConnectivityError.init(selector: selector, errors: errors)
     }
     private 
     func connect(to host:Mongo.Host) async throws -> Mongo.Connection 

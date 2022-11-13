@@ -37,7 +37,7 @@ extension Mongo
 extension Mongo.ListDatabases:AdministrativeCommand
 {
     public static
-    let node:Mongo.Cluster.Role = .any
+    let node:Mongo.InstanceSelector = .any
 
     public
     var fields:BSON.Fields<[UInt8]>

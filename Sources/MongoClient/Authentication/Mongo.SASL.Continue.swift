@@ -1,11 +1,12 @@
 import BSONEncoding
+import SCRAM
 
 extension Mongo.SASL
 {
     struct Continue
     {
         let conversation:Int32
-        let payload:String
+        let message:SCRAM.Message
     }
 }
 extension Mongo.SASL.Continue:MongoAuthenticationCommand
@@ -15,7 +16,7 @@ extension Mongo.SASL.Continue:MongoAuthenticationCommand
         [
             "saslContinue": true,
             "conversationId": .int32(self.conversation),
-            "payload": .string(self.payload),
+            "payload": .string(self.message.base64),
         ]
     }
 }

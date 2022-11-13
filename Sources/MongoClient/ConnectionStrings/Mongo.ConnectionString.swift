@@ -45,7 +45,7 @@ extension Mongo
         public
         var authSource:Database?
         public
-        var authMechanism:ConnectionSettings.Authentication.Mechanism?
+        var authMechanism:Authentication?
         public
         var appName:String?
 
@@ -58,7 +58,7 @@ extension Mongo
             connectTimeout:Duration? = nil,
             socketTimeout:Duration? = nil,
             authSource:Database? = nil,
-            authMechanism:ConnectionSettings.Authentication.Mechanism? = nil,
+            authMechanism:Authentication? = nil,
             appName:String? = nil)
         {
             self.user = user
@@ -175,8 +175,7 @@ extension Mongo.ConnectionString
                 self.authSource = .init(name: value)
             
             case "authmechanism":
-                if  let mechanism:Mongo.ConnectionSettings.Authentication.Mechanism =
-                        .init(rawValue: value)
+                if let mechanism:Mongo.Authentication = .init(rawValue: value)
                 {
                     self.authMechanism = mechanism
                 }

@@ -220,7 +220,7 @@ extension Mongo
 
         /// An array of SASL mechanisms used to create the user's credential or credentials.
         public
-        let saslSupportedMechs:[SASL.Mechanism]?
+        let saslSupportedMechs:Set<SASL>?
 
         /// Fields present when the server is a sharded instance.
         /// There are no such fields, so this property is only useful for
@@ -254,10 +254,10 @@ extension Mongo.Instance:MongoResponse
         self.connection = try bson["connectionId"].decode(as: Int32.self,
             with: Mongo.ConnectionIdentifier.init(_:))
         
-        let minWireVersion:Mongo.WireVersion = try bson["minWireVersion"].decode(as: Int32.self,
-            with: Mongo.WireVersion.init(rawValue:))
-        let maxWireVersion:Mongo.WireVersion = try bson["maxWireVersion"].decode(as: Int32.self,
-            with: Mongo.WireVersion.init(rawValue:))
+        let minWireVersion:Mongo.WireVersion = try bson["minWireVersion"].decode(
+            cases: Mongo.WireVersion.self)
+        let maxWireVersion:Mongo.WireVersion = try bson["maxWireVersion"].decode(
+            cases: Mongo.WireVersion.self)
         
         guard minWireVersion <= maxWireVersion
         else
@@ -268,8 +268,11 @@ extension Mongo.Instance:MongoResponse
 
         self.isReadOnly = try bson["readOnly"].decode(to: Bool.self)
 
-        // TODO
-        self.saslSupportedMechs = nil
+        self.saslSupportedMechs = try bson["saslSupportedMechs"]?.decode(
+            as: BSON.Array<ByteBufferView>.self)
+        {
+            .init(try $0.map { try $0.decode(cases: Mongo.SASL.self) })
+        }
 
         self.sharded = try bson["msg"]?.decode(as: String.self)
         {

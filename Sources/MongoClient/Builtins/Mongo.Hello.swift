@@ -27,21 +27,6 @@ extension Mongo.Hello
         "unknown"
         #endif
     }
-    private static
-    var client:BSON.Document<[UInt8]>
-    {
-        [
-            "driver":
-            [
-                "name": "_BiomeMongoKitten",
-                "version": "0",
-            ],
-            "os":
-            [
-                "type": .string(Self.os),
-            ],
-        ]
-    }
 }
 extension Mongo.Hello:MongoCommand
 {
@@ -51,10 +36,19 @@ extension Mongo.Hello:MongoCommand
     {
         [
             "hello": true,
-            "client": .document(Self.client),
-
-            "saslSupportedMechs":
-                (self.user?.description).map(BSON.Value<[UInt8]>.string(_:))
+            "client":
+            [
+                "driver":
+                [
+                    "name": "_BiomeMongoKitten",
+                    "version": "0",
+                ],
+                "os":
+                [
+                    "type": .string(Self.os),
+                ],
+            ],
+            "saslSupportedMechs": self.user?.bson
         ]
     }
 }

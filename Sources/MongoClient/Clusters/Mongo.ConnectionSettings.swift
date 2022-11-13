@@ -6,19 +6,19 @@ extension Mongo
     struct ConnectionSettings:Sendable
     {
         public
-        let authentication:Authentication?
+        let credentials:Credentials?
         public
-        let queryTimeout:Duration
+        let timeout:Duration
         public
         let tls:TLS?
 
         @inlinable public
-        init(authentication:Authentication? = nil,
-            queryTimeout:Duration = .seconds(15),
+        init(credentials:Credentials? = nil,
+            timeout:Duration = .seconds(15),
             tls:TLS? = nil)
         {
-            self.authentication = authentication
-            self.queryTimeout = queryTimeout
+            self.credentials = credentials
+            self.timeout = timeout
             self.tls = tls
         }
     }
@@ -28,21 +28,16 @@ extension Mongo.ConnectionSettings
     public
     init(_ string:Mongo.ConnectionString)
     {
-        let tls:TLS? = string.tlsCAFile.map(TLS.init(certificatePath:))
-        let authentication:Authentication?
-        if let user:(name:String, password:String) = string.user
+        let credentials:Mongo.Credentials? = string.user.map
         {
-            authentication = .init(
-                mechanism: string.authMechanism, 
-                username: user.name, 
-                password: user.password,
+            .init(
+                authentication: string.authMechanism, 
+                username: $0.name, 
+                password: $0.password,
                 database: string.authSource ?? string.defaultauthdb ?? .admin)
         }
-        else
-        {
-            authentication = nil
-        }
-        self.init(authentication: authentication, tls: tls)
+        let tls:TLS? = string.tlsCAFile.map(TLS.init(certificatePath:))
+        self.init(credentials: credentials, tls: tls)
     }
 }
 extension Mongo.ConnectionSettings
@@ -53,54 +48,5 @@ extension Mongo.ConnectionSettings
         // TODO: cache certificate loading
         let certificatePath:String
         //let CaCertificate:NIOSSLCertificate?
-    }
-
-    @frozen public
-    struct Authentication:Equatable, Sendable
-    {
-        @frozen public
-        enum Mechanism:String, Equatable, Sendable 
-        {
-            case sha1       = "SCRAM-SHA-1"
-            case sha256     = "SCRAM-SHA-256"
-            case x509       = "MONGODB-X509"
-            case aws        = "MONGODB-AWS"
-            case gssapi     = "GSSAPI"
-            case plain      = "PLAIN"
-
-            var sasl:Mongo.SASL.Mechanism?
-            {
-                switch self
-                {
-                case .sha1:     return .sha1
-                case .sha256:   return .sha256
-                case .gssapi:   return .gssapi
-                case .plain:    return .plain
-                case .x509, .aws:
-                    return nil
-                }
-            }
-        }
-
-        public
-        let mechanism:Mechanism?
-        public
-        let username:String
-        public
-        let password:String
-        public
-        let database:Mongo.Database
-
-        var user:Mongo.User?
-        {
-            if case nil = self.mechanism
-            {
-                return .init(self.database, self.username)
-            } 
-            else 
-            {
-                return nil
-            }
-        }
     }
 }

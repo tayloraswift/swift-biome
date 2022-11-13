@@ -1,5 +1,6 @@
 import BSONDecoding
 import NIOCore
+import SCRAM
 
 extension Mongo.SASL
 {
@@ -7,15 +8,15 @@ extension Mongo.SASL
     {
         private
         let conversation:Int32
-        let payload:String
+        let message:SCRAM.Message
         let done:Bool
     }
 }
 extension Mongo.SASL.Response
 {
-    func command(payload:String) -> Mongo.SASL.Continue
+    func command(message:SCRAM.Message) -> Mongo.SASL.Continue
     {
-        .init(conversation: self.conversation, payload: payload)
+        .init(conversation: self.conversation, message: message)
     }
 }
 extension Mongo.SASL.Response:MongoResponse
@@ -23,14 +24,14 @@ extension Mongo.SASL.Response:MongoResponse
     init(from bson:BSON.Dictionary<ByteBufferView>) throws
     {
         self.conversation = try bson["conversationId"].decode(to: Int32.self)
-        self.payload = try bson["payload"].decode
+        self.message = try bson["payload"].decode
         {
             switch $0
             {
             case .string(let utf8):
-                return utf8.description
+                return .init(base64: utf8.bytes)
             case .binary(let binary):
-                return .init(decoding: binary.bytes, as: Unicode.UTF8.self)
+                return .init(base64: binary.bytes)
             default:
                 throw BSON.PrimitiveError<String>.init(variant: $0.type)
             }

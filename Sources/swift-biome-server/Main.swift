@@ -69,7 +69,7 @@ struct Main:AsyncParsableCommand
         do
         {
             let cluster:Mongo.Cluster = try await .init(
-                settings: .init(queryTimeout: .seconds(10)),
+                settings: .init(timeout: .seconds(10)),
                 hosts: .standard([.mongodb(parsing: self.mongo)]),
                 group: group)
 

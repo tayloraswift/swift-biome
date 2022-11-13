@@ -371,32 +371,32 @@ enum Main
             $0.test(name: "generic",
                 canonical: "0F0000000578000200000000FFFF00",
                 expected: ["x": .binary(.init(subtype: .generic,
-                    bytes: Base16.decode(utf8: "ffff".utf8)!))])
+                    bytes: Base16.decode("ffff")))])
             
             $0.test(name: "function",
                 canonical: "0F0000000578000200000001FFFF00",
                 expected: ["x": .binary(.init(subtype: .function,
-                    bytes: Base16.decode(utf8: "ffff".utf8)!))])
+                    bytes: Base16.decode("ffff")))])
             
             $0.test(name: "uuid",
                 canonical: "1D000000057800100000000473FFD26444B34C6990E8E7D1DFC035D400", 
                 expected: ["x": .binary(.init(subtype: .uuid,
-                    bytes: Base16.decode(utf8: "73ffd26444b34c6990e8e7d1dfc035d4".utf8)!))])
+                    bytes: Base16.decode("73ffd26444b34c6990e8e7d1dfc035d4")))])
             
             $0.test(name: "md5",
                 canonical: "1D000000057800100000000573FFD26444B34C6990E8E7D1DFC035D400", 
                 expected: ["x": .binary(.init(subtype: .md5,
-                    bytes: Base16.decode(utf8: "73ffd26444b34c6990e8e7d1dfc035d4".utf8)!))])
+                    bytes: Base16.decode("73ffd26444b34c6990e8e7d1dfc035d4")))])
             
             $0.test(name: "compressed",
                 canonical: "1D000000057800100000000773FFD26444B34C6990E8E7D1DFC035D400", 
                 expected: ["x": .binary(.init(subtype: .compressed,
-                    bytes: Base16.decode(utf8: "73ffd26444b34c6990e8e7d1dfc035d4".utf8)!))])
+                    bytes: Base16.decode("73ffd26444b34c6990e8e7d1dfc035d4")))])
             
             $0.test(name: "custom",
                 canonical: "0F0000000578000200000080FFFF00",
                 expected: ["x": .binary(.init(subtype: .custom(code: 0x80),
-                    bytes: Base16.decode(utf8: "ffff".utf8)!))])
+                    bytes: Base16.decode("ffff")))])
             
             $0.test(name: "invalid-length-over",
                 invalid: "1D000000057800FF0000000573FFD26444B34C6990E8E7D1DFC035D400",
@@ -740,7 +740,7 @@ extension UnitTests
     func test<Failure>(name:String, invalid:String, failure:Failure)
         where Failure:Error & Equatable
     {
-        let invalid:[UInt8] = Base16.decode(utf8: invalid.utf8)!
+        let invalid:[UInt8] = Base16.decode(invalid.utf8)
         let document:BSON.Document<ArraySlice<UInt8>> = .init(
             slicing: invalid.dropFirst(4))
         self.do(expecting: failure, name: name)
@@ -752,7 +752,7 @@ extension UnitTests
     func test(name:String, degenerate:String? = nil, canonical:String, 
         expected:BSON.Document<[UInt8]>)
     {
-        let canonical:[UInt8] = Base16.decode(utf8: canonical.utf8)!
+        let canonical:[UInt8] = Base16.decode(canonical.utf8)
         let size:Int32 = canonical.prefix(4).withUnsafeBytes
         {
             .init(littleEndian: $0.load(as: Int32.self))
@@ -769,7 +769,7 @@ extension UnitTests
 
         if  let degenerate:String
         {
-            let degenerate:[UInt8] = Base16.decode(utf8: degenerate.utf8)!
+            let degenerate:[UInt8] = Base16.decode(degenerate.utf8)
             let document:BSON.Document<ArraySlice<UInt8>> = .init(
                 slicing: degenerate.dropFirst(4))
             self.do(name: "\(name).canonicalization")

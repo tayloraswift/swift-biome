@@ -21,7 +21,7 @@ extension Mongo
 extension Mongo.DropDatabase:DatabaseCommand
 {
     public static
-    let node:Mongo.Cluster.Role = .master
+    let node:Mongo.InstanceSelector = .master
 
     public
     var fields:BSON.Fields<[UInt8]>

@@ -33,19 +33,20 @@ let package = Package(
     [
         .package(url: "https://github.com/kelvin13/swift-json", branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-grammar", .upToNextMinor(from: "0.2.0")),
-        .package(url: "https://github.com/kelvin13/swift-hash", .upToNextMinor(from: "0.2.3")),
+        //.package(url: "https://github.com/kelvin13/swift-hash", .upToNextMinor(from: "0.3.0")),
+        .package(url: "https://github.com/kelvin13/swift-hash", .upToNextMinor(from: "0.4.0")),
         .package(url: "https://github.com/kelvin13/swift-highlight", .upToNextMinor(from: "0.1.4")),
         .package(url: "https://github.com/kelvin13/swift-web-semantics", .upToNextMinor(from: "0.4.0")),
         .package(url: "https://github.com/kelvin13/swift-dom", .upToNextMinor(from: "0.5.2")),
         
         // used by the _BSON module
         .package(url: "https://github.com/kelvin13/swift-package-factory.git",
-            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-11-01-a"),
+            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-11-11-a"),
 
         .package(url: "https://github.com/apple/swift-markdown.git",
-            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-11-01-a"),
+            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-11-11-a"),
         .package(url: "https://github.com/apple/swift-syntax.git",
-            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-11-01-a"),
+            revision: "swift-DEVELOPMENT-SNAPSHOT-2022-11-11-a"),
         
         // only used by the SymbolGraphCompiler target
         .package(url: "https://github.com/kelvin13/swift-system-extras.git", .upToNextMinor(from: "0.2.0")),
@@ -172,7 +173,12 @@ let package = Package(
                 .target(name: "BSON")
             ]),
         
-        .target(name: "_MongoKittenCrypto"),
+        .target(name: "SCRAM",
+            dependencies: 
+            [
+                .product(name: "Base64",                package: "swift-hash"),
+                .product(name: "MessageAuthentication", package: "swift-hash"),
+            ]),
 
         .target(name: "MongoWire",
             dependencies: 
@@ -187,8 +193,13 @@ let package = Package(
             [
                 .target(name: "BSONDecoding"),
                 .target(name: "BSONEncoding"),
+
+                .product(name: "Base64",                package: "swift-hash"),
+                .product(name: "MessageAuthentication", package: "swift-hash"),
+                .product(name: "SHA2",                  package: "swift-hash"),
                 
-                .product(name: "NIO",                   package: "swift-nio"),
+                .product(name: "NIOCore",               package: "swift-nio"),
+                .product(name: "NIOPosix",              package: "swift-nio"),
                 .product(name: "NIOSSL",                package: "swift-nio-ssl"),
                 .product(name: "NIOFoundationCompat",   package: "swift-nio"),
                 .product(name: "Logging",               package: "swift-log"),
@@ -198,7 +209,7 @@ let package = Package(
                 .product(name: "WebURL",                package: "swift-url"),
 
                 .target(name: "MongoWire"),
-                .target(name: "_MongoKittenCrypto"),
+                .target(name: "SCRAM"),
 
                 .product(name: "DNSClient", package: "NioDNS"),
             ]),
@@ -233,7 +244,7 @@ let package = Package(
                 .product(name: "RSS",               package: "swift-dom"),
                 .product(name: "JSON",              package: "swift-json"),
                 .product(name: "Notebook",          package: "swift-highlight"),
-                .product(name: "IDEUtils",          package: "swift-syntax"),
+                //.product(name: "IDEUtils",          package: "swift-syntax"),
                 .product(name: "SwiftSyntaxParser", package: "swift-syntax"),
                 .product(name: "SwiftSyntax",       package: "swift-syntax"),
                 .product(name: "Markdown",          package: "swift-markdown"),
@@ -248,9 +259,8 @@ let package = Package(
             [
                 .target(name: "Biome"),
                 
-                .product(name: "NIO",               package: "swift-nio"),
+                .product(name: "NIOCore",           package: "swift-nio"),
                 .product(name: "NIOHTTP1",          package: "swift-nio"),
-
                 .product(name: "NIOSSL",            package: "swift-nio-ssl"),
 
                 .product(name: "Backtrace",         package: "swift-backtrace"),
@@ -263,31 +273,39 @@ let package = Package(
             ]),
 
 
-        .target(name: "Testing", path: "Tests/Testing"),
-
         .executableTarget(name: "BSONTests",
             dependencies:
             [
-                .product(name: "Base16", package: "swift-hash"),
-
-                .target(name: "Testing"),
                 .target(name: "BSON"),
+                .product(name: "Base16", package: "swift-hash"),
+                .product(name: "Testing", package: "swift-hash"),
             ], 
             path: "Tests/BSONTests"),
         
         .executableTarget(name: "BSONDecodingTests",
             dependencies:
             [
-                .target(name: "Testing"),
                 .target(name: "BSONDecoding"),
+                .product(name: "Testing", package: "swift-hash"),
             ], 
             path: "Tests/BSONDecodingTests"),
+        
+        .executableTarget(name: "MongoDBTests",
+            dependencies:
+            [
+                .target(name: "MongoDB"),
+                // already included by `MongoClient`’s transitive `NIOSSL` dependency,
+                // but restated here for clarity.
+                .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "Testing", package: "swift-hash"),
+            ], 
+            path: "Tests/MongoDBTests"),
         
         .executableTarget(name: "SedimentTests",
             dependencies:
             [
-                .target(name: "Testing"),
                 .target(name: "Sediment"),
+                .product(name: "Testing", package: "swift-hash"),
             ], 
             path: "Tests/SedimentTests"),
         

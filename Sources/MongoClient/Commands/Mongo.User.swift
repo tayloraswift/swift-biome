@@ -1,3 +1,5 @@
+import BSONEncoding
+
 extension Mongo
 {
     @frozen public
@@ -22,5 +24,13 @@ extension Mongo.User:CustomStringConvertible
     var description:String
     {
         "\(self.database).\(self.name)"
+    }
+}
+extension Mongo.User
+{
+    @inlinable public
+    var bson:BSON.Value<[UInt8]>
+    {
+        .string(self.description)
     }
 }

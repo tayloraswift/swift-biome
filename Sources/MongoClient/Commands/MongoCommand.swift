@@ -91,7 +91,7 @@ protocol SessionCommand:MongoCommand
     /// The kind of node this command must be sent to, in order for
     /// it to succeed.
     static
-    var node:Mongo.Cluster.Role { get }
+    var node:Mongo.InstanceSelector { get }
 }
 
 public

@@ -23,7 +23,7 @@ extension BSON
         public 
         let bytes:Bytes.SubSequence
         /// The subtype of this binary array.
-        public 
+        public
         let subtype:BinarySubtype
 
         @inlinable public
