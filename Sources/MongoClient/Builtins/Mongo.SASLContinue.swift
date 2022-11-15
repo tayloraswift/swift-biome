@@ -1,15 +1,15 @@
 import BSONEncoding
 import SCRAM
 
-extension Mongo.SASL
+extension Mongo
 {
-    struct Continue
+    struct SASLContinue
     {
         let conversation:Int32
         let message:SCRAM.Message
     }
 }
-extension Mongo.SASL.Continue:MongoAuthenticationCommand
+extension Mongo.SASLContinue:MongoAuthenticationCommand
 {
     var fields:BSON.Fields<[UInt8]>
     {

@@ -13,30 +13,128 @@ enum Main
         let host:Mongo.Host = .init("mongodb", 27017)
         let group:MultiThreadedEventLoopGroup = .init(numberOfThreads: 2)
         
-        await tests.group("main")
+        let cluster:Mongo.Cluster? = await tests.group("authentication")
         {
-            guard let cluster:Mongo.Cluster = await $0.cluster(hosts: host, group: group)
-            else
+            // since we do not perform any operations, this should succeed
+            await $0.do(name: "none")
             {
-                return
+                _ in try await Mongo.Cluster.init(
+                    settings: .init(timeout: .seconds(10)),
+                    hosts: .standard([host]),
+                    group: group)
             }
 
+            await $0.do(name: "defaulted")
+            {
+                _ in try await Mongo.Cluster.init(
+                    settings: .init(
+                        credentials: .init(authentication: nil,
+                            username: "root",
+                            password: "password"),
+                        timeout: .seconds(10)),
+                    hosts: .standard([host]),
+                    group: group)
+            }
+
+            let x509:Mongo.Credentials = .init(authentication: .x509,
+                username: "root",
+                password: "password")
+            await $0.do(expecting: Mongo.ConnectivityError.init(selector: .master, 
+                    errors:
+                    [
+                        (
+                            host, 
+                            Mongo.AuthenticationError.init(
+                                Mongo.AuthenticationUnsupportedError.init(.x509),
+                                credentials: x509)
+                        )
+                    ]),
+                name: "unsupported")
+            {
+                _ in _ = try await Mongo.Cluster.init(
+                    settings: .init(credentials: x509,
+                        timeout: .seconds(10)),
+                    hosts: .standard([host]),
+                    group: group)
+            }
+
+            let sha256:Mongo.Credentials = .init(authentication: .sasl(.sha256),
+                username: "root",
+                password: "1234")
+            await $0.do(expecting: Mongo.ConnectivityError.init(selector: .master, 
+                    errors:
+                    [
+                        (
+                            host, 
+                            Mongo.AuthenticationError.init(
+                                Mongo.ServerError.init(message: "Authentication failed."),
+                                credentials: sha256)
+                        )
+                    ]),
+                name: "wrong-password")
+            {
+                _ in _ = try await Mongo.Cluster.init(
+                    settings: .init(credentials: sha256,
+                        timeout: .seconds(10)),
+                    hosts: .standard([host]),
+                    group: group)
+            }
+
+            return await $0.do(name: "scram-sha256")
+            {
+                _ in try await Mongo.Cluster.init(
+                    settings: .init(
+                        credentials: .init(authentication: .sasl(.sha256),
+                            username: "root",
+                            password: "password"),
+                        timeout: .seconds(10)),
+                    hosts: .standard([host]),
+                    group: group)
+            }
+        }
+
+        guard let cluster:Mongo.Cluster
+        else
+        {
+            return
+        }
+
+        await tests.group("databases")
+        {
             let database:Mongo.Database = "test-database"
+
+            await $0.do(name: "drop-database-non-existent")
+            {
+                _ in try await cluster.run(command: Mongo.DropDatabase.init(),
+                    against: database)
+            }
+            await $0.do(name: "create-collection")
+            {
+                _ in try await cluster.run(command: Mongo.Create.init(binding: "test"), 
+                    against: database)
+            }
+
+            await $0.do(name: "list-databases")
+            {
+                let names:[Mongo.Database] = try await cluster.run(command: Mongo.ListDatabases.init())
+                    .databases.map(\.database)
+                $0.assert(names ..? ["admin", "config", "local", database])
+            }
+
+            await $0.do(name: "list-collections")
+            {
+                _ in
+                let cursor:Mongo.Cursor = try await cluster.run(command: Mongo.ListCollections.init(),
+                    against: database)
+                print(cursor)
+            }
 
             await $0.do(name: "drop-database")
             {
-                _ in
                 try await cluster.run(command: Mongo.DropDatabase.init(), against: database)
-                try await cluster.run(command: Mongo.Create.init(binding: "test"), 
-                    against: database)
-
-                print(try await cluster.run(command: Mongo.ListDatabases.init()).databases.map(\.name))
-
-                try await cluster.run(command: Mongo.DropDatabase.init(), against: database)
-                
-                print(try await cluster.run(command: Mongo.ListDatabases.init()).databases.map(\.name))
-
-                try await Task.sleep(for: .seconds(2))
+                let names:[Mongo.Database] = try await cluster.run(command: Mongo.ListDatabases.init())
+                    .databases.map(\.database)
+                $0.assert(names ..? ["admin", "config", "local"])
             }
         }
 

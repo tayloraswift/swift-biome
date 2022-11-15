@@ -9,11 +9,9 @@ extension Mongo
     /// This command must run against the `admin` database.
     ///
     /// > See:  https://www.mongodb.com/docs/manual/reference/command/listDatabases/
-    @frozen public
+    public
     struct ListDatabases
     {
-        public
-        let writeConcern:WriteConcern?
         public
         let authorizedDatabases:Bool?
         public
@@ -21,13 +19,11 @@ extension Mongo
         public
         let filter:BSON.Document<[UInt8]>?
 
-        @inlinable public
-        init(writeConcern:WriteConcern? = nil,
-            authorizedDatabases:Bool? = nil,
+        public
+        init(authorizedDatabases:Bool? = nil,
             nameOnly:Bool = false,
             filter:BSON.Document<[UInt8]>? = nil)
         {
-            self.writeConcern = writeConcern
             self.authorizedDatabases = authorizedDatabases
             self.nameOnly = nameOnly
             self.filter = filter
@@ -44,7 +40,6 @@ extension Mongo.ListDatabases:AdministrativeCommand
     {
         [
             "listDatabases": 1,
-            "writeConcern": self.writeConcern?.bson,
             "authorizedDatabases": self.authorizedDatabases
                 .map(BSON.Value<[UInt8]>.bool(_:)),
             "nameOnly": self.nameOnly ? true : nil,

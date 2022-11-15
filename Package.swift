@@ -211,6 +211,8 @@ let package = Package(
                 .target(name: "MongoWire"),
                 .target(name: "SCRAM"),
 
+                .target(name: "TraceableErrors"),
+
                 .product(name: "DNSClient", package: "NioDNS"),
             ]),
         

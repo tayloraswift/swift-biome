@@ -124,7 +124,7 @@ extension Mongo.Cluster
             return connection
         }
         // form new connections
-        var errors:[any Error] = []
+        var errors:[(host:Mongo.Host, error:any Error)] = []
         while let host:Mongo.Host = self.hosts.checkout()
         {
             let connection:Mongo.Connection
@@ -134,7 +134,7 @@ extension Mongo.Cluster
             }
             catch let error
             {
-                errors.append(error)
+                errors.append((host, error))
                 self.hosts.blacklist(host)
                 continue
             }

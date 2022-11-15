@@ -1,94 +1,91 @@
+extension Error where Self:Equatable
+{
+    private
+    func equals(_ other:any Error) -> Bool
+    {
+        (other as? Self).map { $0 == self } ?? false
+    }
+}
+extension Error
+{
+    public static
+    func == (lhs:Self, rhs:any Error) -> Bool
+    {
+        if let lhs:any Error & Equatable = lhs as? any Error & Equatable
+        {
+            return lhs.equals(rhs)
+        }
+        else
+        {
+            return false
+        }
+    }
+}
+extension Error
+{
+    private static
+    func bold(_ string:String) -> String
+    {
+        "\u{1B}[1m\(string)\u{1B}[0m"
+    }
+    private static
+    func color(_ string:String) -> String 
+    {
+        let color:(r:UInt8, g:UInt8, b:UInt8) = (r: 255, g:  51, b:  51)
+        return "\u{1B}[38;2;\(color.r);\(color.g);\(color.b)m\(string)\u{1B}[39m"
+    }
+
+    fileprivate
+    func description(notes:[String]) -> String
+    {
+        let type:String = .init(describing: Self.self)
+
+        var description:String
+        if  let  error:any CustomStringConvertible = self as? any CustomStringConvertible,
+                !error.description.isEmpty
+        {
+            description = "\(Self.bold(Self.color("\(type):"))) \(error.description)"
+        }
+        else
+        {
+            description = "\(Self.bold(Self.color("\(type):"))) (no description available)"
+        }
+        for note:String in notes.reversed()
+        {
+            description += "\n\(Self.bold("Note:")) \(note)"
+        }
+        return description
+    }
+}
+
 /// A link in a propogated error.
 public 
-protocol TraceableError:Error, CustomStringConvertible 
+protocol TraceableError:CustomStringConvertible, Error 
 {
-    static 
-    var namespace:String 
-    {
-        get 
-    }
-    var next:Error? 
-    {
-        get 
-    }
-    var context:[String]
-    {
-        get 
-    }
+    var underlying:any Error { get }
+    /// Context associated with this error. The *last* note will be printed *first*,
+    /// after information related to the ``underlying`` error has been printed.
+    var notes:[String] { get }
 }
-/// The root of a propogated error.
-public 
-protocol TraceableErrorRoot:TraceableError 
+
+extension TraceableError
 {
-    var message:String 
-    {
-        get 
-    }
-}
-public 
-extension TraceableErrorRoot 
-{
-    var context:[String]
-    {
-        [self.message]
-    }
-    var next:Error? 
-    {
-        nil 
-    }
-}
-extension TraceableError 
-{
-    private  
-    var components:(header:String, messages:[String])
-    {
-        var namespace:String        = Self.namespace
-        var messages:[String]       = self.context 
-        
-        var current:TraceableError  = self 
-        while let error:Error        = current.next 
-        {
-            guard let next:TraceableError = error as? TraceableError 
-            else 
-            {
-                // generic Swift.Error 
-                namespace           = String.init(reflecting: Swift.type(of: error))
-                messages.append(String.init(describing: error))
-                break 
-            }
-            
-            current                 = next
-            namespace               = Swift.type(of: next).namespace 
-            messages.append(contentsOf: next.context)
-        }
-        return (namespace, messages) 
-    }
     public 
     var description:String 
     {
-        func bold(_ string:String) -> String
+        var notes:[String] = []
+        var current:any TraceableError = self 
+        while true
         {
-            "\u{1B}[1m\(string)\u{1B}[0m"
-        }
-        func color(_ string:String) -> String 
-        {
-            let color:(r:UInt8, g:UInt8, b:UInt8) = (r: 255, g:  51, b:  51)
-            return "\u{1B}[38;2;\(color.r);\(color.g);\(color.b)m\(string)\u{1B}[39m"
-        }
-        
-        let (header, messages):(String, [String])   = self.components 
-        if let root:String          = messages.last 
-        {
-            var description:String  = "\(bold("\(color("\(header):")) \(root)"))\n"
-            for note:String in messages.dropLast().reversed()
+            notes.append(contentsOf: current.notes)
+
+            switch current.underlying
             {
-                description        += "\(bold("note:")) \(note)\n"
+            case let next as any TraceableError:
+                current = next
+            case let last:
+                return last.description(notes: notes)
             }
-            return description
-        }
-        else 
-        {
-            return bold(color(header))
         }
     }
 }

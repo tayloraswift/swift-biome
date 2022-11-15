@@ -52,11 +52,11 @@ extension MongoCommand
         guard let document:BSON.Document<ByteBufferView> = message.documents.first
         else
         {
-            throw Mongo.ReplyEmptyError.init()
+            throw Mongo.ReplyError.noDocuments
         }
         if message.documents.count > 1
         {
-            fatalError("unimplemented: multiple documents in message")
+            throw Mongo.ReplyError.multipleDocuments
         }
 
         let dictionary:BSON.Dictionary<ByteBufferView> = try .init(fields: try document.parse())
@@ -66,10 +66,10 @@ extension MongoCommand
             {
             case .bool(true), .int32(1), .int64(1), .double(1.0):
                 return true
-            case .decimal128(_):
-                fatalError("unimplemented: cannot understand 'decimal128' status code")
-            default:
+            case .bool(false), .int32(0), .int64(0), .double(0.0):
                 return false
+            case let unsupported:
+                throw Mongo.ReplyError.invalidStatusType(unsupported.type)
             }
         }
         if ok
@@ -78,7 +78,7 @@ extension MongoCommand
         }
         else
         {
-            throw Mongo.ReplyStatusError.init(
+            throw Mongo.ServerError.init(
                 message: dictionary.items["errmsg"]?.as(String.self) ?? "")
         }
     }

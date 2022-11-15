@@ -66,13 +66,16 @@ extension Mongo.MessageRouter:ChannelInboundHandler
 }
 extension Mongo.MessageRouter:ChannelOutboundHandler
 {
-    typealias OutboundIn = (BSON.Fields<[UInt8]>, CheckedContinuation<Mongo.Message<ByteBufferView>, Error>)
+    typealias OutboundIn =
+    (
+        BSON.Fields<[UInt8]>,
+        CheckedContinuation<Mongo.Message<ByteBufferView>, Error>
+    )
     typealias OutboundOut = ByteBuffer
 
     func write(context:ChannelHandlerContext, data:NIOAny, promise:EventLoopPromise<Void>?)
     {
-        let (fields, continuation):(BSON.Fields<[UInt8]>, CheckedContinuation<Mongo.Message<ByteBufferView>, Error>) = 
-            self.unwrapOutboundIn(data)
+        let (fields, continuation):OutboundIn = self.unwrapOutboundIn(data)
         
         let id:Mongo.MessageIdentifier = .init(
             self.counter.loadThenWrappingIncrement(ordering: .relaxed))

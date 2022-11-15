@@ -2,9 +2,9 @@ import BSONDecoding
 import NIOCore
 import SCRAM
 
-extension Mongo.SASL
+extension Mongo
 {
-    struct Response
+    struct SASLResponse
     {
         private
         let conversation:Int32
@@ -12,14 +12,14 @@ extension Mongo.SASL
         let done:Bool
     }
 }
-extension Mongo.SASL.Response
+extension Mongo.SASLResponse
 {
-    func command(message:SCRAM.Message) -> Mongo.SASL.Continue
+    func command(message:SCRAM.Message) -> Mongo.SASLContinue
     {
         .init(conversation: self.conversation, message: message)
     }
 }
-extension Mongo.SASL.Response:MongoResponse
+extension Mongo.SASLResponse:MongoResponse
 {
     init(from bson:BSON.Dictionary<ByteBufferView>) throws
     {

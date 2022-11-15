@@ -3,8 +3,9 @@ import MessageAuthentication
 
 extension SCRAM
 {
+    /// A client’s response to a SCRAM challenge, authenticating the client.
     @frozen public
-    struct Proof<Hash> where Hash:MessageAuthenticationHash
+    struct ClientResponse<Hash> where Hash:MessageAuthenticationHash
     {
         public
         let message:Message
@@ -19,7 +20,7 @@ extension SCRAM
         }
     }
 }
-extension SCRAM.Proof
+extension SCRAM.ClientResponse
 {
     @inlinable public
     init(challenge:SCRAM.Challenge, password:String,
@@ -52,26 +53,13 @@ extension SCRAM.Proof
             signature: .init(authenticating: message.utf8, key: serverKey))
     }
 }
-extension SCRAM.Proof
+extension SCRAM.ClientResponse
 {
+    /// Returns [`true`]() if the given server response is consistent with
+    /// the server signature computed for this client response.
     @inlinable public
-    func verify(acceptance message:SCRAM.Message) throws 
+    func verify(_ response:SCRAM.ServerResponse) -> Bool
     {
-        for (attribute, value):(SCRAM.Attribute, Substring) in message.fields()
-        {
-            guard case .verification = attribute
-            else
-            {
-                continue
-            }
-            if self.signature.elementsEqual(Base64.decode(value.utf8, to: [UInt8].self))
-            {
-                return
-            }
-            else
-            {
-                fatalError("unimplemented")
-            }
-        }
+        self.signature.elementsEqual(response.signature)
     }
 }

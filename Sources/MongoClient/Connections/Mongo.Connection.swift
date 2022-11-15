@@ -9,7 +9,8 @@ import SHA2
 extension Mongo
 {
     /// @import(NIOCore)
-    /// A connection to a mongo host that we have completed an initial handshake with.
+    /// A connection to a `mongod`/`mongos` host that we have completed an initial
+    /// handshake with.
     ///
     /// > Warning: This type is not managed! If you are storing instances of this type, 
     /// there must be code elsewhere responsible for closing the wrapped NIO ``Channel``!
@@ -133,23 +134,18 @@ extension Mongo.Connection
 
         self.init(instance: try Mongo.Hello.decode(message: message), channel: channel)
 
-        print(self.instance)
-
         guard let credentials:Mongo.Credentials
         else
         {
             return
         }
-        switch credentials.sasl(defaults: self.instance.saslSupportedMechs)
+        do
         {
-        case .sha256?:
-            try await self.authenticate(sasl: .sha256,
-                database: credentials.database, 
-                username: credentials.username,
-                password: credentials.password)
-        
-        default:
-            fatalError("unimplemented: \(credentials.authentication as Any) authentication")
+            try await self.authenticate(with: credentials)
+        }
+        catch let error
+        {
+            throw Mongo.AuthenticationError.init(error, credentials: credentials)
         }
     }
 }
@@ -157,14 +153,64 @@ extension Mongo.Connection
 extension Mongo.Connection
 {
     private
+    func authenticate(with credentials:Mongo.Credentials) async throws
+    {
+        let sasl:Mongo.SASL
+        switch credentials.authentication
+        {
+        case .sasl(let explicit)?:
+            //  https://github.com/mongodb/specifications/blob/master/source/auth/auth.rst
+            //  '''
+            //  When a user has specified a mechanism, regardless of the server version,
+            //  the driver MUST honor this.
+            //  '''
+            sasl = explicit
+        
+        case let other?:
+            throw Mongo.AuthenticationUnsupportedError.init(other)
+        
+        case nil:
+            //  '''
+            //  If SCRAM-SHA-256 is present in the list of mechanism, then it MUST be used
+            //  as the default; otherwise, SCRAM-SHA-1 MUST be used as the default,
+            //  regardless of whether SCRAM-SHA-1 is in the list. Drivers MUST NOT attempt
+            //  to use any other mechanism (e.g. PLAIN) as the default.
+            //
+            //  If `saslSupportedMechs` is not present in the handshake response for
+            //  mechanism negotiation, then SCRAM-SHA-1 MUST be used when talking to
+            //  servers >= 3.0. Prior to server 3.0, MONGODB-CR MUST be used.
+            //  '''
+            if case true? = self.instance.saslSupportedMechs?.contains(.sha256)
+            {
+                sasl = .sha256
+            }
+            else
+            {
+                sasl = .sha1
+            }
+        }
+
+        switch sasl
+        {
+        case .sha256:
+            try await self.authenticate(sasl: .sha256,
+                database: credentials.database, 
+                username: credentials.username,
+                password: credentials.password)
+        
+        case let other:
+            throw Mongo.AuthenticationUnsupportedError.init(.sasl(other))
+        }
+    } 
+    private
     func authenticate(sasl mechanism:Mongo.SASL, 
         database:Mongo.Database, 
         username:String, 
         password:String) async throws 
     {
         let start:SCRAM.Start = .init(username: username)
-        let first:Mongo.SASL.Response = try await self.run(
-            command: Mongo.SASL.Start.init(mechanism: mechanism, scram: start),
+        let first:Mongo.SASLResponse = try await self.run(
+            command: Mongo.SASLStart.init(mechanism: mechanism, scram: start),
             against: database)
         
         if  first.done 
@@ -182,32 +228,38 @@ extension Mongo.Connection
         guard 4096 ... 310_000 ~= challenge.iterations
         else
         {
-            throw Mongo.AuthenticationError.sha256Iterations(challenge.iterations)
+            throw Mongo.PolicyError.sha256Iterations(challenge.iterations)
         }
 
-        let proof:SCRAM.Proof<SHA256> = try .init(challenge: challenge,
+        let client:SCRAM.ClientResponse<SHA256> = try .init(challenge: challenge,
             password: mechanism.password(hashing: password, username: username),
             received: first.message,
             sent: start)
-        let acceptance:Mongo.SASL.Response = try await self.run(
-            command: first.command(message: proof.message),
+        let second:Mongo.SASLResponse = try await self.run(
+            command: first.command(message: client.message),
             against: database)
         
-        try proof.verify(acceptance: acceptance.message)
-        
-        if  acceptance.done 
+        let server:SCRAM.ServerResponse = try .init(from: second.message)
+
+        guard client.verify(server)
+        else
+        {
+            throw Mongo.PolicyError.serverSignature
+        }
+
+        if  second.done 
         {
             return
         }
         
-        let completion:Mongo.SASL.Response = try await self.run(
-            command: acceptance.command(message: .init("")),
+        let third:Mongo.SASLResponse = try await self.run(
+            command: second.command(message: .init("")),
             against: database)
         
-        guard completion.done
+        guard third.done
         else 
         {
-            throw Mongo.AuthenticationError.conversationIncomplete
+            throw Mongo.SASLConversationError.init()
         }
     }
 }
@@ -233,7 +285,7 @@ extension Mongo.Connection
 {
     /// Runs an authentication command against the specified `database`.
     func run<Command>(command:__owned Command,
-        against database:Mongo.Database) async throws -> Mongo.SASL.Response
+        against database:Mongo.Database) async throws -> Mongo.SASLResponse
         where Command:MongoAuthenticationCommand
     {
         try Command.decode(message: try await self.run(command: command,

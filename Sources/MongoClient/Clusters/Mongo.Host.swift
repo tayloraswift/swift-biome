@@ -49,3 +49,11 @@ extension Mongo.Host
         return .init(name, port ?? 27017)
     }
 }
+extension Mongo.Host:CustomStringConvertible
+{
+    @inlinable public
+    var description:String
+    {
+        "\(self.name):\(self.port)"
+    }
+}

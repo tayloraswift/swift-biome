@@ -5,13 +5,13 @@ extension Mongo
     /// Drops the current database, deleting its contents.
     ///
     /// > See:  https://docs.mongodb.com/manual/reference/command/dropDatabase
-    @frozen public
+    public
     struct DropDatabase
     {
         public
         let writeConcern:WriteConcern?
 
-        @inlinable public
+        public
         init(writeConcern:WriteConcern? = nil)
         {
             self.writeConcern = writeConcern

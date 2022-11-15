@@ -16,16 +16,10 @@ extension BSON
         }
     }
 }
-extension BSON.PrimitiveError:TraceableErrorRoot
+extension BSON.PrimitiveError:CustomStringConvertible
 {
-    /// Returns the string [`"primitive error"`]().
-    public static 
-    var namespace:String 
-    {
-        "primitive error"
-    }
     public
-    var message:String 
+    var description:String 
     {
         "cannot cast variant of type '\(self.variant)' to type '\(T.self)'"
     }
@@ -42,17 +36,10 @@ extension BSON
         case uint64(UInt64)
     }
 }
-extension BSON.IntegerOverflowError:TraceableErrorRoot
+extension BSON.IntegerOverflowError:CustomStringConvertible
 {
-    /// Returns the string [`"integer overflow error"`]().
-    public static 
-    var namespace:String 
-    {
-        "integer overflow error"
-    }
-    
     public
-    var message:String 
+    var description:String 
     {
         switch self
         {

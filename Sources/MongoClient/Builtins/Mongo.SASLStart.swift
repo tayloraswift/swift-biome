@@ -1,9 +1,9 @@
 import BSONEncoding
 import SCRAM
 
-extension Mongo.SASL
+extension Mongo
 {
-    struct Start
+    struct SASLStart
     {
         let mechanism:Mongo.SASL
         let scram:SCRAM.Start
@@ -15,7 +15,7 @@ extension Mongo.SASL
         }
     }
 }
-extension Mongo.SASL.Start:MongoAuthenticationCommand
+extension Mongo.SASLStart:MongoAuthenticationCommand
 {
     var fields:BSON.Fields<[UInt8]>
     {

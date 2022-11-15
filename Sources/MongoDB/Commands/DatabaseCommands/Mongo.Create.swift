@@ -51,7 +51,7 @@ extension Mongo
     /// Explicitly creates a collection or view.
     ///
     /// > See:  https://www.mongodb.com/docs/manual/reference/command/create/
-    @frozen public
+    public
     struct Create:Sendable
     {
         public
@@ -69,7 +69,7 @@ extension Mongo
         public
         let writeConcern:WriteConcern?
 
-        @inlinable public
+        public
         init(binding:Collection,
             cap:Cap? = nil,
             collation:Collation? = nil,

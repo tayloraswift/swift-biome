@@ -1,24 +1,47 @@
+import TraceableErrors
+
 extension Mongo
 {
     public
-    enum AuthenticationError:Error
+    struct AuthenticationError:Error
     {
-        case sha256Iterations(Int)
-        case conversationIncomplete
+        public
+        let underlying:any Error
+        public
+        let credentials:Credentials
+
+        public
+        init(_ underlying:any Error, credentials:Credentials)
+        {
+            self.underlying = underlying
+            self.credentials = credentials
+        }
     }
 }
-extension Mongo.AuthenticationError:CustomStringConvertible
+extension Mongo.AuthenticationError:Equatable
+{
+    public static
+    func == (lhs:Self, rhs:Self) -> Bool
+    {
+        lhs.credentials == rhs.credentials &&
+        lhs.underlying == rhs.underlying
+    }
+}
+extension Mongo.AuthenticationError:TraceableError
 {
     public
-    var description:String
+    var notes:[String]
     {
-        switch self
-        {
-        case .sha256Iterations(let iterations):
-            return "authentication policy prohibits SCRAM-SHA-256 iteration count of \(iterations)"
-        
-        case .conversationIncomplete:
-            return "authentication conversation incomplete"
-        }
+        [
+            """
+            user-specified authentication mode was \
+            '\(self.credentials.authentication?.description ?? "default")'
+            """,
+
+            """
+            while authenticating user '\(self.credentials.username)' in database \
+            '\(self.credentials.database)'
+            """,
+        ]
     }
 }
