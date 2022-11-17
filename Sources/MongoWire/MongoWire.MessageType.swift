@@ -1,4 +1,4 @@
-extension Mongo
+extension MongoWire
 {
     @frozen public
     enum MessageType:Int32, Sendable

@@ -1,4 +1,4 @@
-extension Mongo
+extension MongoWire
 {
     @frozen public
     struct MessageTypeError:Equatable, Error
@@ -13,7 +13,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.MessageTypeError:CustomStringConvertible
+extension MongoWire.MessageTypeError:CustomStringConvertible
 {
     public
     var description:String

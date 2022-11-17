@@ -1,8 +1,8 @@
-extension Mongo
+extension MongoWire
 {
     /// The subtype byte of a binary array was matched a reserved bit pattern.
     @frozen public
-    struct MessageFlagsError:Equatable, Error
+    struct FlagsError:Equatable, Error
     {
         public
         let reserved:UInt16
@@ -18,7 +18,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.MessageFlagsError:CustomStringConvertible
+extension MongoWire.FlagsError:CustomStringConvertible
 {
     public
     var description:String

@@ -1,5 +1,6 @@
-import NIOCore
 import BSON
+import MongoWire
+import NIOCore
 
 extension ByteBuffer
 {
@@ -34,10 +35,10 @@ extension Mongo
 {
     struct MessageDecoder 
     {
-        typealias InboundOut = Mongo.Message<ByteBufferView>
+        typealias InboundOut = MongoWire.Message<ByteBufferView>
 
         private 
-        var header:MessageHeader?
+        var header:MongoWire.Header?
 
         init()
         {
@@ -51,16 +52,16 @@ extension Mongo.MessageDecoder:ByteToMessageDecoder
     func decode(context:ChannelHandlerContext, 
         buffer:inout ByteBuffer) throws -> DecodingState 
     {
-        let header:Mongo.MessageHeader
-        if let seen:Mongo.MessageHeader = self.header 
+        let header:MongoWire.Header
+        if let seen:MongoWire.Header = self.header 
         {
             header = seen
         } 
-        else if Mongo.MessageHeader.size <= buffer.readableBytes
+        else if MongoWire.Header.size <= buffer.readableBytes
         {
             header = try buffer.readWithUnsafeInput
             {
-                try $0.parse(as: Mongo.MessageHeader.self)
+                try $0.parse(as: MongoWire.Header.self)
             }
         }
         else
@@ -76,9 +77,9 @@ extension Mongo.MessageDecoder:ByteToMessageDecoder
         }
 
         self.header = nil
-        let message:Mongo.Message<ByteBufferView> = try buffer.readWithInput
+        let message:MongoWire.Message<ByteBufferView> = try buffer.readWithInput
         {
-            try $0.parse(as: Mongo.Message<ByteBufferView>.self, header: header)
+            try $0.parse(as: MongoWire.Message<ByteBufferView>.self, header: header)
         }
         context.fireChannelRead(self.wrapInboundOut(message))
         return .continue

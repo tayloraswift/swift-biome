@@ -48,7 +48,7 @@ extension MongoCommand where Response:MongoScheme
 extension MongoCommand
 {
     public static
-    func decode(message:Mongo.Message<ByteBufferView>) throws -> Response
+    func decode(message:MongoWire.Message<ByteBufferView>) throws -> Response
     {
         guard let document:BSON.Document<ByteBufferView> = message.documents.first
         else

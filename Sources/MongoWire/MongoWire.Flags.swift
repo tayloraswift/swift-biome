@@ -1,7 +1,7 @@
-extension Mongo
+extension MongoWire
 {
     @frozen public
-    struct MessageFlags:OptionSet, Sendable 
+    struct Flags:OptionSet, Sendable 
     {
         public
         var rawValue:UInt32
@@ -13,7 +13,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.MessageFlags
+extension MongoWire.Flags
 {
     /// The message ends with 4 bytes containing a CRC-32C [1] checksum.
     /// See [Checksum](https://www.mongodb.com/docs/manual/reference/mongodb-wire-protocol/#std-label-wire-msg-checksum)
@@ -41,7 +41,7 @@ extension Mongo.MessageFlags
     @inlinable public
     init(validating flags:UInt32) throws
     {
-        if let error:Mongo.MessageFlagsError = .init(flags: flags)
+        if let error:MongoWire.FlagsError = .init(flags: flags)
         {
             throw error
         }

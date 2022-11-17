@@ -1,4 +1,4 @@
-extension Mongo
+extension MongoWire
 {
     @frozen public
     struct MessageIdentifier:Hashable, Sendable
@@ -13,12 +13,12 @@ extension Mongo
         }
     }
 }
-extension Mongo.MessageIdentifier
+extension MongoWire.MessageIdentifier
 {
     public static
     let none:Self = .init(0)
 }
-extension Mongo.MessageIdentifier:CustomStringConvertible
+extension MongoWire.MessageIdentifier:CustomStringConvertible
 {
     public
     var description:String

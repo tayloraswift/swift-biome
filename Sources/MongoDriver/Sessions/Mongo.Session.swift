@@ -1,3 +1,4 @@
+import MongoWire
 import NIOCore
 
 extension Mongo
@@ -73,7 +74,7 @@ extension Mongo.Session
         where Command:MongoSessionCommand
     {
         let timeout:ContinuousClock.Instant = self.timeout()
-        let message:Mongo.Message<ByteBufferView> = try await self.connection.run(
+        let message:MongoWire.Message<ByteBufferView> = try await self.connection.run(
             command: command, against: .admin,
             transaction: nil,
             session: self.id)
@@ -88,7 +89,7 @@ extension Mongo.Session
         where Command:MongoDatabaseCommand
     {
         let timeout:ContinuousClock.Instant = self.timeout()
-        let message:Mongo.Message<ByteBufferView> = try await self.connection.run(
+        let message:MongoWire.Message<ByteBufferView> = try await self.connection.run(
             command: command, against: database,
             transaction: nil,
             session: self.id)

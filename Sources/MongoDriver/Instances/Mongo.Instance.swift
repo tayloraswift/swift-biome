@@ -1,6 +1,7 @@
-import NIOCore
 import BSONDecoding
 import BSONEncoding
+import MongoWire
+import NIOCore
 
 extension Mongo.Instance
 {
@@ -210,7 +211,7 @@ extension Mongo
         /// instance is capable of using to communicate with clients.
         /// This is called `minWireVersion` and `maxWireVersion` in the server reply.
         public
-        let wireVersions:ClosedRange<Mongo.WireVersion>
+        let wireVersions:ClosedRange<MongoWire>
 
         /// A boolean value that, when true, indicates that the `mongod` or `mongos`
         /// instance is running in read-only mode.
@@ -254,10 +255,10 @@ extension Mongo.Instance:MongoScheme
         self.connection = try bson["connectionId"].decode(as: Int32.self,
             with: Mongo.ConnectionIdentifier.init(_:))
         
-        let minWireVersion:Mongo.WireVersion = try bson["minWireVersion"].decode(
-            cases: Mongo.WireVersion.self)
-        let maxWireVersion:Mongo.WireVersion = try bson["maxWireVersion"].decode(
-            cases: Mongo.WireVersion.self)
+        let minWireVersion:MongoWire = try bson["minWireVersion"].decode(
+            cases: MongoWire.self)
+        let maxWireVersion:MongoWire = try bson["maxWireVersion"].decode(
+            cases: MongoWire.self)
         
         guard minWireVersion <= maxWireVersion
         else

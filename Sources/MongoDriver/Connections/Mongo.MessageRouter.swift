@@ -11,7 +11,7 @@ extension Mongo
         public
         enum CommunicationError:Error
         {
-            case unsolicitedResponse(to:MessageIdentifier)
+            case unsolicitedResponse(to:MongoWire.MessageIdentifier)
             case timeout
         }
 
@@ -22,7 +22,8 @@ extension Mongo
         private
         var requests:
         [
-            MessageIdentifier: CheckedContinuation<Mongo.Message<ByteBufferView>, Error>
+            MongoWire.MessageIdentifier:
+                CheckedContinuation<MongoWire.Message<ByteBufferView>, Error>
         ]
 
         init(timeout:Duration)
@@ -35,7 +36,7 @@ extension Mongo
 
         deinit
         {
-            for continuation:CheckedContinuation<Mongo.Message<ByteBufferView>, Error>
+            for continuation:CheckedContinuation<MongoWire.Message<ByteBufferView>, Error>
                 in self.requests.values
             {
                 continuation.resume(throwing: CommunicationError.timeout)
@@ -45,14 +46,14 @@ extension Mongo
 }
 extension Mongo.MessageRouter:ChannelInboundHandler
 {
-    typealias InboundIn = Mongo.Message<ByteBufferView>
+    typealias InboundIn = MongoWire.Message<ByteBufferView>
     typealias InboundOut = Never
 
     func channelRead(context:ChannelHandlerContext, data:NIOAny)
     {
-        let message:Mongo.Message<ByteBufferView> = self.unwrapInboundIn(data)
-        let request:Mongo.MessageIdentifier = message.header.request
-        if  let continuation:CheckedContinuation<Mongo.Message<ByteBufferView>, Error> = 
+        let message:MongoWire.Message<ByteBufferView> = self.unwrapInboundIn(data)
+        let request:MongoWire.MessageIdentifier = message.header.request
+        if  let continuation:CheckedContinuation<MongoWire.Message<ByteBufferView>, Error> = 
                 self.requests.removeValue(forKey: request)
         {
             continuation.resume(returning: message)
@@ -69,7 +70,7 @@ extension Mongo.MessageRouter:ChannelOutboundHandler
     typealias OutboundIn =
     (
         BSON.Fields<[UInt8]>,
-        CheckedContinuation<Mongo.Message<ByteBufferView>, Error>
+        CheckedContinuation<MongoWire.Message<ByteBufferView>, Error>
     )
     typealias OutboundOut = ByteBuffer
 
@@ -77,11 +78,11 @@ extension Mongo.MessageRouter:ChannelOutboundHandler
     {
         let (fields, continuation):OutboundIn = self.unwrapOutboundIn(data)
         
-        let id:Mongo.MessageIdentifier = .init(
+        let id:MongoWire.MessageIdentifier = .init(
             self.counter.loadThenWrappingIncrement(ordering: .relaxed))
         
         let command:BSON.Document<[UInt8]> = .init(fields)
-        let message:Mongo.Message<[UInt8]> = .init(sections: .init(command),
+        let message:MongoWire.Message<[UInt8]> = .init(sections: .init(command),
             checksum: false,
             id: id)
         
@@ -105,7 +106,7 @@ extension Mongo.MessageRouter:ChannelOutboundHandler
 
             try? await Task.sleep(for: timeout)
             if  let self:Mongo.MessageRouter,
-                let continuation:CheckedContinuation<Mongo.Message<ByteBufferView>, Error> = 
+                let continuation:CheckedContinuation<MongoWire.Message<ByteBufferView>, Error> = 
                     self.requests.removeValue(forKey: id)
             {
                 continuation.resume(throwing: CommunicationError.timeout)

@@ -1,9 +1,9 @@
 import BSON
 
-extension Mongo
+extension MongoWire
 {
     @frozen public
-    struct MessageHeader:Identifiable, Sendable
+    struct Header:Identifiable, Sendable
     {
         /// The number of bytes in the message body, *not* including the header.
         public
@@ -30,7 +30,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.MessageHeader
+extension MongoWire.Header
 {
     /// The size, 16 bytes, of a MongoDB message header.
     public static
@@ -45,10 +45,10 @@ extension Mongo.MessageHeader
     @inlinable public
     init(size:Int32, id:Int32, request:Int32, type:Int32) throws
     {
-        guard let type:Mongo.MessageType = .init(rawValue: type)
+        guard let type:MongoWire.MessageType = .init(rawValue: type)
         else
         {
-            throw Mongo.MessageTypeError.init(invalid: type)
+            throw MongoWire.MessageTypeError.init(invalid: type)
         }
         self.init(count: Int.init(size) - Self.size, id: .init(id), request: .init(request), 
             type: type)
@@ -59,7 +59,7 @@ extension BSON.Input
 {
     @inlinable public mutating
     func parse(
-        as _:Mongo.MessageHeader.Type = Mongo.MessageHeader.self) throws -> Mongo.MessageHeader
+        as _:MongoWire.Header.Type = MongoWire.Header.self) throws -> MongoWire.Header
     {
         // total size, including this
         let size:Int32 = try self.parse(as: Int32.self)
@@ -72,7 +72,7 @@ extension BSON.Input
 extension BSON.Output
 {
     @inlinable public mutating
-    func serialize(header:Mongo.MessageHeader)
+    func serialize(header:MongoWire.Header)
     {
         // the `as` coercions are here to prevent us from accidentally
         // changing the types of the various integers, which ``serialize(integer:)``
@@ -84,7 +84,7 @@ extension BSON.Output
     }
 }
 
-extension Mongo.MessageHeader:CustomStringConvertible
+extension MongoWire.Header:CustomStringConvertible
 {
     public
     var description:String

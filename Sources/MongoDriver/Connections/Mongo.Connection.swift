@@ -1,5 +1,6 @@
 import BSONEncoding
 import DNSClient
+import MongoWire
 import NIOCore
 import NIOPosix
 import NIOSSL
@@ -109,9 +110,9 @@ extension Mongo.Connection
     private
     init(channel:any Channel, credentials:Mongo.Credentials?) async throws
     {
-        let message:Mongo.Message<ByteBufferView> = try await withCheckedThrowingContinuation
+        let message:MongoWire.Message<ByteBufferView> = try await withCheckedThrowingContinuation
         {
-            (continuation:CheckedContinuation<Mongo.Message<ByteBufferView>, any Error>) in
+            (continuation:CheckedContinuation<MongoWire.Message<ByteBufferView>, any Error>) in
 
             let hello:Mongo.Hello
             // if we don’t have an explicit authentication mode, ask the server
@@ -295,7 +296,7 @@ extension Mongo.Connection
     func run(command:__owned some MongoCommand,
         against database:Mongo.Database.ID,
         transaction:Never? = nil,
-        session:Mongo.Session.ID?) async throws -> Mongo.Message<ByteBufferView>
+        session:Mongo.Session.ID?) async throws -> MongoWire.Message<ByteBufferView>
     {
         var command:BSON.Fields<[UInt8]> = command.fields
             command.add(database: database)
@@ -318,7 +319,7 @@ extension Mongo.Connection
         
         return try await withCheckedThrowingContinuation
         {
-            (continuation:CheckedContinuation<Mongo.Message<ByteBufferView>, any Error>) in
+            (continuation:CheckedContinuation<MongoWire.Message<ByteBufferView>, any Error>) in
             self.channel.writeAndFlush((command, continuation), promise: nil)
         }
     }

@@ -1,7 +1,7 @@
 import BSON
 import BSONTraversal
 
-extension Mongo.Message
+extension MongoWire.Message
 {
     @frozen public
     struct Sequence
@@ -19,7 +19,7 @@ extension Mongo.Message
         }
     }
 }
-extension Mongo.Message.Sequence:TraversableBSON
+extension MongoWire.Message.Sequence:TraversableBSON
 {
     public
     typealias Header = BSON.DocumentHeader
@@ -33,7 +33,7 @@ extension Mongo.Message.Sequence:TraversableBSON
         self.bytes = bytes
     }
 }
-extension Mongo.Message.Sequence
+extension MongoWire.Message.Sequence
 {
     /// The length that would be encoded in this document-sequence’s
     /// prefixed header. Equal to [`self.size`]().
@@ -51,7 +51,7 @@ extension Mongo.Message.Sequence
         Header.size + self.bytes.count
     }
 }
-extension Mongo.Message.Sequence where Bytes:RangeReplaceableCollection<UInt8>
+extension MongoWire.Message.Sequence where Bytes:RangeReplaceableCollection<UInt8>
 {
     @inlinable public
     init<Other>(id:String, documents:some Collection<BSON.Document<Other>>)

@@ -1,22 +1,22 @@
 import CRC
 import BSON
 
-extension Mongo
+extension MongoWire
 {
     @frozen public
     struct Message<Bytes> where Bytes:RandomAccessCollection<UInt8>
     {
         public
-        let header:MessageHeader
+        let header:Header
         public
-        let flags:MessageFlags
+        let flags:Flags
         public
         let sections:Sections
         public
         let checksum:CRC32?
 
         @inlinable public
-        init(header:MessageHeader, flags:MessageFlags, sections:Sections, checksum:CRC32?)
+        init(header:Header, flags:Flags, sections:Sections, checksum:CRC32?)
         {
             self.header = header
             self.flags = flags
@@ -25,10 +25,10 @@ extension Mongo
         }
     }
 }
-extension Mongo.Message:Sendable where Bytes:Sendable
+extension MongoWire.Message:Sendable where Bytes:Sendable
 {
 }
-extension Mongo.Message
+extension MongoWire.Message
 {
     @inlinable public
     var documents:[BSON.Document<Bytes>]
@@ -36,10 +36,10 @@ extension Mongo.Message
         self.sections.documents
     }
 }
-extension Mongo.Message:Identifiable
+extension MongoWire.Message:Identifiable
 {
     @inlinable public
-    var id:Mongo.MessageIdentifier
+    var id:MongoWire.MessageIdentifier
     {
         self.header.id
     }
@@ -49,13 +49,13 @@ extension BSON.Input
 {
     @inlinable public mutating
     func parse(
-        as _:Mongo.Message<Source.SubSequence>.Type = Mongo.Message<Source.SubSequence>.self,
-        header:Mongo.MessageHeader) throws -> Mongo.Message<Source.SubSequence>
+        as _:MongoWire.Message<Source.SubSequence>.Type = MongoWire.Message<Source.SubSequence>.self,
+        header:MongoWire.Header) throws -> MongoWire.Message<Source.SubSequence>
     {
-        let flags:Mongo.MessageFlags = try .init(validating: try self.parse(as: UInt32.self))
+        let flags:MongoWire.Flags = try .init(validating: try self.parse(as: UInt32.self))
 
-        let sections:Mongo.Message<Source.SubSequence>.Sections = try self.parse(
-            as: Mongo.Message<Source.SubSequence>.Sections.self)
+        let sections:MongoWire.Message<Source.SubSequence>.Sections = try self.parse(
+            as: MongoWire.Message<Source.SubSequence>.Sections.self)
 
         let checksum:CRC32? = flags.contains(.checksumPresent) ?
             .init(checksum: try self.parse(as: UInt32.self)) : nil
@@ -64,10 +64,10 @@ extension BSON.Input
     }
 }
 
-extension Mongo.Message
+extension MongoWire.Message
 {
     @inlinable public
-    init(sections:Sections, checksum:Bool = false, id:Mongo.MessageIdentifier)
+    init(sections:Sections, checksum:Bool = false, id:MongoWire.MessageIdentifier)
     {
         // 4 bytes of flags
         var count:Int = 4
@@ -85,7 +85,7 @@ extension Mongo.Message
                 count += documents.reduce(5 + id.utf8.count) { $0 + $1.size }
             }
         }
-        let flags:Mongo.MessageFlags
+        let flags:MongoWire.Flags
         let crc32:CRC32?
         if checksum
         {
@@ -108,7 +108,7 @@ extension Mongo.Message
 extension BSON.Output
 {
     @inlinable public mutating
-    func serialize(message:Mongo.Message<some RandomAccessCollection<UInt8>>)
+    func serialize(message:MongoWire.Message<some RandomAccessCollection<UInt8>>)
     {
         self.serialize(header: message.header)
         self.serialize(integer: message.flags.rawValue as UInt32)

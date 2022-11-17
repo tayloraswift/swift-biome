@@ -1,6 +1,6 @@
 import BSON
 
-extension Mongo.Message
+extension MongoWire.Message
 {
     @frozen public
     struct Sections
@@ -18,13 +18,13 @@ extension Mongo.Message
         }
     }
 }
-extension Mongo.Message.Sections.Element:Sendable where Bytes:Sendable
+extension MongoWire.Message.Sections.Element:Sendable where Bytes:Sendable
 {
 }
-extension Mongo.Message.Sections:Sendable where Bytes:Sendable
+extension MongoWire.Message.Sections:Sendable where Bytes:Sendable
 {
 }
-extension Mongo.Message.Sections:RandomAccessCollection
+extension MongoWire.Message.Sections:RandomAccessCollection
 {
     @frozen public
     enum ElementMetadata:Sendable
@@ -62,7 +62,7 @@ extension Mongo.Message.Sections:RandomAccessCollection
         }
     }
 }
-extension Mongo.Message.Sections
+extension MongoWire.Message.Sections
 {
     /// Creates a section list with a single body section containing a single document.
     @inlinable public
@@ -79,7 +79,7 @@ extension Mongo.Message.Sections
         self.documents.append(document)
     }
     @inlinable public mutating
-    func append<Source>(sequence:__owned Mongo.Message<Source>.Sequence) throws
+    func append<Source>(sequence:__owned MongoWire.Message<Source>.Sequence) throws
         where Source:RandomAccessCollection<UInt8>, Source.SubSequence == Bytes
     {
         var sequence:BSON.Input<Source> = .init(sequence.bytes)
@@ -98,16 +98,16 @@ extension BSON.Input
 {
     @inlinable public mutating
     func parse(
-        as _:Mongo.Message<Source.SubSequence>.Sections.Type = Mongo.Message<Source.SubSequence>.Sections.self)
-        throws -> Mongo.Message<Source.SubSequence>.Sections
+        as _:MongoWire.Message<Source.SubSequence>.Sections.Type = MongoWire.Message<Source.SubSequence>.Sections.self)
+        throws -> MongoWire.Message<Source.SubSequence>.Sections
     {
-        var sections:Mongo.Message<Source.SubSequence>.Sections = .init()
+        var sections:MongoWire.Message<Source.SubSequence>.Sections = .init()
         while let section:UInt8 = self.next()
         {
-            guard let section:Mongo.MessageSection = .init(rawValue: section)
+            guard let section:MongoWire.Section = .init(rawValue: section)
             else
             {
-                throw Mongo.MessageSectionError.init(invalid: section)
+                throw MongoWire.SectionError.init(invalid: section)
             }
             switch section
             {
@@ -116,7 +116,7 @@ extension BSON.Input
                     as: BSON.Document<Source.SubSequence>.self))
             case .sequence:
                 try sections.append(sequence: try self.parse(
-                    as: Mongo.Message<Source.SubSequence>.Sequence.self))
+                    as: MongoWire.Message<Source.SubSequence>.Sequence.self))
             }
         }
         return sections
@@ -126,20 +126,20 @@ extension BSON.Input
 extension BSON.Output
 {
     @inlinable public mutating
-    func serialize<Bytes>(sections:Mongo.Message<Bytes>.Sections)
+    func serialize<Bytes>(sections:MongoWire.Message<Bytes>.Sections)
     {
-        for section:Mongo.Message<Bytes>.Sections.Element in sections
+        for section:MongoWire.Message<Bytes>.Sections.Element in sections
         {
             switch section
             {
             case .body(let document):
-                self.append(Mongo.MessageSection.body.rawValue)
+                self.append(MongoWire.Section.body.rawValue)
                 self.serialize(document: document)
             
             case .sequence(let documents, id: let id):
-                self.append(Mongo.MessageSection.sequence.rawValue)
+                self.append(MongoWire.Section.sequence.rawValue)
                 // TODO: get rid of this intermediate buffer
-                let sequence:Mongo.Message<[UInt8]>.Sequence = .init(id: id,
+                let sequence:MongoWire.Message<[UInt8]>.Sequence = .init(id: id,
                     documents: documents)
                 self.serialize(integer: sequence.header as Int32)
                 self.append(sequence.bytes)

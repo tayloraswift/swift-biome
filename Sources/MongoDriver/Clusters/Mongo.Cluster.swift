@@ -1,3 +1,4 @@
+import MongoWire
 import NIOCore
 @preconcurrency import DNSClient
 
@@ -33,7 +34,7 @@ extension Mongo
         /// The minimum observed wire version among this cluster’s nodes. 
         /// This is [`nil`]() until the first node has been contacted.
         public private(set) 
-        var version:WireVersion?
+        var version:MongoWire?
 
         private 
         var sessions:SessionPool
@@ -185,7 +186,7 @@ extension Mongo.Cluster
     {
         let instance:Mongo.Instance = connection.instance
         /// Ensures we default to the cluster's lowest version
-        if  let version:Mongo.WireVersion = self.version
+        if  let version:MongoWire = self.version
         {
             self.version = min(instance.wireVersions.upperBound, version)
         } 

@@ -1,8 +1,8 @@
-extension Mongo
+extension MongoWire
 {
     /// The subtype byte of a binary array was matched a reserved bit pattern.
     @frozen public
-    struct MessageSectionError:Equatable, Error
+    struct SectionError:Equatable, Error
     {
         public
         let code:UInt8
@@ -14,7 +14,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.MessageSectionError:CustomStringConvertible
+extension MongoWire.SectionError:CustomStringConvertible
 {
     public 
     var description:String
