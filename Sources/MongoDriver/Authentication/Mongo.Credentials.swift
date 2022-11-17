@@ -1,0 +1,34 @@
+extension Mongo
+{
+    @frozen public
+    struct Credentials:Equatable, Sendable
+    {
+        public
+        let authentication:Mongo.Authentication?
+        public
+        let username:String
+        public
+        let password:String
+        public
+        let database:Mongo.Database.ID
+
+        @inlinable public
+        init(authentication:Mongo.Authentication?,
+            username:String,
+            password:String,
+            database:Mongo.Database.ID = .admin)
+        {
+            self.authentication = authentication
+            self.username = username
+            self.password = password
+            self.database = database
+        }
+    }
+}
+extension Mongo.Credentials
+{
+    var user:Mongo.User.ID
+    {
+        .init(self.database, self.username)
+    }
+}

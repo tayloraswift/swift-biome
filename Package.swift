@@ -34,7 +34,7 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-json", branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-grammar", .upToNextMinor(from: "0.2.0")),
         //.package(url: "https://github.com/kelvin13/swift-hash", .upToNextMinor(from: "0.3.0")),
-        .package(url: "https://github.com/kelvin13/swift-hash", .upToNextMinor(from: "0.4.0")),
+        .package(url: "https://github.com/kelvin13/swift-hash", .upToNextMinor(from: "0.4.1")),
         .package(url: "https://github.com/kelvin13/swift-highlight", .upToNextMinor(from: "0.1.4")),
         .package(url: "https://github.com/kelvin13/swift-web-semantics", .upToNextMinor(from: "0.4.0")),
         .package(url: "https://github.com/kelvin13/swift-dom", .upToNextMinor(from: "0.5.2")),
@@ -155,6 +155,12 @@ let package = Package(
         
         .target(name: "TraceableErrors"),
 
+        .target(name: "UUID",
+            dependencies:
+            [
+                .product(name: "Base16", package: "swift-hash"),
+            ]),
+
         .target(name: "BSONTraversal"),
         .target(name: "BSON",
             dependencies:
@@ -188,7 +194,7 @@ let package = Package(
                 .product(name: "CRC", package: "swift-hash"),
             ]),
         
-        .target(name: "MongoClient",
+        .target(name: "MongoDriver",
             dependencies: 
             [
                 .target(name: "BSONDecoding"),
@@ -210,6 +216,7 @@ let package = Package(
 
                 .target(name: "MongoWire"),
                 .target(name: "SCRAM"),
+                .target(name: "UUID"),
 
                 .target(name: "TraceableErrors"),
 
@@ -219,7 +226,7 @@ let package = Package(
         .target(name: "MongoDB",
             dependencies: 
             [
-                .target(name: "MongoClient"),
+                .target(name: "MongoDriver"),
             ]),
         
         .target(name: "BiomeDatabase",
@@ -296,7 +303,7 @@ let package = Package(
             dependencies:
             [
                 .target(name: "MongoDB"),
-                // already included by `MongoClient`’s transitive `NIOSSL` dependency,
+                // already included by `MongoDriver`’s transitive `NIOSSL` dependency,
                 // but restated here for clarity.
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "Testing", package: "swift-hash"),

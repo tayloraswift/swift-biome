@@ -101,7 +101,7 @@ enum Main
 
         await tests.group("databases")
         {
-            let database:Mongo.Database = "test-database"
+            let database:Mongo.Database.ID = "test-database"
 
             await $0.do(name: "drop-database-non-existent")
             {
@@ -110,30 +110,48 @@ enum Main
             }
             await $0.do(name: "create-collection")
             {
-                _ in try await cluster.run(command: Mongo.Create.init(binding: "test"), 
+                _ in try await cluster.run(command: Mongo.Create.init(id: "test"), 
                     against: database)
             }
 
             await $0.do(name: "list-databases")
             {
-                let names:[Mongo.Database] = try await cluster.run(command: Mongo.ListDatabases.init())
-                    .databases.map(\.database)
+                let names:[Mongo.Database.ID] = try await cluster.run(
+                    command: Mongo.ListDatabaseNames.init())
                 $0.assert(names ..? ["admin", "config", "local", database])
             }
 
             await $0.do(name: "list-collections")
             {
                 _ in
-                let cursor:Mongo.Cursor = try await cluster.run(command: Mongo.ListCollections.init(),
+
+                for i:Int in 0 ..< 100
+                {
+                    try await cluster.run(command: Mongo.Create.init(id: .init("empty.\(i)")), 
+                        against: database)
+                }
+                let cursor:Mongo.Cursor<Mongo.Collection> = try await cluster.run(
+                    command: Mongo.ListCollections.init(),
                     against: database)
+                
                 print(cursor)
+
+                while   let more:Mongo.Cursor<Mongo.Collection>.GetMore = .init(cursor: cursor.id,
+                            collection: .init(cursor.namespace))
+                {
+                    let next:Mongo.Cursor<Mongo.Collection> = try await cluster.run(
+                        command: more,
+                        against: database)
+                    print(next)
+                }
+                
             }
 
             await $0.do(name: "drop-database")
             {
                 try await cluster.run(command: Mongo.DropDatabase.init(), against: database)
-                let names:[Mongo.Database] = try await cluster.run(command: Mongo.ListDatabases.init())
-                    .databases.map(\.database)
+                let names:[Mongo.Database.ID] = try await cluster.run(
+                    command: Mongo.ListDatabaseNames.init())
                 $0.assert(names ..? ["admin", "config", "local"])
             }
         }

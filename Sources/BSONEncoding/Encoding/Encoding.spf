@@ -1,0 +1,54 @@
+@basis 
+let types:[Never] = 
+[
+    BSON.Document<Bytes>,
+    BSON.Tuple<Bytes>,
+    BSON.Binary<Bytes>,
+    Bool,
+    BSON.Decimal128,
+    Double,
+    BSON.Identifier,
+    Int32,
+    Int64,
+    BSON.UTF8<Bytes>,
+    BSON.Millisecond,
+    BSON.Regex,
+    BSON.UTF8<Bytes>,
+    UInt64,
+]
+@basis 
+let variants:[Never] = 
+[
+    document,
+    tuple,
+    binary,
+    bool,
+    decimal128,
+    double,
+    id,
+    int32,
+    int64,
+    javascript,
+    millisecond,
+    regex,
+    string,
+    uint64,
+]
+extension BSON.Value
+{
+    @matrix(__variant__: variants, __Wrapped__: types)
+    @inlinable public static
+    func __variant__(_ __variant__:__Wrapped__?) -> Self?
+    {
+        __variant__.map(Self.__variant__(_:))
+    }
+}
+extension BSON.Value where Bytes:RangeReplaceableCollection<UInt8>
+{
+    @matrix(__variant__: [string, javascript])
+    @inlinable public static
+    func __variant__(_ __variant__:(some StringProtocol)?) -> Self?
+    {
+        __variant__.map(Self.__variant__(_:))
+    }
+}

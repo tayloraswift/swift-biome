@@ -1,7 +1,7 @@
 import BSON
 
 @_exported
-import MongoClient
+import MongoDriver
 
 // public
 // struct MongoDB 

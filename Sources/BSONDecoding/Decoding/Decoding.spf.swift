@@ -42,6 +42,11 @@ extension BSON.Value
         try self.match(Self.as(_:))
     }
     @inlinable public 
+    func `as`(_:BSON.Binary<Bytes>.Type) throws -> BSON.Binary<Bytes>
+    {
+        try self.match(Self.as(_:))
+    }
+    @inlinable public 
     func `as`<Integer>(_:Integer.Type) throws -> Integer
         where Integer:FixedWidthInteger
     {
@@ -93,6 +98,11 @@ extension BSON.Value
     }
     @inlinable public 
     func `as`(_:BSON.Document<Bytes>?.Type) throws -> BSON.Document<Bytes>?
+    {
+        try self.flatMatch(Self.as(_:))
+    }
+    @inlinable public 
+    func `as`(_:BSON.Binary<Bytes>?.Type) throws -> BSON.Binary<Bytes>?
     {
         try self.flatMatch(Self.as(_:))
     }
@@ -177,6 +187,11 @@ extension BSONDecoderField
         try self.decode { try $0.as(BSON.Document<Bytes>.self) }
     }
     @inlinable public
+    func decode(to _:BSON.Binary<Bytes>.Type = BSON.Binary<Bytes>.self) throws -> BSON.Binary<Bytes>
+    {
+        try self.decode { try $0.as(BSON.Binary<Bytes>.self) }
+    }
+    @inlinable public
     func decode<Integer>(to _:Integer.Type = Integer.self) throws -> Integer
         where Integer:FixedWidthInteger
     {
@@ -255,6 +270,11 @@ extension BSONDecoderField
     func decode(to _:BSON.Document<Bytes>?.Type = BSON.Document<Bytes>?.self) throws -> BSON.Document<Bytes>?
     {
         try self.decode { try $0.as(BSON.Document<Bytes>?.self) }
+    }
+    @inlinable public
+    func decode(to _:BSON.Binary<Bytes>?.Type = BSON.Binary<Bytes>?.self) throws -> BSON.Binary<Bytes>?
+    {
+        try self.decode { try $0.as(BSON.Binary<Bytes>?.self) }
     }
     @inlinable public
     func decode<Integer>(to _:Integer?.Type = Integer?.self) throws -> Integer?
@@ -357,6 +377,12 @@ extension BSONDecoderField
         try self.decode { try decode(try $0.as(BSON.Dictionary<Bytes.SubSequence>.self)) }
     }
     @inlinable public
+    func decode<T>(as _:BSON.Binary<Bytes>.Type,
+        with decode:(BSON.Binary<Bytes>) throws -> T) throws -> T
+    {
+        try self.decode { try decode(try $0.as(BSON.Binary<Bytes>.self)) }
+    }
+    @inlinable public
     func decode<Integer, T>(as _:Integer.Type,
         with decode:(Integer) throws -> T) throws -> T
         where Integer:FixedWidthInteger
@@ -433,6 +459,12 @@ extension BSONDecoderField
         with decode:(BSON.Dictionary<Bytes.SubSequence>) throws -> T) throws -> T?
     {
         try self.decode { try $0.as(BSON.Dictionary<Bytes.SubSequence>?.self).map(decode) }
+    }
+    @inlinable public
+    func decode<T>(as _:BSON.Binary<Bytes>?.Type,
+        with decode:(BSON.Binary<Bytes>) throws -> T) throws -> T?
+    {
+        try self.decode { try $0.as(BSON.Binary<Bytes>?.self).map(decode) }
     }
     @inlinable public
     func decode<Integer, T>(as _:Integer?.Type,

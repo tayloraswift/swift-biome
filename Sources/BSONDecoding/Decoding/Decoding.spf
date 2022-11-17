@@ -9,6 +9,7 @@ let primitive:[Never] =
     BSON.Millisecond,
     BSON.Tuple<Bytes>,
     BSON.Document<Bytes>,
+    BSON.Binary<Bytes>,
 ]
 @basis
 let concrete:[Never] =
@@ -23,6 +24,7 @@ let concrete:[Never] =
     BSON.Array<Bytes.SubSequence>,
     BSON.Document<Bytes>,
     BSON.Dictionary<Bytes.SubSequence>,
+    BSON.Binary<Bytes>,
 ]
 
 @basis

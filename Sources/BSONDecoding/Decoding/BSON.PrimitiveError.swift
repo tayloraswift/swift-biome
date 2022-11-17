@@ -291,6 +291,23 @@ extension BSON.Value
             return nil 
         }
     }
+    /// Attempts to unwrap a binary array from this variant.
+    /// 
+    /// -   Returns: The payload of this variant if it matches ``binary(_:)``,
+    ///     [`nil`]() otherwise.
+    /// 
+    /// >   Complexity: O(1).
+    @inlinable public 
+    func `as`(_:BSON.Binary<Bytes>.Type) -> BSON.Binary<Bytes>?
+    {
+        switch self 
+        {
+        case .binary(let binary):
+            return binary
+        default:
+            return nil 
+        }
+    }
     /// Attempts to unwrap an instance of ``Identifier`` from this variant.
     /// 
     /// -   Returns:
