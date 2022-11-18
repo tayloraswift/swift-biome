@@ -55,7 +55,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.Collation:MongoScheme, MongoRepresentable
+extension Mongo.Collation:MongoScheme
 {
     public
     init(bson:BSON.Dictionary<ByteBufferView>) throws

@@ -31,7 +31,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.TimeseriesOptions:MongoScheme, MongoRepresentable
+extension Mongo.TimeseriesOptions:MongoScheme
 {
     public
     init(bson:BSON.Dictionary<ByteBufferView>) throws
@@ -125,7 +125,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.CollectionOptions:MongoScheme
+extension Mongo.CollectionOptions:MongoDecodable
 {
     public
     init(bson:BSON.Dictionary<ByteBufferView>) throws

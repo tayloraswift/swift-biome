@@ -20,7 +20,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.CollectionInfo:MongoScheme
+extension Mongo.CollectionInfo:MongoDecodable
 {
     public
     init(bson:BSON.Dictionary<ByteBufferView>) throws

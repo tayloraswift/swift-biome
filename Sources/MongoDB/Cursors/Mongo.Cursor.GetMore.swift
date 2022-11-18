@@ -14,12 +14,12 @@ extension Mongo.Cursor
         public
         let batchSize:Int?
         public
-        let timeout:Duration?
+        let timeout:Mongo.Duration?
 
         @inlinable public
         init?(cursor:Int64, collection:Mongo.Collection.ID,
             batchSize:Int? = nil,
-            timeout:Duration? = nil)
+            timeout:Mongo.Duration? = nil)
         {
             // cursor id of 0 indicates exhaustion
             guard cursor != 0

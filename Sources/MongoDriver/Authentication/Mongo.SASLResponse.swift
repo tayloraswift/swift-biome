@@ -19,7 +19,7 @@ extension Mongo.SASLResponse
         .init(conversation: self.conversation, message: message)
     }
 }
-extension Mongo.SASLResponse:MongoScheme
+extension Mongo.SASLResponse:MongoDecodable
 {
     init(bson:BSON.Dictionary<ByteBufferView>) throws
     {

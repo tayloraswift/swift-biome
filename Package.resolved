@@ -77,8 +77,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/kelvin13/swift-hash",
       "state" : {
-        "revision" : "7f30a3922c6bb9f363bd4c516b97feac3efa6957",
-        "version" : "0.4.1"
+        "branch" : "fix-do-catch-scope",
+        "revision" : "f4d59f17909ecbe3749b36847a6d5cb1ee10e55f"
       }
     },
     {

@@ -9,14 +9,14 @@ extension Mongo
     struct Create:Sendable
     {
         public
-        let id:Collection.ID
+        let collection:Collection.ID
         public
         let options:CollectionOptions
 
         public
-        init(id:Collection.ID, options:CollectionOptions = .init())
+        init(collection:Collection.ID, options:CollectionOptions = .init())
         {
-            self.id = id
+            self.collection = collection
             self.options = options
         }
     }
@@ -30,7 +30,7 @@ extension Mongo.Create:MongoDatabaseCommand
     var fields:BSON.Fields<[UInt8]>
     {
         var fields:BSON.Fields<[UInt8]> = self.options.fields
-            fields.add(key: "create", value: .string(self.id.name))
+            fields.add(key: "create", value: .string(self.collection.name))
         return fields
     }
 }

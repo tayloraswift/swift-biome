@@ -30,7 +30,7 @@ extension Mongo.Database
         self.id.name
     }
 }
-extension Mongo.Database:MongoScheme
+extension Mongo.Database:MongoDecodable
 {
     public
     init(bson:BSON.Dictionary<ByteBufferView>) throws

@@ -22,6 +22,21 @@ extension BSON
 }
 extension BSON.ImplicitField
 {
+    @inlinable public static
+    func ?? (lhs:Self, rhs:@autoclosure () -> Self) -> Self
+    {
+        if case nil = lhs.value
+        {
+            return rhs()
+        }
+        else
+        {
+            return lhs
+        }
+    }
+}
+extension BSON.ImplicitField
+{
     /// Gets the value of this key, throwing a ``BSON/DictionaryKeyError``
     /// if it is [`nil`](). This is a distinct condition from an explicit
     /// ``BSON.null`` value, which will be returned without throwing an error.

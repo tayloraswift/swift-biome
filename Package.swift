@@ -34,7 +34,7 @@ let package = Package(
         .package(url: "https://github.com/kelvin13/swift-json", branch: "master"),
         .package(url: "https://github.com/kelvin13/swift-grammar", .upToNextMinor(from: "0.2.0")),
         //.package(url: "https://github.com/kelvin13/swift-hash", .upToNextMinor(from: "0.3.0")),
-        .package(url: "https://github.com/kelvin13/swift-hash", .upToNextMinor(from: "0.4.1")),
+        .package(url: "https://github.com/kelvin13/swift-hash", branch: "fix-do-catch-scope"),
         .package(url: "https://github.com/kelvin13/swift-highlight", .upToNextMinor(from: "0.1.4")),
         .package(url: "https://github.com/kelvin13/swift-web-semantics", .upToNextMinor(from: "0.4.0")),
         .package(url: "https://github.com/kelvin13/swift-dom", .upToNextMinor(from: "0.5.2")),
@@ -289,7 +289,7 @@ let package = Package(
                 .product(name: "Base16", package: "swift-hash"),
                 .product(name: "Testing", package: "swift-hash"),
             ], 
-            path: "Tests/BSONTests"),
+            path: "Tests/BSON"),
         
         .executableTarget(name: "BSONDecodingTests",
             dependencies:
@@ -297,7 +297,7 @@ let package = Package(
                 .target(name: "BSONDecoding"),
                 .product(name: "Testing", package: "swift-hash"),
             ], 
-            path: "Tests/BSONDecodingTests"),
+            path: "Tests/BSONDecoding"),
         
         .executableTarget(name: "MongoDBTests",
             dependencies:
@@ -308,7 +308,18 @@ let package = Package(
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "Testing", package: "swift-hash"),
             ], 
-            path: "Tests/MongoDBTests"),
+            path: "Tests/MongoDB"),
+        
+        .executableTarget(name: "MongoDriverTests",
+            dependencies:
+            [
+                .target(name: "MongoDriver"),
+                // already included by `MongoDriver`’s transitive `NIOSSL` dependency,
+                // but restated here for clarity.
+                .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "Testing", package: "swift-hash"),
+            ], 
+            path: "Tests/MongoDriver"),
         
         .executableTarget(name: "SedimentTests",
             dependencies:
@@ -316,7 +327,7 @@ let package = Package(
                 .target(name: "Sediment"),
                 .product(name: "Testing", package: "swift-hash"),
             ], 
-            path: "Tests/SedimentTests"),
+            path: "Tests/Sediment"),
         
         // .executableTarget(name: "BiomeTests", 
         //     dependencies: 

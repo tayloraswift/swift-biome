@@ -43,28 +43,23 @@ extension Mongo.ListDatabases:MongoSessionCommand
         ]
     }
 
-    @frozen public
-    struct Response
+    public static
+    func decode(reply bson:BSON.Dictionary<ByteBufferView>) throws ->
+    (
+        totalSize:Int,
+        databases:[Mongo.Database]
+    )
     {
-        public
-        let totalSize:Int
-        public
-        let databases:[Mongo.Database]
-    }
-}
-extension Mongo.ListDatabases.Response:MongoScheme
-{
-    public
-    init(bson:BSON.Dictionary<ByteBufferView>) throws
-    {
-        self.totalSize = try bson["totalSize"].decode(to: Int.self)
-        self.databases = try bson["databases"].decode(as: BSON.Array<ByteBufferView>.self)
-        {
-            try $0.map
+        (
+            totalSize: try bson["totalSize"].decode(to: Int.self),
+            databases: try bson["databases"].decode(as: BSON.Array<ByteBufferView>.self)
             {
-                try $0.decode(as: BSON.Dictionary<ByteBufferView>.self,
-                    with: Mongo.Database.init(bson:))
+                try $0.map
+                {
+                    try $0.decode(as: BSON.Dictionary<ByteBufferView>.self,
+                        with: Mongo.Database.init(bson:))
+                }
             }
-        }
+        )
     }
 }

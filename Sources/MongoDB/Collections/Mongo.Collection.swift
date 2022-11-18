@@ -25,7 +25,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.Collection:MongoScheme
+extension Mongo.Collection:MongoDecodable
 {
     public
     init(bson:BSON.Dictionary<ByteBufferView>) throws

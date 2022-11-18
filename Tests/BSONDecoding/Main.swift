@@ -2,13 +2,11 @@ import Testing
 import BSONDecoding
 
 @main 
-enum Main
+enum Main:SynchronousTests
 {
     static
-    func main() throws
+    func run(tests:inout Tests)
     {
-        var tests:UnitTests = .init()
-
         tests.group("numeric")
         {
             let bson:BSON.Document<[UInt8]> =
@@ -245,34 +243,6 @@ enum Main
             {
                 try $0["present"]?.decode(to: Bool.self)
             }
-        }
-
-        try tests.summarize()
-    }
-}
-extension UnitTests
-{
-    mutating
-    func test<Failure, Unexpected>(name:String, decoding bson:BSON.Document<[UInt8]>, 
-        failure:Failure,
-        decoder decode:(BSON.Dictionary<ArraySlice<UInt8>>) throws -> Unexpected)
-        where Failure:Equatable & Error
-    {
-        self.do(expecting: failure, name: name)
-        {
-            _ in _ = try decode(try .init(fields: try bson.parse()))
-        }
-    }
-    mutating
-    func test<Expected>(name:String, decoding bson:BSON.Document<[UInt8]>,
-        expecting expected:Expected,
-        decoder decode:(BSON.Dictionary<ArraySlice<UInt8>>) throws -> Expected)
-        where Expected:Equatable
-    {
-        self.do(name: name)
-        {
-            let decoded:Expected = try decode(try .init(fields: try bson.parse()))
-            $0.assert(expected == decoded, name: "\(name).value")
         }
     }
 }

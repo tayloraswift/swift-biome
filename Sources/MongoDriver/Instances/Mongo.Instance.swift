@@ -234,7 +234,7 @@ extension Mongo
         let set:ReplicaSet?
     }
 }
-extension Mongo.Instance:MongoScheme
+extension Mongo.Instance:MongoDecodable
 {
     public
     init(bson:BSON.Dictionary<ByteBufferView>) throws

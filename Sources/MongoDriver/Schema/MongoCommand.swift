@@ -36,7 +36,7 @@ extension MongoCommand<Void>
     {
     }
 }
-extension MongoCommand where Response:MongoScheme
+extension MongoCommand where Response:MongoDecodable
 {
     /// Delegates to the ``Response`` type’s ``MongoScheme/.init(bson:)`` initializer.
     @inlinable public static

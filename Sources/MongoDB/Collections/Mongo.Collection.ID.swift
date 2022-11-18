@@ -21,3 +21,11 @@ extension Mongo.Collection.ID:ExpressibleByStringLiteral
         self.init(stringLiteral)
     }
 }
+extension Mongo.Collection.ID:CustomStringConvertible
+{
+    @inlinable public
+    var description:String
+    {
+        self.name
+    }
+}

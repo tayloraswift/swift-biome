@@ -13,6 +13,9 @@ extension BSON
         }
     }
 }
+extension BSON.Fields:Sendable where Bytes:Sendable, Bytes.SubSequence:Sendable
+{
+}
 extension BSON.Fields:RandomAccessCollection, MutableCollection
 {
     @inlinable public
