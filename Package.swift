@@ -56,14 +56,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.1.3")),
         .package(url: "https://github.com/swift-server/swift-backtrace.git", .upToNextMinor(from: "1.3.2")),
 
-        // .package(url: "https://github.com/orlandos-nl/MongoKitten", .upToNextMajor(from: "7.2.10"))
-        // mongokitten’s dependencies:
-        .package(url: "https://github.com/karwa/swift-url.git",     from: "0.4.1"),
-        .package(url: "https://github.com/orlandos-nl/NioDNS.git",  from: "2.0.0"),
-        .package(url: "https://github.com/apple/swift-log.git",     from: "1.0.0"),
-        .package(url: "https://github.com/apple/swift-metrics.git", "1.0.0" ..< "3.0.0"),
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.0.0"),
-        //.package(url: "https://github.com/orlandos-nl/BSON.git",    from: "8.0.0"),
     ],
     targets: 
     [
@@ -186,6 +179,14 @@ let package = Package(
                 .product(name: "MessageAuthentication", package: "swift-hash"),
             ]),
 
+        .target(name: "Mongo"),
+
+        .target(name: "MongoURI",
+            dependencies: 
+            [
+                .target(name: "Mongo"),
+            ]),
+        
         .target(name: "MongoWire",
             dependencies: 
             [
@@ -193,34 +194,25 @@ let package = Package(
                 
                 .product(name: "CRC", package: "swift-hash"),
             ]),
-        
+
         .target(name: "MongoDriver",
             dependencies: 
             [
                 .target(name: "BSONDecoding"),
                 .target(name: "BSONEncoding"),
+                .target(name: "Mongo"),
+                .target(name: "MongoWire"),
+                .target(name: "SCRAM"),
+                .target(name: "TraceableErrors"),
+                .target(name: "UUID"),
 
                 .product(name: "Base64",                package: "swift-hash"),
                 .product(name: "MessageAuthentication", package: "swift-hash"),
                 .product(name: "SHA2",                  package: "swift-hash"),
-                
                 .product(name: "NIOCore",               package: "swift-nio"),
                 .product(name: "NIOPosix",              package: "swift-nio"),
                 .product(name: "NIOSSL",                package: "swift-nio-ssl"),
-                .product(name: "NIOFoundationCompat",   package: "swift-nio"),
-                .product(name: "Logging",               package: "swift-log"),
-                .product(name: "Metrics",               package: "swift-metrics"),
                 .product(name: "Atomics",               package: "swift-atomics"),
-
-                .product(name: "WebURL",                package: "swift-url"),
-
-                .target(name: "MongoWire"),
-                .target(name: "SCRAM"),
-                .target(name: "UUID"),
-
-                .target(name: "TraceableErrors"),
-
-                .product(name: "DNSClient", package: "NioDNS"),
             ]),
         
         .target(name: "MongoDB",

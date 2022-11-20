@@ -5,59 +5,28 @@ extension Mongo
 {
     // not sendable! not even a little bit!
     public
-    struct Session:Identifiable
+    struct Session
     {
+        private
         let connection:Connection
         private
-        let manager:Manager
+        let manager:SessionManager
 
-        public
-        var id:ID
+        init(connection:Connection, manager:SessionManager)
         {
-            self.manager.id
+            self.connection = connection
+            self.manager = manager
         }
     }
 }
-extension Mongo.Session
+extension Mongo.Session:Identifiable
 {
-    init(connection:Mongo.Connection, cluster:Mongo.Cluster, id:ID)
+    public
+    var id:ID
     {
-        self.connection = connection
-        self.manager = .init(cluster: cluster, id: id)
-    }
-
-    class Manager
-    {
-        // TODO: implement time gossip
-        private
-        let cluster:Mongo.Cluster
-        let id:ID
-
-        init(cluster:Mongo.Cluster, id:ID)
-        {
-            self.cluster = cluster
-            self.id = id
-        }
-
-        fileprivate
-        func reset(timeout:ContinuousClock.Instant)
-        {
-            Task.init
-            {
-                [id] in await self.cluster.update(session: id, timeout: timeout)
-            }
-        }
-        deinit
-        {
-            Task.init
-            {
-                [id, cluster] in await cluster.release(session: id)
-            }
-        }
+        self.manager.id
     }
 }
-
-
 extension Mongo.Session
 {
     private
@@ -78,7 +47,7 @@ extension Mongo.Session
             command: command, against: .admin,
             transaction: nil,
             session: self.id)
-        self.manager.reset(timeout: timeout)
+        self.manager.extend(timeout: timeout)
         return try Command.decode(message: message)
     }
     
@@ -93,7 +62,7 @@ extension Mongo.Session
             command: command, against: database,
             transaction: nil,
             session: self.id)
-        self.manager.reset(timeout: timeout)
+        self.manager.extend(timeout: timeout)
         return try Command.decode(message: message)
     }
 }

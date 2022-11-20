@@ -8,7 +8,7 @@ extension Mongo
         public
         let collection:Collection.ID
         public
-        let batching:Batching
+        let batching:Int
         public
         let timeout:Duration?
         public
@@ -45,7 +45,7 @@ extension Mongo
         let showRecordIdentifier:Bool
 
         public
-        init(collection:Collection.ID, returning batching:Batching,
+        init(collection:Collection.ID, returning batching:Int,
             timeout:Duration? = nil,
             tailing:Tailing? = nil,
             `let`:BSON.Document<[UInt8]>? = nil,
@@ -84,22 +84,22 @@ extension Mongo
 }
 extension Mongo.Find
 {
-    var batchSize:Int64
-    {
-        switch self.batching
-        {
-        case .batch(of: let size), .batches(of: let size):
-            return .init(size)
-        }
-    }
-    var singleBatch:Bool
-    {
-        switch self.batching
-        {
-        case .batch:    return true
-        case .batches:  return false
-        }
-    }
+    // var batchSize:Int64
+    // {
+    //     switch self.batching
+    //     {
+    //     case .batch(of: let size), .batches(of: let size):
+    //         return .init(size)
+    //     }
+    // }
+    // var singleBatch:Bool
+    // {
+    //     switch self.batching
+    //     {
+    //     case .batch:    return true
+    //     case .batches:  return false
+    //     }
+    // }
     var tailable:Bool
     {
         switch self.tailing
@@ -117,7 +117,7 @@ extension Mongo.Find
         }
     }
 }
-extension Mongo.Find:MongoDatabaseCommand
+extension Mongo.Find:MongoQueryCommand
 {
     public static
     var node:Mongo.InstanceSelector
@@ -132,9 +132,9 @@ extension Mongo.Find:MongoDatabaseCommand
             "find":
                 .string(self.collection.name),
             "batchSize":
-                .int64(self.batchSize),
-            "singleBatch":
-                .bool(self.singleBatch ? true : nil),
+                .int64(Int64.init(self.batching)),
+            // "singleBatch":
+            //     .bool(self.singleBatch ? true : nil),
             "maxTimeMS":
                 .int64(self.timeout?.milliseconds),
             "tailable":

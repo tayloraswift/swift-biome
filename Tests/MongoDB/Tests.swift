@@ -23,7 +23,7 @@ extension Tests
             {
                 try await cluster.run(command: Mongo.DropDatabase.init(), against: database)
                 let names:[Mongo.Database.ID] = try await cluster.run(
-                    command: Mongo.ListDatabaseNames.init())
+                    command: Mongo.ListDatabases.NameOnly.init())
                 $0.assert(names ..? databases, name: "names")
             }
         }

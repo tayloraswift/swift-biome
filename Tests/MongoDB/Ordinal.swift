@@ -24,3 +24,12 @@ extension Ordinal:MongoScheme
         ]
     }
 }
+extension Ordinal:CustomStringConvertible
+{
+    var description:String
+    {
+        """
+        {_id: \(self.id), ordinal: \(self.value)}
+        """
+    }
+}

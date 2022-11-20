@@ -221,7 +221,7 @@ extension Mongo
 
         /// An array of SASL mechanisms used to create the user's credential or credentials.
         public
-        let saslSupportedMechs:Set<SASL>?
+        let saslSupportedMechs:Set<Authentication.SASL>?
 
         /// Fields present when the server is a sharded instance.
         /// There are no such fields, so this property is only useful for
@@ -272,7 +272,7 @@ extension Mongo.Instance:MongoDecodable
         self.saslSupportedMechs = try bson["saslSupportedMechs"]?.decode(
             as: BSON.Array<ByteBufferView>.self)
         {
-            .init(try $0.map { try $0.decode(cases: Mongo.SASL.self) })
+            .init(try $0.map { try $0.decode(cases: Mongo.Authentication.SASL.self) })
         }
 
         self.sharded = try bson["msg"]?.decode(as: String.self)

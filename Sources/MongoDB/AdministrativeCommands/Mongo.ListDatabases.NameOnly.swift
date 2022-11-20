@@ -2,7 +2,7 @@ import BSONDecoding
 import BSONEncoding
 import NIOCore
 
-extension Mongo
+extension Mongo.ListDatabases
 {
     /// Lists the names of all existing databases. 
     /// This command must run against the `admin` database.
@@ -12,23 +12,28 @@ extension Mongo
     ///
     /// > See:  https://www.mongodb.com/docs/manual/reference/command/listDatabases/
     public
-    struct ListDatabaseNames
+    struct NameOnly
     {
         public
-        let authorizedDatabases:Bool?
-        public
-        let filter:BSON.Document<[UInt8]>?
+        let base:Mongo.ListDatabases
 
         public
-        init(authorizedDatabases:Bool? = nil,
-            filter:BSON.Document<[UInt8]>? = nil)
+        init(_ base:Mongo.ListDatabases)
         {
-            self.authorizedDatabases = authorizedDatabases
-            self.filter = filter
+            self.base = base
         }
     }
 }
-extension Mongo.ListDatabaseNames:MongoSessionCommand
+extension Mongo.ListDatabases.NameOnly
+{
+    public
+    init(authorizedDatabases:Bool? = nil,
+        filter:BSON.Document<[UInt8]>? = nil)
+    {
+        self.init(.init(authorizedDatabases: authorizedDatabases, filter: filter))
+    }
+}
+extension Mongo.ListDatabases.NameOnly:MongoSessionCommand
 {
     public static
     let node:Mongo.InstanceSelector = .any
@@ -36,12 +41,9 @@ extension Mongo.ListDatabaseNames:MongoSessionCommand
     public
     var fields:BSON.Fields<[UInt8]>
     {
-        [
-            "listDatabases": 1,
-            "authorizedDatabases": .bool(self.authorizedDatabases),
-            "nameOnly": true,
-            "filter": .document(self.filter),
-        ]
+        var fields:BSON.Fields<[UInt8]> = self.base.fields
+            fields.add(key: "nameOnly", value: true)
+        return fields
     }
 
     public static

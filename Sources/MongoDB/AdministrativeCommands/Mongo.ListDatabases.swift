@@ -56,8 +56,12 @@ extension Mongo.ListDatabases:MongoSessionCommand
             {
                 try $0.map
                 {
-                    try $0.decode(as: BSON.Dictionary<ByteBufferView>.self,
-                        with: Mongo.Database.init(bson:))
+                    try $0.decode(as: BSON.Dictionary<ByteBufferView>.self)
+                    {
+                        .init(id: try $0["name"].decode(as: String.self, 
+                                with: Mongo.Database.ID.init(_:)),
+                            size: try $0["sizeOnDisk"].decode(to: Int.self))
+                    }
                 }
             }
         )

@@ -40,7 +40,7 @@ extension Mongo.Hello:MongoCommand
             [
                 "driver":
                 [
-                    "name": "_BiomeMongoKitten",
+                    "name": "swift-mongodb",
                     "version": "0",
                 ],
                 "os":
@@ -48,7 +48,7 @@ extension Mongo.Hello:MongoCommand
                     "type": .string(Self.os),
                 ],
             ],
-            "saslSupportedMechs": self.user?.bson
+            "saslSupportedMechs": .string(self.user?.description),
         ]
     }
 }

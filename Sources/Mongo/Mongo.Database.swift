@@ -1,6 +1,3 @@
-import BSONDecoding
-import NIOCore
-
 extension Mongo
 {
     /// Information about a MongoDB database.
@@ -28,14 +25,5 @@ extension Mongo.Database
     var name:String
     {
         self.id.name
-    }
-}
-extension Mongo.Database:MongoDecodable
-{
-    public
-    init(bson:BSON.Dictionary<ByteBufferView>) throws
-    {
-        self.init(id: try bson["name"].decode(as: String.self, with: ID.init(_:)),
-            size: try bson["sizeOnDisk"].decode(to: Int.self))
     }
 }

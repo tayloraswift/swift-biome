@@ -1,12 +1,3 @@
-import BSON
-
-extension Mongo
-{
-    public
-    enum User
-    {
-    }
-}
 extension Mongo.User
 {
     @frozen public
@@ -31,13 +22,5 @@ extension Mongo.User.ID:CustomStringConvertible
     var description:String
     {
         "\(self.database).\(self.name)"
-    }
-}
-extension Mongo.User.ID
-{
-    @inlinable public
-    var bson:BSON.Value<[UInt8]>
-    {
-        .string(self.description)
     }
 }

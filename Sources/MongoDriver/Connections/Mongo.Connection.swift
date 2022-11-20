@@ -1,11 +1,20 @@
 import BSONEncoding
-import DNSClient
 import MongoWire
 import NIOCore
 import NIOPosix
 import NIOSSL
 import SCRAM
 import SHA2
+
+extension BSON.Fields where Bytes:RangeReplaceableCollection
+{
+    /// Adds a MongoDB database identifier to this list of fields, under the key [`"$db"`]().
+    fileprivate mutating
+    func add(database:Mongo.Database.ID)
+    {
+        self.add(key: "$db", value: .string(database.name))
+    }
+}
 
 extension Mongo
 {
@@ -38,12 +47,12 @@ extension Mongo.Connection
 {
     static
     func connect(to host:Mongo.Host, settings:Mongo.ConnectionSettings,
-        group:any EventLoopGroup,
-        dns:DNSClient? = nil) async throws -> Self
+        resolver:(some Resolver)?,
+        group:any EventLoopGroup) async throws -> Self
     {
         let channel:any Channel = try await Self.channel(to: host, settings: settings,
-            group: group,
-            dns: dns)
+            resolver: resolver,
+            group: group)
         do
         {
             return try await .init(channel: channel, credentials: settings.credentials)
@@ -66,12 +75,12 @@ extension Mongo.Connection
 extension Mongo.Connection
 {
     private static
-    func channel(to host:Mongo.Host, settings:Mongo.ConnectionSettings, 
-        group:any EventLoopGroup,
-        dns:DNSClient? = nil) async throws -> any Channel
+    func channel(to host:Mongo.Host, settings:Mongo.ConnectionSettings,
+        resolver:(some Resolver)?,
+        group:any EventLoopGroup) async throws -> any Channel
     {
         let bootstrap:ClientBootstrap = .init(group: group)
-            .resolver(dns)
+            .resolver(resolver)
             .channelOption(ChannelOptions.socket(SocketOptionLevel.init(SOL_SOCKET), SO_REUSEADDR), 
                 value: 1)
             .channelInitializer 
@@ -156,7 +165,7 @@ extension Mongo.Connection
     private
     func authenticate(with credentials:Mongo.Credentials) async throws
     {
-        let sasl:Mongo.SASL
+        let sasl:Mongo.Authentication.SASL
         switch credentials.authentication
         {
         case .sasl(let explicit)?:
@@ -199,12 +208,17 @@ extension Mongo.Connection
                 username: credentials.username,
                 password: credentials.password)
         
+        case .sha1:
+            // note: we need to hash the password per
+            // https://github.com/mongodb/specifications/blob/master/source/auth/auth.rst#scram-sha-1
+            throw Mongo.AuthenticationUnsupportedError.init(.sasl(.sha1))
+        
         case let other:
             throw Mongo.AuthenticationUnsupportedError.init(.sasl(other))
         }
     } 
     private
-    func authenticate(sasl mechanism:Mongo.SASL, 
+    func authenticate(sasl mechanism:Mongo.Authentication.SASL, 
         database:Mongo.Database.ID, 
         username:String, 
         password:String) async throws 
@@ -233,7 +247,7 @@ extension Mongo.Connection
         }
 
         let client:SCRAM.ClientResponse<SHA256> = try .init(challenge: challenge,
-            password: mechanism.password(hashing: password, username: username),
+            password: password,
             received: first.message,
             sent: start)
         let second:Mongo.SASLResponse = try await self.run(

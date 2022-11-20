@@ -18,7 +18,7 @@ enum Main:AsynchronousTests
             {
                 _ in try await Mongo.Cluster.init(
                     settings: .init(timeout: .seconds(10)),
-                    hosts: .standard([host]),
+                    servers: [host],
                     group: group)
             }
 
@@ -30,7 +30,7 @@ enum Main:AsynchronousTests
                             username: "root",
                             password: "password"),
                         timeout: .seconds(10)),
-                    hosts: .standard([host]),
+                    servers: [host],
                     group: group)
             }
 
@@ -52,7 +52,7 @@ enum Main:AsynchronousTests
                 _ in _ = try await Mongo.Cluster.init(
                     settings: .init(credentials: x509,
                         timeout: .seconds(10)),
-                    hosts: .standard([host]),
+                    servers: [host],
                     group: group)
             }
 
@@ -74,7 +74,7 @@ enum Main:AsynchronousTests
                 _ in _ = try await Mongo.Cluster.init(
                     settings: .init(credentials: sha256,
                         timeout: .seconds(10)),
-                    hosts: .standard([host]),
+                    servers: [host],
                     group: group)
             }
 
@@ -86,7 +86,7 @@ enum Main:AsynchronousTests
                             username: "root",
                             password: "password"),
                         timeout: .seconds(10)),
-                    hosts: .standard([host]),
+                    servers: [host],
                     group: group)
             }
         }

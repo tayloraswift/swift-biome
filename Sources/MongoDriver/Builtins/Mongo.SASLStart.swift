@@ -5,10 +5,10 @@ extension Mongo
 {
     struct SASLStart
     {
-        let mechanism:Mongo.SASL
+        let mechanism:Mongo.Authentication.SASL
         let scram:SCRAM.Start
 
-        init(mechanism:Mongo.SASL, scram:SCRAM.Start)
+        init(mechanism:Mongo.Authentication.SASL, scram:SCRAM.Start)
         {
             self.mechanism = mechanism
             self.scram = scram

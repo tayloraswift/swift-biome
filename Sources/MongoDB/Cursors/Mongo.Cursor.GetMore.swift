@@ -8,17 +8,17 @@ extension Mongo.Cursor
     struct GetMore
     {
         public
-        let cursor:Int64
-        public
         let collection:Mongo.Collection.ID
         public
-        let batchSize:Int?
+        let cursor:Int64
+        public
+        let batching:Int?
         public
         let timeout:Mongo.Duration?
 
         @inlinable public
         init?(cursor:Int64, collection:Mongo.Collection.ID,
-            batchSize:Int? = nil,
+            batching:Int? = nil,
             timeout:Mongo.Duration? = nil)
         {
             // cursor id of 0 indicates exhaustion
@@ -29,7 +29,7 @@ extension Mongo.Cursor
             }
             self.cursor = cursor
             self.collection = collection
-            self.batchSize = batchSize
+            self.batching = batching
             self.timeout = timeout
         }
     }
@@ -48,7 +48,7 @@ extension Mongo.Cursor.GetMore:MongoDatabaseCommand
         [
             "getMore": .int64(self.cursor),
             "collection": .string(self.collection.name),
-            "batchSize": .int64(self.batchSize.map(Int64.init(_:))),
+            "batchSize": .int64(self.batching.map(Int64.init(_:))),
             "maxTimeMS": .int64(self.timeout?.milliseconds),
         ]
     }

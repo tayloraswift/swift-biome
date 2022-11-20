@@ -19,7 +19,7 @@ enum Main:AsynchronousTests
                         username: "root",
                         password: "password"),
                     timeout: .seconds(10)),
-                hosts: .standard([host]),
+                servers: [host],
                 group: group)
         }
         guard let cluster:Mongo.Cluster
@@ -42,7 +42,7 @@ enum Main:AsynchronousTests
             await tests.do(name: "list-database-names")
             {
                 let names:[Mongo.Database.ID] = try await cluster.run(
-                    command: Mongo.ListDatabaseNames.init())
+                    command: Mongo.ListDatabases.NameOnly.init())
                 $0.assert(names **? builtin + [database], name: "names")
             }
 
@@ -165,37 +165,35 @@ enum Main:AsynchronousTests
                 
                 $0.assert(response ==? expected, name: "response")
             }
-            await tests.do(name: "single-batch")
-            {
-                let expected:Mongo.Cursor<Ordinal> = .init(id: 0,
-                    namespace: .init(database, collection),
-                    elements: [Ordinal].init(ordinals.prefix(10)))
-                let cursor:Mongo.Cursor<Ordinal> = try await cluster.run(
-                    command: Mongo.Find<Ordinal>.init(collection: collection,
-                        returning: .batch(of: 10)),
-                    against: database)
+            // await tests.do(name: "single-batch")
+            // {
+            //     let expected:Mongo.Cursor<Ordinal> = .init(id: 0,
+            //         namespace: .init(database, collection),
+            //         elements: [Ordinal].init(ordinals.prefix(10)))
+            //     let cursor:Mongo.Cursor<Ordinal> = try await cluster.run(
+            //         command: Mongo.Find<Ordinal>.init(collection: collection,
+            //             returning: .batch(of: 10)),
+            //         against: database)
 
-                $0.assert(cursor ==? expected, name: "cursor")
-            }
+            //     $0.assert(cursor ==? expected, name: "cursor")
+            // }
             await tests.do(name: "multiple-batches")
             {
                 _ in
 
-                let session:Mongo.Session = try await cluster.start(
-                    for: Mongo.Find<Ordinal>.self)
-                var cursor:Mongo.Cursor<Ordinal> = try await session.run(
-                    command: Mongo.Find<Ordinal>.init(collection: collection,
-                        returning: .batches(of: 10)),
-                    against: database)
+                let session:Mongo.Session = try await cluster.session(on: .any)
 
-                print(cursor)
-                while   let more:Mongo.Cursor<Ordinal>.GetMore = .init(cursor: cursor.id,
-                            collection: cursor.collection)
+                for try await batch:[Ordinal] in try await session.run(
+                    query: Mongo.Find<Ordinal>.init(collection: collection,
+                        returning: 10),
+                    against: database)
                 {
-                    cursor = try await session.run(command: more, against: database)
-                    print(cursor)
+                    print(batch)
+                    break
                 }
             }
         }
+
+        try? await Task.sleep(for: .milliseconds(2000))
     }
 }

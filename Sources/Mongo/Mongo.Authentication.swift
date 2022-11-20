@@ -21,7 +21,7 @@ extension Mongo.Authentication:RawRepresentable
     @inlinable public
     init?(rawValue:String)
     {
-        if let mechanism:Mongo.SASL = .init(rawValue: rawValue)
+        if let mechanism:SASL = .init(rawValue: rawValue)
         {
             self = .sasl(mechanism)
         }
@@ -36,7 +36,7 @@ extension Mongo.Authentication:RawRepresentable
 }
 extension Mongo.Authentication:CustomStringConvertible
 {
-    public
+    @inlinable public
     var description:String
     {
         self.rawValue

@@ -4,19 +4,19 @@ extension Mongo
     struct Credentials:Equatable, Sendable
     {
         public
-        let authentication:Mongo.Authentication?
+        let authentication:Authentication?
         public
         let username:String
         public
         let password:String
         public
-        let database:Mongo.Database.ID
+        let database:Database.ID
 
         @inlinable public
-        init(authentication:Mongo.Authentication?,
+        init(authentication:Authentication?,
             username:String,
             password:String,
-            database:Mongo.Database.ID = .admin)
+            database:Database.ID = .admin)
         {
             self.authentication = authentication
             self.username = username

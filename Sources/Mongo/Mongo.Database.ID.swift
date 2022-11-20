@@ -1,5 +1,3 @@
-import BSONEncoding
-
 extension Mongo.Database
 {
     @frozen public
@@ -32,23 +30,5 @@ extension Mongo.Database.ID:CustomStringConvertible
     var description:String
     {
         self.name
-    }
-}
-extension Mongo.Database.ID
-{
-    @inlinable public
-    var bson:BSON.Value<[UInt8]>
-    {
-        .string(self.name)
-    }
-}
-
-extension BSON.Fields where Bytes:RangeReplaceableCollection
-{
-    /// Adds a MongoDB database identifier to this list of fields, under the key [`"$db"`]().
-    @inlinable public mutating
-    func add(database:Mongo.Database.ID)
-    {
-        self.add(key: "$db", value: .string(database.name))
     }
 }

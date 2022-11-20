@@ -3,7 +3,7 @@ extension Mongo
     @frozen public 
     struct Host:Hashable, Sendable
     {
-        /// The hostname, like [`"localhost"`](), [`"example.com"`](), 
+        /// The hostname, such as [`"localhost"`](), [`"example.com"`](), 
         /// or [`"127.0.0.1"`]().
         public 
         var name:String
@@ -12,10 +12,6 @@ extension Mongo
         public 
         var port:Int
 
-        /// Initializes a new `Host` instance
-        ///
-        /// - parameter hostname: The hostname
-        /// - parameter port: The port
         @inlinable public 
         init(_ name:String, _ port:Int) 
         {
