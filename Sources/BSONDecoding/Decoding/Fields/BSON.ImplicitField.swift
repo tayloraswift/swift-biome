@@ -10,10 +10,10 @@ extension BSON
         public
         let key:String
         public
-        let value:Value<Bytes>?
+        let value:BSON.Value<Bytes>?
 
         @inlinable public
-        init(key:String, value:Value<Bytes>?)
+        init(key:String, value:BSON.Value<Bytes>?)
         {
             self.key = key
             self.value = value
@@ -53,7 +53,7 @@ extension BSON.ImplicitField
         }
     }
 }
-extension BSON.ImplicitField:BSONDecoderField
+extension BSON.ImplicitField:DecoderField
 {
     /// Decodes the value of this implicit field with the given decoder, throwing a
     /// ``BSON/DictionaryKeyError`` if it does not exist. Throws a

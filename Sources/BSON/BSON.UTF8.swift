@@ -3,10 +3,12 @@ import BSONTraversal
 extension BSON
 {
     @frozen public
-    enum UTF8Header:TraversableBSONHeader
+    enum UTF8Frame:VariableLengthBSONFrame
     {
         public static
-        let size:Int = 0
+        let prefix:Int = 0
+        public static
+        let suffix:Int = 1
     }
 }
 extension BSON
@@ -27,10 +29,10 @@ extension BSON
         /// include the trailing null byte that typically appears when this value
         /// occurs inline in a document.
         public 
-        let bytes:Bytes.SubSequence
+        let bytes:Bytes
 
         @inlinable public
-        init(_ bytes:Bytes.SubSequence)
+        init(bytes:Bytes)
         {
             self.bytes = bytes
         }
@@ -45,7 +47,7 @@ extension BSON.UTF8:Equatable
         lhs.description == rhs.description
     }
 }
-extension BSON.UTF8:Sendable where Bytes.SubSequence:Sendable
+extension BSON.UTF8:Sendable where Bytes:Sendable
 {
 }
 extension BSON.UTF8:ExpressibleByStringLiteral,
@@ -53,10 +55,14 @@ extension BSON.UTF8:ExpressibleByStringLiteral,
     ExpressibleByUnicodeScalarLiteral
     where Bytes:RangeReplaceableCollection<UInt8>
 {
+    /// Initializes a BSON UTF-8 string by copying the UTF-8 code units
+    /// backing the given string.
+    ///
+    /// >   Complexity: O(*n*), where *n* is the length of the string.
     @inlinable public
     init(_ string:some StringProtocol)
     {
-        self.init(.init(string.utf8))
+        self.init(bytes: .init(string.utf8))
     }
     @inlinable public
     init(stringLiteral:String)
@@ -77,28 +83,18 @@ extension BSON.UTF8:CustomStringConvertible
         .init(decoding: self.bytes, as: Unicode.UTF8.self)
     }
 }
-extension BSON.UTF8:TraversableBSON
+extension BSON.UTF8:VariableLengthBSON
 {
     public
-    typealias Header = BSON.UTF8Header
+    typealias Frame = BSON.UTF8Frame
 
-    /// Removes the last element of the argument, and stores it in ``bytes``.
-    ///
-    /// The last element is expected to have been a null byte, but this is
-    /// not enforced.
+    /// Stores the argument in ``bytes`` unchanged. Equivalent to ``init(bytes:)``.
     ///
     /// >   Complexity: O(1)
     @inlinable public
     init(slicing bytes:Bytes) throws
     {
-        if bytes.startIndex < bytes.endIndex
-        {
-            self.init(bytes.prefix(upTo: bytes.index(before: bytes.endIndex)))
-        }
-        else
-        {
-            throw BSON.InputError.init(expected: .byte(0x00))
-        }
+        self.init(bytes: bytes)
     }
 }
 

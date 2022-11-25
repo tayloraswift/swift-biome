@@ -22,6 +22,9 @@ extension BSON
         }
     }
 }
+extension BSON.Input:Sendable where Source:Sendable, Source.Index:Sendable
+{
+}
 extension BSON.Input
 {
     /// Consumes and returns a single byte from this parsing input.
@@ -124,25 +127,27 @@ extension BSON.Input
     /// Parses a traversable BSON element. The output is typically opaque,
     /// which allows decoders to skip over regions of a BSON document.
     @inlinable public mutating
-    func parse<Traversable>(as _:Traversable.Type = Traversable.self) throws -> Traversable
-        where Traversable:TraversableBSON<Source.SubSequence>
+    func parse<View>(as _:View.Type = View.self) throws -> View
+        where View:VariableLengthBSON<Source.SubSequence>
     {
         let header:Int = .init(try self.parse(as: Int32.self))
-        if  header < Traversable.Header.size
+        let stride:Int = header - View.Frame.prefix
+        let count:Int = stride - View.Frame.suffix
+        if  count < 0
         {
-            throw BSON.HeaderError<Traversable.Header>.init(length: header)
+            throw BSON.HeaderError<View.Frame>.init(length: header)
         }
         let start:Source.Index = self.index
-        let count:Int = header - Traversable.Header.size
-        if  let end:Source.Index = self.source.index(self.index, offsetBy: count, 
+        if  let end:Source.Index = self.source.index(start, offsetBy: stride, 
                 limitedBy: self.source.endIndex)
         {
             self.index = end
-            return try .init(slicing: self.source[start ..< end])
+            return try .init(
+                slicing: self.source[start ..< self.source.index(start, offsetBy: count)])
         }
         else
         {
-            throw self.expected(.bytes(count))
+            throw self.expected(.bytes(stride))
         }
     }
     

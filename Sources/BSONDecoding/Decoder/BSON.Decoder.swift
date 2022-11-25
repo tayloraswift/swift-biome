@@ -5,7 +5,7 @@ extension DecodingError
         let description:String =
         """
         initializer for type '\(String.init(reflecting: T.self))' \
-        threw an error while validating json value at coding path \(path)
+        threw an error while validating bson value at coding path \(path)
         """
         let context:DecodingError.Context = .init(codingPath: path, 
             debugDescription: description, underlyingError: error)
@@ -72,15 +72,24 @@ extension BSON
 }
 extension BSON.Decoder
 {
-    func diagnose<T>(_ decode:(T.Type) throws -> T) throws -> T
+    func diagnose<T>(_ decode:(BSON.Value<Bytes>) throws -> T?) throws -> T
     {
         do 
         {
-            return try decode(T.self)
+            if let decoded:T = try decode(value)
+            {
+                return decoded
+            }
+
+            throw DecodingError.init(annotating: BSON.TypecastError<T>.init(
+                    invalid: value.type),
+                initializing: T.self,
+                path: self.codingPath)
         }
         catch let error
         {
-            throw DecodingError.init(annotating: error, initializing: T.self,
+            throw DecodingError.init(annotating: error,
+                initializing: T.self,
                 path: self.codingPath)
         }
     }
@@ -95,7 +104,7 @@ extension BSON.Decoder:Decoder
     public 
     func unkeyedContainer() throws -> any UnkeyedDecodingContainer
     {
-        BSON.UnkeyedDecoder<Bytes.SubSequence>.init(try self.diagnose(self.value.as(_:)),
+        BSON.UnkeyedDecoder<Bytes.SubSequence>.init(try self.diagnose { try $0.array() },
             path: self.codingPath) as any UnkeyedDecodingContainer
     }
     public 
@@ -103,7 +112,7 @@ extension BSON.Decoder:Decoder
         where Key:CodingKey 
     {
         let container:BSON.KeyedDecoder<Bytes.SubSequence, Key> = 
-            .init(try self.diagnose(self.value.as(_:)), path: self.codingPath)
+            .init(try self.diagnose { try $0.dictionary() }, path: self.codingPath)
         return .init(container)
     }
 }

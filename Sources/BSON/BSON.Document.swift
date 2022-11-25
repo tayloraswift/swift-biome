@@ -5,19 +5,21 @@ infix operator ~~ : ComparisonPrecedence
 extension BSON
 {
     @frozen public
-    enum DocumentHeader:TraversableBSONHeader
+    enum DocumentFrame:VariableLengthBSONFrame
     {
         public static
-        let size:Int = 4
+        let prefix:Int = 4
+        public static
+        let suffix:Int = 1
     }
     /// A BSON document. The backing storage of this type is opaque,
     /// permitting lazy parsing of its inline content.
     @frozen public
     struct Document<Bytes> where Bytes:RandomAccessCollection<UInt8>
     {
-        /// The raw data backing this document. This collection *does*
-        /// include the trailing null byte that appears after its inline 
-        /// elements list.
+        /// The raw data backing this document. This collection *does not*
+        /// include the trailing null byte that typically appears after its
+        /// inline fields list.
         public 
         let bytes:Bytes
 
@@ -25,7 +27,7 @@ extension BSON
         ///
         /// >   Complexity: O(1)
         @inlinable public
-        init(_ bytes:Bytes)
+        init(bytes:Bytes)
         {
             self.bytes = bytes
         }
@@ -44,18 +46,18 @@ extension BSON.Document:Equatable
 extension BSON.Document:Sendable where Bytes:Sendable
 {
 }
-extension BSON.Document:TraversableBSON
+extension BSON.Document:VariableLengthBSON
 {
     public
-    typealias Header = BSON.DocumentHeader
+    typealias Frame = BSON.DocumentFrame
     
-    /// Stores the argument in ``bytes`` unchanged. Equivalent to ``init(_:)``.
+    /// Stores the argument in ``bytes`` unchanged. Equivalent to ``init(bytes:)``.
     ///
     /// >   Complexity: O(1)
     @inlinable public
     init(slicing bytes:Bytes)
     {
-        self.init(bytes)
+        self.init(bytes: bytes)
     }
 }
 
@@ -71,18 +73,11 @@ extension BSON.Document
         var items:[(key:String, value:BSON.Value<Bytes.SubSequence>)] = []
         while let code:UInt8 = input.next()
         {
-            if code != 0x00
-            {
-                let key:String = try input.parse(as: String.self)
-                items.append((key, try input.parse(variant: try .init(code: code))))
-            }
-            else
-            {
-                try input.finish()
-                return items
-            }
+            let type:BSON = try .init(code: code)
+            let key:String = try input.parse(as: String.self)
+            items.append((key, try input.parse(variant: type)))
         }
-        throw BSON.InputError.init(expected: .bytes(1))
+        return items
     }
 }
 extension BSON.Document
@@ -95,36 +90,44 @@ extension BSON.Document
         .init(self.size)
     }
     
-    /// The size of this document when encoded with its header.
+    /// The size of this document when encoded with its header and trailing null byte.
     /// This *is* the same as the length encoded in the header itself.
     @inlinable public
     var size:Int
     {
-        Header.size + self.bytes.count
+        5 + self.bytes.count
     }
 }
+
+extension BSON.Document<[UInt8]>
+{
+    /// Stores the output buffer of the given document fields into
+    /// an instance of this type.
+    ///
+    /// >   Complexity: O(1).
+    @inlinable public
+    init(_ fields:BSON.Fields)
+    {
+        self.init(bytes: fields.output.destination)
+    }
+    @inlinable public
+    init(_ populate:(inout BSON.Fields) throws -> ()) rethrows
+    {
+        var fields:BSON.Fields = .init()
+        try populate(&fields)
+        self.init(fields)
+    }
+}
+
 extension BSON.Document:ExpressibleByDictionaryLiteral 
     where Bytes:RangeReplaceableCollection<UInt8>
 {
     /// Creates a document containing the given fields.
     /// The order of the fields will be preserved.
     @inlinable public
-    init<Other>(_ items:some Collection<(key:String, value:BSON.Value<Other>)>)
-        where Other:RandomAccessCollection<UInt8>
+    init(_ fields:some Collection<(key:String, value:BSON.Value<some RandomAccessCollection<UInt8>>)>)
     {
-        let size:Int = items.reduce(1) { $0 + 2 + $1.key.utf8.count + $1.value.size }
-        var output:BSON.Output<Bytes> = .init(capacity: size)
-        // do *not* emit the length header!
-        for (key, value):(String, BSON.Value<Other>) in items
-        {
-            output.append(value.type.rawValue)
-            output.serialize(cString: key)
-            output.serialize(variant: value)
-        }
-        output.append(0x00)
-        assert(output.destination.count == size,
-            "precomputed size (\(size)) does not match output size (\(output.destination.count))")
-        self.init(output.destination)
+        self.init(bytes: BSON.Output<Bytes>.init(fields: fields).destination)
     }
 
     /// Creates a document containing a single key-value pair.

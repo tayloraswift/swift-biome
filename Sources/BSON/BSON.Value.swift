@@ -132,14 +132,14 @@ extension BSON.Value
 {
     /// Parses a variant BSON value from a collection of bytes, 
     /// assuming it is of the specified `variant` type.
-    @inlinable public
-    init<Source>(parsing source:Source, as variant:BSON) throws
-        where Source:RandomAccessCollection<UInt8>, Source.SubSequence == Bytes
-    {
-        var input:BSON.Input<Source> = .init(source)
-        self = try input.parse(variant: variant)
-        try input.finish()
-    }
+    // @inlinable public
+    // init<Source>(parsing source:Source, as variant:BSON) throws
+    //     where Source:RandomAccessCollection<UInt8>, Source.SubSequence == Bytes
+    // {
+    //     var input:BSON.Input<Source> = .init(source)
+    //     self = try input.parse(variant: variant)
+    //     try input.finish()
+    // }
 }
 extension BSON.Value
 {
@@ -276,20 +276,24 @@ extension BSON.Value:ExpressibleByStringLiteral,
         }
     }
 
+    /// Copies the UTF-8 code units backing the given string into a
+    /// variant of ``case string(_:)``.
+    ///
+    /// >   Complexity: O(*n*), where *n* is the length of the string.
     @inlinable public static
     func string(_ string:some StringProtocol) -> Self
     {
-        .string(.init(.init(string.utf8)))
+        .string(.init(string))
     }
     @inlinable public static
     func javascript(_ string:some StringProtocol) -> Self
     {
-        .javascript(.init(.init(string.utf8)))
+        .javascript(.init(string))
     }
     @inlinable public static
     func javascriptScope(_ scope:BSON.Document<Bytes>, _ string:some StringProtocol) -> Self
     {
-        .javascriptScope(scope, .init(.init(string.utf8)))
+        .javascriptScope(scope, .init(string))
     }
 }
 extension BSON.Value:ExpressibleByFloatLiteral
@@ -302,10 +306,15 @@ extension BSON.Value:ExpressibleByFloatLiteral
 }
 extension BSON.Value:ExpressibleByIntegerLiteral
 {
+    /// Creates an instance initialized to the specified integer value.
+    ///
+    /// Although MongoDB uses ``Int32`` as its default integer type,
+    /// this library infers integer literals to be of type ``Int`` for
+    /// consistency with the rest of the Swift language.
     @inlinable public
-    init(integerLiteral:Int32)
+    init(integerLiteral:Int)
     {
-        self = .int32(integerLiteral)
+        self = .int64(Int64.init(integerLiteral))
     }
 }
 extension BSON.Value:ExpressibleByBooleanLiteral
@@ -362,6 +371,303 @@ extension BSON.Value:CustomStringConvertible
             return ".string(\(string))"
         case .uint64(let uint64):
             return ".uint64(\(uint64))"
+        }
+    }
+}
+
+extension BSON.Value
+{
+    /// Indicates if this variant is ``null``.
+    @inlinable public 
+    func `is`(_:Void.Type) -> Bool
+    {
+        switch self 
+        {
+        case .null: return true 
+        default:    return false
+        }
+    }
+    /// Attempts to load an explicit ``null`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     [`()`]() if this variant is ``null``, [`nil`]() otherwise.
+    @inlinable public 
+    func `as`(_:Void.Type) -> Void?
+    {
+        switch self 
+        {
+        case .null: return ()
+        default:    return nil 
+        }
+    }
+    /// Attempts to load an instance of ``Bool`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant if it matches ``case bool(_:)``, 
+    ///     [`nil`]() otherwise.
+    @inlinable public 
+    func `as`(_:Bool.Type) -> Bool?
+    {
+        switch self 
+        {
+        case .bool(let bool):   return bool
+        default:                return nil 
+        }
+    }
+    /// Attempts to load an instance of some ``FixedWidthInteger`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     An integer derived from the payload of this variant
+    ///     if it matches one of ``case int32(_:)``, ``case int64(_:)``, or
+    ///     ``case uint64(_:)``, and it can be represented exactly by [`T`]();
+    ///     [`nil`]() otherwise.
+    ///
+    /// The ``case decimal128(_:)``, ``case double(_:)``, and ``case millisecond(_:)``
+    /// variants will *not* match.
+    ///
+    /// This method reports failure in two ways — it returns [`nil`]() on a type 
+    /// mismatch, and it [`throws`]() an ``IntegerOverflowError`` if this variant 
+    /// was an integer, but it could not be represented exactly by [`T`]().
+    @inlinable public 
+    func `as`<Integer>(_:Integer.Type) throws -> Integer? 
+        where Integer:FixedWidthInteger
+    {
+        switch self
+        {
+        case .int32(let int32):
+            if let integer:Integer = .init(exactly: int32)
+            {
+                return integer
+            }
+            else
+            {
+                throw BSON.IntegerOverflowError<Integer>.int32(int32)
+            }
+        case .int64(let int64):
+            if let integer:Integer = .init(exactly: int64)
+            {
+                return integer
+            }
+            else
+            {
+                throw BSON.IntegerOverflowError<Integer>.int64(int64)
+            }
+        case .uint64(let uint64):
+            if let integer:Integer = .init(exactly: uint64)
+            {
+                return integer
+            }
+            else
+            {
+                throw BSON.IntegerOverflowError<Integer>.uint64(uint64)
+            }
+        default:
+            return nil
+        }
+    }
+    /// Attempts to load an instance of some ``BinaryFloatingPoint`` type from
+    /// this variant.
+    /// 
+    /// -   Returns:
+    ///     The closest value of [`T`]() to the payload of this 
+    ///     variant if it matches ``case double(_:)``, [`nil`]() otherwise.
+    @inlinable public 
+    func `as`<Fraction>(_:Fraction.Type) -> Fraction?
+        where Fraction:BinaryFloatingPoint
+    {
+        switch self 
+        {
+        case .double(let double):   return .init(double)
+        default:                    return nil 
+        }
+    }
+    /// Attempts to load an instance of ``Decimal128`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant if it matches ``case decimal128(_:)``, 
+    ///     [`nil`]() otherwise.
+    @inlinable public 
+    func `as`(_:BSON.Decimal128.Type) -> BSON.Decimal128?
+    {
+        switch self 
+        {
+        case .decimal128(let decimal):  return decimal
+        default:                        return nil 
+        }
+    }
+    /// Attempts to load an instance of ``Identifier`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant if it matches ``case id(_:)`` or
+    ///     ``case pointer(_:_:)``, [`nil`]() otherwise.
+    @inlinable public 
+    func `as`(_:BSON.Identifier.Type) -> BSON.Identifier?
+    {
+        switch self 
+        {
+        case .id(let id):
+            return id
+        case .pointer(_, let id):
+            return id
+        default:
+            return nil 
+        }
+    }
+    /// Attempts to load an instance of ``Millisecond`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant if it matches ``case millisecond(_:)``,
+    ///     [`nil`]() otherwise.
+    @inlinable public 
+    func `as`(_:BSON.Millisecond.Type) -> BSON.Millisecond?
+    {
+        switch self 
+        {
+        case .millisecond(let millisecond):
+            return millisecond
+        default:
+            return nil 
+        }
+    }
+    /// Attempts to load an instance of ``Regex`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant if it matches ``case regex(_:)``,
+    ///     [`nil`]() otherwise.
+    @inlinable public 
+    func `as`(_:BSON.Regex.Type) -> BSON.Regex?
+    {
+        switch self 
+        {
+        case .regex(let regex):
+            return regex
+        default:
+            return nil 
+        }
+    }
+    /// Attempts to load an instance of ``String`` from this variant. Its UTF-8 code
+    /// units will be validated (and repaired if needed).
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant, decoded to a ``String``, if it matches
+    ///     ``case string(_:)``, [`nil`]() otherwise.
+    ///
+    /// >   Complexity: 
+    ///     O(*n*), where *n* is the length of the string.
+    @inlinable public 
+    func `as`(_:String.Type) -> String?
+    {
+        switch self 
+        {
+        case .string(let string):   return string.description
+        default:                    return nil
+        }
+    }
+    @inlinable public 
+    func `as`(_:Character.Type) -> Character?
+    {
+        if  let string:String = self.as(String.self),
+                string.startIndex < string.endIndex,
+                string.index(after: string.startIndex) == string.endIndex
+        {
+            return string[string.startIndex]
+        }
+        else
+        {
+            return nil
+        }
+    }
+    @inlinable public 
+    func `as`(_:Unicode.Scalar.Type) -> Unicode.Scalar?
+    {
+        if  let string:String.UnicodeScalarView = self.as(String.self)?.unicodeScalars,
+                string.startIndex < string.endIndex,
+                string.index(after: string.startIndex) == string.endIndex
+        {
+            return string[string.startIndex]
+        }
+        else
+        {
+            return nil
+        }
+    }
+}
+extension BSON.Value
+{
+    /// Attempts to unwrap a binary array from this variant.
+    /// 
+    /// -   Returns: The payload of this variant if it matches ``case binary(_:)``,
+    ///     [`nil`]() otherwise.
+    /// 
+    /// >   Complexity: O(1).
+    @inlinable public 
+    var binary:BSON.Binary<Bytes>?
+    {
+        switch self 
+        {
+        case .binary(let binary):
+            return binary
+        default:
+            return nil 
+        }
+    }
+    /// Attempts to unwrap a document from this variant.
+    /// 
+    /// -   Returns: The payload of this variant if it matches ``case document(_:)``
+    ///     or ``case tuple(_:)``, [`nil`]() otherwise.
+    /// 
+    /// If the variant was a tuple, the string keys of the returned document are likely
+    /// (but not guaranteed) to be the tuple indices encoded as base-10 strings, without
+    /// leading zeros.
+    /// 
+    /// >   Complexity: O(1).
+    @inlinable public 
+    var document:BSON.Document<Bytes>?
+    {
+        switch self 
+        {
+        case .document(let document):
+            return document
+        case .tuple(let tuple):
+            return tuple.document
+        default:
+            return nil 
+        }
+    }
+    /// Attempts to unwrap a tuple from this variant.
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant if it matches ``case tuple(_:)``,
+    ///     [`nil`]() otherwise.
+    ///
+    /// >   Complexity: O(1).
+    @inlinable public 
+    var tuple:BSON.Tuple<Bytes>?
+    {
+        switch self 
+        {
+        case .tuple(let tuple): return tuple
+        default:                return nil
+        }
+    }
+    /// Attempts to unwrap an instance of ``UTF8`` from this variant. Its UTF-8 code
+    /// units will *not* be validated, which allowes this method to return in
+    /// constant time.
+    /// 
+    /// -   Returns:
+    ///     The payload of this variant if it matches ``case string(_:)``,
+    ///     [`nil`]() otherwise.
+    ///
+    /// >   Complexity: O(1).
+    ///
+    /// To obtain a swift ``String``, use the ``as(_:)`` method.
+    @inlinable public 
+    var utf8:BSON.UTF8<Bytes>?
+    {
+        switch self 
+        {
+        case .string(let string):   return string
+        default:                    return nil
         }
     }
 }

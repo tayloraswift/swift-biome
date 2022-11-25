@@ -67,7 +67,7 @@ enum Main:SynchronousTests
             {
                 try $0["none"].decode
                 {
-                    try $0.as(BSON.Array<ArraySlice<UInt8>>.self, count: 2)
+                    try $0.array(count: 2)
                 }
             }
 
@@ -76,7 +76,7 @@ enum Main:SynchronousTests
             {
                 try $0["two"].decode
                 {
-                    try $0.as(BSON.Array<ArraySlice<UInt8>>.self, count: 2).elements
+                    try $0.array(count: 2).elements
                 }
             }
 
@@ -87,7 +87,7 @@ enum Main:SynchronousTests
             {
                 try $0["three"].decode
                 {
-                    try $0.as(BSON.Array<ArraySlice<UInt8>>.self, count: 2)
+                    try $0.array(count: 2)
                 }
             }
 
@@ -98,7 +98,7 @@ enum Main:SynchronousTests
             {
                 try $0["three"].decode
                 {
-                    try $0.as(BSON.Array<ArraySlice<UInt8>>.self) { $0.isMultiple(of: 2) }
+                    try $0.array { $0.isMultiple(of: 2) }
                 }
             }
 
@@ -107,53 +107,42 @@ enum Main:SynchronousTests
             {
                 try $0["four"].decode
                 {
-                    (try $0.as(BSON.Array<ArraySlice<UInt8>>.self) { $0.isMultiple(of: 2) })
-                        .elements
+                    (try $0.array { $0.isMultiple(of: 2) }).elements
                 }
             }
 
             $0.test(name: "map", decoding: bson,
                 expecting: ["a", "b", "c", "d"])
             {
-                try $0["four"].decode(as: BSON.Array<ArraySlice<UInt8>>.self)
-                {
-                    try $0.map { try $0.decode(to: String.self) }
-                }
+                try $0["four"].decode(to: [String].self)
             }
 
             $0.test(name: "map-invalid", decoding: bson,
                 failure: BSON.RecursiveError<String>.init(
                     BSON.RecursiveError<Int>.init(
-                        BSON.PrimitiveError<String>.init(variant: .int32), in: 2),
+                        BSON.TypecastError<String>.init(invalid: .int64), in: 2),
                     in: "heterogenous"))
             {
-                try $0["heterogenous"].decode(as: BSON.Array<ArraySlice<UInt8>>.self)
-                {
-                    try $0.map { try $0.decode(to: String.self) }
-                }
+                try $0["heterogenous"].decode(to: [String].self)
             }
 
             $0.test(name: "element", decoding: bson, expecting: "c")
             {
                 try $0["four"].decode
                 {
-                    let bson:BSON.Array<ArraySlice<UInt8>> =
-                        try $0.as(BSON.Array<ArraySlice<UInt8>>.self) { 2 < $0 }
-                    return try bson[2].decode(to: String.self)
+                    try (try $0.array { 2 < $0 })[2].decode(to: String.self)
                 }
             }
 
             $0.test(name: "element-invalid", decoding: bson,
                 failure: BSON.RecursiveError<String>.init(
                     BSON.RecursiveError<Int>.init(
-                        BSON.PrimitiveError<String>.init(variant: .int32), in: 2),
+                        BSON.TypecastError<String>.init(invalid: .int64), in: 2),
                     in: "heterogenous"))
             {
                 try $0["heterogenous"].decode
                 {
-                    let bson:BSON.Array<ArraySlice<UInt8>> =
-                        try $0.as(BSON.Array<ArraySlice<UInt8>>.self) { 2 < $0 }
-                    return try bson[2].decode(to: String.self)
+                    try (try $0.array { 2 < $0 })[2].decode(to: String.self)
                 }
             }
         }
@@ -191,7 +180,7 @@ enum Main:SynchronousTests
 
             $0.test(name: "key-not-matching", decoding: bson,
                 failure: BSON.RecursiveError<String>.init(
-                    BSON.PrimitiveError<String>.init(variant: .bool),
+                    BSON.TypecastError<String>.init(invalid: .bool),
                     in: "inhabited"))
             {
                 try $0["inhabited"].decode(to: String.self)
@@ -199,7 +188,7 @@ enum Main:SynchronousTests
 
             $0.test(name: "key-not-matching-inhabited", decoding: bson,
                 failure: BSON.RecursiveError<String>.init(
-                    BSON.PrimitiveError<Bool>.init(variant: .null),
+                    BSON.TypecastError<Bool>.init(invalid: .null),
                     in: "present"))
             {
                 try $0["present"].decode(to: Bool.self)
@@ -238,7 +227,7 @@ enum Main:SynchronousTests
             // should throw an error instead of returning [`nil`]().
             $0.test(name: "key-optional-not-inhabited", decoding: bson,
                 failure: BSON.RecursiveError<String>.init(
-                    BSON.PrimitiveError<Bool>.init(variant: .null),
+                    BSON.TypecastError<Bool>.init(invalid: .null),
                     in: "present"))
             {
                 try $0["present"]?.decode(to: Bool.self)

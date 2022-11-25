@@ -9,11 +9,14 @@ extension Tests
         where Failure:Error & Equatable
     {
         let invalid:[UInt8] = Base16.decode(invalid.utf8)
-        let document:BSON.Document<ArraySlice<UInt8>> = .init(
-            slicing: invalid.dropFirst(4))
         self.do(name: name, expecting: failure)
         {
-            _ in _ = try document.canonicalized()
+            _ in
+            var input:BSON.Input<[UInt8]> = .init(invalid)
+            let document:BSON.Document<ArraySlice<UInt8>> = try input.parse(
+                as: BSON.Document<ArraySlice<UInt8>>.self)
+            try input.finish()
+            _ = try document.canonicalized()
         }
     }
     mutating
@@ -27,7 +30,7 @@ extension Tests
         }
 
         let document:BSON.Document<ArraySlice<UInt8>> = .init(
-            slicing: canonical.dropFirst(4))
+            slicing: canonical.dropFirst(4).dropLast())
 
         self.assert(canonical.count ==? .init(size), name: "\(name).document-encoded-header")
         self.assert(document.header ==? size, name: "\(name).document-computed-header")
@@ -39,7 +42,7 @@ extension Tests
         {
             let degenerate:[UInt8] = Base16.decode(degenerate.utf8)
             let document:BSON.Document<ArraySlice<UInt8>> = .init(
-                slicing: degenerate.dropFirst(4))
+                slicing: degenerate.dropFirst(4).dropLast())
             self.do(name: "\(name).canonicalization")
             {
                 let canonicalized:BSON.Document<ArraySlice<UInt8>> = 

@@ -1,62 +1,23 @@
-extension BSON
-{
-    @frozen public
-    struct Fields<Bytes> where Bytes:RandomAccessCollection<UInt8>
-    {
-        public
-        var elements:[(key:String, value:BSON.Value<Bytes>)]
-
-        @inlinable public
-        init(_ elements:[(key:String, value:BSON.Value<Bytes>)])
-        {
-            self.elements = elements
-        }
-    }
-}
-extension BSON.Fields:Sendable where Bytes:Sendable, Bytes.SubSequence:Sendable
-{
-}
-extension BSON.Fields:RandomAccessCollection, MutableCollection
-{
-    @inlinable public
-    var startIndex:Int
-    {
-        self.elements.startIndex
-    }
-    @inlinable public
-    var endIndex:Int
-    {
-        self.elements.endIndex
-    }
-    @inlinable public
-    subscript(index:Int) -> (key:String, value:BSON.Value<Bytes>)
-    {
-        _read
-        {
-            yield  self.elements[index]
-        }
-        _modify
-        {
-            yield &self.elements[index]
-        }
-    }
-}
 extension BSON.Fields
 {
-    @inlinable public mutating
-    func add(key:String, value:BSON.Value<Bytes>)
-    {
-        self.elements.append((key, value))
-    }
-}
-extension BSON.Fields:ExpressibleByDictionaryLiteral
-{
+    /// Appends the given key-value pair to this document builder as a field
+    /// by accessing the value’s ``BSONEncodable.bson`` property witness, if
+    /// it is not [`nil`](), does nothing otherwise. The getter always returns
+    /// [`nil`]().
+    ///
+    /// Every non-[`nil`]() assignment to this subscript (including mutations
+    /// that leave the value in a non-[`nil`]() state after returning) will add
+    /// a new field to the document intermediate, even if the key is the same.
     @inlinable public
-    init(dictionaryLiteral:(String, BSON.Value<Bytes>?)...)
+    subscript<Encodable>(key:String) -> Encodable? where Encodable:BSONEncodable
     {
-        self.init(dictionaryLiteral.compactMap
-        { 
-            (item:(key:String, value:BSON.Value<Bytes>?)) in item.value.map { (item.key, $0) }
-        })
+        get
+        {
+            nil
+        }
+        set(value)
+        {
+            self[key] = value?.bson
+        }
     }
 }

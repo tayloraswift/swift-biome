@@ -84,8 +84,8 @@ enum Main:SynchronousTests
                 expected: ["i": .int32(1)])
 
             $0.test(name: "truncated",
-                invalid: "090000001061000500",
-                failure: BSON.InputError.init(expected: .bytes(4), encountered: 2))
+                invalid: "09000000_10_6100_05_00",
+                failure: BSON.InputError.init(expected: .bytes(4), encountered: 1))
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/int32.json
@@ -112,8 +112,8 @@ enum Main:SynchronousTests
                 expected: ["a": .int64(1)])
 
             $0.test(name: "truncated",
-                invalid: "0C0000001261001234567800",
-                failure: BSON.InputError.init(expected: .bytes(8), encountered: 5))
+                invalid: "0C000000_12_6100_12345678_00",
+                failure: BSON.InputError.init(expected: .bytes(8), encountered: 4))
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/timestamp.json
@@ -132,8 +132,8 @@ enum Main:SynchronousTests
                 expected: ["a": .uint64(4000000000 << 32 | 4000000000)])
             
             $0.test(name: "truncated",
-                invalid: "0f0000001161002A00000015CD5B00",
-                failure: BSON.InputError.init(expected: .bytes(1)))
+                invalid: "0F000000_11_6100_2A00000015CD5B_00",
+                failure: BSON.InputError.init(expected: .bytes(8), encountered: 7))
         }
             
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/top.json
@@ -165,46 +165,53 @@ enum Main:SynchronousTests
                 expected: [:])
             
             $0.test(name: "invalid-end-of-object-0x01",
-                invalid: "0500000001",
-                failure: BSON.InputError.init(expected: .byte(0x00)))
+                degenerate: "05000000_01",
+                canonical: "05000000_00",
+                expected: [:])
             
             $0.test(name: "invalid-end-of-object-0xff",
-                invalid: "05000000FF",
-                failure: BSON.InputError.init(expected: .byte(0x00)))
+                degenerate: "05000000_FF",
+                canonical: "05000000_00",
+                expected: [:])
             
             $0.test(name: "invalid-end-of-object-0x70",
-                invalid: "0500000070",
-                failure: BSON.InputError.init(expected: .byte(0x00)))
+                degenerate: "05000000_70",
+                canonical: "05000000_00",
+                expected: [:])
             
             $0.test(name: "zeroes",
-                invalid: "00000000000000000000",
-                failure: BSON.InputError.init(expected: .end, encountered: 5))
+                invalid: "00000000_000000000000",
+                //        ^~~~~~~~
+                failure: BSON.HeaderError<BSON.DocumentFrame>.init(length: 0))
             
             $0.test(name: "invalid-length-over",
-                invalid: "1200000002666F6F0004000000626172",
-                failure: BSON.InputError.init(expected: .bytes(4), encountered: 3))
+                invalid: "12000000_02_666F6F00_04000000_626172",
+                //        ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(0x12 - 4), encountered: 12))
             
             $0.test(name: "invalid-length-under",
-                invalid: "1200000002666F6F00040000006261720000DEADBEEF",
+                invalid: "12000000_02_666F6F00_04000000_62617200_00_DEADBEEF",
+                //        ^~~~~~~~
                 failure: BSON.InputError.init(expected: .end, encountered: 4))
             
-            // note: type code 0x00 is interpreted as end-of-object
             $0.test(name: "invalid-type-0x00",
-                invalid: "07000000000000",
-                failure: BSON.InputError.init(expected: .end, encountered: 2))
+                invalid: "07000000_00_0000",
+                //                 ^~
+                failure: BSON.TypeError.init(invalid: 0x00))
             
             $0.test(name: "invalid-type-0x80",
-                invalid: "07000000800000",
+                invalid: "07000000_80_0000",
+                //                 ^~
                 failure: BSON.TypeError.init(invalid: 0x80))
             
             $0.test(name: "truncated",
-                invalid: "1200000002666F",
-                failure: BSON.InputError.init(expected: .byte(0x00)))
+                invalid: "12000000_02_666F",
+                failure: BSON.InputError.init(expected: .bytes(0x12 - 4), encountered: 3))
             
             $0.test(name: "invalid-key",
-                invalid: "0D000000107800000100000000",
-                failure: BSON.InputError.init(expected: .end, encountered: 1))
-            
+                invalid: "0D000000_10_7800_00_0100000000",
+                //                         ^~
+                failure: BSON.TypeError.init(invalid: 0x00))
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/decimal128-1.json
@@ -267,8 +274,8 @@ enum Main:SynchronousTests
                 expected: ["a": .millisecond(1356351330001)])
             
             $0.test(name: "truncated",
-                invalid: "0C0000000961001234567800",
-                failure: BSON.InputError.init(expected: .bytes(8), encountered: 5))
+                invalid: "0C000000_0961001234567800",
+                failure: BSON.InputError.init(expected: .bytes(8), encountered: 4))
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/double.json
@@ -303,8 +310,9 @@ enum Main:SynchronousTests
 
             // note: frameshift
             $0.test(name: "truncated",
-                invalid: "0B0000000164000000F03F00",
-                failure: BSON.InputError.init(expected: .bytes(8), encountered: 5))
+                invalid: "0B000000_0164000000F03F00",
+                //        ^~~~~~~~
+                failure: BSON.InputError.init(expected: .end, encountered: 1))
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/oid.json
@@ -326,8 +334,9 @@ enum Main:SynchronousTests
                     (0xe0, 0xc9, 0x17, 0xe9, 0xc4), (0x71, 0x41, 0x61)))])
             
             $0.test(name: "truncated",
-                invalid: "1200000007610056E1FC72E0C917E9C471",
-                failure: BSON.InputError.init(expected: .bytes(12), encountered: 10))
+                invalid: "12000000_07_6100_56E1FC72E0C917E9C471",
+                //        ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(0x12 - 4), encountered: 13))
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/dbpointer.json
@@ -344,20 +353,22 @@ enum Main:SynchronousTests
                     timestamp: 0x56e1fc72, (0xe0, 0xc9, 0x17, 0xe9, 0xc4), (0x71, 0x41, 0x61)))])
             
             $0.test(name: "invalid-length-negative",
-                invalid: "1A0000000C6100FFFFFFFF620056E1FC72E0C917E9C471416100",
-                failure: BSON.HeaderError<BSON.UTF8Header>.init(length: -1))
+                invalid: "1A000000_0C_6100_FFFFFFFF_620056E1FC72E0C917E9C471416100",
+                //                         ^~~~~~~~
+                failure: BSON.HeaderError<BSON.UTF8Frame>.init(length: -1))
             
             $0.test(name: "invalid-length-zero",
-                invalid: "1A0000000C610000000000620056E1FC72E0C917E9C471416100",
-                failure: BSON.InputError.init(expected: .byte(0x00)))
+                invalid: "1A000000_0C_6100_00000000_620056E1FC72E0C917E9C471416100",
+                //                         ^~~~~~~~
+                failure: BSON.HeaderError<BSON.UTF8Frame>.init(length: 0))
             
             $0.test(name: "truncated",
-                invalid: "160000000C61000300000061620056E1FC72E0C91700",
-                failure: BSON.InputError.init(expected: .bytes(12), encountered: 8))
+                invalid: "16000000_0C_6100_03000000_616200_56E1FC72E0C91700",
+                failure: BSON.InputError.init(expected: .bytes(12), encountered: 7))
             
             $0.test(name: "truncated-identifier",
-                invalid: "1A0000000C61000300000061620056E1FC72E0C917E9C4716100",
-                failure: BSON.InputError.init(expected: .bytes(1)))
+                invalid: "1A000000_0C_6100_03000000_616200_56E1FC72E0C917E9C4716100",
+                failure: BSON.InputError.init(expected: .bytes(12), encountered: 11))
         }
         
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/binary.json
@@ -398,8 +409,9 @@ enum Main:SynchronousTests
                     bytes: Base16.decode("ffff")))])
             
             $0.test(name: "invalid-length-over",
-                invalid: "1D000000057800FF0000000573FFD26444B34C6990E8E7D1DFC035D400",
-                failure: BSON.InputError.init(expected: .bytes(256), encountered: 18))
+                invalid: "1D000000_05_7800_FF000000_05_73FFD26444B34C6990E8E7D1DFC035D400",
+                //                         ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(0xFF + 1), encountered: 17))
             
             $0.test(name: "invalid-length-negative",
                 invalid: "0D000000057800FFFFFFFF0000",
@@ -439,20 +451,24 @@ enum Main:SynchronousTests
                 expected: ["x": [".": "a"]])
             
             $0.test(name: "invalid-length-over",
-                invalid: "1800000003666F6F000F0000001062617200FFFFFF7F0000",
-                failure: BSON.InputError.init(expected: .bytes(1)))
+                invalid: "18000000_03_666F6F00_0F000000_10_62617200_FFFFFF7F_0000",
+                //                             ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(0x0F - 4), encountered: 10))
             
             $0.test(name: "invalid-length-under",
-                invalid: "1500000003666F6F000A0000000862617200010000",
-                failure: BSON.InputError.init(expected: .end, encountered: 1))
+                invalid: "15000000_03_666F6F00_0A000000_08_62617200_01_00_00",
+                //                                                     ^~
+                failure: BSON.TypeError.init(invalid: 0))
             
             $0.test(name: "invalid-value",
-                invalid: "1C00000003666F6F001200000002626172000500000062617A000000",
-                failure: BSON.InputError.init(expected: .bytes(1)))
+                invalid: "1C000000_03_666F6F00_12000000_02_62617200_05000000_62617A000000",
+                //                                                  ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(5), encountered: 4))
             
             $0.test(name: "invalid-key",
-                invalid: "150000000378000D00000010610000010000000000",
-                failure: BSON.InputError.init(expected: .end, encountered: 1))
+                invalid: "15000000_03_7800_0D000000_10_6100_00010000_00_0000",
+                //                                                   ^~
+                failure: BSON.TypeError.init(invalid: 0))
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/array.json
@@ -481,16 +497,19 @@ enum Main:SynchronousTests
                 expected: ["a": [.int32(10), .int32(20)]])
             
             $0.test(name: "invalid-length-over",
-                invalid: "140000000461000D0000001030000A0000000000",
-                failure: BSON.InputError.init(expected: .bytes(1)))
+                invalid: "14000000_04_6100_0D000000_10_30000A00_00_000000",
+                //                         ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(0x0D - 4), encountered: 8))
             
             $0.test(name: "invalid-length-under",
-                invalid: "140000000461000B0000001030000A0000000000",
-                failure: BSON.InputError.init(expected: .end, encountered: 1))
+                invalid: "14000000_04_6100_0B000000_10_30000A00_00_000000",
+                //                                              ^~
+                failure: BSON.TypeError.init(invalid: 0))
             
             $0.test(name: "invalid-element",
-                invalid: "1A00000004666F6F00100000000230000500000062617A000000",
-                failure: BSON.InputError.init(expected: .bytes(1)))
+                invalid: "1A000000_04_666F6F00_100000000230000500000062617A000000",
+                // 
+                failure: BSON.InputError.init(expected: .bytes(5), encountered: 4))
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/regex.json
@@ -577,28 +596,33 @@ enum Main:SynchronousTests
                 ])
                         
             $0.test(name: "missing-trailing-null-byte",
-                invalid: "0C0000000261000000000000",
-                failure: BSON.InputError.init(expected: .byte(0x00)))
+                invalid: "0C000000_02_6100_00000000_00",
+                //                         ^~~~~~~~
+                failure: BSON.HeaderError<BSON.UTF8Frame>.init(length: 0))
             
             $0.test(name: "invalid-length-negative",
-                invalid: "0C000000026100FFFFFFFF00",
-                failure: BSON.HeaderError<BSON.UTF8Header>.init(length: -1))
+                invalid: "0C000000_02_6100_FFFFFFFF_00",
+                //                         ^~~~~~~~
+                failure: BSON.HeaderError<BSON.UTF8Frame>.init(length: -1))
             
             $0.test(name: "invalid-length-over",
-                invalid: "10000000026100050000006200620000",
-                failure: BSON.InputError.init(expected: .bytes(1)))
+                invalid: "10000000_02_6100_05000000_62006200_00",
+                //                         ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(5), encountered: 4))
             
             $0.test(name: "invalid-length-over-document",
-                invalid: "120000000200FFFFFF00666F6F6261720000",
-                failure: BSON.InputError.init(expected: .bytes(0xffffff), encountered: 8))
+                invalid: "12000000_02_00_FFFFFF00_666F6F6261720000",
+                //                       ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(0xffffff), encountered: 7))
             
             $0.test(name: "invalid-length-under",
-                invalid: "0E00000002610001000000000000",
-                failure: BSON.InputError.init(expected: .end, encountered: 1))
+                invalid: "0E000000_02_6100_01000000_00_00_00",
+                //                                     ^~
+                failure: BSON.TypeError.init(invalid: 0x00))
             
             $0.test(name: "invalid-utf-8",
                 canonical: "0E00000002610002000000E90000",
-                expected: ["a": .string(.init([0xe9]))])
+                expected: ["a": .string(.init(bytes: [0xe9]))])
         }
         
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/symbol.json
@@ -663,24 +687,28 @@ enum Main:SynchronousTests
                 expected: ["a": .javascript("ab\u{00}bab\u{00}babab")])
             
             $0.test(name: "missing-trailing-null-byte",
-                invalid: "0C0000000D61000000000000",
-                failure: BSON.InputError.init(expected: .byte(0x00)))
+                invalid: "0C000000_0D_6100_00000000_00",
+                //                         ^~~~~~~~
+                failure: BSON.HeaderError<BSON.UTF8Frame>.init(length: 0))
             
             $0.test(name: "invalid-length-negative",
                 invalid: "0C0000000D6100FFFFFFFF00",
-                failure: BSON.HeaderError<BSON.UTF8Header>.init(length: -1))
+                failure: BSON.HeaderError<BSON.UTF8Frame>.init(length: -1))
             
             $0.test(name: "invalid-length-over",
-                invalid: "100000000D6100050000006200620000",
-                failure: BSON.InputError.init(expected: .bytes(1)))
+                invalid: "10000000_0D_6100_05000000_6200620000",
+                //                         ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(5), encountered: 4))
             
             $0.test(name: "invalid-length-over-document",
-                invalid: "120000000D00FFFFFF00666F6F6261720000",
-                failure: BSON.InputError.init(expected: .bytes(0xffffff), encountered: 8))
+                invalid: "12000000_0D_00_FFFFFF00_666F6F6261720000",
+                //                       ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(0xffffff), encountered: 7))
             
             $0.test(name: "invalid-length-under",
-                invalid: "0E0000000D610001000000000000",
-                failure: BSON.InputError.init(expected: .end, encountered: 1))
+                invalid: "0E000000_0D_6100_01000000_00_00_00",
+                //                                     ^~
+                failure: BSON.TypeError.init(invalid: 0x00))
         }
 
         // https://github.com/mongodb/specifications/blob/master/source/bson-corpus/tests/code_w_scope.json
@@ -713,22 +741,23 @@ enum Main:SynchronousTests
             // length headers instead of the field length, this manifests itself as a
             // frameshift error.
             $0.test(name: "invalid-length-frameshift-clips-scope",
-                invalid: "280000000F6100200000000400000061626364001300000010780001000000107900010000000000",
-                //                                              ^~~~~~~~
-                failure: BSON.InputError.init(expected: .bytes(0x00_00_13_00 - 4), encountered: 17))
+                invalid: "28000000_0F_6100_20000000_04000000_61626364_00130000_0010780001000000107900010000000000",
+                //                                                    ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(0x00_00_13_00 - 4), encountered: 16))
             
             $0.test(name: "invalid-length-over",
-                invalid: "280000000F6100200000000600000061626364001300000010780001000000107900010000000000",
-                //                                                  ^~~~~~~~
-                failure: BSON.InputError.init(expected: .bytes(0x10_00_00_00 - 4), encountered: 15))
+                invalid: "28000000_0F_6100_20000000_06000000_616263640013_00000010_780001000000107900010000000000",
+                //                                                        ^~~~~~~~
+                failure: BSON.InputError.init(expected: .bytes(0x10_00_00_00 - 4), encountered: 14))
             // note: frameshift
             $0.test(name: "invalid-length-frameshift",
-                invalid: "280000000F610020000000FF00000061626364001300000010780001000000107900010000000000",
-                failure: BSON.InputError.init(expected: .bytes(255), encountered: 25))
+                invalid: "28000000_0F_6100_20000000_FF000000_61626364001300000010780001000000107900010000000000",
+                failure: BSON.InputError.init(expected: .bytes(255), encountered: 24))
             
             $0.test(name: "invalid-scope",
-                invalid: "1C0000000F001500000001000000000C000000020000000000000000",
-                failure: BSON.InputError.init(expected: .byte(0x00)))
+                invalid: "1C000000_0F_00_15000000_01000000_00_0C000000_02_00000000_00000000",
+                //                                                        ^~~~~~~~
+                failure: BSON.HeaderError<BSON.UTF8Frame>.init(length: 0))
         }
     }
 }

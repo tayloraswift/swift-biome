@@ -29,6 +29,9 @@ extension BSON
         }
     }
 }
+extension BSON.Output:Sendable where Destination:Sendable
+{
+}
 extension BSON.Output
 {
     /// Appends a single byte to the output destination.
@@ -99,16 +102,19 @@ extension BSON.Output
     {
         self.serialize(integer: document.header)
         self.append(document.bytes)
+        self.append(0x00)
     }
     @inlinable public mutating
     func serialize(tuple:BSON.Tuple<some RandomAccessCollection<UInt8>>)
     {
         self.serialize(integer: tuple.header)
         self.append(tuple.bytes)
+        self.append(0x00)
     }
 }
 extension BSON.Output
 {
+    /// Serializes the given variant value, without encoding its type.
     @inlinable public mutating
     func serialize(variant:BSON.Value<some RandomAccessCollection<UInt8>>)
     {
@@ -176,5 +182,44 @@ extension BSON.Output
         case .min:
             break
         }
+    }
+    /// Serializes the raw type code of the given variant value, followed by
+    /// the field key (with a trailing null byte), followed by the variant value
+    /// itself.
+    @inlinable public mutating
+    func serialize(key:String, value:BSON.Value<some RandomAccessCollection<UInt8>>)
+    {
+        self.append(value.type.rawValue)
+        self.serialize(cString: key)
+        self.serialize(variant: value)
+    }
+    @inlinable public mutating
+    func serialize<Bytes>(fields:some Sequence<(key:String, value:BSON.Value<Bytes>)>)
+        where Bytes:RandomAccessCollection<UInt8>
+    {
+        for (key, value):(String, BSON.Value<Bytes>) in fields
+        {
+            self.serialize(key: key, value: value)
+        }
+    }
+}
+extension BSON.Output
+{
+    /// Serializes the given fields, making two passes over the collection
+    /// of fields in order to encode the output without reallocations.
+    ///
+    /// The destination buffer will not include the trailing null byte
+    /// found when a sequence of fields is stored within a BSON document,
+    /// but the destination buffer *will* contain space for a null byte to
+    /// be appended by the caller without triggering a reallocation, as
+    /// long as the `Destination` type supports preallocation.
+    @inlinable public
+    init(fields:some Collection<(key:String, value:BSON.Value<some RandomAccessCollection<UInt8>>)>)
+    {
+        let size:Int = fields.reduce(0) { $0 + 2 + $1.key.utf8.count + $1.value.size }
+        self.init(capacity: size)
+        self.serialize(fields: fields)
+        assert(self.destination.count == size,
+            "precomputed size (\(size)) does not match output size (\(self.destination.count))")
     }
 }

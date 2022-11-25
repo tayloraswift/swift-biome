@@ -6,17 +6,17 @@ extension BSON
         public
         let key:Key
         public
-        let value:Value<Bytes>
+        let value:BSON.Value<Bytes>
 
         @inlinable public
-        init(key:Key, value:Value<Bytes>)
+        init(key:Key, value:BSON.Value<Bytes>)
         {
             self.key = key
             self.value = value
         }
     }
 }
-extension BSON.ExplicitField:BSONDecoderField
+extension BSON.ExplicitField:DecoderField
 {
     /// Decodes the value of this field with the given decoder.
     /// Throws a ``BSON/RecursiveError`` wrapping the underlying

@@ -23,7 +23,7 @@ extension BSON.KeyedDecoder
     }
     // local `Key` type may be different from the dictionary’s `Key` type
     func diagnose<T>(_ key:some CodingKey,
-        _ decode:(BSON.Value<Bytes>) -> (T.Type) throws -> T) throws -> T
+        _ decode:(BSON.Value<Bytes>) throws -> T?) throws -> T
     {
         var path:[any CodingKey]
         { 
@@ -38,11 +38,21 @@ extension BSON.KeyedDecoder
         }
         do 
         {
-            return try decode(value)(T.self) 
+            if let decoded:T = try decode(value)
+            {
+                return decoded
+            }
+
+            throw DecodingError.init(annotating: BSON.TypecastError<T>.init(
+                    invalid: value.type),
+                initializing: T.self,
+                path: path)
         }
         catch let error
         {
-            throw DecodingError.init(annotating: error, initializing: T.self, path: path)
+            throw DecodingError.init(annotating: error,
+                initializing: T.self,
+                path: path)
         }
     }
 }

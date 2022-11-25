@@ -3,7 +3,7 @@ import BSONTraversal
 extension BSON
 {
     public
-    struct HeaderError<Header>:Equatable, Error where Header:TraversableBSONHeader
+    struct HeaderError<Frame>:Equatable, Error where Frame:VariableLengthBSONFrame
     {
         public
         let length:Int
@@ -22,7 +22,7 @@ extension BSON.HeaderError:CustomStringConvertible
     {
         """
         length declared in header (\(self.length)) is less than \
-        the minimum for '\(Header.self)' (\(Header.size) bytes)
+        the minimum for '\(Frame.self)' (\(Frame.prefix + Frame.suffix) bytes)
         """
     }
 }

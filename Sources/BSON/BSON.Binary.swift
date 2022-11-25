@@ -4,12 +4,14 @@ extension BSON
 {
     /// Represents a binary array header in the library’s static type system.
     @frozen public
-    enum BinaryHeader:TraversableBSONHeader
+    enum BinaryFrame:VariableLengthBSONFrame
     {
         /// A binary array header starts its count after skipping the interceding
-        /// subtype byte. Therefore its conceptual size is -1.
+        /// subtype byte. Therefore its conceptual prefix size is -1.
         public static
-        let size:Int = -1
+        let prefix:Int = -1
+        public static
+        let suffix:Int = 0
     }
 }
 extension BSON
@@ -21,13 +23,13 @@ extension BSON
         /// The contents of this binary array. This collection does *not*
         /// include the leading subtype byte.
         public 
-        let bytes:Bytes.SubSequence
+        let bytes:Bytes
         /// The subtype of this binary array.
         public
         let subtype:BinarySubtype
 
         @inlinable public
-        init(subtype:BinarySubtype, bytes:Bytes.SubSequence)
+        init(subtype:BinarySubtype, bytes:Bytes)
         {
             self.subtype = subtype
             self.bytes = bytes
@@ -45,13 +47,13 @@ extension BSON.Binary:Equatable
         lhs.bytes.elementsEqual(rhs.bytes)
     }
 }
-extension BSON.Binary:Sendable where Bytes.SubSequence:Sendable
+extension BSON.Binary:Sendable where Bytes:Sendable
 {
 }
-extension BSON.Binary:TraversableBSON
+extension BSON.Binary:VariableLengthBSON where Bytes.SubSequence == Bytes
 {
     public
-    typealias Header = BSON.BinaryHeader
+    typealias Frame = BSON.BinaryFrame
     
     /// Removes the first element of the argument, attempts to cast it to a
     /// ``BinarySubtype``, and stores the remainder in ``bytes``.

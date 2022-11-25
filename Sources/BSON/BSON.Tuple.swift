@@ -11,9 +11,9 @@ extension BSON
         let document:BSON.Document<Bytes>
 
         @inlinable public
-        init(_ bytes:Bytes)
+        init(bytes:Bytes)
         {
-            self.document = .init(bytes)
+            self.document = .init(bytes: bytes)
         }
     }
 }
@@ -30,18 +30,18 @@ extension BSON.Tuple:Equatable
 extension BSON.Tuple:Sendable where Bytes:Sendable
 {
 }
-extension BSON.Tuple:TraversableBSON
+extension BSON.Tuple:VariableLengthBSON
 {
     public
-    typealias Header = BSON.DocumentHeader
+    typealias Frame = BSON.DocumentFrame
 
-    /// Stores the argument in ``bytes`` unchanged.
+    /// Stores the argument in ``bytes`` unchanged. Equivalent to ``init(bytes:)``.
     ///
     /// >   Complexity: O(1)
     @inlinable public
     init(slicing bytes:Bytes)
     {
-        self.init(bytes)
+        self.init(bytes: bytes)
     }
 }
 extension BSON.Tuple
@@ -62,12 +62,12 @@ extension BSON.Tuple
         .init(self.size)
     }
 
-    /// The size of this tuple when encoded with its header.
+    /// The size of this tuple when encoded with its header and trailing null byte.
     /// This *is* the same as the length encoded in the header itself.
     @inlinable public
     var size:Int
     {
-        Header.size + self.bytes.count
+        5 + self.bytes.count
     }
 }
 
@@ -87,18 +87,11 @@ extension BSON.Tuple
         var elements:[BSON.Value<Bytes.SubSequence>] = []
         while let code:UInt8 = input.next()
         {
-            if code != 0x00
-            {
-                try input.parse(through: 0x00)
-                elements.append(try input.parse(variant: try .init(code: code)))
-            }
-            else
-            {
-                try input.finish()
-                return elements
-            }
+            let type:BSON = try .init(code: code)
+            try input.parse(through: 0x00)
+            elements.append(try input.parse(variant: type))
         }
-        throw BSON.InputError.init(expected: .bytes(1))
+        return elements
     }
 }
 extension BSON.Tuple:ExpressibleByArrayLiteral
@@ -114,7 +107,7 @@ extension BSON.Tuple:ExpressibleByArrayLiteral
         {
             ($0.0.description, $0.1)
         })
-        self.init(document.bytes)
+        self.init(bytes: document.bytes)
     }
 
     @inlinable public 
