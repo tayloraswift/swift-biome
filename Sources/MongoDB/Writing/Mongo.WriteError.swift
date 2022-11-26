@@ -1,5 +1,4 @@
 import BSONDecoding
-import NIOCore
 
 extension Mongo
 {
@@ -22,10 +21,10 @@ extension Mongo
         }
     }
 }
-extension Mongo.WriteError:MongoDecodable
+extension Mongo.WriteError:BSONDictionaryDecodable
 {
-    public
-    init(bson:BSON.Dictionary<ByteBufferView>) throws
+    @inlinable public
+    init(bson:BSON.Dictionary<some RandomAccessCollection<UInt8>>) throws
     {
         self.init(index: try bson["index"].decode(to: Int.self),
             message: try bson["errmsg"].decode(to: String.self),

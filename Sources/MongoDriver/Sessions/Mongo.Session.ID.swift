@@ -1,4 +1,4 @@
-import BSONEncoding
+import BSONSchema
 import UUID
 
 extension Mongo.Session
@@ -6,8 +6,10 @@ extension Mongo.Session
     public 
     struct ID:Hashable, Sendable 
     {
+        public
         let uuid:UUID
 
+        @inlinable public
         init(_ uuid:UUID) 
         {
             self.uuid = uuid
@@ -23,13 +25,19 @@ extension Mongo.Session.ID
     }
 }
 
-extension BSON.Fields where Bytes:RangeReplaceableCollection
+extension Mongo.Session.ID:BSONDictionaryDecodable, BSONDocumentEncodable
 {
-    /// Adds a MongoDB session identifier to this list of fields, under the key [`"lsid"`]().
-    mutating
-    func add(session:Mongo.Session.ID)
+    @inlinable public
+    init<Bytes>(bson:BSON.Dictionary<Bytes>) throws
     {
-        let binary:BSON.Binary<UUID> = .init(subtype: .uuid, bytes: session.uuid[...])
-        self.add(key: "lsid", value: .document(.init(key: "id", value: .binary(binary))))
+        self.init(try bson["id"].decode(as: BSON.Binary<Bytes>.self)
+        {
+            UUID.init($0.bytes)
+        })
+    }
+    @inlinable public
+    func encode(to bson:inout BSON.Fields)
+    {
+        bson["id"] = BSON.Binary<UUID>.init(subtype: .uuid, bytes: self.uuid)
     }
 }

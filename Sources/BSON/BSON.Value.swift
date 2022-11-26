@@ -387,19 +387,27 @@ extension BSON.Value
         default:    return false
         }
     }
-    /// Attempts to load an explicit ``null`` from this variant.
-    /// 
-    /// -   Returns:
-    ///     [`()`]() if this variant is ``null``, [`nil`]() otherwise.
-    @inlinable public 
-    func `as`(_:Void.Type) -> Void?
-    {
-        switch self 
-        {
-        case .null: return ()
-        default:    return nil 
-        }
-    }
+    // /// Indicates if this variant is ``max``.
+    // @inlinable public 
+    // func `is`(_:BSON.Max.Type) -> Bool
+    // {
+    //     switch self 
+    //     {
+    //     case .max:  return true 
+    //     default:    return false
+    //     }
+    // }
+    // /// Indicates if this variant is ``min``.
+    // @inlinable public 
+    // func `is`(_:BSON.Min.Type) -> Bool
+    // {
+    //     switch self 
+    //     {
+    //     case .min:  return true 
+    //     default:    return false
+    //     }
+    // }
+
     /// Attempts to load an instance of ``Bool`` from this variant.
     /// 
     /// -   Returns:
@@ -589,6 +597,44 @@ extension BSON.Value
         else
         {
             return nil
+        }
+    }
+}
+extension BSON.Value
+{
+    /// Attempts to load an explicit ``null`` from this variant.
+    /// 
+    /// -   Returns:
+    ///     [`()`]() if this variant is ``null``, [`nil`]() otherwise.
+    @inlinable public 
+    var null:Void?
+    {
+        self.is(Void.self) ? () : nil
+    }
+    /// Attempts to load a ``max`` key from this variant.
+    /// 
+    /// -   Returns:
+    ///     ``Max.max`` if this variant is ``max``, [`nil`]() otherwise.
+    @inlinable public 
+    var max:BSON.Max?
+    {
+        switch self 
+        {
+        case .max:  return .init()
+        default:    return nil
+        }
+    }
+    /// Attempts to load a ``min`` key from this variant.
+    /// 
+    /// -   Returns:
+    ///     ``Min.min`` if this variant is ``min``, [`nil`]() otherwise.
+    @inlinable public 
+    var min:BSON.Min?
+    {
+        switch self 
+        {
+        case .min:  return .init()
+        default:    return nil
         }
     }
 }

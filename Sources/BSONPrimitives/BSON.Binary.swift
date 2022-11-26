@@ -7,4 +7,9 @@ extension BSON.Binary:CollectionViewBSON
     {
         self = try value.cast(with: \.binary)
     }
+    @inlinable public
+    var bson:BSON.Value<Bytes>
+    {
+        .binary(self)
+    }
 }

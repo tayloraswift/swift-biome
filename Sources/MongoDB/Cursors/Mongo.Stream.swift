@@ -1,13 +1,16 @@
+import MongoSchema
+
 extension Mongo
 {
     @frozen public
     struct Stream<BatchElement> where BatchElement:MongoDecodable
     {
-        private(set)
+        @usableFromInline private(set)
         var manager:StreamManager?
-        private(set)
+        @usableFromInline private(set)
         var first:[BatchElement]?
 
+        @inlinable public
         init(manager:StreamManager?, first:[BatchElement])
         {
             self.manager = manager
@@ -20,12 +23,12 @@ extension Mongo.Stream:AsyncSequence, AsyncIteratorProtocol
     public
     typealias Element = [BatchElement]
 
-    public
+    @inlinable public
     func makeAsyncIterator() -> Self
     {
         self
     }
-    public mutating
+    @inlinable public mutating
     func next() async throws -> [BatchElement]?
     {
         if  let first:[BatchElement] = self.first
@@ -44,7 +47,7 @@ extension Mongo.Stream:AsyncSequence, AsyncIteratorProtocol
             self.manager = nil
             return nil
         }
-        if manager.cursor == 0
+        if manager.cursor == .none
         {
             self.manager = nil
         }
@@ -55,13 +58,13 @@ extension Mongo.Stream:AsyncSequence, AsyncIteratorProtocol
 
 extension Mongo.Session
 {
-    public
+    @inlinable public
     func run<Query>(query:Query, 
-        against database:Mongo.Database.ID) async throws -> Mongo.Stream<Query.Element>
-        where Query:MongoQueryCommand
+        against database:Mongo.Database) async throws -> Mongo.Stream<Query.Element>
+        where Query:MongoStreamableCommand
     {
         let batching:Int = query.batching
-        let timeout:Mongo.Duration? = query.timeout
+        let timeout:Mongo.Milliseconds? = query.timeout
         let cursor:Mongo.Cursor<Query.Element> = try await self.run(command: query,
             against: database)
         return .init(manager: .init(session: self, cursor: cursor.id,

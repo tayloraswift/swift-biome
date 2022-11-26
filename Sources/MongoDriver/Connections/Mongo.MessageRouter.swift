@@ -18,7 +18,7 @@ extension Mongo
         private
         let counter:ManagedAtomic<Int32>
         private
-        let timeout:Duration
+        let timeout:Milliseconds
         private
         var requests:
         [
@@ -26,7 +26,7 @@ extension Mongo
                 CheckedContinuation<MongoWire.Message<ByteBufferView>, Error>
         ]
 
-        init(timeout:Duration)
+        init(timeout:Milliseconds)
         {
             // MongoDB uses 0 as the ‘nil’ id.
             self.counter = .init(1)
@@ -69,20 +69,18 @@ extension Mongo.MessageRouter:ChannelOutboundHandler
 {
     typealias OutboundIn =
     (
-        BSON.Fields<[UInt8]>,
+        BSON.Fields,
         CheckedContinuation<MongoWire.Message<ByteBufferView>, Error>
     )
     typealias OutboundOut = ByteBuffer
 
     func write(context:ChannelHandlerContext, data:NIOAny, promise:EventLoopPromise<Void>?)
     {
-        let (fields, continuation):OutboundIn = self.unwrapOutboundIn(data)
+        let (command, continuation):OutboundIn = self.unwrapOutboundIn(data)
         
-        let id:MongoWire.MessageIdentifier = .init(
-            self.counter.loadThenWrappingIncrement(ordering: .relaxed))
-        
-        let command:BSON.Document<[UInt8]> = .init(fields)
-        let message:MongoWire.Message<[UInt8]> = .init(sections: .init(command),
+        let id:MongoWire.MessageIdentifier = .init(self.counter.loadThenWrappingIncrement(
+            ordering: .relaxed))
+        let message:MongoWire.Message<[UInt8]> = .init(sections: .init(.init(command)),
             checksum: false,
             id: id)
         
@@ -104,7 +102,7 @@ extension Mongo.MessageRouter:ChannelOutboundHandler
         {
             [weak self, id, timeout] in
 
-            try? await Task.sleep(for: timeout)
+            try? await Task.sleep(for: .milliseconds(timeout))
             if  let self:Mongo.MessageRouter,
                 let continuation:CheckedContinuation<MongoWire.Message<ByteBufferView>, Error> = 
                     self.requests.removeValue(forKey: id)

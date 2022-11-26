@@ -110,13 +110,6 @@ extension BSON.Document<[UInt8]>
     {
         self.init(bytes: fields.output.destination)
     }
-    @inlinable public
-    init(_ populate:(inout BSON.Fields) throws -> ()) rethrows
-    {
-        var fields:BSON.Fields = .init()
-        try populate(&fields)
-        self.init(fields)
-    }
 }
 
 extension BSON.Document:ExpressibleByDictionaryLiteral 

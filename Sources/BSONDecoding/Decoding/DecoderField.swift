@@ -41,6 +41,6 @@ extension DecoderField where Value == BSON.Value<Bytes>
     @inlinable public
     func decode(to _:Void.Type = Void.self) throws
     {
-        try self.decode { try $0.cast { $0.as(Void.self) } }
+        try self.decode { try $0.cast(with: \.null) }
     }
 }

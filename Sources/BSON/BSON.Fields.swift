@@ -15,6 +15,30 @@ extension BSON
 }
 extension BSON.Fields
 {
+    /// Creates an empty encoding view and initializes it with the given closure.
+    @inlinable public
+    init(with populate:(inout BSON.Fields) throws -> ()) rethrows
+    {
+        self.init()
+        try populate(&self)
+    }
+    /// Creates an encoding view around the given [`[UInt8]`]()-backed
+    /// document.
+    ///
+    /// >   Complexity: O(1).
+    @inlinable public
+    init(bson:BSON.Document<[UInt8]>)
+    {
+        self.init(output: .init(preallocated: bson.bytes))
+    }
+    @inlinable public
+    var isEmpty:Bool
+    {
+        self.output.destination.isEmpty
+    }
+}
+extension BSON.Fields
+{
     /// Creates a document containing the given fields.
     /// The order of the fields will be preserved.
     @inlinable public
@@ -23,58 +47,11 @@ extension BSON.Fields
         self.init(output: .init(fields: fields))
     }
 }
-// extension BSON.Fields:ExpressibleByDictionaryLiteral
-// {
-//     @inlinable public
-//     init(dictionaryLiteral:(String, BSON.Value<[UInt8]>)...)
-//     {
-//         self.init(dictionaryLiteral)
-//     }
-// }
-extension BSON.Fields
+extension BSON.Fields:ExpressibleByDictionaryLiteral
 {
-    /// Appends the given (array-backed) key-value pair to this document builder
-    /// as a field if the value is not [`nil`](), does nothing otherwise. The
-    /// getter always returns [`nil`]().
-    ///
-    /// Every non-[`nil`]() assignment to this subscript (including mutations
-    /// that leave the value in a non-[`nil`]() state after returning) will add
-    /// a new field to the document intermediate, even if the key is the same.
     @inlinable public
-    subscript(key:String) -> BSON.Value<[UInt8]>?
+    init(dictionaryLiteral:(String, BSON.Value<[UInt8]>)...)
     {
-        get
-        {
-            nil
-        }
-        set(value)
-        {
-            if let value:BSON.Value<[UInt8]>
-            {
-                self.output.serialize(key: key, value: value)
-            }
-        }
-    }
-    /// Appends the given key-value pair to this document builder as a field
-    /// if the value is not [`nil`](), does nothing otherwise. The getter
-    /// always returns [`nil`]().
-    ///
-    /// Every non-[`nil`]() assignment to this subscript (including mutations
-    /// that leave the value in a non-[`nil`]() state after returning) will add
-    /// a new field to the document intermediate, even if the key is the same.
-    @inlinable public
-    subscript<Bytes>(key:String) -> BSON.Value<Bytes>?
-    {
-        get
-        {
-            nil
-        }
-        set(value)
-        {
-            if let value:BSON.Value<Bytes>
-            {
-                self.output.serialize(key: key, value: value)
-            }
-        }
+        self.init(dictionaryLiteral)
     }
 }

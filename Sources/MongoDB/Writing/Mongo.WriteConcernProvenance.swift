@@ -1,3 +1,5 @@
+import BSONDecoding
+
 extension Mongo
 {
     @frozen public
@@ -8,4 +10,7 @@ extension Mongo
         case getLastErrorDefaults
         case implicitDefault
     }
+}
+extension Mongo.WriteConcernProvenance:BSONDecodable
+{
 }

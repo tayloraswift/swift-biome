@@ -13,16 +13,16 @@ extension MongoWire.Message
         ///
         /// >   Complexity: O(1)
         @inlinable public
-        init(_ bytes:Bytes)
+        init(bytes:Bytes)
         {
             self.bytes = bytes
         }
     }
 }
-extension MongoWire.Message.Sequence:TraversableBSON
+extension MongoWire.Message.Sequence:VariableLengthBSON
 {
     public
-    typealias Header = BSON.DocumentHeader
+    typealias Frame = MongoWire.SequenceFrame
 
     /// Stores the argument in ``bytes`` unchanged. Equivalent to ``init(_:)``.
     ///
@@ -30,7 +30,7 @@ extension MongoWire.Message.Sequence:TraversableBSON
     @inlinable public
     init(slicing bytes:Bytes)
     {
-        self.bytes = bytes
+        self.init(bytes: bytes)
     }
 }
 extension MongoWire.Message.Sequence
@@ -48,7 +48,7 @@ extension MongoWire.Message.Sequence
     @inlinable public
     var size:Int
     {
-        Header.size + self.bytes.count
+        4 + self.bytes.count
     }
 }
 extension MongoWire.Message.Sequence where Bytes:RangeReplaceableCollection<UInt8>
@@ -66,6 +66,6 @@ extension MongoWire.Message.Sequence where Bytes:RangeReplaceableCollection<UInt
         }
         assert(output.destination.count == size,
             "precomputed size (\(size)) does not match output size (\(output.destination.count))")
-        self.init(output.destination)
+        self.init(bytes: output.destination)
     }
 }

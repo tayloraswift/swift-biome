@@ -7,6 +7,33 @@ enum Main:SynchronousTests
     static
     func run(tests:inout Tests)
     {
+        tests.group("markers")
+        {
+            let bson:BSON.Document<[UInt8]> =
+            [
+                "null": .null,
+                "max": .max,
+                "min": .min,
+            ]
+
+            $0.do(name: "null")
+            {
+                _ in
+                let dictionary:BSON.Dictionary<ArraySlice<UInt8>> = try .init(
+                    fields: try bson.parse())
+                try dictionary["null"].decode(to: Void.self)
+            }
+            $0.test(name: "max", decoding: bson,
+                expecting: .init())
+            {
+                try $0["max"].decode(to: BSON.Max.self)
+            }
+            $0.test(name: "min", decoding: bson,
+                expecting: .init())
+            {
+                try $0["min"].decode(to: BSON.Min.self)
+            }
+        }
         tests.group("numeric")
         {
             let bson:BSON.Document<[UInt8]> =
@@ -231,6 +258,28 @@ enum Main:SynchronousTests
                     in: "present"))
             {
                 try $0["present"]?.decode(to: Bool.self)
+            }
+        }
+
+        tests.group("binary")
+        {
+            let md5:BSON.Binary<[UInt8]> = .init(subtype: .md5,
+                bytes: [0xff, 0xfe, 0xfd])
+            let bson:BSON.Document<[UInt8]> =
+            [
+                "md5": .binary(md5),
+            ]
+
+            $0.do(name: "md5")
+            {
+                let dictionary:BSON.Dictionary<ArraySlice<UInt8>> = try .init(
+                    fields: try bson.parse())
+                let decoded:BSON.Binary<ArraySlice<UInt8>> = try dictionary["md5"].decode(
+                    as: BSON.Binary<ArraySlice<UInt8>>.self)
+                {
+                    $0
+                }
+                $0.assert(md5 == decoded, name: "value")
             }
         }
     }

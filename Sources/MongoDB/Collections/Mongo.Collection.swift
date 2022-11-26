@@ -1,42 +1,36 @@
-import BSONDecoding
-import NIOCore
+import BSONSchema
 
 extension Mongo
 {
     @frozen public
-    struct Collection:Identifiable, Sendable
+    struct Collection:Hashable, Sendable
     {
         public
-        let id:ID
-        public
-        let type:CollectionType
-        public
-        let options:CollectionOptions
-        public
-        let info:CollectionInfo
+        let name:String
 
         @inlinable public
-        init(id:ID, type:CollectionType, options:CollectionOptions, info:CollectionInfo)
+        init(_ name:String)
         {
-            self.id = id
-            self.type = type
-            self.options = options
-            self.info = info
+            self.name = name
         }
     }
 }
-extension Mongo.Collection:MongoDecodable
+extension Mongo.Collection:ExpressibleByStringLiteral
 {
-    public
-    init(bson:BSON.Dictionary<ByteBufferView>) throws
+    @inlinable public
+    init(stringLiteral:String)
     {
-        self.init(id: try bson["name"].decode(as: String.self, with: ID.init(_:)),
-            type: try bson["type"].decode(cases: Mongo.CollectionType.self),
-            options: try bson["options"].decode(
-                as: BSON.Dictionary<ByteBufferView>.self,
-                with: Mongo.CollectionOptions.init(bson:)),
-            info: try bson["info"].decode(
-                as: BSON.Dictionary<ByteBufferView>.self,
-                with: Mongo.CollectionInfo.init(bson:)))
+        self.init(stringLiteral)
     }
+}
+extension Mongo.Collection:LosslessStringConvertible
+{
+    @inlinable public
+    var description:String
+    {
+        self.name
+    }
+}
+extension Mongo.Collection:BSONStringScheme
+{
 }

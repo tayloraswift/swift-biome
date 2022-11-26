@@ -1,15 +1,17 @@
+import BSONDecoding
+
 extension Mongo
 {
     @frozen public
-    struct ConnectionIdentifier:Hashable, Sendable
+    struct ConnectionIdentifier:Hashable, RawRepresentable, Sendable
     {
         public
-        let value:Int32
+        let rawValue:Int32
 
         @inlinable public
-        init(_ value:Int32)
+        init(rawValue:Int32)
         {
-            self.value = value
+            self.rawValue = rawValue
         }
     }
 }
@@ -18,6 +20,9 @@ extension Mongo.ConnectionIdentifier:CustomStringConvertible
     public
     var description:String
     {
-        self.value.description
+        self.rawValue.description
     }
+}
+extension Mongo.ConnectionIdentifier:BSONDecodable
+{
 }

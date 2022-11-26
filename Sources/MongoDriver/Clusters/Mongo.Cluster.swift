@@ -82,7 +82,8 @@ extension Mongo.Cluster
     }
 
     public nonisolated
-    func session(for command:(some MongoSessionCommand).Type) async throws -> Mongo.Session
+    func session(
+        for command:(some MongoImplicitSessionCommand).Type) async throws -> Mongo.Session
     {
         try await self.session(on: command.node)
     }
@@ -221,7 +222,7 @@ extension Mongo.Cluster
     /// sending the command to an appropriate cluster member for its type.
     public nonisolated
     func run<Command>(command:Command) async throws -> Command.Response
-        where Command:MongoSessionCommand
+        where Command:MongoImplicitSessionCommand
     {    
         try await self.session(for: Command.self).run(command: command)
     }
@@ -229,8 +230,8 @@ extension Mongo.Cluster
     /// sending the command to an appropriate cluster member for its type.
     public nonisolated
     func run<Command>(command:Command, 
-        against database:Mongo.Database.ID) async throws -> Command.Response
-        where Command:MongoDatabaseCommand
+        against database:Mongo.Database) async throws -> Command.Response
+        where Command:MongoImplicitSessionCommand & MongoDatabaseCommand
     {    
         try await self.session(for: Command.self).run(command: command,
             against: database)

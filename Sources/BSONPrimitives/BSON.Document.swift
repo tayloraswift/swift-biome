@@ -7,4 +7,9 @@ extension BSON.Document:CollectionViewBSON
     {
         self = try value.cast(with: \.document)
     }
+    @inlinable public
+    var bson:BSON.Value<Bytes>
+    {
+        .document(self)
+    }
 }

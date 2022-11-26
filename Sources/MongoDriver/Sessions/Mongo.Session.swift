@@ -33,8 +33,8 @@ extension Mongo.Session
     func timeout() -> ContinuousClock.Instant
     {
         // allow 1 min padding time
-        let minutes:Int = max(0, self.connection.instance.logicalSessionTimeoutMinutes - 1)
-        return .now.advanced(by: .seconds(minutes * 60))
+        let timeout:Mongo.Minutes = self.connection.instance.logicalSessionTimeoutMinutes
+        return .now.advanced(by: .minutes(max(0, timeout - 1)))
     }
 
     /// Runs a session command against the ``Mongo/Database/.admin`` database.
@@ -54,7 +54,7 @@ extension Mongo.Session
     /// Runs a session command against the specified database.
     public
     func run<Command>(command:Command, 
-        against database:Mongo.Database.ID) async throws -> Command.Response
+        against database:Mongo.Database) async throws -> Command.Response
         where Command:MongoDatabaseCommand
     {
         let timeout:ContinuousClock.Instant = self.timeout()

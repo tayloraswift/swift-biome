@@ -10,13 +10,13 @@ extension Mongo
         public
         let password:String
         public
-        let database:Database.ID
+        let database:Database
 
         @inlinable public
         init(authentication:Authentication?,
             username:String,
             password:String,
-            database:Database.ID = .admin)
+            database:Database = .admin)
         {
             self.authentication = authentication
             self.username = username
@@ -27,7 +27,7 @@ extension Mongo
 }
 extension Mongo.Credentials
 {
-    var user:Mongo.User.ID
+    var user:Mongo.User
     {
         .init(self.database, self.username)
     }

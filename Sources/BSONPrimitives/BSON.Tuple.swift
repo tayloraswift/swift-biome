@@ -7,4 +7,9 @@ extension BSON.Tuple:CollectionViewBSON
     {
         self = try value.cast(with: \.tuple)
     }
+    @inlinable public
+    var bson:BSON.Value<Bytes>
+    {
+        .tuple(self)
+    }
 }

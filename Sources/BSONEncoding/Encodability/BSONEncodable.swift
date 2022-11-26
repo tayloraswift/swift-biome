@@ -14,15 +14,6 @@ extension BSONEncodable where Self:BinaryFloatingPoint
     }
 }
 
-extension BSON.Fields:BSONEncodable
-{
-    @inlinable public
-    var bson:BSON.Value<[UInt8]>
-    {
-        .document(.init(self))
-    }
-}
-
 extension Float:BSONEncodable {}
 extension Double:BSONEncodable {}
 extension Float80:BSONEncodable {}
@@ -143,12 +134,28 @@ extension BSON.Identifier:BSONEncodable
         .id(self)
     }
 }
+extension BSON.Max:BSONEncodable
+{
+    @inlinable public
+    var bson:BSON.Value<[UInt8]>
+    {
+        .max
+    }
+}
 extension BSON.Millisecond:BSONEncodable
 {
     @inlinable public
     var bson:BSON.Value<[UInt8]>
     {
         .millisecond(self)
+    }
+}
+extension BSON.Min:BSONEncodable
+{
+    @inlinable public
+    var bson:BSON.Value<[UInt8]>
+    {
+        .min
     }
 }
 extension BSON.Regex:BSONEncodable
@@ -174,6 +181,17 @@ extension String:BSONEncodable
         .string(self)
     }
 }
+extension Optional:BSONEncodable where Wrapped:BSONEncodable
+{
+    /// Encodes this optional as an explicit ``BSON/Value/.null``, if
+    /// [`nil`]().
+    @inlinable public
+    var bson:BSON.Value<[UInt8]>
+    {
+        self?.bson ?? .null
+    }
+}
+
 extension Array:BSONEncodable where Element:BSONEncodable
 {
     /// Encodes this string as a variant of type ``BSON.string``.
@@ -194,5 +212,24 @@ extension Set:BSONEncodable where Element:BSONEncodable
     var bson:BSON.Value<[UInt8]>
     {
         .tuple(.init(self.lazy.map(\.bson)))
+    }
+}
+
+extension BSONEncodable where Self:RawRepresentable, RawValue:BSONEncodable
+{
+    /// Returns the ``bson`` witness of this type’s ``RawRepresentable.rawValue``.
+    @inlinable public
+    var bson:BSON.Value<[UInt8]>
+    {
+        self.rawValue.bson
+    }
+}
+
+extension BSON.Fields:BSONEncodable
+{
+    @inlinable public
+    var bson:BSON.Value<[UInt8]>
+    {
+        .document(.init(self))
     }
 }

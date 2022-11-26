@@ -8,13 +8,13 @@ extension Mongo
         public
         let credentials:Credentials?
         public
-        let timeout:Duration
+        let timeout:Milliseconds
         public
         let tls:TLS?
 
         @inlinable public
         init(credentials:Credentials? = nil,
-            timeout:Duration = .seconds(15),
+            timeout:Milliseconds = .seconds(15),
             tls:TLS? = nil)
         {
             self.credentials = credentials

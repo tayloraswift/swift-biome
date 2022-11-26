@@ -7,4 +7,9 @@ extension BSON.UTF8:CollectionViewBSON
     {
         self = try value.cast(with: \.utf8)
     }
+    @inlinable public
+    var bson:BSON.Value<Bytes>
+    {
+        .string(self)
+    }
 }

@@ -23,35 +23,38 @@ extension Tests
     func test(name:String, degenerate:String? = nil, canonical:String, 
         expected:BSON.Document<[UInt8]>)
     {
-        let canonical:[UInt8] = Base16.decode(canonical.utf8)
-        let size:Int32 = canonical.prefix(4).withUnsafeBytes
+        self.group(name)
         {
-            .init(littleEndian: $0.load(as: Int32.self))
-        }
-
-        let document:BSON.Document<ArraySlice<UInt8>> = .init(
-            slicing: canonical.dropFirst(4).dropLast())
-
-        self.assert(canonical.count ==? .init(size), name: "\(name).document-encoded-header")
-        self.assert(document.header ==? size, name: "\(name).document-computed-header")
-
-        self.assert(expected ~~ document, name: "\(name).canonical-equivalence")
-        self.assert(expected == document, name: "\(name).binary-equivalence")
-
-        if  let degenerate:String
-        {
-            let degenerate:[UInt8] = Base16.decode(degenerate.utf8)
-            let document:BSON.Document<ArraySlice<UInt8>> = .init(
-                slicing: degenerate.dropFirst(4).dropLast())
-            self.do(name: "\(name).canonicalization")
+            let canonical:[UInt8] = Base16.decode(canonical.utf8)
+            let size:Int32 = canonical.prefix(4).withUnsafeBytes
             {
-                let canonicalized:BSON.Document<ArraySlice<UInt8>> = 
-                    try document.canonicalized()
-                
-                $0.assert(expected ~~ document,
-                    name: "\(name).canonicalized-canonical-equivalence")
-                $0.assert(expected == canonicalized,
-                    name: "\(name).canonicalized-binary-equivalence")
+                .init(littleEndian: $0.load(as: Int32.self))
+            }
+
+            let document:BSON.Document<ArraySlice<UInt8>> = .init(
+                slicing: canonical.dropFirst(4).dropLast())
+
+            $0.assert(canonical.count ==? .init(size), name: "document-encoded-header")
+            $0.assert(document.header ==? size, name: "document-computed-header")
+
+            $0.assert(expected ~~ document, name: "canonical-equivalence")
+            $0.assert(expected == document, name: "binary-equivalence")
+
+            if  let degenerate:String
+            {
+                let degenerate:[UInt8] = Base16.decode(degenerate.utf8)
+                let document:BSON.Document<ArraySlice<UInt8>> = .init(
+                    slicing: degenerate.dropFirst(4).dropLast())
+                $0.do(name: "canonicalization")
+                {
+                    let canonicalized:BSON.Document<ArraySlice<UInt8>> = 
+                        try document.canonicalized()
+                    
+                    $0.assert(expected ~~ document,
+                        name: "canonicalized-canonical-equivalence")
+                    $0.assert(expected == canonicalized,
+                        name: "canonicalized-binary-equivalence")
+                }
             }
         }
     }

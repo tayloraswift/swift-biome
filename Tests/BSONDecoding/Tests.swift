@@ -15,15 +15,15 @@ extension Tests
         }
     }
     mutating
-    func test<Expected>(name:String, decoding bson:BSON.Document<[UInt8]>,
-        expecting expected:Expected,
-        decoder decode:(BSON.Dictionary<ArraySlice<UInt8>>) throws -> Expected)
-        where Expected:Equatable
+    func test<Decoded>(name:String, decoding bson:BSON.Document<[UInt8]>,
+        expecting expected:Decoded,
+        decoder decode:(BSON.Dictionary<ArraySlice<UInt8>>) throws -> Decoded)
+        where Decoded:Equatable
     {
         self.do(name: name)
         {
-            let decoded:Expected = try decode(try .init(fields: try bson.parse()))
-            $0.assert(expected == decoded, name: "\(name).value")
+            let decoded:Decoded = try decode(try .init(fields: try bson.parse()))
+            $0.assert(expected ==? decoded, name: "value")
         }
     }
 }

@@ -6,12 +6,29 @@ extension Mongo
     enum WriteAcknowledgement:Hashable, Sendable
     {
         case majority
-        case count(Int)
         case custom(String)
+        case count(Int)
     }
 }
 extension Mongo.WriteAcknowledgement
 {
+    public
+    var bson:BSON.Value<[UInt8]>
+    {
+        switch self
+        {
+        case .majority:
+            return .string("majority")
+        case .custom(let concern):
+            return .string(concern)
+        case .count(let instances):
+            return .int64(Int64.init(instances))
+        }
+    }
+}
+extension Mongo.WriteAcknowledgement:BSONDecodable
+{
+    @inlinable public
     init(bson:BSON.Value<some RandomAccessCollection<UInt8>>) throws
     {
         if case .string(let string) = bson
@@ -19,22 +36,13 @@ extension Mongo.WriteAcknowledgement
             let string:String = string.description
             self = string == "majority" ? .majority : .custom(string)
         }
+        else if let count:Int = bson.as(Int.self)
+        {
+            self = .count(count)
+        }
         else
         {
-            self = .count(try bson.as(Int.self))
-        }
-    }
-
-    var bson:BSON.Value<[UInt8]>
-    {
-        switch self
-        {
-        case .majority:
-            return "majority"
-        case .count(let instances):
-            return .int64(Int64.init(instances))
-        case .custom(let concern):
-            return .string(concern)
+            throw BSON.TypecastError<Self>.init(invalid: bson.type)
         }
     }
 }

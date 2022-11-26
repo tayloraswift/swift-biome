@@ -6,16 +6,6 @@ import NIOSSL
 import SCRAM
 import SHA2
 
-extension BSON.Fields where Bytes:RangeReplaceableCollection
-{
-    /// Adds a MongoDB database identifier to this list of fields, under the key [`"$db"`]().
-    fileprivate mutating
-    func add(database:Mongo.Database.ID)
-    {
-        self.add(key: "$db", value: .string(database.name))
-    }
-}
-
 extension Mongo
 {
     /// @import(NIOCore)
@@ -135,12 +125,11 @@ extension Mongo.Connection
             {
                 hello = .init(user: nil)
             }
-            var command:BSON.Fields<[UInt8]> = hello.fields
+            var command:BSON.Fields = .init(with: hello.encode(to:))
                 command.add(database: .admin)
             
             channel.writeAndFlush((command, continuation), promise: nil)
         }
-
 
         self.init(instance: try Mongo.Hello.decode(message: message), channel: channel)
 
@@ -219,7 +208,7 @@ extension Mongo.Connection
     } 
     private
     func authenticate(sasl mechanism:Mongo.Authentication.SASL, 
-        database:Mongo.Database.ID, 
+        database:Mongo.Database, 
         username:String, 
         password:String) async throws 
     {
@@ -300,7 +289,7 @@ extension Mongo.Connection
 {
     /// Runs an authentication command against the specified `database`.
     func run<Command>(command:__owned Command,
-        against database:Mongo.Database.ID) async throws -> Mongo.SASLResponse
+        against database:Mongo.Database) async throws -> Mongo.SASLResponse
         where Command:MongoAuthenticationCommand
     {
         try Command.decode(message: try await self.run(command: command,
@@ -308,11 +297,11 @@ extension Mongo.Connection
             session: nil))
     }
     func run(command:__owned some MongoCommand,
-        against database:Mongo.Database.ID,
+        against database:Mongo.Database,
         transaction:Never? = nil,
         session:Mongo.Session.ID?) async throws -> MongoWire.Message<ByteBufferView>
     {
-        var command:BSON.Fields<[UInt8]> = command.fields
+        var command:BSON.Fields = .init(with: command.encode(to:))
             command.add(database: database)
         
         if let session:Mongo.Session.ID
@@ -334,6 +323,7 @@ extension Mongo.Connection
         return try await withCheckedThrowingContinuation
         {
             (continuation:CheckedContinuation<MongoWire.Message<ByteBufferView>, any Error>) in
+
             self.channel.writeAndFlush((command, continuation), promise: nil)
         }
     }

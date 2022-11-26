@@ -158,18 +158,29 @@ let package = Package(
         .target(name: "BSON",
             dependencies:
             [
-                .target(name: "BSONTraversal")
+                .target(name: "BSONTraversal"),
+            ]),
+        .target(name: "BSONPrimitives",
+            dependencies:
+            [
+                .target(name: "BSON"),
             ]),
         .target(name: "BSONDecoding",
             dependencies:
             [
+                .target(name: "BSONPrimitives"),
                 .target(name: "TraceableErrors"),
-                .target(name: "BSON")
             ]),
         .target(name: "BSONEncoding",
             dependencies:
             [
-                .target(name: "BSON")
+                .target(name: "BSONPrimitives"),
+            ]),
+        .target(name: "BSONSchema",
+            dependencies:
+            [
+                .target(name: "BSONDecoding"),
+                .target(name: "BSONEncoding"),
             ]),
         
         .target(name: "SCRAM",
@@ -179,27 +190,45 @@ let package = Package(
                 .product(name: "MessageAuthentication", package: "swift-hash"),
             ]),
 
-        .target(name: "Mongo"),
+        // the mongo wire protocol. has no awareness of networking or
+        // driver-level concepts.
+        .target(name: "MongoWire",
+            dependencies: 
+            [
+                .target(name: "BSON"),
+                .product(name: "CRC", package: "swift-hash"),
+            ]),
+        
+        // basic type definitions and conformances. driver peripherals can
+        // import this instead of ``/MongoDriver`` to avoid depending on `swift-nio`.
+        .target(name: "Mongo",
+            dependencies: 
+            [
+                // this dependency emerged because we need several of the
+                // enumeration types to be ``BSONDecodable`` and ``BSONEncodable``,
+                // and we do not want a downstream module to have to declare
+                // retroactive conformances.
+                .target(name: "BSONSchema"),
+            ]),
 
+        // connection uri strings.
         .target(name: "MongoURI",
             dependencies: 
             [
                 .target(name: "Mongo"),
             ]),
         
-        .target(name: "MongoWire",
+        
+        .target(name: "MongoSchema",
             dependencies: 
             [
-                .target(name: "BSON"),
-                
-                .product(name: "CRC", package: "swift-hash"),
+                .target(name: "BSONSchema"),
             ]),
 
         .target(name: "MongoDriver",
             dependencies: 
             [
-                .target(name: "BSONDecoding"),
-                .target(name: "BSONEncoding"),
+                .target(name: "BSONSchema"),
                 .target(name: "Mongo"),
                 .target(name: "MongoWire"),
                 .target(name: "SCRAM"),
@@ -290,6 +319,14 @@ let package = Package(
                 .product(name: "Testing", package: "swift-hash"),
             ], 
             path: "Tests/BSONDecoding"),
+        
+        .executableTarget(name: "BSONEncodingTests",
+            dependencies:
+            [
+                .target(name: "BSONEncoding"),
+                .product(name: "Testing", package: "swift-hash"),
+            ], 
+            path: "Tests/BSONEncoding"),
         
         .executableTarget(name: "MongoDBTests",
             dependencies:

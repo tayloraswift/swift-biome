@@ -8,6 +8,6 @@ extension BSONDocumentEncodable
     @inlinable public
     var bson:BSON.Value<[UInt8]>
     {
-        .document(.init(self.encode(to:)))
+        .document(.init(.init(with: self.encode(to:))))
     }
 }

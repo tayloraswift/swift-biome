@@ -29,12 +29,28 @@ extension BSON.Identifier:BSONDecodable
         self = try bson.cast { $0.as(Self.self) }
     }
 }
+extension BSON.Max:BSONDecodable
+{
+    @inlinable public
+    init(bson:BSON.Value<some RandomAccessCollection<UInt8>>) throws
+    {
+        self = try bson.cast(with: \.max)
+    }
+}
 extension BSON.Millisecond:BSONDecodable
 {
     @inlinable public
     init(bson:BSON.Value<some RandomAccessCollection<UInt8>>) throws
     {
         self = try bson.cast { $0.as(Self.self) }
+    }
+}
+extension BSON.Min:BSONDecodable
+{
+    @inlinable public
+    init(bson:BSON.Value<some RandomAccessCollection<UInt8>>) throws
+    {
+        self = try bson.cast(with: \.min)
     }
 }
 extension BSON.Regex:BSONDecodable

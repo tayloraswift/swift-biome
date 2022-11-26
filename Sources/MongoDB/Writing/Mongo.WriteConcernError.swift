@@ -1,5 +1,4 @@
 import BSONDecoding
-import NIOCore
 
 extension Mongo
 {
@@ -29,22 +28,22 @@ extension Mongo
         }
     }
 }
-extension Mongo.WriteConcernError:MongoDecodable
+extension Mongo.WriteConcernError:BSONDictionaryDecodable
 {
-    public
-    init(bson:BSON.Dictionary<ByteBufferView>) throws
+    @inlinable public
+    init<Bytes>(bson:BSON.Dictionary<Bytes>) throws
     {
         let (writeConcern, writeConcernProvenance):
         (
             Mongo.WriteConcern,
             Mongo.WriteConcernProvenance
-        ) = try bson["errInfo"].decode(as: BSON.Dictionary<ByteBufferView>.self)
+        ) = try bson["errInfo"].decode(as: BSON.Dictionary<Bytes.SubSequence>.self)
         {
-            try $0["writeConcern"].decode(as: BSON.Dictionary<ByteBufferView>.self)
+            try $0["writeConcern"].decode(as: BSON.Dictionary<Bytes.SubSequence>.self)
             {
                 (
                     try .init(bson: $0),
-                    try $0["provenance"].decode(cases: Mongo.WriteConcernProvenance.self)
+                    try $0["provenance"].decode(to: Mongo.WriteConcernProvenance.self)
                 )
             }
         }

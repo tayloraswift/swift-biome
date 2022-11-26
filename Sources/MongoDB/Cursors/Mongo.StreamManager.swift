@@ -1,26 +1,33 @@
+import MongoSchema
+
 extension Mongo
 {
-    @usableFromInline
+    public
     class StreamManager
     {
+        public
         let session:Session
 
-        private(set)
-        var cursor:Int64
+        @usableFromInline
+        var cursor:CursorIdentifier
 
+        public
         let namespace:Namespace
+        public
         let batching:Int
-        let timeout:Mongo.Duration?
+        public
+        let timeout:Mongo.Milliseconds?
 
-        init?(session:Session, cursor:Int64,
+        public
+        init?(session:Session, cursor:CursorIdentifier,
             namespace:Namespace,
             batching:Int,
-            timeout:Mongo.Duration?)
+            timeout:Mongo.Milliseconds?)
         {
             self.session = session
             self.cursor = cursor
 
-            guard self.cursor != 0
+            guard self.cursor != .none
             else
             {
                 return nil
@@ -33,7 +40,7 @@ extension Mongo
 
         deinit
         {
-            guard self.cursor != 0
+            guard self.cursor != .none
             else
             {
                 return
@@ -62,18 +69,21 @@ extension Mongo
 }
 extension Mongo.StreamManager
 {
-    var database:Mongo.Database.ID
+    @inlinable public
+    var database:Mongo.Database
     {
         self.namespace.database
     }
-    var collection:Mongo.Collection.ID
+    @inlinable public
+    var collection:Mongo.Collection
     {
         self.namespace.collection
     }
+    @inlinable public
     func get<Element>(more _:Element.Type) async throws -> [Element]?
         where Element:MongoDecodable
     {
-        guard   let command:Mongo.Cursor<Element>.GetMore = .init(cursor: self.cursor,
+        guard   let command:Mongo.GetMore<Element> = .init(cursor: self.cursor,
                     collection: self.collection,
                     batching: self.batching,
                     timeout: self.timeout)
