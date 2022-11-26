@@ -6,7 +6,7 @@ extension Mongo
     ///
     /// > See:  https://docs.mongodb.com/manual/reference/command/dropDatabase
     public
-    struct DropDatabase
+    struct DropDatabase:Sendable
     {
         public
         let writeConcern:WriteConcern?
@@ -24,11 +24,9 @@ extension Mongo.DropDatabase:MongoDatabaseCommand, MongoImplicitSessionCommand
     let node:Mongo.InstanceSelector = .master
 
     public
-    var fields:BSON.Fields<[UInt8]>
+    func encode(to bson:inout BSON.Fields)
     {
-        [
-            "dropDatabase": 1,
-            "writeConcern": .document(self.writeConcern?.bson),
-        ]
+        bson["dropDatabase"] = 1 as Int32
+        bson["writeConcern"] = self.writeConcern
     }
 }

@@ -1,4 +1,4 @@
-import BSONEncoding
+import MongoSchema
 
 extension Mongo
 {
@@ -15,13 +15,13 @@ extension Mongo
         let tailing:Tailing?
 
         public
-        let `let`:Document?
+        let `let`:BSON.Fields
         public
-        let filter:Document?
+        let filter:BSON.Fields
         public
-        let sort:Document?
+        let sort:BSON.Fields
         public
-        let projection:Document?
+        let projection:BSON.Fields
 
         public
         let skip:Int
@@ -36,9 +36,9 @@ extension Mongo
         public
         let hint:IndexHint?
         public
-        let min:Document?
+        let min:BSON.Fields
         public
-        let max:Document?
+        let max:BSON.Fields
         public
         let returnKey:Bool?
         public
@@ -48,17 +48,17 @@ extension Mongo
         init(collection:Collection, returning batching:Int,
             timeout:Milliseconds? = nil,
             tailing:Tailing? = nil,
-            `let`:Document? = nil,
-            filter:Document? = nil,
-            sort:Document? = nil,
-            projection:Document? = nil,
+            `let`:BSON.Fields = [:],
+            filter:BSON.Fields = [:],
+            sort:BSON.Fields = [:],
+            projection:BSON.Fields = [:],
             skip:Int = 0,
             limit:Int = 0,
             collation:Collation? = nil,
             readConcern:ReadConcern? = nil,
             hint:IndexHint? = nil,
-            min:Document? = nil,
-            max:Document? = nil,
+            min:BSON.Fields = [:],
+            max:BSON.Fields = [:],
             returnKey:Bool? = nil,
             showRecordIdentifier:Bool? = nil)
         {
@@ -126,53 +126,32 @@ extension Mongo.Find:MongoStreamableCommand
     }
     
     public
-    var fields:BSON.Fields<[UInt8]>
+    func encode(to bson:inout BSON.Fields)
     {
-        [
-            "find":
-                .string(self.collection.name),
-            "batchSize":
-                .int64(Int64.init(self.batching)),
-            // "singleBatch":
-            //     .bool(self.singleBatch ? true : nil),
-            "maxTimeMS":
-                .int64(self.timeout?.rawValue),
-            "tailable":
-                .bool(self.tailable ? true : nil),
-            "awaitData":
-                .bool(self.awaitData ? true : nil),
+        bson["find"] = self.collection
+        bson["batchSize"] = self.batching
+        // bson["singleBatch"] = self.singleBatch ? true : nil
+        bson["maxTimeMS"] = self.timeout
+        bson["tailable"] = self.tailable ? true : nil
+        bson["awaitData"] = self.awaitData ? true : nil
             
-            "let":
-                .document(self.let?.bson),
-            "filter":
-                .document(self.filter?.bson),
-            "sort":
-                .document(self.sort?.bson),
-            "projection":
-                .document(self.projection?.bson),
+        bson["let", elide: true] = self.let
+        bson["filter", elide: true] = self.filter
+        bson["sort", elide: true] = self.sort
+        bson["projection", elide: true] = self.projection
             
-            "skip":
-                .int64(Int64.init(self.skip)),
-            "limit":
-                .int64(Int64.init(self.limit)),
+        bson["skip"] = self.skip
+        bson["limit"] = self.limit
 
-            "collation":
-                .document(self.collation?.bson),
-            "readConcern":
-                .document(self.readConcern?.bson),
+        bson["collation"] = self.collation
+        bson["readConcern"] = self.readConcern
             
-            "hint":
-                self.hint?.bson,
-            "min":
-                .document(self.min?.bson),
-            "max":
-                .document(self.max?.bson),
+        bson["hint"] = self.hint
+        bson["min", elide: true] = self.min
+        bson["max", elide: true] = self.max
             
-            "returnKey":
-                .bool(self.returnKey),
-            "showRecordId":
-                .bool(self.showRecordIdentifier),
-        ]
+        bson["returnKey"] = self.returnKey
+        bson["showRecordId"] = self.showRecordIdentifier
     }
 
     public

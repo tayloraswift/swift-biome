@@ -1,5 +1,4 @@
 import BSONDecoding
-import MongoSchema
 import UUID
 
 extension Mongo

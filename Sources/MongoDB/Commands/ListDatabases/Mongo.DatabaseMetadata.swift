@@ -4,7 +4,7 @@ extension Mongo
 {
     /// Information about a MongoDB database.
     @frozen public
-    struct DatabaseMetadata:Identifiable
+    struct DatabaseMetadata:Sendable
     {
         public
         let database:Database
@@ -19,14 +19,6 @@ extension Mongo
             self.database = database
             self.size = size
         }
-    }
-}
-extension Mongo.DatabaseMetadata
-{
-    @inlinable public
-    var name:String
-    {
-        self.database.name
     }
 }
 extension Mongo.DatabaseMetadata:BSONDictionaryDecodable

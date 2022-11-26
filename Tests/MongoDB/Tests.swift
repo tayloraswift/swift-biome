@@ -4,8 +4,8 @@ import Testing
 extension Tests
 {
     mutating
-    func with(database:Mongo.Database.ID, cluster:Mongo.Cluster,
-        running test:@Sendable (inout Self, Mongo.Database.ID, [Mongo.Database.ID]) async -> ()) async
+    func with(database:Mongo.Database, cluster:Mongo.Cluster,
+        running test:@Sendable (inout Self, Mongo.Database, [Mongo.Database]) async -> ()) async
     {
         await self.group(database.name)
         {
@@ -15,14 +15,14 @@ extension Tests
                     against: database)
             }
 
-            let databases:[Mongo.Database.ID] = ["admin", "config", "local"]
+            let databases:[Mongo.Database] = ["admin", "config", "local"]
 
             await test(&$0, database, databases)
 
             await $0.do(name: "drop-database")
             {
                 try await cluster.run(command: Mongo.DropDatabase.init(), against: database)
-                let names:[Mongo.Database.ID] = try await cluster.run(
+                let names:[Mongo.Database] = try await cluster.run(
                     command: Mongo.ListDatabases.NameOnly.init())
                 $0.assert(names ..? databases, name: "names")
             }

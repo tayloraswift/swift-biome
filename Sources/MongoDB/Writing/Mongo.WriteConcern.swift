@@ -1,5 +1,4 @@
-import BSONDecoding
-import BSONEncoding
+import BSONSchema
 
 extension Mongo
 {
@@ -22,7 +21,17 @@ extension Mongo
         }
     }
 }
-extension Mongo.WriteConcern:MongoDecodable, BSONDictionaryDecodable
+extension Mongo.WriteConcern:BSONDocumentEncodable
+{
+    public
+    func encode(to bson:inout BSON.Fields)
+    {
+        bson["w"] = self.acknowledgement
+        bson["j"] = self.journaled
+        bson["wtimeout"] = self.timeout
+    }
+}
+extension Mongo.WriteConcern:BSONDictionaryDecodable
 {
     @inlinable public
     init(bson:BSON.Dictionary<some RandomAccessCollection<UInt8>>) throws
@@ -31,17 +40,5 @@ extension Mongo.WriteConcern:MongoDecodable, BSONDictionaryDecodable
             acknowledgement: try bson["w"].decode(to: Mongo.WriteAcknowledgement.self),
             journaled: try bson["j"].decode(to: Bool.self),
             timeout: try bson["wtimeout"]?.decode(to: Mongo.Milliseconds.self))
-    }
-}
-extension Mongo.WriteConcern:MongoEncodable
-{
-    public
-    var document:Mongo.Document
-    {
-        [
-            "w": self.acknowledgement.bson,
-            "j": .bool(self.journaled),
-            "wtimeout": .int64(self.timeout?.rawValue),
-        ]
     }
 }

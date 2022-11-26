@@ -1,5 +1,4 @@
-import BSONDecoding
-import BSONEncoding
+import BSONSchema
 
 extension Mongo.ListDatabases
 {
@@ -11,7 +10,7 @@ extension Mongo.ListDatabases
     ///
     /// > See:  https://www.mongodb.com/docs/manual/reference/command/listDatabases/
     public
-    struct NameOnly
+    struct NameOnly:Sendable
     {
         public
         let base:Mongo.ListDatabases
@@ -26,27 +25,28 @@ extension Mongo.ListDatabases
 extension Mongo.ListDatabases.NameOnly
 {
     public
-    init(authorizedDatabases:Bool? = nil,
-        filter:BSON.Document<[UInt8]>? = nil)
+    init(authorizedDatabases:Bool? = nil, filter:BSON.Fields = [:])
     {
         self.init(.init(authorizedDatabases: authorizedDatabases, filter: filter))
     }
 }
 extension Mongo.ListDatabases.NameOnly:MongoImplicitSessionCommand
 {
+    public
+    typealias Response = [Mongo.Database]
+
     public static
     let node:Mongo.InstanceSelector = .any
 
     public
-    var fields:BSON.Fields<[UInt8]>
+    func encode(to bson:inout BSON.Fields)
     {
-        var fields:BSON.Fields<[UInt8]> = self.base.fields
-            fields.add(key: "nameOnly", value: true)
-        return fields
+        self.base.encode(to: &bson)
+        bson["nameOnly"] = true
     }
 
-    public static
-    func decode<Bytes>(reply bson:BSON.Dictionary<Bytes>) throws -> [Mongo.Database]
+    @inlinable public static
+    func decode<Bytes>(reply bson:BSON.Dictionary<Bytes>) throws -> Response
     {
         try bson["databases"].decode(as: BSON.Array<Bytes.SubSequence>.self)
         {

@@ -1,5 +1,4 @@
 import BSONDecoding
-import BSONEncoding
 import MongoWire
 
 extension Mongo

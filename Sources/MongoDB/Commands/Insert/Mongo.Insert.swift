@@ -1,4 +1,4 @@
-import BSONEncoding
+import MongoSchema
 
 extension Mongo
 {
@@ -45,24 +45,14 @@ extension Mongo.Insert:MongoDatabaseCommand, MongoImplicitSessionCommand
         .master
     }
     
-    @inlinable public
-    var fields:BSON.Fields<[UInt8]>
+    public
+    func encode(to bson:inout BSON.Fields)
     {
-        [
-            "insert":
-                .string(self.collection.name),
-            "documents":
-                .tuple(BSON.Tuple<[UInt8]>.init(self.elements.lazy.map
-            {
-                .document($0.bson)
-            })),
-            "bypassDocumentValidation":
-                .bool(self.bypassDocumentValidation),
-            "ordered":
-                .bool(self.ordered),
-            "writeConcern":
-                .document(self.writeConcern?.bson),
-        ]
+        bson["insert"] = self.collection
+        bson["bypassDocumentValidation"] = self.bypassDocumentValidation
+        bson["documents"] = BSON.Tuple<[UInt8]>.init(self.elements.lazy.map(\.bson))
+        bson["ordered"] = self.ordered
+        bson["writeConcern"] = self.writeConcern
     }
 
     public

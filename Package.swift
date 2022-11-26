@@ -228,8 +228,8 @@ let package = Package(
         .target(name: "MongoDriver",
             dependencies: 
             [
-                .target(name: "BSONSchema"),
                 .target(name: "Mongo"),
+                .target(name: "MongoSchema"),
                 .target(name: "MongoWire"),
                 .target(name: "SCRAM"),
                 .target(name: "TraceableErrors"),

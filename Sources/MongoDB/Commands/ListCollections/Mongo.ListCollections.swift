@@ -12,10 +12,10 @@ extension Mongo
         public
         let authorizedCollections:Bool?
         public
-        let filter:Document?
+        let filter:BSON.Fields
 
         public
-        init(authorizedCollections:Bool? = nil, filter:Document? = nil)
+        init(authorizedCollections:Bool? = nil, filter:BSON.Fields = [:])
         {
             self.authorizedCollections = authorizedCollections
             self.filter = filter
@@ -28,13 +28,11 @@ extension Mongo.ListCollections:MongoDatabaseCommand
     let node:Mongo.InstanceSelector = .any
 
     public
-    var fields:BSON.Fields<[UInt8]>
+    func encode(to bson:inout BSON.Fields)
     {
-        [
-            "listCollections": 1,
-            "authorizedCollections": .bool(self.authorizedCollections),
-            "filter": .document(self.filter?.bson),
-        ]
+        bson["listCollections"] = 1 as Int32
+        bson["authorizedCollections"] = self.authorizedCollections
+        bson["filter", elide: true] = self.filter
     }
 
     public

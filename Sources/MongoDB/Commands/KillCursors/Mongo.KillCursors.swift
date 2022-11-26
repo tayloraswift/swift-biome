@@ -3,7 +3,7 @@ import BSONEncoding
 extension Mongo
 {
     @frozen public
-    struct KillCursors
+    struct KillCursors:Sendable
     {
         public
         let collection:Collection
@@ -27,14 +27,9 @@ extension Mongo.KillCursors:MongoDatabaseCommand, MongoSessionCommand
     }
 
     public
-    var fields:BSON.Fields<[UInt8]>
+    func encode(to bson:inout BSON.Fields)
     {
-        [
-            "killCursors": .string(self.collection.name),
-            "cursors": .tuple(.init(self.cursors.lazy.map
-            { 
-                BSON.Value<[UInt8]>.int64($0.rawValue) 
-            })),
-        ]
+        bson["killCursors"] = self.collection
+        bson["cursors"] = self.cursors
     }
 }

@@ -3,7 +3,7 @@ import BSONDecoding
 extension Mongo.KillCursors
 {
     public
-    struct Response
+    struct Response:Sendable
     {
         public
         let alive:[Mongo.CursorIdentifier]
@@ -27,7 +27,7 @@ extension Mongo.KillCursors
         }
     }
 }
-extension Mongo.KillCursors.Response:MongoDecodable, BSONDictionaryDecodable
+extension Mongo.KillCursors.Response:BSONDictionaryDecodable
 {
     @inlinable public
     init(bson:BSON.Dictionary<some RandomAccessCollection<UInt8>>) throws

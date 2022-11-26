@@ -8,12 +8,12 @@ extension Mongo.Create
         case collection(cap:Mongo.Cap? = nil,
             validationAction:Mongo.ValidationAction? = nil,
             validationLevel:Mongo.ValidationLevel? = nil,
-            validator:Mongo.Document? = nil)
+            validator:BSON.Fields = [:])
         
         case timeseries(Mongo.Timeseries)
 
         case view(on:Mongo.Collection,
-            pipeline:[Mongo.Document])
+            pipeline:[BSON.Fields])
     }
 }
 extension Mongo.Create.Variant

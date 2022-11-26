@@ -1,4 +1,4 @@
-import BSON
+import BSONEncoding
 
 extension Mongo
 {
@@ -9,8 +9,9 @@ extension Mongo
         case index(BSON.Document<[UInt8]>)
     }
 }
-extension Mongo.IndexHint
+extension Mongo.IndexHint:BSONEncodable
 {
+    public
     var bson:BSON.Value<[UInt8]>
     {
         switch self

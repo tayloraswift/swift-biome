@@ -22,9 +22,9 @@ extension Mongo.CollectionMetadata
 extension Mongo.CollectionMetadata.Info:BSONDictionaryDecodable
 {
     @inlinable public
-    init(bson:BSON.Dictionary<some RandomAccessCollection<UInt8>>) throws
+    init<Bytes>(bson:BSON.Dictionary<Bytes>) throws
     {
         self.init(readOnly: try bson["readOnly"].decode(to: Bool.self),
-            uuid: try bson["uuid"].decode { .init(try $0.cast(with: \.binary).bytes) })
+            uuid: try bson["uuid"].decode(as: BSON.Binary<Bytes>.self) { .init($0.bytes) })
     }
 }

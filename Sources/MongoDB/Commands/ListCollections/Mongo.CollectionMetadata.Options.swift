@@ -1,12 +1,10 @@
 import BSONDecoding
-import BSONEncoding
-import NIOCore
 
 extension Mongo.CollectionMetadata
 {
     /// Collection options.
     @frozen public
-    struct Options
+    struct Options:Sendable
     {
         public
         let collation:Mongo.Collation?
@@ -19,6 +17,20 @@ extension Mongo.CollectionMetadata
 
         public
         let variant:Mongo.Create.Variant
+
+        public
+        init(collation:Mongo.Collation?,
+            writeConcern:Mongo.WriteConcern?,
+            indexOptionDefaults:Mongo.StorageConfiguration?,
+            storageEngine:Mongo.StorageConfiguration?,
+            variant:Mongo.Create.Variant)
+        {
+            self.collation = collation
+            self.writeConcern = writeConcern
+            self.indexOptionDefaults = indexOptionDefaults
+            self.storageEngine = storageEngine
+            self.variant = variant
+        }
     }
 }
 extension Mongo.CollectionMetadata.Options
@@ -90,7 +102,7 @@ extension Mongo.CollectionMetadata.Options
         }
     }
     @inlinable public
-    var pipeline:Mongo.Pipeline?
+    var pipeline:[BSON.Fields]?
     {
         switch self.variant
         {
@@ -103,6 +115,7 @@ extension Mongo.CollectionMetadata.Options
 }
 extension Mongo.CollectionMetadata.Options
 {
+    @inlinable public
     init(bson:BSON.Dictionary<some RandomAccessCollection<UInt8>>,
         type:Mongo.CollectionType) throws
     {
@@ -126,7 +139,7 @@ extension Mongo.CollectionMetadata.Options
                     to: Mongo.ValidationAction.self),
                 validationLevel: try bson["validationLevel"]?.decode(
                     to: Mongo.ValidationLevel.self),
-                validator: try bson["validator"]?.decode(to: Mongo.Document.self))
+                validator: try bson["validator"]?.decode(to: BSON.Fields.self) ?? [:])
         
         case .timeseries:
             variant = .timeseries(try bson["timeseries"].decode(to: Mongo.Timeseries.self))
@@ -134,9 +147,7 @@ extension Mongo.CollectionMetadata.Options
         case .view:
             variant = .view(
                 on: try bson["viewOn"].decode(to: Mongo.Collection.self),
-                pipeline: try bson["pipeline"].decode(
-                    as: BSON.Array<ByteBufferView>.self,
-                    with: Mongo.Pipeline.init(bson:)))
+                pipeline: try bson["pipeline"].decode(to: [BSON.Fields].self))
         }
         self.init(
             collation: try bson["collation"]?.decode(to: Mongo.Collation.self),

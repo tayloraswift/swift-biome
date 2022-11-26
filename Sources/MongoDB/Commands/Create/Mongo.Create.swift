@@ -29,7 +29,7 @@ extension Mongo
             writeConcern:WriteConcern? = nil,
             indexOptionDefaults:StorageConfiguration? = nil,
             storageEngine:StorageConfiguration? = nil,
-            variant:Variant)
+            variant:Variant = .collection())
         {
             self.collection = collection
             self.collation = collation
@@ -47,21 +47,14 @@ extension Mongo.Create:MongoDatabaseCommand, MongoImplicitSessionCommand
     let node:Mongo.InstanceSelector = .master
     
     public
-    var fields:BSON.Fields<[UInt8]>
+    func encode(to bson:inout BSON.Fields)
     {
-        var fields:BSON.Fields<[UInt8]> = 
-        [
-            "create":
-                .string(self.collection.name),
-            "collation":
-                .document(self.collation?.bson),
-            "writeConcern":
-                .document(self.writeConcern?.bson),
-            "indexOptionDefaults":
-                .document(self.indexOptionDefaults?.bson),
-            "storageEngine":
-                .document(self.storageEngine?.bson),
-        ]
+        bson["create"] = self.collection
+        bson["collation"] = self.collation
+        bson["writeConcern"] = self.writeConcern
+        bson["indexOptionDefaults", elide: true] = self.indexOptionDefaults
+        bson["storageEngine", elide: true] = self.storageEngine
+
         switch self.variant
         {
         case .collection(cap: let cap,
@@ -71,33 +64,22 @@ extension Mongo.Create:MongoDatabaseCommand, MongoImplicitSessionCommand
 
             if let cap:Mongo.Cap
             {
-                fields.add(key: "capped", value: .bool(true))
-                fields.add(key: "size", value: .int64(Int64.init(cap.size)))
-                if let max:Int = cap.max
-                {
-                    fields.add(key: "max", value: .int64(Int64.init(max)))
-                }
+                bson["capped"] = true
+                bson["size"] = cap.size
+                bson["max"] = cap.max
             }
-            if let validator:BSON.Document<[UInt8]>
-            {
-                fields.add(key: "validator", value: .document(validator))
-            }
-            if let action:Mongo.ValidationAction
-            {
-                fields.add(key: "validationAction", value: .string(action.rawValue))
-            }
-            if let level:Mongo.ValidationLevel
-            {
-                fields.add(key: "validationLevel", value: .string(level.rawValue))
-            }
+
+            bson["validator", elide: true] = validator
+            bson["validationAction"] = action
+            bson["validationLevel"] = level
         
         case .timeseries(let timeseries):
-            fields.add(key: "timeseries", value: .document(timeseries.bson))
+            bson["timeseries"] = timeseries
         
         case .view(on: let collection, pipeline: let pipeline):
-            fields.add(key: "viewOn", value: .string(collection.name))
-            fields.add(key: "pipeline", value: .tuple(pipeline.lazy.map { BSON.Value[UInt8].document($0.bson) }))
+            // don’t elide pipeline, it should always be there
+            bson["viewOn"] = collection
+            bson["pipeline", elide: false] = pipeline
         }
-        return fields
     }
 }

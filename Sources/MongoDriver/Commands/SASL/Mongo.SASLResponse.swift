@@ -3,7 +3,7 @@ import SCRAM
 
 extension Mongo
 {
-    struct SASLResponse
+    struct SASLResponse:Sendable
     {
         private
         let conversation:Int32

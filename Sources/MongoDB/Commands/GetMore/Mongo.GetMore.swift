@@ -1,5 +1,4 @@
 import MongoSchema
-import NIOCore
 
 extension Mongo
 {

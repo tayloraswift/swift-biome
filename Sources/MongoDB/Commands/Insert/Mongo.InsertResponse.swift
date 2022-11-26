@@ -23,7 +23,7 @@ extension Mongo
         }
     }
 }
-extension Mongo.InsertResponse:MongoDecodable, BSONDictionaryDecodable
+extension Mongo.InsertResponse:BSONDictionaryDecodable
 {
     @inlinable public
     init<Bytes>(bson:BSON.Dictionary<Bytes>) throws

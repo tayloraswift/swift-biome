@@ -1,4 +1,4 @@
-import BSONDecoding
+import BSONSchema
 
 extension Mongo
 {
@@ -10,7 +10,7 @@ extension Mongo
         case count(Int)
     }
 }
-extension Mongo.WriteAcknowledgement
+extension Mongo.WriteAcknowledgement:BSONEncodable
 {
     public
     var bson:BSON.Value<[UInt8]>
@@ -36,7 +36,7 @@ extension Mongo.WriteAcknowledgement:BSONDecodable
             let string:String = string.description
             self = string == "majority" ? .majority : .custom(string)
         }
-        else if let count:Int = bson.as(Int.self)
+        else if let count:Int = try bson.as(Int.self)
         {
             self = .count(count)
         }

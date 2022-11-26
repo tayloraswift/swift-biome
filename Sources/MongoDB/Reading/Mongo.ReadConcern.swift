@@ -1,31 +1,33 @@
-import BSONDecoding
-import BSONEncoding
-import NIOCore
+import BSONSchema
 
 extension Mongo
 {
     @frozen public
-    enum ReadConcern:String, Hashable, Sendable
+    struct ReadConcern:Hashable, Sendable
     {
-        case local
-        case available
-        case majority
-        case linearizable
-        case snapshot
+        public
+        let level:Level
+
+        @inlinable public
+        init(level:Level)
+        {
+            self.level = level
+        }
     }
 }
-extension Mongo.ReadConcern:MongoScheme
+extension Mongo.ReadConcern:BSONDocumentEncodable
 {
     public
-    init(bson:BSON.Dictionary<ByteBufferView>) throws
+    func encode(to bson:inout BSON.Fields)
     {
-        self = try bson["level"].decode(cases: Self.self)
+        bson["level"] = self.level
     }
-    public
-    var bson:BSON.Document<[UInt8]>
+}
+extension Mongo.ReadConcern:BSONDictionaryDecodable
+{
+    @inlinable public
+    init(bson:BSON.Dictionary<some RandomAccessCollection<UInt8>>) throws
     {
-        [
-            "level": .string(self.rawValue),
-        ]
+        self.init(level: try bson["level"].decode(to: Level.self))
     }
 }

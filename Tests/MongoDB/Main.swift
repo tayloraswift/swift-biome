@@ -2,13 +2,13 @@ import NIOPosix
 import MongoDB
 import Testing
 
-@main 
+@main
 enum Main:AsynchronousTests
 {
     static
     func run(tests:inout Tests) async
     {
-        let host:Mongo.Host = .init("mongodb", 27017)
+        let host:Mongo.Host = .init(name: "mongodb", port: 27017)
         let group:MultiThreadedEventLoopGroup = .init(numberOfThreads: 2)
         
         let cluster:Mongo.Cluster? = await tests.do(name: "bootstrap")
@@ -30,7 +30,7 @@ enum Main:AsynchronousTests
 
         await tests.with(database: "databases", cluster: cluster)
         {
-            (tests:inout Tests, database:Mongo.Database.ID, builtin:[Mongo.Database.ID]) in
+            (tests:inout Tests, database:Mongo.Database, builtin:[Mongo.Database]) in
 
             await tests.do(name: "create-database-by-collection")
             {
@@ -41,25 +41,25 @@ enum Main:AsynchronousTests
 
             await tests.do(name: "list-database-names")
             {
-                let names:[Mongo.Database.ID] = try await cluster.run(
+                let names:[Mongo.Database] = try await cluster.run(
                     command: Mongo.ListDatabases.NameOnly.init())
                 $0.assert(names **? builtin + [database], name: "names")
             }
 
             await tests.do(name: "list-databases")
             {
-                let (size, databases):(Int, [Mongo.Database]) = try await cluster.run(
+                let (size, databases):(Int, [Mongo.DatabaseMetadata]) = try await cluster.run(
                     command: Mongo.ListDatabases.init())
                 $0.assert(size > 0, name: "nonzero-size")
-                $0.assert(databases.map(\.id) **? builtin + [database], name: "names")
+                $0.assert(databases.map(\.database) **? builtin + [database], name: "names")
             }
         }
 
         await tests.with(database: "collection-insertion", cluster: cluster)
         {
-            (tests:inout Tests, database:Mongo.Database.ID, builtin:[Mongo.Database.ID]) in
+            (tests:inout Tests, database:Mongo.Database, builtin:[Mongo.Database]) in
 
-            let collection:Mongo.Collection.ID = "ordinals"
+            let collection:Mongo.Collection = "ordinals"
 
             await tests.do(name: "insert-one")
             {
@@ -150,9 +150,9 @@ enum Main:AsynchronousTests
 
         await tests.with(database: "collection-iteration", cluster: cluster)
         {
-            (tests:inout Tests, database:Mongo.Database.ID, builtin:[Mongo.Database.ID]) in
+            (tests:inout Tests, database:Mongo.Database, builtin:[Mongo.Database]) in
 
-            let collection:Mongo.Collection.ID = "ordinals"
+            let collection:Mongo.Collection = "ordinals"
             let ordinals:Ordinals = .init(identifiers: 0 ..< 100)
 
             await tests.do(name: "initialize")

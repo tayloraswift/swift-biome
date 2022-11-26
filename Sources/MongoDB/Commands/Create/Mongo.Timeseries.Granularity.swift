@@ -1,4 +1,4 @@
-import BSONDecoding
+import BSONSchema
 
 extension Mongo.Timeseries
 {
@@ -10,6 +10,6 @@ extension Mongo.Timeseries
         case hours
     }
 }
-extension Mongo.Timeseries:BSONDecodable
+extension Mongo.Timeseries.Granularity:BSONScheme
 {
 }
