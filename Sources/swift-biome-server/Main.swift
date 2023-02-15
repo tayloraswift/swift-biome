@@ -66,29 +66,7 @@ struct Main:AsyncParsableCommand
                 .init(escaped: " (preview)")), 
             attributes: [.class("logo"), .href("/")])))
         
-        do
-        {
-            let cluster:Mongo.Cluster = try await .init(
-                settings: .init(timeout: .seconds(10)),
-                hosts: .standard([.mongodb(parsing: self.mongo)]),
-                group: group)
-
-            let biomeDB:Mongo.Database = "biome"
-
-            try await cluster.run(command: Mongo.DropDatabase.init(), against: biomeDB)
-            try await cluster.run(command: Mongo.Create.init(binding: "test"), 
-                against: biomeDB)
-
-            print(try await cluster.run(command: Mongo.ListDatabases.init()).databases.map(\.name))
-
-            try await cluster.run(command: Mongo.DropDatabase.init(), against: biomeDB)
-            
-            print(try await cluster.run(command: Mongo.ListDatabases.init()).databases.map(\.name))
-
-            try await Task.sleep(for: .seconds(5))
-        }
         
-        try await Task.sleep(for: .seconds(5))
         // let service:Service = .init(database: .init(),
         //     logo: logo.node.rendered(as: [UInt8].self))
 

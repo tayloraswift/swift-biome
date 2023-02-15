@@ -1,15 +1,15 @@
 import Testing
 
 @main 
-enum Main:SynchronousTests
+enum Main:SyncTests
 {
     static 
-    func run(tests:inout Tests)
+    func run(tests:Tests)
     {
         for i:Int in 0 ..< 500
         {
             print("performing fuzzing iteration \(i)")
-            tests.run()
+            TestSediment(tests / i.description)
         }
     }
 }
