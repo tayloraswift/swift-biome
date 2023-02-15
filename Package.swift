@@ -41,16 +41,18 @@ let package = Package(
             revision: "swift-5.8-DEVELOPMENT-SNAPSHOT-2023-02-09-a"),
         .package(url: "https://github.com/apple/swift-syntax.git",
             revision: "swift-5.8-DEVELOPMENT-SNAPSHOT-2023-02-09-a"),
+        .package(url: "https://github.com/apple/swift-package-manager.git",
+            revision: "swift-5.8-DEVELOPMENT-SNAPSHOT-2023-02-09-a"),
         
-        // only used by the SymbolGraphCompiler target
-        .package(url: "https://github.com/kelvin13/swift-system-extras.git", .upToNextMinor(from: "0.2.0")),
+        .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
+
         // only used by the BiomeServer target
         .package(url: "https://github.com/apple/swift-nio.git", .upToNextMinor(from: "2.46.0")),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", .upToNextMinor(from: "2.23.0")),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.2.2")),
+        //  current swift-argument-parser is newer, but we are limited by swift-driver
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/swift-server/swift-backtrace.git", .upToNextMinor(from: "1.3.3")),
 
-        .package(url: "https://github.com/apple/swift-atomics.git", .upToNextMinor(from: "1.0.3")),
     ],
     targets: 
     [
@@ -110,9 +112,8 @@ let package = Package(
             dependencies: 
             [
                 .target(name: "SymbolGraphs"),
-
+                .target(name: "SystemExtras"),
                 .product(name: "JSON",              package: "swift-json"),
-                .product(name: "SystemExtras",      package: "swift-system-extras"),
             ]),
         
         .executableTarget(name: "swift-symbolgraphc", 
@@ -130,12 +131,19 @@ let package = Package(
                 .target(name: "swift-symbolgraphc")
             ]),
         
+        // only used by the SymbolGraphCompiler target
+        .target(name: "SystemExtras", 
+            dependencies: 
+            [
+                .product(name: "SystemPackage", package: "swift-system"),
+            ]),
+        
         .target(name: "PackageResolution", 
             dependencies: 
             [
                 .target(name: "SymbolSource"),
 
-                .product(name: "JSON",              package: "swift-json"),
+                .product(name: "JSON", package: "swift-json"),
             ]),
         
         .target(name: "BiomeABI"),
@@ -179,13 +187,13 @@ let package = Package(
             dependencies: 
             [
                 .target(name: "Biome"),
+                .target(name: "SystemExtras"),
                 
                 .product(name: "NIOCore",           package: "swift-nio"),
                 .product(name: "NIOHTTP1",          package: "swift-nio"),
                 .product(name: "NIOSSL",            package: "swift-nio-ssl"),
 
                 .product(name: "Backtrace",         package: "swift-backtrace"),
-                .product(name: "SystemExtras",      package: "swift-system-extras"),
                 .product(name: "ArgumentParser",    package: "swift-argument-parser"),
             ], 
             swiftSettings:
@@ -200,6 +208,14 @@ let package = Package(
                 .product(name: "Testing", package: "swift-hash"),
             ], 
             path: "Tests/Sediment"),
+        
+
+        .executableTarget(name: "SymbolGraphExtractTests",
+            dependencies:
+            [
+                .product(name: "SwiftPM", package: "swift-package-manager"),
+            ], 
+            path: "Tests/SymbolGraphExtract"),
         
         // .executableTarget(name: "BiomeTests", 
         //     dependencies: 
