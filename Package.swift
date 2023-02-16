@@ -223,5 +223,23 @@ let package = Package(
         //         .target(name: "Biome"),
         //     ], 
         //     path: "Tests/BiomeTests"),
+
+        .target(name: "ZooInheritedTypePrecedence",
+            dependencies:
+            [
+            ], 
+            path: "Zoo/InheritedTypePrecedence"),
+
+        .target(name: "ZooInheritedTypes",
+            dependencies:
+            [
+            ], 
+            path: "Zoo/InheritedTypes"),
+
+        .target(name: "ZooOverloadedTypealiases",
+            dependencies:
+            [
+            ], 
+            path: "Zoo/OverloadedTypealiases"),
     ]
 )
