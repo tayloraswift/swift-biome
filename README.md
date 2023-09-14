@@ -1,3 +1,5 @@
+**Swift Biome has been superseded by [Swift Unidoc](https://github.com/tayloraswift/swift-unidoc)!**
+
 <p align="center">
   <strong><em><code>biome</code></em></strong><br><small><code>0.3.2</code></small>
 </p>
